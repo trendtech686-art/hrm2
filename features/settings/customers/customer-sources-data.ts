@@ -1,9 +1,10 @@
+import { asSystemId, asBusinessId } from '../../../lib/id-types';
 import type { CustomerSource } from './types';
 
 export const defaultCustomerSources: CustomerSource[] = [
   {
-    systemId: 'CSOURCE00000001',
-    id: 'WEBSITE',
+    systemId: asSystemId('CSOURCE00000001'),
+    id: asBusinessId('WEBSITE'),
     name: 'Website',
     description: 'Khách hàng đến từ website công ty',
     type: 'Online',
@@ -12,8 +13,8 @@ export const defaultCustomerSources: CustomerSource[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CSOURCE00000002',
-    id: 'FACEBOOK',
+    systemId: asSystemId('CSOURCE00000002'),
+    id: asBusinessId('FACEBOOK'),
     name: 'Facebook',
     description: 'Khách hàng từ quảng cáo Facebook',
     type: 'Online',
@@ -22,8 +23,8 @@ export const defaultCustomerSources: CustomerSource[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CSOURCE00000003',
-    id: 'ZALO',
+    systemId: asSystemId('CSOURCE00000003'),
+    id: asBusinessId('ZALO'),
     name: 'Zalo',
     description: 'Khách hàng từ Zalo',
     type: 'Online',
@@ -32,8 +33,8 @@ export const defaultCustomerSources: CustomerSource[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CSOURCE00000004',
-    id: 'GIOITHIEU',
+    systemId: asSystemId('CSOURCE00000004'),
+    id: asBusinessId('GIOITHIEU'),
     name: 'Giới thiệu',
     description: 'Khách hàng được giới thiệu bởi khách cũ',
     type: 'Referral',
@@ -42,8 +43,8 @@ export const defaultCustomerSources: CustomerSource[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CSOURCE00000005',
-    id: 'CUAHANG',
+    systemId: asSystemId('CSOURCE00000005'),
+    id: asBusinessId('CUAHANG'),
     name: 'Cửa hàng',
     description: 'Khách hàng đến trực tiếp cửa hàng',
     type: 'Offline',
@@ -52,8 +53,8 @@ export const defaultCustomerSources: CustomerSource[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CSOURCE00000006',
-    id: 'DOITAC',
+    systemId: asSystemId('CSOURCE00000006'),
+    id: asBusinessId('DOITAC'),
     name: 'Đối tác',
     description: 'Khách hàng từ đối tác liên kết',
     type: 'Other',

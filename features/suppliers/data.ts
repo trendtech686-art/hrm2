@@ -1,4 +1,5 @@
 import type { Supplier } from './types.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
 // Helper function to generate sample suppliers
 const generateSampleSuppliers = (): Supplier[] => {
@@ -37,8 +38,8 @@ const generateSampleSuppliers = (): Supplier[] => {
 
   for (let i = 1; i <= 96; i++) {
     const num = i + 4; // Start from 5
-    const systemId = `SUPP${String(num).padStart(6, '0')}`;
-    const id = `NCC${String(num).padStart(6, '0')}`;
+    const systemId = asSystemId(`SUPP${String(num).padStart(8, '0')}`);
+    const id = asBusinessId(`NCC${String(num).padStart(6, '0')}`);
     const city = cities[i % cities.length];
     const company = companies[i % companies.length];
     const industry = industries[i % industries.length];
@@ -69,7 +70,7 @@ const generateSampleSuppliers = (): Supplier[] => {
       notes: i % 4 === 0 ? `NCC uy tín, hợp tác lâu dài từ ${2020 + (i % 5)} năm` : undefined,
       createdAt: createdDate.toISOString(),
       updatedAt: updatedDate.toISOString(),
-      createdBy: `EMP${String((i % 10) + 1).padStart(6, '0')}`,
+      createdBy: asSystemId(`EMP${String((i % 10) + 1).padStart(8, '0')}`),
     });
   }
 
@@ -78,8 +79,8 @@ const generateSampleSuppliers = (): Supplier[] => {
 
 export const data: Supplier[] = [
   {
-    systemId: "SUPP000001",
-    id: "NCC000001",
+    systemId: asSystemId("SUPP00000001"),
+    id: asBusinessId("NCC000001"),
     name: "Công ty TNHH Công nghệ Viễn Thông AZ",
     taxCode: "0312998877",
     phone: "02839123456",
@@ -95,11 +96,11 @@ export const data: Supplier[] = [
     notes: "NCC uy tín, hợp tác từ 2020",
     createdAt: "2024-01-15T08:00:00.000Z",
     updatedAt: "2024-10-20T14:30:00.000Z",
-    createdBy: "EMP000001",
+    createdBy: asSystemId("EMP00000001"),
   },
   {
-    systemId: "SUPP000002",
-    id: "NCC000002",
+    systemId: asSystemId("SUPP00000002"),
+    id: asBusinessId("NCC000002"),
     name: "Nhà phân phối Phần mềm Toàn Thắng",
     taxCode: "0108776655",
     phone: "02438765432",
@@ -115,11 +116,11 @@ export const data: Supplier[] = [
     notes: "Đối tác chiến lược, ưu tiên thanh toán 60 ngày",
     createdAt: "2023-03-20T09:00:00.000Z",
     updatedAt: "2024-10-15T16:45:00.000Z",
-    createdBy: "EMP000002",
+    createdBy: asSystemId("EMP00000002"),
   },
   {
-    systemId: "SUPP000003",
-    id: "NCC000003",
+    systemId: asSystemId("SUPP00000003"),
+    id: asBusinessId("NCC000003"),
     name: "Công ty TNHH Giải pháp Marketing A1",
     taxCode: "0311445566",
     phone: "0909111222",
@@ -133,11 +134,11 @@ export const data: Supplier[] = [
     contactPerson: "Lê Phương (Giám đốc)",
     createdAt: "2024-05-10T10:30:00.000Z",
     updatedAt: "2024-10-18T11:20:00.000Z",
-    createdBy: "EMP000003",
+    createdBy: asSystemId("EMP00000003"),
   },
   {
-    systemId: "SUPP000004",
-    id: "NCC000004",
+    systemId: asSystemId("SUPP00000004"),
+    id: asBusinessId("NCC000004"),
     name: "Xưởng In ấn và Thiết kế Sáng Tạo",
     taxCode: "0399887766",
     phone: "02838444555",
@@ -153,7 +154,7 @@ export const data: Supplier[] = [
     notes: "Tạm ngưng hợp tác do chất lượng không ổn định",
     createdAt: "2023-08-05T07:15:00.000Z",
     updatedAt: "2024-09-30T13:00:00.000Z",
-    createdBy: "EMP000004",
+    createdBy: asSystemId("EMP00000004"),
   },
   ...generateSampleSuppliers(),
 ];

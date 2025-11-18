@@ -1,4 +1,5 @@
 import type { PurchaseReturn } from './types.ts';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 function addDays(days: number): string {
   const date = new Date();
@@ -11,57 +12,61 @@ function addDays(days: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-export const data: Omit<PurchaseReturn, 'systemId'>[] = [
+export const data: PurchaseReturn[] = [
   {
-    id: 'PTH000001',
-    purchaseOrderId: 'PO0001',
-    supplierSystemId: 'NCC000001',
+    systemId: asSystemId('PRETURN000001'),
+    id: asBusinessId('TH000001'),
+    purchaseOrderSystemId: asSystemId('PO00000001'),
+    purchaseOrderId: asBusinessId('PO0001'),
+    supplierSystemId: asSystemId('SUPP000001'),
     supplierName: 'Công ty CP Phần mềm ABC',
-    branchSystemId: 'CN001',
+    branchSystemId: asSystemId('BRANCH000002'),
     branchName: 'Chi nhánh Hà Nội',
     returnDate: addDays(-2),
     creatorName: 'Nguyễn Văn An',
     reason: 'Sản phẩm không đúng yêu cầu',
     items: [
       {
-        productSystemId: 'DV-WEB-01',
-        productId: 'DV-WEB-01',
-        productName: 'Thiết kế Website Cơ bản',
+        productSystemId: asSystemId('PROD000001'),
+        productId: asBusinessId('SP000001'),
+        productName: 'Laptop Dell Inspiron 15',
         orderedQuantity: 2,
         returnQuantity: 1,
         unitPrice: 5000000,
-        note: 'Thiết kế không đúng template'
+        note: 'Sản phẩm giao nhầm cấu hình'
       }
     ],
     totalReturnValue: 5000000,
     refundAmount: 5000000,
     refundMethod: 'Chuyển khoản',
-    accountSystemId: 'TK001'
+    accountSystemId: asSystemId('ACCOUNT000002')
   },
   {
-    id: 'PTH000002',
-    purchaseOrderId: 'PO0003',
-    supplierSystemId: 'NCC000001',
-    supplierName: 'Công ty CP Phần mềm ABC',
-    branchSystemId: 'CN002',
+    systemId: asSystemId('PRETURN000002'),
+    id: asBusinessId('TH000002'),
+    purchaseOrderSystemId: asSystemId('PO00000003'),
+    purchaseOrderId: asBusinessId('PO0003'),
+    supplierSystemId: asSystemId('SUPP000002'),
+    supplierName: 'Công ty CP Thiết bị Công Nghệ',
+    branchSystemId: asSystemId('BRANCH000001'),
     branchName: 'Chi nhánh TP.HCM',
     returnDate: addDays(-1),
     creatorName: 'Trần Thị Bình',
     reason: 'Chất lượng không đạt',
     items: [
       {
-        productSystemId: 'DV-WEB-03',
-        productId: 'DV-WEB-03',
-        productName: 'Thiết kế Landing Page',
+        productSystemId: asSystemId('PROD000004'),
+        productId: asBusinessId('SP000004'),
+        productName: 'Ốp lưng iPhone 15 Pro',
         orderedQuantity: 5,
         returnQuantity: 1,
-        unitPrice: 2000000,
-        note: 'Landing page không responsive'
+        unitPrice: 200000,
+        note: 'Bề mặt trầy xước'
       }
     ],
-    totalReturnValue: 2000000,
-    refundAmount: 2000000,
+    totalReturnValue: 200000,
+    refundAmount: 200000,
     refundMethod: 'Tiền mặt',
-    accountSystemId: 'TM001'
+    accountSystemId: asSystemId('ACCOUNT000001')
   }
 ];

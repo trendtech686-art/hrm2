@@ -1,5 +1,5 @@
 import type { LeaveRequest } from './types.ts';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 export const leaveTypes = [
     "Phép năm",
@@ -11,10 +11,10 @@ export const leaveTypes = [
 
 export const data: LeaveRequest[] = [
   {
-    systemId: 'LP000001',
-    id: 'LP000001',
-    employeeSystemId: 'EMP000002',
-    employeeId: 'NV000002',
+    systemId: asSystemId('LEAVE000001'),
+    id: asBusinessId('PN000001'),
+    employeeSystemId: asSystemId('EMP000002'),
+    employeeId: asBusinessId('NV000002'),
     employeeName: 'Trần Thị Bình',
     leaveTypeName: 'Phép năm',
     startDate: '2025-11-20',
@@ -25,10 +25,10 @@ export const data: LeaveRequest[] = [
     requestDate: '2025-11-15',
   },
   {
-    systemId: 'LP000002',
-    id: 'LP000002',
-    employeeSystemId: 'EMP000005',
-    employeeId: 'NV000005',
+    systemId: asSystemId('LEAVE000002'),
+    id: asBusinessId('PN000002'),
+    employeeSystemId: asSystemId('EMP000005'),
+    employeeId: asBusinessId('NV000005'),
     employeeName: 'Hoàng Văn Em',
     leaveTypeName: 'Nghỉ ốm',
     startDate: '2025-11-18',
@@ -39,10 +39,10 @@ export const data: LeaveRequest[] = [
     requestDate: '2025-11-17',
   },
   {
-    systemId: 'LP000003',
-    id: 'LP000003',
-    employeeSystemId: 'EMP000007',
-    employeeId: 'NV000007',
+    systemId: asSystemId('LEAVE000003'),
+    id: asBusinessId('PN000003'),
+    employeeSystemId: asSystemId('EMP000007'),
+    employeeId: asBusinessId('NV000007'),
     employeeName: 'Đỗ Hùng',
     leaveTypeName: 'Phép năm',
     startDate: '2025-12-24',
@@ -52,11 +52,11 @@ export const data: LeaveRequest[] = [
     status: 'Chờ duyệt',
     requestDate: '2025-11-10',
   },
-    {
-    systemId: 'LP000004',
-    id: 'LP000004',
-    employeeSystemId: 'EMP000010',
-    employeeId: 'NV000010',
+  {
+    systemId: asSystemId('LEAVE000004'),
+    id: asBusinessId('PN000004'),
+    employeeSystemId: asSystemId('EMP000010'),
+    employeeId: asBusinessId('NV000010'),
     employeeName: 'Mai Thị Lan',
     leaveTypeName: 'Nghỉ không lương',
     startDate: '2025-10-15',

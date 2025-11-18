@@ -2,14 +2,17 @@
 // Date: 2025-10-29T20:55:42.011587
 // Total: 624 districts (3 cấp - từ 63 tỉnh cũ → 34 tỉnh mới)
 
-export interface District {
+import { asSystemId, asBusinessId } from '@/lib/id-types';
+import type { District } from './types.ts';
+
+type DistrictSeed = {
   systemId: string;
   id: number;
   name: string;
   provinceId: string;
-}
+};
 
-export const DISTRICTS_DATA: District[] = [
+const rawData = [
   {
     "systemId": "D1",
     "id": 1,
@@ -3754,4 +3757,10 @@ export const DISTRICTS_DATA: District[] = [
     "name": "Huyện Tuần Giáo",
     "provinceId": "30"
   }
-];
+] as const satisfies readonly DistrictSeed[];
+
+export const DISTRICTS_DATA: District[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  provinceId: asBusinessId(item.provinceId),
+}));

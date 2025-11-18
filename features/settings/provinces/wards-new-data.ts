@@ -2,17 +2,29 @@
 // Total: 3321 wards (AFTER merge - New Law 2025)
 // ID format: 8 digits TMS code (e.g., 10105001)
 
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+
 export interface WardNew {
-  systemId: string;
+  systemId: SystemId;
   id: string; // 8-digit TMS code
   name: string;
-  provinceId: string;
+  provinceId: BusinessId;
   districtId: number | null;
   districtName: string | null;
   level: 'new';
 }
 
-export const WARDS_NEW_DATA: WardNew[] = [
+type WardNewSeed = {
+  systemId: string;
+  id: string;
+  name: string;
+  provinceId: string;
+  districtId: number | null;
+  districtName: string | null;
+  level: 'new';
+};
+
+const rawData = [
   {
     "systemId": "W_NEW_10105001",
     "id": "10105001",
@@ -29902,4 +29914,10 @@ export const WARDS_NEW_DATA: WardNew[] = [
     "districtName": "Huyện Vĩnh Lợi",
     "level": "new"
   }
-];
+] as const satisfies readonly WardNewSeed[];
+
+export const WARDS_NEW_DATA: WardNew[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  provinceId: asBusinessId(item.provinceId),
+}));

@@ -4,7 +4,18 @@
  * Total: 3321 wards (2 cấp - 34 tỉnh mới)
  */
 
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+
 export type Ward2Level = {
+  systemId: SystemId;
+  id: string;
+  name: string;
+  provinceId: BusinessId;
+  provinceName: string;
+  level: 2;
+};
+
+type Ward2LevelSeed = {
   systemId: string;
   id: string;
   name: string;
@@ -13,7 +24,7 @@ export type Ward2Level = {
   level: 2;
 };
 
-export const WARDS_2LEVEL_DATA: Ward2Level[] = [
+const rawData = [
   {
     "systemId": "W2_10105001",
     "id": "10105001",
@@ -26582,4 +26593,10 @@ export const WARDS_2LEVEL_DATA: Ward2Level[] = [
     "provinceName": "Tỉnh Cà Mau",
     "level": 2
   }
-];
+] as const satisfies readonly Ward2LevelSeed[];
+
+export const WARDS_2LEVEL_DATA: Ward2Level[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  provinceId: asBusinessId(item.provinceId),
+}));

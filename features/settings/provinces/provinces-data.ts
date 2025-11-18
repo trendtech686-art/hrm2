@@ -2,13 +2,15 @@
 // Total: 34 provinces (34 tỉnh mới)
 // Date: 2025-10-29T19:47:51.665528
 
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+
 export interface Province {
-  systemId: string;
-  id: string;
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
 }
 
-export const PROVINCES_DATA: Province[] = [
+const rawData = [
   {
     "systemId": "P01",
     "id": "01",
@@ -179,4 +181,10 @@ export const PROVINCES_DATA: Province[] = [
     "id": "34",
     "name": "Đồng Tháp"
   }
-];
+] as const;
+
+export const PROVINCES_DATA: Province[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  id: asBusinessId(item.id),
+}));

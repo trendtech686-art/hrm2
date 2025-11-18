@@ -43,9 +43,10 @@ export const generateMockAttendance = (employees: Employee[], year: number, mont
   const today = getCurrentDate();
 
   return employees.map(emp => {
-    const row: Partial<AnyAttendanceDataRow> & { id: string, fullName: string, systemId: string, department: Employee['department'] } = {
+    const row: AnyAttendanceDataRow = {
       systemId: emp.systemId,
-      id: emp.id,
+      employeeSystemId: emp.systemId,
+      employeeId: emp.id,
       fullName: emp.fullName,
       department: emp.department,
     };
@@ -53,18 +54,15 @@ export const generateMockAttendance = (employees: Employee[], year: number, mont
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(year, month - 1, day);
       if (isDateAfter(currentDate, today)) {
-        (row as any)[`day_${day}`] = { status: 'future' };
+        row[`day_${day}`] = { status: 'future' };
         continue;
       }
       
       const record = generateRandomRecord(currentDate, settings);
-      (row as any)[`day_${day}`] = record;
+      row[`day_${day}`] = record;
     }
     
-    // FIX: Cast `row` to `AnyAttendanceDataRow`. The `recalculateSummary` function's parameter type is too strict,
-    // requiring summary fields that this function is responsible for calculating. The `row` object at this point
-    // contains all necessary data for the calculation. The `department` property was also added to the `row` object.
-    const summary = recalculateSummary(row as AnyAttendanceDataRow, year, month, settings);
+    const summary = recalculateSummary(row, year, month, settings);
 
     return { ...row, ...summary } as AttendanceDataRow;
   });

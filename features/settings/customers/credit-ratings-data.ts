@@ -1,9 +1,10 @@
+import { asSystemId, asBusinessId } from '../../../lib/id-types';
 import type { CreditRating } from './types';
 
 export const defaultCreditRatings: CreditRating[] = [
   {
-    systemId: 'CRATING00000001',
-    id: 'AAA',
+    systemId: asSystemId('CRATING00000001'),
+      id: asBusinessId('AAA'),
     name: 'AAA - Xuất sắc',
     description: 'Khách hàng có lịch sử thanh toán hoàn hảo, tín dụng cao',
     level: 1,
@@ -14,8 +15,8 @@ export const defaultCreditRatings: CreditRating[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CRATING00000002',
-    id: 'AA',
+    systemId: asSystemId('CRATING00000002'),
+      id: asBusinessId('AA'),
     name: 'AA - Rất tốt',
     description: 'Khách hàng có lịch sử thanh toán rất tốt',
     level: 2,
@@ -26,8 +27,8 @@ export const defaultCreditRatings: CreditRating[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CRATING00000003',
-    id: 'A',
+    systemId: asSystemId('CRATING00000003'),
+      id: asBusinessId('A'),
     name: 'A - Tốt',
     description: 'Khách hàng có lịch sử thanh toán tốt',
     level: 3,
@@ -38,8 +39,8 @@ export const defaultCreditRatings: CreditRating[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CRATING00000004',
-    id: 'B',
+    systemId: asSystemId('CRATING00000004'),
+      id: asBusinessId('B'),
     name: 'B - Trung bình',
     description: 'Khách hàng có lịch sử thanh toán trung bình',
     level: 4,
@@ -50,8 +51,8 @@ export const defaultCreditRatings: CreditRating[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CRATING00000005',
-    id: 'C',
+    systemId: asSystemId('CRATING00000005'),
+      id: asBusinessId('C'),
     name: 'C - Yếu',
     description: 'Khách hàng có lịch sử thanh toán chậm trễ',
     level: 5,
@@ -62,8 +63,8 @@ export const defaultCreditRatings: CreditRating[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CRATING00000006',
-    id: 'D',
+    systemId: asSystemId('CRATING00000006'),
+      id: asBusinessId('D'),
     name: 'D - Rủi ro cao',
     description: 'Khách hàng có lịch sử thanh toán kém, rủi ro cao',
     level: 6,

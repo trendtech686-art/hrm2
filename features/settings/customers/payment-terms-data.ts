@@ -1,9 +1,10 @@
+import { asSystemId, asBusinessId } from '../../../lib/id-types';
 import type { PaymentTerm } from './types';
 
 export const defaultPaymentTerms: PaymentTerm[] = [
   {
-    systemId: 'PTERM00000001',
-    id: 'COD',
+    systemId: asSystemId('PTERM00000001'),
+    id: asBusinessId('COD'),
     name: 'Thanh toán ngay (COD)',
     description: 'Thanh toán khi nhận hàng',
     days: 0,
@@ -13,8 +14,8 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'PTERM00000002',
-    id: 'NET7',
+    systemId: asSystemId('PTERM00000002'),
+    id: asBusinessId('NET7'),
     name: 'Thanh toán trong 7 ngày',
     description: 'Thanh toán trong vòng 7 ngày kể từ ngày nhận hàng',
     days: 7,
@@ -24,8 +25,8 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'PTERM00000003',
-    id: 'NET15',
+    systemId: asSystemId('PTERM00000003'),
+    id: asBusinessId('NET15'),
     name: 'Thanh toán trong 15 ngày',
     description: 'Thanh toán trong vòng 15 ngày kể từ ngày nhận hàng',
     days: 15,
@@ -35,8 +36,8 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'PTERM00000004',
-    id: 'NET30',
+    systemId: asSystemId('PTERM00000004'),
+    id: asBusinessId('NET30'),
     name: 'Thanh toán trong 30 ngày',
     description: 'Thanh toán trong vòng 30 ngày kể từ ngày nhận hàng',
     days: 30,
@@ -46,8 +47,8 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'PTERM00000005',
-    id: 'NET60',
+    systemId: asSystemId('PTERM00000005'),
+    id: asBusinessId('NET60'),
     name: 'Thanh toán trong 60 ngày',
     description: 'Thanh toán trong vòng 60 ngày kể từ ngày nhận hàng',
     days: 60,
@@ -57,8 +58,8 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'PTERM00000006',
-    id: 'NET90',
+    systemId: asSystemId('PTERM00000006'),
+    id: asBusinessId('NET90'),
     name: 'Thanh toán trong 90 ngày',
     description: 'Thanh toán trong vòng 90 ngày kể từ ngày nhận hàng',
     days: 90,

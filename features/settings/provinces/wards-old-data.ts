@@ -2,17 +2,29 @@
 // Total: 10035 wards (BEFORE merge - OLD system)
 // ID format: OLD_XXXXXX (index-based)
 
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+
 export interface WardOld {
-  systemId: string;
+  systemId: SystemId;
   id: string; // OLD_XXXXXX
   name: string;
-  provinceId: string;
+  provinceId: BusinessId;
   districtId: number | null;
   districtName: string | null;
   level: 'old';
 }
 
-export const WARDS_OLD_DATA: WardOld[] = [
+type WardOldSeed = {
+  systemId: string;
+  id: string;
+  name: string;
+  provinceId: string;
+  districtId: number | null;
+  districtName: string | null;
+  level: 'old';
+};
+
+const rawData = [
   {
     "systemId": "W_OLD_1",
     "id": "OLD_000001",
@@ -90328,4 +90340,10 @@ export const WARDS_OLD_DATA: WardOld[] = [
     "districtName": "Huyện Ngọc Hiển",
     "level": "old"
   }
-];
+] as const satisfies readonly WardOldSeed[];
+
+export const WARDS_OLD_DATA: WardOld[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  provinceId: asBusinessId(item.provinceId),
+}));

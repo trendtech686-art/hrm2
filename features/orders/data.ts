@@ -1,11 +1,13 @@
+import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
+
 export const data = [
   {
-    id: 'DH000001',
+    id: asBusinessId('DH000001'),
     customerName: 'Công ty Cổ phần Bất động sản Hưng Thịnh',
-    customerSystemId: 'CUST000001',
+    customerSystemId: asSystemId('CUST000001'),
     branchName: 'Chi nhánh Trung tâm',
     salesperson: 'Trần Thị B',
-    salespersonSystemId: 'EMP000002',
+    salespersonSystemId: asSystemId('EMP000002'),
     orderDate: '2025-11-01 09:30',
     expectedDeliveryDate: '2025-11-05',
     expectedPaymentMethod: 'Tiền mặt',
@@ -30,14 +32,16 @@ export const data = [
     
     products: [
       {
-        productId: 'SP000001',
+        productId: asBusinessId('SP000001'),
+        productSystemId: asSystemId('SP000001'),
         productName: 'Laptop Dell Inspiron 15',
         quantity: 1,
         price: 15000000,
         total: 15000000
       },
       {
-        productId: 'SP000002',
+        productId: asBusinessId('SP000002'),
+        productSystemId: asSystemId('SP000002'),
         productName: 'Chuột Logitech MX Master 3',
         quantity: 1,
         price: 2000000,
@@ -63,12 +67,12 @@ export const data = [
   },
   
   {
-    id: 'DH000002',
+    id: asBusinessId('DH000002'),
     customerName: 'Chuỗi cà phê The Coffee House',
-    customerSystemId: 'CUST000002',
+    customerSystemId: asSystemId('CUST000002'),
     branchName: 'Chi nhánh Quận 3',
     salesperson: 'Phạm Văn D',
-    salespersonSystemId: 'EMP000003',
+    salespersonSystemId: asSystemId('EMP000003'),
     orderDate: '2025-11-03 14:20',
     expectedDeliveryDate: '2025-11-08',
     expectedPaymentMethod: 'Chuyển khoản',
@@ -91,14 +95,16 @@ export const data = [
     
     products: [
       {
-        productId: 'SP000003',
+        productId: asBusinessId('SP000003'),
+        productSystemId: asSystemId('SP000003'),
         productName: 'Điện thoại iPhone 15 Pro',
         quantity: 1,
         price: 28000000,
         total: 28000000
       },
       {
-        productId: 'SP000004',
+        productId: asBusinessId('SP000004'),
+        productSystemId: asSystemId('SP000004'),
         productName: 'Ốp lưng iPhone 15 Pro',
         quantity: 2,
         price: 300000,
@@ -121,12 +127,12 @@ export const data = [
   },
   
   {
-    id: 'DH000003',
+    id: asBusinessId('DH000003'),
     customerName: 'Anh Trần Minh Hoàng',
-    customerSystemId: 'CUST000003',
+    customerSystemId: asSystemId('CUST000003'),
     branchName: 'Chi nhánh Trung tâm',
     salesperson: 'Trần Thị B',
-    salespersonSystemId: 'EMP000002',
+    salespersonSystemId: asSystemId('EMP000002'),
     orderDate: '2025-11-05 10:15',
     expectedDeliveryDate: '2025-11-06',
     expectedPaymentMethod: 'Tiền mặt',
@@ -147,7 +153,8 @@ export const data = [
     
     products: [
       {
-        productId: 'SP000005',
+        productId: asBusinessId('SP000005'),
+        productSystemId: asSystemId('SP000005'),
         productName: 'Máy tính bảng iPad Air',
         quantity: 1,
         price: 18000000,
@@ -171,12 +178,12 @@ export const data = [
   },
   
   {
-    id: 'DH000004',
+    id: asBusinessId('DH000004'),
     customerName: 'Shop thời trang GenZ Style',
-    customerSystemId: 'CUST000004',
+    customerSystemId: asSystemId('CUST000004'),
     branchName: 'Chi nhánh Quận 7',
     salesperson: 'Võ Thị F',
-    salespersonSystemId: 'EMP000004',
+    salespersonSystemId: asSystemId('EMP000004'),
     orderDate: '2025-11-07 16:45',
     expectedDeliveryDate: '2025-11-12',
     expectedPaymentMethod: 'Chuyển khoản',
@@ -198,14 +205,16 @@ export const data = [
     
     products: [
       {
-        productId: 'SP000006',
+        productId: asBusinessId('SP000006'),
+        productSystemId: asSystemId('SP000006'),
         productName: 'Đồng hồ Apple Watch Series 9',
         quantity: 1,
         price: 12000000,
         total: 12000000
       },
       {
-        productId: 'SP000007',
+        productId: asBusinessId('SP000007'),
+        productSystemId: asSystemId('SP000007'),
         productName: 'Tai nghe AirPods Pro',
         quantity: 1,
         price: 6000000,
@@ -231,12 +240,12 @@ export const data = [
   },
   
   {
-    id: 'DH000005',
+    id: asBusinessId('DH000005'),
     customerName: 'Công ty Cổ phần Bất động sản Hưng Thịnh',
-    customerSystemId: 'CUST000001',
+    customerSystemId: asSystemId('CUST000001'),
     branchName: 'Chi nhánh Quận 3',
     salesperson: 'Phạm Văn D',
-    salespersonSystemId: 'EMP000003',
+    salespersonSystemId: asSystemId('EMP000003'),
     orderDate: '2025-11-08 11:00',
     expectedPaymentMethod: 'Tiền mặt',
     
@@ -255,21 +264,24 @@ export const data = [
     
     products: [
       {
-        productId: 'SP000008',
+        productId: asBusinessId('SP000008'),
+        productSystemId: asSystemId('SP000008'),
         productName: 'Bàn phím cơ Keychron K2',
         quantity: 1,
         price: 2500000,
         total: 2500000
       },
       {
-        productId: 'SP000009',
+        productId: asBusinessId('SP000009'),
+        productSystemId: asSystemId('SP000009'),
         productName: 'Keycap custom',
         quantity: 1,
         price: 800000,
         total: 800000
       },
       {
-        productId: 'SP000010',
+        productId: asBusinessId('SP000010'),
+        productSystemId: asSystemId('SP000010'),
         productName: 'Switch Gateron Yellow',
         quantity: 90,
         price: 5000,

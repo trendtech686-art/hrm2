@@ -4,7 +4,20 @@
  * Total: 10035 wards (3 cấp - 63 tỉnh cũ → 34 tỉnh mới)
  */
 
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+
 export type Ward3Level = {
+  systemId: SystemId;
+  id: string;
+  name: string;
+  provinceId: BusinessId;
+  provinceName: string;
+  districtId: number;
+  districtName: string;
+  level: 3;
+};
+
+type Ward3LevelSeed = {
   systemId: string;
   id: string;
   name: string;
@@ -15,7 +28,7 @@ export type Ward3Level = {
   level: 3;
 };
 
-export const WARDS_3LEVEL_DATA: Ward3Level[] = [
+const rawData = [
   {
     "systemId": "W3_1",
     "id": "1",
@@ -100366,4 +100379,10 @@ export const WARDS_3LEVEL_DATA: Ward3Level[] = [
     "districtName": "Huyện Ngọc Hiển",
     "level": 3
   }
-];
+] as const satisfies readonly Ward3LevelSeed[];
+
+export const WARDS_3LEVEL_DATA: Ward3Level[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  provinceId: asBusinessId(item.provinceId),
+}));

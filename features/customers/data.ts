@@ -1,9 +1,10 @@
 import type { Customer, CustomerStatus } from './types.ts'
+import { asSystemId, asBusinessId } from '@/lib/id-types'
 
 export const data: Customer[] = [
   {
-    systemId: "CUST000001",
-    id: "KH000001",
+    systemId: asSystemId("CUST000001"),
+    id: asBusinessId("KH000001"),
     name: "Công ty Cổ phần Bất động sản Hưng Thịnh",
     email: "info@hungthinhcorp.vn",
     phone: "0901112233",
@@ -13,9 +14,12 @@ export const data: Customer[] = [
     zaloPhone: "0901112233",
     currentDebt: 30000000,
     maxDebt: 50000000,
-    accountManagerId: "EMP000002",
+    accountManagerId: asSystemId("EMP000002"),
     accountManagerName: "Trần Thị Bình",
     createdAt: "2024-03-10",
+    updatedAt: "2025-10-21T09:30:00Z",
+    createdBy: asSystemId("EMP000002"),
+    updatedBy: asSystemId("EMP000002"),
     totalOrders: 2,
     totalSpent: 42000000,
     totalQuantityPurchased: 5,
@@ -33,8 +37,8 @@ export const data: Customer[] = [
     pricingLevel: "Wholesale",
     tags: ["VIP", "Bất động sản", "Khách hàng lớn"],
     contacts: [
-      { id: "1", name: "Nguyễn Văn A", role: "Giám đốc", phone: "0901112233", email: "a.nguyen@hungthinhcorp.vn", isPrimary: true },
-      { id: "2", name: "Trần Thị B", role: "Kế toán", phone: "0901112244", email: "b.tran@hungthinhcorp.vn", isPrimary: false }
+      { id: asBusinessId("KHCT000001"), name: "Nguyễn Văn A", role: "Giám đốc", phone: "0901112233", email: "a.nguyen@hungthinhcorp.vn", isPrimary: true },
+      { id: asBusinessId("KHCT000002"), name: "Trần Thị B", role: "Kế toán", phone: "0901112244", email: "b.tran@hungthinhcorp.vn", isPrimary: false }
     ],
     social: {
       website: "https://hungthinhcorp.vn",
@@ -50,8 +54,8 @@ export const data: Customer[] = [
     // Debt Tracking
     debtTransactions: [
       {
-        systemId: "DT000001",
-        orderId: "ORD000123",
+        systemId: asSystemId("DT000001"),
+        orderId: asBusinessId("ORD000123"),
         orderDate: "2025-09-20",
         amount: 30000000,
         dueDate: "2025-10-20", // NET30 → 30 ngày sau orderDate → Quá hạn 5 ngày (hôm nay 25/10)
@@ -62,10 +66,10 @@ export const data: Customer[] = [
     ],
     debtReminders: [
       {
-        systemId: "REM000001",
+        systemId: asSystemId("REM000001"),
         reminderDate: "2025-10-21",
         reminderType: "Gọi điện",
-        reminderBy: "EMP000002",
+        reminderBy: asSystemId("EMP000002"),
         reminderByName: "Trần Thị Bình",
         customerResponse: "Hứa trả",
         promisePaymentDate: "2025-10-27",
@@ -75,8 +79,8 @@ export const data: Customer[] = [
     ]
   },
   {
-    systemId: "CUST000002",
-    id: "KH000002",
+    systemId: asSystemId("CUST000002"),
+    id: asBusinessId("KH000002"),
     name: "Chuỗi cà phê The Coffee House",
     email: "contact@thecoffeehouse.vn",
     phone: "02871087088",
@@ -86,9 +90,12 @@ export const data: Customer[] = [
     zaloPhone: "0902888999",
     currentDebt: 0,
     maxDebt: 100000000,
-    accountManagerId: "EMP000007",
+    accountManagerId: asSystemId("EMP000007"),
     accountManagerName: "Đỗ Hùng",
     createdAt: "2024-01-25",
+    updatedAt: "2025-10-10T08:15:00Z",
+    createdBy: asSystemId("EMP000007"),
+    updatedBy: asSystemId("EMP000007"),
     totalOrders: 5,
     totalSpent: 156000000,
     totalQuantityPurchased: 15,
@@ -106,7 +113,7 @@ export const data: Customer[] = [
     pricingLevel: "VIP",
     tags: ["F&B", "Chuỗi", "Khách hàng thân thiết"],
     contacts: [
-      { id: "1", name: "Nguyễn Thị Thu", role: "Purchasing Manager", phone: "0902888999", email: "thu.nguyen@thecoffeehouse.vn", isPrimary: true }
+      { id: asBusinessId("KHCT000003"), name: "Nguyễn Thị Thu", role: "Purchasing Manager", phone: "0902888999", email: "thu.nguyen@thecoffeehouse.vn", isPrimary: true }
     ],
     social: {
       website: "https://thecoffeehouse.vn",
@@ -118,8 +125,8 @@ export const data: Customer[] = [
     debtReminders: []
   },
   {
-    systemId: "CUST000003",
-    id: "KH000003",
+    systemId: asSystemId("CUST000003"),
+    id: asBusinessId("KH000003"),
     name: "Anh Trần Minh Hoàng",
     email: "tmhoang.dev@gmail.com",
     phone: "0987123456",
@@ -128,9 +135,12 @@ export const data: Customer[] = [
     zaloPhone: "0987123456",
     currentDebt: 0,
     maxDebt: 10000000,
-    accountManagerId: "EMP000006",
+    accountManagerId: asSystemId("EMP000006"),
     accountManagerName: "Vũ Thị Giang",
     createdAt: "2025-08-01",
+    updatedAt: "2025-08-01T10:00:00Z",
+    createdBy: asSystemId("EMP000006"),
+    updatedBy: asSystemId("EMP000006"),
     totalOrders: 1,
     totalSpent: 8000000,
     totalQuantityPurchased: 1,
@@ -149,8 +159,8 @@ export const data: Customer[] = [
     debtReminders: []
   },
   {
-    systemId: "CUST000004",
-    id: "KH000004",
+    systemId: asSystemId("CUST000004"),
+    id: asBusinessId("KH000004"),
     name: "Shop thời trang GenZ Style",
     email: "genzstyle@fashion.com",
     phone: "0918765432",
@@ -160,9 +170,12 @@ export const data: Customer[] = [
     zaloPhone: "0918765432",
     currentDebt: 500000,
     maxDebt: 20000000,
-    accountManagerId: "EMP000009",
+    accountManagerId: asSystemId("EMP000009"),
     accountManagerName: "Trịnh Văn Khoa",
     createdAt: "2023-11-15",
+    updatedAt: "2024-09-20T16:30:00Z",
+    createdBy: asSystemId("EMP000009"),
+    updatedBy: asSystemId("EMP000009"),
     totalOrders: 3,
     totalSpent: 12500000,
     totalQuantityPurchased: 8,
@@ -181,8 +194,8 @@ export const data: Customer[] = [
     // Debt Tracking - Nợ xấu 490 ngày!
     debtTransactions: [
       {
-        systemId: "DT000002",
-        orderId: "ORD000045",
+        systemId: asSystemId("DT000002"),
+        orderId: asBusinessId("ORD000045"),
         orderDate: "2024-06-15",
         amount: 500000,
         dueDate: "2024-06-22", // NET7 → Quá hạn 490 ngày!
@@ -193,30 +206,30 @@ export const data: Customer[] = [
     ],
     debtReminders: [
       {
-        systemId: "REM000002",
+        systemId: asSystemId("REM000002"),
         reminderDate: "2024-07-01",
         reminderType: "Gọi điện",
-        reminderBy: "EMP000009",
+        reminderBy: asSystemId("EMP000009"),
         reminderByName: "Trịnh Văn Khoa",
         customerResponse: "Không liên lạc được",
         notes: "Gọi nhiều lần không nghe máy",
         createdAt: "2024-07-01T14:00:00Z"
       },
       {
-        systemId: "REM000003",
+        systemId: asSystemId("REM000003"),
         reminderDate: "2024-08-15",
         reminderType: "Email",
-        reminderBy: "EMP000009",
+        reminderBy: asSystemId("EMP000009"),
         reminderByName: "Trịnh Văn Khoa",
         customerResponse: "Không liên lạc được",
         notes: "Email gửi nhưng không phản hồi",
         createdAt: "2024-08-15T10:00:00Z"
       },
       {
-        systemId: "REM000004",
+        systemId: asSystemId("REM000004"),
         reminderDate: "2024-09-20",
         reminderType: "Gặp trực tiếp",
-        reminderBy: "EMP000009",
+        reminderBy: asSystemId("EMP000009"),
         reminderByName: "Trịnh Văn Khoa",
         customerResponse: "Từ chối",
         notes: "KH gặp khó khăn tài chính, từ chối thanh toán. Đề xuất xử lý pháp lý",

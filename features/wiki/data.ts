@@ -1,9 +1,10 @@
 import type { WikiArticle } from './types.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
 export const data: WikiArticle[] = [
   {
-    systemId: 'wiki_001',
-    id: 'WIKI000001',
+    systemId: asSystemId('WIKI000001'),
+    id: asBusinessId('WIKI000001'),
     title: 'Quy định nghỉ phép năm 2025',
     content: `
 # Quy định về việc nghỉ phép năm
@@ -28,8 +29,8 @@ export const data: WikiArticle[] = [
     author: 'Phạm Thị Dung',
   },
   {
-    systemId: 'wiki_002',
-    id: 'WIKI000002',
+    systemId: asSystemId('WIKI000002'),
+    id: asBusinessId('WIKI000002'),
     title: 'Hướng dẫn sử dụng hệ thống CRM',
     content: `
 # Hướng dẫn sử dụng hệ thống CRM
@@ -55,8 +56,8 @@ export const data: WikiArticle[] = [
     author: 'Trần Thị Bình',
   },
     {
-    systemId: 'wiki_003',
-    id: 'WIKI000003',
+    systemId: asSystemId('WIKI000003'),
+    id: asBusinessId('WIKI000003'),
     title: 'Chính sách làm việc từ xa',
     content: `
 # Chính sách làm việc từ xa (Remote Work)

@@ -1,8 +1,9 @@
 import type { InventoryReceipt } from './types.ts';
+import { asSystemId, asBusinessId } from '@/lib/id-types';
 
-function addDays(days: number): string {
+function daysAgo(days: number): string {
   const date = new Date();
-  date.setDate(date.getDate() + days);
+  date.setDate(date.getDate() - Math.abs(days));
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -11,105 +12,55 @@ function addDays(days: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-export const data: Omit<InventoryReceipt, 'systemId'>[] = [
+export const data: InventoryReceipt[] = [
   {
-    id: 'PNK000001',
-    purchaseOrderId: 'PO0001',
-    supplierSystemId: 'SUPP000001',
+    systemId: asSystemId('INVRECEIPT000001'),
+    id: asBusinessId('PNK000001'),
+    purchaseOrderId: asBusinessId('PO0001'),
+    purchaseOrderSystemId: asSystemId('PO00000001'),
+    supplierSystemId: asSystemId('SUPP000001'),
     supplierName: 'Công ty CP Phần mềm ABC',
-    receivedDate: addDays(-4),
-    receiverSystemId: 'EMP000001',
+    branchSystemId: asSystemId('BRANCH000002'),
+    branchName: 'Chi nhánh Hà Nội',
+    receivedDate: daysAgo(4),
+    receiverSystemId: asSystemId('EMP000001'),
     receiverName: 'Nguyễn Văn An',
+    warehouseName: 'Kho chính Hà Nội',
     notes: 'Nhập đầy đủ theo đơn hàng PO0001',
     items: [
       {
-        productSystemId: 'DV-WEB-01',
-        productId: 'DV-WEB-01',
+        productSystemId: asSystemId('PROD000001'),
+        productId: asBusinessId('DV-WEB-01'),
         productName: 'Thiết kế Website Cơ bản',
         orderedQuantity: 2,
         receivedQuantity: 2,
-        unitPrice: 5000000
-      }
-    ]
+        unitPrice: 5_000_000,
+      },
+    ],
   },
   {
-    id: 'PNK000002',
-    purchaseOrderId: 'PO0002',
-    supplierSystemId: 'SUPP000002',
+    systemId: asSystemId('INVRECEIPT000002'),
+    id: asBusinessId('PNK000002'),
+    purchaseOrderId: asBusinessId('PO0002'),
+    purchaseOrderSystemId: asSystemId('PO00000002'),
+    supplierSystemId: asSystemId('SUPP000002'),
     supplierName: 'Công ty TNHH Công nghệ XYZ',
-    receivedDate: addDays(-2),
-    receiverSystemId: 'EMP000002',
+    branchSystemId: asSystemId('BRANCH000002'),
+    branchName: 'Chi nhánh Hà Nội',
+    receivedDate: daysAgo(2),
+    receiverSystemId: asSystemId('EMP000002'),
     receiverName: 'Trần Thị Bình',
-    notes: 'Nhập hàng đợt 1',
+    warehouseName: 'Kho chính Hà Nội',
+    notes: 'Nhập hàng đợt 1 (2/3 sản phẩm)',
     items: [
       {
-        productSystemId: 'DV-MKT-01',
-        productId: 'DV-MKT-01',
+        productSystemId: asSystemId('PROD000005'),
+        productId: asBusinessId('DV-MKT-01'),
         productName: 'Gói Quản lý Fanpage Basic',
         orderedQuantity: 3,
         receivedQuantity: 2,
-        unitPrice: 1500000
-      }
-    ]
+        unitPrice: 1_500_000,
+      },
+    ],
   },
-  {
-    id: 'PNK000003',
-    purchaseOrderId: 'PO0003',
-    supplierSystemId: 'NCC000001',
-    supplierName: 'Công ty CP Phần mềm ABC',
-    receivedDate: addDays(-5),
-    receiverSystemId: 'EMP00001',
-    receiverName: 'Nguyễn Văn An',
-    notes: 'Nhập đợt 1 - 2/5 Landing Pages',
-    items: [
-      {
-        productSystemId: 'DV-WEB-03',
-        productId: 'DV-WEB-03',
-        productName: 'Thiết kế Landing Page',
-        orderedQuantity: 5,
-        receivedQuantity: 2,
-        unitPrice: 2000000
-      }
-    ]
-  },
-  {
-    id: 'PNK000004',
-    purchaseOrderId: 'PO0004',
-    supplierSystemId: 'NCC000003',
-    supplierName: 'Công ty TNHH Vật liệu XD',
-    receivedDate: addDays(-3),
-    receiverSystemId: 'EMP00003',
-    receiverName: 'Lê Văn Cường',
-    notes: 'Nhập đầy đủ theo đơn hàng',
-    items: [
-      {
-        productSystemId: 'DV-SEO-02',
-        productId: 'DV-SEO-02',
-        productName: 'Gói SEO tổng thể',
-        orderedQuantity: 1,
-        receivedQuantity: 1,
-        unitPrice: 12000000
-      }
-    ]
-  },
-  {
-    id: 'PNK000005',
-    purchaseOrderId: 'PO0005',
-    supplierSystemId: 'NCC000002',
-    supplierName: 'Công ty TNHH Công nghệ XYZ',
-    receivedDate: addDays(-1),
-    receiverSystemId: 'EMP00001',
-    receiverName: 'Nguyễn Văn An',
-    notes: 'Nhập nhanh trong ngày',
-    items: [
-      {
-        productSystemId: 'DV-APP-01',
-        productId: 'DV-APP-01',
-        productName: 'Phát triển Mobile App',
-        orderedQuantity: 1,
-        receivedQuantity: 1,
-        unitPrice: 50000000
-      }
-    ]
-  }
 ];

@@ -1,9 +1,10 @@
 import type { CustomerGroup } from './types';
+import { asSystemId, asBusinessId } from '../../../lib/id-types';
 
 export const defaultCustomerGroups: CustomerGroup[] = [
   {
-    systemId: 'CGROUP00000001',
-    id: 'VIP',
+    systemId: asSystemId('CGROUP00000001'),
+    id: asBusinessId('VIP'),
     name: 'VIP',
     description: 'Khách hàng VIP, mua nhiều, giá trị cao',
     color: '#FFD700',
@@ -12,8 +13,8 @@ export const defaultCustomerGroups: CustomerGroup[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CGROUP00000002',
-    id: 'THUONGXUYEN',
+    systemId: asSystemId('CGROUP00000002'),
+    id: asBusinessId('THUONGXUYEN'),
     name: 'Thường xuyên',
     description: 'Khách hàng mua thường xuyên',
     color: '#4CAF50',
@@ -22,8 +23,8 @@ export const defaultCustomerGroups: CustomerGroup[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CGROUP00000003',
-    id: 'MOI',
+    systemId: asSystemId('CGROUP00000003'),
+    id: asBusinessId('MOI'),
     name: 'Mới',
     description: 'Khách hàng mới, lần đầu mua',
     color: '#2196F3',
@@ -32,8 +33,8 @@ export const defaultCustomerGroups: CustomerGroup[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CGROUP00000004',
-    id: 'TIEMNANG',
+    systemId: asSystemId('CGROUP00000004'),
+    id: asBusinessId('TIEMNANG'),
     name: 'Tiềm năng',
     description: 'Khách hàng tiềm năng, đang tìm hiểu',
     color: '#FF9800',

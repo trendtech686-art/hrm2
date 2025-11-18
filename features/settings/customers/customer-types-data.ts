@@ -1,9 +1,10 @@
+import { asSystemId, asBusinessId } from '../../../lib/id-types.ts';
 import type { CustomerType } from './types';
 
 export const defaultCustomerTypes: CustomerType[] = [
   {
-    systemId: 'CTYPE00000001',
-    id: 'CANHAN',
+    systemId: asSystemId('CTYPE00000001'),
+    id: asBusinessId('CANHAN'),
     name: 'Cá nhân',
     description: 'Khách hàng cá nhân, mua lẻ',
     isActive: true,
@@ -11,8 +12,8 @@ export const defaultCustomerTypes: CustomerType[] = [
     updatedAt: new Date().toISOString(),
   },
   {
-    systemId: 'CTYPE00000002',
-    id: 'DOANHNGHIEP',
+    systemId: asSystemId('CTYPE00000002'),
+    id: asBusinessId('DOANHNGHIEP'),
     name: 'Doanh nghiệp',
     description: 'Khách hàng là công ty, doanh nghiệp',
     isActive: true,

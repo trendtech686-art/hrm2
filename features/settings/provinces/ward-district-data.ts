@@ -5,9 +5,10 @@
  * Generated: 2025-10-29T07:17:58.613Z
  */
 
-import type { WardDistrictMapping } from './ward-district-mapping';
+import { asBusinessId } from '@/lib/id-types';
+import type { WardDistrictDataInput } from './ward-district-mapping';
 
-export const WARD_DISTRICT_DATA: WardDistrictMapping[] = [
+const rawData = [
   {
     "wardId": "10105001",
     "wardName": "Phường Hoàn Kiếm",
@@ -26576,7 +26577,16 @@ export const WARD_DISTRICT_DATA: WardDistrictMapping[] = [
     "provinceId": 34,
     "provinceName": "Tỉnh Cà Mau"
   }
-];
+] as const satisfies readonly WardDistrictDataInput[];
+
+export const WARD_DISTRICT_DATA: ReadonlyArray<WardDistrictDataInput> = rawData.map((item) => ({
+  ...item,
+  provinceId: asBusinessId(
+    typeof item.provinceId === 'number'
+      ? item.provinceId.toString().padStart(2, '0')
+      : item.provinceId
+  ),
+}));
 
 export const STATISTICS = {
   totalWards: 3321,

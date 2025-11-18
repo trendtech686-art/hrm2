@@ -1,4 +1,5 @@
 import type { PurchaseOrder } from './types.ts';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 function addDays(days: number): string {
   const date = new Date();
@@ -8,22 +9,22 @@ function addDays(days: number): string {
 
 export const data: Omit<PurchaseOrder, 'systemId' | 'creatorSystemId' | 'creatorName'>[] = [
   {
-    id: 'PO0001',
-    supplierSystemId: 'SUPP000001',
+    id: asBusinessId('PO0001'),
+    supplierSystemId: asSystemId('SUPP000001'),
     supplierName: 'Công ty CP Phần mềm ABC',
-    branchSystemId: 'BRANCH000002',
+    branchSystemId: asSystemId('BRANCH000002'),
     branchName: 'Chi nhánh Hà Nội',
     orderDate: addDays(-5),
     deliveryDate: addDays(5),
-    buyerSystemId: 'EMP000001',
+    buyerSystemId: asSystemId('EMP000001'),
     buyer: 'Nguyễn Văn An',
     status: 'Đặt hàng',
     paymentStatus: 'Chưa thanh toán',
     deliveryStatus: 'Chưa nhập',
     lineItems: [
       {
-        productSystemId: 'PROD000001',
-        productId: 'DV-WEB-01',
+        productSystemId: asSystemId('PROD000001'),
+        productId: asBusinessId('DV-WEB-01'),
         productName: 'Thiết kế Website Cơ bản',
         quantity: 2,
         unitPrice: 5000000,
@@ -44,22 +45,22 @@ export const data: Omit<PurchaseOrder, 'systemId' | 'creatorSystemId' | 'creator
     notes: 'Đơn hàng mới đặt'
   },
   {
-    id: 'PO0002',
-    supplierSystemId: 'SUPP000002',
+    id: asBusinessId('PO0002'),
+    supplierSystemId: asSystemId('SUPP000002'),
     supplierName: 'Công ty TNHH Công nghệ XYZ',
-    branchSystemId: 'BRANCH000002',
+    branchSystemId: asSystemId('BRANCH000002'),
     branchName: 'Chi nhánh Hà Nội',
     orderDate: addDays(-3),
     deliveryDate: addDays(7),
-    buyerSystemId: 'EMP000001',
+    buyerSystemId: asSystemId('EMP000001'),
     buyer: 'Nguyễn Văn An',
     status: 'Đang giao dịch',
     paymentStatus: 'Chưa thanh toán',
     deliveryStatus: 'Chưa nhập',
     lineItems: [
       {
-        productSystemId: 'PROD000005',
-        productId: 'DV-MKT-01',
+        productSystemId: asSystemId('PROD000005'),
+        productId: asBusinessId('DV-MKT-01'),
         productName: 'Gói Quản lý Fanpage Basic',
         quantity: 3,
         unitPrice: 1500000,
