@@ -1,0 +1,48 @@
+import type { Penalty } from './types.ts';
+
+export const data: Penalty[] = [
+  {
+    systemId: 'PP000001',
+    id: 'PP000001',
+    employeeSystemId: 'EMP000003',
+    employeeName: 'Lê Văn Cường',
+    reason: 'Đi làm trễ 30 phút không có lý do.',
+    amount: 100000,
+    issueDate: '2025-10-28',
+    status: 'Đã thanh toán',
+    issuerName: 'Nguyễn Văn An',
+  },
+  {
+    systemId: 'PP000002',
+    id: 'PP000002',
+    employeeSystemId: 'EMP000005',
+    employeeName: 'Hoàng Văn Em',
+    reason: 'Không tuân thủ đồng phục công ty.',
+    amount: 50000,
+    issueDate: '2025-11-02',
+    status: 'Chưa thanh toán',
+    issuerName: 'Phạm Thị Dung',
+  },
+  {
+    systemId: 'PP000003',
+    id: 'PP000003',
+    employeeSystemId: 'EMP000014',
+    employeeName: 'Ngô Thị Phương',
+    reason: 'Gửi báo cáo tuần chậm 1 ngày.',
+    amount: 50000,
+    issueDate: '2025-11-04',
+    status: 'Chưa thanh toán',
+    issuerName: 'Đỗ Hùng',
+  },
+    {
+    systemId: 'PP000004',
+    id: 'PP000004',
+    employeeSystemId: 'EMP000003',
+    employeeName: 'Lê Văn Cường',
+    reason: 'Quên chấm công khi ra về.',
+    amount: 50000,
+    issueDate: '2025-11-05',
+    status: 'Đã hủy',
+    issuerName: 'Phạm Thị Dung',
+  },
+];

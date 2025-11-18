@@ -1,0 +1,1569 @@
+import * as React from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ROUTES } from '../../lib/router.ts';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate, toISODateTime } from '@/lib/date-utils';
+import { useForm } from 'react-hook-form';
+import { usePurchaseOrderStore } from './store.ts';
+import { useSupplierStore } from '../suppliers/store.ts';
+import { usePaymentStore } from '../payments/store.ts';
+import { useReceiptStore } from '../receipts/store.ts';
+import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card.tsx';
+import { Button } from '../../components/ui/button.tsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table.tsx';
+import { Separator } from '../../components/ui/separator.tsx';
+import { ArrowLeft, Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, History, Plus, Edit2, ChevronDown, ChevronRight, Banknote, Landmark, Lock, Trash2, MoreVertical, Wallet, CreditCard, AlertCircle } from 'lucide-react';
+import { cn } from '../../lib/utils.ts';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogFooter as FormDialogFooter } from '../../components/ui/dialog.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../components/ui/dropdown-menu.tsx';
+import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
+import { useProductStore } from '../products/store.ts';
+import { useStockHistoryStore } from '../stock-history/store.ts';
+import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
+import { useCashbookStore } from '../cashbook/store.ts';
+import { useBranchStore } from '../settings/branches/store.ts';
+import type { Payment } from '../payments/types.ts';
+import type { Receipt } from '../receipts/types.ts';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '../../components/ui/form.tsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
+import { Input } from '../../components/ui/input.tsx';
+import { NumberInput } from '../../components/ui/number-input.tsx';
+import { DetailField } from '../../components/ui/detail-field.tsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs.tsx';
+import { RelatedDataTable } from '../../components/data-table/related-data-table.tsx';
+import type { ColumnDef } from '../../components/data-table/types.ts';
+import type { InventoryReceipt } from '../inventory-receipts/types.ts';
+import { useAuditLogStore } from '../audit-log/store.ts';
+import type { LogEntry, LogChange } from '../audit-log/types.ts';
+import { Timeline, TimelineItem } from '../../components/ui/timeline.tsx';
+import { usePurchaseReturnStore } from '../purchase-returns/store.ts';
+import type { PurchaseReturn } from '../purchase-returns/types.ts';
+import { Badge } from '../../components/ui/badge.tsx';
+import { useEmployeeStore } from '../employees/store.ts';
+import type { PurchaseOrder, PaymentStatus } from './types.ts';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
+const formatCurrency = (value?: number) => {
+  if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+
+
+const StatusTimeline = ({ status, deliveryStatus, orderDate }: { status: string; deliveryStatus: string, orderDate: string }) => {
+    let currentStep = 0;
+    if (status === 'Hoàn thành' || status === 'Kết thúc' || status === 'Đã trả hàng') {
+        currentStep = 2;
+    } else if (deliveryStatus === 'Đã nhập' || deliveryStatus === 'Đã nhập một phần') {
+        currentStep = 1;
+    }
+
+    const steps = [
+        { name: 'Tạo đơn', date: formatDateCustom(orderDate, "dd/MM/yyyy HH:mm") }, 
+        { name: 'Nhập hàng' }, 
+        { name: 'Hoàn thành' }
+    ];
+
+    return (
+        <div className="flex items-start justify-center pt-2">
+            {steps.map((step, index) => (
+                <React.Fragment key={index}>
+                    <div className="flex flex-col items-center text-center w-28">
+                        <div className={cn(
+                            "flex items-center justify-center w-10 h-9 rounded-full border-2 font-bold",
+                            index <= currentStep ? "bg-primary border-primary text-primary-foreground" : "border-border bg-muted text-muted-foreground"
+                        )}>
+                            <span>{index + 1}</span>
+                        </div>
+                        <p className={cn("text-sm mt-2 font-medium", index <= currentStep ? "text-foreground" : "text-muted-foreground")}>{step.name}</p>
+                        {step.date && <p className="text-xs text-muted-foreground">{step.date}</p>}
+                    </div>
+                    {index < steps.length - 1 && (
+                        <div className={cn("flex-1 mt-5 border-t-2", index < currentStep ? "border-primary" : "border-border")} />
+                    )}
+                </React.Fragment>
+            ))}
+        </div>
+    );
+};
+
+type PaymentConfirmationFormValues = {
+  paymentMethod: string;
+  accountSystemId: string;
+  amount: number;
+  paymentDate: string;
+  reference?: string;
+};
+
+function PaymentConfirmationDialog({
+  isOpen,
+  onOpenChange,
+  amountRemaining,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  amountRemaining: number;
+  onSubmit: (values: PaymentConfirmationFormValues) => void;
+}) {
+  const { accounts } = useCashbookStore();
+  
+  // Get default account for current payment method
+  const getDefaultAccount = React.useCallback((type: 'cash' | 'bank') => {
+    const filtered = accounts.filter(acc => acc.type === type && acc.isActive);
+    const defaultAcc = filtered.find(acc => acc.isDefault);
+    return defaultAcc?.systemId || filtered[0]?.systemId || '';
+  }, [accounts]);
+  
+  const form = useForm<PaymentConfirmationFormValues>({
+    defaultValues: {
+      paymentMethod: 'Tiền mặt',
+      accountSystemId: getDefaultAccount('cash'),
+      amount: amountRemaining > 0 ? amountRemaining : 0,
+      paymentDate: formatDateTime(getCurrentDate()),
+      reference: '',
+    },
+  });
+
+  const { control, handleSubmit, reset, watch, setValue } = form;
+  const paymentMethod = watch('paymentMethod');
+
+  // Filter accounts based on payment method
+  const filteredAccounts = React.useMemo(() => {
+    if (paymentMethod === 'Tiền mặt') {
+      return accounts.filter(acc => acc.type === 'cash' && acc.isActive);
+    } else if (paymentMethod === 'Chuyển khoản') {
+      return accounts.filter(acc => acc.type === 'bank' && acc.isActive);
+    }
+    return [];
+  }, [accounts, paymentMethod]);
+
+  // Update accountSystemId when payment method changes
+  React.useEffect(() => {
+    const accountType = paymentMethod === 'Tiền mặt' ? 'cash' : 'bank';
+    const defaultAccount = getDefaultAccount(accountType);
+    if (defaultAccount) {
+      setValue('accountSystemId', defaultAccount);
+    }
+  }, [paymentMethod, getDefaultAccount, setValue]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+        const defaultAccount = getDefaultAccount('cash');
+        reset({
+            paymentMethod: 'Tiền mặt',
+            accountSystemId: defaultAccount,
+            amount: amountRemaining > 0 ? amountRemaining : 0,
+            paymentDate: formatDateTime(getCurrentDate()),
+            reference: '',
+        });
+    }
+  }, [isOpen, amountRemaining, reset, getDefaultAccount]);
+
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" open={isOpen}>
+        <DialogHeader>
+          <DialogTitle>Xác nhận thanh toán</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form id="payment-confirmation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+            <FormField control={control} name="paymentMethod" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phương thức thanh toán</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="Tiền mặt">Tiền mặt</SelectItem>
+                    <SelectItem value="Chuyển khoản">Chuyển khoản</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}/>
+            <FormField control={control} name="accountSystemId" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tài khoản</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value}
+                >
+                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {filteredAccounts.length === 0 ? (
+                      <SelectItem value="no-account" disabled>
+                        Không có tài khoản {paymentMethod === 'Tiền mặt' ? 'tiền mặt' : 'ngân hàng'}
+                      </SelectItem>
+                    ) : (
+                      filteredAccounts.map((account) => (
+                        <SelectItem key={account.systemId} value={account.systemId}>
+                          {account.name} {account.bankAccountNumber ? `(${account.bankAccountNumber})` : ''}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}/>
+            <FormField control={control} name="amount" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Số tiền</FormLabel>
+                {/* FIX: Explicitly cast `field.value` to `number` to match the expected prop type of `NumberInput`. */}
+                <FormControl><NumberInput {...field} value={field.value as number} /></FormControl>
+              </FormItem>
+            )}/>
+            <FormField control={control} name="paymentDate" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ngày thanh toán</FormLabel>
+                <FormControl><Input {...field} /></FormControl>
+              </FormItem>
+            )}/>
+             <FormField control={control} name="reference" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tham chiếu</FormLabel>
+                <FormControl><Input {...field} placeholder="VD: Số hóa đơn, mã giao dịch..." /></FormControl>
+              </FormItem>
+            )}/>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Thoát</Button>
+              <Button type="submit">Thanh toán</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChangeHistoryTab({ purchaseOrderId }: { purchaseOrderId: string }) {
+  const getLogsForEntity = useAuditLogStore(state => state.getLogsForEntity);
+  const logs = getLogsForEntity(purchaseOrderId);
+
+  if (logs.length === 0) {
+    return (
+      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
+        <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
+          <h3 className="text-lg font-semibold tracking-tight">Chưa có lịch sử thay đổi</h3>
+        </div>
+      </div>
+    );
+  }
+  
+  const renderChange = (change: LogChange, log: LogEntry) => {
+      const user = <strong>{log.userName}</strong>;
+      if(change.description) {
+          const descriptionText = change.description.charAt(0).toLowerCase() + change.description.slice(1);
+          // Parse voucher codes (PC000xxx, PT000xxx) and receipt codes (PNK000xxx) and make them links
+          const voucherPattern = /P[CT]\d{6}/g;
+          const receiptPattern = /PNK\d{6}/g;
+          
+          // Split text while preserving matched patterns
+          const parts: (string | React.ReactElement)[] = [];
+          let lastIndex = 0;
+          let match;
+          
+          // Find all matches for vouchers
+          const voucherMatches = Array.from(descriptionText.matchAll(voucherPattern));
+          const receiptMatches = Array.from(descriptionText.matchAll(receiptPattern));
+          
+          // Combine and sort all matches by position
+          const allMatches = [...voucherMatches, ...receiptMatches]
+            .sort((a, b) => (a.index || 0) - (b.index || 0));
+          
+          allMatches.forEach((match, idx) => {
+            const matchIndex = match.index || 0;
+            const matchText = match[0];
+            
+            // Add text before the match
+            if (matchIndex > lastIndex) {
+              parts.push(descriptionText.substring(lastIndex, matchIndex));
+            }
+            
+            // Add the matched code as a link
+            if (matchText.match(voucherPattern)) {
+              parts.push(
+                <Link 
+                  key={`voucher-${idx}`}
+                  to={`/vouchers/${matchText}`}
+                  className="text-primary hover:underline font-medium"
+                >
+                  ({matchText})
+                </Link>
+              );
+            } else if (matchText.match(receiptPattern)) {
+              parts.push(
+                <Link 
+                  key={`receipt-${idx}`}
+                  to={`/inventory-receipts?search=${matchText}`}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {matchText}
+                </Link>
+              );
+            }
+            
+            lastIndex = matchIndex + matchText.length;
+          });
+          
+          // Add remaining text after last match
+          if (lastIndex < descriptionText.length) {
+            parts.push(descriptionText.substring(lastIndex));
+          }
+          
+          return <p>{user} {parts}</p>;
+      }
+      return <p>{user} đã thay đổi <strong>{change.field}</strong> từ <code className="bg-muted px-1 rounded-sm">{String(change.oldValue)}</code> thành <code className="bg-muted px-1 rounded-sm">{String(change.newValue)}</code>.</p>
+  }
+
+  const getIcon = (action: LogEntry['action']) => {
+    switch(action) {
+        case 'CREATE': return <Plus className="h-4 w-4 text-green-500" />;
+        case 'UPDATE': return <Edit2 className="h-4 w-4 text-blue-500" />;
+        default: return <History className="h-4 w-4 text-muted-foreground" />;
+    }
+  }
+
+  return (
+    <Timeline>
+      {logs.map(log => (
+        <TimelineItem key={log.id} icon={getIcon(log.action)} time={log.timestamp}>
+            {log.changes.map((change, index) => (
+              <React.Fragment key={index}>{renderChange(change, log)}</React.Fragment>
+            ))}
+        </TimelineItem>
+      ))}
+    </Timeline>
+  );
+}
+
+function InventoryReceiptDetailView({ receipt }: { receipt: InventoryReceipt }) {
+  const totalQuantity = receipt.items.reduce((sum, item) => sum + Number(item.receivedQuantity), 0);
+  const totalValue = receipt.items.reduce((sum, item) => sum + (Number(item.receivedQuantity) * Number(item.unitPrice)), 0);
+
+  return (
+    <div className="p-6 bg-slate-100 dark:bg-slate-800/20">
+      <div className="flex justify-between items-start mb-6">
+        <div className="space-y-1 text-sm">
+          <h3 className="font-semibold text-base">Thông tin phiếu nhập kho</h3>
+          <p className="text-muted-foreground">Người nhập: {receipt.receiverName}</p>
+          <p className="text-muted-foreground">Ghi chú: {receipt.notes || '-'}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => window.print()}>In phiếu nhập</Button>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="font-semibold text-base">Sản phẩm đã nhập</h3>
+        <div className="border rounded-md bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mã SP</TableHead>
+                <TableHead>Tên sản phẩm</TableHead>
+                <TableHead className="text-center">SL đặt</TableHead>
+                <TableHead className="text-center">SL thực nhập</TableHead>
+                <TableHead className="text-right">Đơn giá</TableHead>
+                <TableHead className="text-right">Thành tiền</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {receipt.items.map(item => (
+                <TableRow key={item.productSystemId}>
+                  <TableCell>
+                    <Link 
+                      to={`/products/${item.productSystemId}`}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      {item.productId}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{item.productName}</TableCell>
+                  <TableCell className="text-center">{item.orderedQuantity}</TableCell>
+                  <TableCell className="text-center font-semibold">{item.receivedQuantity}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                  <TableCell className="text-right font-semibold">{formatCurrency(item.receivedQuantity * item.unitPrice)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={3} className="text-right font-bold">Tổng cộng</TableCell>
+                <TableCell className="text-center font-bold">{totalQuantity}</TableCell>
+                <TableCell />
+                <TableCell className="text-right font-bold">{formatCurrency(totalValue)}</TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// Updated to use combined transactions
+function PurchaseReturnDetailView({ purchaseReturn, allTransactions }: { purchaseReturn: PurchaseReturn, allTransactions: (Payment | Receipt)[] }) {
+    const totalReturnValue = purchaseReturn.items.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
+  
+    const refundReceipt = React.useMemo(() => {
+        if (purchaseReturn.refundAmount <= 0) return null;
+        // Find receipt where supplier refunded money to us
+        return allTransactions.find((t): t is Receipt => 
+            'payerType' in t && 
+            t.payerType === 'Nhà cung cấp' &&
+            t.payerName === purchaseReturn.supplierName
+        );
+    }, [purchaseReturn, allTransactions]);
+
+    return (
+      <div className="p-6 bg-slate-100 dark:bg-slate-800/20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="md:col-span-2 space-y-4 text-sm">
+            <h3 className="font-semibold text-base">Thông tin đơn trả hàng nhà cung cấp</h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              <div className="font-medium text-muted-foreground">Chi nhánh:</div>
+              <div className="font-medium">{purchaseReturn.branchName}</div>
+              <div className="font-medium text-muted-foreground">Nhà cung cấp:</div>
+              <div className="font-medium">{purchaseReturn.supplierName}</div>
+              <div className="font-medium text-muted-foreground">Lý do hoàn trả:</div>
+              <div className="font-medium">{purchaseReturn.reason || '-'}</div>
+              <div className="font-medium text-muted-foreground">Nhận hoàn tiền:</div>
+                <div className="font-medium">
+                {purchaseReturn.refundAmount > 0 ? (
+                    <>
+                    <span>{formatCurrency(purchaseReturn.refundAmount)} - {purchaseReturn.refundMethod}</span>
+                    {refundReceipt && (
+                        <Link to={`/receipts/${refundReceipt.systemId}`} className="ml-2 text-primary hover:underline font-medium text-sm">
+                        ({refundReceipt.id})
+                        </Link>
+                    )}
+                    </>
+                ) : 'Không'}
+                </div>
+            </div>
+          </div>
+          <div className="flex items-start justify-end">
+            <Button variant="outline">In đơn trả</Button>
+          </div>
+        </div>
+  
+        <div className="space-y-2">
+          <h3 className="font-semibold text-base">Thông tin sản phẩm trả</h3>
+          <div className="border rounded-md bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mã SKU</TableHead>
+                  <TableHead>Tên sản phẩm</TableHead>
+                  <TableHead className="text-center">SL Trả</TableHead>
+                  <TableHead className="text-right">Đơn giá trả</TableHead>
+                  <TableHead className="text-right">Thành tiền</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {purchaseReturn.items.map((item, index) => (
+                  <TableRow key={item.productSystemId}>
+                    <TableCell>
+                      <Link 
+                        to={`/products/${item.productSystemId}`}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        {item.productId}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{item.productName}</TableCell>
+                    <TableCell className="text-center">{item.returnQuantity}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(item.returnQuantity * item.unitPrice)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+               <TableFooter>
+                <TableRow>
+                    <TableCell colSpan={4} className="text-right font-bold">Tổng giá trị trả</TableCell>
+                    <TableCell className="text-right font-bold">{formatCurrency(purchaseReturn.totalReturnValue)}</TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+// Updated to use combined transactions (Payment + Receipt)
+function StockHistoryTab({ poReceipts, purchaseReturns, allTransactions }: { poReceipts: InventoryReceipt[], purchaseReturns: PurchaseReturn[], allTransactions: (Payment | Receipt)[] }) {
+    const [expandedRowId, setExpandedRowId] = React.useState<string | null>(null);
+
+    const stockMovements = React.useMemo(() => {
+        const receipts = poReceipts.map(r => ({
+            type: 'receipt' as const,
+            data: r,
+            sortDate: r.receivedDate,
+        }));
+        const returns = purchaseReturns.map(pr => ({
+            type: 'return' as const,
+            data: pr,
+            sortDate: pr.returnDate,
+        }));
+        return [...receipts, ...returns].sort((a, b) => getDaysDiff(parseDate(b.sortDate) || getCurrentDate(), parseDate(a.sortDate) || getCurrentDate()))
+    }, [poReceipts, purchaseReturns]);
+
+    const toggleRow = (systemId: string) => {
+        setExpandedRowId(currentId => (currentId === systemId ? null : systemId));
+    };
+
+    return (
+        <Card>
+            <CardContent className="p-0">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-12"></TableHead>
+                            <TableHead>Mã phiếu</TableHead>
+                            <TableHead>Loại phiếu</TableHead>
+                            <TableHead>Ngày tạo</TableHead>
+                            <TableHead>Nhân viên tạo</TableHead>
+                            <TableHead className="text-center">Tổng SL</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {stockMovements.map(movement => {
+                            const isReceipt = movement.type === 'receipt';
+                            const data = movement.data;
+                            const totalQty = isReceipt 
+                                ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity), 0)
+                                : (data as PurchaseReturn).items.reduce((sum, i) => sum + i.returnQuantity, 0);
+
+                            return (
+                                <React.Fragment key={data.systemId}>
+                                    <TableRow onClick={() => toggleRow(data.systemId)} className="cursor-pointer">
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500">
+                                                {expandedRowId === data.systemId ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                                            </Button>
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                            <Link 
+                                                to={isReceipt ? `/inventory-receipts/${data.systemId}` : `/purchase-returns/${data.systemId}`}
+                                                className="text-primary hover:underline"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {data.id}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell>
+                                            {isReceipt 
+                                                ? <Badge variant="success" className="bg-green-100 text-green-700">Nhập hàng</Badge> 
+                                                : <Badge variant="destructive" className="bg-red-100 text-red-700">Xuất trả NCC</Badge>
+                                            }
+                                        </TableCell>
+                                        {/* FIX: Use type guard `isReceipt` to access correct properties */}
+                                        <TableCell>{formatDateCustom(parseDate(isReceipt ? (data as InventoryReceipt).receivedDate : (data as PurchaseReturn).returnDate) || getCurrentDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
+                                        <TableCell>{isReceipt ? (data as InventoryReceipt).receiverName : (data as PurchaseReturn).creatorName}</TableCell>
+                                        <TableCell className="text-center">{totalQty}</TableCell>
+                                    </TableRow>
+                                    {expandedRowId === data.systemId && (
+                                        <TableRow className="bg-slate-50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/20">
+                                            <TableCell colSpan={6} className="p-0">
+                                                {isReceipt 
+                                                    ? <InventoryReceiptDetailView receipt={data as InventoryReceipt} />
+                                                    : <PurchaseReturnDetailView purchaseReturn={data as PurchaseReturn} allTransactions={allTransactions} />
+                                                }
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </React.Fragment>
+                            )
+                        })}
+                        {stockMovements.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Chưa có lịch sử xuất nhập kho.</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
+export function PurchaseOrderDetailPage() {
+  const { systemId } = useParams<{ systemId: string }>();
+  const navigate = useNavigate();
+  const { findById, processInventoryReceipt, finishOrder, cancelOrder } = usePurchaseOrderStore();
+  const purchaseOrder = findById(systemId!);
+  
+  // Early return if purchase order not found
+  if (!purchaseOrder) {
+    return (
+      <div className="p-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-4">Không tìm thấy đơn hàng</h2>
+          <p className="text-muted-foreground mb-6">Đơn hàng với mã {systemId} không tồn tại hoặc đã bị xóa.</p>
+          <Button onClick={() => navigate('/purchase-orders')}>
+            Quay lại danh sách
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Debug log
+  console.log('Purchase Order Data:', {
+    id: purchaseOrder.id,
+    shippingFee: purchaseOrder.shippingFee,
+    tax: purchaseOrder.tax,
+    discount: purchaseOrder.discount,
+    discountType: purchaseOrder.discountType,
+    grandTotal: purchaseOrder.grandTotal
+  });
+  
+  const { data: suppliers } = useSupplierStore();
+  const { data: allPurchaseOrders } = usePurchaseOrderStore();
+  const { data: allPayments } = usePaymentStore();
+  const { data: allReceiptsFinancial } = useReceiptStore();
+  const allTransactions = React.useMemo(() => [...allPayments, ...allReceiptsFinancial], [allPayments, allReceiptsFinancial]);
+  const { data: allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
+  const { data: products, updateInventory, findById: findProductById } = useProductStore();
+  const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
+  const { data: paymentTypes } = usePaymentTypeStore();
+  const { accounts } = useCashbookStore();
+  const branches = useBranchStore();
+  const { findByPurchaseOrderId, add: addPurchaseReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
+  const getLogsForEntity = useAuditLogStore(state => state.getLogsForEntity);
+  const loggedInUser = useEmployeeStore().data[0]; // Simulate logged-in user
+
+  const [isPaymentConfirmationOpen, setIsPaymentConfirmationOpen] = React.useState(false);
+  const [isReceiveConfirmationOpen, setIsReceiveConfirmationOpen] = React.useState(false);
+  const [cancelDialogState, setCancelDialogState] = React.useState<{
+    isOpen: boolean;
+    po: PurchaseOrder | null;
+    willCreateReturn?: boolean;
+    totalPaid?: number;
+  }>({ isOpen: false, po: null });
+
+  const purchaseReturns = React.useMemo(() => (purchaseOrder ? findByPurchaseOrderId(purchaseOrder.systemId) : []), [purchaseOrder, findByPurchaseOrderId]); // ✅ Fixed: Use systemId
+  const poReceipts = React.useMemo(() => (purchaseOrder ? allReceipts.filter(r => r.purchaseOrderId === purchaseOrder.systemId) : []), [purchaseOrder, allReceipts]); // ✅ Fixed: Use systemId
+  const logs = React.useMemo(() => (purchaseOrder ? getLogsForEntity(purchaseOrder.systemId) : []), [purchaseOrder, getLogsForEntity]);
+  
+  const canReturn = React.useMemo(() => {
+    if (!purchaseOrder) return false;
+
+    const totalReceived = purchaseOrder.lineItems.reduce((acc, item) => {
+      const receivedQty = poReceipts.reduce((sum, receipt) => {
+        const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
+        return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
+      }, 0);
+      return acc + receivedQty;
+    }, 0);
+
+    const totalReturned = allPurchaseReturns
+      .filter(pr => pr.purchaseOrderId === purchaseOrder.systemId) // ✅ Fixed: Use systemId
+      .reduce((acc, pr) => acc + pr.items.reduce((sum, item) => sum + item.returnQuantity, 0), 0);
+
+    return totalReceived > totalReturned;
+  }, [purchaseOrder, poReceipts, allPurchaseReturns]);
+  
+  const canBeFinished = React.useMemo(() => {
+    if (!purchaseOrder) return false;
+    const isFinanciallySettled = purchaseOrder.paymentStatus === 'Đã thanh toán';
+    const isLogisticallySettled = purchaseOrder.deliveryStatus === 'Đã nhập';
+    const isFullyReturned = purchaseOrder.returnStatus === 'Hoàn hàng toàn bộ';
+    const isTerminal = purchaseOrder.status === 'Kết thúc' || purchaseOrder.status === 'Đã hủy';
+    
+    return !isTerminal && ((isFinanciallySettled && isLogisticallySettled) || isFullyReturned);
+  }, [purchaseOrder]);
+  
+  const handleCancelRequest = React.useCallback((po: PurchaseOrder) => {
+    // Calculate total paid using Payment transactions
+    const poSupplier = suppliers.find(s => s.systemId === po.supplierSystemId);
+    const totalPaid = allPayments.reduce((sum: number, payment: Payment) => {
+        if (payment.status === 'completed' && 
+            payment.recipientType === 'Nhà cung cấp' &&
+            payment.recipientName === poSupplier?.name) {
+            return sum + payment.amount;
+        }
+        return sum;
+    }, 0);
+
+    const hasBeenDelivered = po.deliveryStatus !== 'Chưa nhập';
+
+    setCancelDialogState({ 
+        isOpen: true, 
+        po: po, 
+        totalPaid: totalPaid,
+        willCreateReturn: hasBeenDelivered 
+    });
+  }, [allPayments, suppliers]);
+
+  const confirmCancel = () => {
+    if (!cancelDialogState.po) return;
+    const po = cancelDialogState.po;
+
+    if (cancelDialogState.willCreateReturn) {
+        const receiptsForPO = allReceipts.filter(r => r.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
+        const returnsForPO = allPurchaseReturns.filter(pr => pr.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
+
+        const returnItems = po.lineItems
+            .map(item => {
+                const totalReceived = receiptsForPO.reduce((sum, receipt) => {
+                    const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
+                    return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
+                }, 0);
+                const totalReturned = returnsForPO.reduce((sum, pr) => {
+                    const returnItem = pr.items.find(i => i.productSystemId === item.productSystemId);
+                    return sum + (returnItem ? returnItem.returnQuantity : 0);
+                }, 0);
+                const returnableQuantity = totalReceived - totalReturned;
+                
+                return {
+                    productSystemId: item.productSystemId,
+                    productId: item.productId,
+                    productName: item.productName,
+                    orderedQuantity: item.quantity,
+                    returnQuantity: returnableQuantity,
+                    unitPrice: item.unitPrice,
+                };
+            })
+            .filter(item => item.returnQuantity > 0);
+
+        if (returnItems.length > 0) {
+            const totalReturnValue = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
+            
+            addPurchaseReturn({
+                id: '',
+                purchaseOrderId: po.systemId, // ✅ Fixed: Use systemId for foreign key
+                supplierSystemId: po.supplierSystemId,
+                supplierName: po.supplierName,
+                branchSystemId: po.branchSystemId,
+                branchName: po.branchName,
+                returnDate: toISODate(getCurrentDate()),
+                reason: `Tự động tạo khi hủy đơn nhập hàng ${po.id}`,
+                items: returnItems,
+                totalReturnValue: totalReturnValue,
+                refundAmount: 0, 
+                refundMethod: '',
+                creatorName: loggedInUser.fullName,
+            });
+        }
+    }
+
+    cancelOrder(po.systemId, loggedInUser.systemId, loggedInUser.fullName);
+    setCancelDialogState({ isOpen: false, po: null });
+  };
+
+  const printButton = React.useMemo(() => (
+    <Button variant="outline" size="sm" onClick={() => window.print()}>
+      <Printer className="mr-2 h-4 w-4" /> In
+    </Button>
+  ), []);
+
+  const actions = React.useMemo(() => {
+    if (!purchaseOrder) return [];
+    const isTerminalStatus = purchaseOrder.status === 'Kết thúc' || purchaseOrder.status === 'Đã hủy';
+    const isCompleted = purchaseOrder.status === 'Hoàn thành';
+    
+    // Theo chuẩn Sapo: Chỉ cho phép sửa/hủy đơn CHƯA nhập kho
+    const canEdit = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
+    const canCancel = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
+
+    const actionButtons = [
+      <Button key="exit" variant="outline" size="sm" onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="h-9">
+        Thoát
+      </Button>
+    ];
+
+    if (!isTerminalStatus) {
+      actionButtons.push(
+        <Button key="copy" variant="outline" size="sm" onClick={() => {
+          // Copy order logic - navigate to new order with pre-filled data
+          navigate(`${ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW}?copy=${purchaseOrder.systemId}`);
+        }} className="h-9">
+          Sao chép
+        </Button>
+      );
+    }
+
+    if (!isTerminalStatus && canBeFinished) {
+      actionButtons.push(
+        <Button key="finish" size="sm" onClick={() => finishOrder(purchaseOrder.systemId, loggedInUser.systemId, loggedInUser.fullName)} className="h-9">
+          Hoàn tất
+        </Button>
+      );
+    }
+
+    // More Actions Dropdown
+    actionButtons.push(
+      <DropdownMenu key="more">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9 w-9 p-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4" />
+            In đơn
+          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={() => navigate(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Sửa
+            </DropdownMenuItem>
+          )}
+          {!canEdit && !isTerminalStatus && (
+            <DropdownMenuItem disabled className="cursor-not-allowed">
+              <Edit className="mr-2 h-4 w-4 opacity-50" />
+              <div className="flex flex-col">
+                <span className="opacity-50">Sửa</span>
+                <span className="text-xs text-muted-foreground">Đơn đã nhập kho không thể sửa</span>
+              </div>
+            </DropdownMenuItem>
+          )}
+          {canReturn && (
+            <DropdownMenuItem onClick={() => navigate(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/return`)}>
+              <Undo2 className="mr-2 h-4 w-4" />
+              Hoàn trả
+            </DropdownMenuItem>
+          )}
+          {canCancel && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleCancelRequest(purchaseOrder)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Hủy đơn
+              </DropdownMenuItem>
+            </>
+          )}
+          {!canCancel && !isTerminalStatus && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled className="cursor-not-allowed">
+                <Trash2 className="mr-2 h-4 w-4 opacity-50" />
+                <div className="flex flex-col">
+                  <span className="text-destructive opacity-50">Hủy đơn</span>
+                  <span className="text-xs text-muted-foreground">Đơn đã nhập kho không thể hủy</span>
+                </div>
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+
+    return actionButtons;
+  }, [navigate, purchaseOrder, canBeFinished, canReturn, finishOrder, loggedInUser, handleCancelRequest]);
+
+  usePageHeader({ 
+    actions,
+    title: `${purchaseOrder.id}` 
+  });
+  
+  const supplier = React.useMemo(() => {
+    if (!purchaseOrder) return null;
+    return suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
+  }, [purchaseOrder, suppliers]);
+
+  const supplierPurchaseOrders = React.useMemo(() => {
+    if (!supplier) return [];
+    return allPurchaseOrders.filter(po => po.supplierSystemId === supplier.systemId);
+  }, [supplier, allPurchaseOrders]);
+
+  const { calculatedDebt, totalReturnValueForSupplier } = React.useMemo(() => {
+    if (!supplier) return { calculatedDebt: 0, totalReturnValueForSupplier: 0 };
+    
+    const supplierReturns = allPurchaseReturns.filter(pr => pr.supplierSystemId === supplier.systemId);
+    const totalReturnValue = supplierReturns.reduce((sum, pr) => sum + pr.totalReturnValue, 0);
+
+    const totalPurchases = supplierPurchaseOrders.reduce((sum, po) => sum + po.grandTotal, 0);
+    const totalPayments = allPayments
+      .filter((p: Payment) => p.recipientType === 'Nhà cung cấp' && p.recipientName === supplier.name)
+      .reduce((sum, p) => sum + p.amount, 0);
+    
+    // Debt calculation should factor in returns
+    const calculatedDebt = totalPurchases - totalPayments - totalReturnValue;
+      
+    return { calculatedDebt, totalReturnValueForSupplier: totalReturnValue };
+  }, [supplier, supplierPurchaseOrders, allPayments, allPurchaseReturns]);
+  
+  const { totalPaidOnThisOrder, financialHistory } = React.useMemo(() => {
+    if (!purchaseOrder) return { totalPaidOnThisOrder: 0, financialHistory: [] };
+
+    // Get payments for this supplier
+    const poSupplier = suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
+    const paymentTransactions = allPayments.filter((p: Payment) =>
+        p.status === 'completed' &&
+        p.recipientType === 'Nhà cung cấp' &&
+        p.recipientName === poSupplier?.name
+    ).map(p => ({
+        type: 'payment' as const, systemId: p.systemId, id: p.id, date: p.date,
+        amount: p.amount, method: p.paymentMethod, creator: p.createdBy, description: p.description,
+    }));
+    
+    // Get refunds (receipts from supplier for returns)
+    const returnSystemIds = purchaseReturns.map(pr => pr.systemId);
+    const refundTransactions = allReceiptsFinancial.filter((r: Receipt) =>
+        r.status === 'completed' &&
+        r.payerType === 'Nhà cung cấp' &&
+        r.payerName === poSupplier?.name
+    ).map(r => ({
+        type: 'refund' as const, systemId: r.systemId, id: r.id, date: r.date,
+        amount: r.amount, method: r.paymentMethod, creator: r.createdBy, description: r.description,
+    }));
+    
+    const combinedHistory = [...paymentTransactions, ...refundTransactions].sort((a, b) => getDaysDiff(parseDate(b.date), parseDate(a.date)));
+    const totalPaid = paymentTransactions.reduce((sum, p) => sum + p.amount, 0);
+    
+    return { totalPaidOnThisOrder: totalPaid, financialHistory: combinedHistory };
+  }, [purchaseOrder, allPayments, allReceiptsFinancial, purchaseReturns, suppliers]);
+  
+  const totalReturnedValue = React.useMemo(() => 
+    purchaseReturns.reduce((sum, pr) => sum + pr.totalReturnValue, 0),
+  [purchaseReturns]);
+
+  const actualDebt = (purchaseOrder?.grandTotal || 0) - totalReturnedValue;
+  const amountRemainingOnThisOrder = actualDebt - totalPaidOnThisOrder;
+  const supplierRefundAmount = Math.max(0, -amountRemainingOnThisOrder);
+
+  const localPaymentStatus: PaymentStatus = React.useMemo(() => {
+    if (!purchaseOrder) return 'Chưa thanh toán';
+    if (totalPaidOnThisOrder >= actualDebt) {
+        return 'Đã thanh toán';
+    } else if (totalPaidOnThisOrder > 0) {
+        return 'Thanh toán một phần';
+    } else {
+        return 'Chưa thanh toán';
+    }
+  }, [purchaseOrder, totalPaidOnThisOrder, actualDebt]);
+
+  const canPay = amountRemainingOnThisOrder > 0 && purchaseOrder?.status !== 'Đã hủy' && purchaseOrder?.status !== 'Kết thúc';
+
+  if (!purchaseOrder) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Không tìm thấy đơn nhập hàng</h2>
+          <Button onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="mt-4"><ArrowLeft className="mr-2 h-4 w-4" />Quay về danh sách</Button>
+        </div>
+      </div>
+    );
+  }
+  
+  const handleSupplierClick = () => {
+    if (supplier) {
+      navigate(`${ROUTES.PROCUREMENT.SUPPLIERS}/${supplier.systemId}`);
+    }
+  };
+  
+   const handleReceiveAllItems = () => {
+    if (!purchaseOrder || purchaseOrder.deliveryStatus === 'Đã nhập') {
+      alert("Đơn hàng đã được nhập kho đầy đủ.");
+      return;
+    }
+
+    if (!purchaseOrder.branchSystemId || !purchaseOrder.branchName) {
+      alert("Đơn hàng này chưa được gán cho chi nhánh nào. Vui lòng cập nhật đơn hàng.");
+      return;
+    }
+
+    // Mở dialog xác nhận
+    setIsReceiveConfirmationOpen(true);
+  };
+
+  const handleConfirmReceive = () => {
+    if (!purchaseOrder) return;
+
+    const getAlreadyReceivedQty = (productSystemId: string) => {
+      const receiptsForPO = allReceipts.filter(r => r.purchaseOrderId === purchaseOrder.systemId); // ✅ Fixed: Use systemId
+      return receiptsForPO.reduce((total, receipt) => {
+        const item = receipt.items.find(i => i.productSystemId === productSystemId);
+        return total + (item ? Number(item.receivedQuantity) : 0);
+      }, 0);
+    };
+
+    const itemsToReceive = purchaseOrder.lineItems.map(item => {
+      const alreadyReceived = getAlreadyReceivedQty(item.productSystemId);
+      const remaining = item.quantity - alreadyReceived;
+      return {
+        productSystemId: item.productSystemId,
+        productId: item.productId,
+        productName: item.productName,
+        orderedQuantity: item.quantity,
+        receivedQuantity: remaining > 0 ? remaining : 0,
+        unitPrice: item.unitPrice,
+      };
+    }).filter(item => item.receivedQuantity > 0);
+
+    if (itemsToReceive.length === 0) {
+      alert("Không có sản phẩm nào cần nhập thêm.");
+      setIsReceiveConfirmationOpen(false);
+      return;
+    }
+    
+    const receiptData = {
+      id: '',
+      purchaseOrderId: purchaseOrder.systemId, // ✅ Fixed: Use systemId for foreign key
+      supplierSystemId: purchaseOrder.supplierSystemId,
+      supplierName: purchaseOrder.supplierName,
+      receivedDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
+      receiverSystemId: loggedInUser.systemId,
+      receiverName: loggedInUser.fullName,
+      items: itemsToReceive,
+      notes: 'Nhập kho tự động toàn bộ sản phẩm còn lại.',
+    };
+
+    addInventoryReceipt(receiptData);
+
+    itemsToReceive.forEach(item => {
+      const productData = products.find(p => p.id === item.productId);
+      // Products now store on-hand inventory in `inventoryByBranch` (Record<branchId, number>)
+      const oldStock = productData?.inventoryByBranch?.[purchaseOrder.branchSystemId] || 0;
+      
+      // Cập nhật tồn kho
+      updateInventory(item.productSystemId as any, purchaseOrder.branchSystemId as any, item.receivedQuantity);
+      
+      // Ghi lịch sử kho
+      addStockHistoryEntry({
+        productId: item.productId,
+        action: 'Nhập hàng từ NCC',
+        employeeName: loggedInUser.fullName,
+        date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
+        quantityChange: item.receivedQuantity,
+        newStockLevel: oldStock + item.receivedQuantity,
+        documentId: purchaseOrder.systemId, // Fixed: Use purchaseOrder.systemId instead of undefined newReceiptId
+        branch: purchaseOrder.branchName,
+        branchSystemId: purchaseOrder.branchSystemId,
+      });
+    });
+    
+    processInventoryReceipt(purchaseOrder.systemId); // ✅ Fixed: Use systemId
+
+    setIsReceiveConfirmationOpen(false);
+    // alert(`Đã nhập kho thành công ${itemsToReceive.length} sản phẩm.`);
+  };
+
+  const handlePaymentConfirmationSubmit = (values: PaymentConfirmationFormValues) => {
+    if (!purchaseOrder || !supplier) return;
+
+    const paymentCategory = paymentTypes.find(pt => pt.name === 'Thanh toán cho đơn nhập hàng');
+    // REMOVED: Voucher system no longer exists
+    // const paymentVouchers = allVouchers.filter(v => v.type === 'payment');
+    
+    const account = accounts.find(acc => acc.systemId === values.accountSystemId);
+
+    if (!account) {
+      alert(`Không tìm thấy tài khoản thanh toán. Vui lòng kiểm tra lại.`);
+      return;
+    }
+
+    // REMOVED: Voucher system no longer exists
+    /* const newVoucher: Omit<Voucher, 'systemId'> = {
+      id: '',
+      status: 'Hoàn thành',
+      type: 'payment',
+      date: values.paymentDate,
+      amount: values.amount,
+      targetGroup: 'Nhà cung cấp',
+      targetName: supplier.name,
+      description: `Thanh toán cho đơn nhập hàng ${purchaseOrder.id}${values.reference ? ` (${values.reference})` : ''}`,
+      paymentMethod: values.paymentMethod,
+      accountSystemId: account.systemId,
+      originalDocumentId: purchaseOrder.systemId,
+      createdBy: loggedInUser.fullName,
+      branchSystemId: purchaseOrder.branchSystemId,
+      branchName: purchaseOrder.branchName,
+      voucherCategorySystemId: paymentCategory?.systemId || '',
+      voucherCategoryName: paymentCategory?.name || '',
+      allocations: [{ purchaseOrderId: purchaseOrder.systemId, amount: values.amount }],
+      createdAt: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
+      affectsDebt: true,
+    }; */
+
+    // REMOVED: Voucher system no longer exists
+    // addVoucher(newVoucher);
+    
+    // Sync lại payment status sau khi thanh toán
+    const { syncAllPurchaseOrderStatuses } = usePurchaseOrderStore.getState();
+    syncAllPurchaseOrderStatuses();
+    
+    setIsPaymentConfirmationOpen(false);
+    
+    // alert(`Đã thanh toán ${formatCurrency(values.amount)} thành công!`);
+  };
+  
+  const canReceiveItems = purchaseOrder.deliveryStatus !== 'Đã nhập' && purchaseOrder.status !== 'Đã hủy' && purchaseOrder.status !== 'Kết thúc';
+  
+  const financialHistoryList = (
+    <div className="space-y-4 pt-4">
+      {financialHistory.map((item) => (
+        <div key={item.systemId} className="relative pl-6">
+          <div className={cn("absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full", item.type === 'payment' ? 'bg-blue-500' : 'bg-green-500')} />
+          <div className="flex items-baseline gap-2 text-sm">
+              <span className="font-medium">{item.type === 'payment' ? 'Thanh toán' : 'Nhận hoàn tiền'} {formatCurrency(item.amount)}</span>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground">{formatDateCustom(item.date, "dd/MM/yyyy HH:mm:ss")}</span>
+               <Link 
+                 to={`/vouchers/${item.systemId}`} 
+                 className="text-primary hover:underline font-medium text-sm"
+               >
+                  ({item.id})
+              </Link>
+          </div>
+          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+            <p>Người tạo: {item.creator}</p>
+            <p>Diễn giải: {item.description}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  let paymentSection;
+  
+  const paymentDetails = (
+      <div className="space-y-3">
+          {purchaseOrder.grandTotal === 0 ? (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                <AlertCircle className="h-5 w-5" />
+                <p className="font-medium">Đơn hàng chưa có sản phẩm hoặc tổng tiền bằng 0</p>
+              </div>
+              <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+                Vui lòng kiểm tra lại danh sách sản phẩm trong đơn hàng.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <span className="text-muted-foreground">Tổng tiền ĐH:</span>
+                  <span className="font-semibold text-right">{formatCurrency(purchaseOrder.grandTotal)}</span>
+                  
+                  {totalReturnedValue > 0 && (
+                    <>
+                      <span className="text-muted-foreground">Giá trị hàng đã trả:</span>
+                      <span className="font-medium text-right text-red-500">-{formatCurrency(totalReturnedValue)}</span>
+                    </>
+                  )}
+                  
+                  <span className="text-muted-foreground">Công nợ thực tế:</span>
+                  <span className="font-semibold text-right">{formatCurrency(actualDebt)}</span>
+                  
+                  {totalPaidOnThisOrder > 0 && (
+                    <>
+                      <span className="text-muted-foreground">Đã thanh toán:</span>
+                      <span className="font-medium text-right text-green-600">-{formatCurrency(totalPaidOnThisOrder)}</span>
+                    </>
+                  )}
+              </div>
+              
+              <Separator />
+              
+              <div className="flex justify-between items-center">
+                  {amountRemainingOnThisOrder > 0 ? (
+                      <>
+                          <span className="font-semibold text-muted-foreground">Còn phải trả:</span>
+                          <span className="font-bold text-xl text-red-600">{formatCurrency(amountRemainingOnThisOrder)}</span>
+                      </>
+                  ) : amountRemainingOnThisOrder < 0 ? (
+                      <>
+                          <span className="font-semibold text-muted-foreground">NCC cần hoàn lại:</span>
+                          <span className="font-bold text-xl text-green-600">{formatCurrency(supplierRefundAmount)}</span>
+                      </>
+                  ) : (
+                      <>
+                          <span className="font-semibold text-muted-foreground">Trạng thái:</span>
+                          <span className="font-bold text-xl text-green-600">Đã thanh toán đủ</span>
+                      </>
+                  )}
+              </div>
+            </>
+          )}
+      </div>
+  );
+
+  switch(localPaymentStatus) {
+      case 'Chưa thanh toán':
+      case 'Thanh toán một phần':
+          paymentSection = (
+              <Card>
+                  <CardHeader>
+                      <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                              <Wallet className="h-5 w-5 text-amber-500" />
+                              <CardTitle className="text-base font-semibold">
+                                Thanh toán: {localPaymentStatus}
+                              </CardTitle>
+                          </div>
+                          {canPay && (
+                            <Button size="sm" onClick={() => setIsPaymentConfirmationOpen(true)}>
+                              <CreditCard className="mr-2 h-4 w-4" />
+                              Thanh toán
+                            </Button>
+                          )}
+                      </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                      {paymentDetails}
+                      {financialHistory.length > 0 && (
+                        <>
+                          <Separator />
+                          {financialHistoryList}
+                        </>
+                      )}
+                  </CardContent>
+              </Card>
+          );
+          break;
+      case 'Đã thanh toán':
+          paymentSection = (
+              <Card>
+                  <CardHeader>
+                      <div className="flex items-center gap-2 text-green-600">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <CardTitle className="text-base font-semibold">Thanh toán: Đã thanh toán</CardTitle>
+                      </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                      {paymentDetails}
+                      {financialHistory.length > 0 && (
+                        <>
+                          <Separator />
+                          {financialHistoryList}
+                        </>
+                      )}
+                  </CardContent>
+              </Card>
+          );
+          break;
+  }
+  
+  let receivingSection;
+
+  if (purchaseOrder.deliveryStatus === 'Đã nhập') {
+      receivingSection = (
+          <Card>
+              <CardHeader>
+                  <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <CardTitle className="text-base font-semibold">Nhập hàng: Đã nhập kho</CardTitle>
+                  </div>
+              </CardHeader>
+          </Card>
+      );
+  } else { // 'Chưa nhập' or 'Đã nhập một phần'
+      const title = purchaseOrder.deliveryStatus === 'Chưa nhập'
+          ? 'Nhập hàng: Chưa nhập kho'
+          : 'Nhập hàng: Đã nhập một phần';
+      
+      receivingSection = (
+          <Card>
+              <CardHeader>
+                  <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                          <Package className="h-5 w-5 text-amber-500" />
+                          <CardTitle className="text-base font-semibold">{title}</CardTitle>
+                      </div>
+                      {canReceiveItems && (
+                        <Button size="sm" onClick={handleReceiveAllItems}>
+                          <Truck className="mr-2 h-4 w-4" />
+                          Nhập hàng
+                        </Button>
+                      )}
+                  </div>
+              </CardHeader>
+          </Card>
+      );
+  }
+  
+  const statusVariants = {
+    "Đặt hàng": "secondary", "Đang giao dịch": "warning", "Hoàn thành": "success", "Đã hủy": "destructive", "Kết thúc": "default", "Đã trả hàng": "destructive"
+  }
+  const paymentStatusVariants = {
+    "Chưa thanh toán": "warning", "Thanh toán một phần": "warning", "Đã thanh toán": "success"
+  }
+
+  return (
+      <div className="space-y-6">
+          <StatusTimeline status={purchaseOrder.status} deliveryStatus={purchaseOrder.deliveryStatus} orderDate={purchaseOrder.orderDate} />
+
+          {/* Thông tin NCC và Đơn hàng */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                  <Card className="h-[300px]">
+                      <CardHeader>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-5 w-5 text-muted-foreground" />
+                          <CardTitle className="text-base font-semibold">Thông tin nhà cung cấp</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="overflow-y-auto" style={{maxHeight: 'calc(300px - 80px)'}}>
+                        <div className="space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1">
+                              <p className="font-semibold text-lg text-primary cursor-pointer hover:underline" onClick={handleSupplierClick}>
+                                {purchaseOrder.supplierName}
+                              </p>
+                              <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                                <p>Địa chỉ: {supplier?.address || '-'}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 bg-muted/30 rounded-lg">
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Nợ hiện tại</p>
+                              <p className="text-sm font-semibold text-destructive">
+                                {formatCurrency(calculatedDebt)}
+                              </p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Tổng đơn nhập</p>
+                              <p className="text-sm font-semibold">
+                                {formatCurrency(supplierPurchaseOrders.reduce((sum, po) => sum + po.grandTotal, 0))}
+                              </p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Trả hàng</p>
+                              <p className="text-sm font-semibold text-orange-600">
+                                {formatCurrency(totalReturnValueForSupplier)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                  </Card>
+              </div>
+
+              <div className="lg:col-span-1">
+                  <Card className="h-[300px] flex flex-col">
+                      <CardHeader>
+                        <CardTitle className="text-base font-semibold">Thông tin đơn nhập hàng</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex-1 overflow-y-auto text-sm space-y-3">
+                          <DetailField label="Chi nhánh" value={purchaseOrder.branchName} />
+                          <DetailField label="Chính sách giá" value="Giá nhập" />
+                          <DetailField label="Nhân viên phụ trách" value={purchaseOrder.buyer} />
+                          <DetailField label="Ngày đặt" value={formatDateCustom(parseDate(purchaseOrder.orderDate) || getCurrentDate(), 'dd/MM/yyyy')} />
+                          <DetailField label="Ngày giao" value={formatDateCustom(parseDate(purchaseOrder.deliveryDate) || getCurrentDate(), 'dd/MM/yyyy')} />
+                          <DetailField label="Tham chiếu" value={purchaseOrder.reference || '-'} />
+                          <Button variant="link" className="p-0 h-auto text-sm" onClick={handleSupplierClick}>Xem lịch sử đơn nhập hàng</Button>
+                      </CardContent>
+                  </Card>
+              </div>
+          </div>
+
+          {/* Trạng thái hàng và thanh toán - Full width mỗi hàng */}
+          <div className="space-y-4">
+              {receivingSection}
+              {paymentSection}
+          </div>
+
+          <Card>
+              <CardHeader>
+                  <CardTitle className="text-base font-semibold">Thông tin sản phẩm</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <div className="border rounded-md overflow-x-auto">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead className="w-[50px]">STT</TableHead>
+                                  <TableHead className="w-[60px]">Ảnh</TableHead>
+                                  <TableHead className="min-w-[200px]">Tên sản phẩm</TableHead>
+                                  <TableHead className="w-[100px]">Đơn vị</TableHead>
+                                  <TableHead className="w-[100px]">SL nhập</TableHead>
+                                  <TableHead className="w-[150px]">Đơn giá</TableHead>
+                                  <TableHead className="w-[180px]">Thuế</TableHead>
+                                  <TableHead className="w-[120px]">Chiết khấu</TableHead>
+                                  <TableHead className="w-[150px]">Thành tiền</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {purchaseOrder.lineItems.map((item, index) => {
+                                  const lineGross = item.quantity * item.unitPrice;
+                                  const discountAmount = item.discountType === 'percentage'
+                                    ? lineGross * (item.discount / 100)
+                                    : item.discount;
+                                  const lineTotal = lineGross - discountAmount;
+                                  return (
+                                  <TableRow key={item.productSystemId}>
+                                      <TableCell className="text-center">{index + 1}</TableCell>
+                                      <TableCell>
+                                        {item.imageUrl ? (
+                                          <img 
+                                            src={item.imageUrl} 
+                                            alt={item.productName}
+                                            className="w-10 h-9 object-cover rounded"
+                                          />
+                                        ) : (
+                                          <div className="w-10 h-9 bg-muted rounded flex items-center justify-center">
+                                            <Package className="h-5 w-5 text-muted-foreground" />
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        <div>
+                                          <p className="font-medium">{item.productName}</p>
+                                          <Link 
+                                            to={`/products/${item.productSystemId}`} 
+                                            target="_blank"
+                                            className="text-sm text-primary hover:underline"
+                                          >
+                                            {item.sku || item.productId}
+                                          </Link>
+                                          {item.note && (
+                                            <p className="text-xs text-muted-foreground italic mt-1">• {item.note}</p>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>{item.unit || '-'}</TableCell>
+                                      <TableCell className="text-center">{item.quantity}</TableCell>
+                                      <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                                      <TableCell className="text-right">{item.taxRate}%</TableCell>
+                                      <TableCell className="text-right">
+                                        {item.discountType === 'percentage' ? `${item.discount || 0}%` : formatCurrency(item.discount || 0)}
+                                      </TableCell>
+                                      <TableCell className="text-right font-semibold">{formatCurrency(lineTotal)}</TableCell>
+                                  </TableRow>
+                              )})}
+                          </TableBody>
+                          <TableFooter>
+                              <TableRow>
+                                  <TableCell colSpan={8} className="text-right">Tổng cộng</TableCell>
+                                  <TableCell className="text-right font-bold">
+                                    {formatCurrency(
+                                      purchaseOrder.lineItems.reduce((sum, item) => {
+                                        const lineGross = item.quantity * item.unitPrice;
+                                        const discountAmount = item.discountType === 'percentage'
+                                          ? lineGross * (item.discount / 100)
+                                          : item.discount;
+                                        return sum + (lineGross - discountAmount);
+                                      }, 0)
+                                    )}
+                                  </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                  <TableCell colSpan={8} className="text-right text-muted-foreground">Phí vận chuyển</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(purchaseOrder.shippingFee || 0)}</TableCell>
+                              </TableRow>
+                              {purchaseOrder.discount && purchaseOrder.discount > 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="text-right text-muted-foreground">
+                                      Giảm giá {purchaseOrder.discountType === 'percentage' ? `(${purchaseOrder.discount}%)` : ''}
+                                    </TableCell>
+                                    <TableCell className="text-right text-red-600">
+                                      -{formatCurrency(
+                                        purchaseOrder.discountType === 'percentage'
+                                          ? ((purchaseOrder.subtotal || 0) * purchaseOrder.discount / 100)
+                                          : purchaseOrder.discount
+                                      )}
+                                    </TableCell>
+                                </TableRow>
+                              )}
+                              <TableRow>
+                                  <TableCell colSpan={8} className="text-right text-muted-foreground">Thuế</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(purchaseOrder.tax || 0)}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                  <TableCell colSpan={8} className="text-right font-bold text-lg">Thành tiền</TableCell>
+                                  <TableCell className="text-right font-bold text-lg">
+                                    {formatCurrency(
+                                      purchaseOrder.lineItems.reduce((sum, item) => {
+                                        const lineGross = item.quantity * item.unitPrice;
+                                        const discountAmount = item.discountType === 'percentage'
+                                          ? lineGross * (item.discount / 100)
+                                          : item.discount;
+                                        return sum + (lineGross - discountAmount);
+                                      }, 0) + (purchaseOrder.shippingFee || 0) + (purchaseOrder.tax || 0) - (
+                                        purchaseOrder.discount 
+                                          ? (purchaseOrder.discountType === 'percentage'
+                                              ? ((purchaseOrder.subtotal || 0) * purchaseOrder.discount / 100)
+                                              : purchaseOrder.discount)
+                                          : 0
+                                      )
+                                    )}
+                                  </TableCell>
+                              </TableRow>
+                          </TableFooter>
+                      </Table>
+                  </div>
+              </CardContent>
+          </Card>
+
+          <Tabs defaultValue="stock_history">
+              <TabsList>
+                  <TabsTrigger value="stock_history">Lịch sử kho ({poReceipts.length + purchaseReturns.length})</TabsTrigger>
+                  <TabsTrigger value="history">Lịch sử thay đổi ({logs.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value="stock_history" className="mt-4">
+                 <StockHistoryTab poReceipts={poReceipts} purchaseReturns={purchaseReturns} allTransactions={allTransactions} />
+              </TabsContent>
+              <TabsContent value="history" className="mt-4">
+                  <Card>
+                      <CardContent className="p-6">
+                         <ChangeHistoryTab purchaseOrderId={purchaseOrder.systemId} />
+                      </CardContent>
+                  </Card>
+              </TabsContent>
+          </Tabs>
+
+           <PaymentConfirmationDialog
+              isOpen={isPaymentConfirmationOpen}
+              onOpenChange={setIsPaymentConfirmationOpen}
+              amountRemaining={amountRemainingOnThisOrder}
+              onSubmit={handlePaymentConfirmationSubmit}
+          />
+          
+          <AlertDialog open={isReceiveConfirmationOpen} onOpenChange={setIsReceiveConfirmationOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận nhập hàng</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Bạn có chắc chắn muốn nhập kho <strong>toàn bộ sản phẩm</strong> còn lại trong đơn hàng này không?
+                  <br /><br />
+                  Hệ thống sẽ tạo phiếu nhập kho (PNK) và cập nhật tồn kho tự động.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmReceive}>
+                  Xác nhận nhập hàng
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={cancelDialogState.isOpen} onOpenChange={(open) => setCancelDialogState(s => ({ ...s, isOpen: open }))}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Bạn có chắc chắn muốn hủy đơn hàng này?</AlertDialogTitle>
+                <AlertDialogDescription>
+                {cancelDialogState.willCreateReturn ? (
+                    <>
+                    Đơn hàng này đã có sản phẩm được nhập kho. Hủy đơn sẽ tự động tạo một <strong>Phiếu Xuất trả hàng</strong> cho các sản phẩm đã nhận.
+                    {cancelDialogState.totalPaid && cancelDialogState.totalPaid > 0 ? (
+                        ` Đồng thời, một Phiếu Thu hoàn tiền ${formatCurrency(cancelDialogState.totalPaid)} sẽ được tạo.`
+                    ) : ''}
+                    {' '}Hành động này không thể hoàn tác.
+                    </>
+                ) : cancelDialogState.totalPaid && cancelDialogState.totalPaid > 0 ? (
+                    <>
+                    Đơn hàng này đã được thanh toán <strong>{formatCurrency(cancelDialogState.totalPaid)}</strong>. 
+                    Việc hủy đơn sẽ tự động tạo một <strong>Phiếu Thu</strong> ghi nhận khoản tiền này là "Nhà cung cấp cần hoàn lại". 
+                    Hành động này không thể hoàn tác.
+                    </>
+                ) : (
+                    'Hành động này sẽ chuyển trạng thái đơn hàng thành "Đã hủy" và không thể hoàn tác.'
+                )}
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setCancelDialogState({ isOpen: false, po: null })}>Thoát</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmCancel}>Xác nhận hủy</AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      </div>
+  );
+}

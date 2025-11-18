@@ -1,0 +1,51 @@
+﻿import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { createCrudStore } from '../../lib/store-factory.ts';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils.ts';
+import { data as initialData } from './data.ts';
+import type { WikiArticle } from './types.ts';
+type WikiState = {
+  data: WikiArticle[];
+  add: (item: Omit<WikiArticle, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>) => void;
+  update: (systemId: string, item: Partial<Omit<WikiArticle, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>>) => void;
+  remove: (systemId: string) => void;
+  findById: (systemId: string) => WikiArticle | undefined;
+};
+
+export const useWikiStore = create<WikiState>()(
+  persist(
+    (set, get) => ({
+      data: initialData,
+      findById: (systemId) => get().data.find((item) => item.systemId === systemId),
+      add: (item) =>
+        set((state) => {
+          const currentDate = toISODate(getCurrentDate());
+          const displayId = `WIKI${String(state.data.length + 1).padStart(6, '0')}`;
+          const newItem: WikiArticle = {
+            ...item,
+            systemId: `wiki_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: displayId,
+            createdAt: currentDate,
+            updatedAt: currentDate,
+          };
+          return { data: [...state.data, newItem] };
+        }),
+      update: (systemId, updatedFields) =>
+        set((state) => ({
+          data: state.data.map((item) =>
+            item.systemId === systemId
+              ? { ...item, ...updatedFields, updatedAt: toISODate(getCurrentDate()) }
+              : item
+          ),
+        })),
+      remove: (systemId) =>
+        set((state) => ({
+          data: state.data.filter((item) => item.systemId !== systemId),
+        })),
+    }),
+    {
+      name: 'hrm-wiki-storage',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);

@@ -1,0 +1,82 @@
+import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
+import { data as initialData } from './data.ts';
+import type { Supplier } from './types.ts';
+import Fuse from 'fuse.js';
+import { getCurrentUserSystemId } from '../../contexts/user-context.tsx';
+
+const baseStore = createCrudStore<Supplier>(initialData, 'suppliers', {
+  businessIdField: 'id',
+  persistKey: 'hrm-suppliers', // ✅ Enable persistence
+  getCurrentUser: getCurrentUserSystemId, // ✅ Track who creates/updates
+});
+
+const fuse = new Fuse(baseStore.getState().data, {
+    keys: ['name', 'id', 'phone'],
+    threshold: 0.3,
+});
+
+// Define enhanced interface
+interface SupplierStoreState extends CrudState<Supplier> {
+  searchSuppliers: (query: string, page: number, limit?: number) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
+  updateStatus: (systemIds: string[], status: Supplier['status']) => void;
+  bulkDelete: (systemIds: string[]) => void;
+}
+
+// Augmented methods
+const augmentedMethods = {
+    searchSuppliers: async (query: string, page: number, limit: number = 20) => {
+        return new Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>(resolve => {
+            setTimeout(() => {
+                const allSuppliers = baseStore.getState().data;
+                const results = query ? fuse.search(query).map(r => r.item) : allSuppliers;
+                
+                const start = (page - 1) * limit;
+                const end = start + limit;
+                const paginatedItems = results.slice(start, end);
+
+                resolve({
+                    items: paginatedItems.map(s => ({ value: s.systemId, label: s.name })),
+                    hasNextPage: end < results.length,
+                });
+            }, 300);
+        });
+    },
+    updateStatus: (systemIds: string[], status: Supplier['status']) => {
+        const currentUser = getCurrentUserSystemId();
+        baseStore.setState((state) => ({
+            data: state.data.map((item) =>
+                systemIds.includes(item.systemId)
+                    ? { ...item, status, updatedBy: currentUser, updatedAt: new Date().toISOString() }
+                    : item
+            ),
+        }));
+    },
+    bulkDelete: (systemIds: string[]) => {
+        const currentUser = getCurrentUserSystemId();
+        baseStore.setState((state) => ({
+            data: state.data.map((item) =>
+                systemIds.includes(item.systemId)
+                    ? { ...item, isDeleted: true, deletedBy: currentUser, deletedAt: new Date().toISOString() }
+                    : item
+            ),
+        }));
+    }
+};
+
+// Export typed hook
+export const useSupplierStore = (): SupplierStoreState => {
+  const state = baseStore();
+  return {
+    ...state,
+    ...augmentedMethods,
+  };
+};
+
+// Export getState for non-hook usage
+useSupplierStore.getState = (): SupplierStoreState => {
+  const state = baseStore.getState();
+  return {
+    ...state,
+    ...augmentedMethods,
+  };
+};
