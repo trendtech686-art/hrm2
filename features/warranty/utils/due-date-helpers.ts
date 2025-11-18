@@ -7,11 +7,72 @@
 
 import type { WarrantyTicket } from '../types';
 
+const HOUR_IN_MS = 1000 * 60 * 60;
+const DAY_IN_MS = HOUR_IN_MS * 24;
+
+export type DueDateStatus =
+  | 'no-due-date'
+  | 'future'
+  | 'normal'
+  | 'due-soon'
+  | 'due-tomorrow'
+  | 'due-today'
+  | 'overdue';
+
 export type DueDateWarning = {
   severity: 'none' | 'info' | 'warning' | 'critical' | 'overdue';
-  status?: 'overdue' | 'due-today' | 'due-tomorrow' | 'due-soon' | 'normal';
+  status: DueDateStatus;
   message: string;
   daysRemaining: number;
+  hoursRemaining: number;
+  icon: 'AlertTriangle' | 'Clock' | 'AlertCircle' | 'Info' | 'Calendar';
+  color: string;
+  bgColor: string;
+};
+
+const STATUS_CONFIG: Record<DueDateStatus, Pick<DueDateWarning, 'severity' | 'icon' | 'color' | 'bgColor'>> = {
+  'no-due-date': {
+    severity: 'none',
+    icon: 'Calendar',
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted/60',
+  },
+  future: {
+    severity: 'info',
+    icon: 'Calendar',
+    color: 'text-blue-600 dark:text-blue-300',
+    bgColor: 'bg-blue-50 dark:bg-blue-950',
+  },
+  normal: {
+    severity: 'warning',
+    icon: 'Clock',
+    color: 'text-amber-600 dark:text-amber-300',
+    bgColor: 'bg-amber-50 dark:bg-amber-950',
+  },
+  'due-soon': {
+    severity: 'critical',
+    icon: 'AlertCircle',
+    color: 'text-orange-600 dark:text-orange-300',
+    bgColor: 'bg-orange-50 dark:bg-orange-950',
+  },
+  'due-tomorrow': {
+    severity: 'critical',
+    icon: 'AlertCircle',
+    color: 'text-orange-600 dark:text-orange-300',
+    bgColor: 'bg-orange-50 dark:bg-orange-950',
+  },
+  'due-today': {
+    severity: 'critical',
+    icon: 'AlertTriangle',
+    color: 'text-destructive dark:text-red-300',
+    bgColor: 'bg-destructive/10 dark:bg-red-950',
+  },
+  overdue: {
+    severity: 'overdue',
+    icon: 'AlertTriangle',
+    color: 'text-destructive dark:text-red-300',
+    bgColor: 'bg-destructive/10 dark:bg-red-950',
+  },
 };
 
 export function calculateDueDate(createdAt: Date | string, daysToAdd: number): Date {
@@ -25,66 +86,79 @@ export function getDaysUntilDue(dueDate: Date | string): number {
   const due = typeof dueDate === 'string' ? new Date(dueDate) : dueDate;
   const now = new Date();
   const diffTime = due.getTime() - now.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffTime >= 0
+    ? Math.ceil(diffTime / DAY_IN_MS)
+    : Math.floor(diffTime / DAY_IN_MS);
 }
 
 export function isOverdue(dueDate: Date | string): boolean {
   return getDaysUntilDue(dueDate) < 0;
 }
 
-export function getDueDateWarning(dueDate: Date | string): DueDateWarning {
-  const daysRemaining = getDaysUntilDue(dueDate);
-  
-  if (daysRemaining < 0) {
+export function getDueDateWarning(dueDate?: Date | string | null): DueDateWarning {
+  if (!dueDate) {
     return {
-      severity: 'overdue',
-      status: 'overdue',
-      message: `Quá hạn ${Math.abs(daysRemaining)} ngày`,
-      daysRemaining,
+      ...STATUS_CONFIG['no-due-date'],
+      status: 'no-due-date',
+      message: 'Chưa có hạn chót',
+      daysRemaining: 0,
+      hoursRemaining: 0,
     };
   }
-  
-  if (daysRemaining === 0) {
+
+  const due = typeof dueDate === 'string' ? new Date(dueDate) : dueDate;
+
+  if (Number.isNaN(due.getTime())) {
     return {
-      severity: 'critical',
-      status: 'due-today',
-      message: 'Hôm nay',
-      daysRemaining,
+      ...STATUS_CONFIG['no-due-date'],
+      status: 'no-due-date',
+      message: 'Chưa có hạn chót',
+      daysRemaining: 0,
+      hoursRemaining: 0,
     };
   }
-  
-  if (daysRemaining === 1) {
-    return {
-      severity: 'critical',
-      status: 'due-tomorrow',
-      message: 'Ngày mai',
-      daysRemaining,
-    };
+
+  const now = new Date();
+  const diffMs = due.getTime() - now.getTime();
+  const hoursRemaining = diffMs >= 0
+    ? Math.ceil(diffMs / HOUR_IN_MS)
+    : Math.floor(diffMs / HOUR_IN_MS);
+  const daysRemaining = diffMs >= 0
+    ? Math.ceil(diffMs / DAY_IN_MS)
+    : Math.floor(diffMs / DAY_IN_MS);
+
+  let status: DueDateStatus;
+  let message: string;
+
+  if (diffMs < 0) {
+    status = 'overdue';
+    const overdueDays = Math.max(1, Math.abs(daysRemaining));
+    message = `Quá hạn ${overdueDays} ngày`;
+  } else if (daysRemaining === 0) {
+    status = 'due-today';
+    message = 'Đến hạn hôm nay';
+  } else if (daysRemaining === 1) {
+    status = 'due-tomorrow';
+    message = 'Đến hạn ngày mai';
+  } else if (daysRemaining <= 3) {
+    status = 'due-soon';
+    message = `Còn ${daysRemaining} ngày`;
+  } else if (daysRemaining <= 7) {
+    status = 'normal';
+    message = `Còn ${daysRemaining} ngày`;
+  } else {
+    status = 'future';
+    message = `Còn ${daysRemaining} ngày`;
   }
-  
-  if (daysRemaining <= 3) {
-    return {
-      severity: 'critical',
-      status: 'due-soon',
-      message: `Còn ${daysRemaining} ngày`,
-      daysRemaining,
-    };
-  }
-  
-  if (daysRemaining <= 7) {
-    return {
-      severity: 'warning',
-      status: 'normal',
-      message: `Còn ${daysRemaining} ngày`,
-      daysRemaining,
-    };
-  }
-  
+
+  const config = STATUS_CONFIG[status];
+
   return {
-    severity: 'info',
-    status: 'normal',
-    message: `Còn ${daysRemaining} ngày`,
+    ...config,
+    status,
+    message,
     daysRemaining,
+    hoursRemaining,
   };
 }
 

@@ -24,9 +24,21 @@ export function PageHeader() {
     badge,
     showBackButton,
     onBack,
-    actions = [],
+    actions: rawActions,
     breadcrumb = [],
   } = pageHeader;
+
+  const actions = React.useMemo(() => {
+    if (!rawActions) {
+      return [] as React.ReactNode[];
+    }
+
+    if (Array.isArray(rawActions)) {
+      return rawActions.filter(Boolean);
+    }
+
+    return [rawActions];
+  }, [rawActions]);
 
   // Don't render if no content
   if (!title && breadcrumb.length === 0 && actions.length === 0) {
