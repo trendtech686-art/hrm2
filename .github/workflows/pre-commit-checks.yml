@@ -24,7 +24,7 @@ jobs:
         run: npm ci
 
       - name: Verify branded IDs
-        run: npm run verify-ids
+        run: npx tsx scripts/verify-branded-ids.ts --skip-json
 
       - name: TypeScript check
         run: npx tsc --noEmit --pretty false --incremental false
