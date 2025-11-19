@@ -130,10 +130,12 @@ export const RETURN_STATUS_MAP: Record<string, StatusConfig> = {
  * Warranty Status
  */
 export const WARRANTY_STATUS_MAP: Record<string, StatusConfig> = {
-  'new': { label: 'Mới tạo', variant: 'secondary' },
-  'pending': { label: 'Đang xử lý', variant: 'warning' },
+  'incomplete': { label: 'Chưa đầy đủ', variant: 'warning' },
+  'pending': { label: 'Chưa xử lý', variant: 'secondary' },
   'processed': { label: 'Đã xử lý', variant: 'default' },
   'returned': { label: 'Đã trả', variant: 'success' },
+  'completed': { label: 'Kết thúc', variant: 'success' },
+  'cancelled': { label: 'Đã hủy', variant: 'destructive' },
 };
 
 /**
@@ -169,10 +171,8 @@ export const COMPLAINT_STATUS_MAP: Record<string, StatusConfig> = {
   'pending': { label: 'Chờ xử lý', variant: 'warning' },
   'investigating': { label: 'Đang kiểm tra', variant: 'warning' },
   'resolved': { label: 'Đã giải quyết', variant: 'success' },
-  'rejected': { label: 'Từ chối', variant: 'destructive' },
-  'in_progress': { label: 'Đang xử lý', variant: 'warning' },
-  'closed': { label: 'Đã đóng', variant: 'secondary' },
   'cancelled': { label: 'Đã hủy', variant: 'destructive' },
+  'ended': { label: 'Kết thúc', variant: 'secondary' },
 };
 
 /**

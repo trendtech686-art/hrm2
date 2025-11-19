@@ -1,60 +1,63 @@
 /**
  * Hook tối ưu cho public tracking page
- * Chỉ load data cần thiết, tránh load toàn bộ stores
+ * Lấy dữ liệu thông qua public warranty API để tránh expose toàn bộ stores
  */
 
-import { useMemo } from 'react';
-import { useWarrantyStore } from '../store';
-import { useBranchStore } from '../../settings/branches/store';
-import { useReceiptStore } from '../../receipts/store';
-import { usePaymentStore } from '../../payments/store';
-import { useOrderStore } from '../../orders/store';
-import type { WarrantyTicket } from '../types';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchPublicWarrantyTicket, type PublicWarrantyResponse } from '../public-warranty-api.ts';
+
+type TrackingError = 'MISSING_TRACKING_CODE' | 'NOT_FOUND' | 'UNKNOWN' | null;
+
+interface TrackingState {
+  data: PublicWarrantyResponse | null;
+  loading: boolean;
+  error: TrackingError;
+}
 
 export function usePublicTracking(trackingCode: string | undefined) {
-  const { data: warranties } = useWarrantyStore();
-  
-  // Find ticket first - most important operation
-  const ticket = useMemo(() => {
-    if (!trackingCode) return null;
-    return warranties.find(t => t.publicTrackingCode === trackingCode) || null;
-  }, [trackingCode, warranties]);
+  const [state, setState] = useState<TrackingState>({
+    data: null,
+    loading: Boolean(trackingCode),
+    error: trackingCode ? null : 'MISSING_TRACKING_CODE',
+  });
 
-  // Only load other stores if ticket exists
-  const shouldLoadRelated = !!ticket;
-  
-  const { data: branches } = useBranchStore();
-  const { data: receipts } = useReceiptStore();
-  const { data: payments } = usePaymentStore();
-  const { data: orders } = useOrderStore();
-
-  // Memoize related data calculations
-  const relatedData = useMemo(() => {
-    if (!ticket) {
-      return {
-        receipts: [],
-        payments: [],
-        orders: [],
-        hotline: '1900-xxxx',
-      };
+  useEffect(() => {
+    if (!trackingCode) {
+      setState({ data: null, loading: false, error: 'MISSING_TRACKING_CODE' });
+      return;
     }
 
-    const relatedReceipts = receipts.filter(r => r.originalDocumentId === ticket.id);
-    const relatedPayments = payments.filter(p => p.originalDocumentId === ticket.id);
-    const relatedOrders = orders.filter(o => o.systemId === ticket.linkedOrderSystemId);
-    const defaultBranch = branches.find(b => b.isDefault);
-    const hotline = defaultBranch?.phone || '1900-xxxx';
+    let cancelled = false;
+    setState(prev => ({ ...prev, loading: true, error: null }));
 
-    return {
-      receipts: relatedReceipts,
-      payments: relatedPayments,
-      orders: relatedOrders,
-      hotline,
+    fetchPublicWarrantyTicket(trackingCode)
+      .then(response => {
+        if (cancelled) return;
+        if (!response) {
+          setState({ data: null, loading: false, error: 'NOT_FOUND' });
+          return;
+        }
+        setState({ data: response, loading: false, error: null });
+      })
+      .catch(error => {
+        console.error('[usePublicTracking] Failed to fetch data', error);
+        if (!cancelled) {
+          setState({ data: null, loading: false, error: 'UNKNOWN' });
+        }
+      });
+
+    return () => {
+      cancelled = true;
     };
-  }, [ticket?.id, ticket?.linkedOrderSystemId, receipts, payments, orders, branches]);
+  }, [trackingCode]);
 
-  return {
-    ticket,
-    ...relatedData,
-  };
+  return useMemo(() => ({
+    ticket: state.data?.ticket ?? null,
+    payments: state.data?.payments ?? [],
+    receipts: state.data?.receipts ?? [],
+    orders: state.data?.orders ?? [],
+    hotline: state.data?.hotline ?? '1900-xxxx',
+    loading: state.loading,
+    error: state.error,
+  }), [state]);
 }

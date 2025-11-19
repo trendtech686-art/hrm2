@@ -19,16 +19,17 @@ import { VirtualizedCombobox } from '../../components/ui/virtualized-combobox.ts
 import { ArrowLeft, Save, FileText, Plus, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { loadTaskTemplates } from '../../features/settings/tasks/tasks-settings-page.tsx';
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
 export function TaskFormPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+  const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
   const navigate = ReactRouterDOM.useNavigate();
   const routeMeta = useRouteMeta();
   const store = useTaskStore();
   const { findById, add, update } = store;
   const { data: employees } = useEmployeeStore();
-  const { isAdmin } = useAuth();
+  const { isAdmin, employee: authEmployee } = useAuth();
   
   // Redirect non-admin users
   React.useEffect(() => {
@@ -38,7 +39,7 @@ export function TaskFormPage() {
     }
   }, [isAdmin, navigate]);
 
-  const task = React.useMemo(() => (systemId ? findById(createSystemId(systemId)) : null), [systemId]);
+  const task = React.useMemo(() => (routeSystemId ? findById(routeSystemId) : null), [routeSystemId, findById]);
   const isEdit = !!systemId;
 
   const [formData, setFormData] = React.useState(() => ({
@@ -146,15 +147,15 @@ export function TaskFormPage() {
     const diffMs = dueDateTime.getTime() - startDateTime.getTime();
     const estimatedHours = diffMs / (1000 * 60 * 60); // Convert ms to hours
 
-    const currentUser = employees[0]; // TODO: Get from auth context
-
     const taskData = {
       ...formData,
+      id: formData.id ? asBusinessId(formData.id) : (task?.id ?? asBusinessId('')),
+      assigneeId: formData.assigneeId ? asSystemId(formData.assigneeId) : (task?.assigneeId ?? asSystemId('SYSTEM')),
       estimatedHours: Math.round(estimatedHours * 100) / 100, // Round to 2 decimal places
       status: task?.status || 'Chưa bắt đầu' as TaskStatus,
       progress: task?.progress || 0,
-      assignerId: currentUser?.systemId || 'EMP-001',
-      assignerName: currentUser?.fullName || 'Admin',
+      assignerId: authEmployee?.systemId || asSystemId('SYSTEM'),
+      assignerName: authEmployee?.fullName || authEmployee?.id || 'Hệ thống',
     };
 
     if (isEdit && task) {

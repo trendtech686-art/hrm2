@@ -9,17 +9,17 @@ import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
-export interface Comment {
-  id: string;
+export interface Comment<AuthorId extends string = string, CommentId extends string = string> {
+  id: CommentId;
   content: string;
   author: {
-    systemId: string;
+    systemId: AuthorId;
     name: string;
     avatar?: string;
   };
   createdAt: Date;
   updatedAt?: Date;
-  parentId?: string; // For replies
+  parentId?: CommentId; // For replies
   attachments?: {
     id: string;
     name: string;
@@ -28,16 +28,20 @@ export interface Comment {
   }[];
 }
 
-interface CommentsProps {
+interface CommentsProps<
+  EntityId extends string = string,
+  AuthorId extends string = string,
+  CommentId extends string = string
+> {
   entityType: string;
-  entityId: string;
-  comments: Comment[];
-  onAddComment?: (content: string, parentId?: string) => void;
-  onUpdateComment?: (commentId: string, content: string) => void;
-  onDeleteComment?: (commentId: string) => void;
+  entityId: EntityId;
+  comments: Comment<AuthorId, CommentId>[];
+  onAddComment?: (content: string, parentId?: CommentId) => void;
+  onUpdateComment?: (commentId: CommentId, content: string) => void;
+  onDeleteComment?: (commentId: CommentId) => void;
   readOnly?: boolean;
   currentUser?: {
-    systemId: string;
+    systemId: AuthorId;
     name: string;
     avatar?: string;
   };
@@ -75,7 +79,11 @@ interface CommentsProps {
  * />
  * ```
  */
-export function Comments({
+export function Comments<
+  EntityId extends string = string,
+  AuthorId extends string = string,
+  CommentId extends string = string
+>({
   entityType,
   entityId,
   comments = [],
@@ -88,11 +96,11 @@ export function Comments({
   placeholder = 'Nhập bình luận...',
   className,
   enableDraftSaving = true,
-}: CommentsProps) {
+}: CommentsProps<EntityId, AuthorId, CommentId>) {
   const [newComment, setNewComment] = React.useState('');
-  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editingId, setEditingId] = React.useState<CommentId | null>(null);
   const [editContent, setEditContent] = React.useState('');
-  const [replyingTo, setReplyingTo] = React.useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = React.useState<CommentId | null>(null);
   const [replyContent, setReplyContent] = React.useState('');
 
   // Local storage key for draft
@@ -119,17 +127,18 @@ export function Comments({
 
   // Organize comments into tree structure
   const commentTree = React.useMemo(() => {
-    const topLevel = comments.filter(c => !c.parentId);
-    const childrenMap = new Map<string, Comment[]>();
-    
-    comments.forEach(comment => {
-      if (comment.parentId) {
-        const siblings = childrenMap.get(comment.parentId) || [];
-        siblings.push(comment);
-        childrenMap.set(comment.parentId, siblings);
+    const topLevel = comments.filter((c) => !c.parentId);
+    const childrenMap = new Map<CommentId, Comment<AuthorId, CommentId>[]>();
+
+    comments.forEach((comment) => {
+      if (!comment.parentId) {
+        return;
       }
+      const siblings = childrenMap.get(comment.parentId) || [];
+      siblings.push(comment);
+      childrenMap.set(comment.parentId, siblings);
     });
-    
+
     return { topLevel, childrenMap };
   }, [comments]);
 
@@ -143,7 +152,7 @@ export function Comments({
     }
   };
 
-  const handleAddReply = (parentId: string) => {
+  const handleAddReply = (parentId: CommentId) => {
     if (!replyContent.trim() || !onAddComment) return;
     
     onAddComment(replyContent.trim(), parentId);
@@ -151,7 +160,7 @@ export function Comments({
     setReplyingTo(null);
   };
 
-  const handleUpdateComment = (commentId: string) => {
+  const handleUpdateComment = (commentId: CommentId) => {
     if (!editContent.trim() || !onUpdateComment) return;
     
     onUpdateComment(commentId, editContent.trim());
@@ -159,7 +168,7 @@ export function Comments({
     setEditContent('');
   };
 
-  const handleDeleteComment = (commentId: string) => {
+  const handleDeleteComment = (commentId: CommentId) => {
     if (!onDeleteComment) return;
     
     if (confirm('Bạn có chắc muốn xóa bình luận này?')) {
@@ -167,7 +176,7 @@ export function Comments({
     }
   };
 
-  const startEdit = (comment: Comment) => {
+  const startEdit = (comment: Comment<AuthorId, CommentId>) => {
     setEditingId(comment.id);
     setEditContent(comment.content);
   };
@@ -177,7 +186,7 @@ export function Comments({
     setEditContent('');
   };
 
-  const startReply = (commentId: string) => {
+  const startReply = (commentId: CommentId) => {
     setReplyingTo(commentId);
     setReplyContent('');
   };
@@ -187,7 +196,7 @@ export function Comments({
     setReplyContent('');
   };
 
-  const renderComment = (comment: Comment, depth: number = 0) => {
+  const renderComment = (comment: Comment<AuthorId, CommentId>, depth: number = 0) => {
     const isEditing = editingId === comment.id;
     const isReplying = replyingTo === comment.id;
     const isOwn = currentUser?.systemId === comment.author.systemId;

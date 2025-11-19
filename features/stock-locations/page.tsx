@@ -3,9 +3,11 @@ import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useStockLocationStore } from './store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import type { StockLocation } from './types.ts';
+import { asSystemId } from '../../lib/id-types.ts';
+import type { SystemId } from '../../lib/id-types.ts';
 import { StockLocationForm, type StockLocationFormValues } from './form.tsx';
 import { getColumns } from './columns.tsx';
-import { DataTable } from '../../components/data-table/data-table.tsx';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
@@ -19,7 +21,7 @@ export function StockLocationsPage() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<StockLocation | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
@@ -44,7 +46,7 @@ export function StockLocationsPage() {
   
   const handleAddNew = React.useCallback(() => { setEditingItem(null); setIsFormOpen(true); }, []);
   const handleEdit = React.useCallback((item: StockLocation) => { setEditingItem(item); setIsFormOpen(true); }, []);
-  const handleDeleteRequest = React.useCallback((id: string) => { setIdToDelete(id); setIsAlertOpen(true); }, []);
+  const handleDeleteRequest = React.useCallback((id: string) => { setIdToDelete(asSystemId(id)); setIsAlertOpen(true); }, []);
   
   usePageHeader({
     actions: [
@@ -84,7 +86,7 @@ export function StockLocationsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable
+          <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
             pageCount={pageCount}
@@ -104,6 +106,7 @@ export function StockLocationsPage() {
             setColumnOrder={()=>{}}
             pinnedColumns={[]}
             setPinnedColumns={()=>{}}
+            autoGenerateMobileCards
           />
         </CardContent>
       </Card>

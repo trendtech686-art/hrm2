@@ -6,6 +6,7 @@ import { useWarrantyStore } from '../store.ts';
 import { usePaymentStore } from '../../payments/store.ts';
 import { useReceiptStore } from '../../receipts/store.ts';
 import { useOrderStore } from '../../orders/store.ts';
+import { asSystemId } from '@/lib/id-types';
 import type { WarrantyHistory, WarrantyTicket } from '../types.ts';
 
 interface CancelWarrantyOptions {
@@ -154,7 +155,7 @@ export function useWarrantyCancellation() {
       }
 
       const newHistory: WarrantyHistory = {
-        systemId: `history_${Date.now()}`,
+        systemId: asSystemId(`history_${Date.now()}`),
         action: 'Hủy phiếu bảo hành',
         actionLabel: 'Đã hủy phiếu',
         entityType: 'status',

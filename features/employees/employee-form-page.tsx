@@ -7,10 +7,10 @@ import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useRouteMeta } from '../../hooks/use-route-meta';
 import { useEmployeeStore } from './store.ts';
 import { useDocumentStore } from './document-store.ts';
-import { EmployeeForm, type EmployeeFormValues } from './employee-form.tsx';
+import { EmployeeForm, type EmployeeFormSubmitPayload } from './employee-form.tsx';
 import type { UploadedFile } from '../../components/ui/file-upload.tsx';
 import { FileUploadAPI } from '../../lib/file-upload-api.ts';
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import {
   Card,
   CardContent,
@@ -21,15 +21,20 @@ import {
 import { Button } from '../../components/ui/button.tsx';
 import type { Employee } from './types.ts';
 import { toast } from 'sonner';
+import { useEmployeeCompStore } from './employee-comp-store.ts';
 
 export function EmployeeFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const navigate = useNavigate();
   const routeMeta = useRouteMeta();
   const { findById, add, update } = useEmployeeStore();
-  const { updateDocumentFiles, confirmAllStagingDocuments, clearStagingDocuments } = useDocumentStore();
+  const { updateDocumentFiles, clearStagingDocuments } = useDocumentStore();
+  const { assignComponents, removeProfile } = useEmployeeCompStore((state) => ({
+    assignComponents: state.assignComponents,
+    removeProfile: state.removeProfile,
+  }));
 
-  const employee = React.useMemo(() => (systemId ? findById(createSystemId(systemId)) : null), [systemId, findById]);
+  const employee = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
 
   // Handle cancel navigation
   const handleCancel = React.useCallback(() => {
@@ -58,8 +63,8 @@ export function EmployeeFormPage() {
   });
 
   // Handle form submission with staging document confirmation
-  const handleSubmit = async (values: Partial<Employee> & { _documentFiles?: Record<string, (UploadedFile & { sessionId?: string })[]> }) => {
-    const { _documentFiles, ...employeeData } = values;
+  const handleSubmit = async (values: EmployeeFormSubmitPayload) => {
+    const { _documentFiles, _payrollProfile, ...employeeData } = values;
     console.log('Employee form page - handling submit with documents:', _documentFiles ? Object.keys(_documentFiles).length : 0, 'document types');
     
     try {
@@ -95,6 +100,12 @@ export function EmployeeFormPage() {
         });
       }
       
+      if (_payrollProfile === null) {
+        removeProfile(asSystemId(targetEmployeeSystemId));
+      } else if (_payrollProfile) {
+        assignComponents(asSystemId(targetEmployeeSystemId), _payrollProfile);
+      }
+
       // Confirm all staging documents nếu có files
       if (_documentFiles && Object.keys(_documentFiles).length > 0) {
         console.log('Employee form page - confirming staging documents for:', targetEmployeeSystemId);

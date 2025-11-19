@@ -2,6 +2,7 @@ import * as React from "react"
 import * as XLSX from 'xlsx';
 import Fuse from "fuse.js"
 import { useProvinceStore } from "./store.ts"
+import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { ProvinceForm, type ProvinceFormValues } from "./form.tsx"
 import { WardForm, type WardFormValues } from "./ward-form.tsx"
 import { DistrictForm, type DistrictFormValues } from "./district-form.tsx"
@@ -12,17 +13,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../../components/ui/button.tsx"
 import { Input } from "../../../components/ui/input.tsx"
 import { ScrollArea } from "../../../components/ui/scroll-area.tsx";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table.tsx";
 import { PlusCircle, Search, Upload, Download, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "../../../lib/utils.ts";
+import { useToast } from "../../../hooks/use-toast.ts";
+
+type ImportPreviewState = {
+  provinces: Array<Omit<Province, 'systemId'>>;
+  wards: Array<Omit<Ward, 'systemId'>>;
+  summary: {
+    provinceCount: number;
+    wardCount: number;
+  };
+};
 
 export function ProvincesPage() {
   const { 
     data: provinces, 
     districts,
+    getWards2Level,
     getWards2LevelByProvinceId,
     getWards3LevelByProvinceId,
     getWards3LevelByDistrictId,
@@ -36,8 +48,12 @@ export function ProvincesPage() {
     addDistrict,
     updateDistrict,
     removeDistrict,
-    setData 
+    importAdministrativeUnits
   } = useProvinceStore();
+  const { toast } = useToast();
+  const [importPreview, setImportPreview] = React.useState<ImportPreviewState | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
+  const [isImporting, setIsImporting] = React.useState(false);
   
   const [mode, setMode] = React.useState<'2-level' | '3-level'>('3-level');
   
@@ -49,7 +65,7 @@ export function ProvincesPage() {
       { label: 'Tỉnh thành', href: '/settings/provinces', isCurrent: true }
     ],
     actions: [
-      <Button key="add" onClick={() => setIsProvinceFormOpen(true)}>
+      <Button key="add" onClick={() => setIsProvinceFormOpen(true)} className="h-9">
         <PlusCircle className="mr-2 h-4 w-4" />
         Thêm tỉnh thành
       </Button>
@@ -78,6 +94,20 @@ export function ProvincesPage() {
   const pageSize = 15;
 
   const selectedProvince = React.useMemo(() => provinces.find(p => p.systemId === selectedProvinceId), [provinces, selectedProvinceId]);
+
+  React.useEffect(() => {
+    if (!provinces.length) {
+      if (selectedProvinceId !== null) {
+        setSelectedProvinceId(null);
+      }
+      return;
+    }
+
+    const exists = provinces.some((province) => province.systemId === selectedProvinceId);
+    if (!exists) {
+      setSelectedProvinceId(provinces[0]?.systemId ?? null);
+    }
+  }, [provinces, selectedProvinceId]);
   
   // Get wards based on mode
   const wardsForSelectedProvince = React.useMemo(() => {
@@ -172,14 +202,14 @@ export function ProvincesPage() {
         if (dialogState.systemId === selectedProvinceId) {
             setSelectedProvinceId(provinces.length > 1 ? provinces.find(p => p.systemId !== dialogState.systemId)?.systemId || null : null);
         }
-        remove(dialogState.systemId);
+        remove(asSystemId(dialogState.systemId));
     } else if (dialogState.type === 'ward') {
-        removeWard(dialogState.systemId);
+        removeWard(asSystemId(dialogState.systemId));
     } else if (dialogState.type === 'district') {
         if (dialogState.systemId === districtsForProvince.find(d => d.id === selectedDistrictId)?.systemId) {
             setSelectedDistrictId(null);
         }
-        removeDistrict(dialogState.systemId);
+        removeDistrict(asSystemId(dialogState.systemId));
     }
     setDialogState(null);
   };
@@ -197,44 +227,106 @@ export function ProvincesPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
-        const newProvincesMap = new Map<string, Province>();
-        const newWards: Ward[] = [];
-        let provinceCounter = 0;
-        let wardCounter = 0;
+        const provincesMap = new Map<string, Omit<Province, 'systemId'>>();
+        const wards: Array<Omit<Ward, 'systemId'>> = [];
 
-        json.forEach(row => {
-          const provinceId = String(row['Mã tỉnh (BNV)']).padStart(2, '0');
-          if (!newProvincesMap.has(provinceId)) {
-            newProvincesMap.set(provinceId, {
-              systemId: `IMP_P_${provinceCounter++}`,
-              id: provinceId,
-              name: row['Tên tỉnh/TP mới'],
+        json.forEach((row) => {
+          const rawProvinceId = row['Mã tỉnh (BNV)'] ?? row['Ma Tinh'];
+          const provinceName = row['Tên tỉnh/TP mới'] ?? row['Ten tinh'];
+          const wardCode = row['Mã phường/xã mới'] ?? row['Ma phuong/xa'];
+          const wardName = row['Tên Phường/Xã mới'] ?? row['Ten Phuong/Xa'];
+
+          if (!rawProvinceId || !provinceName || !wardCode || !wardName) {
+            return;
+          }
+
+          const provinceId = String(rawProvinceId).padStart(2, '0');
+
+          if (!provincesMap.has(provinceId)) {
+            provincesMap.set(provinceId, {
+              id: asBusinessId(provinceId),
+              name: String(provinceName).trim(),
             });
           }
-          
-          newWards.push({
-              systemId: `IMP_W_${wardCounter++}`,
-              id: String(row['Mã phường/xã mới']),
-              name: row['Tên Phường/Xã mới'],
-              provinceId: provinceId,
+
+          wards.push({
+            id: String(wardCode).trim(),
+            name: String(wardName).trim(),
+            provinceId: asBusinessId(provinceId),
+            provinceName: String(provinceName).trim(),
           });
         });
-        
-        setData(Array.from(newProvincesMap.values()), newWards);
-        alert(`Đã nhập thành công ${newProvincesMap.size} Tỉnh/Thành phố và ${newWards.length} Phường/Xã. Dữ liệu cũ đã được thay thế.`);
+
+        if (provincesMap.size === 0 || wards.length === 0) {
+          toast({
+            title: 'Không tìm thấy dữ liệu hợp lệ',
+            description: 'Vui lòng kiểm tra lại định dạng file Excel.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        setImportPreview({
+          provinces: Array.from(provincesMap.values()),
+          wards,
+          summary: {
+            provinceCount: provincesMap.size,
+            wardCount: wards.length,
+          },
+        });
+        setIsImportDialogOpen(true);
       } catch (error) {
-        alert("Đã có lỗi xảy ra khi đọc file. Vui lòng kiểm tra lại định dạng file Excel.");
-        console.error(error);
+        toast({
+          title: 'Lỗi khi đọc file',
+          description: error instanceof Error ? error.message : 'File không hợp lệ',
+          variant: 'destructive',
+        });
       }
     };
     reader.readAsBinaryString(file);
     event.target.value = '';
   };
+
+  const handleImportDialogChange = (open: boolean) => {
+    if (!open) {
+      if (isImporting) return;
+      setIsImportDialogOpen(false);
+      setImportPreview(null);
+      return;
+    }
+    setIsImportDialogOpen(true);
+  };
+
+  const handleConfirmImport = () => {
+    if (!importPreview) return;
+    setIsImporting(true);
+    try {
+      importAdministrativeUnits({
+        provinces: importPreview.provinces,
+        wards: importPreview.wards,
+      });
+
+      toast({
+        title: 'Đã nhập dữ liệu hành chính',
+        description: `Ghi đè ${importPreview.summary.provinceCount.toLocaleString('vi-VN')} tỉnh/thành và ${importPreview.summary.wardCount.toLocaleString('vi-VN')} phường/xã (2 cấp).`,
+      });
+      setIsImportDialogOpen(false);
+      setImportPreview(null);
+    } catch (error) {
+      toast({
+        title: 'Không thể ghi dữ liệu',
+        description: error instanceof Error ? error.message : 'Vui lòng thử lại sau.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
   
   const handleExport = () => {
     const provincesToExport = provinces.map(({ systemId, ...rest }) => ({'Mã tỉnh': rest.id, 'Tên Tỉnh/Thành phố': rest.name}));
     
-    const wards2Level = getWards2LevelByProvinceId('08'); // Example
+    const wards2Level = getWards2LevelByProvinceId(asBusinessId('08')); // Example
     const wardsToExport = wards2Level.map(({ systemId, ...rest }) => ({'Mã tỉnh': rest.provinceId, 'Mã Phường/Xã': rest.id, 'Tên Phường/Xã': rest.name}));
 
     const provincesWs = XLSX.utils.json_to_sheet(provincesToExport);
@@ -272,12 +364,12 @@ export function ProvincesPage() {
                 accept=".xlsx, .xls"
                 onChange={handleImport}
             />
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="h-9">
                 <label htmlFor="import-file-input" className="cursor-pointer">
                     <Upload className="mr-2 h-4 w-4" /> Nhập file
                 </label>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExport}>
+            <Button variant="outline" size="sm" className="h-9" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" /> Xuất file
             </Button>
         </div>
@@ -724,6 +816,95 @@ export function ProvincesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {importPreview && (
+        <Dialog open={isImportDialogOpen} onOpenChange={handleImportDialogChange}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Xác nhận ghi đè dữ liệu địa giới</DialogTitle>
+              <DialogDescription>
+                File mới sẽ thay thế toàn bộ danh sách tỉnh/thành và phường/xã (2 cấp). Dữ liệu quận/huyện và phường/xã 3 cấp được giữ nguyên.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="rounded-md border border-dashed bg-muted/40 p-4 text-sm">
+                <p className="font-medium">Tóm tắt</p>
+                <ul className="mt-2 space-y-1 text-muted-foreground">
+                  <li>
+                    • {importPreview.summary.provinceCount.toLocaleString('vi-VN')} tỉnh/thành phố mới
+                  </li>
+                  <li>
+                    • {importPreview.summary.wardCount.toLocaleString('vi-VN')} phường/xã (2 cấp)
+                  </li>
+                  <li>
+                    • Ghi đè toàn bộ dữ liệu hiện có cho cấp tỉnh và phường/xã 2 cấp
+                  </li>
+                </ul>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-md border p-3">
+                  <p className="text-sm font-medium">Danh sách tỉnh/thành</p>
+                  <ScrollArea className="mt-2 h-40">
+                    <ul className="divide-y text-sm">
+                      {importPreview.provinces.slice(0, 12).map((province) => (
+                        <li key={province.id} className="flex items-center justify-between py-1.5">
+                          <span>{province.name}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{province.id}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Hiển thị tối đa 12 / {importPreview.summary.provinceCount.toLocaleString('vi-VN')} tỉnh/thành.
+                  </p>
+                </div>
+
+                <div className="rounded-md border p-3">
+                  <p className="text-sm font-medium">Một số phường/xã (2 cấp)</p>
+                  <ScrollArea className="mt-2 h-40">
+                    <ul className="divide-y text-sm">
+                      {importPreview.wards.slice(0, 12).map((ward, index) => (
+                        <li key={`${ward.provinceId}-${ward.id}-${index}`} className="py-1.5">
+                          <div className="flex items-center justify-between">
+                            <span>{ward.name}</span>
+                            <span className="font-mono text-xs text-muted-foreground">{ward.id}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Thuộc tỉnh: {ward.provinceName}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Hiển thị tối đa 12 / {importPreview.summary.wardCount.toLocaleString('vi-VN')} phường/xã.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                onClick={() => handleImportDialogChange(false)}
+                disabled={isImporting}
+              >
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                className="h-9"
+                onClick={handleConfirmImport}
+                disabled={isImporting}
+              >
+                {isImporting ? 'Đang ghi dữ liệu...' : 'Xác nhận nhập file'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

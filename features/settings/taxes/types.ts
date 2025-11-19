@@ -1,8 +1,10 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type TaxType = 'purchase' | 'sale'; // Thuế nhập hàng | Thuế bán hàng
 
 export interface Tax {
-  systemId: string;
-  id: string; // Mã thuế (user-defined)
+  systemId: SystemId;
+  id: BusinessId; // Mã thuế (user-defined)
   name: string; // Tên thuế
   rate: number; // Thuế suất (%)
   type: TaxType; // Loại thuế

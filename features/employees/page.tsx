@@ -5,8 +5,8 @@ import { ROUTES } from '../../lib/router';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils.ts'
 import { useEmployeeStore } from "./store.ts"
 import { useBranchStore } from "../settings/branches/store.ts";
+import { asSystemId } from '@/lib/id-types';
 import { getColumns } from "./columns.tsx"
-import { DataTable } from "../../components/data-table/data-table.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx"
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx"
@@ -51,7 +51,40 @@ import {
 import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
 import { PageFilters } from "../../components/layout/page-filters.tsx";
 import { cn } from "../../lib/utils.ts";
+
+const COLUMN_LAYOUT_STORAGE_KEY = 'employees-column-layout';
+
+type StoredColumnLayout = {
+  visibility?: Record<string, boolean>;
+  order?: string[];
+  pinned?: string[];
+};
+
+const readStoredColumnLayout = (): StoredColumnLayout | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem(COLUMN_LAYOUT_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored) as StoredColumnLayout;
+    }
+  } catch (error) {
+    console.warn('Failed to parse employees column layout from storage:', error);
+  }
+
+  try {
+    const legacy = window.localStorage.getItem('employees-column-visibility');
+    if (legacy) {
+      return { visibility: JSON.parse(legacy) };
+    }
+  } catch (error) {
+    console.warn('Failed to parse legacy employees column visibility:', error);
+  }
+
+  return null;
+};
 export function EmployeesPage() {
+  const storedLayoutRef = React.useRef(readStoredColumnLayout());
+
   const { data: employees, remove, restore, getActive, getDeleted, addMultiple, update } = useEmployeeStore();
   const { data: branchesRaw } = useBranchStore();
   const navigate = useNavigate();
@@ -67,11 +100,11 @@ export function EmployeesPage() {
   
   // ✅ Memoize actions to prevent infinite loop
   const headerActions = React.useMemo(() => [
-    <Button key="trash" variant="outline" size="sm" onClick={() => navigate('/employees/trash')}>
+    <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => navigate('/employees/trash')}>
       <Trash2 className="mr-2 h-4 w-4" />
       Thùng rác ({deletedCount})
     </Button>,
-    <Button key="add" size="sm" onClick={() => navigate('/employees/new')}>
+    <Button key="add" size="sm" className="h-9" onClick={() => navigate('/employees/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm nhân viên
     </Button>
@@ -79,7 +112,13 @@ export function EmployeesPage() {
   
   // Set page header with actions
   usePageHeader({
-    actions: headerActions
+    title: 'Danh sách nhân viên',
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Nhân viên', href: '/employees', isCurrent: true },
+    ],
+    actions: headerActions,
+    showBackButton: false,
   });
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
@@ -109,32 +148,25 @@ export function EmployeesPage() {
   }, [globalFilter]);
   
   // Column customization state
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'employees-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    const cols = getColumns(() => {}, () => {}, navigate, branches);
-    const allColumnIds = cols.map((c: any) => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every((id: string) => id in parsed)) return parsed;
-      } catch (e) {}
-    }
-    const initial: Record<string, boolean> = {};
-    cols.forEach((c: any) => { if (c.id) initial[c.id] = true; });
-    return initial;
-  });
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
-  
-  React.useEffect(() => {
-    localStorage.setItem('employees-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(
+    () => storedLayoutRef.current?.visibility ?? {}
+  );
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(
+    () => storedLayoutRef.current?.order ?? []
+  );
+  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(
+    () => storedLayoutRef.current?.pinned ?? []
+  );
 
-  // Mobile infinite scroll state
-  const [mobilePageSize, setMobilePageSize] = React.useState(20);
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-  const mobileScrollRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const payload = {
+      visibility: columnVisibility,
+      order: columnOrder,
+      pinned: pinnedColumns,
+    };
+    window.localStorage.setItem(COLUMN_LAYOUT_STORAGE_KEY, JSON.stringify(payload));
+  }, [columnVisibility, columnOrder, pinnedColumns]);
 
   const handleDelete = React.useCallback((systemId: string) => {
     setIdToDelete(systemId)
@@ -142,39 +174,69 @@ export function EmployeesPage() {
   }, [])
   
   const handleRestore = React.useCallback((systemId: string) => {
-    restore(systemId);
+    restore(asSystemId(systemId));
     toast.success("Đã khôi phục nhân viên");
   }, [restore]);
   
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, navigate, branches), [handleDelete, handleRestore, navigate, branches]);
-  
-  // Set default visibility and order on mount ONLY
-  React.useEffect(() => {
-    const defaultVisibleColumns = [
-      'id', 'fullName', 'workEmail', 'phone', 'branch', 'department', 
-      'jobTitle', 'hireDate', 'employmentStatus', 'dateOfBirth', 'gender',
-      'nationalId', 'address', 'bankName', 'bankAccountNumber', 'basicSalary',
+
+  const buildDefaultVisibility = React.useCallback(() => {
+    const defaultVisibleColumns = new Set([
+      'id', 'fullName', 'workEmail', 'phone', 'branch', 'department',
+      'jobTitle', 'hireDate', 'employmentStatus', 'dob', 'gender',
+      'nationalId', 'permanentAddress', 'bankName', 'bankAccountNumber', 'baseSalary',
       'contractType', 'annualLeaveBalance', 'sickLeaveBalance'
-    ];
-    
+    ]);
+
     const initialVisibility: Record<string, boolean> = {};
     columns.forEach(c => {
-      // 'select' and 'actions' are always visible and not in the customizer
+      if (!c.id) return;
       if (c.id === 'select' || c.id === 'actions') {
-        initialVisibility[c.id!] = true;
-      } else {
-        initialVisibility[c.id!] = defaultVisibleColumns.includes(c.id!);
+        initialVisibility[c.id] = true;
+        return;
       }
+      initialVisibility[c.id] = defaultVisibleColumns.has(c.id);
+    });
+    return initialVisibility;
+  }, [columns]);
+
+  const buildDefaultOrder = React.useCallback(() => (
+    columns.map(c => c.id).filter(Boolean) as string[]
+  ), [columns]);
+
+  React.useEffect(() => {
+    if (columns.length === 0) return;
+
+    setColumnVisibility(prev => {
+      if (Object.keys(prev).length > 0) return prev;
+      return buildDefaultVisibility();
     });
 
-    setColumnVisibility(initialVisibility);
-    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-  }, []); // ✅ Run once on mount only
+    setColumnOrder(prev => {
+      if (prev.length > 0) return prev;
+      return buildDefaultOrder();
+    });
+
+    // Ensure pinned array initialized
+    setPinnedColumns(prev => prev ?? []);
+  }, [columns, buildDefaultOrder, buildDefaultVisibility]);
+
+  const resetColumnLayout = React.useCallback(() => {
+    const defaultVisibility = buildDefaultVisibility();
+    const defaultOrder = buildDefaultOrder();
+    setColumnVisibility(defaultVisibility);
+    setColumnOrder(defaultOrder);
+    setPinnedColumns([]);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(COLUMN_LAYOUT_STORAGE_KEY);
+    }
+    toast.success('Đã khôi phục bố cục cột mặc định');
+  }, [buildDefaultVisibility, buildDefaultOrder]);
   
   const confirmDelete = () => {
     if (idToDelete) {
       const employee = employees.find(e => e.systemId === idToDelete);
-      remove(idToDelete);
+      remove(asSystemId(idToDelete));
       toast.success("Đã xóa nhân viên vào thùng rác", {
         description: `Nhân viên ${employee?.fullName || ''} đã được chuyển vào thùng rác.`,
       });
@@ -185,7 +247,7 @@ export function EmployeesPage() {
 
   const confirmBulkDelete = () => {
     const idsToDelete = Object.keys(rowSelection);
-    idsToDelete.forEach(systemId => remove(systemId));
+    idsToDelete.forEach(systemId => remove(asSystemId(systemId)));
     toast.success("Đã xóa nhân viên vào thùng rác", {
       description: `Đã chuyển ${idsToDelete.length} nhân viên vào thùng rác.`,
     });
@@ -288,43 +350,6 @@ export function EmployeesPage() {
 
   const isMobile = !useMediaQuery("(min-width: 768px)");
 
-  // Mobile infinite scroll - detect scroll and load more with throttle
-  React.useEffect(() => {
-    if (!isMobile) return;
-    
-    let throttleTimer: NodeJS.Timeout | null = null;
-    
-    const handleScroll = () => {
-      if (throttleTimer) return;
-      
-      throttleTimer = setTimeout(() => {
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        const scrollHeight = document.documentElement.scrollHeight;
-        const clientHeight = window.innerHeight;
-        
-        // When scroll to 80% of page → load more
-        if (scrollTop + clientHeight >= scrollHeight * 0.8) {
-          if (mobileLoadedCount < sortedData.length) {
-            setMobileLoadedCount(prev => Math.min(prev + 20, sortedData.length));
-          }
-        }
-        
-        throttleTimer = null;
-      }, 200); // Throttle 200ms
-    };
-    
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (throttleTimer) clearTimeout(throttleTimer);
-    };
-  }, [isMobile, mobileLoadedCount, sortedData.length]);
-  
-  // Reset mobile loaded count when filters change
-  React.useEffect(() => {
-    setMobileLoadedCount(20);
-  }, [debouncedGlobalFilter, branchFilter, departmentFilter, jobTitleFilter, statusFilter, dateFilter]);
-
   // Filter options - Only recalculate when employees change
   const departmentOptions = React.useMemo(() => {
     const departments = new Set<string>();
@@ -343,9 +368,8 @@ export function EmployeesPage() {
   }, [activeEmployees]);
 
   const statusOptions = React.useMemo(() => [
-    { label: 'Đang làm', value: 'Đang làm' },
-    { label: 'Đã nghỉ', value: 'Đã nghỉ' },
-    { label: 'Thử việc', value: 'Thử việc' },
+    { label: 'Đang làm việc', value: 'Đang làm việc' },
+    { label: 'Đã nghỉ việc', value: 'Đã nghỉ việc' },
     { label: 'Tạm nghỉ', value: 'Tạm nghỉ' },
   ], []);
 
@@ -518,6 +542,9 @@ export function EmployeesPage() {
           }
           rightActions={
             <>
+              <Button variant="ghost" size="sm" className="h-9" onClick={resetColumnLayout}>
+                Đặt lại cột
+              </Button>
               <DataTableColumnCustomizer
                 columns={columns}
                 columnVisibility={columnVisibility}
@@ -540,7 +567,7 @@ export function EmployeesPage() {
       >
         {/* Branch Filter */}
         <Select value={branchFilter} onValueChange={setBranchFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px] h-9">
             <SelectValue placeholder="Tất cả chi nhánh" />
           </SelectTrigger>
           <SelectContent>
@@ -582,79 +609,35 @@ export function EmployeesPage() {
         />
       </PageFilters>
 
-      {/* ===== TABLE CONTENT - Tự do cao, scroll toàn page ===== */}
-      {/* Mobile View - Infinite Scroll Cards */}
-      {isMobile ? (
-        <div ref={mobileScrollRef} className="space-y-3 pb-4">
-          {sortedData.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Không tìm thấy nhân viên</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {sortedData.slice(0, mobileLoadedCount).map(employee => (
-                <MobileEmployeeCard key={employee.systemId} employee={employee} />
-              ))}
-              
-              {/* Loading more indicator */}
-              {mobileLoadedCount < sortedData.length && (
-                <Card className="border-dashed">
-                  <CardContent className="py-6 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      <span className="text-sm text-muted-foreground">Đang tải thêm...</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* End message */}
-              {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && (
-                <Card className="border-dashed">
-                  <CardContent className="py-4 text-center">
-                    <span className="text-sm text-muted-foreground">
-                      Đã hiển thị tất cả {sortedData.length} nhân viên
-                    </span>
-                  </CardContent>
-                </Card>
-              )}
-            </>
+      <div className="w-full py-4">
+        <ResponsiveDataTable
+          columns={columns}
+          data={paginatedData}
+          renderMobileCard={(employee) => (
+            <MobileEmployeeCard employee={employee} />
           )}
-        </div>
-      ) : (
-        /* Desktop View - Table tự do cao */
-        <div className="w-full py-4">
-          <ResponsiveDataTable
-              columns={columns}
-              data={paginatedData}
-              renderMobileCard={(employee) => (
-                <MobileEmployeeCard employee={employee} />
-              )}
-              pageCount={pageCount}
-              pagination={pagination}
-              setPagination={setPagination}
-              rowCount={filteredData.length}
-              rowSelection={rowSelection}
-              setRowSelection={setRowSelection}
-              onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
-              bulkActions={bulkActions}
-              allSelectedRows={allSelectedRows}
-              expanded={expanded}
-              setExpanded={setExpanded}
-              sorting={sorting}
-              setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
-              columnVisibility={columnVisibility}
-              setColumnVisibility={setColumnVisibility}
-              columnOrder={columnOrder}
-              setColumnOrder={setColumnOrder}
-              pinnedColumns={pinnedColumns}
-              setPinnedColumns={setPinnedColumns}
-            onRowClick={handleRowClick}
-          />
-        </div>
-      )}
+          pageCount={pageCount}
+          pagination={pagination}
+          setPagination={setPagination}
+          rowCount={filteredData.length}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
+          bulkActions={bulkActions}
+          allSelectedRows={allSelectedRows}
+          expanded={expanded}
+          setExpanded={setExpanded}
+          sorting={sorting}
+          setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnOrder={columnOrder}
+          setColumnOrder={setColumnOrder}
+          pinnedColumns={pinnedColumns}
+          setPinnedColumns={setPinnedColumns}
+          onRowClick={handleRowClick}
+        />
+      </div>
 
       {/* Delete Confirmation Dialogs */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
@@ -666,8 +649,8 @@ export function EmployeesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Tiếp tục</AlertDialogAction>
+            <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmDelete}>Tiếp tục</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -681,8 +664,8 @@ export function EmployeesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete}>Tiếp tục</AlertDialogAction>
+            <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmBulkDelete}>Tiếp tục</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,13 +1,14 @@
 import * as React from "react";
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
+import { formatDateCustom } from '../../lib/date-utils.ts';
 import type { Payment } from './types.ts';
 import type { CashAccount } from "../cashbook/types.ts";
+import type { SystemId } from '../../lib/id-types.ts';
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { Button } from "../../components/ui/button.tsx";
-import { Pencil, Trash2, RotateCcw, Eye, MoreHorizontal, CheckCircle, XCircle } from "lucide-react";
+import { Pencil, Trash2, RotateCcw, Eye, MoreHorizontal, XCircle, CheckCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 
@@ -28,22 +29,19 @@ const formatDateTimeDisplay = (dateString?: string) => {
     return formatDateCustom(date, "dd/MM/yyyy HH:mm");
 };
 
-const getStatusBadge = (status: Payment['status']) => {
-    const variants: Record<Payment['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-        pending: { label: 'Chờ xử lý', variant: 'secondary' },
-        pending_approval: { label: 'Chờ duyệt', variant: 'outline' },
-        approved: { label: 'Đã duyệt', variant: 'default' },
+const getStatusBadge = (status?: Payment['status']) => {
+    const normalizedStatus: Payment['status'] = status === 'cancelled' ? 'cancelled' : 'completed';
+    const variants: Record<Payment['status'], { label: string; variant: 'default' | 'destructive' }> = {
         completed: { label: 'Hoàn thành', variant: 'default' },
         cancelled: { label: 'Đã hủy', variant: 'destructive' },
     };
-    const config = variants[status];
+    const config = variants[normalizedStatus];
     return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
 export const getColumns = (
     accounts: CashAccount[],
-    onCancel: (systemId: string) => void,
-    onApprove: (systemId: string) => void,
+    onCancel: (systemId: SystemId) => void,
     navigate: (path: string) => void
 ): ColumnDef<Payment>[] => [
     {
@@ -302,26 +300,6 @@ export const getColumns = (
         },
     },
     {
-        id: "approvedByName",
-        accessorKey: "approvedByName",
-        header: "Người duyệt",
-        cell: ({ row }) => row.approvedByName || '-',
-        meta: {
-            displayName: "Người duyệt",
-            group: "Quy trình duyệt"
-        },
-    },
-    {
-        id: "approvedAt",
-        accessorKey: "approvedAt",
-        header: "Ngày duyệt",
-        cell: ({ row }) => formatDateTimeDisplay(row.approvedAt),
-        meta: {
-            displayName: "Ngày duyệt",
-            group: "Quy trình duyệt"
-        },
-    },
-    {
         id: "actions",
         header: () => <div className="text-center">Hành động</div>,
         cell: ({ row }) => {
@@ -370,20 +348,6 @@ export const getColumns = (
                                     <Pencil className="mr-2 h-4 w-4" />
                                     Chỉnh sửa
                                 </DropdownMenuItem>
-                                {payment.status === 'pending_approval' && (
-                                    <>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onApprove(payment.systemId);
-                                            }}
-                                        >
-                                            <CheckCircle className="mr-2 h-4 w-4" />
-                                            Duyệt phiếu
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     className="text-destructive focus:text-destructive"

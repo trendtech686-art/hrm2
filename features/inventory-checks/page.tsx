@@ -15,8 +15,24 @@ import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
 import { Plus, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import type { InventoryCheck } from './types.ts';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog.tsx';
+
+type ConfirmState =
+  | { type: 'delete'; item: InventoryCheck }
+  | { type: 'balance'; item: InventoryCheck }
+  | { type: 'bulk-delete'; items: InventoryCheck[] }
+  | null;
 
 export function InventoryChecksPage() {
   const navigate = useNavigate();
@@ -33,28 +49,53 @@ export function InventoryChecksPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
+  const [confirmState, setConfirmState] = React.useState<ConfirmState>(null);
+  const [isConfirmLoading, setIsConfirmLoading] = React.useState(false);
 
   // Handlers
   const handleEdit = React.useCallback((item: InventoryCheck) => {
-    navigate(`/inventory-checks/${item.systemId}/edit`);
+    navigate(ROUTES.INVENTORY.INVENTORY_CHECK_EDIT.replace(':systemId', item.systemId));
   }, [navigate]);
 
-  const handleDelete = React.useCallback((systemId: string) => {
-    if (!confirm('Bạn có chắc muốn xóa phiếu kiểm hàng này?')) return;
-    remove(createSystemId(systemId));
-    toast.success('Đã xóa phiếu kiểm hàng');
-  }, [remove]);
+  const requestDelete = React.useCallback((item: InventoryCheck) => {
+    setConfirmState({ type: 'delete', item });
+  }, []);
 
-  const handleBalance = React.useCallback((systemId: string) => {
-    if (!confirm('Bạn có chắc muốn cân bằng phiếu kiểm hàng này? Hành động này không thể hoàn tác.')) return;
-    balanceCheck(createSystemId(systemId));
-    toast.success('Đã cân bằng phiếu kiểm hàng');
-  }, [balanceCheck]);
+  const requestBalance = React.useCallback((item: InventoryCheck) => {
+    setConfirmState({ type: 'balance', item });
+  }, []);
+
+  const handleConfirmAction = React.useCallback(async () => {
+    if (!confirmState) return;
+    setIsConfirmLoading(true);
+    try {
+      if (confirmState.type === 'delete' && confirmState.item) {
+        remove(asSystemId(confirmState.item.systemId));
+        toast.success(`Đã xóa phiếu ${confirmState.item.id}`);
+      }
+
+      if (confirmState.type === 'balance' && confirmState.item) {
+        await balanceCheck(asSystemId(confirmState.item.systemId));
+        toast.success(`Đã cân bằng phiếu ${confirmState.item.id}`);
+      }
+
+      if (confirmState.type === 'bulk-delete' && confirmState.items) {
+        confirmState.items.forEach(row => remove(asSystemId(row.systemId)));
+        setRowSelection({});
+        toast.success(`Đã xóa ${confirmState.items.length} phiếu kiểm hàng`);
+      }
+    } catch (error) {
+      toast.error('Không thể hoàn tất hành động, vui lòng thử lại');
+    } finally {
+      setIsConfirmLoading(false);
+      setConfirmState(null);
+    }
+  }, [balanceCheck, confirmState, remove, setRowSelection]);
 
   // Columns
   const columns = React.useMemo(() => 
-    getColumns(handleEdit, handleDelete, handleBalance, navigate),
-    [handleEdit, handleDelete, handleBalance, navigate]
+    getColumns(handleEdit, requestDelete, requestBalance, navigate),
+    [handleEdit, navigate, requestDelete, requestBalance]
   );
 
   // Default column visibility - 15 columns for sticky scrollbar
@@ -153,12 +194,8 @@ export function InventoryChecksPage() {
 
   const handleBulkDelete = React.useCallback(() => {
     if (allSelectedRows.length === 0) return;
-    if (!confirm(`Bạn có chắc muốn xóa ${allSelectedRows.length} phiếu đã chọn?`)) return;
-    
-    allSelectedRows.forEach(row => remove(createSystemId(row.systemId)));
-    setRowSelection({});
-    toast.success(`Đã xóa ${allSelectedRows.length} phiếu kiểm hàng`);
-  }, [allSelectedRows, remove]);
+    setConfirmState({ type: 'bulk-delete', items: allSelectedRows });
+  }, [allSelectedRows]);
 
   // Header actions
   const actions = React.useMemo(() => {
@@ -172,8 +209,13 @@ export function InventoryChecksPage() {
           fileName: 'danh-sach-kiem-hang',
           columns: columns || []
         }}
-      />,
-      <Button key="add" onClick={() => navigate('/inventory-checks/new')}>
+      >
+        <Button variant="outline" className="h-9 gap-1">
+          <Download className="h-4 w-4" />
+          Xuất file
+        </Button>
+      </DataTableExportDialog>,
+      <Button key="add" className="h-9" onClick={() => navigate(ROUTES.INVENTORY.INVENTORY_CHECK_NEW)}>
         <Plus className="mr-2 h-4 w-4" />
         Tạo phiếu kiểm hàng
       </Button>
@@ -198,17 +240,51 @@ export function InventoryChecksPage() {
     return acts;
   }, [data, filteredData, paginatedData, columns, columnVisibility, columnOrder, pinnedColumns, navigate]);
 
-  usePageHeader({ actions });
+  const confirmDialogCopy = React.useMemo(() => {
+    if (!confirmState) return null;
+
+    switch (confirmState.type) {
+      case 'delete':
+        return {
+          title: 'Xóa phiếu kiểm hàng',
+          description: `Bạn có chắc muốn xóa phiếu ${confirmState.item?.id}? Hành động này không thể hoàn tác.`,
+          confirmLabel: 'Xóa phiếu',
+        };
+      case 'balance':
+        return {
+          title: 'Cân bằng phiếu kiểm hàng',
+          description: `Sau khi cân bằng, tồn kho hệ thống sẽ cập nhật theo số thực tế của phiếu ${confirmState.item?.id}. Tiếp tục?`,
+          confirmLabel: 'Cân bằng ngay',
+        };
+      case 'bulk-delete':
+        return {
+          title: 'Xóa nhiều phiếu kiểm hàng',
+          description: `Bạn sắp xóa ${confirmState.items?.length ?? 0} phiếu kiểm hàng đã chọn.`,
+          confirmLabel: `Xóa ${confirmState.items?.length ?? 0} phiếu`,
+        };
+      default:
+        return null;
+    }
+  }, [confirmState]);
+
+  usePageHeader({
+    title: 'Danh sách kiểm hàng',
+    breadcrumb: [
+      { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
+      { label: 'Kiểm hàng', href: ROUTES.INVENTORY.INVENTORY_CHECKS, isCurrent: true }
+    ],
+    actions,
+  });
 
   return (
     <div className="space-y-4">
       {/* Search & Filters */}
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center">
         <Input 
           placeholder="Tìm kiếm theo mã, chi nhánh, người tạo..." 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
+          className="h-9 max-w-sm"
         />
         <DataTableFacetedFilter
           title="Trạng thái"
@@ -230,7 +306,7 @@ export function InventoryChecksPage() {
           <InventoryCheckCard 
             item={item} 
             onEdit={handleEdit}
-            onBalance={handleBalance}
+            onBalance={requestBalance}
           />
         )}
         pageCount={pageCount}
@@ -270,6 +346,33 @@ export function InventoryChecksPage() {
           </p>
         </div>
       )}
+
+      <AlertDialog open={!!confirmState} onOpenChange={(open) => {
+        if (!open && !isConfirmLoading) {
+          setConfirmState(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialogCopy?.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialogCopy?.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-9" disabled={isConfirmLoading}>
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="h-9"
+              disabled={isConfirmLoading}
+              onClick={handleConfirmAction}
+            >
+              {isConfirmLoading ? 'Đang xử lý...' : confirmDialogCopy?.confirmLabel ?? 'Đồng ý'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

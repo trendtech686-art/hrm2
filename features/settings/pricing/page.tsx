@@ -1,4 +1,5 @@
 import * as React from "react";
+import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { usePageHeader } from "../../../contexts/page-header-context.tsx";
 import { usePricingPolicyStore } from "./store.ts";
 import type { PricingPolicy } from "./types.ts";
@@ -17,27 +18,26 @@ import { useToast } from "../../../hooks/use-toast.ts";
 export function PricingSettingsPage() {
     const { data, add, update, remove, setDefault } = usePricingPolicyStore();
     const { toast } = useToast();
-    
+
+    const [isFormOpen, setIsFormOpen] = React.useState(false);
+    const [editingPolicy, setEditingPolicy] = React.useState<PricingPolicy | null>(null);
+    const [isAlertOpen, setIsAlertOpen] = React.useState(false);
+    const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+
+    // State and logic for default price settings
+    const sellingPolicies = React.useMemo(() => data.filter(p => p.type === 'Bán hàng'), [data]);
+    const purchasingPolicies = React.useMemo(() => data.filter(p => p.type === 'Nhập hàng'), [data]);
+    const [selectedDefaultSelling, setSelectedDefaultSelling] = React.useState<SystemId | undefined>();
+    const [selectedDefaultPurchasing, setSelectedDefaultPurchasing] = React.useState<SystemId | undefined>();
+
     usePageHeader({
         actions: [
-            <Button key="add" onClick={() => setIsFormOpen(true)}>
+            <Button key="add" onClick={() => setIsFormOpen(true)} className="h-9">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Tạo chính sách giá
             </Button>
         ]
     });
-
-    const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const [editingPolicy, setEditingPolicy] = React.useState<PricingPolicy | null>(null);
-    const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-    const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
-
-    // State and logic for default price settings
-    const sellingPolicies = React.useMemo(() => data.filter(p => p.type === 'Bán hàng'), [data]);
-    const purchasingPolicies = React.useMemo(() => data.filter(p => p.type === 'Nhập hàng'), [data]);
-    
-    const [selectedDefaultSelling, setSelectedDefaultSelling] = React.useState<string | undefined>();
-    const [selectedDefaultPurchasing, setSelectedDefaultPurchasing] = React.useState<string | undefined>();
 
     const setDefaultState = React.useCallback(() => {
         const defaultSelling = data.find(p => p.type === 'Bán hàng' && p.isDefault);
@@ -89,7 +89,7 @@ export function PricingSettingsPage() {
         setEditingPolicy(policy);
         setIsFormOpen(true);
     }, []);
-    const handleDeleteRequest = React.useCallback((systemId: string) => {
+    const handleDeleteRequest = React.useCallback((systemId: SystemId) => {
         setIdToDelete(systemId);
         setIsAlertOpen(true);
     }, []);
@@ -104,26 +104,39 @@ export function PricingSettingsPage() {
         }
         setIsAlertOpen(false);
         setIsFormOpen(false); // Close edit form if deleting from it
+        setIdToDelete(null);
     };
 
     const handleFormSubmit = (values: PricingPolicyFormValues) => {
+        const normalized = {
+            id: asBusinessId(values.id.trim().toUpperCase()),
+            name: values.name.trim(),
+            description: values.description?.trim() || undefined,
+            type: values.type,
+            isActive: values.isActive,
+            isDefault: values.isDefault,
+        } satisfies Omit<PricingPolicy, 'systemId'>;
+
         if (editingPolicy) {
-            update(editingPolicy.systemId, { ...editingPolicy, ...values });
+            update(editingPolicy.systemId, {
+                ...editingPolicy,
+                ...normalized,
+            });
             toast({
                 title: 'Thành công',
-                description: `Đã cập nhật chính sách giá "${values.name}"`,
+                description: `Đã cập nhật chính sách giá "${normalized.name}"`,
             });
         } else {
-            add(values);
+            add(normalized);
             toast({
                 title: 'Thành công',
-                description: `Đã thêm chính sách giá "${values.name}"`,
+                description: `Đã thêm chính sách giá "${normalized.name}"`,
             });
         }
         setIsFormOpen(false);
     };
     
-    const handleSetDefault = React.useCallback((systemId: string) => {
+    const handleSetDefault = React.useCallback((systemId: SystemId) => {
         const policy = data.find(p => p.systemId === systemId);
         setDefault(systemId);
         if (policy) {
@@ -151,23 +164,29 @@ export function PricingSettingsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <Label>Giá bán hàng mặc định</Label>
-                                <Select value={selectedDefaultSelling} onValueChange={setSelectedDefaultSelling}>
-                                    <SelectTrigger><SelectValue placeholder="Chọn giá bán mặc định" /></SelectTrigger>
+                                <Select
+                                    value={selectedDefaultSelling}
+                                    onValueChange={(value) => setSelectedDefaultSelling(asSystemId(value))}
+                                >
+                                    <SelectTrigger className="h-9"><SelectValue placeholder="Chọn giá bán mặc định" /></SelectTrigger>
                                     <SelectContent>{sellingPolicies.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label>Giá nhập hàng mặc định</Label>
-                                <Select value={selectedDefaultPurchasing} onValueChange={setSelectedDefaultPurchasing}>
-                                    <SelectTrigger><SelectValue placeholder="Chọn giá nhập mặc định" /></SelectTrigger>
+                                <Select
+                                    value={selectedDefaultPurchasing}
+                                    onValueChange={(value) => setSelectedDefaultPurchasing(asSystemId(value))}
+                                >
+                                    <SelectTrigger className="h-9"><SelectValue placeholder="Chọn giá nhập mặc định" /></SelectTrigger>
                                     <SelectContent>{purchasingPolicies.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent>
                                 </Select>
                             </div>
                         </div>
                     </CardContent>
                     <CardFooter className="justify-end gap-2">
-                        <Button variant="outline" onClick={handleCancelDefaults}>Hủy</Button>
-                        <Button onClick={handleSaveDefaults}>Lưu</Button>
+                        <Button variant="outline" onClick={handleCancelDefaults} className="h-9">Hủy</Button>
+                        <Button onClick={handleSaveDefaults} className="h-9">Lưu</Button>
                     </CardFooter>
                 </Card>
 
@@ -238,16 +257,16 @@ export function PricingSettingsPage() {
                                 type="button" 
                                 variant="destructive" 
                                 onClick={() => handleDeleteRequest(editingPolicy.systemId)}
-                                className="sm:mr-auto"
+                                className="sm:mr-auto h-9"
                             >
                                 Xóa
                             </Button>
                         )}
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
+                            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="h-9">
                                 Thoát
                             </Button>
-                            <Button type="submit" form="pricing-policy-form">
+                            <Button type="submit" form="pricing-policy-form" className="h-9">
                                 Xác nhận
                             </Button>
                         </div>
@@ -262,8 +281,8 @@ export function PricingSettingsPage() {
                         <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+                        <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="h-9">Xóa</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

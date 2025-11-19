@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useOrderStore } from '../orders/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import type { PackagingSlip } from './types.ts';
 import { getColumns } from './columns.tsx';
@@ -25,6 +24,7 @@ import { Package, MoreHorizontal, Calendar, User, Inbox } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
 import Fuse from 'fuse.js';
+import { useAuth } from '../../contexts/auth-context.tsx';
 
 function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onConfirm: (reason: string) => void }) {
   const [reason, setReason] = React.useState('');
@@ -52,7 +52,8 @@ function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; on
 export function PackagingPage() {
     const { data: allOrders, confirmPackaging, cancelPackagingRequest } = useOrderStore();
     const { data: branches } = useBranchStore();
-    const loggedInUser = useEmployeeStore.getState().data[0];
+    const { employee: authEmployee } = useAuth();
+    const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
     const navigate = useNavigate();
     
     const headerActions = React.useMemo(() => [], []);
@@ -107,8 +108,8 @@ export function PackagingPage() {
     }, [allOrders]);
     
     const handleConfirm = React.useCallback((orderSystemId: string, packagingSystemId: string) => {
-        confirmPackaging(orderSystemId, packagingSystemId, loggedInUser.systemId);
-    }, [confirmPackaging, loggedInUser.systemId]);
+        confirmPackaging(orderSystemId, packagingSystemId, currentUserSystemId);
+    }, [confirmPackaging, currentUserSystemId]);
 
     const handleCancelRequest = React.useCallback((orderSystemId: string, packagingSystemId: string) => {
         setCancelDialogState({ orderSystemId, packagingSystemId });
@@ -116,7 +117,7 @@ export function PackagingPage() {
 
     const handleConfirmCancel = (reason: string) => {
         if (cancelDialogState) {
-            cancelPackagingRequest(cancelDialogState.orderSystemId, cancelDialogState.packagingSystemId, loggedInUser.systemId, reason);
+            cancelPackagingRequest(cancelDialogState.orderSystemId, cancelDialogState.packagingSystemId, currentUserSystemId, reason);
             setCancelDialogState(null);
         }
     };

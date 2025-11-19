@@ -34,9 +34,9 @@ export function useRoutePrefetch() {
       // HRM Routes
       '/attendance': () => import('../features/attendance/page'),
       '/leaves': () => import('../features/leaves/page'),
-      '/payroll': () => import('../features/payroll/page'),
-      '/kpi': () => import('../features/kpi/page'),
-      '/organization-chart': () => import('../features/departments/organization-chart/page'),
+      // '/payroll': () => import('../features/payroll/page'), // TODO: Create page
+      // '/kpi': () => import('../features/kpi/page'), // TODO: Create page
+      // '/organization-chart': () => import('../features/departments/organization-chart/page'), // TODO: Create page
       
       // Sales Routes
       '/products/new': () => import('../features/products/form-page'),
@@ -58,10 +58,10 @@ export function useRoutePrefetch() {
       '/shipments': () => import('../features/shipments/page'),
       '/reconciliation': () => import('../features/reconciliation/page'),
       '/warranty': () => import('../features/warranty/warranty-list-page'),
-      '/internal-tasks': () => import('../features/internal-tasks/page'),
+      // '/internal-tasks': () => import('../features/internal-tasks/page'), // TODO: Create page
       '/complaints': () => import('../features/complaints/page'),
-      '/penalties': () => import('../features/penalties/page'),
-      '/duty-schedule': () => import('../features/duty-schedule/page'),
+      // '/penalties': () => import('../features/penalties/page'), // TODO: Create page
+      // '/duty-schedule': () => import('../features/duty-schedule/page'), // TODO: Create page
       '/wiki': () => import('../features/wiki/page'),
       
       // Reports

@@ -18,3 +18,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1hCSgHDcaoyfLTVYodttucv
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+   ## Warranty Module Notes
+
+   - Type dùng chung cho dialog/card bảo hành được định nghĩa tại `features/warranty/types.ts` (re-export từ `types/ui.ts` và `types/store.ts`).
+   - Tài liệu nhanh: [`docs/warranty-shared-types-guide.md`](docs/warranty-shared-types-guide.md).

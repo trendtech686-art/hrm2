@@ -21,7 +21,7 @@ import { useProductStore } from '../../products/store.ts';
 
 interface WarrantyProductsDetailTableProps {
   products: WarrantyProduct[];
-  ticket?: WarrantyTicket; // Optional: để tính toán công nợ và settlement
+  ticket?: Pick<WarrantyTicket, 'shippingFee'>; // Optional: chỉ cần phí ship để tính bù trừ
 }
 
 export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProductsDetailTableProps) {

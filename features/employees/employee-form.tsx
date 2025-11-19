@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { employeeFormSchema, validateUniqueId } from "./validation.ts";
 import type { Employee } from "./types.ts";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
+import type { SystemId, BusinessId } from '@/lib/id-types';
 import { Upload, PlusCircle, Search, Eye, EyeOff, RefreshCw, Copy } from "lucide-react";
 import { toast } from 'sonner';
 import { useJobTitleStore } from '../settings/job-titles/store.ts';
@@ -45,6 +47,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { Checkbox } from "../../components/ui/checkbox.tsx";
+import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group.tsx";
+import { useEmployeeSettingsStore } from "../settings/employees/employee-settings-store.ts";
+import { useEmployeeCompStore, type EmployeePayrollProfileInput } from "./employee-comp-store.ts";
 // Helper type for local form state for addresses
 type AddressParts = { province: string, ward: string, street: string };
 
@@ -53,12 +59,22 @@ export type EmployeeFormValues = Omit<Employee, 'systemId' | 'dob' | 'nationalId
   nationalIdIssueDate?: Date;
   hireDate?: Date;
   terminationDate?: Date;
+  payrollWorkShiftSystemId?: SystemId;
+  payrollSalaryComponentSystemIds?: SystemId[];
+  payrollPaymentMethod?: 'bank_transfer' | 'cash';
+  payrollPayoutAccountNumber?: string;
+  payrollPayoutBankName?: string;
+  payrollPayoutBankBranch?: string;
 };
 
+export type EmployeeFormSubmitPayload = Partial<Employee> & {
+  _documentFiles?: Record<string, (UploadedFile & { sessionId?: string })[]>;
+  _payrollProfile?: EmployeePayrollProfileInput | null;
+};
 
 type EmployeeFormProps = {
   initialData: Employee | null;
-  onSubmit: (values: Partial<Employee> & { _documentFiles?: Record<string, (UploadedFile & { sessionId?: string })[]> }) => Promise<void> | void;
+  onSubmit: (values: EmployeeFormSubmitPayload) => Promise<void> | void;
   onCancel: () => void;
   isEditMode?: boolean; // Thêm prop để biết có phải edit mode không
 };
@@ -109,6 +125,17 @@ const multiFileDocuments = [
     { id: "requests", title: "Đơn từ (nghỉ phép, nghỉ ốm,...)", maxFiles: 30, description: "Tối đa 30 file, 100MB" },
 ];
 
+const formatCurrencyDisplay = (value?: number) => {
+  if (typeof value !== 'number') return 'Theo công thức';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+const areArraysEqualIgnoringOrder = (first: SystemId[] = [], second: SystemId[] = []) => {
+  if (first.length !== second.length) return false;
+  const reference = new Set(second);
+  return first.every((value) => reference.has(value));
+};
+
 
 export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = false }: EmployeeFormProps) {
   const [documentSearch, setDocumentSearch] = React.useState('');
@@ -121,11 +148,65 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
   const { data: branches } = useBranchStore();
   // FIX: Destructure 'data' as 'provinces' from useProvinceStore.
   const { data: provinces, getWardsByProvinceId } = useProvinceStore();
+  const { workShifts, salaryComponents } = useEmployeeSettingsStore((state) => ({
+    workShifts: state.settings.workShifts,
+    salaryComponents: state.getSalaryComponents(),
+  }));
+  const getPayrollProfile = useEmployeeCompStore((state) => state.getPayrollProfile);
   const { 
     updateStagingDocument,
     getDocuments,
     refreshDocuments
   } = useDocumentStore();
+
+  const payrollProfile = React.useMemo(
+    () => (initialData?.systemId ? getPayrollProfile(initialData.systemId) : null),
+    [initialData?.systemId, getPayrollProfile]
+  );
+
+  const defaultSalaryComponentSystemIds = React.useMemo(
+    () => salaryComponents.map((component) => component.systemId),
+    [salaryComponents]
+  );
+
+  const payrollDefaultValues = React.useMemo(
+    () => ({
+      payrollWorkShiftSystemId: payrollProfile?.workShiftSystemId ?? undefined,
+      payrollSalaryComponentSystemIds:
+        payrollProfile?.salaryComponentSystemIds ?? defaultSalaryComponentSystemIds,
+      payrollPaymentMethod: payrollProfile?.paymentMethod ?? 'bank_transfer',
+      payrollPayoutAccountNumber:
+        payrollProfile?.payrollBankAccount?.accountNumber ?? initialData?.bankAccountNumber ?? '',
+      payrollPayoutBankName:
+        payrollProfile?.payrollBankAccount?.bankName ?? initialData?.bankName ?? '',
+      payrollPayoutBankBranch:
+        payrollProfile?.payrollBankAccount?.bankBranch ?? initialData?.bankBranch ?? '',
+    }),
+    [
+      payrollProfile,
+      defaultSalaryComponentSystemIds,
+      initialData?.bankAccountNumber,
+      initialData?.bankName,
+      initialData?.bankBranch,
+    ]
+  );
+
+  const hadCustomPayrollProfile = payrollProfile?.usesDefaultComponents === false;
+
+  const form = useForm<EmployeeFormValues>({
+    // resolver: zodResolver(employeeFormSchema), // TODO: Fix type mismatch
+    defaultValues: {
+      ...(initialData ?? {}),
+      id: initialData?.id ?? '',
+      dob: parseDate(initialData?.dob),
+      nationalIdIssueDate: parseDate(initialData?.nationalIdIssueDate),
+      hireDate: parseDate(initialData?.hireDate),
+      terminationDate: parseDate(initialData?.terminationDate),
+      ...payrollDefaultValues,
+    },
+    mode: 'onChange', // Validate on every change for realtime feedback
+    reValidateMode: 'onChange',
+  });
 
   // Hàm tạo mật khẩu ngẫu nhiên
   const generatePassword = (length: number = 12): string => {
@@ -170,53 +251,58 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
     }
   };
 
+  const handleCopyPayrollBank = React.useCallback(() => {
+    const accountNumber = form.getValues('bankAccountNumber') as string | undefined;
+    const bankName = form.getValues('bankName') as string | undefined;
+    const bankBranch = form.getValues('bankBranch') as string | undefined;
+
+    if (!accountNumber && !bankName && !bankBranch) {
+      toast.warning('Chưa có thông tin ngân hàng ở tab Thông tin cá nhân');
+      return;
+    }
+
+    form.setValue('payrollPayoutAccountNumber', accountNumber || '');
+    form.setValue('payrollPayoutBankName', bankName || '');
+    form.setValue('payrollPayoutBankBranch', bankBranch || '');
+    toast.success('Đã sao chép thông tin ngân hàng cho mục trả lương');
+  }, [form]);
+
+  const handleResetPayrollComponents = React.useCallback(() => {
+    form.setValue('payrollSalaryComponentSystemIds', defaultSalaryComponentSystemIds);
+    toast.success('Đã khôi phục thành phần lương mặc định từ cài đặt');
+  }, [defaultSalaryComponentSystemIds, form]);
+
   // Local state for structured addresses
   const [permanentAddress, setPermanentAddress] = React.useState<AddressParts>(parseAddress(initialData?.permanentAddress));
   const [temporaryAddress, setTemporaryAddress] = React.useState<AddressParts>(parseAddress(initialData?.temporaryAddress));
 
-  const form = useForm<EmployeeFormValues>({
-    // resolver: zodResolver(employeeFormSchema), // TODO: Fix type mismatch
-    defaultValues: {
-      ...initialData,
-      id: initialData?.id ?? '',
-      dob: parseDate(initialData?.dob),
-      nationalIdIssueDate: parseDate(initialData?.nationalIdIssueDate),
-      hireDate: parseDate(initialData?.hireDate),
-      terminationDate: parseDate(initialData?.terminationDate),
-    },
-    mode: 'onChange', // Validate on every change for realtime feedback
-    reValidateMode: 'onChange',
-  });
+  const watchedId = form.watch('id');
 
-  // Debounced unique ID validation
   React.useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name === 'id' && value.id) {
-        const existingIds = employees.map(e => e.id);
-        // Use validateUniqueId with current value (will be sanitized/uppercased)
-        const sanitizedId = value.id.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        
-        // ✅ CRITICAL FIX: Update form value with sanitized ID in real-time
-        // This ensures the user sees the sanitized version as they type
-        if (sanitizedId !== value.id) {
-          form.setValue('id', sanitizedId, { shouldValidate: false });
-        }
-        
-        const isUnique = validateUniqueId(sanitizedId, existingIds, initialData?.id);
-        
-        if (!isUnique) {
-          form.setError('id', {
-            type: 'manual',
-            message: `Mã nhân viên "${sanitizedId}" đã tồn tại`
-          });
-        } else {
-          form.clearErrors('id');
-        }
-      }
-    });
-    
-    return () => subscription.unsubscribe();
-  }, [form, employees, initialData?.id]);
+    const rawId = (watchedId as unknown as string) ?? '';
+    if (!rawId) {
+      form.clearErrors('id');
+      return;
+    }
+
+    const sanitizedId = rawId.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    if (sanitizedId !== rawId) {
+      form.setValue('id', asBusinessId(sanitizedId), { shouldValidate: false });
+    }
+
+    const existingIds = employees.map(e => e.id);
+    const isUnique = validateUniqueId(sanitizedId, existingIds, initialData?.id);
+
+    if (!isUnique) {
+      form.setError('id', {
+        type: 'manual',
+        message: `Mã nhân viên "${sanitizedId}" đã tồn tại`
+      });
+    } else {
+      form.clearErrors('id');
+    }
+  }, [watchedId, employees, form, initialData?.id]);
 
   // Unified document state - staging và permanent
   const [documentFiles, setDocumentFiles] = React.useState<Record<string, any[]>>({});
@@ -419,13 +505,18 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
       
       // ✅ Step 0: Validate unique ID (with sanitization)
       const existingIds = employees.map(emp => emp.id);
-      const sanitizedId = values.id ? values.id.toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+      const existingBusinessId = values.id as BusinessId | undefined;
+      const existingIdString = (existingBusinessId as unknown as string) ?? '';
+      const sanitizedId = existingIdString
+        ? existingIdString.toUpperCase().replace(/[^A-Z0-9]/g, '')
+        : '';
       
-      // ✅ CRITICAL FIX: Update values with sanitized ID before validation
-      if (sanitizedId) {
-        values.id = sanitizedId;
-      }
-      
+      const normalizedBusinessId = sanitizedId
+        ? asBusinessId(sanitizedId)
+        : existingIdString.trim().length > 0
+          ? existingBusinessId
+          : undefined;
+
       const isUnique = validateUniqueId(sanitizedId, existingIds, initialData?.id);
       
       if (sanitizedId && !isUnique) {
@@ -492,20 +583,77 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
         }));
       });
 
-      const formattedValues = {
-          ...values,
+      const {
+        payrollWorkShiftSystemId,
+        payrollSalaryComponentSystemIds,
+        payrollPaymentMethod,
+        payrollPayoutAccountNumber,
+        payrollPayoutBankName,
+        payrollPayoutBankBranch,
+        ...employeeCoreValues
+      } = values;
+
+      const payrollBankAccount =
+        payrollPayoutAccountNumber || payrollPayoutBankName || payrollPayoutBankBranch
+          ? {
+              accountNumber: payrollPayoutAccountNumber || undefined,
+              bankName: payrollPayoutBankName || undefined,
+              bankBranch: payrollPayoutBankBranch || undefined,
+            }
+          : undefined;
+
+      const isDefaultComponentSelection = areArraysEqualIgnoringOrder(
+        payrollSalaryComponentSystemIds ?? [],
+        defaultSalaryComponentSystemIds
+      );
+
+      const shouldPersistPayrollProfile =
+        Boolean(payrollWorkShiftSystemId) ||
+        Boolean(payrollBankAccount) ||
+        (payrollPaymentMethod && payrollPaymentMethod !== 'bank_transfer') ||
+        !isDefaultComponentSelection;
+
+      let normalizedPayrollProfile: EmployeePayrollProfileInput | null | undefined;
+      if (shouldPersistPayrollProfile) {
+        normalizedPayrollProfile = {
+          workShiftSystemId: payrollWorkShiftSystemId,
+          salaryComponentSystemIds: payrollSalaryComponentSystemIds,
+          paymentMethod: payrollPaymentMethod,
+          payrollBankAccount,
+        };
+      } else if (hadCustomPayrollProfile) {
+        normalizedPayrollProfile = null;
+      }
+
+        const formattedValues = {
+          ...employeeCoreValues,
+          id: normalizedBusinessId,
           password: password || initialData?.password, // Include password
-          dob: formatDate(values.dob),
-          nationalIdIssueDate: formatDate(values.nationalIdIssueDate),
-          hireDate: formatDate(values.hireDate),
-          terminationDate: formatDate(values.terminationDate),
+          dob: formatDate(employeeCoreValues.dob),
+          nationalIdIssueDate: formatDate(employeeCoreValues.nationalIdIssueDate),
+          hireDate: formatDate(employeeCoreValues.hireDate),
+          terminationDate: formatDate(employeeCoreValues.terminationDate),
           permanentAddress: [permanentAddress.street, permanentAddress.ward, permanentAddress.province].filter(Boolean).join(', '),
           temporaryAddress: [temporaryAddress.street, temporaryAddress.ward, temporaryAddress.province].filter(Boolean).join(', '),
-          _documentFiles: uploadedDocumentFiles
+          _documentFiles: uploadedDocumentFiles,
+          _payrollProfile: normalizedPayrollProfile,
+      };
+
+      const normalizeSystemId = (value?: string | SystemId | null) => {
+        if (!value) return undefined;
+        return asSystemId(value as string);
+      };
+
+      const payload: EmployeeFormSubmitPayload = {
+        ...formattedValues,
+        branchSystemId: normalizeSystemId(formattedValues.branchSystemId),
+        managerId: normalizeSystemId(formattedValues.managerId),
+        createdBy: normalizeSystemId(formattedValues.createdBy),
+        updatedBy: normalizeSystemId(formattedValues.updatedBy),
       };
 
       // Step 4: Submit form với documents
-      await onSubmit(formattedValues);
+      await onSubmit(payload);
     } catch (error) {
       toast.error('Lỗi khi lưu thông tin', {
         description: error instanceof Error ? error.message : 'Lỗi không xác định'
@@ -568,7 +716,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 Phạt
               </TabsTrigger>
               <TabsTrigger value="payroll" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Bảng lương
+                Lương & chấm công
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1184,13 +1332,226 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 </div>
             </div>
           </TabsContent>
-          <TabsContent value="payroll" className="mt-6">
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                    <h3 className="text-lg font-semibold tracking-tight">Quản lý Bảng lương</h3>
-                    <p className="text-sm">Chức năng đang được phát triển.</p>
+          <TabsContent value="payroll" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Thiết lập ca làm việc</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  name="payrollWorkShiftSystemId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ca làm việc mặc định</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? asSystemId(value) : undefined)}
+                        value={field.value ?? undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn ca áp dụng" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {workShifts.length === 0 && (
+                            <SelectItem value="__empty" disabled>
+                              Chưa có ca làm việc trong cài đặt
+                            </SelectItem>
+                          )}
+                          {workShifts.map((shift) => (
+                            <SelectItem key={shift.systemId} value={shift.systemId}>
+                              {shift.name} ({shift.startTime} - {shift.endTime})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Bỏ trống để dùng lịch mặc định trong phần Cài đặt &gt; Nhân viên.
+                        </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">Ghi chú</p>
+                  <p>
+                    Ca mặc định giúp đồng bộ chấm công và tính công chuẩn. Bạn vẫn có thể đổi ca cho từng ngày
+                    trực tiếp tại module Chấm công.
+                  </p>
                 </div>
-            </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Thành phần lương</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Chọn các khoản thu nhập/phụ cấp sẽ gắn với nhân viên này. Danh sách được lấy trực tiếp từ phần Cài đặt
+                  &gt; Thành phần lương.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  name="payrollSalaryComponentSystemIds"
+                  control={form.control}
+                  rules={{
+                    validate: (value) => (value?.length ?? 0) > 0 || 'Cần ít nhất 1 thành phần lương',
+                  }}
+                  render={({ field }) => {
+                    const selectedValues = new Set<SystemId>(field.value ?? []);
+                    return (
+                      <FormItem>
+                        <FormLabel className="sr-only">Thành phần lương</FormLabel>
+                        <div className="space-y-3">
+                          {salaryComponents.length === 0 && (
+                            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                              Chưa có thành phần lương nào. Vào phần Cài đặt để tạo mới.
+                            </div>
+                          )}
+                          {salaryComponents.map((component) => {
+                            const checked = selectedValues.has(component.systemId);
+                            return (
+                              <label
+                                key={component.systemId}
+                                className="flex items-start justify-between gap-4 rounded-lg border p-3"
+                              >
+                                <div>
+                                  <p className="font-medium text-foreground">{component.name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {component.type === 'fixed'
+                                      ? formatCurrencyDisplay(component.amount)
+                                      : component.formula || 'Tự nhập công thức'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {component.taxable ? 'Tính thuế TNCN' : 'Không tính thuế'} ·{' '}
+                                    {component.partOfSocialInsurance ? 'Tính BHXH' : 'Không tính BHXH'}
+                                  </p>
+                                </div>
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(isChecked) => {
+                                    const next = new Set(selectedValues);
+                                    if (isChecked) {
+                                      next.add(component.systemId);
+                                    } else {
+                                      next.delete(component.systemId);
+                                    }
+                                    field.onChange(Array.from(next));
+                                  }}
+                                  className="mt-1"
+                                />
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-2">
+                          <span>
+                            Đang chọn {selectedValues.size}/{salaryComponents.length} thành phần
+                          </span>
+                          <Button type="button" variant="outline" size="sm" onClick={handleResetPayrollComponents}>
+                            Dùng cấu hình mặc định
+                          </Button>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Trả lương & tài khoản</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  name="payrollPaymentMethod"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Hình thức chi trả</FormLabel>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={(field.value as 'bank_transfer' | 'cash') ?? 'bank_transfer'}
+                        className="grid gap-3 md:grid-cols-2"
+                      >
+                        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+                          <RadioGroupItem value="bank_transfer" />
+                          <div className="space-y-1">
+                            <p className="font-medium">Chuyển khoản</p>
+                            <p className="text-sm text-muted-foreground">
+                              Sử dụng tài khoản ngân hàng để chuyển lương hàng tháng.
+                            </p>
+                          </div>
+                        </label>
+                        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+                          <RadioGroupItem value="cash" />
+                          <div className="space-y-1">
+                            <p className="font-medium">Tiền mặt</p>
+                            <p className="text-sm text-muted-foreground">
+                              Áp dụng khi trả lương trực tiếp hoặc qua phong bì.
+                            </p>
+                          </div>
+                        </label>
+                      </RadioGroup>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <FormField
+                    name="payrollPayoutAccountNumber"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Số tài khoản trả lương</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ví dụ: 0123456789" {...field} value={field.value as string || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="payrollPayoutBankName"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ngân hàng</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Vietcombank, MB, ..." {...field} value={field.value as string || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="payrollPayoutBankBranch"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Chi nhánh</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Chi nhánh giao dịch" {...field} value={field.value as string || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleCopyPayrollBank}>
+                    Sao chép từ tab Thông tin cá nhân
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Để trống nếu nhân viên dùng cùng tài khoản với phần Thông tin cá nhân.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
         </Tabs>

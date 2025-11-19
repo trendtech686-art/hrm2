@@ -5,6 +5,7 @@ import { SubtaskList } from '../../../components/shared/subtask-list.tsx';
 import { getWorkflowTemplate } from '../../settings/templates/workflow-templates-page.tsx';
 import { complaintStatusLabels } from '../types.ts';
 import type { Complaint, ComplaintAction } from '../types.ts';
+import { asSystemId } from '@/lib/id-types';
 
 interface Props {
   complaint: Complaint;
@@ -62,9 +63,9 @@ export const ComplaintWorkflowSection: React.FC<Props> = ({
             // Add to timeline
             const action = completed ? 'Hoàn thành bước' : 'Bỏ hoàn thành bước';
             const newAction: ComplaintAction = {
-              id: Date.now().toString(),
+              id: asSystemId(Date.now().toString()),
               actionType: 'commented',
-              performedBy: currentUser.name,
+              performedBy: asSystemId(currentUser.systemId),
               performedAt: new Date(),
               note: `${action}: "${toggledSubtask.title}"`,
             };
@@ -73,9 +74,9 @@ export const ComplaintWorkflowSection: React.FC<Props> = ({
             const actions = [newAction];
             if (statusToUpdate !== complaint.status) {
               actions.push({
-                id: (Date.now() + 1).toString(),
+                id: asSystemId((Date.now() + 1).toString()),
                 actionType: 'status-changed',
-                performedBy: currentUser.name,
+                performedBy: asSystemId(currentUser.systemId),
                 performedAt: new Date(),
                 note: `Tự động chuyển trạng thái: ${complaintStatusLabels[statusToUpdate]}`,
               });
@@ -97,9 +98,9 @@ export const ComplaintWorkflowSection: React.FC<Props> = ({
             // Khi hoàn thành toàn bộ checklist → Tự động chuyển sang "resolved"
             if (complaint.status !== 'resolved') {
               const newAction: ComplaintAction = {
-                id: Date.now().toString(),
+                id: asSystemId(Date.now().toString()),
                 actionType: 'status-changed',
-                performedBy: currentUser.name,
+                performedBy: asSystemId(currentUser.systemId),
                 performedAt: new Date(),
                 note: 'Tự động chuyển trạng thái: Đã giải quyết (Hoàn thành toàn bộ quy trình)',
               };

@@ -5,12 +5,13 @@ import { Badge } from '../../components/ui/badge.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { MoreHorizontal, Phone, Mail, MapPin, User, Building2, CreditCard, RotateCcw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import type { SystemId } from '@/lib/id-types';
 
 interface SupplierCardProps {
   supplier: Supplier;
   onEdit: (supplier: Supplier) => void;
-  onDelete: (systemId: string) => void;
-  onRestore: (systemId: string) => void;
+  onDelete: (systemId: SystemId) => void;
+  onRestore: (systemId: SystemId) => void;
   navigate: (path: string) => void;
 }
 

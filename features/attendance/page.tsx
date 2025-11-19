@@ -8,7 +8,8 @@ import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { generateMockAttendance } from './data.ts';
 import { getColumns } from './columns.tsx';
 import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow, ImportPreviewRow } from './types.ts';
-import { DataTable } from '../../components/data-table/data-table.tsx';
+import type { SystemId } from '../../lib/id-types.ts';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
 import { Card, CardContent } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
@@ -62,12 +63,12 @@ export function AttendancePage() {
     const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
     const [attendanceData, setAttendanceData] = React.useState<AttendanceDataRow[]>([]);
     const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
-    const [editingRecordInfo, setEditingRecordInfo] = React.useState<{ employeeId: string; day: number; record: DailyRecord } | null>(null);
+    const [editingRecordInfo, setEditingRecordInfo] = React.useState<{ employeeSystemId: SystemId; day: number; record: DailyRecord } | null>(null);
     const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
     
     // Bulk edit states
     const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = React.useState(false);
-    const [cellSelection, setCellSelection] = React.useState<Record<string, boolean>>({}); // key: "employeeId-day"
+    const [cellSelection, setCellSelection] = React.useState<Record<string, boolean>>({}); // key: "employeeSystemId-day"
     const [isSelectionMode, setIsSelectionMode] = React.useState(false);
 
     const currentMonthKey = formatDateCustom(currentDate, 'yyyy-MM');
@@ -122,7 +123,7 @@ export function AttendancePage() {
                 ws_data[4][startCol + 6] = emp.fullName;
                 merges.push({ s: { r: 4, c: startCol + 6 }, e: { r: 4, c: startCol + 8 } });
                 ws_data[4][startCol + 9] = 'Mã NV';
-                ws_data[4][startCol + 10] = emp.id;
+                ws_data[4][startCol + 10] = emp.employeeId;
                 
                 const summaryRow = ws_data[6] = ws_data[6] || [];
                 summaryRow[startCol+1] = 'Nghỉ không phép (ngày)';
@@ -182,7 +183,7 @@ export function AttendancePage() {
     };
     
     const handleConfirmImport = (
-        importedData: Record<string, { day: number; checkIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]>,
+        importedData: Record<SystemId, { day: number; checkIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]>,
         date: Date
     ) => {
         const year = date.getFullYear();
@@ -191,7 +192,7 @@ export function AttendancePage() {
         const baseAttendanceData = generateMockAttendance(employees, year, month, settings);
 
         const updatedData = baseAttendanceData.map(employeeRow => {
-            const employeeUpdates = importedData[employeeRow.id];
+            const employeeUpdates = importedData[employeeRow.employeeSystemId];
             if (employeeUpdates) {
                 let mutableRow: AnyAttendanceDataRow = { ...employeeRow };
 
@@ -235,10 +236,10 @@ export function AttendancePage() {
     };
 
     // Bulk edit handlers
-    const toggleCellSelection = React.useCallback((employeeId: string, day: number) => {
+    const toggleCellSelection = React.useCallback((employeeSystemId: SystemId, day: number) => {
         if (!isSelectionMode || isLocked) return;
         
-        const key = `${employeeId}-${day}`;
+        const key = `${employeeSystemId}-${day}`;
         setCellSelection(prev => {
             const newSelection = { ...prev };
             if (newSelection[key]) {
@@ -250,22 +251,26 @@ export function AttendancePage() {
         });
     }, [isSelectionMode, isLocked]);
 
-    const selectedCellsArray = React.useMemo(() => {
-        return Object.keys(cellSelection).map(key => {
-            const [employeeId, dayStr] = key.split('-');
-            const employee = attendanceData.find(e => e.id === employeeId);
-            return {
-                employeeId,
-                employeeName: employee?.fullName || '',
-                day: parseInt(dayStr, 10),
-            };
-        });
-    }, [cellSelection, attendanceData]);
+    const selectedCellsArray = React.useMemo<Array<{ employeeSystemId: SystemId; employeeCode: string; employeeName: string; day: number }>>(
+        () =>
+            Object.keys(cellSelection).map((key) => {
+                const [systemId, dayStr] = key.split('-');
+                const employeeSystemId = systemId as SystemId;
+                const employee = attendanceData.find((e) => e.employeeSystemId === employeeSystemId);
+                return {
+                    employeeSystemId,
+                    employeeCode: employee?.employeeId ?? '',
+                    employeeName: employee?.fullName || '',
+                    day: parseInt(dayStr, 10),
+                };
+            }),
+        [cellSelection, attendanceData]
+    );
 
-    const handleBulkSave = (updates: Array<{ employeeId: string; day: number; record: DailyRecord }>) => {
+    const handleBulkSave = (updates: Array<{ employeeSystemId: SystemId; day: number; record: DailyRecord }>) => {
         setAttendanceData(prevData =>
             prevData.map(row => {
-                const employeeUpdates = updates.filter(u => u.employeeId === row.id);
+                const employeeUpdates = updates.filter(u => u.employeeSystemId === row.employeeSystemId);
                 if (employeeUpdates.length > 0) {
                     const newRow = { ...row } as AnyAttendanceDataRow;
                     employeeUpdates.forEach(update => {
@@ -280,7 +285,7 @@ export function AttendancePage() {
         
         // Save to store
         const updatedData = attendanceData.map(row => {
-            const employeeUpdates = updates.filter(u => u.employeeId === row.id);
+            const employeeUpdates = updates.filter(u => u.employeeSystemId === row.employeeSystemId);
             if (employeeUpdates.length > 0) {
                 const newRow = { ...row } as AnyAttendanceDataRow;
                 employeeUpdates.forEach(update => {
@@ -301,7 +306,7 @@ export function AttendancePage() {
         });
     };
 
-    const handleQuickFill = React.useCallback((employeeId: string, day: number) => {
+    const handleQuickFill = React.useCallback((employeeSystemId: SystemId, day: number) => {
         if (isLocked) return;
         
         // Double-click to quick fill with default work hours
@@ -313,7 +318,7 @@ export function AttendancePage() {
 
         setAttendanceData(prevData =>
             prevData.map(row => {
-                if (row.id === employeeId) {
+                if (row.employeeSystemId === employeeSystemId) {
                     const newRow = { ...row } as AnyAttendanceDataRow;
                     newRow[`day_${day}`] = defaultRecord;
                     const summary = recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings);
@@ -325,7 +330,7 @@ export function AttendancePage() {
 
         // Save to store
         const updatedData = attendanceData.map(row => {
-            if (row.id === employeeId) {
+            if (row.employeeSystemId === employeeSystemId) {
                 const newRow = { ...row } as AnyAttendanceDataRow;
                 newRow[`day_${day}`] = defaultRecord;
                 const summary = recalculateSummary(newRow, currentDate.getFullYear(), currentDate.getMonth() + 1, settings);
@@ -398,7 +403,7 @@ export function AttendancePage() {
             data = data.filter(row => row.department === departmentFilter);
         }
         if (debouncedGlobalFilter) {
-            const fuse = new Fuse(data, { keys: ["fullName", "id"], threshold: 0.3 });
+            const fuse = new Fuse(data, { keys: ["fullName", "employeeId"], threshold: 0.3 });
             return fuse.search(debouncedGlobalFilter).map(result => result.item);
         }
         return data;
@@ -420,19 +425,19 @@ export function AttendancePage() {
         return sorted;
      }, [filteredData, sorting]);
 
-    const handleEditRecord = React.useCallback((employeeId: string, day: number) => {
+    const handleEditRecord = React.useCallback((employeeSystemId: SystemId, day: number) => {
         if (isLocked) return;
         
         // If in selection mode, toggle selection instead
         if (isSelectionMode) {
-            toggleCellSelection(employeeId, day);
+            toggleCellSelection(employeeSystemId, day);
             return;
         }
         
-        const employeeData = attendanceData.find(emp => emp.id === employeeId);
+        const employeeData = attendanceData.find(emp => emp.employeeSystemId === employeeSystemId);
         if (employeeData) {
             setEditingRecordInfo({
-                employeeId,
+                employeeSystemId,
                 day,
                 record: employeeData[`day_${day}`] as DailyRecord,
             });
@@ -444,7 +449,7 @@ export function AttendancePage() {
         if (!editingRecordInfo) return;
     
         const updatedData = attendanceData.map(row => {
-            if (row.id === editingRecordInfo.employeeId) {
+            if (row.employeeSystemId === editingRecordInfo.employeeSystemId) {
                 const newRow = { ...row } as AnyAttendanceDataRow;
                 newRow[`day_${editingRecordInfo.day}`] = updatedRecord;
 
@@ -495,9 +500,9 @@ export function AttendancePage() {
     const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
     const paginatedData = sortedData.slice(pagination.pageIndex * pagination.pageSize, pagination.pageIndex * pagination.pageSize + pagination.pageSize);
 
-     const allSelectedRows = React.useMemo(() => 
-        attendanceData.filter(att => rowSelection[att.id]),
-      [attendanceData, rowSelection]);
+         const allSelectedRows = React.useMemo(() => 
+                attendanceData.filter(att => rowSelection[att.systemId]),
+            [attendanceData, rowSelection]);
 
     return (
         <div className="flex flex-col h-full space-y-4">
@@ -543,7 +548,7 @@ export function AttendancePage() {
                 </CardContent>
             </Card>
 
-            <DataTable
+            <ResponsiveDataTable
                 columns={columns}
                 data={paginatedData}
                 rowCount={filteredData.length}

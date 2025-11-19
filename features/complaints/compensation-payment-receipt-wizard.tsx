@@ -35,6 +35,7 @@ import type { Receipt } from "../receipts/types.ts";
 import type { CashAccount } from "../cashbook/types.ts";
 import type { Employee } from "../employees/types.ts";
 import type { Complaint } from "./types.ts";
+import type { SystemId } from "@/lib/id-types";
 import { usePaymentStore } from "../payments/store.ts";
 import { useReceiptStore } from "../receipts/store.ts";
 import { usePaymentTypeStore } from "../settings/payments/types/store.ts";
@@ -46,9 +47,9 @@ import { usePaymentMethodStore } from "../settings/payments/methods/store.ts";
 export interface CompensationResult {
   payment?: Payment;  // Optional - only for refund
   receipt?: Receipt;
-  inventoryCheckSystemId?: string; // NEW: Link to inventory check if created
+  inventoryCheckSystemId?: SystemId; // NEW: Link to inventory check nếu tạo
   inventoryAdjustments?: Array<{
-    productSystemId: string;
+    productSystemId: SystemId;
     productId: string;
     productName: string;
     quantityAdjusted: number;

@@ -1,8 +1,9 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { Product } from './types.ts';
-import { type SystemId, createSystemId } from '../../lib/id-config.ts';
-import { getCurrentUserSystemId } from '../../contexts/user-context.tsx';
+import { type SystemId } from '@/lib/id-types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
 import Fuse from 'fuse.js';
 
 const baseStore = createCrudStore<Product>(initialData, 'products', {
@@ -177,7 +178,7 @@ const searchProducts = async (query: string, page: number = 1, limit: number = 1
 
   return {
     items: paginatedResults.map(result => ({
-      value: createSystemId(result.item.systemId),
+      value: asSystemId(result.item.systemId),
       label: `${result.item.name} (${result.item.id})`,
     })),
     hasNextPage: endIndex < results.length,
@@ -213,3 +214,5 @@ useProductStore.getState = () => {
     searchProducts,
   };
 };
+
+(useProductStore as typeof useProductStore & { subscribe?: typeof baseStore.subscribe }).subscribe = baseStore.subscribe;

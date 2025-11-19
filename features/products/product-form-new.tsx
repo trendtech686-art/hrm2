@@ -1,4 +1,5 @@
 import * as React from "react";
+import { asBusinessId } from "@/lib/id-types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -40,6 +41,7 @@ import { CalendarIcon, PlusCircle } from "lucide-react";
 import { cn } from "../../lib/utils.ts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../../components/ui/dialog.tsx";
 import { PricingPolicyForm, type PricingPolicyFormValues } from "../settings/pricing/form.tsx";
+import type { PricingPolicy } from "../settings/pricing/types.ts";
 
 // Validation Schema
 const productFormSchema = z.object({
@@ -186,7 +188,16 @@ export function ProductFormNew({ initialData, onSubmit }: ProductFormProps) {
   }, [form, products, initialData]);
   
   const handlePolicyFormSubmit = (values: PricingPolicyFormValues) => {
-    addPricingPolicy(values);
+    const normalizedPolicy = {
+      id: asBusinessId(values.id.trim().toUpperCase()),
+      name: values.name.trim(),
+      description: values.description?.trim() || undefined,
+      type: values.type,
+      isActive: values.isActive,
+      isDefault: values.isDefault,
+    } satisfies Omit<PricingPolicy, 'systemId'>;
+
+    addPricingPolicy(normalizedPolicy);
     setIsPolicyFormOpen(false);
   };
 

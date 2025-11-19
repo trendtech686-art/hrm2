@@ -3,7 +3,7 @@
  * Kiểm kê định kỳ hàng hóa
  */
 
-import type { SystemId } from '../../lib/id-config.ts';
+import { SystemId, BusinessId } from '../../lib/id-types.ts';
 
 export type InventoryCheckStatus = 'draft' | 'balanced' | 'cancelled';
 
@@ -16,8 +16,8 @@ export type DifferenceReason =
   | 'production'; // Sản Xuất Sản Phẩm
 
 export interface InventoryCheckItem {
-  productSystemId: string;    // Foreign key - PROD000001
-  productId: string;          // Display ID - SP000001
+  productSystemId: SystemId;  // Foreign key - PRODUCT000001
+  productId: BusinessId;      // Display ID - SP000001
   productName: string;
   unit: string;
   systemQuantity: number;     // Số lượng hệ thống
@@ -29,16 +29,16 @@ export interface InventoryCheckItem {
 
 export interface InventoryCheck {
   systemId: SystemId;         // Internal ID: INVCHECK000001 (English prefix)
-  id: string;                 // User-facing ID: PKK000001 (Vietnamese prefix)
-  branchSystemId: string;     // Foreign key - BRANCH000001
+  id: BusinessId;             // User-facing ID: PKK000001 (Vietnamese prefix)
+  branchSystemId: SystemId;   // Foreign key - BRANCH000001
   branchName: string;         // Display only
   status: InventoryCheckStatus;
-  createdBy: string;          // User systemId
+  createdBy: SystemId;        // User systemId
   createdAt: string;
   balancedAt?: string;        // Thời điểm cân bằng
-  balancedBy?: string;        // Người cân bằng (user systemId)
+  balancedBy?: SystemId;      // Người cân bằng (user systemId)
   cancelledAt?: string;       // Thời điểm hủy
-  cancelledBy?: string;       // Người hủy (user systemId)
+  cancelledBy?: SystemId;     // Người hủy (user systemId)
   cancelledReason?: string;   // Lý do hủy
   note?: string;
   items: InventoryCheckItem[];

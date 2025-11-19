@@ -6,13 +6,10 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { formatDateTime } from '../../lib/date-utils.ts';
 import { cn } from '../../lib/utils.ts';
-import { createSystemId } from '../../lib/id-config.ts';
-import { useDebounce } from '../../hooks/use-debounce.ts';
 import type { WarrantyTicket } from './types.ts';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, SETTLEMENT_TYPE_LABELS, SETTLEMENT_STATUS_LABELS, type WarrantyHistory } from './types.ts';
 import { useWarrantyStore } from './store.ts';
 import { getCurrentDate, toISODateTime } from '../../lib/date-utils.ts';
-import { searchOrders, type OrderSearchResult } from '../orders/order-search-api.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
 
 // UI Components
@@ -43,7 +40,6 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog.tsx';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
-import type { ComboboxOption } from '../../components/ui/virtualized-combobox.tsx';
 import {
   Select,
   SelectContent,
@@ -54,32 +50,34 @@ import {
 
 // Detail-specific components
 import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table.tsx';
-import { WarrantySummaryDetail } from './components/warranty-summary-detail.tsx';
-import { WarrantyProcessingCard } from './components/warranty-processing-card.tsx';
-import { calculateWarrantyProcessingState } from './components/warranty-processing-logic.ts';
+import { WarrantyProcessingCard, WarrantySummaryCard } from './components/index.ts';
+import { calculateWarrantyProcessingState } from './components/logic/processing.ts';
 import { TicketInfoCard } from './components/detail/ticket-info-card.tsx';
 import { CustomerInfoCard } from './components/detail/customer-info-card.tsx';
 import { WarrantyWorkflowCard } from './components/detail/workflow-card.tsx';
 import { WarrantyImageGalleryCard } from './components/detail/image-gallery-card.tsx';
 import { getWorkflowTemplate } from '../settings/templates/workflow-templates-page.tsx';
 import {
-  CancelWarrantyDialog,
-  CreatePaymentVoucherDialog,
-  CreateReceiptVoucherDialog,
-  ReopenFromCancelledDialog,
-  ReopenFromReturnedDialog,
-  ReturnMethodDialog,
+  WarrantyCancelDialog,
+  WarrantyReopenFromCancelledDialog,
+  WarrantyReopenFromReturnedDialog,
+  WarrantyReturnMethodDialog,
   WarrantyReminderDialog,
 } from './components/dialogs/index.ts';
 import { useWarrantyReminders } from './hooks/use-warranty-reminders.ts';
 import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking.ts';
+import { useWarrantySettlement } from './hooks/use-warranty-settlement.ts';
+import { useReturnMethodDialog } from './hooks/use-return-method-dialog.ts';
+import { useWarrantyActions } from './hooks/use-warranty-actions.ts';
 import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils.ts';
+import { ROUTES, generatePath } from '../../lib/router.ts';
 
 // Section components
 import { WarrantyCommentsSection, WarrantyHistorySection } from './components/sections/index.ts';
 
 import { useOrderStore } from '../orders/store.ts';
 import { usePaymentStore } from '../payments/store.ts';
+import { asSystemId } from '@/lib/id-types.ts';
 import { useReceiptStore } from '../receipts/store.ts';
 
 const RESPONSE_TEMPLATES = [
@@ -105,10 +103,20 @@ export function WarrantyDetailPage() {
   const { systemId = '' } = useParams<{ systemId: string }>();
   const { user, employee } = useAuth();
 
+  const currentUserSystemId = React.useMemo(() => {
+    if (employee?.systemId) {
+      return employee.systemId;
+    }
+    if (user?.employeeId) {
+      return asSystemId(user.employeeId);
+    }
+    return asSystemId('SYSTEM');
+  }, [employee?.systemId, user?.employeeId]);
+
   const currentUser = React.useMemo(() => ({
     name: employee?.fullName || user?.name || 'Hệ thống',
-    systemId: employee?.systemId || user?.employeeId || 'SYSTEM',
-  }), [employee?.fullName, employee?.systemId, user?.name, user?.employeeId]);
+    systemId: currentUserSystemId,
+  }), [employee?.fullName, user?.name, currentUserSystemId]);
 
   const tickets = useWarrantyStore((state) => state.data);
   const update = useWarrantyStore((state) => state.update);
@@ -119,62 +127,78 @@ export function WarrantyDetailPage() {
     return tickets.find((item) => item.systemId === systemId) || null;
   }, [tickets, systemId]);
 
+  const settlement = useWarrantySettlement(systemId, { ticket });
+  const totalSettlementAmount = settlement.totalPayment;
+  const settlementState = settlement.processingState;
+
   const { data: orders } = useOrderStore();
 
-  const [showReturnDialog, setShowReturnDialog] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [showReopenDialog, setShowReopenDialog] = React.useState(false);
   const [showReopenReturnedDialog, setShowReopenReturnedDialog] = React.useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false);
-  const [isCompletingTicket, setIsCompletingTicket] = React.useState(false);
-  const [returnMethod, setReturnMethod] = React.useState<'direct' | 'order' | null>(null);
-  const [selectedOrderId, setSelectedOrderId] = React.useState('');
-  const [orderSearchQuery, setOrderSearchQuery] = React.useState('');
-  const [orderSearchResults, setOrderSearchResults] = React.useState<OrderSearchResult[]>([]);
-  const [isSearchingOrders, setIsSearchingOrders] = React.useState(false);
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
   const [showImagePreview, setShowImagePreview] = React.useState(false);
-
-  const debouncedOrderQuery = useDebounce(orderSearchQuery, 400);
 
   const linkedOrder = React.useMemo(() => {
     if (!ticket?.linkedOrderSystemId) return undefined;
     return orders.find((order) => order.systemId === ticket.linkedOrderSystemId);
   }, [orders, ticket?.linkedOrderSystemId]);
 
+  const {
+    isOpen: isReturnDialogOpen,
+    openDialog: openReturnDialog,
+    handleOpenChange: handleReturnDialogOpenChange,
+    handleReturnMethodChange,
+    handleOrderSelect,
+    handleOrderSearchChange,
+    handleConfirmDirect,
+    handleConfirmWithOrder,
+    resetDialog: resetReturnDialog,
+    returnMethod,
+    selectedOrderValue,
+    orderSearchResults,
+    orderSearchQuery,
+    isSearchingOrders,
+    totalOrderCount,
+    currentMethodLabel: currentReturnMethodLabel,
+  } = useReturnMethodDialog({
+    ticket,
+    linkedOrder,
+    orders,
+    currentUserName: currentUser.name,
+  });
+
   const publicTrackingUrl = React.useMemo(() => {
     if (!ticket) return '';
     const code = ticket.publicTrackingCode || ticket.systemId || ticket.id;
-    return `${window.location.origin}/warranty/tracking/${code}`;
+    if (!code) return '';
+    const trackingPath = generatePath(ROUTES.INTERNAL.WARRANTY_TRACKING, { trackingCode: code });
+    return `${window.location.origin}${trackingPath}`;
   }, [ticket?.publicTrackingCode, ticket?.systemId, ticket?.id]);
 
-  const selectedOrderValue = React.useMemo<ComboboxOption | null>(() => {
-    if (!selectedOrderId) return null;
-    const option = orderSearchResults.find((item) => item.value === selectedOrderId);
-    if (option) return option;
-    if (linkedOrder && linkedOrder.systemId === selectedOrderId) {
-      return {
-        value: linkedOrder.systemId,
-        label: `${linkedOrder.id} - ${linkedOrder.customerName}`,
-        subtitle: `${(linkedOrder.grandTotal || 0).toLocaleString('vi-VN')} đ`,
-      };
-    }
-    return null;
-  }, [linkedOrder, orderSearchResults, selectedOrderId]);
+  const {
+    handleStatusChange,
+    handleCompleteTicket,
+    handleCopyTrackingLink,
+    handleGenerateTrackingCode,
+    handleNavigateEmployee,
+    handleNavigateOrder,
+    isCompletingTicket,
+  } = useWarrantyActions({
+    ticket,
+    currentUser,
+    linkedOrder,
+    publicTrackingUrl,
+    totalSettlementAmount,
+    remainingSettlementAmount: settlementState.remainingAmount,
+    update,
+    updateStatus,
+    addHistory,
+    navigate,
+  });
 
-  const totalOrderCount = orders.length;
-
-  const currentReturnMethodLabel = React.useMemo(() => {
-    if (!ticket) return null;
-    if (ticket.linkedOrderSystemId) {
-      return `Giao qua đơn hàng (${linkedOrder?.id || 'N/A'})`;
-    }
-    if (ticket.status === 'returned') {
-      return 'Khách lấy trực tiếp tại cửa hàng';
-    }
-    return null;
-  }, [linkedOrder?.id, ticket]);
 
   const timeMetrics = useWarrantyTimeTracking(ticket);
 
@@ -200,354 +224,14 @@ export function WarrantyDetailPage() {
     sendReminder,
   } = useWarrantyReminders();
 
-  const handleReturnDialogReset = React.useCallback(() => {
-    setSelectedOrderId('');
-    setOrderSearchQuery('');
-    setReturnMethod(null);
-  }, []);
-
-  const openReturnDialog = React.useCallback(() => {
-    if (ticket?.linkedOrderSystemId) {
-      setReturnMethod('order');
-      setSelectedOrderId(ticket.linkedOrderSystemId);
-    } else {
-      setReturnMethod('direct');
-      setSelectedOrderId('');
-    }
-    setOrderSearchQuery('');
-    setShowReturnDialog(true);
-  }, [ticket?.linkedOrderSystemId]);
-
-  React.useEffect(() => {
-    let isCancelled = false;
-
-    async function fetchOrders() {
-      setIsSearchingOrders(true);
-      try {
-        const results = await searchOrders(
-          { query: debouncedOrderQuery || '', limit: 50, branchSystemId: ticket?.branchSystemId },
-          orders
-        );
-        if (!isCancelled) {
-          setOrderSearchResults(results);
-        }
-      } catch (error) {
-        if (!isCancelled) {
-          console.error('Failed to search orders', error);
-          toast.error('Không thể tìm đơn hàng, vui lòng thử lại');
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsSearchingOrders(false);
-        }
-      }
-    }
-
-    fetchOrders();
-    return () => {
-      isCancelled = true;
-    };
-  }, [debouncedOrderQuery, orders, ticket?.branchSystemId]);
-
   const responseTemplates = React.useMemo(() => RESPONSE_TEMPLATES, []);
   const isReturned = ticket?.status === 'returned';
-
-  const handleReturnDirect = React.useCallback(() => {
-    if (!ticket) return;
-
-    try {
-      // If already returned, just update the method (remove order link)
-      if (ticket.status === 'returned') {
-        update(ticket.systemId, {
-          linkedOrderSystemId: undefined, // Remove order link
-        });
-        
-        addHistory(ticket.systemId, 'Đổi phương thức trả hàng: Giao qua đơn hàng → Khách lấy trực tiếp', currentUser.name);
-
-        toast.success('Đã cập nhật phương thức trả hàng', {
-          description: 'Đổi sang: Khách lấy trực tiếp tại cửa hàng.',
-          duration: 5000,
-        });
-      } else {
-        // First time marking as returned
-        updateStatus(ticket.systemId, 'returned', 'Khách lấy trực tiếp tại cửa hàng');
-        
-        update(ticket.systemId, {
-          returnedAt: toISODateTime(getCurrentDate()),
-        });
-
-        toast.success('Đã trả hàng cho khách', {
-          description: 'Khách đã lấy hàng trực tiếp tại cửa hàng.',
-          duration: 5000,
-        });
-      }
-      
-      handleReturnDialogReset();
-      setShowReturnDialog(false);
-    } catch (error) {
-      console.error('Failed to mark as returned:', error);
-      toast.error('Không thể cập nhật');
-    }
-  }, [ticket, update, updateStatus, addHistory, currentUser.name, handleReturnDialogReset]);
-
-  const handleReturnWithOrder = React.useCallback(async () => {
-    if (!ticket || !selectedOrderId) {
-      toast.error('Vui lòng chọn đơn hàng');
-      return;
-    }
-
-    // Get selected order
-    const selectedOrder = orders.find(o => o.systemId === selectedOrderId);
-    
-    if (!selectedOrder) {
-      toast.error('Không tìm thấy đơn hàng');
-      return;
-    }
-
-    // Check if order is already linked to another warranty (dùng systemId)
-    if ((selectedOrder as any).linkedWarrantySystemId && (selectedOrder as any).linkedWarrantySystemId !== ticket.systemId) {
-      toast.error('Đơn hàng này đã được liên kết với phiếu bảo hành khác', {
-        description: 'Vui lòng chọn đơn hàng khác',
-        duration: 5000,
-      });
-      return;
-    }
-
-    try {
-      // If already returned, just update the order link
-      if (ticket.status === 'returned') {
-        update(ticket.systemId, {
-          linkedOrderSystemId: selectedOrder.systemId,
-        });
-        
-        const oldMethod = ticket.linkedOrderSystemId 
-          ? `đơn hàng ${linkedOrder?.id || 'N/A'}`
-          : 'Khách lấy trực tiếp';
-        
-        addHistory(ticket.systemId, `Đổi phương thức trả hàng: ${oldMethod} → Giao qua đơn hàng ${selectedOrder.id}`, currentUser.name);
-
-        toast.success('Đã cập nhật phương thức trả hàng', {
-          description: `Đổi sang: Giao qua đơn hàng ${selectedOrder.id}.`,
-          duration: 5000,
-        });
-      } else {
-        // First time marking as returned with order link
-        updateStatus(ticket.systemId, 'returned', `Liên kết với đơn hàng ${selectedOrder.id}`);
-        
-        update(ticket.systemId, {
-          linkedOrderSystemId: selectedOrder.systemId,
-          returnedAt: toISODateTime(getCurrentDate()),
-        });
-
-        toast.success('Đã trả hàng cho khách', {
-          description: `Đã liên kết với đơn hàng ${selectedOrder.id}.`,
-          duration: 5000,
-        });
-      }
-      
-      // Close dialog after successful link
-      handleReturnDialogReset();
-      setShowReturnDialog(false);
-    } catch (error) {
-      console.error('Failed to link order:', error);
-      toast.error('Không thể cập nhật');
-    }
-  }, [ticket, selectedOrderId, update, updateStatus, orders, addHistory, currentUser.name, handleReturnDialogReset]);
-
-  const handleStatusChange = React.useCallback(async (newStatus: WarrantyTicket['status']) => {
-    if (!ticket) return;
-
-    if (newStatus === 'processed') {
-      if (!ticket.processedImages || ticket.processedImages.length === 0) {
-        toast.error('Chưa đầy đủ thông tin', {
-          description: 'Vui lòng upload hình ảnh đã xử lý trước khi đánh dấu "Đã xử lý"',
-          duration: 5000,
-        });
-        return;
-      }
-
-      if (!ticket.products || ticket.products.length === 0) {
-        toast.error('Chưa đầy đủ thông tin', {
-          description: 'Vui lòng thêm sản phẩm vào danh sách bảo hành trước khi đánh dấu "Đã xử lý"',
-          duration: 5000,
-        });
-        return;
-      }
-
-      const incompleteProducts = ticket.products.filter((product) =>
-        !product.productName || !product.issueDescription || !product.resolution
-      );
-
-      if (incompleteProducts.length > 0) {
-        toast.error('Chưa đầy đủ thông tin sản phẩm', {
-          description: `Có ${incompleteProducts.length} sản phẩm chưa đầy đủ thông tin (tên, tình trạng, cách xử lý)`,
-          duration: 5000,
-        });
-        return;
-      }
-    }
-
-    try {
-      updateStatus(ticket.systemId, newStatus, '');
-
-      const now = toISODateTime(getCurrentDate());
-      const updates: Partial<WarrantyTicket> = {};
-
-      if (newStatus === 'pending' && !ticket.processingStartedAt) {
-        updates.processingStartedAt = now;
-      } else if (newStatus === 'processed' && !ticket.processedAt) {
-        updates.processedAt = now;
-      } else if (newStatus === 'returned' && !ticket.returnedAt) {
-        updates.returnedAt = now;
-      }
-
-      if (newStatus === 'incomplete') {
-        updates.processingStartedAt = undefined;
-        updates.processedAt = undefined;
-        updates.returnedAt = undefined;
-      } else if (newStatus === 'pending') {
-        updates.processedAt = undefined;
-        updates.returnedAt = undefined;
-      } else if (newStatus === 'processed') {
-        updates.returnedAt = undefined;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        update(ticket.systemId, updates);
-      }
-
-      toast.success('Đã cập nhật trạng thái');
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      toast.error('Không thể cập nhật trạng thái');
-    }
-  }, [ticket, update, updateStatus]);
-
-  // Removed handleCancelTicket, handleReopenTicket - now in dialog components
-
-  const handleCompleteTicket = React.useCallback(() => {
-    // Prevent double submission
-    if (isCompletingTicket) {
-      console.log('⚠️ [COMPLETE TICKET] Already processing, ignoring duplicate call');
-      return;
-    }
-    
-    console.log('🔥 [COMPLETE TICKET] Called');
-    
-    if (!ticket) return;
-
-    // Validation 1: Only allow completion if status is 'returned'
-    if (ticket.status !== 'returned') {
-      console.log('❌ [COMPLETE TICKET] Not returned status');
-      toast.error('Chỉ có thể kết thúc phiếu đã trả hàng');
-      return;
-    }
-
-    // Validation 2: Check payment completion using calculateWarrantyProcessingState
-    // Tính totalPayment từ ticket
-    const totalPayment = ticket.products.reduce((sum, p) => {
-      if (p.resolution === 'out_of_stock') {
-        return sum + ((p.quantity || 0) * (p.unitPrice || 0));
-      }
-      return sum;
-    }, 0) + (ticket.shippingFee || 0);
-
-    // Nếu có tiền phải trả (totalPayment > 0), kiểm tra đã thanh toán hết chưa
-    if (totalPayment > 0) {
-      // ⚠️ Lấy dữ liệu mới nhất trực tiếp từ store để tránh tình trạng phải F5
-      const latestPayments = usePaymentStore.getState().data;
-      const latestReceipts = useReceiptStore.getState().data;
-      const state = calculateWarrantyProcessingState(ticket, latestPayments, latestReceipts, totalPayment);
-      
-      console.log('💰 [COMPLETE TICKET] Payment check:', {
-        totalPayment,
-        remainingAmount: state.remainingAmount,
-        paymentsCount: state.warrantyPayments.length,
-        receiptsCount: state.warrantyReceipts.length
-      });
-      
-      if (state.remainingAmount > 0) {
-        console.log('❌ [COMPLETE TICKET] Payment incomplete, showing toast');
-        toast.error(`Chưa thanh toán đủ cho khách. Còn thiếu: ${state.remainingAmount.toLocaleString('vi-VN')} đ`, {
-          duration: 5000,
-        });
-        return;
-      }
-    }
-
-    try {
-      setIsCompletingTicket(true);
-      console.log('[COMPLETE TICKET] Completing ticket');
-      updateStatus(ticket.systemId, 'completed', 'Kết thúc phiếu bảo hành');
-      toast.success('Đã kết thúc phiếu bảo hành', {
-        description: 'Phiếu đã được hoàn tất và lưu trữ',
-      });
-    } catch (error) {
-      console.error('Failed to complete ticket:', error);
-      toast.error('Không thể kết thúc phiếu');
-    } finally {
-      // Reset flag after a short delay to allow for UI update
-      setTimeout(() => setIsCompletingTicket(false), 1000);
-    }
-  }, [ticket, updateStatus, isCompletingTicket]);
-
-  // Removed handleReopenFromReturned - now in dialog component
 
   const handleImagePreview = React.useCallback((images: string[], index: number) => {
     setPreviewImages(images);
     setPreviewIndex(index);
     setShowImagePreview(true);
   }, []);
-
-  const handleCopyTrackingLink = React.useCallback(() => {
-    if (!ticket || !ticket.publicTrackingCode || !publicTrackingUrl) {
-      toast.error('Chưa có mã tra cứu');
-      return;
-    }
-
-    navigator.clipboard.writeText(publicTrackingUrl);
-    toast.success(
-      <div className="flex flex-col gap-1">
-        <div className="font-semibold">Đã copy link tracking</div>
-        <div className="text-sm text-muted-foreground">Mã: {ticket.publicTrackingCode}</div>
-      </div>,
-      { duration: 5000 }
-    );
-
-    addHistory(
-      ticket.systemId,
-      'Copy link tracking công khai',
-      currentUser.name,
-      `Mã: ${ticket.publicTrackingCode}`
-    );
-  }, [ticket, publicTrackingUrl, addHistory, currentUser.name]);
-
-  const handleGenerateTrackingCode = React.useCallback(() => {
-    if (!ticket) return;
-
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let code = '';
-    for (let i = 0; i < 10; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    update(ticket.systemId, { publicTrackingCode: code });
-    addHistory(ticket.systemId, '🔗 Tạo mã tra cứu công khai', currentUser.name, `Mã: ${code}`);
-    toast.success('Đã tạo mã tra cứu', {
-      description: `Mã: ${code}`,
-      duration: 3000,
-    });
-  }, [ticket, update, addHistory, currentUser.name]);
-
-  const handleNavigateEmployee = React.useCallback(() => {
-    if (!ticket?.employeeSystemId) return;
-    navigate(`/employees/${ticket.employeeSystemId}`);
-  }, [navigate, ticket?.employeeSystemId]);
-
-  const handleNavigateOrder = React.useCallback(() => {
-    if (!linkedOrder) return;
-    navigate(`/orders/${linkedOrder.systemId}`);
-  }, [linkedOrder, navigate]);
 
   // Page header actions - Calculate directly for reactivity
   const actions = React.useMemo(() => {
@@ -853,41 +537,26 @@ export function WarrantyDetailPage() {
                 />
 
                 {/* Summary Card - Thanh toán */}
-                <WarrantySummaryDetail 
+                <WarrantySummaryCard 
                   products={ticket.products} 
                   shippingFee={ticket.shippingFee || 0}
-                  ticketStatus={ticket.status}
-                  warrantyId={ticket.id}
-                  warrantySystemId={ticket.systemId}
-                  customer={{
-                    name: ticket.customerName,
-                    phone: ticket.customerPhone,
-                  }}
+                  settlement={settlement}
                 />
 
                 {/* Xử lý bảo hành - Nút tạo phiếu chi/thu */}
                 <WarrantyProcessingCard
                   warrantyId={ticket.id}
                   warrantySystemId={ticket.systemId}
-                  ticketStatus={ticket.status}
                   customer={{
                     name: ticket.customerName,
                     phone: ticket.customerPhone,
                   }}
-                  totalPayment={(() => {
-                    // Tính toán totalPayment giống WarrantySummaryDetail
-                    const outOfStockValue = ticket.products.reduce((sum, p) => {
-                      if (p.resolution === 'out_of_stock') {
-                        return sum + ((p.quantity || 0) * (p.unitPrice || 0));
-                      }
-                      return sum;
-                    }, 0);
-                    return outOfStockValue + (ticket.shippingFee || 0);
-                  })()}
                   linkedOrderSystemId={ticket.linkedOrderSystemId}
                   branchSystemId={ticket.branchSystemId}
                   branchName={ticket.branchName}
                   ticket={ticket}
+                  settlement={settlement}
+                  orders={orders}
                 />
 
                 <CustomerInfoCard ticket={ticket} />
@@ -955,41 +624,41 @@ export function WarrantyDetailPage() {
           </div>
         </ScrollArea>
 
-        <ReturnMethodDialog
-          open={showReturnDialog}
+        <WarrantyReturnMethodDialog
+          open={isReturnDialogOpen}
           ticket={ticket}
           currentMethodLabel={currentReturnMethodLabel}
           returnMethod={returnMethod}
-          onReturnMethodChange={setReturnMethod}
+          onReturnMethodChange={handleReturnMethodChange}
           selectedOrderValue={selectedOrderValue}
-          onOrderSelect={(option) => setSelectedOrderId(option?.value || '')}
+          onOrderSelect={handleOrderSelect}
           orderSearchResults={orderSearchResults}
           orderSearchQuery={orderSearchQuery}
-          onOrderSearchChange={setOrderSearchQuery}
+          onOrderSearchChange={handleOrderSearchChange}
           isSearchingOrders={isSearchingOrders}
           totalOrderCount={totalOrderCount}
-          onConfirmDirect={handleReturnDirect}
-          onConfirmWithOrder={handleReturnWithOrder}
-          onOpenChange={setShowReturnDialog}
-          onReset={handleReturnDialogReset}
+          onConfirmDirect={handleConfirmDirect}
+          onConfirmWithOrder={handleConfirmWithOrder}
+          onOpenChange={handleReturnDialogOpenChange}
+          onReset={resetReturnDialog}
         />
 
       {/* Cancel Dialog */}
-      <CancelWarrantyDialog
+      <WarrantyCancelDialog
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
         ticket={ticket}
       />
 
       {/* Reopen Dialog (from cancelled) */}
-      <ReopenFromCancelledDialog
+      <WarrantyReopenFromCancelledDialog
         open={showReopenDialog}
         onOpenChange={setShowReopenDialog}
         ticket={ticket}
       />
 
       {/* Reopen Dialog (from returned/completed) */}
-      <ReopenFromReturnedDialog
+      <WarrantyReopenFromReturnedDialog
         open={showReopenReturnedDialog}
         onOpenChange={setShowReopenReturnedDialog}
         ticket={ticket}

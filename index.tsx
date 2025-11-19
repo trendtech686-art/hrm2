@@ -6,7 +6,6 @@ import 'reactflow/dist/style.css'; // ← ReactFlow styles
 import { RouterProvider } from './lib/router-provider.tsx';
 import { ThemeProvider } from './components/theme-provider.tsx';
 import { BreakpointProvider } from './contexts/breakpoint-context.tsx';
-import { UserProvider } from './contexts/user-context.tsx';
 import { AuthProvider } from './contexts/auth-context.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
 import { ghtkSyncService } from './lib/ghtk-sync-service.ts';
@@ -32,12 +31,10 @@ const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(
   <ThemeProvider>
     <BreakpointProvider>
-      <UserProvider>
-        <AuthProvider>
-          <App />
-          <Toaster />
-        </AuthProvider>
-      </UserProvider>
+      <AuthProvider>
+        <App />
+        <Toaster />
+      </AuthProvider>
     </BreakpointProvider>
   </ThemeProvider>
 );

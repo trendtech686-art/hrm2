@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Plus, Edit2, Check, ArrowLeftRight, MoreHorizontal, Trash2 } from 'lucide-react';
 import type { Customer, CustomerAddress } from '../../customers/types.ts';
+import { asSystemId } from '@/lib/id-types';
 import { Card, CardContent } from '../../../components/ui/card.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog.tsx';
@@ -49,7 +50,7 @@ export function CustomerAddressSelector({
     const { update: updateCustomer, findById } = useCustomerStore();
     
     // Always get fresh customer data from store
-    const freshCustomer = customer ? findById(customer.systemId) : null;
+    const freshCustomer = customer ? findById(asSystemId(customer.systemId)) : null;
     const currentCustomer = freshCustomer || customer;
     
     // Use external dialog state if provided, otherwise use internal state
@@ -194,7 +195,7 @@ export function CustomerAddressSelector({
             }));
         }
 
-        updateCustomer(currentCustomer.systemId, {
+        updateCustomer(asSystemId(currentCustomer.systemId), {
             ...currentCustomer,
             addresses: newAddresses,
         });
@@ -230,7 +231,7 @@ export function CustomerAddressSelector({
         if (!currentCustomer || !deletingAddressId) return;
 
         const updatedAddresses = addresses.filter(a => a.id !== deletingAddressId);
-        updateCustomer(currentCustomer.systemId, {
+        updateCustomer(asSystemId(currentCustomer.systemId), {
             ...currentCustomer,
             addresses: updatedAddresses,
         });
@@ -275,7 +276,7 @@ export function CustomerAddressSelector({
             return a;
         });
 
-        updateCustomer(currentCustomer.systemId, {
+        updateCustomer(asSystemId(currentCustomer.systemId), {
             ...currentCustomer,
             addresses: updatedAddresses,
         });
@@ -309,7 +310,7 @@ export function CustomerAddressSelector({
         };
 
         const updatedAddresses = [...addresses, newAddress];
-        updateCustomer(currentCustomer.systemId, {
+        updateCustomer(asSystemId(currentCustomer.systemId), {
             ...currentCustomer,
             addresses: updatedAddresses,
         });

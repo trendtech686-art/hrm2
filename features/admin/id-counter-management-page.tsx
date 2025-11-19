@@ -43,12 +43,14 @@ import {
   Hash
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { 
-  ID_CONFIG, 
-  getEntityCategories, 
+import {
+  ID_CONFIG,
+  getEntityCategories,
   validateIdFormat,
   formatCounterInfo,
-  type EntityType 
+  type EntityType,
+  type BusinessId,
+  type SystemId,
 } from '@/lib/id-config';
 
 // Import all stores to get counters
@@ -56,18 +58,89 @@ import { useEmployeeStore } from '@/features/employees/store';
 import { useCustomerStore } from '@/features/customers/store';
 import { useReceiptStore } from '@/features/receipts/store';
 import { usePaymentStore } from '@/features/payments/store';
-import { useComplaintStore } from '@/features/complaints/store';
-import { useWarrantyStore } from '@/features/warranty/store';
 // ... import other stores as needed
 
 interface CounterData {
   entityType: EntityType;
-  currentCounter: number;
   totalItems: number;
-  nextId: string;
+  currentBusinessCounter: number;
+  currentSystemCounter: number;
+  nextBusinessId: BusinessId;
+  nextSystemId: SystemId;
   displayName: string;
   prefix: string;
+  systemIdPrefix: string;
+  digitCount: number;
 }
+
+type CounterSource<T> = {
+  entityType: EntityType;
+  items: T[];
+  businessIdAccessor: (item: T) => string | undefined;
+  systemIdAccessor: (item: T) => string | undefined;
+  counters?: { business?: number | null; system?: number | null };
+};
+
+const parseCounterFromId = (value: string | undefined, prefix: string): number => {
+  if (!value || !prefix) return 0;
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const normalizedValue = trimmed.toUpperCase();
+  const normalizedPrefix = prefix.toUpperCase();
+  if (!normalizedValue.startsWith(normalizedPrefix)) return 0;
+  const numericPart = normalizedValue.slice(normalizedPrefix.length);
+  const parsed = Number.parseInt(numericPart, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getMaxCounterFromItems = <T,>(
+  items: T[],
+  accessor: (item: T) => string | undefined,
+  prefix: string
+): number => {
+  if (!items.length) return 0;
+  return items.reduce((max, item) => {
+    const raw = accessor(item);
+    const counter = parseCounterFromId(raw, prefix);
+    return counter > max ? counter : max;
+  }, 0);
+};
+
+const buildCounterData = <T,>(source: CounterSource<T>): CounterData => {
+  const config = ID_CONFIG[source.entityType];
+  if (!config) {
+    throw new Error(`Counter config missing for entity: ${source.entityType}`);
+  }
+
+  const fallbackBusinessCounter = getMaxCounterFromItems(
+    source.items,
+    source.businessIdAccessor,
+    config.prefix
+  );
+  const fallbackSystemCounter = getMaxCounterFromItems(
+    source.items,
+    source.systemIdAccessor,
+    config.systemIdPrefix
+  );
+
+  const formatted = formatCounterInfo(source.entityType, {
+    business: source.counters?.business ?? fallbackBusinessCounter,
+    system: source.counters?.system ?? fallbackSystemCounter,
+  });
+
+  return {
+    entityType: source.entityType,
+    totalItems: source.items.length,
+    currentBusinessCounter: formatted.currentBusinessCounter,
+    currentSystemCounter: formatted.currentSystemCounter,
+    nextBusinessId: formatted.nextBusinessId,
+    nextSystemId: formatted.nextSystemId,
+    displayName: formatted.displayName,
+    prefix: formatted.prefix,
+    systemIdPrefix: formatted.systemIdPrefix,
+    digitCount: formatted.digitCount,
+  };
+};
 
 export function IDCounterManagementPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -79,47 +152,63 @@ export function IDCounterManagementPage() {
   // Get all counter data
   const counterData = React.useMemo((): CounterData[] => {
     const data: CounterData[] = [];
-    
-    // Example for employees
-    const employeeStore = useEmployeeStore.getState();
-    const employeeConfig = ID_CONFIG['employees'];
-    data.push({
-      entityType: 'employees',
-      currentCounter: (employeeStore as any).businessIdCounter || 0,
-      totalItems: employeeStore.data.length,
-      nextId: `${employeeConfig.prefix}${String(((employeeStore as any).businessIdCounter || 0) + 1).padStart(employeeConfig.digitCount, '0')}`,
-      displayName: employeeConfig.displayName,
-      prefix: employeeConfig.prefix,
-    });
 
-    // Example for receipts
-    const receiptStore = useReceiptStore.getState();
-    const receiptConfig = ID_CONFIG['voucher-receipt'];
-    
-    data.push({
-      entityType: 'voucher-receipt',
-      currentCounter: (receiptStore as any).businessIdCounter || 0,
-      totalItems: receiptStore.data.length,
-      nextId: `${receiptConfig.prefix}${String(((receiptStore as any).businessIdCounter || 0) + 1).padStart(receiptConfig.digitCount, '0')}`,
-      displayName: receiptConfig.displayName,
-      prefix: receiptConfig.prefix,
-    });
-    
-    // Example for payments
-    const paymentStore = usePaymentStore.getState();
-    const paymentConfig = ID_CONFIG['voucher-payment'];
-    
-    data.push({
-      entityType: 'voucher-payment',
-      currentCounter: (paymentStore as any).businessIdCounter || 0,
-      totalItems: paymentStore.data.length,
-      nextId: `${paymentConfig.prefix}${String(((paymentStore as any).businessIdCounter || 0) + 1).padStart(paymentConfig.digitCount, '0')}`,
-      displayName: paymentConfig.displayName,
-      prefix: paymentConfig.prefix,
-    });
+    const employeeState = useEmployeeStore.getState();
+    data.push(
+      buildCounterData({
+        entityType: 'employees',
+        items: employeeState.data,
+        businessIdAccessor: (employee) => employee.id,
+        systemIdAccessor: (employee) => employee.systemId,
+        counters: employeeState._counters
+          ? {
+              business: employeeState._counters.businessId,
+              system: employeeState._counters.systemId,
+            }
+          : undefined,
+      })
+    );
 
-    // Add more entities as needed...
-    
+    const customerState = useCustomerStore.getState();
+    data.push(
+      buildCounterData({
+        entityType: 'customers',
+        items: customerState.data,
+        businessIdAccessor: (customer) => customer.id,
+        systemIdAccessor: (customer) => customer.systemId,
+        counters: customerState._counters
+          ? {
+              business: customerState._counters.businessId,
+              system: customerState._counters.systemId,
+            }
+          : undefined,
+      })
+    );
+
+    const receiptState = useReceiptStore.getState();
+    data.push(
+      buildCounterData({
+        entityType: 'receipts',
+        items: receiptState.data,
+        businessIdAccessor: (receipt) => (receipt.id ? String(receipt.id) : undefined),
+        systemIdAccessor: (receipt) => (receipt.systemId ? String(receipt.systemId) : undefined),
+      })
+    );
+
+    const paymentState = usePaymentStore.getState();
+    data.push(
+      buildCounterData({
+        entityType: 'payments',
+        items: paymentState.data,
+        businessIdAccessor: (payment) => (payment.id ? String(payment.id) : undefined),
+        systemIdAccessor: (payment) => (payment.systemId ? String(payment.systemId) : undefined),
+        counters: {
+          business: paymentState.businessIdCounter,
+          system: paymentState.systemIdCounter,
+        },
+      })
+    );
+
     return data;
   }, []);
 
@@ -147,7 +236,9 @@ export function IDCounterManagementPage() {
   // Calculate statistics
   const stats = React.useMemo(() => {
     const total = counterData.reduce((sum, item) => sum + item.totalItems, 0);
-    const maxCounter = Math.max(...counterData.map(item => item.currentCounter));
+    const maxCounter = counterData.length
+      ? Math.max(...counterData.map(item => item.currentBusinessCounter))
+      : 0;
     const entitiesWithData = counterData.filter(item => item.totalItems > 0).length;
     
     return {
@@ -176,7 +267,7 @@ export function IDCounterManagementPage() {
       return;
     }
     
-    const result = validateIdFormat(entityType, testId.trim());
+    const result = validateIdFormat(testId.trim(), entityType);
     setTestResult(result);
     
     if (result.valid) {
@@ -309,10 +400,11 @@ export function IDCounterManagementPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Entity Type</TableHead>
-                <TableHead>Prefix</TableHead>
-                <TableHead className="text-right">Counter</TableHead>
+                <TableHead>Prefixes</TableHead>
+                <TableHead className="text-right">Business Counter</TableHead>
+                <TableHead className="text-right">System Counter</TableHead>
                 <TableHead className="text-right">Total Items</TableHead>
-                <TableHead>Next ID</TableHead>
+                <TableHead>Next IDs</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -321,12 +413,25 @@ export function IDCounterManagementPage() {
                 <TableRow key={item.entityType}>
                   <TableCell className="font-medium">{item.displayName}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{item.prefix}</Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="secondary">{item.prefix}</Badge>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {item.systemIdPrefix}
+                      </Badge>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-right font-mono">{item.currentCounter}</TableCell>
+                  <TableCell className="text-right font-mono">{item.currentBusinessCounter}</TableCell>
+                  <TableCell className="text-right font-mono">{item.currentSystemCounter}</TableCell>
                   <TableCell className="text-right">{item.totalItems}</TableCell>
                   <TableCell>
-                    <code className="text-sm bg-muted px-2 py-1 rounded">{item.nextId}</code>
+                    <div className="flex flex-col gap-1">
+                      <code className="text-sm bg-muted px-2 py-1 rounded">
+                        {item.nextBusinessId}
+                      </code>
+                      <code className="text-xs bg-muted/60 px-2 py-1 rounded">
+                        {item.nextSystemId}
+                      </code>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">

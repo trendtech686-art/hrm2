@@ -2,9 +2,9 @@ import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { Employee } from './types.ts';
 import Fuse from 'fuse.js';
-import { getCurrentUserSystemId } from '../../contexts/user-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
 import { registerBreadcrumbStore } from '../../lib/breadcrumb-generator'; // ✅ NEW
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types.ts';
 
 const baseStore = createCrudStore<Employee>(initialData, 'employees', {
   businessIdField: 'id',
@@ -18,7 +18,7 @@ registerBreadcrumbStore('employees', () => baseStore.getState());
 // Define enhanced interface
 interface EmployeeStoreState extends CrudState<Employee> {
   searchEmployees: (query: string, page: number, limit?: number) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
-  permanentDelete: (systemId: string) => void;
+  permanentDelete: (systemId: SystemId) => void;
 }
 
 // Augmented methods
@@ -49,8 +49,8 @@ const augmentedMethods = {
             }, 300);
         });
     },
-    permanentDelete: (systemId: string) => {
-        baseStore.getState().hardDelete(createSystemId(systemId));
+    permanentDelete: (systemId: SystemId) => {
+        baseStore.getState().hardDelete(systemId);
     }
 };
 

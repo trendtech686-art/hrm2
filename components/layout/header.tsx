@@ -17,7 +17,6 @@ import { usePageHeaderContext } from '../../contexts/page-header-context.tsx';
 import { ROUTES } from '../../lib/router.ts';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/auth-context.tsx';
-import { useCurrentUser } from '../../contexts/user-context.tsx';
 import { NotificationCenter } from '../ui/notification-center.tsx';
 
 export function Header() {
@@ -25,13 +24,11 @@ export function Header() {
   const { pageHeader } = usePageHeaderContext();
   const navigate = useNavigate();
   const { user, employee, logout: authLogout } = useAuth();
-  const { setCurrentUser } = useCurrentUser();
   
   const { breadcrumb = [] } = pageHeader;
   
   const handleLogout = () => {
     authLogout();
-    setCurrentUser(undefined); // Clear UserContext
     toast.success('Đăng xuất thành công');
     navigate(ROUTES.AUTH.LOGIN);
   };

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { useReceiptTypeStore } from "./store.ts";
 import type { ReceiptType } from "./types.ts";
 import { ReceiptTypeForm, type ReceiptTypeFormValues } from "./form.tsx";
@@ -17,22 +18,22 @@ export function ReceiptTypesPageContent() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ReceiptType | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
   const handleEdit = (item: ReceiptType) => { setEditingItem(item); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: string) => { 
+  const handleDeleteRequest = (systemId: SystemId) => { 
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
   
   const handleToggleStatus = (item: ReceiptType) => {
-    update(item.systemId as any, { ...item, isActive: !item.isActive } as any);
+    update(item.systemId, { ...item, isActive: !item.isActive });
     toast.success(item.isActive ? "Đã ngừng hoạt động" : "Đã kích hoạt");
   };
   
   const confirmDelete = () => {
     if (idToDelete) {
-      hardDelete(idToDelete as any);
+      hardDelete(idToDelete);
       toast.success("Đã xóa thành công");
     }
     setIsAlertOpen(false);
@@ -41,13 +42,26 @@ export function ReceiptTypesPageContent() {
   
   const handleFormSubmit = (values: ReceiptTypeFormValues) => {
     try {
+      const now = new Date().toISOString();
+      const normalized = {
+        id: asBusinessId(values.id.trim().toUpperCase()),
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
+        isBusinessResult: values.isBusinessResult,
+        isActive: values.isActive,
+        color: values.color?.trim() || undefined,
+      } satisfies Omit<ReceiptType, 'systemId' | 'createdAt'>;
+
       if (editingItem) {
-        update(editingItem.systemId as any, { ...editingItem, ...values } as any);
+        update(editingItem.systemId, {
+          ...editingItem,
+          ...normalized,
+        });
         toast.success("Cập nhật thành công");
       } else {
         add({
-          ...values,
-          createdAt: new Date().toISOString(),
+          ...normalized,
+          createdAt: now,
         });
         toast.success("Thêm mới thành công");
       }
@@ -114,11 +128,11 @@ export function ReceiptTypesPageContent() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleEdit(item as any)}>
+                        <DropdownMenuItem onClick={() => handleEdit(item)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Chỉnh sửa
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleToggleStatus(item as any)}>
+                        <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
                           {item.isActive ? (
                             <>
                               <PowerOff className="mr-2 h-4 w-4" />

@@ -8,15 +8,16 @@ import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { cn } from '../../lib/utils.ts';
 import type { EmployeeSettings } from '../settings/employees/types.ts';
 import { SummaryStat } from './components/summary-stat.tsx';
+import type { SystemId } from '../../lib/id-types.ts';
 export const getColumns = (
     year: number, 
     month: number, 
-    onEdit: (employeeId: string, day: number) => void,
+  onEdit: (employeeSystemId: SystemId, day: number) => void,
     settings: EmployeeSettings,
     isLocked: boolean,
     isSelectionMode: boolean = false,
     cellSelection: Record<string, boolean> = {},
-    onQuickFill?: (employeeId: string, day: number) => void
+  onQuickFill?: (employeeSystemId: SystemId, day: number) => void
 ): ColumnDef<AttendanceDataRow>[] => {
   const daysInMonth = new Date(year, month, 0).getDate();
   const dayColumns: ColumnDef<AttendanceDataRow>[] = [];
@@ -41,7 +42,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const record = row[`day_${day}`] as DailyRecord;
         const isEditable = !isLocked && record && record.status !== 'future' && record.status !== 'weekend';
-        const cellKey = `${row.id}-${day}`;
+        const cellKey = `${row.employeeSystemId}-${day}`;
         const isSelected = cellSelection[cellKey];
 
         return (
@@ -53,11 +54,11 @@ export const getColumns = (
               isWeekend && record?.status !== 'present' && record?.status !== 'leave' && "bg-muted/30",
               isSelected && "ring-2 ring-primary bg-primary/10"
             )}
-            onClick={() => isEditable && onEdit(row.id, day)}
+            onClick={() => isEditable && onEdit(row.employeeSystemId, day)}
             onDoubleClick={(e) => {
               if (isEditable && !isSelectionMode && onQuickFill) {
                 e.stopPropagation();
-                onQuickFill(row.id, day);
+                onQuickFill(row.employeeSystemId, day);
               }
             }}
           >
@@ -108,7 +109,7 @@ export const getColumns = (
       cell: ({ row }) => (
         <div>
           <div className="font-medium">{row.fullName}</div>
-          <div className="text-xs text-muted-foreground">{row.id}</div>
+          <div className="text-xs text-muted-foreground">{row.employeeId}</div>
         </div>
       ),
       size: 200,

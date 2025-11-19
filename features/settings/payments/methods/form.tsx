@@ -32,7 +32,6 @@ const COLOR_OPTIONS = [
 ];
 
 const formSchema = z.object({
-  id: z.string().min(1, "Mã hình thức là bắt buộc"),
   name: z.string().min(1, "Tên hình thức là bắt buộc").max(100, "Tên không được vượt quá 100 ký tự"),
   isActive: z.boolean(),
   color: z.string().optional(),
@@ -43,7 +42,7 @@ const formSchema = z.object({
   bankName: z.string().optional(),
 });
 
-export type PaymentMethodFormValues = Omit<PaymentMethod, 'systemId' | 'isDefault'>;
+export type PaymentMethodFormValues = z.infer<typeof formSchema>;
 
 type FormProps = {
   initialData?: PaymentMethod | null;
@@ -53,17 +52,27 @@ type FormProps = {
 export function PaymentMethodForm({ initialData, onSubmit }: FormProps) {
   const form = useForm<PaymentMethodFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      id: '', // Let store generate PM ID
-      name: "",
-      isActive: true,
-      color: '#10b981',
-      icon: 'Wallet',
-      description: "",
-      accountNumber: "",
-      accountName: "",
-      bankName: "",
-    },
+    defaultValues: initialData
+      ? {
+          name: initialData.name,
+          isActive: initialData.isActive,
+          color: initialData.color ?? '#10b981',
+          icon: initialData.icon ?? 'Wallet',
+          description: initialData.description ?? '',
+          accountNumber: initialData.accountNumber ?? '',
+          accountName: initialData.accountName ?? '',
+          bankName: initialData.bankName ?? '',
+        }
+      : {
+          name: '',
+          isActive: true,
+          color: '#10b981',
+          icon: 'Wallet',
+          description: '',
+          accountNumber: '',
+          accountName: '',
+          bankName: '',
+        },
   });
 
   return (

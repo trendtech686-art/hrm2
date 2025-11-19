@@ -3,7 +3,7 @@ import { data as initialDataOmit } from './data.ts';
 import type { PurchaseOrder, PurchaseOrderPayment, PurchaseOrderStatus, DeliveryStatus, PaymentStatus, PurchaseOrderReturnStatus, PurchaseOrderRefundStatus } from './types.ts';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store.ts';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
+import { useInventoryReceiptStore, syncInventoryReceiptsWithPurchaseOrders } from '../inventory-receipts/store.ts';
 import { usePaymentStore } from '../payments/store.ts';
 import type { Payment } from '../payments/types.ts';
 import { useReceiptStore } from '../receipts/store.ts';
@@ -16,6 +16,9 @@ import { useCashbookStore } from '../cashbook/store.ts';
 import { useReceiptTypeStore } from '../settings/receipt-types/store.ts';
 import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
 import { createCrudStore } from '../../lib/store-factory.ts';
+import { sumPaymentsForPurchaseOrder } from './payment-utils.ts';
+import { useProductStore } from '../products/store.ts';
+import { asSystemId } from '@/lib/id-types';
 
 const initialData: PurchaseOrder[] = initialDataOmit.map((po, index) => ({
   ...po,
@@ -29,11 +32,30 @@ const baseStore = createCrudStore<any>(initialData as any, 'purchase-orders', {
   persistKey: 'hrm-purchase-orders',
 });
 
+const runInventoryReceiptBackfill = () => {
+  syncInventoryReceiptsWithPurchaseOrders({
+    purchaseOrders: baseStore.getState().data,
+    products: useProductStore.getState().data,
+  });
+};
+
+runInventoryReceiptBackfill();
+
+// Re-run backfill whenever purchase orders or products hydrate/update
+(baseStore as typeof baseStore & { subscribe?: (listener: () => void) => () => void }).subscribe?.(() => {
+  runInventoryReceiptBackfill();
+});
+
+(useProductStore as typeof useProductStore & { subscribe?: (listener: () => void) => () => void }).subscribe?.(() => {
+  runInventoryReceiptBackfill();
+});
+
 const augmentedMethods = {
   addPayment: (purchaseOrderId: string, payment: Omit<PurchaseOrderPayment, 'id'>) => baseStore.setState(state => {
     const { data: allReturns } = usePurchaseReturnStore.getState();
     const newData = state.data.map(po => {
       if (po.systemId === purchaseOrderId) {
+        const poSystemId = asSystemId(po.systemId);
         const newPayment: PurchaseOrderPayment = {
           ...payment,
           id: `PAY_${po.id}_${(po.payments || []).length + 1}`
@@ -42,7 +64,7 @@ const augmentedMethods = {
         const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
 
         const totalReturnedValue = allReturns
-          .filter(r => r.purchaseOrderId === po.systemId) // ✅ Fixed: Match by systemId
+          .filter(r => r.purchaseOrderSystemId === poSystemId)
           .reduce((sum, r) => sum + r.totalReturnValue, 0);
         const actualDebt = po.grandTotal - totalReturnedValue;
         
@@ -91,20 +113,12 @@ const augmentedMethods = {
             if (poIndex === -1) return;
 
             const po = newData[poIndex] as PurchaseOrder;
+            const poSystemId = asSystemId(po.systemId);
             
-            // Calculate total paid for this PO (simplified - match by supplier)
-            const poSupplier = state.data.find(p => p.systemId === po.systemId)?.supplierName;
-            const totalPaid = allPayments.reduce((sum: number, payment: Payment) => {
-                if (payment.status === 'completed' && 
-                    payment.recipientType === 'Nhà cung cấp' &&
-                    payment.recipientName === poSupplier) {
-                    return sum + payment.amount;
-                }
-                return sum;
-            }, 0);
+            const totalPaid = sumPaymentsForPurchaseOrder(allPayments, po);
             
             const totalReturnedValue = allReturns
-                .filter(r => r.purchaseOrderId === po.systemId) // ✅ Fixed: Match by systemId
+              .filter(r => r.purchaseOrderSystemId === poSystemId)
                 .reduce((sum, r) => sum + r.totalReturnValue, 0);
             const actualDebt = po.grandTotal - totalReturnedValue;
 
@@ -142,14 +156,14 @@ const augmentedMethods = {
         return changed ? { data: newData } : state;
     });
   },
-  processInventoryReceipt: (purchaseOrderId: string) => {
+  processInventoryReceipt: (purchaseOrderSystemId: string) => {
     baseStore.setState(state => {
       const { data: allReceipts } = useInventoryReceiptStore.getState();
-      const poIndex = state.data.findIndex(p => p.id === purchaseOrderId);
+      const poIndex = state.data.findIndex(p => p.systemId === purchaseOrderSystemId);
       if (poIndex === -1) return state;
 
       const po = state.data[poIndex] as PurchaseOrder;
-      const poReceipts = allReceipts.filter(r => r.purchaseOrderId === purchaseOrderId);
+      const poReceipts = allReceipts.filter(r => r.purchaseOrderSystemId === purchaseOrderSystemId);
       const totalReceivedByProduct = po.lineItems.reduce((acc, lineItem) => {
         const totalReceived = poReceipts.reduce((sum, receipt) => {
           const item = receipt.items.find(i => i.productSystemId === lineItem.productSystemId);
@@ -202,13 +216,16 @@ const augmentedMethods = {
         newData[poIndex] = updatedPO;
 
         const latestReceipt = poReceipts.sort((a,b) => new Date(b.receivedDate).getTime() - new Date(a.receivedDate).getTime())[0];
-        const user = useEmployeeStore.getState().data.find(e => e.fullName === latestReceipt.receiverName);
+        const receiptReceiverName = latestReceipt?.receiverName || 'Hệ thống';
+        const user = latestReceipt?.receiverSystemId
+          ? useEmployeeStore.getState().data.find(e => e.systemId === latestReceipt.receiverSystemId)
+          : useEmployeeStore.getState().data.find(e => e.fullName === receiptReceiverName);
 
         useAuditLogStore.getState().addLog({
             entityType: 'PurchaseOrder',
             entityId: updatedPO.systemId,
             userId: user?.systemId || 'SYSTEM',
-            userName: latestReceipt.receiverName,
+            userName: receiptReceiverName,
             action: 'UPDATE',
             changes: [{
                 field: 'deliveryStatus',
@@ -273,18 +290,11 @@ const augmentedMethods = {
       const { data: allReturns } = usePurchaseReturnStore.getState();
       const newData = state.data.map((po_untyped) => {
         const po = po_untyped as PurchaseOrder;
-        // Calculate total paid for this PO (simplified - match by supplier)
-        const totalPaid = allPayments.reduce((sum: number, payment: Payment) => {
-          if (payment.status === 'completed' && 
-              payment.recipientType === 'Nhà cung cấp' &&
-              payment.recipientName === po.supplierName) {
-            return sum + payment.amount;
-          }
-          return sum;
-        }, 0);
+        const poSystemId = asSystemId(po.systemId);
+        const totalPaid = sumPaymentsForPurchaseOrder(allPayments, po);
         
         const totalReturnedValue = allReturns
-          .filter(r => r.purchaseOrderId === po.systemId) // ✅ Fixed: Match by systemId
+          .filter(r => r.purchaseOrderSystemId === poSystemId)
           .reduce((sum, r) => sum + r.totalReturnValue, 0);
         const actualDebt = po.grandTotal - totalReturnedValue;
         
@@ -360,14 +370,7 @@ const augmentedMethods = {
     }
 
     const { data: allPayments } = usePaymentStore.getState();
-    const totalPaid = allPayments.reduce((sum: number, payment: Payment) => {
-        if (payment.status === 'completed' && 
-            payment.recipientType === 'Nhà cung cấp' &&
-            payment.recipientName === po.supplierName) {
-            return sum + payment.amount;
-        }
-        return sum;
-    }, 0);
+    const totalPaid = sumPaymentsForPurchaseOrder(allPayments, po);
 
     if (totalPaid > 0) {
         const { accounts } = useCashbookStore.getState();
@@ -377,26 +380,34 @@ const augmentedMethods = {
         const targetAccount = accounts.find(acc => acc.type === 'cash' && acc.branchSystemId === po.branchSystemId) || accounts.find(acc => acc.type === 'cash');
 
         if (refundCategory && targetAccount) {
-             const newReceipt: Omit<Receipt, 'systemId'> = {
-                id: '' as any, // Let receipt store generate PT-XXXXXX
-                date: toISODateTime(new Date()),
-                amount: totalPaid,
-                payerType: 'Nhà cung cấp',
-                payerName: po.supplierName,
-                description: `Nhận hoàn tiền từ NCC cho đơn hàng ${po.id} bị hủy.`,
-                paymentMethod: 'Tiền mặt',
-                accountSystemId: targetAccount.systemId,
-                paymentReceiptTypeSystemId: refundCategory.systemId,
-                paymentReceiptTypeName: refundCategory.name,
-                branchSystemId: po.branchSystemId,
-                branchName: po.branchName,
-                createdBy: userName,
-                createdAt: toISODateTime(new Date()),
-                status: 'completed',
-                category: 'other',
-                affectsDebt: true,
-            };
-            addReceipt(newReceipt);
+           const newReceipt: Omit<Receipt, 'systemId'> = {
+            id: '' as any, // Let receipt store generate PT-XXXXXX
+            date: toISODateTime(new Date()),
+            amount: totalPaid,
+            payerType: 'Nhà cung cấp',
+            payerTypeSystemId: 'NHACUNGCAP',
+            payerTypeName: 'Nhà cung cấp',
+            payerName: po.supplierName,
+            payerSystemId: po.supplierSystemId,
+            description: `Nhận hoàn tiền từ NCC cho đơn hàng ${po.id} bị hủy.`,
+            paymentMethod: 'Tiền mặt',
+            paymentMethodSystemId: 'CASH',
+            paymentMethodName: 'Tiền mặt',
+            accountSystemId: targetAccount.systemId,
+            paymentReceiptTypeSystemId: refundCategory.systemId,
+            paymentReceiptTypeName: refundCategory.name,
+            branchSystemId: po.branchSystemId,
+            branchName: po.branchName,
+            createdBy: userName,
+            createdAt: toISODateTime(new Date()),
+            status: 'completed',
+            category: 'other',
+            affectsDebt: true,
+            purchaseOrderSystemId: po.systemId,
+            purchaseOrderId: po.id,
+            originalDocumentId: po.id,
+          } as any;
+          addReceipt(newReceipt);
         } else {
             console.error("Không thể tạo phiếu thu hoàn tiền: Thiếu loại phiếu 'Nhà cung cấp hoàn tiền' hoặc tài khoản quỹ tiền mặt.");
         }
@@ -434,7 +445,7 @@ export interface PurchaseOrderStoreState {
   findById: (systemId: string) => PurchaseOrder | undefined;
   addPayment: (purchaseOrderId: string, payment: Omit<PurchaseOrderPayment, 'id'>) => void;
   updatePaymentStatusForPoIds: (poIds: string[]) => void;
-  processInventoryReceipt: (purchaseOrderId: string) => void;
+  processInventoryReceipt: (purchaseOrderSystemId: string) => void;
   processReturn: (purchaseOrderId: string, isFullReturn: boolean, newRefundStatus: PurchaseOrderRefundStatus | undefined, returnId: string, creatorName: string) => void;
   syncAllPurchaseOrderStatuses: () => void;
   finishOrder: (systemId: string, userId: string, userName: string) => void;

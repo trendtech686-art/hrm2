@@ -5,16 +5,17 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 import type { Complaint, ComplaintAction } from '../types';
 import type { ComplaintPermissions } from './use-complaint-permissions';
 import { complaintNotifications } from '../notification-utils';
 
 interface UseComplaintHandlersProps {
   complaint: Complaint | null;
-  currentUser: { systemId: string; name: string };
+  currentUser: { systemId: SystemId; name: string };
   permissions: ComplaintPermissions;
-  assignComplaint: (systemId: string, userId: string) => void;
-  updateComplaint: (systemId: string, updates: Partial<Complaint>) => void;
+  assignComplaint: (systemId: SystemId, userId: SystemId) => void;
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
 }
 
 export function useComplaintHandlers({
@@ -38,7 +39,7 @@ export function useComplaintHandlers({
     
     // ⚠️ NOTE: assignComplaint (from store) already creates timeline action
     // So we don't need to create another one here
-    assignComplaint(complaint.systemId, userId);
+    assignComplaint(complaint.systemId, asSystemId(userId));
     complaintNotifications.onAssign();
   }, [complaint, permissions, assignComplaint]);
 
@@ -50,9 +51,9 @@ export function useComplaintHandlers({
     
     // Tạo timeline action
     const newAction: ComplaintAction = {
-      id: `action_${Date.now()}`,
+      id: asSystemId(`action_${Date.now()}`),
       actionType: "status-changed",
-      performedBy: currentUser.name,
+      performedBy: currentUser.systemId,
       performedAt: new Date(),
       note: reason || `Đổi trạng thái sang ${newStatus}`,
       metadata: {
@@ -80,9 +81,9 @@ export function useComplaintHandlers({
     }
     
     const newAction: ComplaintAction = {
-      id: `action_${Date.now()}`,
+      id: asSystemId(`action_${Date.now()}`),
       actionType: "ended",
-      performedBy: currentUser.name,
+      performedBy: currentUser.systemId,
       performedAt: new Date(),
       note: "Kết thúc khiếu nại",
     };

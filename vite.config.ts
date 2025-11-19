@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
@@ -53,5 +53,11 @@ export default defineConfig({
   // Performance optimizations
   esbuild: {
     logOverride: { 'this-is-undefined-in-esm': 'silent' }
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: './vitest.setup.ts',
+    globals: true,
+    css: true
   }
 })

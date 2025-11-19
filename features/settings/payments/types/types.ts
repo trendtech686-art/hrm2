@@ -2,9 +2,11 @@
  * Payment Type (Loại Phiếu Chi - Category/Classification)
  */
 
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type PaymentType = {
-  systemId: string; // Simple string for categories
-  id: string; // Mã loại
+  systemId: SystemId;
+  id: BusinessId; // Mã loại
   name: string; // Tên loại
   description?: string;
   isBusinessResult: boolean; // Hạch toán kết quả kinh doanh

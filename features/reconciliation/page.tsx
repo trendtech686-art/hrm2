@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useOrderStore } from '../orders/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
 import type { Order, Packaging } from '../orders/types.ts';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
 import { getColumns } from './columns.tsx';
@@ -14,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import { formatDate } from '../../lib/date-utils.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
@@ -28,7 +28,8 @@ export type ReconciliationItem = Packaging & {
 
 export function ReconciliationPage() {
     const { data: allOrders, confirmCodReconciliation } = useOrderStore();
-    const loggedInUser = useEmployeeStore().data[0];
+    const { employee: authEmployee } = useAuth();
+    const currentEmployeeSystemId = authEmployee?.systemId ?? 'SYSTEM';
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
     const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
     const [globalFilter, setGlobalFilter] = React.useState('');
@@ -110,7 +111,7 @@ export function ReconciliationPage() {
     const handleConfirm = () => {
         const selectedItems = reconciliationList.filter(item => rowSelection[item.systemId]);
         if (selectedItems.length > 0) {
-            confirmCodReconciliation(selectedItems, loggedInUser.systemId);
+            confirmCodReconciliation(selectedItems, currentEmployeeSystemId);
             setRowSelection({});
         }
         setIsConfirmOpen(false);

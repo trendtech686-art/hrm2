@@ -3,6 +3,7 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { useLeaveStore } from './store.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { asSystemId } from '@/lib/id-types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { ArrowLeft, Edit } from 'lucide-react';
@@ -20,7 +21,7 @@ export function LeaveDetailPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
   const { findById } = useLeaveStore();
-  const request = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const request = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
 
   usePageHeader();
 

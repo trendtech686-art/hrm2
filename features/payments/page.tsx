@@ -10,7 +10,7 @@ import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
 import { Card, CardContent } from "../../components/ui/card.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { Minus, CreditCard, Calendar, User, Building2, FileText, MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
+import { Minus } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
@@ -21,27 +21,14 @@ import { DataTableFacetedFilter } from "../../components/data-table/data-table-f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
 import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
 import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
 import { useMediaQuery } from "../../lib/use-media-query.ts";
-import { TouchButton } from "../../components/mobile/touch-button.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu.tsx";
 import { ROUTES, generatePath } from "../../lib/router.ts";
 import { toast } from "sonner";
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
+import { toISODate, toISODateTime } from '../../lib/date-utils.ts';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
 import { getColumns } from "./columns.tsx";
+import { asSystemId, type SystemId } from "../../lib/id-types.ts";
 import { MobilePaymentCard } from "./card.tsx";
-
-const formatCurrency = (value?: number) => {
-  if (typeof value !== 'number') return '0';
-  return new Intl.NumberFormat('vi-VN').format(value);
-};
-
-const formatDateDisplay = (dateString?: string) => {
-  if (!dateString) return '';
-  return formatDateCustom(new Date(dateString), "dd/MM/yyyy");
-};
 
 export function PaymentsPage() {
     const navigate = useNavigate();
@@ -72,9 +59,8 @@ export function PaymentsPage() {
 
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
     const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-    const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+    const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
     const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
-    const [isBulkApproveAlertOpen, setIsBulkApproveAlertOpen] = React.useState(false);
 
     const [sorting, setSorting] = React.useState({ id: 'date', desc: true });
     const [globalFilter, setGlobalFilter] = React.useState('');
@@ -100,7 +86,7 @@ export function PaymentsPage() {
     const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
     
     // ✅ New Filters
-    const [branchFilter, setBranchFilter] = React.useState('all');
+    const [branchFilter, setBranchFilter] = React.useState<'all' | SystemId>('all');
     const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
     const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
     const [customerFilter, setCustomerFilter] = React.useState<Set<string>>(new Set());
@@ -114,16 +100,11 @@ export function PaymentsPage() {
         return () => clearTimeout(timer);
     }, [globalFilter]);
     
-    const handleCancel = React.useCallback((systemId: string) => {
+    const handleCancel = React.useCallback((systemId: SystemId) => {
         setIdToDelete(systemId);
         setIsAlertOpen(true);
     }, []);
     
-    const handleApprove = React.useCallback((systemId: string) => {
-        // TODO: Implement approve logic
-        toast.success("Đã duyệt phiếu chi");
-    }, []);
-
     const handleEdit = React.useCallback((payment: Payment) => {
         navigate(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }));
     }, [navigate]);
@@ -132,7 +113,7 @@ export function PaymentsPage() {
         navigate(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId }));
     }, [navigate]);
 
-    const columns = React.useMemo(() => getColumns(accounts, handleCancel, handleApprove, navigate), [accounts, handleCancel, handleApprove, navigate]);
+    const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate), [accounts, handleCancel, navigate]);
     
     // ✅ Export config
     const exportConfig = {
@@ -175,26 +156,12 @@ export function PaymentsPage() {
     };
 
     const confirmBulkCancel = () => {
-        const idsToCancel = Object.keys(rowSelection);
+        const idsToCancel = Object.keys(rowSelection).map(id => asSystemId(id));
         const { cancel } = usePaymentStore.getState();
         idsToCancel.forEach(id => cancel(id));
         toast.success(`Đã hủy ${idsToCancel.length} phiếu chi`);
         setRowSelection({});
         setIsBulkDeleteAlertOpen(false);
-    };
-
-    const confirmBulkApprove = () => {
-        const idsToApprove = Object.keys(rowSelection);
-        const { update } = usePaymentStore.getState();
-        idsToApprove.forEach(id => {
-            const payment = payments.find(p => p.systemId === id);
-            if (payment) {
-                update(id, { ...payment, status: 'approved' });
-            }
-        });
-        toast.success(`Đã duyệt ${idsToApprove.length} phiếu chi`);
-        setRowSelection({});
-        setIsBulkApproveAlertOpen(false);
     };
 
     const handleAddNew = () => {
@@ -203,8 +170,7 @@ export function PaymentsPage() {
     
     // ✅ Filter options
     const statusOptions = React.useMemo(() => [
-        { value: 'pending', label: 'Chờ duyệt' },
-        { value: 'approved', label: 'Đã duyệt' },
+        { value: 'completed', label: 'Hoàn thành' },
         { value: 'cancelled', label: 'Đã hủy' }
     ], []);
     
@@ -221,13 +187,13 @@ export function PaymentsPage() {
         let result = payments;
         
         // Branch filter
-        if (branchFilter && branchFilter !== 'all') {
+        if (branchFilter !== 'all') {
             result = result.filter(r => r.branchSystemId === branchFilter);
         }
         
         // Status filter
         if (statusFilter.size > 0) {
-            result = result.filter(r => statusFilter.has(r.status || 'pending'));
+            result = result.filter(r => r.status && statusFilter.has(r.status));
         }
         
         // Type filter
@@ -286,124 +252,6 @@ export function PaymentsPage() {
             return { ...voucher, runningBalance: balance };
         });
     }, [filteredData]);
-    
-    // ✅ Status badge variant
-    const getStatusVariant = (status?: string): "default" | "secondary" | "destructive" | "outline" => {
-        switch (status) {
-            case 'approved': return 'default';
-            case 'pending': return 'secondary';
-            case 'cancelled': return 'destructive';
-            default: return 'outline';
-        }
-    };
-    
-    // ✅ Status label
-    const getStatusLabel = (status?: string): string => {
-        switch (status) {
-            case 'approved': return 'Đã duyệt';
-            case 'pending': return 'Chờ duyệt';
-            case 'cancelled': return 'Đã hủy';
-            default: return 'Chưa rõ';
-        }
-    };
-    
-    // ✅ Mobile card component
-    const MobilePaymentCard = ({ payment }: { payment: Payment }) => {
-        const branch = branches.find(b => b.systemId === payment.branchSystemId);
-        const paymentType = paymentTypes.find(pt => pt.systemId === payment.paymentReceiptTypeSystemId);
-        
-        return (
-            <Card 
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => navigate(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId }))}
-            >
-                <CardContent className="p-4">
-                    {/* Header: Icon + ID + Status + Menu */}
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <Avatar className="h-8 w-8 flex-shrink-0 bg-red-100">
-                                <AvatarFallback className="bg-red-100 text-red-700">
-                                    <CreditCard className="h-4 w-4" />
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <h3 className="font-semibold text-sm">{payment.id}</h3>
-                                <Badge variant={getStatusVariant(payment.status)} className="text-xs">
-                                    {getStatusLabel(payment.status)}
-                                </Badge>
-                            </div>
-                        </div>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <TouchButton
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 flex-shrink-0"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </TouchButton>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId })); }}>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Xem chi tiết
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(payment); }}>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Chỉnh sửa
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCancel(payment.systemId); }} className="text-red-600">
-                                    <Trash className="mr-2 h-4 w-4" />
-                                    Hủy phiếu
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    {/* Amount + Date */}
-                    <div className="mb-3">
-                        <div className="text-lg font-bold text-red-600">{formatCurrency(payment.amount)}</div>
-                        <div className="text-xs text-muted-foreground flex items-center mt-1">
-                            <Calendar className="h-3 w-3 mr-1.5" />
-                            {formatDate(payment.date)}
-                        </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-t mb-3" />
-
-                    {/* Details */}
-                    <div className="space-y-2">
-                        {payment.recipientName && (
-                            <div className="flex items-center text-xs text-muted-foreground">
-                                <User className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">{payment.recipientName}</span>
-                            </div>
-                        )}
-                        {paymentType && (
-                            <div className="flex items-center text-xs text-muted-foreground">
-                                <FileText className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">{paymentType.name}</span>
-                            </div>
-                        )}
-                        {branch && (
-                            <div className="flex items-center text-xs text-muted-foreground">
-                                <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">{branch.name}</span>
-                            </div>
-                        )}
-                        {payment.description && (
-                            <div className="text-xs text-muted-foreground italic mt-2 line-clamp-2">
-                                {payment.description}
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    };
     
     const sortedData = React.useMemo(() => {
       const sorted = [...dataWithRunningBalance];
@@ -493,7 +341,10 @@ export function PaymentsPage() {
                 }
                 rightFilters={
                     <>
-                        <Select value={branchFilter} onValueChange={setBranchFilter}>
+                        <Select
+                            value={branchFilter}
+                            onValueChange={(value) => setBranchFilter(value === 'all' ? 'all' : asSystemId(value))}
+                        >
                             <SelectTrigger className="h-9 w-[150px]">
                                 <SelectValue placeholder="Chi nhánh" />
                             </SelectTrigger>
@@ -547,8 +398,7 @@ export function PaymentsPage() {
                                     key={payment.systemId} 
                                     payment={payment}
                                     onCancel={handleCancel}
-                                    onApprove={handleApprove}
-                                    navigate={navigate}
+                                    navigate={(path) => navigate(path)}
                                     handleRowClick={handleRowClick}
                                 />
                             ))}
@@ -585,19 +435,7 @@ export function PaymentsPage() {
                         rowSelection={rowSelection}
                         setRowSelection={setRowSelection}
                         onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
-                    bulkActionButtons={
-                        Object.keys(rowSelection).length > 0 && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsBulkApproveAlertOpen(true)}
-                                className="border-green-500 text-green-700 hover:bg-green-50"
-                            >
-                                Duyệt {Object.keys(rowSelection).length} phiếu
-                            </Button>
-                        )
-                    }
-                    sorting={sorting}
+                        sorting={sorting}
                     setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
                     allSelectedRows={allSelectedRows}
                     expanded={{}}
@@ -608,13 +446,12 @@ export function PaymentsPage() {
                     setColumnOrder={setColumnOrder}
                     pinnedColumns={pinnedColumns}
                     setPinnedColumns={setPinnedColumns}
-                    onRowClick={(payment) => navigate(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId }))}
+                    onRowClick={handleRowClick}
                     renderMobileCard={(payment) => (
                         <MobilePaymentCard 
                             payment={payment}
                             onCancel={handleCancel}
-                            onApprove={handleApprove}
-                            navigate={navigate}
+                            navigate={(path) => navigate(path)}
                             handleRowClick={handleRowClick}
                         />
                     )}
@@ -650,24 +487,6 @@ export function PaymentsPage() {
                     <AlertDialogFooter>
                         <AlertDialogCancel>Đóng</AlertDialogCancel>
                         <AlertDialogAction onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Bulk Approve Alert Dialog */}
-            <AlertDialog open={isBulkApproveAlertOpen} onOpenChange={setIsBulkApproveAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Duyệt {Object.keys(rowSelection).length} phiếu chi?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Tất cả phiếu chi đã chọn sẽ được duyệt và chuyển sang trạng thái "Hoàn thành".
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmBulkApprove} className="bg-green-600 hover:bg-green-700">
-                            Duyệt tất cả
-                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

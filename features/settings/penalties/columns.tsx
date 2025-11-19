@@ -1,9 +1,9 @@
 ﻿import * as React from "react";
-import * as ReactRouterDOM from 'react-router-dom';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { Penalty, PenaltyStatus } from './types.ts'
-import { Checkbox } from "../../../components/ui/checkbox.tsx"
-import { Badge } from "../../../components/ui/badge.tsx"
+import { formatDate } from '@/lib/date-utils';
+import type { SystemId } from '@/lib/id-types';
+import type { Penalty, PenaltyStatus } from './types.ts';
+import { Checkbox } from "../../../components/ui/checkbox.tsx";
+import { Badge } from "../../../components/ui/badge.tsx";
 import type { ColumnDef } from '../../../components/data-table/types.ts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../../components/ui/button.tsx";
@@ -21,7 +21,7 @@ const statusVariants: Record<PenaltyStatus, "warning" | "success" | "secondary">
 };
 
 export const getColumns = (
-  onDelete: (id: string) => void,
+  onDelete: (systemId: SystemId) => void,
   onEdit: (penalty: Penalty) => void,
   navigate: (path: string) => void,
 ): ColumnDef<Penalty>[] => [
@@ -54,10 +54,10 @@ export const getColumns = (
     meta: { displayName: "Mã Phiếu phạt" },
   },
   {
-    id: "employeeId",
-    accessorKey: "employeeId",
+    id: "employeeSystemId",
+    accessorKey: "employeeSystemId",
     header: "Mã NV",
-    cell: ({ row }) => row.employeeId || '-',
+    cell: ({ row }) => row.employeeSystemId,
     meta: { displayName: "Mã nhân viên" },
   },
   {
@@ -66,13 +66,6 @@ export const getColumns = (
     header: "Nhân viên",
     cell: ({ row }) => row.employeeName,
     meta: { displayName: "Nhân viên" },
-  },
-  {
-    id: "category",
-    accessorKey: "category",
-    header: "Loại vi phạm",
-    cell: ({ row }) => row.category || '-',
-    meta: { displayName: "Loại vi phạm" },
   },
   {
     id: "reason",
@@ -100,20 +93,6 @@ export const getColumns = (
     meta: { displayName: "Ngày lập phiếu" },
   },
   {
-    id: "dueDate",
-    accessorKey: "dueDate",
-    header: "Hạn thanh toán",
-    cell: ({ row }) => row.dueDate ? formatDate(row.dueDate) : '-',
-    meta: { displayName: "Hạn thanh toán" },
-  },
-  {
-    id: "paidDate",
-    accessorKey: "paidDate",
-    header: "Ngày thanh toán",
-    cell: ({ row }) => row.paidDate ? formatDate(row.paidDate) : '-',
-    meta: { displayName: "Ngày thanh toán" },
-  },
-  {
     id: "issuerName",
     accessorKey: "issuerName",
     header: "Người lập",
@@ -121,46 +100,11 @@ export const getColumns = (
     meta: { displayName: "Người lập phiếu" },
   },
   {
-    id: "approverName",
-    accessorKey: "approverName",
-    header: "Người duyệt",
-    cell: ({ row }) => row.approverName || '-',
-    meta: { displayName: "Người duyệt" },
-  },
-  {
     id: "status",
     accessorKey: "status",
     header: "Trạng thái",
     cell: ({ row }) => <Badge variant={statusVariants[row.status]}>{row.status}</Badge>,
     meta: { displayName: "Trạng thái" },
-  },
-  {
-    id: "notes",
-    accessorKey: "notes",
-    header: "Ghi chú",
-    cell: ({ row }) => (
-      <div className="max-w-[200px] truncate" title={row.notes}>
-        {row.notes || '-'}
-      </div>
-    ),
-    meta: { displayName: "Ghi chú" },
-  },
-  {
-    id: "attachments",
-    accessorKey: "attachments",
-    header: "Đính kèm",
-    cell: ({ row }) => {
-      const count = row.attachments?.length || 0;
-      return count > 0 ? `${count} file` : '-';
-    },
-    meta: { displayName: "Tệp đính kèm" },
-  },
-  {
-    id: "createdAt",
-    accessorKey: "createdAt",
-    header: "Ngày tạo",
-    cell: ({ row }) => row.createdAt ? formatDateTime(row.createdAt) : '-',
-    meta: { displayName: "Ngày tạo" },
   },
   {
     id: "actions",
@@ -177,7 +121,7 @@ export const getColumns = (
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => navigate(`/penalties/${row.systemId}`)}>Xem chi tiết</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => navigate(`/penalties/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.id)}>
+              <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.systemId)}>
                 Xóa
               </DropdownMenuItem>
             </DropdownMenuContent>

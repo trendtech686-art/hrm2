@@ -4,7 +4,7 @@ import { useOrderStore } from '../../orders/store.ts';
 import { useProductStore } from '../../products/store.ts';
 import type { OrderWithProfit } from './types.ts';
 import { getColumns } from './columns.tsx';
-import { DataTable } from '../../../components/data-table/data-table.tsx';
+import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table.tsx';
 import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar.tsx';
 import { Card, CardContent } from '../../../components/ui/card.tsx';
 import Fuse from 'fuse.js';
@@ -69,7 +69,7 @@ export function SalesReportPage() {
                     />
                 </CardContent>
             </Card>
-            <DataTable
+            <ResponsiveDataTable
                 className="flex-grow"
                 columns={columns}
                 data={paginatedData}

@@ -3,8 +3,8 @@
  */
 
 import { GHTKService, type GHTKCreateOrderParams } from '../../settings/shipping/integrations/ghtk-service';
-import type { ShippingPartner } from '../../settings/shipping-partners/types';
-import type { Branch } from '../../branches/types';
+import type { ShippingPartner } from '../../settings/shipping/types';
+import type { Branch } from '../../settings/branches/types';
 import type { Product } from '../../products/types';
 
 export interface CreateShipmentParams {

@@ -107,3 +107,25 @@ export function buildEntityLink(path: string, entity: DualIDEntity): string {
 export function getDisplayId(entity: DualIDEntity): string {
   return entity.id;
 }
+
+/**
+ * Runtime guard: ensures a string is valid SystemId format and casts it
+ * Logs warning if format is invalid
+ */
+export function ensureSystemId(id: string, context?: string): SystemId {
+  if (!isSystemIdFormat(id)) {
+    console.warn(`[ensureSystemId] Invalid SystemId format: "${id}"${context ? ` in ${context}` : ''}`);
+  }
+  return asSystemId(id);
+}
+
+/**
+ * Runtime guard: ensures a string is valid BusinessId format and casts it
+ * Logs warning if format is invalid
+ */
+export function ensureBusinessId(id: string, context?: string): BusinessId {
+  if (!isBusinessIdFormat(id)) {
+    console.warn(`[ensureBusinessId] Invalid BusinessId format: "${id}"${context ? ` in ${context}` : ''}`);
+  }
+  return asBusinessId(id);
+}

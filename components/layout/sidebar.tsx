@@ -28,7 +28,7 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip.tsx';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar.tsx';
-import { useEmployeeStore } from '../../features/employees/store.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { useUiStore } from '../../lib/ui-store.ts';
 
 type NavLinkInfo = {
@@ -58,6 +58,8 @@ const menuGroups: MenuGroup[] = [
       { href: '/departments', label: 'Phòng ban & Chức vụ', icon: Building2 },
       { href: '/attendance', label: 'Quản lý Chấm công', icon: Clock },
       { href: '/leaves', label: 'Quản lý Nghỉ phép', icon: CalendarOff },
+      { href: '/payroll', label: 'Quản lý Bảng lương', icon: CalendarCheck },
+
     ]
   },
   {
@@ -177,12 +179,12 @@ function SidebarNavLink({
 
 export function Sidebar() {
     const [search, setSearch] = React.useState('');
-    const { data: employees } = useEmployeeStore();
-    const loggedInUser = employees[0]; // Simulate logged-in user
+  const { employee: authEmployee } = useAuth();
+  const loggedInUser = authEmployee;
     const { isSidebarCollapsed, toggleSidebarCollapse } = useUiStore();
 
     const filteredMenuGroups = React.useMemo(() => {
-        const userRole = loggedInUser?.role || 'Admin';
+    const userRole = loggedInUser?.role || 'Admin';
 
         return menuGroups
           .map(group => {

@@ -5,6 +5,7 @@ import { Button } from "../../../components/ui/button.tsx";
 import { MoreHorizontal } from "lucide-react";
 import type { ColumnDef } from '../../../components/data-table/types.ts';
 import type { Branch } from "../branches/types.ts";
+import type { SystemId } from "../../../lib/id-types.ts";
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '';
@@ -13,7 +14,7 @@ const formatCurrency = (value?: number) => {
 
 export const getColumns = (
   onEdit: (account: CashAccount) => void,
-  onDelete: (systemId: string) => void,
+  onDelete: (systemId: SystemId) => void,
   branches: Branch[]
 ): ColumnDef<CashAccount>[] => [
   {

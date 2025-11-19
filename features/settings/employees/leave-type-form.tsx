@@ -8,7 +8,7 @@ import { Switch } from "../../../components/ui/switch.tsx";
 import { DialogFooter } from "../../../components/ui/dialog.tsx";
 import { NumberInput } from "../../../components/ui/number-input.tsx";
 
-export type LeaveTypeFormValues = Omit<LeaveType, 'id' | 'applicableGender'>;
+export type LeaveTypeFormValues = Omit<LeaveType, 'systemId' | 'id' | 'applicableGender' | 'applicableDepartmentSystemIds' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>;
 
 type LeaveTypeFormProps = {
   initialData?: LeaveTypeFormValues;

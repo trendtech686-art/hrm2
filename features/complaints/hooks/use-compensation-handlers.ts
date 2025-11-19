@@ -5,14 +5,16 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
+import { asSystemId } from '@/lib/id-types';
+import type { SystemId } from '@/lib/id-types';
 import { complaintNotifications } from '../notification-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import type { CompensationResult } from '../compensation-payment-receipt-wizard';
 
 interface UseCompensationHandlersProps {
   complaint: Complaint | null;
-  updateComplaint: (systemId: string, updates: Partial<Complaint>) => void;
-  currentUser: { systemId: string; name: string };
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
+  currentUser: { systemId: SystemId; name: string };
 }
 
 export function useCompensationHandlers({
@@ -73,9 +75,9 @@ export function useCompensationHandlers({
     }
     
     const compensationAction: ComplaintAction = {
-      id: `action_${Date.now()}`,
+      id: asSystemId(`action_${Date.now()}`),
       actionType: "commented" as const,
-      performedBy: currentUser.name,
+      performedBy: asSystemId(currentUser.systemId),
       performedAt: new Date(),
       note: `Xử lý bù trừ: ${result.reason}\n${compensationDetails.join('\n')}`,
     };

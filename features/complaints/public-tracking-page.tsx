@@ -24,6 +24,7 @@ import { useBranchStore } from '../settings/branches/store';
 import { useEmployeeStore } from '../employees/store';
 import { usePaymentStore } from '../payments/store';
 import { useReceiptStore } from '../receipts/store';
+import { asSystemId } from '@/lib/id-types';
 import { 
   complaintStatusLabels, 
   complaintStatusColors,
@@ -42,8 +43,7 @@ import {
   loadTrackingSettings, 
   canCustomerComment, 
   shouldShowEmployeeName,
-  shouldShowTimeline,
-  getTrackingCode 
+  shouldShowTimeline
 } from './tracking-utils';
 import { usePublicComplaintTracking } from './hooks/use-public-tracking';
 
@@ -144,9 +144,9 @@ export function PublicComplaintTrackingPage() {
     if (!complaint) return;
     
     const newAction: ComplaintAction = {
-      id: `action_${Date.now()}`,
+      id: asSystemId(`action_${Date.now()}`),
       actionType: 'commented',
-      performedBy: currentUser.name,
+      performedBy: asSystemId(currentUser.systemId),
       performedAt: new Date(),
       note: contentText,
       images: attachments,
@@ -231,7 +231,7 @@ export function PublicComplaintTrackingPage() {
               Mã khiếu nại không tồn tại hoặc đã bị xóa. Vui lòng kiểm tra lại mã khiếu nại.
             </p>
             <p className="text-sm text-muted-foreground">
-              Mã khiếu nại: <span className="font-mono font-semibold">{getTrackingCode(complaintId || '')}</span>
+              Mã khiếu nại: <span className="font-mono font-semibold">{complaintId || 'N/A'}</span>
             </p>
           </CardContent>
         </Card>
@@ -1077,7 +1077,7 @@ export function PublicComplaintTrackingPage() {
               handleDeleteComment(commentId);
             }}
             currentUser={{
-              systemId: 'CUSTOMER',
+              systemId: asSystemId('CUSTOMER'),
               name: 'Khách hàng',
             }}
             readOnly={false}

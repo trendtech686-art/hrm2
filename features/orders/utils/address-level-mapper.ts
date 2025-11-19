@@ -4,7 +4,7 @@
  * for shipping API compatibility
  */
 
-import type { Province, Ward } from '@/features/provinces/types';
+import type { Province, Ward } from '@/features/settings/provinces/types';
 
 export type Address3Level = {
   provinceId: number;

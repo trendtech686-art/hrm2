@@ -1,22 +1,26 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
 import { Checkbox } from '../../../components/ui/checkbox.tsx';
 import { Label } from '../../../components/ui/label.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
 import { Info } from 'lucide-react';
+import { Button } from '../../../components/ui/button.tsx';
+import { useSalesManagementSettingsStore, type SalesManagementSettingsValues } from './sales-management-store.ts';
 
 export function SalesManagementSettings() {
-    const [settings, setSettings] = React.useState({
-        allowCancelAfterExport: true,
-        allowNegativeOrder: true,
-        allowNegativeApproval: true,
-        allowNegativePacking: true,
-        allowNegativeStockOut: true,
-        printCopies: '1',
-    });
+    const settings = useSalesManagementSettingsStore((state) => ({
+        allowCancelAfterExport: state.allowCancelAfterExport,
+        allowNegativeOrder: state.allowNegativeOrder,
+        allowNegativeApproval: state.allowNegativeApproval,
+        allowNegativePacking: state.allowNegativePacking,
+        allowNegativeStockOut: state.allowNegativeStockOut,
+        printCopies: state.printCopies,
+    }));
+    const updateSetting = useSalesManagementSettingsStore((state) => state.updateSetting);
+    const resetSettings = useSalesManagementSettingsStore((state) => state.reset);
 
-    const handleCheckedChange = (key: keyof typeof settings) => (checked: boolean) => {
-        setSettings(prev => ({ ...prev, [key]: checked }));
+    const handleCheckedChange = (key: keyof SalesManagementSettingsValues) => (checked: boolean | 'indeterminate') => {
+        updateSetting(key, checked === true);
     };
 
     return (
@@ -31,8 +35,8 @@ export function SalesManagementSettings() {
                 <div className="space-y-6">
                     <div>
                         <Label htmlFor="print-copies" className="font-semibold">In nhiều liên hoá đơn</Label>
-                        <Select value={settings.printCopies} onValueChange={(value) => setSettings(prev => ({ ...prev, printCopies: value }))}>
-                            <SelectTrigger id="print-copies" className="mt-2">
+                        <Select value={settings.printCopies} onValueChange={(value) => updateSetting('printCopies', value as SalesManagementSettingsValues['printCopies'])}>
+                            <SelectTrigger id="print-copies" className="mt-2 h-9">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -67,6 +71,9 @@ export function SalesManagementSettings() {
                     </div>
                 </div>
             </CardContent>
+            <CardFooter className="flex justify-end">
+                <Button variant="outline" onClick={resetSettings} className="h-9">Khôi phục mặc định</Button>
+            </CardFooter>
         </Card>
     );
 }

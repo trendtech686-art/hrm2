@@ -1,9 +1,16 @@
 import * as React from 'react';
 import type { InventoryCheck } from './types.ts';
 import { Badge } from '../../components/ui/badge.tsx';
+import { Button } from '../../components/ui/button.tsx';
 import { formatDateCustom } from '../../lib/date-utils.ts';
 
-export function InventoryCheckCard({ item, onEdit, onBalance }: { item: InventoryCheck; onEdit?: (i: InventoryCheck) => void; onBalance?: (systemId: string) => void }) {
+type CardProps = {
+  item: InventoryCheck;
+  onEdit?: (item: InventoryCheck) => void;
+  onBalance?: (item: InventoryCheck) => void;
+};
+
+export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
   const preview = item.items?.slice(0,2).map(i => i.productName).join(', ');
   return (
     <div className="p-4 bg-white rounded shadow-sm">
@@ -24,10 +31,14 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: { item: Inventor
 
       <div className="mt-3 flex items-center gap-2">
         {onEdit && (
-          <button className="btn btn-ghost text-sm" onClick={() => onEdit(item)}>Sửa</button>
+          <Button variant="outline" className="h-9" onClick={() => onEdit(item)}>
+            Sửa
+          </Button>
         )}
         {onBalance && item.status === 'draft' && (
-          <button className="btn btn-primary text-sm" onClick={() => onBalance(item.systemId)}>Cân bằng</button>
+          <Button className="h-9" onClick={() => onBalance(item)}>
+            Cân bằng
+          </Button>
         )}
       </div>
     </div>

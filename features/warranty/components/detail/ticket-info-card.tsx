@@ -161,6 +161,13 @@ export function TicketInfoCard({
             </div>
           )}
 
+          {ticket.completedAt && (
+            <div>
+              <p className="text-xs text-muted-foreground">Kết thúc phiếu</p>
+              <p className="text-sm text-blue-600">{formatDateTime(ticket.completedAt)}</p>
+            </div>
+          )}
+
           {ticket.cancelledAt && (
             <div>
               <p className="text-xs text-muted-foreground">Đã hủy</p>

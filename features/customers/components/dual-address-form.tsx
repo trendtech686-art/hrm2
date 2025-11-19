@@ -16,7 +16,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { VirtualizedCombobox } from '@/components/ui/virtualized-combobox';
 import { Badge } from '@/components/ui/badge';
-import { useProvinceStore } from '@/features/provinces/store';
+import { useProvinceStore } from '@/features/settings/provinces/store';
+import { asBusinessId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { MapPin, Info } from 'lucide-react';
 import type { EnhancedCustomerAddress, AddressLevel } from '../types/enhanced-address';
@@ -70,12 +71,12 @@ export function DualAddressForm({
 
   // Prepare options
   const provinceOptions = provinces.map(p => ({
-    value: p.id,
+    value: String(p.id),
     label: p.name,
   }));
 
   const districtOptions = selectedProvinceId
-    ? getDistrictsByProvinceId(selectedProvinceId).map(d => ({
+    ? getDistrictsByProvinceId(asBusinessId(selectedProvinceId)).map(d => ({
         value: String(d.id),
         label: d.name,
       }))
@@ -85,7 +86,7 @@ export function DualAddressForm({
   const wardOptions =
     addressLevel === '2-level'
       ? selectedProvinceId
-        ? getWardsByProvinceId(selectedProvinceId)
+        ? getWardsByProvinceId(asBusinessId(selectedProvinceId))
             .filter(w => !w.districtId) // Chỉ lấy wards 2 cấp (không có districtId)
             .map(w => ({
               value: w.id,
@@ -114,7 +115,7 @@ export function DualAddressForm({
       const district = getDistrictById(selectedDistrictId);
       if (district?.provinceId) {
         const province = getProvinceById(district.provinceId);
-        setSelectedProvinceId(province.id);
+        setSelectedProvinceId(String(province.id));
         toast.success('Đã tự động điền tỉnh/thành phố', {
           description: province.name,
         });
@@ -189,7 +190,7 @@ export function DualAddressForm({
     }
 
     // Get selected items
-    const province = getProvinceById(selectedProvinceId!);
+    const province = getProvinceById(asBusinessId(selectedProvinceId!));
     const district = selectedDistrictId ? getDistrictById(selectedDistrictId) : null;
     const ward = getWardById(selectedWardId!);
 
@@ -216,6 +217,8 @@ export function DualAddressForm({
       isDefault: isDefault,
       isShipping: isShipping,
       isBilling: isBilling,
+      isDefaultShipping: isShipping || isDefault, // Map isShipping hoặc isDefault sang isDefaultShipping
+      isDefaultBilling: isBilling,                // Map isBilling sang isDefaultBilling
       createdAt: defaultValues?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

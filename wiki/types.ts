@@ -1,6 +1,8 @@
+import type { SystemId, BusinessId } from '../lib/id-types.ts';
+
 export interface WikiArticle {
-  systemId: string;
-  id: string;
+  systemId: SystemId;
+  id: BusinessId;
   title: string;
   content: string;
   category?: string;

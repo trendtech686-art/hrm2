@@ -13,12 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import type { Complaint } from "./types.ts";
+import type { SystemId } from "@/lib/id-types";
 
 interface InventoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   complaint: Complaint | null;
-  onSubmit: (inventoryAdjustments: Record<string, number>, reason: string) => void;
+  onSubmit: (inventoryAdjustments: Record<SystemId, number>, reason: string) => void;
 }
 
 export function InventoryDialog({
@@ -27,13 +28,13 @@ export function InventoryDialog({
   complaint,
   onSubmit,
 }: InventoryDialogProps) {
-  const [inventoryAdjustments, setInventoryAdjustments] = React.useState<Record<string, number>>({});
+  const [inventoryAdjustments, setInventoryAdjustments] = React.useState<Record<SystemId, number>>({});
   const [reason, setReason] = React.useState("");
 
   // Initialize adjustments khi mở dialog
   React.useEffect(() => {
     if (open && complaint?.affectedProducts && complaint.affectedProducts.length > 0) {
-      const initialAdj: Record<string, number> = {};
+      const initialAdj: Record<SystemId, number> = {};
       complaint.affectedProducts.forEach(p => {
         initialAdj[p.productSystemId] = 0; // Mặc định 0
       });

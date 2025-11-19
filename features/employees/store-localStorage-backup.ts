@@ -2,9 +2,9 @@ import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { Employee } from './types.ts';
 import Fuse from 'fuse.js';
-import { getCurrentUserSystemId } from '../../contexts/user-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
 import { registerBreadcrumbStore } from '../../lib/breadcrumb-generator'; // ✅ NEW
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 const baseStore = createCrudStore<Employee>(initialData, 'employees', {
   businessIdField: 'id',
@@ -50,7 +50,7 @@ const augmentedMethods = {
         });
     },
     permanentDelete: (systemId: string) => {
-        baseStore.getState().hardDelete(createSystemId(systemId));
+        baseStore.getState().hardDelete(asSystemId(systemId));
     }
 };
 

@@ -1,7 +1,7 @@
-import type { Task, TaskAssignee } from './types.ts';
+import type { Task } from './types.ts';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 
-export const data: Task[] = [
+export const data = [
   {
     systemId: asSystemId('TASK000001'),
     id: asBusinessId('CVNB000001'),
@@ -188,5 +188,5 @@ export const data: Task[] = [
     createdBy: asSystemId('EMP-002'),
     updatedBy: asSystemId('EMP-005')
   }
-];
+] satisfies Task[];
 

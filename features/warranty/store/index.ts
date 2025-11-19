@@ -2,11 +2,14 @@ import { create } from 'zustand';
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
 import { getWorkflowTemplate } from '../../settings/templates/workflow-templates-page.tsx';
 import { toast } from 'sonner';
+import { asSystemId } from '../../../lib/id-types.ts';
+import type { SystemId } from '../../../lib/id-types.ts';
 import {
   notifyWarrantyCreated,
 } from '../notification-utils.ts';
 import { triggerWarrantyDataUpdate } from '../use-realtime-updates.ts';
 import type { WarrantyTicket, WarrantyProduct } from '../types.ts';
+import type { WarrantyStore } from '../types.ts';
 
 // Import base store và các modules
 import {
@@ -60,7 +63,7 @@ baseStore.setState({
     // Add initial history
     if (!newTicket.history || newTicket.history.length === 0) {
       newTicket.history = [{
-        systemId: `WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        systemId: asSystemId(`WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`),
         action: 'Tạo phiếu bảo hành',
         actionLabel: 'Tạo phiếu bảo hành',
         performedBy: getCurrentUserName(),
@@ -82,7 +85,7 @@ baseStore.setState({
     return newTicket;
   },
   
-  update: (systemId: string, updates: any) => {
+  update: (systemId: SystemId, updates: any) => {
     const oldTicket = baseStore.getState().data.find(t => t.systemId === systemId);
     if (!oldTicket) return;
     
@@ -104,7 +107,7 @@ baseStore.setState({
       }
     }
     
-    originalUpdate(systemId as any, updates);
+    originalUpdate(systemId, updates);
     
     // Add auto-history
     if (!hasExplicitHistory && changes.length > 0) {
@@ -117,7 +120,7 @@ baseStore.setState({
     triggerWarrantyDataUpdate();
   },
   
-  remove: (systemId: string) => {
+  remove: (systemId: SystemId) => {
     const ticket = baseStore.getState().data.find(t => t.systemId === systemId);
     
     if (ticket) {
@@ -128,44 +131,12 @@ baseStore.setState({
       uncommitWarrantyStock(ticket);
     }
     
-    originalRemove(systemId as any);
+    originalRemove(systemId);
     
     // Trigger realtime update
     triggerWarrantyDataUpdate();
   },
 });
-
-// Export Store with Custom Methods
-interface WarrantyStore {
-  data: WarrantyTicket[];
-  add: (item: Omit<WarrantyTicket, 'systemId'>) => WarrantyTicket;
-  addMultiple: (items: Omit<WarrantyTicket, 'systemId'>[]) => void;
-  update: (systemId: string, item: any) => void;
-  remove: (systemId: string) => void;
-  hardDelete: (systemId: string) => void;
-  restore: (systemId: string) => void;
-  findById: (systemId: string) => WarrantyTicket | undefined;
-  getActive: () => WarrantyTicket[];
-  getDeleted: () => WarrantyTicket[];
-  
-  // Warranty-specific methods
-  addProduct: (ticketSystemId: string, product: Omit<WarrantyProduct, 'systemId'>) => void;
-  updateProduct: (ticketSystemId: string, productSystemId: string, updates: Partial<WarrantyProduct>) => void;
-  removeProduct: (ticketSystemId: string, productSystemId: string) => void;
-  updateStatus: (ticketSystemId: string, newStatus: WarrantyTicket['status'], note?: string) => void;
-  addHistory: (ticketSystemId: string, action: string, performedBy: string, note?: string, metadata?: Record<string, any>) => void;
-  recalculateSummary: (ticketSystemId: string) => void;
-  calculateSummary: (products: WarrantyProduct[]) => any;
-  calculateSettlementStatus: (totalSettlement: number, totalPaid: number, shippingFee?: number) => 'pending' | 'partial' | 'completed';
-  
-  // Deprecated methods (use generic components instead)
-  addComment?: () => void;
-  updateComment?: () => void;
-  deleteComment?: () => void;
-  replyComment?: () => void;
-  generateNextSystemId?: () => string;
-  _migrate?: () => void;
-}
 
 export const useWarrantyStore = create<WarrantyStore>()((set, get) => ({
   ...baseStore.getState(),
@@ -191,7 +162,7 @@ export const useWarrantyStore = create<WarrantyStore>()((set, get) => ({
       const match = item.systemId.match(/WARRANTY(\d{6})/);
       return match ? Math.max(max, parseInt(match[1])) : max;
     }, 0);
-    return `WARRANTY${String(maxSystemId + 1).padStart(6, '0')}`;
+    return asSystemId(`WARRANTY${String(maxSystemId + 1).padStart(6, '0')}`);
   },
   _migrate: () => console.warn('_migrate: No longer needed with createCrudStore'),
 }));

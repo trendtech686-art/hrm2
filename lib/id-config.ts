@@ -52,6 +52,45 @@ export function createBusinessId(id: string): BusinessId {
   return id as BusinessId;
 }
 
+export interface FormattedCounterInfo {
+  currentBusinessCounter: number;
+  currentSystemCounter: number;
+  nextBusinessId: BusinessId;
+  nextSystemId: SystemId;
+  digitCount: number;
+  prefix: string;
+  systemIdPrefix: string;
+  displayName: string;
+}
+
+export function formatCounterInfo(
+  entityType: EntityType,
+  counters?: { business?: number | null; system?: number | null }
+): FormattedCounterInfo {
+  const config = ID_CONFIG[entityType];
+  if (!config) {
+    throw new Error(`Unknown entity type: ${entityType}`);
+  }
+
+  const currentBusinessCounter = Math.max(0, counters?.business ?? 0);
+  const currentSystemCounter = Math.max(0, counters?.system ?? currentBusinessCounter);
+  const nextBusinessCounter = currentBusinessCounter + 1;
+  const nextSystemCounter = currentSystemCounter + 1;
+  const paddedBusiness = String(nextBusinessCounter).padStart(config.digitCount, '0');
+  const paddedSystem = String(nextSystemCounter).padStart(config.digitCount, '0');
+
+  return {
+    currentBusinessCounter,
+    currentSystemCounter,
+    nextBusinessId: createBusinessId(`${config.prefix}${paddedBusiness}`),
+    nextSystemId: createSystemId(`${config.systemIdPrefix}${paddedSystem}`),
+    digitCount: config.digitCount,
+    prefix: config.prefix,
+    systemIdPrefix: config.systemIdPrefix,
+    displayName: config.displayName,
+  };
+}
+
 // ========================================
 // 📋 CONFIGURATION INTERFACE
 // ========================================
@@ -185,6 +224,37 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     displayName: 'Bảng lương',
     category: 'hr',
     usesStoreFactory: false,
+  },
+  
+  'payslips': {
+    entityType: 'payslips',
+    prefix: ENTITY_PREFIXES['payslips'], // 'PL'
+    systemIdPrefix: 'PAYSLIP',
+    digitCount: 6,
+    displayName: 'Phiếu lương',
+    category: 'hr',
+    usesStoreFactory: false,
+    notes: 'Sinh từ payroll batch store',
+  },
+  
+  'payroll-audit-log': {
+    entityType: 'payroll-audit-log',
+    prefix: ENTITY_PREFIXES['payroll-audit-log'], // 'PAL'
+    systemIdPrefix: 'PAYROLLLOG',
+    digitCount: 6,
+    displayName: 'Nhật ký payroll',
+    category: 'hr',
+    usesStoreFactory: false,
+  },
+  'payroll-templates': {
+    entityType: 'payroll-templates',
+    prefix: ENTITY_PREFIXES['payroll-templates'], // 'BTP'
+    systemIdPrefix: 'PAYTPL',
+    digitCount: 6,
+    displayName: 'Mẫu bảng lương',
+    category: 'hr',
+    usesStoreFactory: false,
+    notes: 'Dùng cho trang template payroll Phase 3',
   },
   
   'penalties': {
@@ -404,6 +474,28 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     category: 'finance',
     usesStoreFactory: true,
   },
+
+  'voucher-receipt': {
+    entityType: 'voucher-receipt',
+    prefix: ENTITY_PREFIXES['voucher-receipt'], // Alias 'PT'
+    systemIdPrefix: 'RECEIPT',
+    digitCount: 6,
+    displayName: 'Phiếu thu (Voucher)',
+    category: 'finance',
+    usesStoreFactory: true,
+    notes: 'Alias dùng cho các workflow voucher-only hoặc màn hình tổng hợp phiếu thu/chi.',
+  },
+  
+  'voucher-payment': {
+    entityType: 'voucher-payment',
+    prefix: ENTITY_PREFIXES['voucher-payment'], // Alias 'PC'
+    systemIdPrefix: 'PAYMENT',
+    digitCount: 6,
+    displayName: 'Phiếu chi (Voucher)',
+    category: 'finance',
+    usesStoreFactory: true,
+    notes: 'Alias dùng cho các workflow voucher-only hoặc màn hình tổng hợp phiếu thu/chi.',
+  },
   
   'cashbook': {
     entityType: 'cashbook',
@@ -586,6 +678,26 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     validation: { allowCustomId: true },
     usesStoreFactory: true,
   },
+  'districts': {
+    entityType: 'districts',
+    prefix: ENTITY_PREFIXES['districts'], // 'QH'
+    systemIdPrefix: 'DISTRICT',
+    digitCount: 6,
+    displayName: 'Quận/Huyện',
+    category: 'settings',
+    validation: { allowCustomId: true },
+    usesStoreFactory: true,
+  },
+  'wards': {
+    entityType: 'wards',
+    prefix: ENTITY_PREFIXES['wards'], // 'PX'
+    systemIdPrefix: 'WARD',
+    digitCount: 6,
+    displayName: 'Phường/Xã',
+    category: 'settings',
+    validation: { allowCustomId: true },
+    usesStoreFactory: true,
+  },
   
   'wiki': {
     entityType: 'wiki',
@@ -697,6 +809,39 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     displayName: 'Loại hợp đồng',
     category: 'settings',
     usesStoreFactory: false,
+  },
+  
+  'work-shifts': {
+    entityType: 'work-shifts',
+    prefix: ENTITY_PREFIXES['work-shifts'], // 'CA'
+    systemIdPrefix: 'WSHIFT',
+    digitCount: 6,
+    displayName: 'Ca làm việc',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Dùng cho cài đặt ca làm việc & Dual ID trong attendance',
+  },
+  
+  'leave-types': {
+    entityType: 'leave-types',
+    prefix: ENTITY_PREFIXES['leave-types'], // 'LP'
+    systemIdPrefix: 'LEAVETYPE',
+    digitCount: 6,
+    displayName: 'Loại nghỉ phép',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Quản lý danh mục phép năm/phép đặc biệt',
+  },
+  
+  'salary-components': {
+    entityType: 'salary-components',
+    prefix: ENTITY_PREFIXES['salary-components'], // 'SC'
+    systemIdPrefix: 'SALCOMP',
+    digitCount: 6,
+    displayName: 'Thành phần lương',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Dùng cho cấu hình payroll engine',
   },
   
   // ========================================

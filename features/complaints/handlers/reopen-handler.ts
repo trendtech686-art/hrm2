@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 import type { Complaint } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
 import { handleReopenAfterCancelled } from './reopen-after-cancelled-handler';
@@ -6,7 +7,7 @@ import { handleReopenAfterResolved } from './reopen-after-resolved-handler';
 
 // User type - chỉ cần systemId và name
 interface User {
-  systemId: string;
+  systemId: SystemId;
   name: string;
   email?: string;
   role?: 'admin' | 'user';
@@ -24,7 +25,7 @@ interface User {
 export async function handleReopenComplaint(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: string, updates: any) => void
+  updateComplaint: (systemId: SystemId, updates: any) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('[REOPEN] Starting...', { 
@@ -71,9 +72,9 @@ export async function handleReopenComplaint(
       timeline: [
         ...complaint.timeline,
         {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "reopened" as const,
-          performedBy: currentUser.name,
+          performedBy: currentUser.systemId,
           performedAt: new Date(),
           note: `Mở lại khiếu nại`,
         }

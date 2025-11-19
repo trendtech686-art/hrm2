@@ -13,7 +13,7 @@ import type {
   AddressConversionResult,
   AddressLevel,
 } from '../types/enhanced-address';
-import { getDistrictByWardId, autoFillDistrict } from '@/features/provinces/ward-district-mapping';
+import { getDistrictByWardId, autoFillDistrict } from '@/features/settings/provinces/ward-district-mapping';
 
 /**
  * Tạo địa chỉ mới từ input 2-level (tự động điền district)
@@ -66,6 +66,8 @@ export function createAddress2Level(
       isDefault: input.isDefault ?? false,
       isShipping: input.isShipping ?? true,
       isBilling: input.isBilling ?? false,
+      isDefaultShipping: input.isShipping ?? input.isDefault ?? true,  // Map isShipping hoặc isDefault
+      isDefaultBilling: input.isBilling ?? false,                      // Map isBilling
       notes: input.notes,
       
       createdAt: new Date().toISOString(),
@@ -126,6 +128,8 @@ export function createAddress3Level(
       isDefault: input.isDefault ?? false,
       isShipping: input.isShipping ?? true,
       isBilling: input.isBilling ?? false,
+      isDefaultShipping: input.isShipping ?? input.isDefault ?? true,  // Map isShipping hoặc isDefault
+      isDefaultBilling: input.isBilling ?? false,                      // Map isBilling
       notes: input.notes,
       
       createdAt: new Date().toISOString(),
@@ -224,6 +228,8 @@ export function convertLegacyAddress(
       isDefault: oldAddress.isDefault ?? true,
       isShipping: oldAddress.isShipping ?? true,
       isBilling: oldAddress.isBilling ?? false,
+      isDefaultShipping: oldAddress.isShipping ?? oldAddress.isDefault ?? true,  // Map isShipping hoặc isDefault
+      isDefaultBilling: oldAddress.isBilling ?? false,                          // Map isBilling
       notes: oldAddress.notes,
       
       createdAt: new Date().toISOString(),

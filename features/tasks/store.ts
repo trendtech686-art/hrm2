@@ -1,6 +1,8 @@
 import { createCrudStore } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { Task, TaskActivity, TaskStatus, TaskPriority, TaskAssignee, AssigneeRole } from './types.ts';
+import { getCurrentUserInfo } from '../../contexts/auth-context.tsx';
+import { asSystemId, type SystemId } from '../../lib/id-types';
 
 const baseStore = createCrudStore<Task>(initialData, 'internal-tasks');
 
@@ -21,12 +23,12 @@ const migrateTasksToMultipleAssignees = (tasks: Task[]): Task[] => {
     // Migrate single assignee to array format
     if (taskWithStartDate.assigneeId && taskWithStartDate.assigneeName) {
       const assignee: TaskAssignee = {
-        systemId: `assignee-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        systemId: asSystemId(`assignee-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`),
         employeeSystemId: taskWithStartDate.assigneeId,
         employeeName: taskWithStartDate.assigneeName,
         role: 'owner',
         assignedAt: taskWithStartDate.createdAt || new Date().toISOString(),
-        assignedBy: taskWithStartDate.assignerId || taskWithStartDate.createdBy || 'SYSTEM',
+        assignedBy: taskWithStartDate.assignerId || taskWithStartDate.createdBy || asSystemId('SYSTEM'),
       };
       
       return {
@@ -49,25 +51,17 @@ const migratedData = migrateTasksToMultipleAssignees(initialData);
 // Initialize store with migrated data
 const taskStoreInstance = createCrudStore<Task>(migratedData, 'internal-tasks');
 
-// Helper to get current user info from localStorage
-const getCurrentUser = () => {
-  const stored = localStorage.getItem('user');
-  if (!stored) return { id: 'SYSTEM', name: 'Hệ thống' };
-  const user = JSON.parse(stored);
-  return { id: user.employeeId || 'SYSTEM', name: user.name || 'User' };
-};
-
 // Helper to create activity log
 const createActivity = (
   taskId: string,
   action: TaskActivity['action'],
   details?: Partial<TaskActivity>
 ): TaskActivity => {
-  const user = getCurrentUser();
+  const user = getCurrentUserInfo();
   return {
     id: `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     taskId,
-    userId: user.id,
+    userId: user.systemId,
     userName: user.name,
     action,
     timestamp: new Date().toISOString(),
@@ -283,22 +277,22 @@ export const useTaskStore = () => {
       }
     },
     // Get tasks assigned to specific user
-    getMyTasks: (userId: string) => {
+    getMyTasks: (userId: SystemId) => {
       return store.data.filter(task => 
         task.assignees?.some(a => a.employeeSystemId === userId) || 
         task.assigneeId === userId // Backward compatibility
       );
     },
     // Get tasks created by specific user (assigner)
-    getCreatedByMe: (userId: string) => {
+    getCreatedByMe: (userId: SystemId) => {
       return store.data.filter(task => task.assignerId === userId);
     },
     // Add assignee to task
-    addAssignee: (taskId: string, employeeId: string, employeeName: string, role: AssigneeRole = 'contributor') => {
+    addAssignee: (taskId: string, employeeId: SystemId, employeeName: string, role: AssigneeRole = 'contributor') => {
       const task = store.findById(taskId as any);
       if (!task) return;
       
-      const user = getCurrentUser();
+      const user = getCurrentUserInfo();
       const assignees = task.assignees || [];
       
       // Check if already assigned
@@ -307,12 +301,12 @@ export const useTaskStore = () => {
       }
       
       const newAssignee: TaskAssignee = {
-        systemId: `assignee-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        systemId: asSystemId(`assignee-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`),
         employeeSystemId: employeeId,
         employeeName,
         role,
         assignedAt: new Date().toISOString(),
-        assignedBy: user.id,
+        assignedBy: asSystemId(user.systemId),
       };
       
       const updatedAssignees = [...assignees, newAssignee];
@@ -330,13 +324,13 @@ export const useTaskStore = () => {
       store.update(taskId as any, {
         ...task,
         assignees: updatedAssignees,
-        assigneeId: owner?.employeeSystemId || '',
+        assigneeId: (owner?.employeeSystemId ?? asSystemId('')),
         assigneeName: owner?.employeeName || '',
         activities,
       });
     },
     // Remove assignee from task
-    removeAssignee: (taskId: string, employeeId: string) => {
+    removeAssignee: (taskId: string, employeeId: SystemId) => {
       const task = store.findById(taskId as any);
       if (!task) return;
       
@@ -360,13 +354,13 @@ export const useTaskStore = () => {
       store.update(taskId as any, {
         ...task,
         assignees: updatedAssignees,
-        assigneeId: owner?.employeeSystemId || '',
+        assigneeId: owner?.employeeSystemId || asSystemId(''),
         assigneeName: owner?.employeeName || '',
         activities,
       });
     },
     // Update assignee role
-    updateAssigneeRole: (taskId: string, employeeId: string, newRole: AssigneeRole) => {
+    updateAssigneeRole: (taskId: string, employeeId: SystemId, newRole: AssigneeRole) => {
       const task = store.findById(taskId as any);
       if (!task) return;
       
@@ -387,7 +381,7 @@ export const useTaskStore = () => {
       store.update(taskId as any, {
         ...task,
         assignees: updatedAssignees,
-        assigneeId: owner?.employeeSystemId || '',
+        assigneeId: owner?.employeeSystemId || asSystemId(''),
         assigneeName: owner?.employeeName || '',
       });
     },
@@ -423,7 +417,7 @@ export const useTaskStore = () => {
       const task = store.findById(taskId as any);
       if (!task) return;
       
-      const user = getCurrentUser();
+      const user = getCurrentUserInfo();
       const activity = createActivity(taskId, 'evidence_approved', {
         description: `${user.name} đã phê duyệt công việc`,
       });
@@ -431,7 +425,7 @@ export const useTaskStore = () => {
       const approvalRecord = {
         id: `approval-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         status: 'approved' as const,
-        reviewedBy: user.id,
+        reviewedBy: user.systemId,
         reviewedByName: user.name,
         reviewedAt: new Date().toISOString(),
       };
@@ -452,7 +446,7 @@ export const useTaskStore = () => {
       const task = store.findById(taskId as any);
       if (!task) return;
       
-      const user = getCurrentUser();
+      const user = getCurrentUserInfo();
       const activity = createActivity(taskId, 'evidence_rejected', {
         description: `${user.name} đã yêu cầu làm lại: ${reason}`,
       });
@@ -460,7 +454,7 @@ export const useTaskStore = () => {
       const approvalRecord = {
         id: `approval-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         status: 'rejected' as const,
-        reviewedBy: user.id,
+        reviewedBy: user.systemId,
         reviewedByName: user.name,
         reviewedAt: new Date().toISOString(),
         reason,

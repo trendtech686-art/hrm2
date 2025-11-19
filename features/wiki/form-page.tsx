@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useWikiStore } from './store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
 import type { WikiArticle } from './types.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -26,7 +27,7 @@ export function WikiFormPage() {
   const { findById, add, update, data: articles } = useWikiStore();
   const { data: employees } = useEmployeeStore();
   
-  const article = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const article = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   
   usePageHeader({
     actions: [

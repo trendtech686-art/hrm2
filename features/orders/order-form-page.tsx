@@ -22,6 +22,7 @@ import { useStockHistoryStore } from '../stock-history/store.ts';
 import { useCustomerStore } from '../customers/store.ts';
 import { useShippingPartnerStore } from '../settings/shipping/store.ts';
 import { SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId } from './shipping-partners-config.ts';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 // UI components
 import { Button } from '../../components/ui/button.tsx';
@@ -30,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { useAuth } from '../../contexts/auth-context.tsx';
 
 // Refactored Components
 import { CustomerSelector } from './components/customer-selector.tsx';
@@ -240,7 +242,8 @@ export function OrderFormPage() {
         discountDefaultType: 'value',
         productInsertPosition: 'top',
     });
-    const loggedInUser = useEmployeeStore().data[0];
+    const { employee: currentEmployee } = useAuth();
+    const currentEmployeeName = currentEmployee?.fullName ?? 'Hệ thống';
     const salesPolicies = React.useMemo(() => pricingPolicies.filter(p => p.type === 'Bán hàng'), [pricingPolicies]);
     const defaultSellingPolicy = React.useMemo(() => salesPolicies.find(p => p.isDefault) || salesPolicies[0], [salesPolicies]);
     const [selectedPolicyId, setSelectedPolicyId] = React.useState<string>(defaultSellingPolicy?.systemId || '');
@@ -268,22 +271,25 @@ export function OrderFormPage() {
             inventoryByBranch[branch.systemId] = (defaultBranch && branch.systemId === defaultBranch.systemId) ? initialInventory : 0;
         });
 
-        const productToAdd = { ...values, inventoryByBranch, committedByBranch: {}, inTransitByBranch: {} };
-        baseAddProduct(productToAdd as any);
+                const productToAdd = { ...values, inventoryByBranch, committedByBranch: {}, inTransitByBranch: {} };
+                const createdProduct = baseAddProduct(productToAdd as any);
+                if (!createdProduct) {
+                    return;
+                }
         
         branches.forEach(branch => {
             const stockLevel = inventoryByBranch[branch.systemId] || 0;
             if (stockLevel > 0) {
               addStockHistoryEntry({
-                  productId: values.id,
+                                    productId: createdProduct.systemId,
                   date: getCurrentDate().toISOString(),
-                  employeeName: loggedInUser.fullName,
+                  employeeName: currentEmployeeName,
                   action: 'Khởi tạo variant',
                   quantityChange: stockLevel,
                   newStockLevel: stockLevel,
-                  documentId: values.id,
-                  branch: branch.name,
-                  branchSystemId: branch.systemId,
+                                    documentId: createdProduct.id,
+                                    branch: branch.name,
+                                    branchSystemId: branch.systemId,
               });
             }
         });
@@ -361,9 +367,9 @@ export function OrderFormPage() {
         } else {
              const defaultBranch = branches.find(b => b.isDefault);
              if (defaultBranch) setValue('branchSystemId', defaultBranch.systemId);
-             if (loggedInUser) setValue('salespersonSystemId', loggedInUser.systemId);
+             if (currentEmployee?.systemId) setValue('salespersonSystemId', currentEmployee.systemId);
         }
-    }, [isEditing, order, reset, branches, loggedInUser, setValue, partners]);
+    }, [isEditing, order, reset, branches, currentEmployee, setValue, partners]);
     
     const handleSelectProducts = (selectedProducts: Product[]) => {
         const currentItems = getValues('lineItems');
@@ -527,8 +533,10 @@ export function OrderFormPage() {
     
     const processSubmitInternal = async (data: OrderFormValues) => {
         const customer = data.customer;
-        const salesperson = employees.find(e => e.systemId === data.salespersonSystemId);
-        const branch = branches.find(b => b.systemId === data.branchSystemId);
+        const salespersonSystemId = data.salespersonSystemId ? asSystemId(data.salespersonSystemId) : undefined;
+        const branchSystemId = data.branchSystemId ? asSystemId(data.branchSystemId) : undefined;
+        const salesperson = salespersonSystemId ? employees.find(e => e.systemId === salespersonSystemId) : undefined;
+        const branch = branchSystemId ? branches.find(b => b.systemId === branchSystemId) : undefined;
     
         // Validate basic info
         if (!customer) {
@@ -661,7 +669,7 @@ export function OrderFormPage() {
         const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
         
         // ✅ Generate order ID once - empty string for auto-generate
-        const finalOrderId = (isEditing && order) ? order.id : "";
+        const finalOrderId = (isEditing && order) ? order.id : asBusinessId('');
 
         switch (data.deliveryMethod) {
             case 'pickup':
@@ -669,8 +677,8 @@ export function OrderFormPage() {
                 finalDeliveryStatus = 'Chờ đóng gói';
                 finalMainStatus = 'Đang giao dịch';
                 packagings.push({
-                    systemId: `PKG_NEW_${Date.now()}`,
-                    id: "", // ✅ Empty - auto-generate
+                    systemId: asSystemId(`PKG_TEMP_${Date.now()}`),
+                    id: asBusinessId(''), // ✅ Empty - auto-generate
                     requestDate: now,
                     requestingEmployeeId: salesperson.systemId, 
                     requestingEmployeeName: salesperson.fullName,
@@ -809,8 +817,8 @@ export function OrderFormPage() {
                 
                 const allTrackingCodes = allOrders.flatMap(o => o.packagings).map(p => ({ id: p.trackingCode })).filter(p => p.id);
                 packagings.push({
-                    systemId: `PKG_NEW_${Date.now()}`,
-                    id: "", // ✅ Empty - auto-generate
+                    systemId: asSystemId(`PKG_TEMP_${Date.now()}`),
+                    id: asBusinessId(''), // ✅ Empty - auto-generate
                     requestDate: now, confirmDate: now,
                     requestingEmployeeId: salesperson.systemId, requestingEmployeeName: salesperson.fullName,
                     confirmingEmployeeId: salesperson.systemId, confirmingEmployeeName: salesperson.fullName,
@@ -836,8 +844,10 @@ export function OrderFormPage() {
                 break;
         }
 
+        const paymentTimestamp = Date.now();
+
         const finalOrderData = {
-            id: finalOrderId, // ✅ Use the same ID generated at the beginning (avoid duplicate generation)
+            id: finalOrderId,
             customerSystemId: customer.systemId, 
             customerName: sanitizeString(customer.name),
             
@@ -859,14 +869,14 @@ export function OrderFormPage() {
                      customer.addresses.find(a => a.isDefaultBilling)?.province].filter(Boolean).join(', ') : 
                     undefined),
             
-            branchSystemId: data.branchSystemId, // ✅ Form branchSystemId field contains systemId
+            branchSystemId: branch.systemId,
             branchName: branch.name,
-            salespersonSystemId: data.salespersonSystemId, 
+            salespersonSystemId: salesperson.systemId, 
             salesperson: salesperson.fullName,
             orderDate: toISODateTime(data.orderDate),
-            lineItems: data.lineItems.map(li => ({
-                productSystemId: li.productSystemId, 
-                productId: sanitizeString(li.productId), 
+            lineItems: data.lineItems.map((li, index) => ({
+                productSystemId: asSystemId(li.productSystemId), 
+                productId: asBusinessId((li.productId || '').trim().toUpperCase() || `SKU${String(index + 1).padStart(6, '0')}`), 
                 productName: sanitizeString(li.productName),
                 quantity: Number(li.quantity), 
                 unitPrice: Number(li.unitPrice), 
@@ -877,14 +887,15 @@ export function OrderFormPage() {
             shippingFee: data.shippingFee, 
             tax: data.tax, 
             grandTotal: data.grandTotal,
-            payments: (data.payments || []).map(p => ({ 
-                systemId: '', 
-                id: '', 
-                date: '', 
-                createdBy: '', 
+            paidAmount: totalPaid,
+            payments: (data.payments || []).map((p, index) => ({ 
+                systemId: asSystemId(`PAYMENT_TMP_${paymentTimestamp}_${index}`), 
+                id: asBusinessId(`PT${String(paymentTimestamp + index).slice(-6).padStart(6, '0')}`), 
+                date: now, 
+                createdBy: salesperson.systemId, 
                 description: '', 
                 method: p.method, 
-                amount: Number(p.amount) 
+                amount: Number(p.amount) || 0
             })),
             notes: sanitizedNotes, 
             tags: sanitizedTags,

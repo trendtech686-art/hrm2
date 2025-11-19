@@ -1,12 +1,12 @@
 import * as React from "react";
 import * as ReactRouterDOM from 'react-router-dom';
-import { useLeaveStore } from "./store.ts";
-import { getColumns } from "./columns.tsx";
+import { useLeaveStore } from './store.ts';
+import { getColumns } from './columns.tsx';
 import type { LeaveRequest, LeaveStatus } from "./types.ts";
+import type { SystemId } from '@/lib/id-types';
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { DataTable } from "../../components/data-table/data-table.tsx";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
 import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx";
-import { Card, CardContent } from "../../components/ui/card.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog.tsx";
@@ -24,7 +24,7 @@ export function LeavesPage() {
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingRequest, setEditingRequest] = React.useState<LeaveRequest | null>(null);
   
@@ -56,18 +56,18 @@ export function LeavesPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const handleStatusChange = (id: string, status: LeaveStatus) => {
-    const request = leaveRequests.find(r => r.systemId === id);
+  const handleStatusChange = (systemId: SystemId, status: LeaveStatus) => {
+    const request = leaveRequests.find(r => r.systemId === systemId);
     if (request) {
-        update(id, { ...request, status });
+        update(systemId, { ...request, status });
         toast.success("Đã cập nhật trạng thái", {
           description: `Đơn ${request.id} đã được ${status.toLowerCase()}`,
         });
     }
   };
 
-  const handleDelete = React.useCallback((id: string) => {
-    setIdToDelete(id);
+  const handleDelete = React.useCallback((systemId: SystemId) => {
+    setIdToDelete(systemId);
     setIsAlertOpen(true);
   }, []);
 
@@ -76,7 +76,7 @@ export function LeavesPage() {
     setIsFormOpen(true);
   }, []);
 
-  const columns = React.useMemo(() => getColumns(handleDelete, handleEdit, handleStatusChange, navigate), [handleDelete, handleEdit, navigate]);
+  const columns = React.useMemo(() => getColumns(handleDelete, handleEdit, handleStatusChange, navigate), [handleDelete, handleEdit, handleStatusChange, navigate]);
   
   React.useEffect(() => {
     const defaultVisibleColumns = ['employeeName', 'leaveTypeName', 'dateRange', 'numberOfDays', 'reason', 'status'];
@@ -215,7 +215,7 @@ export function LeavesPage() {
           />
       </div>
 
-      <DataTable
+      <ResponsiveDataTable
         columns={columns}
         data={paginatedData}
         pageCount={pageCount}

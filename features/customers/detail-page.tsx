@@ -1,6 +1,7 @@
 import * as React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { formatDate as formatDateUtil, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
+import { asSystemId } from '@/lib/id-types';
 import { useCustomerStore } from './store.ts';
 import { useOrderStore } from '../orders/store.ts';
 import { useWarrantyStore } from '../warranty/store.ts';
@@ -84,7 +85,7 @@ export function CustomerDetailPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
   const { findById, update, data } = useCustomerStore();
-  const customer = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById, data]);
+  const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById, data]);
 
   const { data: allOrders } = useOrderStore();
   const { data: allWarrantyTickets } = useWarrantyStore();
@@ -100,12 +101,12 @@ export function CustomerDetailPage() {
   const creditRatings = useCreditRatingStore();
 
   // Lookup names
-  const getTypeName = (id?: string) => id ? customerTypes.findById(id)?.name : undefined;
-  const getGroupName = (id?: string) => id ? customerGroups.findById(id)?.name : undefined;
-  const getSourceName = (id?: string) => id ? customerSources.findById(id)?.name : undefined;
-  const getPaymentTermName = (id?: string) => id ? paymentTerms.findById(id)?.name : undefined;
-  const getCreditRatingName = (id?: string) => id ? creditRatings.findById(id)?.name : undefined;
-  const getEmployeeName = (id?: string) => id ? findEmployeeById(id)?.fullName : undefined;
+  const getTypeName = (id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined;
+  const getGroupName = (id?: string) => id ? customerGroups.findById(asSystemId(id))?.name : undefined;
+  const getSourceName = (id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined;
+  const getPaymentTermName = (id?: string) => id ? paymentTerms.findById(asSystemId(id))?.name : undefined;
+  const getCreditRatingName = (id?: string) => id ? creditRatings.findById(asSystemId(id))?.name : undefined;
+  const getEmployeeName = (id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined;
 
   const customerOrders = React.useMemo(() => allOrders.filter(o => o.customerSystemId === customer?.systemId), [allOrders, customer?.systemId]);
   
@@ -146,7 +147,7 @@ export function CustomerDetailPage() {
     }));
 
     const receiptTransactions = allReceipts
-        .filter(r => r.payerType === 'Khách hàng' && r.payerName === customer.name)
+        .filter(r => r.payerTypeName === 'Khách hàng' && r.payerName === customer.name)
         .map(receipt => ({
             systemId: `receipt-${receipt.systemId}`,
             voucherId: receipt.id,
@@ -336,7 +337,7 @@ export function CustomerDetailPage() {
                   <InfoItem 
                     icon={User} 
                     label="Người giới thiệu" 
-                    value={customer.referredBy ? findById(customer.referredBy)?.name : undefined}
+                    value={customer.referredBy ? findById(asSystemId(customer.referredBy))?.name : undefined}
                     onClick={customer.referredBy ? () => navigate(`/customers/${customer.referredBy}`) : undefined}
                     isClickable={!!customer.referredBy}
                   />
@@ -686,7 +687,7 @@ export function CustomerDetailPage() {
                 console.log('[DetailPage] Current customer:', customer);
                 const updatedCustomer = { ...customer, addresses: newAddresses };
                 console.log('[DetailPage] Updated customer:', updatedCustomer);
-                update(customer.systemId, updatedCustomer);
+                update(asSystemId(customer.systemId), updatedCustomer);
               }}
             />
           </TabsContent>

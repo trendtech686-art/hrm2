@@ -17,6 +17,7 @@ import { Label } from '../../components/ui/label.tsx';
 import { Textarea } from '../../components/ui/textarea.tsx';
 import { Separator } from '../../components/ui/separator.tsx';
 import { DetailField } from '../../components/ui/detail-field.tsx';
+import { useAuth } from '../../contexts/auth-context.tsx';
 
 
 const formatCurrency = (value?: number) => {
@@ -84,7 +85,8 @@ export function PackagingDetailPage() {
     const { findById: findCustomerById } = useCustomerStore();
     const { findById: findEmployeeById } = useEmployeeStore();
     const { findById: findProductById } = useProductStore();
-    const loggedInUser = useEmployeeStore.getState().data[0];
+    const { employee: authEmployee } = useAuth();
+    const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
 
     const [isCancelDialogOpen, setIsCancelDialogOpen] = React.useState(false);
 
@@ -130,7 +132,7 @@ export function PackagingDetailPage() {
                             size="sm" 
                             onClick={() => {
                                 if (order && packaging) {
-                                    confirmPackaging(order.systemId, packaging.systemId, loggedInUser.systemId);
+                                    confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId);
                                 }
                             }}
                         >
@@ -153,7 +155,7 @@ export function PackagingDetailPage() {
                 </Button>
             </div>
         );
-    }, [packaging, order, loggedInUser, navigate]);
+    }, [packaging, order, currentUserSystemId, navigate]);
 
     usePageHeader({
         title: `Phiếu đóng gói ${packaging?.id || ''}`,
@@ -176,7 +178,7 @@ export function PackagingDetailPage() {
     
     const handleCancelSubmit = (reason: string) => {
         if (order && packaging) {
-            cancelPackagingRequest(order.systemId, packaging.systemId, loggedInUser.systemId, reason);
+            cancelPackagingRequest(order.systemId, packaging.systemId, currentUserSystemId, reason);
         }
     };
 

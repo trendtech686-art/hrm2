@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { ArrowLeft, Check, Pencil, Trash2 } from 'lucide-react';
 import { formatDateCustom } from '../../lib/date-utils.ts';
 import { toast } from 'sonner';
-import { createSystemId, type SystemId } from '../../lib/id-config.ts';
+import { SystemId, BusinessId } from '../../lib/id-types.ts';
 import {
   Table,
   TableBody,
@@ -62,11 +62,16 @@ export function InventoryCheckDetailPage() {
     }
   }, [check]);
 
-  const handleBalance = () => {
+  const handleBalance = async () => {
     if (!check) return;
-    balanceCheck(check.systemId as SystemId);
-    setShowBalanceDialog(false);
-    toast.success('Đã cân bằng phiếu kiểm hàng');
+    try {
+      await balanceCheck(check.systemId as SystemId);
+      toast.success('Đã cân bằng phiếu kiểm hàng');
+    } catch (error) {
+      toast.error('Không thể cân bằng phiếu, vui lòng thử lại');
+    } finally {
+      setShowBalanceDialog(false);
+    }
   };
 
   const handleDelete = () => {

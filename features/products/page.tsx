@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useProductStore } from "./store.ts"
 import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts"
 import { useBranchStore } from "../settings/branches/store.ts"
-import { useEmployeeStore } from "../employees/store.ts"
-import { createSystemId } from '../../lib/id-config'
+import { useAuth } from "../../contexts/auth-context.tsx"
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { getColumns } from "./columns.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx";
@@ -52,13 +52,113 @@ import {
 import { MoreVertical, Package, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate } from '@/lib/date-utils';
+
+const INVENTORY_FIELD_PREFIXES = ['inventory', 'tonkho', 'stock'] as const;
+const FALLBACK_INVENTORY_KEYS = ['inventory', 'tonkho', 'stock', 'qty', 'quantity', 'soluong', 'tongton', 'totalsoluong'] as const;
+
+const normalizeFieldKey = (value?: string | number | null) => {
+  if (value === undefined || value === null) return '';
+  return value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+};
+
+const buildNormalizedRowKeyMap = (row: Record<string, any>) => {
+  return Object.keys(row).reduce<Record<string, string>>((acc, key) => {
+    const normalizedKey = normalizeFieldKey(key);
+    if (normalizedKey && !(normalizedKey in acc)) {
+      acc[normalizedKey] = key;
+    }
+    return acc;
+  }, {});
+};
+
+const parseNumericValue = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const sanitized = value
+      .replace(/\s+/g, '')
+      .replace(/,/g, '')
+      .replace(/[^0-9.-]/g, '');
+    if (!sanitized) return null;
+    const parsed = Number(sanitized);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
+const findMatchingKeyForIdentifier = (normalizedRowKeyMap: Record<string, string>, identifier: string) => {
+  if (!identifier) return null;
+  if (normalizedRowKeyMap[identifier]) {
+    return normalizedRowKeyMap[identifier];
+  }
+
+  for (const prefix of INVENTORY_FIELD_PREFIXES) {
+    const prefixed = normalizedRowKeyMap[`${prefix}${identifier}`];
+    if (prefixed) return prefixed;
+  }
+
+  const fallback = Object.entries(normalizedRowKeyMap).find(([normalizedKey]) => normalizedKey.endsWith(identifier));
+  return fallback?.[1] ?? null;
+};
+
+const getBranchInventoryValue = (
+  row: Record<string, any>,
+  normalizedRowKeyMap: Record<string, string>,
+  identifiers: Set<string>,
+) => {
+  for (const identifier of identifiers) {
+    const originalKey = findMatchingKeyForIdentifier(normalizedRowKeyMap, identifier);
+    if (originalKey) {
+      const parsed = parseNumericValue(row[originalKey]);
+      if (parsed !== null) {
+        return parsed;
+      }
+    }
+  }
+  return 0;
+};
+
+const getFallbackInventoryValue = (
+  row: Record<string, any>,
+  normalizedRowKeyMap: Record<string, string>,
+) => {
+  for (const key of FALLBACK_INVENTORY_KEYS) {
+    const originalKey = normalizedRowKeyMap[key];
+    if (!originalKey) continue;
+    const parsed = parseNumericValue(row[originalKey]);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+  return null;
+};
 export function ProductsPage() {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const { data: productsRaw, remove, restore, getActive, getDeleted, addMultiple, update } = useProductStore();
   const { data: categories } = useProductCategoryStore();
   const { data: branches } = useBranchStore();
-  const { data: employees } = useEmployeeStore();
+  const { employee: authEmployee } = useAuth();
   const navigate = useNavigate();
+
+  const defaultBranchSystemId = React.useMemo(() => {
+    return branches.find(branch => branch.isDefault)?.systemId ?? branches[0]?.systemId ?? null;
+  }, [branches]);
+
+  const branchInventoryIdentifiers = React.useMemo(() => {
+    return branches.map(branch => ({
+      systemId: branch.systemId,
+      identifiers: new Set(
+        [branch.systemId, branch.id, branch.name]
+          .map(value => normalizeFieldKey(value))
+          .filter(Boolean),
+      ),
+    }));
+  }, [branches]);
   
   // ✅ Memoize products để tránh unstable reference
   const products = React.useMemo(() => productsRaw, [productsRaw]);
@@ -77,19 +177,26 @@ export function ProductsPage() {
       key="trash"
       variant="outline"
       size="sm"
+      className="h-9"
       onClick={() => navigate('/products/trash')}
     >
       <Package className="mr-2 h-4 w-4" />
       Thùng rác ({deletedCount})
     </Button>,
-    <Button key="add" size="sm" onClick={() => navigate('/products/new')}>
+    <Button key="add" size="sm" className="h-9" onClick={() => navigate('/products/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm sản phẩm
     </Button>
   ], [deletedCount, navigate]);
   
   usePageHeader({
-    actions: headerActions
+    title: 'Danh sách sản phẩm',
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Sản phẩm', href: '/products', isCurrent: true },
+    ],
+    actions: headerActions,
+    showBackButton: false,
   });
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
@@ -137,7 +244,7 @@ export function ProductsPage() {
   
   // ✅ Handle restore cho soft delete
   const handleRestore = React.useCallback((systemId: string) => {
-    restore(createSystemId(systemId));
+    restore(asSystemId(systemId));
     toast.success('Đã khôi phục sản phẩm');
   }, [restore]);
 
@@ -170,7 +277,7 @@ export function ProductsPage() {
   
   const confirmDelete = () => {
     if (idToDelete) {
-      remove(createSystemId(idToDelete));
+      remove(asSystemId(idToDelete));
       toast.success('Đã chuyển sản phẩm vào thùng rác');
     }
     setIsAlertOpen(false)
@@ -277,54 +384,71 @@ export function ProductsPage() {
     columns,
   };
 
-  const importConfig = {
+  const importConfig = React.useMemo(() => ({
     importer: (items: any[]) => {
-      const processed = items.map((item: any) => {
-        // Validate required fields
-        if (!item.name) {
-          throw new Error(`Dòng thiếu tên sản phẩm`);
-        }
-        
-        // Map inventory by branch
-        const inventoryByBranch: Record<string, number> = {};
-        branches.forEach(branch => {
-          inventoryByBranch[branch.systemId] = 0;
+      const currentEmployeeSystemId = authEmployee?.systemId || 'SYSTEM';
+      try {
+        const processed = items.map((item: any, index: number) => {
+          if (!item.name) {
+            throw new Error(`Dòng ${index + 1} thiếu tên sản phẩm`);
+          }
+
+          const normalizedRowKeyMap = buildNormalizedRowKeyMap(item);
+          const inventoryByBranch: Record<string, number> = {};
+
+          branchInventoryIdentifiers.forEach(({ systemId, identifiers }) => {
+            inventoryByBranch[systemId] = getBranchInventoryValue(item, normalizedRowKeyMap, identifiers);
+          });
+
+          const totalBranchInventory = Object.values(inventoryByBranch).reduce((sum, qty) => sum + (Number(qty) || 0), 0);
+          const fallbackInventory = getFallbackInventoryValue(item, normalizedRowKeyMap);
+
+          if (fallbackInventory !== null && totalBranchInventory === 0 && defaultBranchSystemId) {
+            inventoryByBranch[defaultBranchSystemId] = fallbackInventory;
+          }
+
+          // Không tạo systemId/id thủ công; store sẽ cấp khi addMultiple chạy ID_CONFIG
+          return {
+            id: item.id || item.sku || '',
+            name: item.name,
+            sku: item.sku || '',
+            type: item.type || 'physical',
+            status: item.status || 'active',
+            unit: item.unit || '',
+            defaultPrice: Number(item.defaultPrice) || 0,
+            costPrice: Number(item.costPrice) || 0,
+            inventory: Number(item.inventory) || 0,
+            inventoryByBranch,
+            committedByBranch: {},
+            inTransitByBranch: {},
+            inventoryWarning: Number(item.inventoryWarning) || 0,
+            categorySystemId: item.categorySystemId || '',
+            description: item.description || '',
+            prices: {},
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+            createdBy: currentEmployeeSystemId,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentEmployeeSystemId,
+          } as Omit<Product, 'systemId'>;
         });
-        
-        // Không generate manual systemId và id, để store tự động tạo theo format chuẩn
-        // Store sẽ tạo systemId: PRODUCT000XXX và id: SP000XXX
-        return {
-          id: item.id || item.sku || '', // Nếu có SKU thì dùng, không thì để trống cho store auto-generate
-          name: item.name,
-          sku: item.sku || '',
-          type: item.type || 'physical',
-          status: item.status || 'active',
-          unit: item.unit || '',
-          defaultPrice: Number(item.defaultPrice) || 0,
-          costPrice: Number(item.costPrice) || 0,
-          inventory: Number(item.inventory) || 0,
-          inventoryByBranch,
-          committedByBranch: {},
-          inTransitByBranch: {},
-          inventoryWarning: Number(item.inventoryWarning) || 0,
-          categorySystemId: item.categorySystemId || '',
-          description: item.description || '',
-          prices: {}, // Empty prices object
-          isDeleted: false,
-          createdAt: new Date().toISOString(),
-          createdBy: employees[0]?.systemId || '',
-          updatedAt: new Date().toISOString(),
-          updatedBy: employees[0]?.systemId || '',
-        } as Omit<Product, 'systemId'>;
-      });
-      
-      addMultiple(processed);
-      toast.success(`Đã nhập ${processed.length} sản phẩm thành công`);
+
+        addMultiple(processed);
+        toast.success(`Đã nhập ${processed.length} sản phẩm thành công`);
+      } catch (error) {
+        console.error('[Products Importer] Lỗi nhập sản phẩm', error);
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : 'Không thể nhập sản phẩm. Vui lòng kiểm tra file và thử lại.',
+        );
+        throw error;
+      }
     },
     fileName: 'Mau_Nhap_San_pham',
     existingData: products,
-    getUniqueKey: (item: any) => item.id || item.sku
-  };
+    getUniqueKey: (item: any) => item.id || item.sku,
+  }), [addMultiple, authEmployee?.systemId, branchInventoryIdentifiers, defaultBranchSystemId, products]);
 
   const handleRowClick = (row: Product) => {
     navigate(`/products/${row.systemId}`);
@@ -346,7 +470,7 @@ export function ProductsPage() {
       label: "Chuyển vào thùng rác",
       onSelect: (selectedRows: Product[]) => {
         const systemIds = selectedRows.map(p => p.systemId);
-        systemIds.forEach(id => remove(createSystemId(id)));
+        systemIds.forEach(id => remove(asSystemId(id)));
         setRowSelection({});
         toast.success(`Đã chuyển ${selectedRows.length} sản phẩm vào thùng rác`);
       }
@@ -355,7 +479,7 @@ export function ProductsPage() {
       label: "Đang hoạt động",
       onSelect: (selectedRows: Product[]) => {
         selectedRows.forEach(product => {
-          update(createSystemId(product.systemId), { ...product, status: 'active' });
+          update(asSystemId(product.systemId), { ...product, status: 'active' });
         });
         setRowSelection({});
         toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Đang hoạt động"`);
@@ -365,7 +489,7 @@ export function ProductsPage() {
       label: "Ngừng kinh doanh",
       onSelect: (selectedRows: Product[]) => {
         selectedRows.forEach(product => {
-          update(createSystemId(product.systemId), { ...product, status: 'discontinued' });
+          update(asSystemId(product.systemId), { ...product, status: 'discontinued' });
         });
         setRowSelection({});
         toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Ngừng kinh doanh"`);
@@ -432,7 +556,7 @@ export function ProductsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 w-8 p-0"
+                      className="h-9 w-9 p-0"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <MoreVertical className="h-4 w-4" />
@@ -619,8 +743,8 @@ export function ProductsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+            <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmDelete}>Xóa</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -5,16 +5,27 @@
  * Total: 3280 mappings
  */
 
+import { asBusinessId, type BusinessId } from '@/lib/id-types';
+
 export type WardMapping = {
   newWardId: string;      // ID xã mới (2-level) - Luật 2025
   newWardName: string;    // Tên xã mới
-  provinceId: string;     // Mã tỉnh (format 2 chữ số)
+  provinceId: BusinessId; // Mã tỉnh (format 2 chữ số)
   provinceName: string;   // Tên tỉnh
   oldWardIds: string[];   // IDs xã cũ (3-level) - Legacy
   oldWardNames: string[]; // Tên xã cũ
 };
 
-export const WARD_MAPPINGS: WardMapping[] = [
+type WardMappingSeed = {
+  newWardId: string;
+  newWardName: string;
+  provinceId: string;
+  provinceName: string;
+  oldWardIds: string[];
+  oldWardNames: string[];
+};
+
+const rawData = [
   {
     "newWardId": "81315067",
     "newWardName": "An Biên",
@@ -48531,7 +48542,12 @@ export const WARD_MAPPINGS: WardMapping[] = [
       "Xã Vĩnh Kim"
     ]
   }
-];
+] as const satisfies readonly WardMappingSeed[];
+
+export const WARD_MAPPINGS: WardMapping[] = rawData.map((item) => ({
+  ...item,
+  provinceId: asBusinessId(item.provinceId),
+}));
 
 // Helper functions
 export function findOldWardsByNewId(newWardId: string): string[] {

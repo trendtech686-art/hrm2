@@ -1,5 +1,5 @@
 import { createCrudStore } from '../../lib/store-factory';
-import { asSystemId } from '../../lib/id-types';
+import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
 import type { RecurringTask, RecurrencePattern } from './recurring-types';
 import type { Task } from './types';
 import { calculateNextOccurrence, shouldContinueRecurrence } from './recurring-types';
@@ -25,11 +25,11 @@ export const useRecurringTaskStore = () => {
     },
 
     // Toggle pause
-    togglePause: (recurringTaskId: string) => {
-      const task = store.findById(asSystemId(recurringTaskId));
+    togglePause: (recurringTaskId: SystemId) => {
+      const task = store.findById(recurringTaskId);
       if (!task) return;
 
-      store.update(asSystemId(recurringTaskId), {
+      store.update(recurringTaskId, {
         ...task,
         isPaused: !task.isPaused,
         updatedAt: new Date().toISOString(),
@@ -37,11 +37,11 @@ export const useRecurringTaskStore = () => {
     },
 
     // Deactivate recurring task
-    deactivate: (recurringTaskId: string) => {
-      const task = store.findById(asSystemId(recurringTaskId));
+    deactivate: (recurringTaskId: SystemId) => {
+      const task = store.findById(recurringTaskId);
       if (!task) return;
 
-      store.update(asSystemId(recurringTaskId), {
+      store.update(recurringTaskId, {
         ...task,
         isActive: false,
         updatedAt: new Date().toISOString(),
@@ -49,8 +49,8 @@ export const useRecurringTaskStore = () => {
     },
 
     // Update next occurrence date
-    updateNextOccurrence: (recurringTaskId: string) => {
-      const task = store.findById(asSystemId(recurringTaskId));
+    updateNextOccurrence: (recurringTaskId: SystemId) => {
+      const task = store.findById(recurringTaskId);
       if (!task) return;
 
       const nextDate = calculateNextOccurrence(
@@ -66,7 +66,7 @@ export const useRecurringTaskStore = () => {
         nextDate
       );
 
-      store.update(asSystemId(recurringTaskId), {
+      store.update(recurringTaskId, {
         ...task,
         nextOccurrenceDate: nextDate ? nextDate.toISOString().split('T')[0] : undefined,
         isActive: shouldContinue,
@@ -75,14 +75,14 @@ export const useRecurringTaskStore = () => {
     },
 
     // Mark task as created
-    markTaskCreated: (recurringTaskId: string, createdTaskId: string) => {
-      const task = store.findById(asSystemId(recurringTaskId));
+    markTaskCreated: (recurringTaskId: SystemId, createdTaskId: SystemId) => {
+      const task = store.findById(recurringTaskId);
       if (!task) return;
 
       const createdTaskIds = [...task.createdTaskIds, createdTaskId];
       const occurrenceCount = task.occurrenceCount + 1;
 
-      store.update(asSystemId(recurringTaskId), {
+      store.update(recurringTaskId, {
         ...task,
         createdTaskIds,
         occurrenceCount,
@@ -102,7 +102,7 @@ export const useRecurringTaskStore = () => {
         nextDate
       );
 
-      store.update(asSystemId(recurringTaskId), {
+      store.update(recurringTaskId, {
         ...task,
         createdTaskIds,
         occurrenceCount,
@@ -127,13 +127,13 @@ export const useRecurringTaskStore = () => {
       const owner = recurringTask.assignees.find(a => a.role === 'owner') || recurringTask.assignees[0];
 
       const task: Omit<Task, 'systemId'> = {
-        id: '', // Will be auto-generated
+        id: asBusinessId(''), // Will be auto-generated
         title: `${recurringTask.title} (${scheduledDate})`,
         description: recurringTask.description,
         assignees: recurringTask.assignees,
-        assigneeId: owner?.employeeSystemId || '',
+        assigneeId: owner?.employeeSystemId ?? asSystemId('SYSTEM'),
         assigneeName: owner?.employeeName || '',
-        assignerId: recurringTask.assignerId,
+        assignerId: asSystemId(recurringTask.assignerId),
         assignerName: recurringTask.assignerName,
         priority: recurringTask.priority,
         status: 'Chưa bắt đầu',
@@ -148,8 +148,8 @@ export const useRecurringTaskStore = () => {
         activities: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        createdBy: 'SYSTEM',
-        updatedBy: 'SYSTEM',
+        createdBy: asSystemId('SYSTEM'),
+        updatedBy: asSystemId('SYSTEM'),
       };
 
       return task;
@@ -226,13 +226,13 @@ export const useRecurringTaskStore = () => {
           const owner = recurring.assignees.find(a => a.role === 'owner') || recurring.assignees[0];
 
           const newTask: Omit<Task, 'systemId'> = {
-            id: '',
+            id: asBusinessId(''),
             title: `${recurring.title} (${scheduledDate})`,
             description: recurring.description,
             assignees: recurring.assignees,
-            assigneeId: owner?.employeeSystemId || '',
+            assigneeId: owner?.employeeSystemId ?? asSystemId('SYSTEM'),
             assigneeName: owner?.employeeName || '',
-            assignerId: recurring.assignerId,
+            assignerId: asSystemId(recurring.assignerId),
             assignerName: recurring.assignerName,
             priority: recurring.priority,
             status: 'Chưa bắt đầu',
@@ -247,14 +247,14 @@ export const useRecurringTaskStore = () => {
             activities: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            createdBy: 'SYSTEM',
-            updatedBy: 'SYSTEM',
+            createdBy: asSystemId('SYSTEM'),
+            updatedBy: asSystemId('SYSTEM'),
           };
 
           const createdTask = taskStore.add(newTask);
           if (createdTask) {
             // Mark as created
-            const task = store.findById(asSystemId(recurring.systemId));
+            const task = store.findById(recurring.systemId);
             if (!task) return;
 
             const createdTaskIds = [...task.createdTaskIds, createdTask.systemId];
@@ -272,7 +272,7 @@ export const useRecurringTaskStore = () => {
               nextDate
             );
 
-            store.update(asSystemId(recurring.systemId), {
+            store.update(recurring.systemId, {
               ...task,
               createdTaskIds,
               occurrenceCount,

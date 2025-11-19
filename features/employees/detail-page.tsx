@@ -7,7 +7,14 @@ import { useBranchStore } from '../settings/branches/store.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useRouteMeta } from '../../hooks/use-route-meta';
 import { generateDetailBreadcrumb } from '../../lib/breadcrumb-generator'; // ✅ NEW
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { useEmployeeCompStore } from './employee-comp-store.ts';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
+import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service.ts';
+import { useAttendanceStore } from '../attendance/store.ts';
+import { usePayrollBatchStore } from '../payroll/payroll-batch-store.ts';
+import { PayrollStatusBadge } from '../payroll/components/status-badge.tsx';
+import { ROUTES } from '../../lib/router.ts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { 
@@ -47,6 +54,12 @@ import type { LeaveRequest, LeaveStatus } from '../leaves/types.ts';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '-';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+const formatMonthLabel = (monthKey?: string) => {
+    if (!monthKey) return '—';
+    const [year, month] = monthKey.split('-');
+    return `Tháng ${month}/${year}`;
 };
 
 const formatDateDisplay = (dateString?: string) => {
@@ -122,7 +135,13 @@ export function EmployeeDetailPage() {
   const routeMeta = useRouteMeta();
   const { findById } = useEmployeeStore();
   const { data: branches } = useBranchStore();
-  const employee = React.useMemo(() => (systemId ? findById(createSystemId(systemId)) : null), [systemId, findById]);
+    const getPayrollProfile = useEmployeeCompStore((state) => state.getPayrollProfile);
+    const { settings } = useEmployeeSettingsStore();
+    const attendanceState = useAttendanceStore((state) => ({
+        lockedMonths: state.lockedMonths,
+        attendanceData: state.attendanceData,
+    }));
+  const employee = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
 
   // Fetch data for tabs
   const { data: allPenalties } = usePenaltyStore();
@@ -152,6 +171,58 @@ export function EmployeeDetailPage() {
     if (!employee?.branchSystemId) return 'Chưa phân công';
     return branches.find(b => b.systemId === employee.branchSystemId)?.name || 'Không tìm thấy';
   }, [employee, branches]);
+
+    const payrollProfile = React.useMemo(() => (employee ? getPayrollProfile(employee.systemId) : null), [employee, getPayrollProfile]);
+
+    const payrollShift = React.useMemo(() => {
+        if (!payrollProfile?.workShiftSystemId) {
+            return null;
+        }
+        return settings.workShifts.find((shift) => shift.systemId === payrollProfile.workShiftSystemId) ?? null;
+    }, [payrollProfile?.workShiftSystemId, settings.workShifts]);
+
+    const payrollComponents = React.useMemo(() => {
+        if (!payrollProfile) {
+            return [];
+        }
+        return settings.salaryComponents.filter((component) =>
+            payrollProfile.salaryComponentSystemIds.includes(component.systemId)
+        );
+    }, [payrollProfile, settings.salaryComponents]);
+
+    const attendanceSnapshot = React.useMemo(() => {
+        if (!employee) {
+            return null;
+        }
+        return attendanceSnapshotService.getLatestLockedSnapshot(employee.systemId);
+    }, [employee?.systemId, attendanceState.lockedMonths, attendanceState.attendanceData]);
+
+    const { batches: payrollBatches, payslips: payrollPayslips } = usePayrollBatchStore();
+    const payrollHistory = React.useMemo(() => {
+        if (!employee) return [] as Array<{ slip: typeof payrollPayslips[number]; batch?: typeof payrollBatches[number] }>;
+        return payrollPayslips
+            .filter((slip) => slip.employeeSystemId === employee.systemId)
+            .map((slip) => ({
+                slip,
+                batch: payrollBatches.find((batch) => batch.systemId === slip.batchSystemId),
+            }))
+            .sort((a, b) => {
+                const dateA = new Date(a.batch?.payrollDate ?? a.slip.createdAt).getTime();
+                const dateB = new Date(b.batch?.payrollDate ?? b.slip.createdAt).getTime();
+                return dateB - dateA;
+            });
+    }, [employee, payrollPayslips, payrollBatches]);
+
+    const latestPayslip = payrollHistory[0];
+    const displayedPayrollHistory = payrollHistory.slice(0, 5);
+
+    const handleViewPayroll = React.useCallback(
+        (batchSystemId?: string) => {
+            if (!batchSystemId) return;
+            navigate(ROUTES.PAYROLL.DETAIL.replace(':systemId', batchSystemId));
+        },
+        [navigate]
+    );
 
   // Actions for detail page
   const headerActions = React.useMemo(() => [
@@ -301,7 +372,7 @@ export function EmployeeDetailPage() {
                     <TabsTrigger value="leaves">Lịch sử nghỉ phép</TabsTrigger>
                     <TabsTrigger value="kpi">KPI</TabsTrigger>
                     <TabsTrigger value="tasks">Công việc</TabsTrigger>
-                    <TabsTrigger value="attendance">Chấm công</TabsTrigger>
+                    <TabsTrigger value="payroll">Lương & chấm công</TabsTrigger>
                 </TabsList>
             </div>
 
@@ -456,26 +527,183 @@ export function EmployeeDetailPage() {
                 <PlaceholderTabContent title="Đánh giá KPI" />
             </TabsContent>
 
-            <TabsContent value="tasks" className="space-y-4">
-                <Card>
-                    <CardContent className="p-4">
-                        <RelatedDataTable 
-                            data={employeeTasks} 
-                            columns={taskColumns} 
-                            searchKeys={['title', 'type']} 
-                            searchPlaceholder="Tìm công việc..." 
-                            dateFilterColumn="dueDate" 
-                            dateFilterTitle="Hạn chót" 
-                            exportFileName={`Cong_viec_${employee.id}`} 
-                            onRowClick={(row) => navigate(row.link)} 
-                        />
-                    </CardContent>
-                </Card>
-            </TabsContent>
+                        <TabsContent value="tasks" className="space-y-4">
+                                <Card>
+                                        <CardContent className="p-4">
+                                                <RelatedDataTable 
+                                                        data={employeeTasks} 
+                                                        columns={taskColumns} 
+                                                        searchKeys={['title', 'type']} 
+                                                        searchPlaceholder="Tìm công việc..." 
+                                                        dateFilterColumn="dueDate" 
+                                                        dateFilterTitle="Hạn chót" 
+                                                        exportFileName={`Cong_viec_${employee.id}`} 
+                                                        onRowClick={(row) => navigate(row.link)} 
+                                                />
+                                        </CardContent>
+                                </Card>
+                        </TabsContent>
 
-            <TabsContent value="attendance" className="space-y-4">
-                <PlaceholderTabContent title="Lịch sử Chấm công" />
-            </TabsContent>
+                        <TabsContent value="payroll" className="space-y-4">
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="text-base">Thành phần lương đang áp dụng</CardTitle>
+                                            <CardDescription>
+                                                {payrollProfile?.usesDefaultComponents
+                                                    ? 'Đang dùng cấu hình mặc định từ Cài đặt > Nhân viên'
+                                                    : 'Được cấu hình riêng cho nhân viên này'}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            {payrollComponents.length === 0 && (
+                                                <p className="text-sm text-muted-foreground">Chưa thiết lập thành phần lương.</p>
+                                            )}
+                                            {payrollComponents.map((component) => (
+                                                <div
+                                                    key={component.systemId}
+                                                    className="flex items-center justify-between rounded-lg border p-3"
+                                                >
+                                                    <div>
+                                                        <p className="font-medium">{component.name}</p>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            {component.type === 'fixed'
+                                                                ? formatCurrency(component.amount)
+                                                                : component.formula || 'Theo dữ liệu thực tế'}
+                                                        </p>
+                                                    </div>
+                                                    <Badge variant={component.taxable ? 'default' : 'secondary'}>
+                                                        {component.taxable ? 'Tính thuế' : 'Không thuế'}
+                                                    </Badge>
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader className="space-y-1">
+                                            <CardTitle className="text-base">Thông tin trả lương</CardTitle>
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <Lock className="h-4 w-4" />
+                                                <span>Hình thức: {payrollProfile?.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}</span>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2 text-sm">
+                                            {payrollProfile?.paymentMethod === 'cash' ? (
+                                                <p className="text-muted-foreground">Trả lương trực tiếp, không cần tài khoản ngân hàng.</p>
+                                            ) : (
+                                                <>
+                                                    <InfoItem label="Số tài khoản" value={payrollProfile?.payrollBankAccount?.accountNumber || employee.bankAccountNumber || '—'} />
+                                                    <InfoItem label="Ngân hàng" value={payrollProfile?.payrollBankAccount?.bankName || employee.bankName || '—'} />
+                                                    <InfoItem label="Chi nhánh" value={payrollProfile?.payrollBankAccount?.bankBranch || employee.bankBranch || '—'} />
+                                                </>
+                                            )}
+                                            {payrollShift ? (
+                                                <InfoItem
+                                                    label="Ca mặc định"
+                                                    value={`${payrollShift.name} (${payrollShift.startTime} - ${payrollShift.endTime})`}
+                                                />
+                                            ) : (
+                                                <InfoItem label="Ca mặc định" value="Theo cài đặt chung" />
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base">Snapshot chấm công mới nhất</CardTitle>
+                                        <CardDescription>
+                                            {attendanceSnapshot
+                                                ? `Tháng ${attendanceSnapshot.monthKey} · ${attendanceSnapshot.locked ? 'Đã khóa' : 'Chưa khóa'}`
+                                                : 'Chưa có kỳ chấm công nào được khóa'}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {attendanceSnapshot ? (
+                                            <div className="grid gap-4 md:grid-cols-3">
+                                                <InfoItem label="Ngày công" value={attendanceSnapshot.totals.workDays} />
+                                                <InfoItem label="Ngày nghỉ phép" value={attendanceSnapshot.totals.leaveDays} />
+                                                <InfoItem label="Vắng" value={attendanceSnapshot.totals.absentDays} />
+                                                <InfoItem label="Đi trễ" value={attendanceSnapshot.totals.lateArrivals} />
+                                                <InfoItem label="Về sớm" value={attendanceSnapshot.totals.earlyDepartures} />
+                                                <InfoItem label="Giờ OT" value={attendanceSnapshot.totals.otHours} />
+                                            </div>
+                                        ) : (
+                                            <div className="flex h-32 items-center justify-center rounded-lg border border-dashed">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Chưa tìm thấy dữ liệu chấm công đã khóa cho nhân viên này.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                        <Card>
+                                            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                                <div>
+                                                    <CardTitle className="text-base">Bảng lương gần đây</CardTitle>
+                                                    <CardDescription>
+                                                        Hiển thị tối đa 5 kỳ gần nhất mà nhân viên tham gia.
+                                                    </CardDescription>
+                                                </div>
+                                                <Button
+                                                    className="h-9"
+                                                    variant="secondary"
+                                                    disabled={!latestPayslip?.batch?.systemId}
+                                                    onClick={() => handleViewPayroll(latestPayslip?.batch?.systemId)}
+                                                >
+                                                    Xem bảng lương
+                                                </Button>
+                                            </CardHeader>
+                                            <CardContent>
+                                                {displayedPayrollHistory.length === 0 ? (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Nhân viên chưa có phiếu lương nào được tạo.
+                                                    </p>
+                                                ) : (
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-sm">
+                                                            <thead>
+                                                                <tr className="text-left text-xs text-muted-foreground">
+                                                                    <th className="p-3">Bảng lương</th>
+                                                                    <th className="p-3">Tháng</th>
+                                                                    <th className="p-3">Ngày trả</th>
+                                                                    <th className="p-3">Trạng thái</th>
+                                                                    <th className="p-3 text-right">Thực lĩnh</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {displayedPayrollHistory.map(({ slip, batch }) => (
+                                                                    <tr
+                                                                        key={slip.systemId}
+                                                                        className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
+                                                                        onClick={() => handleViewPayroll(batch?.systemId)}
+                                                                    >
+                                                                        <td className="p-3 font-mono text-xs text-muted-foreground">
+                                                                            {batch?.id ?? '—'}
+                                                                        </td>
+                                                                        <td className="p-3">{formatMonthLabel(batch?.payPeriod.monthKey ?? slip.periodMonthKey)}</td>
+                                                                        <td className="p-3">{formatDate(batch?.payrollDate || slip.createdAt)}</td>
+                                                                        <td className="p-3">
+                                                                            {batch ? (
+                                                                                <PayrollStatusBadge status={batch.status} />
+                                                                            ) : (
+                                                                                <Badge variant="outline">Chưa xác định</Badge>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="p-3 text-right font-semibold">
+                                                                            {formatCurrency(slip.totals.netPay)}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                        </TabsContent>
         </Tabs>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
 import type { ProductType } from './types';
 
 const generateId = () => crypto.randomUUID();
@@ -7,13 +8,13 @@ const generateId = () => crypto.randomUUID();
 interface ProductTypeState {
   data: ProductType[];
   add: (productType: Omit<ProductType, 'systemId'>) => ProductType;
-  update: (systemId: string, updates: Partial<ProductType>) => void;
-  remove: (systemId: string) => void;
-  findById: (systemId: string) => ProductType | undefined;
+  update: (systemId: SystemId, updates: Partial<ProductType>) => void;
+  remove: (systemId: SystemId) => void;
+  findById: (systemId: SystemId) => ProductType | undefined;
   getActive: () => ProductType[];
 }
 
-const initialData: ProductType[] = [
+const rawData = [
   {
     systemId: generateId(),
     id: 'PT001',
@@ -36,7 +37,13 @@ const initialData: ProductType[] = [
     description: 'Sản phẩm số (ebook, khóa học online...)',
     createdAt: new Date().toISOString(),
   },
-];
+] as const;
+
+const initialData: ProductType[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  id: asBusinessId(item.id),
+}));
 
 export const useProductTypeStore = create<ProductTypeState>()(
   persist(
@@ -46,7 +53,7 @@ export const useProductTypeStore = create<ProductTypeState>()(
       add: (productType) => {
         const newProductType: ProductType = {
           ...productType,
-          systemId: generateId(),
+          systemId: asSystemId(generateId()),
           createdAt: new Date().toISOString(),
           isDeleted: false,
         };

@@ -26,6 +26,10 @@ import { AttendancePage } from '../features/attendance/page';
 import { LeavesPage } from '../features/leaves/page';
 import { LeaveDetailPage } from '../features/leaves/detail-page';
 import { OrganizationChartPage } from '../features/settings/departments/organization-chart/page';
+import { PayrollListPage } from '../features/payroll/list-page.tsx';
+import { PayrollRunPage } from '../features/payroll/run-page.tsx';
+import { PayrollDetailPage } from '../features/payroll/detail-page.tsx';
+import { PayrollTemplatePage } from '../features/payroll/template-page.tsx';
 
 // Sales Core - ALL direct imports
 import { CustomersPage } from '../features/customers/page';
@@ -313,6 +317,51 @@ export const routeDefinitions: AppRoute[] = [
     element: LeaveDetailPage,
     meta: {
       breadcrumb: ['Nghỉ Phép', 'Chi tiết']
+    }
+  },
+
+  // Payroll Routes
+  {
+    path: ROUTES.PAYROLL.LIST,
+    element: PayrollListPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: ROUTES.DASHBOARD },
+        'Bảng lương'
+      ]
+    }
+  },
+  {
+    path: ROUTES.PAYROLL.RUN,
+    element: PayrollRunPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: ROUTES.DASHBOARD },
+        { label: 'Bảng lương', href: ROUTES.PAYROLL.LIST },
+        'Chạy mới'
+      ]
+    }
+  },
+  {
+    path: ROUTES.PAYROLL.DETAIL,
+    element: PayrollDetailPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: ROUTES.DASHBOARD },
+        { label: 'Bảng lương', href: ROUTES.PAYROLL.LIST },
+        'Chi tiết'
+      ]
+    }
+  },
+  {
+    path: ROUTES.PAYROLL.TEMPLATES,
+    element: PayrollTemplatePage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: ROUTES.DASHBOARD },
+        { label: 'Bảng lương', href: ROUTES.PAYROLL.LIST },
+        'Mẫu bảng lương'
+      ]
     }
   },
   

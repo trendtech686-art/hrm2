@@ -1,4 +1,5 @@
 import * as React from "react";
+import { asBusinessId } from "@/lib/id-types";
 import { useProductStore } from "../store.ts";
 import { useToast } from "../../../hooks/use-toast.ts";
 import {
@@ -115,8 +116,9 @@ export function QuickAddProductDialog({
     setIsSubmitting(true);
 
     try {
+      const rawId = formData.sku.trim().toUpperCase();
       const newProduct = {
-        id: formData.sku.trim() || "", // Will be auto-generated if empty
+        id: asBusinessId(rawId),
         name: formData.name.trim(),
         unit: formData.unit,
         costPrice: formData.costPrice ? Number(formData.costPrice) : 0,

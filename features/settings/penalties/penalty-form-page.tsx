@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button.tsx';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { asSystemId } from '@/lib/id-types';
 
 export function PenaltyFormPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
@@ -15,7 +16,7 @@ export function PenaltyFormPage() {
   const routeMeta = useRouteMeta();
   const { findById, add, update, remove } = usePenaltyStore();
 
-  const penalty = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const penalty = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const isEdit = !!systemId;
 
   const handleCancel = React.useCallback(() => {
@@ -69,8 +70,8 @@ export function PenaltyFormPage() {
     navigate('/penalties');
   };
 
-  const handleDelete = (systemId: string) => {
-    remove(systemId);
+  const handleDelete = (systemIdToRemove: string) => {
+    remove(asSystemId(systemIdToRemove));
     toast.success('Đã xóa phiếu phạt');
     navigate('/penalties');
   };

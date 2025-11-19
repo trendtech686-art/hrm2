@@ -5,7 +5,8 @@ import { getApiUrl } from '../../lib/api-config.ts';
 import { createCrudStore } from '../../lib/store-factory.ts';
 import { data as initialDataOmit } from './data.ts';
 import type { Order, OrderPayment, Packaging, OrderMainStatus, OrderDeliveryStatus, PackagingStatus, OrderPaymentStatus, OrderDeliveryMethod } from './types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
+import type { SystemId, BusinessId } from '../../lib/id-types.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
 import { useEmployeeStore } from '../employees/store.ts';
 // REMOVED: Voucher store no longer exists - using Payment/Receipt stores instead
@@ -29,8 +30,8 @@ const initialData: Order[] = initialDataOmit.map((o: any, index: number) => {
         const packagingId = `FUN${o.id.substring(2)}`;
         
         const newPkg: Packaging = {
-            systemId: `PKG_${o.id}_1`,
-            id: packagingId,
+            systemId: asSystemId(`PKG_${o.id}_1`),
+            id: asBusinessId(packagingId),
             requestDate: o.orderDate,
             confirmDate: o.packagingStatus === 'Đóng gói toàn bộ' ? o.orderDate : undefined,
             requestingEmployeeId: o.salespersonSystemId,
@@ -64,7 +65,7 @@ const initialData: Order[] = initialDataOmit.map((o: any, index: number) => {
     // Transform products array to lineItems
     const lineItems = (products || []).map((p: any, idx: number) => ({
         systemId: `LINE_${o.id}_${idx + 1}`,
-        productSystemId: p.productId || `PROD_${idx}`,
+        productSystemId: p.productSystemId || `PROD_${idx}`,
         productId: p.productId || `PROD_${idx}`,
         productName: p.productName || '',
         quantity: p.quantity || 0,
@@ -109,7 +110,7 @@ baseStore.setState({
         const newItem = originalAdd(item);
         if (newItem) {
             newItem.lineItems.forEach(li => {
-                commitStock(li.productSystemId, newItem.branchSystemId, li.quantity);
+                commitStock(asSystemId(li.productSystemId), asSystemId(newItem.branchSystemId), li.quantity);
             });
         }
         return newItem;
@@ -117,7 +118,7 @@ baseStore.setState({
 });
 
 const augmentedMethods = {
-    cancelOrder: (systemId: string, employeeId: string) => {
+    cancelOrder: (systemId: SystemId, employeeId: SystemId) => {
         baseStore.setState(state => {
             const orderToCancel = state.data.find(o => o.systemId === systemId);
             if (!orderToCancel || orderToCancel.status === 'Đã hủy' || orderToCancel.status === 'Hoàn thành') {
@@ -126,7 +127,7 @@ const augmentedMethods = {
 
             const { uncommitStock } = useProductStore.getState();
             orderToCancel.lineItems.forEach(item => {
-                uncommitStock(item.productSystemId, orderToCancel.branchSystemId, item.quantity);
+                uncommitStock(asSystemId(item.productSystemId), asSystemId(orderToCancel.branchSystemId), item.quantity);
             });
 
             const updatedOrder = {
@@ -139,7 +140,7 @@ const augmentedMethods = {
         });
     },
 
-    addPayment: (orderSystemId: string, paymentData: { amount: number; method: string }, employeeId: string) => {
+    addPayment: (orderSystemId: SystemId, paymentData: { amount: number; method: string }, employeeId: SystemId) => {
         // --- Side effects must happen outside setState ---
         const order = baseStore.getState().findById(orderSystemId as SystemId);
         const employee = useEmployeeStore.getState().findById(employeeId as SystemId);
@@ -207,8 +208,8 @@ const augmentedMethods = {
                 id: createdReceipt.id,
                 date: createdReceipt.date,
                 amount: createdReceipt.amount,
-                method: createdReceipt.paymentMethod,
-                createdBy: createdReceipt.createdBy,
+                method: createdReceipt.paymentMethodName,
+                createdBy: asSystemId(createdReceipt.createdBy),
                 description: createdReceipt.description,
             };
 
@@ -256,7 +257,7 @@ const augmentedMethods = {
         });
     },
 
-    requestPackaging: (orderSystemId: string, employeeId: string, assignedEmployeeId?: string) => {
+    requestPackaging: (orderSystemId: SystemId, employeeId: SystemId, assignedEmployeeId?: SystemId) => {
         baseStore.setState(state => {
             const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
@@ -264,8 +265,8 @@ const augmentedMethods = {
             const assignedEmployee = assignedEmployeeId ? useEmployeeStore.getState().findById(assignedEmployeeId as SystemId) : null;
             
             const newPackaging: Packaging = {
-                systemId: `PKG_${order.id}_${order.packagings.length + 1}`,
-                id: `FUN${order.id.substring(2)}`,
+                systemId: asSystemId(`PKG_${order.id}_${order.packagings.length + 1}`),
+                id: asBusinessId(`FUN${order.id.substring(2)}`),
                 requestDate: toISODateTime(new Date()),
                 requestingEmployeeId: employeeId,
                 requestingEmployeeName: employee?.fullName || 'N/A',
@@ -280,7 +281,7 @@ const augmentedMethods = {
         });
     },
 
-    confirmPackaging: (orderSystemId: string, packagingSystemId: string, employeeId: string) => {
+    confirmPackaging: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId) => {
         baseStore.setState(state => {
             const dataCopy = [...state.data];
             const orderIndex = dataCopy.findIndex(o => o.systemId === orderSystemId);
@@ -310,7 +311,7 @@ const augmentedMethods = {
         });
     },
 
-    cancelPackagingRequest: (orderSystemId: string, packagingSystemId: string, employeeId: string, reason: string) => {
+    cancelPackagingRequest: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId, reason: string) => {
         baseStore.setState(state => {
              const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
@@ -335,7 +336,7 @@ const augmentedMethods = {
         });
     },
     
-    processInStorePickup: (orderSystemId: string, packagingSystemId: string) => {
+    processInStorePickup: (orderSystemId: SystemId, packagingSystemId: SystemId) => {
         baseStore.setState(state => {
             const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
@@ -362,7 +363,7 @@ const augmentedMethods = {
         });
     },
     
-    confirmInStorePickup: (orderSystemId: string, packagingSystemId: string, employeeId: string) => {
+    confirmInStorePickup: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId) => {
         console.log('🟢 [confirmInStorePickup] Called with:', { orderSystemId, packagingSystemId, employeeId });
         
         baseStore.setState(state => {
@@ -394,7 +395,7 @@ const augmentedMethods = {
                 const currentStock = product?.inventoryByBranch?.[getBranchId(order)] || 0;
                 const newStockLevel = currentStock - item.quantity;
                 
-                dispatchStock(item.productSystemId, getBranchId(order), item.quantity);
+                dispatchStock(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
                 
                 // ✅ Add stock history entry for each item with actual stock level
                 addStockHistory({
@@ -449,7 +450,7 @@ const augmentedMethods = {
             return { data: state.data.map(o => o.systemId === orderSystemId ? updatedOrder : o) };
         });
     },    
-    confirmPartnerShipment: async (orderSystemId: string, packagingSystemId: string, shipmentData: any): Promise<{ success: boolean; message: string }> => {
+    confirmPartnerShipment: async (orderSystemId: SystemId, packagingSystemId: SystemId, shipmentData: any): Promise<{ success: boolean; message: string }> => {
         try {
             const order = baseStore.getState().data.find(o => o.systemId === orderSystemId);
             if (!order) {
@@ -547,7 +548,7 @@ const augmentedMethods = {
         }
     },
 
-    dispatchFromWarehouse: (orderSystemId: string, packagingSystemId: string, employeeId: string) => {
+    dispatchFromWarehouse: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId) => {
         baseStore.setState(state => {
             const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
@@ -563,7 +564,7 @@ const augmentedMethods = {
                 const currentStock = product?.inventoryByBranch?.[getBranchId(order)] || 0;
                 const newStockLevel = currentStock - item.quantity;
                 
-                dispatchStock(item.productSystemId, getBranchId(order), item.quantity);
+                dispatchStock(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
                 
                 // ✅ Add stock history entry for each item with actual stock level
                 addStockHistory({
@@ -598,13 +599,13 @@ const augmentedMethods = {
         });
     },
 
-    completeDelivery: (orderSystemId: string, packagingSystemId: string, employeeId: string) => {
+    completeDelivery: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId) => {
         baseStore.setState(state => {
             const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
             const { completeDelivery: completeProductDelivery } = useProductStore.getState();
              order.lineItems.forEach(item => {
-                completeProductDelivery(item.productSystemId, getBranchId(order), item.quantity);
+                completeProductDelivery(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
             });
 
             const updatedPackagings = order.packagings.map(p => 
@@ -630,13 +631,13 @@ const augmentedMethods = {
         });
     },
 
-    failDelivery: (orderSystemId: string, packagingSystemId: string, employeeId: string, reason: string) => {
+    failDelivery: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId, reason: string) => {
          baseStore.setState(state => {
             const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
             const { returnStockFromTransit } = useProductStore.getState();
             order.lineItems.forEach(item => {
-                returnStockFromTransit(item.productSystemId, getBranchId(order), item.quantity);
+                returnStockFromTransit(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
             });
 
             const updatedPackagings = order.packagings.map(p => 
@@ -649,7 +650,7 @@ const augmentedMethods = {
     },
 
     // ✅ Hủy giao hàng - KHÔNG trả hàng về kho (hàng bị thất tung/shipper giữ)
-    cancelDeliveryOnly: (orderSystemId: string, packagingSystemId: string, employeeId: string, reason: string) => {
+    cancelDeliveryOnly: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId, reason: string) => {
          baseStore.setState(state => {
             const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
@@ -699,7 +700,7 @@ const augmentedMethods = {
     },
 
     // ✅ Hủy giao và nhận lại hàng - TRẢ hàng về kho (đã nhận lại từ shipper)
-    cancelDelivery: (orderSystemId: string, packagingSystemId: string, employeeId: string, reason: string) => {
+    cancelDelivery: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId, reason: string) => {
          baseStore.setState(state => {
             const order = state.data.find(o => o.systemId === orderSystemId);
             if (!order) return state;
@@ -707,7 +708,7 @@ const augmentedMethods = {
             // ✅ TRẢ hàng từ "đang giao" về "tồn kho"
             const { returnStockFromTransit } = useProductStore.getState();
             order.lineItems.forEach(item => {
-                returnStockFromTransit(item.productSystemId, getBranchId(order), item.quantity);
+                returnStockFromTransit(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
             });
 
             // ✅ Get employee info for canceller
@@ -754,7 +755,7 @@ const augmentedMethods = {
          });
     },
 
-    confirmCodReconciliation: (shipments: (Packaging & { orderSystemId: string })[], employeeId: string) => {
+    confirmCodReconciliation: (shipments: (Packaging & { orderSystemId: SystemId })[], employeeId: SystemId) => {
         const { add: addReceipt } = useReceiptStore.getState();
         const { accounts } = useCashbookStore.getState();
         const { data: receiptTypes } = useReceiptTypeStore.getState();
@@ -825,7 +826,7 @@ const augmentedMethods = {
                     date: receiptForShipment.date,
                     method: 'Đối soát COD',
                     amount: shipment.codAmount || 0,
-                    createdBy: 'Hệ thống',
+                    createdBy: asSystemId('SYSTEM'),
                     description: `Thanh toán COD cho vận đơn ${shipment.trackingCode || shipment.id}`,
                 };
                 orderUpdates.newPayments.push(newPayment);
@@ -960,15 +961,15 @@ const augmentedMethods = {
                     switch (statusMapping.stockAction) {
                         case 'dispatch':
                             // Status 3: Đã lấy hàng -> Move to transit
-                            dispatchStock(item.productSystemId, getBranchId(order), item.quantity);
+                            dispatchStock(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
                             break;
                         case 'complete':
                             // Status 5: Đã giao hàng -> Complete delivery
-                            completeDelivery(item.productSystemId, getBranchId(order), item.quantity);
+                            completeDelivery(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
                             break;
                         case 'return':
                             // Status -1, 7, 9, 13, 20: Failed/Returned -> Return stock
-                            returnStockFromTransit(item.productSystemId, getBranchId(order), item.quantity);
+                            returnStockFromTransit(asSystemId(item.productSystemId), asSystemId(getBranchId(order)), item.quantity);
                             break;
                     }
                 });
@@ -1033,7 +1034,7 @@ const augmentedMethods = {
      * Cancel GHTK shipment
      * ⚠️ Chỉ hủy được khi đơn ở trạng thái: 1, 2, 12 (Chưa tiếp nhận, Đã tiếp nhận, Đang lấy hàng)
      */
-    cancelGHTKShipment: async (orderSystemId: string, packagingSystemId: string, trackingCode: string) => {
+    cancelGHTKShipment: async (orderSystemId: SystemId, packagingSystemId: SystemId, trackingCode: string) => {
         try {
             console.log('[GHTK] Cancelling shipment:', trackingCode);
             

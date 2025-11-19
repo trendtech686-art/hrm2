@@ -1,28 +1,27 @@
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useReceiptStore } from './store.ts';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+import { useReceiptStore } from './store';
+import { ROUTES, generatePath } from '@/lib/router';
+import { usePageHeader } from '@/contexts/page-header-context';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Edit, FileText, User, Calendar, DollarSign, Building2, CreditCard } from 'lucide-react';
-import { formatDateCustom } from '../../lib/date-utils.ts';
+import { formatDateCustom } from '@/lib/date-utils';
+import { asSystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-const getStatusBadge = (status: string) => {
-  const variants: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-    pending: { label: 'Chờ xử lý', variant: 'secondary' },
-    pending_approval: { label: 'Chờ duyệt', variant: 'outline' },
-    approved: { label: 'Đã duyệt', variant: 'default' },
+const getStatusBadge = (status?: string) => {
+  const normalized = status === 'cancelled' ? 'cancelled' : 'completed';
+  const variants: Record<'completed' | 'cancelled', { label: string; variant: 'default' | 'destructive' }> = {
     completed: { label: 'Hoàn thành', variant: 'default' },
     cancelled: { label: 'Đã hủy', variant: 'destructive' },
   };
-  const config = variants[status] || { label: status, variant: 'secondary' };
+  const config = variants[normalized];
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
@@ -31,9 +30,10 @@ export function ReceiptDetailPage() {
   const navigate = useNavigate();
   const { findById } = useReceiptStore();
   
-  const receipt = React.useMemo(() => 
-    systemId ? findById(systemId) : null, 
-    [systemId, findById]
+  const receiptSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
+  const receipt = React.useMemo(
+    () => (receiptSystemId ? findById(receiptSystemId) : null),
+    [receiptSystemId, findById]
   );
   
   const headerActions = React.useMemo(() => [
@@ -171,9 +171,6 @@ export function ReceiptDetailPage() {
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           <p>Người tạo: {receipt.createdBy}</p>
           <p>Ngày tạo: {formatDateCustom(new Date(receipt.createdAt), 'dd/MM/yyyy HH:mm')}</p>
-          {receipt.approvedByName && (
-            <p>Người duyệt: {receipt.approvedByName} - {receipt.approvedAt && formatDateCustom(new Date(receipt.approvedAt), 'dd/MM/yyyy HH:mm')}</p>
-          )}
         </CardContent>
       </Card>
     </div>

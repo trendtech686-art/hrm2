@@ -20,7 +20,6 @@ import { useOrderStore } from '../orders/store.ts';
 import { useCustomerStore } from '../customers/store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { useSalesReturnStore } from './store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
 import { useProductStore } from '../products/store.ts';
 import { useCashbookStore } from '../cashbook/store.ts';
 
@@ -50,6 +49,7 @@ import { usePricingPolicyStore } from '../settings/pricing/store.ts';
 import { Label } from '../../components/ui/label.tsx';
 import { ShippingCard } from '../orders/components/shipping-card.tsx';
 import { ProductTableToolbar } from '../orders/components/product-table-toolbar.tsx';
+import { useAuth } from '../../contexts/auth-context.tsx';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -201,8 +201,10 @@ export function SalesReturnFormPage() {
   const customers = customerData; // For GHTK API
   const customer = order ? findCustomer(order.customerSystemId) : null;
   const { data: branches } = useBranchStore();
-  const { addWithSideEffects: addReturn, data: allSalesReturns } = useSalesReturnStore();
-  const loggedInUser = useEmployeeStore().data[0];
+    const { addWithSideEffects: addReturn, data: allSalesReturns } = useSalesReturnStore();
+    const { employee: authEmployee } = useAuth();
+    const creatorName = authEmployee?.fullName ?? 'Hệ thống';
+    const creatorSystemId = authEmployee?.systemId ?? 'SYSTEM';
   const { add: addProduct, data: allProducts } = useProductStore(); // For GHTK API
   const { accounts } = useCashbookStore();
   const { data: paymentMethodsData } = usePaymentMethodStore();
@@ -550,8 +552,8 @@ export function SalesReturnFormPage() {
         finalAmount,
         payments: finalAmount > 0 ? values.payments : undefined,
         refunds: finalAmount < 0 ? values.refunds : undefined, // ✅ Use new refunds array
-        creatorName: loggedInUser.fullName,
-        creatorId: loggedInUser.systemId,
+        creatorName,
+        creatorId: creatorSystemId,
         // ✅ Pass shipping info for exchange order
         deliveryMethod: values.deliveryMethod,
         shippingPartnerId: values.shippingPartnerId,

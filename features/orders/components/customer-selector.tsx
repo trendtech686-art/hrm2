@@ -9,7 +9,7 @@ import { Button } from '../../../components/ui/button.tsx';
 import { Separator } from '../../../components/ui/separator.tsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox.tsx';
-import { CustomerForm, type CustomerFormValues } from '../../customers/customer-form.tsx';
+import { CustomerForm, type CustomerFormSubmitPayload } from '../../customers/customer-form.tsx';
 import { CustomerAddressSelector } from './customer-address-selector.tsx';
 
 const formatCurrency = (value?: number) => {
@@ -79,8 +79,11 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
             setValue('billingAddress', null);
         }
     };
-    const handleFormSubmit = (values: CustomerFormValues) => { 
-        addCustomer(values as Omit<Customer, 'systemId'>); 
+    const handleFormSubmit = (values: CustomerFormSubmitPayload) => { 
+        addCustomer({
+            ...values,
+            id: values.id,
+        } as Omit<Customer, 'systemId'>); 
         setIsFormOpen(false); 
     };
 

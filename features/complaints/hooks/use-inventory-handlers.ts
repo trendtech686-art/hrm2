@@ -5,14 +5,16 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import type { Complaint, ComplaintAction } from '../types';
+import { useToast } from '@/hooks/use-toast';
+import { Complaint, ComplaintAction } from '../types';
+import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
 import type { Order } from '../../orders/types';
 import type { Employee } from '../../employees/types';
 
 interface UseInventoryHandlersProps {
   complaint: Complaint | null;
-  currentUser: { systemId: string; name: string };
-  updateComplaint: (systemId: string, updates: Partial<Complaint>) => void;
+  currentUser: { systemId: SystemId; name: string };
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
   relatedOrder: Order | null | undefined;
   employee: Employee | null | undefined;
 }
@@ -43,7 +45,7 @@ export function useInventoryHandlers({
   // INVENTORY ADJUSTMENT SUBMISSION
   // ==========================================
   const handleInventoryAdjustment = React.useCallback(async (
-    inventoryAdjustments: Record<string, number>,
+    inventoryAdjustments: Record<SystemId, number>,
     reason: string
   ) => {
     if (!complaint) return;
@@ -54,7 +56,7 @@ export function useInventoryHandlers({
       
       // Fallback to employee's branch or default
       if (!branchSystemId) {
-        branchSystemId = employee?.branchSystemId || 'BRANCH000001';
+        branchSystemId = employee?.branchSystemId || asSystemId('BRANCH000001');
         console.warn('Order không có branch, dùng fallback:', branchSystemId);
       }
 
@@ -67,7 +69,9 @@ export function useInventoryHandlers({
       // Build inventory check items
       const inventoryCheckItems: any[] = [];
       
-      for (const [productSystemId, quantityAdjusted] of Object.entries(inventoryAdjustments)) {
+      const adjustmentEntries = Object.entries(inventoryAdjustments) as Array<[SystemId, number]>;
+
+      for (const [productSystemId, quantityAdjusted] of adjustmentEntries) {
         if (quantityAdjusted === 0) continue;
         
         const affectedProduct = complaint.affectedProducts?.find(p => p.productSystemId === productSystemId);
@@ -94,7 +98,7 @@ export function useInventoryHandlers({
       
       // Create inventory check record (draft status)
       const inventoryCheck = addInventoryCheck({
-        id: '', // Empty = auto-generate PKK business ID
+        id: asBusinessId(''), // Empty = auto-generate PKK business ID
         branchSystemId,
         branchName: relatedOrder?.branchName || 'Chi nhánh',
         status: 'draft',
@@ -127,9 +131,9 @@ export function useInventoryHandlers({
       ).join(', ');
       
       const inventoryAction: ComplaintAction = {
-        id: `action_${Date.now()}`,
+        id: asSystemId(`action_${Date.now()}`),
         actionType: "commented" as const,
-        performedBy: currentUser.name,
+        performedBy: currentUser.systemId,
         performedAt: new Date(),
         note: `Xử lý tồn kho: ${reason}\nPhiếu kiểm kê: ${inventoryCheck.id}\nĐiều chỉnh: ${adjustmentDetails}`,
       };

@@ -9,6 +9,7 @@ import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx
 import { Card, CardContent } from "../../components/ui/card.tsx"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx"
 import type { Customer } from "./types.ts"
+import type { SystemId } from '@/lib/id-types'
 
 export function CustomersTrashPage() {
   const { data, getDeleted, restore, remove } = useCustomerStore();
@@ -20,12 +21,12 @@ export function CustomersTrashPage() {
   const deletedCustomers = React.useMemo(() => getDeleted(), [data]);
 
   // Handlers for column actions (these will be called from column buttons)
-  const handleRestoreFromColumn = React.useCallback((systemId: string) => {
+  const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
     restore(systemId);
     toast.success("Đã khôi phục khách hàng");
   }, [restore]);
 
-  const handleDeleteFromColumn = React.useCallback(async (systemId: string) => {
+  const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     try {
       remove(systemId);
       toast.success("Đã xóa vĩnh viễn khách hàng");
@@ -80,7 +81,7 @@ export function CustomersTrashPage() {
     <GenericTrashPage
       deletedItems={deletedCustomers}
       onRestore={restore}
-      onPermanentDelete={async (systemId: string) => {
+      onPermanentDelete={async (systemId) => {
         remove(systemId);
       }}
       title="Thùng rác khách hàng"

@@ -1,61 +1,61 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import type { SystemId } from '@/lib/id-types';
+import type { UseBoundStore, StoreApi } from 'zustand';
 import { data as initialData } from './data.ts';
 import type { PricingPolicy } from './types.ts';
+import { createCrudStore, type CrudState } from '../../../lib/store-factory.ts';
+import { getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
 
-interface PricingPolicyState {
-  data: PricingPolicy[];
-  add: (item: Omit<PricingPolicy, 'systemId' | 'isDefault'>) => void;
-  update: (systemId: string, updatedPolicy: Partial<Omit<PricingPolicy, 'systemId'>>) => void;
-  remove: (systemId: string) => void;
-  findById: (systemId: string) => PricingPolicy | undefined;
-  setDefault: (systemId: string) => void;
+type PricingPolicyStore = CrudState<PricingPolicy> & {
+  setDefault: (systemId: SystemId) => void;
   getActive: () => PricingPolicy[];
   getInactive: () => PricingPolicy[];
-}
+};
 
-export const usePricingPolicyStore = create<PricingPolicyState>()(
-  persist(
-    (set, get) => ({
-      data: initialData,
-      findById: (systemId) => get().data.find((item) => item.systemId === systemId),
-      getActive: () => get().data.filter((item) => item.isActive),
-      getInactive: () => get().data.filter((item) => !item.isActive),
-      add: (policy) => set((state) => {
-        const newPolicy: PricingPolicy = { 
-            ...policy, 
-            systemId: `PP_${Date.now()}`,
-            isDefault: false,
-            isActive: true, // New policies are active by default
-        };
-        // If this is the very first policy of its type, make it default
-        if (!state.data.some(p => p.type === newPolicy.type)) {
-            newPolicy.isDefault = true;
-        }
-        return { data: [...state.data, newPolicy] };
-      }),
-      update: (systemId, updatedFields) => set((state) => ({
-        data: state.data.map(p => p.systemId === systemId ? { ...p, ...updatedFields } : p),
-      })),
-      remove: (systemId) => set((state) => ({
-        data: state.data.filter((p) => p.systemId !== systemId),
-      })),
-      setDefault: (systemId) => set((state) => {
-        const policyToSet = state.data.find(p => p.systemId === systemId);
-        if (!policyToSet) return state;
+const baseStore = createCrudStore<PricingPolicy>(initialData, 'pricing-settings', {
+  businessIdField: 'id',
+  persistKey: 'hrm-pricing-policy-storage',
+  getCurrentUser: getCurrentUserSystemId,
+}) as UseBoundStore<StoreApi<PricingPolicyStore>>;
 
-        const newData = state.data.map(p => {
-          if (p.type === policyToSet.type) {
-            return { ...p, isDefault: p.systemId === systemId };
-          }
-          return p;
-        });
-        return { data: newData };
-      }),
-    }),
-    {
-      name: 'hrm-pricing-policy-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
-);
+const originalAdd = baseStore.getState().add;
+
+const setDefaultAction = (systemId: SystemId) => {
+  baseStore.setState((current) => {
+    const target = current.data.find((policy) => policy.systemId === systemId);
+    if (!target) return current;
+
+    const updatedData = current.data.map((policy) => (
+      policy.type === target.type
+        ? { ...policy, isDefault: policy.systemId === systemId }
+        : policy
+    ));
+
+    return { ...current, data: updatedData };
+  });
+};
+
+const enhancedAdd: typeof originalAdd = (item) => {
+  const newItem = originalAdd(item);
+  const storeData = baseStore.getState().data;
+  const hasDefaultForType = storeData
+    .filter((policy) => policy.type === newItem.type)
+    .some((policy) => policy.isDefault);
+
+  if (item.isDefault) {
+    setDefaultAction(newItem.systemId);
+  } else if (!hasDefaultForType) {
+    setDefaultAction(newItem.systemId);
+  }
+
+  return newItem;
+};
+
+baseStore.setState((state) => ({
+  ...state,
+  add: enhancedAdd,
+  setDefault: setDefaultAction,
+  getActive: () => baseStore.getState().data.filter((policy) => policy.isActive),
+  getInactive: () => baseStore.getState().data.filter((policy) => !policy.isActive),
+}));
+
+export const usePricingPolicyStore = baseStore;

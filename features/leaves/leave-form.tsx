@@ -2,10 +2,9 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getStartOfDay, addDays, isDateBefore, isDateSame, toISODate } from '../../lib/date-utils.ts';
-import type { LeaveRequest } from "./types.ts";
+import type { LeaveRequest, LeaveTypeName } from "./types.ts";
 import { leaveTypes } from "./data.ts";
 import { useEmployeeStore } from "../employees/store.ts";
-import { useLeaveStore } from "./store.ts";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Button } from "../../components/ui/button.tsx";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form.tsx";
@@ -16,6 +15,7 @@ import { Textarea } from "../../components/ui/textarea.tsx";
 import { leaveFormSchema, type LeaveFormSchemaType } from "./leave-form-schema.ts";
 import { toast } from "sonner";
 import { VirtualizedCombobox, type ComboboxOption } from "../../components/ui/virtualized-combobox.tsx";
+import { ensureBusinessId } from '../../lib/id-types.ts';
 
 type LeaveFormProps = {
   initialData?: LeaveRequest | null;
@@ -42,7 +42,7 @@ const calculateBusinessDays = (start?: Date, end?: Date): number => {
 
 export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
   const { data: employees } = useEmployeeStore();
-  const { data: leaveRequests } = useLeaveStore();
+  const defaultLeaveType: LeaveTypeName = initialData?.leaveTypeName ?? leaveTypes[0] ?? 'Phép năm';
   
   const employeeOptions: ComboboxOption[] = React.useMemo(() => 
     employees.map(e => ({ 
@@ -58,7 +58,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
     defaultValues: {
       id: initialData?.id || "", // ✅ Empty string = auto-generate
       employeeSystemId: initialData?.employeeSystemId || "",
-      leaveTypeName: initialData?.leaveTypeName || '',
+      leaveTypeName: defaultLeaveType,
       startDate: initialData ? parseDate(initialData.startDate) : new Date(),
       endDate: initialData ? parseDate(initialData.endDate) : new Date(),
       reason: initialData?.reason || '',
@@ -78,14 +78,18 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
       return;
     }
 
+    const trimmedId = values.id.trim().toUpperCase();
+
     const finalData: Omit<LeaveRequest, 'systemId'> = {
-        ...values,
-        employeeId: employee.id, // ✅ Display ID
-        employeeName: employee.fullName,
-        startDate: toISODate(values.startDate),
-        endDate: toISODate(values.endDate),
-        numberOfDays,
-        requestDate: toISODate(getCurrentDate()),
+      ...values,
+      id: ensureBusinessId(trimmedId || employee.id, 'LeaveForm'),
+      employeeSystemId: employee.systemId,
+      employeeId: employee.id, // ✅ Display ID
+      employeeName: employee.fullName,
+      startDate: toISODate(values.startDate),
+      endDate: toISODate(values.endDate),
+      numberOfDays,
+      requestDate: toISODate(getCurrentDate()),
     };
     onSubmit(finalData);
   };

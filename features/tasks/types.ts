@@ -1,4 +1,4 @@
-import type { SystemId } from '../../lib/id-config';
+import type { SystemId, BusinessId } from '../../lib/id-types';
 
 // Task priorities
 export const TASK_PRIORITIES = ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp'] as const;
@@ -91,17 +91,17 @@ export interface ApprovalHistory {
 
 // Multiple Assignees Support
 export interface TaskAssignee {
-  systemId: string;
-  employeeSystemId: string;
+  systemId: SystemId;  // Task assignee systemId
+  employeeSystemId: SystemId;  // Employee systemId (branded)
   employeeName: string;
   role: AssigneeRole;
   assignedAt: string;
-  assignedBy: string;
+  assignedBy: SystemId;  // User systemId who assigned (branded)
 }
 
 export interface Task {
-  systemId: SystemId;  // Changed to branded type
-  id: string;
+  systemId: SystemId;  // Task systemId (branded)
+  id: BusinessId;  // Task businessId (branded)
   title: string;
   description: string;
   
@@ -109,9 +109,9 @@ export interface Task {
   assignees: TaskAssignee[];
   
   // Deprecated - kept for backward compatibility, auto-populated from assignees[0]
-  assigneeId: string;
+  assigneeId: SystemId;  // Employee systemId (branded)
   assigneeName: string;
-  assignerId: string;
+  assignerId: SystemId;  // Assigner systemId (branded)
   assignerName: string;
   priority: TaskPriority;
   status: TaskStatus;
@@ -137,6 +137,6 @@ export interface Task {
   rejectionReason?: string;         // Latest rejection reason
   createdAt: string;
   updatedAt: string;
-  createdBy: string;
-  updatedBy: string;
+  createdBy: SystemId;  // Creator systemId (branded)
+  updatedBy: SystemId;  // Last updater systemId (branded)
 }

@@ -13,25 +13,31 @@ import { Button } from '../../components/ui/button.tsx';
 import type { Supplier } from './types.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useToast } from '../../hooks/use-toast.ts';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 export function SupplierFormPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+  const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
   const { findById, add, update } = useSupplierStore();
   const { toast } = useToast();
 
-  const isEditing = !!systemId;
-  const supplier = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const supplierSystemId = React.useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
+  const supplier = React.useMemo(() => (supplierSystemId ? findById(supplierSystemId) : null), [supplierSystemId, findById]);
   
   const handleSubmit = (values: SupplierFormValues) => {
+    const payload = {
+      ...values,
+      id: asBusinessId(values.id),
+    } as SupplierFormValues;
+
     if (supplier) {
-      update(supplier.systemId, { ...supplier, ...values });
+      update(supplier.systemId, { ...supplier, ...payload });
       toast({
         title: 'Thành công',
         description: `Đã cập nhật nhà cung cấp "${values.name}"`,
       });
     } else {
-      add(values);
+      add(payload);
       toast({
         title: 'Thành công',
         description: `Đã thêm nhà cung cấp "${values.name}"`,

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import type { SystemId } from '@/lib/id-types';
 import { MoreHorizontal, Pencil, Trash2, Star } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import {
@@ -23,8 +24,8 @@ import type { PricingPolicy } from './types';
 interface PricingTableProps {
   data: PricingPolicy[];
   onEdit: (policy: PricingPolicy) => void;
-  onDelete: (systemId: string) => void;
-  onSetDefault: (systemId: string) => void;
+  onDelete: (systemId: SystemId) => void;
+  onSetDefault: (systemId: SystemId) => void;
 }
 
 export function PricingTable({
@@ -88,7 +89,7 @@ export function PricingTable({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="h-9 w-9 p-0">
                         <span className="sr-only">Mở menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>

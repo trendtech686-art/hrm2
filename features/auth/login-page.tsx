@@ -8,14 +8,12 @@ import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group.tsx'
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
-import { useCurrentUser } from '../../contexts/user-context.tsx';
 import { useEmployeeStore } from '../employees/store.ts';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const { setCurrentUser } = useCurrentUser();
   const { data: employees, findById } = useEmployeeStore();
   
   // Lấy 2 nhân viên đầu tiên có email và password
@@ -56,9 +54,6 @@ export function LoginPage() {
       if (employee) {
         // Xác định role (có thể dựa vào employee.role hoặc logic khác)
         const role = employee.role === 'Admin' ? 'admin' : 'user';
-        
-        // Set current user in UserContext
-        setCurrentUser(employee.systemId);
         
         // Login with employee data
         login({

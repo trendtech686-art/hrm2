@@ -36,7 +36,7 @@ const formSchema = z.object({
   color: z.string().optional(),
 });
 
-export type ReceiptTypeFormValues = Omit<ReceiptType, 'systemId' | 'createdAt'>;
+export type ReceiptTypeFormValues = z.infer<typeof formSchema>;
 
 type FormProps = {
   initialData?: ReceiptType | null;
@@ -44,37 +44,65 @@ type FormProps = {
 };
 
 export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
+  const defaultValues: ReceiptTypeFormValues = React.useMemo(() => ({
+    id: '',
+    name: "",
+    description: "",
+    isBusinessResult: true,
+    isActive: true,
+    color: '#10b981',
+  }), []);
+
   const form = useForm<ReceiptTypeFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      id: '',
-      name: "",
-      description: "",
-      isBusinessResult: true,
-      isActive: true,
-      color: '#10b981',
-    },
+    defaultValues: initialData ?? defaultValues,
   });
+
+  React.useEffect(() => {
+    form.reset(initialData ?? defaultValues);
+  }, [form, initialData, defaultValues]);
 
   return (
     <Form {...form}>
       <form id="receipt-type-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto px-1">
         <div className="grid grid-cols-2 gap-4">
           <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Tên <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} value={field.value as string} /></FormControl><FormMessage /></FormItem>
+            <FormItem>
+              <FormLabel>Tên <span className="text-destructive">*</span></FormLabel>
+              <FormControl>
+                <Input {...field} className="h-9" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )} />
           <FormField control={form.control} name="id" render={({ field }) => (
-            <FormItem><FormLabel>Mã</FormLabel><FormControl><Input {...field} value={field.value as string} /></FormControl><FormMessage /></FormItem>
+            <FormItem>
+              <FormLabel>Mã</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  className="h-9 uppercase"
+                  onChange={(event) => field.onChange(event.target.value.toUpperCase())}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )} />
         </div>
         <FormField control={form.control} name="description" render={({ field }) => (
-          <FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea {...field} value={field.value as string} /></FormControl><FormMessage /></FormItem>
+          <FormItem>
+            <FormLabel>Mô tả</FormLabel>
+            <FormControl>
+              <Textarea {...field} rows={3} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
         )} />
         
         <FormField control={form.control} name="color" render={({ field }) => (
           <FormItem>
             <FormLabel>Màu sắc</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn màu sắc" />
@@ -97,7 +125,12 @@ export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
         
         <FormField control={form.control} name="isBusinessResult" render={({ field }) => (
           <FormItem className="flex items-center space-x-2">
-            <FormControl><Checkbox checked={field.value as boolean} onCheckedChange={field.onChange} /></FormControl>
+            <FormControl>
+              <Checkbox
+                checked={field.value}
+                onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+              />
+            </FormControl>
             <Label>Hạch toán kết quả kinh doanh</Label>
           </FormItem>
         )} />

@@ -193,7 +193,6 @@ function validateOrderBalance(warrantyTotal: number, orderValue: number): {
 │                                               │
 │  ⚪ Bù trừ đơn + Chi tiền mặt (21.450.000đ)   │
 │     [Hình thức chi] [Tiền mặt ▼]             │
-│     ☐ Cần phê duyệt (> 10.000.000đ)          │
 │                                               │
 │  ⚪ Chỉ chi tiền mặt (22.100.000đ)            │
 │     Không bù trừ đơn hàng                     │
@@ -275,52 +274,10 @@ function validateOrderBalance(warrantyTotal: number, orderValue: number): {
 
 ---
 
-### 3️⃣ **Approval Flow (Phê duyệt cho số tiền lớn)**
+### 3️⃣ **Approval Flow (Tạm thời thủ công)**
 
-#### Quy tắc:
-```typescript
-const APPROVAL_RULES = {
-  warranty_refund: {
-    threshold: 10_000_000,  // > 10M cần duyệt
-    approvers: ['manager', 'accountant'],
-    requireBoth: false  // Chỉ cần 1 trong 2
-  },
-  warranty_refund_urgent: {
-    threshold: 50_000_000,  // > 50M cần 2 người duyệt
-    approvers: ['manager', 'accountant'],
-    requireBoth: true
-  }
-};
-```
-
-#### Flow với approval:
-```
-Tạo phiếu chi (amount > 10M)
-  ↓
-Status: "pending_approval" ⏸️
-  ↓
-Thông báo cho Manager/Kế toán
-  ↓
-─────┬─────────────────┬─────────
-     │                 │
-   Approve          Reject
-     │                 │
-     ↓                 ↓
- "pending"        "cancelled"
-(Chờ xuất)       (Hủy bỏ)
-     ↓
- Kế toán xuất tiền
-     ↓
- "completed" ✅
-```
-
-#### Badge hiển thị:
-```typescript
-- 🟣 "Chờ duyệt" (pending_approval)
-- 🟡 "Đã duyệt - Chờ xuất" (pending)
-- 🟢 "Đã xuất tiền" (completed)
-- 🔴 "Bị từ chối" (rejected)
-```
+- Không tự động áp dụng ngưỡng >10M/>50M nữa; team sẽ duy trì quy trình duyệt thủ công khi cần.
+- Nếu tương lai cần workflow rõ ràng hơn, sẽ bổ sung scope mới để tránh rối code hiện tại.
 
 ---
 
@@ -358,15 +315,13 @@ export async function createWarrantyPaymentVoucher({
   amount,
   paymentMethod,
   customer,
-  notes,
-  requireApproval
+  notes
 }: {
   warrantyId: string;
   amount: number;
   paymentMethod: 'cash' | 'bank_transfer' | 'e_wallet';
   customer: { name: string; phone: string };
   notes?: string;
-  requireApproval: boolean;
 }): Promise<PaymentVoucher> {
   
   const voucher: PaymentVoucher = {
@@ -381,7 +336,7 @@ export async function createWarrantyPaymentVoucher({
     linkedWarrantyId: warrantyId,
     customer,
     
-    status: requireApproval ? 'pending_approval' : 'pending',
+    status: 'pending',
     
     reason: `Hoàn tiền bảo hành ${warrantyId}`,
     notes: notes || `Hoàn tiền cho khách ${customer.name}`,
@@ -392,11 +347,6 @@ export async function createWarrantyPaymentVoucher({
   
   // Save to cashbook store
   await cashbookStore.addPaymentVoucher(voucher);
-  
-  // Send notification if approval required
-  if (requireApproval) {
-    await notificationService.notifyApprovers(voucher);
-  }
   
   return voucher;
 }
@@ -488,9 +438,9 @@ export async function createWarrantyPaymentVoucher({
    - Cho phép chọn đơn bất kỳ mà không cảnh báo
    - Không gợi ý mixed settlement khi cần
 
-3. **Không có approval flow**
-   - Số tiền lớn (>10M) nên cần duyệt
-   - Risk về gian lận
+3. **Approval flow chưa chuẩn hóa**
+  - Hiện duyệt thủ công, chưa có chính sách chung
+  - Risk về gian lận nếu không log rõ ràng
 
 4. **Không link với Cashbook**
    - Không thể xem phiếu chi từ warranty
@@ -560,24 +510,13 @@ export async function createWarrantyPaymentVoucher({
 
 ### Phase 3: NÂNG CAO (Medium Priority) - Tuần 3
 
-**Mục tiêu**: Approval và security
+**Mục tiêu**: Sẽ xác định lại sau khi hoàn thiện Phase 2**
 
-1. ✅ **Approval flow**
-   - Rules: >10M cần 1 duyệt, >50M cần 2 duyệt
-   - Status: pending_approval → approved → completed
-   - Notification cho approvers
+- Approval tự động theo ngưỡng đã hủy bỏ để giữ quy trình đơn giản.
+- Khi có yêu cầu cụ thể (ví dụ cần log chi tiết hơn, cần workflow duyệt chuẩn), sẽ cập nhật plan mới.
+- Audit log/permission vẫn nên ghi nhớ nhưng chưa triển khai cho đến khi scope rõ.
 
-2. ✅ **Permission check**
-   - Ai được tạo phiếu chi?
-   - Ai được approve?
-   - Ai được complete (xuất tiền)?
-
-3. ✅ **Audit log**
-   - Log mọi thay đổi settlement
-   - Log approval/rejection
-   - Log payment completion
-
-**Estimate**: 3-4 ngày
+**Estimate**: TBD
 
 ---
 
@@ -655,8 +594,7 @@ const onFormSubmit = async (values) => {
       warrantyId,
       amount: totalAmount,
       paymentMethod: values.settlementType === 'cash' ? 'cash' : 'bank_transfer',
-      customer: { name: customerName, phone: '...' },
-      requireApproval: totalAmount > 10_000_000
+      customer: { name: customerName, phone: '...' }
     });
     
     settlement.paymentVoucherId = voucher.systemId;
@@ -695,20 +633,17 @@ const onFormSubmit = async (values) => {
 ## 💬 Câu hỏi cần trả lời
 
 1. **Ai có quyền tạo phiếu chi từ warranty?**
-   - Tất cả nhân viên? Hay chỉ quản lý?
-   - Suggestion: Nhân viên tạo được nhưng status = pending_approval
+  - Tất cả nhân viên? Hay chỉ quản lý?
+  - Hiện status mặc định = pending, team tự xử lý duyệt thủ công nếu cần.
 
-2. **Threshold approval là bao nhiêu?**
-   - Suggestion: >10M cần manager duyệt, >50M cần cả manager + kế toán
-
-3. **Cashbook store đã có chưa?**
+2. **Cashbook store đã có chưa?**
    - Nếu chưa → Cần tạo store trước
    - Nếu có → Cần xem structure để integrate
 
-4. **Có cần in phiếu chi không?**
+3. **Có cần in phiếu chi không?**
    - Nếu có → Cần template in cho warranty refund
 
-5. **Xử lý thế nào khi khách từ chối nhận tiền?**
+4. **Xử lý thế nào khi khách từ chối nhận tiền?**
    - Chuyển sang voucher?
    - Ghi nợ để mua hàng sau?
 

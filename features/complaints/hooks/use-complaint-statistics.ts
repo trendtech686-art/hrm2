@@ -135,7 +135,7 @@ export function useComplaintStatistics(
     const pending = complaints.filter(c => c.status === 'pending').length;
     const investigating = complaints.filter(c => c.status === 'investigating').length;
     const resolved = complaints.filter(c => c.status === 'resolved').length;
-    const rejected = complaints.filter(c => c.status === 'rejected').length;
+    const rejected = complaints.filter(c => c.resolution === 'rejected').length;
 
     const overview = {
       total,

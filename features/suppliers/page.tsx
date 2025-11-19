@@ -27,6 +27,7 @@ import { DataTableColumnCustomizer } from "../../components/data-table/data-tabl
 import { SupplierCard } from "./supplier-card.tsx";
 import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
 import { useToast } from "../../hooks/use-toast.ts";
+import { asSystemId, type SystemId } from "@/lib/id-types";
 
 export function SuppliersPage() {
   const { data: suppliersRaw, remove, restore, getActive, getDeleted, updateStatus, bulkDelete } = useSupplierStore();
@@ -69,7 +70,7 @@ export function SuppliersPage() {
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null)
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null)
   
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'name', desc: false });
   const [globalFilter, setGlobalFilter] = React.useState('');
@@ -97,13 +98,13 @@ export function SuppliersPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const handleDelete = React.useCallback((systemId: string) => {
+  const handleDelete = React.useCallback((systemId: SystemId) => {
     setIdToDelete(systemId)
     setIsAlertOpen(true)
   }, []);
   
   // ✅ Handle restore cho soft delete
-  const handleRestore = React.useCallback((systemId: string) => {
+  const handleRestore = React.useCallback((systemId: SystemId) => {
     const supplier = suppliers.find(s => s.systemId === systemId);
     restore(systemId);
     if (supplier) {
@@ -210,7 +211,8 @@ export function SuppliersPage() {
       });
       return;
     }
-    updateStatus(selectedIds, status);
+    const systemIds = selectedIds.map(asSystemId);
+    updateStatus(systemIds, status);
     setRowSelection({});
     toast({
       title: 'Thành công',
@@ -228,7 +230,8 @@ export function SuppliersPage() {
       });
       return;
     }
-    bulkDelete(selectedIds);
+    const systemIds = selectedIds.map(asSystemId);
+    bulkDelete(systemIds);
     setRowSelection({});
     toast({
       title: 'Đã xóa',

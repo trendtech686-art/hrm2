@@ -11,26 +11,27 @@
  */
 
 import type { Complaint } from '../types.ts';
-import { asSystemId } from '../../../lib/id-types.ts';
+import { asSystemId } from '@/lib/id-types';
+import type { SystemId, BusinessId } from '@/lib/id-types';
 
-interface ReversalResult {
+export interface ReversalResult {
   cancelledPaymentsReceipts: string[]; // Danh sách phiếu đã hủy (display messages)
   totalAmount: number;         // Tổng tiền phiếu đã hủy
   cancelledPaymentsReceiptsHistory: Array<{      // Lịch sử để lưu vào complaint.cancelledPaymentsReceipts
-    paymentReceiptSystemId: string;
-    paymentReceiptId: string;
+    paymentReceiptSystemId: SystemId;
+    paymentReceiptId: BusinessId;
     type: 'payment' | 'receipt';
     amount: number;
     cancelledAt: Date;
-    cancelledBy: string;
+    cancelledBy: SystemId;
     cancelledReason: string;
   }>;
   inventoryHistory?: {         // Lịch sử thêm phiếu kiểm kê bị hủy
     adjustedAt: Date;
-    adjustedBy: string;
+    adjustedBy: SystemId;
     adjustmentType: 'reversed';
     reason: string;
-    inventoryCheckSystemId: string;
+    inventoryCheckSystemId: SystemId;
   };
 }
 
@@ -45,7 +46,7 @@ interface ReversalResult {
  */
 export async function cancelPaymentsReceiptsAndInventoryChecks(
   complaint: Complaint,
-  currentUser: { systemId: string; name: string },
+  currentUser: { systemId: SystemId; name: string },
   reason: string = "Mở lại khiếu nại",
   options?: { skipInventoryCheck?: boolean }
 ): Promise<ReversalResult> {
@@ -215,7 +216,7 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
           ...inventoryCheck,
           status: 'cancelled',
           cancelledAt: new Date().toISOString(),
-          cancelledBy: currentUser.systemId,
+          cancelledBy: asSystemId(currentUser.systemId),
           cancelledReason: reason,
         });
         

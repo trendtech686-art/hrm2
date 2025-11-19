@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
-import { useProvinceStore } from '@/features/provinces/store';
+import { useProvinceStore } from '@/features/settings/provinces/store';
+import { asBusinessId } from '@/lib/id-types';
 import { createAddress2Level, createAddress3Level } from '../utils/enhanced-address-helper';
 import type { AddressLevel } from '../types/enhanced-address';
 import { AlertCircle, MapPin, Sparkles } from 'lucide-react';
@@ -55,6 +56,11 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   
+  const selectedProvinceBusinessId = selectedProvinceId ? asBusinessId(selectedProvinceId) : undefined;
+  const selectedProvince = selectedProvinceBusinessId
+    ? getProvinceById(selectedProvinceBusinessId)
+    : undefined;
+
   // UI state
   const [error, setError] = useState('');
   const [autoFillMessage, setAutoFillMessage] = useState('');
@@ -68,7 +74,7 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
         
         if (province) {
           // Always auto-fill Province
-          setSelectedProvinceId(province.id);
+          setSelectedProvinceId(String(province.id));
           
           // Check if ward has districtId (from 3-level data)
           if (ward.districtId) {
@@ -103,7 +109,7 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
         const province = getProvinceById(district.provinceId);
         if (province) {
           // Auto-fill Province
-          setSelectedProvinceId(province.id);
+          setSelectedProvinceId(String(province.id));
           
           // Toast notification
           toast.success('Đã tự động điền tỉnh/thành phố', {
@@ -141,7 +147,9 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
     }
 
     // Get final data
-    const province = getProvinceById(selectedProvinceId);
+    const province = selectedProvinceBusinessId
+      ? getProvinceById(selectedProvinceBusinessId)
+      : undefined;
     const district = selectedDistrictId ? getDistrictById(selectedDistrictId) : null;
     const ward = selectedWardId ? getWardById(selectedWardId) : null;
 
@@ -294,13 +302,13 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
             <VirtualizedCombobox
               value={selectedProvinceId ? { 
                 value: selectedProvinceId, 
-                label: getProvinceById(selectedProvinceId)?.name || '' 
+                label: selectedProvince?.name || '' 
               } : null}
               onChange={(option) => {
                 setSelectedProvinceId(option?.value || '');
                 setSelectedWardId(''); // Reset ward khi đổi province
               }}
-              options={provinces.map(p => ({ value: p.id, label: p.name }))}
+              options={provinces.map(p => ({ value: String(p.id), label: p.name }))}
               placeholder="Chọn tỉnh/thành phố..."
               searchPlaceholder="Gõ để tìm tỉnh/thành phố"
               emptyPlaceholder="Không tìm thấy"
@@ -314,14 +322,18 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
               <VirtualizedCombobox
                 value={selectedWardId ? { 
                   value: selectedWardId, 
-                  label: getWards2LevelByProvinceId(selectedProvinceId).find(w => w.id === selectedWardId)?.name || '' 
+                  label: selectedProvinceBusinessId
+                    ? getWards2LevelByProvinceId(selectedProvinceBusinessId).find(w => w.id === selectedWardId)?.name || ''
+                    : ''
                 } : null}
                 onChange={(option) => setSelectedWardId(option?.value || '')}
                 options={(() => {
-                  const wards = getWards2LevelByProvinceId(selectedProvinceId);
+                  const wards = selectedProvinceBusinessId
+                    ? getWards2LevelByProvinceId(selectedProvinceBusinessId)
+                    : [];
                   console.log('[FORM 2-LEVEL] Getting wards for province:', {
                     selectedProvinceId,
-                    province: getProvinceById(selectedProvinceId),
+                    province: selectedProvince,
                     wardsCount: wards.length,
                     sample: wards.slice(0, 3).map(w => ({ id: w.id, name: w.name, provinceId: w.provinceId }))
                   });
@@ -347,14 +359,14 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
             <VirtualizedCombobox
               value={selectedProvinceId ? { 
                 value: selectedProvinceId, 
-                label: getProvinceById(selectedProvinceId)?.name || '' 
+                label: selectedProvince?.name || '' 
               } : null}
               onChange={(option) => {
                 setSelectedProvinceId(option?.value || '');
                 setSelectedDistrictId(undefined); // Reset district
                 setSelectedWardId(''); // Reset ward
               }}
-              options={provinces.map(p => ({ value: p.id, label: p.name }))}
+              options={provinces.map(p => ({ value: String(p.id), label: p.name }))}
               placeholder="Chọn tỉnh/thành phố..."
               searchPlaceholder="Gõ để tìm tỉnh/thành phố"
               emptyPlaceholder="Không tìm thấy"
@@ -374,9 +386,12 @@ export function EnhancedAddressForm({ onSuccess, onCancel, defaultValues }: Enha
                   setSelectedDistrictId(option ? parseInt(option.value, 10) : undefined);
                   setSelectedWardId(''); // Reset ward khi đổi district
                 }}
-                options={getDistrictsByProvinceId(selectedProvinceId).map(d => ({ 
-                  value: d.id.toString(), 
-                  label: d.name 
+                options={(selectedProvinceBusinessId
+                  ? getDistrictsByProvinceId(selectedProvinceBusinessId)
+                  : []
+                ).map(d => ({
+                  value: d.id.toString(),
+                  label: d.name,
                 }))}
                 placeholder="Tìm và chọn quận/huyện..."
                 searchPlaceholder="Gõ để tìm quận/huyện"

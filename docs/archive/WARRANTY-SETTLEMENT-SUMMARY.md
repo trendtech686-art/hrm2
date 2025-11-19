@@ -38,7 +38,6 @@ createWarrantyPaymentVoucher({
   amount,
   paymentMethod,
   customer,
-  requireApproval: amount > 10_000_000
 })
 → Return: PaymentVoucher với ID (PC000123)
 ```
@@ -120,32 +119,13 @@ Thiếu: 21.450.000đ
 
 ## 🟢 LÀM SAU (Phase 3 - 2 tuần sau)
 
-### 3. Approval Flow
+### 3. Scope cần xác định lại
 
-**Rules:**
-```typescript
-> 10M  → Cần Manager duyệt
-> 50M  → Cần Manager + Kế toán duyệt
-```
+- Kế hoạch approval flow với ngưỡng >10M/>50M đã bị loại bỏ.
+- Phase 3 hiện chỉ là placeholder để bàn tiếp sau khi Phase 2 hoàn thiện.
+- Gợi ý: ưu tiên đánh giá nhu cầu thực tế (ví dụ log bổ sung, cảnh báo, workflow thủ công) trước khi tái định nghĩa.
 
-**Flow:**
-```
-Tạo PC (21M)
-  ↓
-Status: 'pending_approval' ⏸️
-  ↓
-Notify Manager
-  ↓
-Manager approve ✅
-  ↓
-Status: 'pending' (Chờ xuất)
-  ↓
-Kế toán xuất tiền
-  ↓
-Status: 'completed' ✅
-```
-
-**Timeline**: 3-4 ngày
+**Timeline**: TBD
 
 ---
 
@@ -153,10 +133,10 @@ Status: 'completed' ✅
 
 | Phương thức | Khi nào dùng? | Có tạo PC? | Approval? |
 |-------------|---------------|------------|-----------|
-| **cash** | Trả tiền mặt ngay | ✅ Có | Nếu >10M |
-| **transfer** | Chuyển khoản | ✅ Có | Nếu >10M |
+| **cash** | Trả tiền mặt ngay | ✅ Có | Thủ công (nếu team yêu cầu) |
+| **transfer** | Chuyển khoản | ✅ Có | Thủ công (nếu team yêu cầu) |
 | **order_deduction** | Đơn đủ tiền | ❌ Không | ❌ Không |
-| **mixed** | Đơn không đủ | ✅ Có (1 phần) | Nếu >10M |
+| **mixed** | Đơn không đủ | ✅ Có (1 phần) | Thủ công (nếu team yêu cầu) |
 | **debt** | Trả sau | ❌ Không | ❌ Không |
 | **voucher** | Tạo voucher | ❌ Không | ❌ Không |
 
@@ -179,10 +159,7 @@ Status: 'completed' ✅
 - [ ] Test các case đơn không đủ
 
 ### 2 tuần sau (Phase 3):
-- [ ] Approval rules
-- [ ] Permission check
-- [ ] Audit log
-- [ ] Notifications
+- [ ] (TBD) Đang chờ scope mới sau khi bỏ luồng duyệt tự động
 
 ---
 
@@ -197,8 +174,8 @@ Status: 'completed' ✅
    - Hay chỉ quản lý?
    - **Suggest**: Nhân viên tạo được nhưng cần duyệt
 
-3. **Threshold approval bao nhiêu?**
-   - **Suggest**: >10M cần 1 duyệt, >50M cần 2 duyệt
+3. **Có cần approval tự động không?**
+  - Tạm thời không áp dụng ngưỡng cố định; sẽ bàn lại nếu phát sinh nhu cầu.
 
 4. **Có in phiếu chi không?**
    - Nếu có → Cần template

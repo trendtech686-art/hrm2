@@ -1,6 +1,11 @@
 import * as React from 'react';
 import { PlusCircle, MoreHorizontal, Edit, Trash2, ShieldCheck, Phone, MapPin, User } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+
 import { usePageHeader } from '../../../contexts/page-header-context.tsx';
+import { useAuth } from '../../../contexts/auth-context.tsx';
 import { useBranchStore } from '../branches/store.ts';
 import { useEmployeeStore } from '../../employees/store.ts';
 import type { Branch } from '../branches/types.ts';
@@ -12,16 +17,91 @@ import { Badge } from '../../../components/ui/badge.tsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
-import { cn } from '../../../lib/utils.ts';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form.tsx';
+import { Input } from '../../../components/ui/input.tsx';
+import { Textarea } from '../../../components/ui/textarea.tsx';
+import { Separator } from '../../../components/ui/separator.tsx';
+import { useToast } from '../../../hooks/use-toast.ts';
+import { getDefaultStoreInfo, useStoreInfoStore, type StoreGeneralInfo, type StoreGeneralInfoInput } from './store-info-store.ts';
+import type { SystemId } from '../../../lib/id-types.ts';
+
+const generalInfoSchema = z.object({
+    companyName: z.string().min(2, 'Vui lòng nhập tên pháp nhân'),
+    brandName: z.string().min(2, 'Vui lòng nhập tên thương hiệu'),
+    taxCode: z.string().min(8, 'MST chưa hợp lệ'),
+    registrationNumber: z.string().default(''),
+    representativeName: z.string().min(2, 'Vui lòng nhập tên người đại diện'),
+    representativeTitle: z.string().min(2, 'Vui lòng nhập chức danh'),
+    hotline: z.string().min(8, 'Số hotline chưa hợp lệ'),
+    email: z.string().email('Email chưa đúng định dạng'),
+    website: z.string().default(''),
+    headquartersAddress: z.string().min(5, 'Vui lòng nhập địa chỉ'),
+    ward: z.string().default(''),
+    district: z.string().default(''),
+    province: z.string().default(''),
+    note: z.string().default(''),
+    bankAccountName: z.string().default(''),
+    bankAccountNumber: z.string().default(''),
+    bankName: z.string().default(''),
+});
+
+type StoreGeneralInfoFormValues = z.input<typeof generalInfoSchema>;
+
+const mapInfoToFormValues = (info: StoreGeneralInfo): StoreGeneralInfoFormValues => ({
+    companyName: info.companyName ?? '',
+    brandName: info.brandName ?? '',
+    taxCode: info.taxCode ?? '',
+    registrationNumber: info.registrationNumber ?? '',
+    representativeName: info.representativeName ?? '',
+    representativeTitle: info.representativeTitle ?? '',
+    hotline: info.hotline ?? '',
+    email: info.email ?? '',
+    website: info.website ?? '',
+    headquartersAddress: info.headquartersAddress ?? '',
+    ward: info.ward ?? '',
+    district: info.district ?? '',
+    province: info.province ?? '',
+    note: info.note ?? '',
+    bankAccountName: info.bankAccountName ?? '',
+    bankAccountNumber: info.bankAccountNumber ?? '',
+    bankName: info.bankName ?? '',
+});
 
 export function StoreInfoPage() {
-    const { data: branches, add: addBranch, update: updateBranch, remove: removeBranch, setDefault: setDefaultBranch } = useBranchStore();
+    const branchStore = useBranchStore();
+    const { data: branches, add: addBranch, update: updateBranch, remove: removeBranch } = branchStore;
+    const setDefaultBranch = branchStore.setDefault;
     const { data: employees } = useEmployeeStore();
+    const { employee: authEmployee } = useAuth();
+    const { toast } = useToast();
+    const { info, updateInfo, reset: resetStoreInfo } = useStoreInfoStore();
     
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingBranch, setEditingBranch] = React.useState<Branch | null>(null);
     const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-    const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+    const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+
+    const form = useForm<StoreGeneralInfoFormValues>({
+        resolver: zodResolver(generalInfoSchema),
+        defaultValues: mapInfoToFormValues(info),
+        mode: 'onBlur',
+    });
+
+    React.useEffect(() => {
+        form.reset(mapInfoToFormValues(info));
+    }, [info, form]);
+
+    const currentUserSystemId = authEmployee?.systemId;
+    const currentUserName = React.useMemo(() => {
+        if (authEmployee?.fullName) return authEmployee.fullName;
+        if (!currentUserSystemId) return undefined;
+        return employees.find((e) => e.systemId === currentUserSystemId)?.fullName;
+    }, [authEmployee, currentUserSystemId, employees]);
+
+    const lastUpdatedLabel = React.useMemo(() => {
+        if (!info.updatedAt) return 'Chưa có lần cập nhật';
+        return new Date(info.updatedAt).toLocaleString('vi-VN');
+    }, [info.updatedAt]);
 
     const handleAddNew = () => {
         setEditingBranch(null);
@@ -37,12 +117,34 @@ export function StoreInfoPage() {
             { label: 'Thông tin cửa hàng', href: '/settings/store-info', isCurrent: true }
         ],
         actions: [
-            <Button key="add" onClick={handleAddNew}>
+            <Button key="add" onClick={handleAddNew} className="h-9">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Thêm chi nhánh
             </Button>
         ]
     });
+
+    const handleGeneralInfoSubmit = form.handleSubmit((values) => {
+        const parsedValues = generalInfoSchema.parse(values);
+        updateInfo(parsedValues as StoreGeneralInfoInput, {
+            updatedBySystemId: currentUserSystemId,
+            updatedByName: currentUserName,
+        });
+        toast({
+            title: 'Đã lưu thông tin chung',
+            description: 'Các thông tin pháp nhân và liên hệ đã được cập nhật.',
+        });
+    });
+
+    const handleResetGeneralInfo = () => {
+        resetStoreInfo();
+        const defaults = getDefaultStoreInfo();
+        form.reset(mapInfoToFormValues(defaults));
+        toast({
+            title: 'Đã khôi phục dữ liệu mặc định',
+            description: 'Vui lòng kiểm tra và lưu lại nếu cần chỉnh sửa.',
+        });
+    };
 
     const getManagerName = (managerId?: string) => {
         if (!managerId) return 'Chưa có';
@@ -54,7 +156,7 @@ export function StoreInfoPage() {
         setIsFormOpen(true);
     };
 
-    const handleDeleteRequest = (systemId: string) => {
+    const handleDeleteRequest = (systemId: SystemId) => {
         setIdToDelete(systemId);
         setIsAlertOpen(true);
     };
@@ -81,14 +183,293 @@ export function StoreInfoPage() {
                 <CardHeader>
                     <CardTitle>Thông tin chung</CardTitle>
                     <CardDescription>Các thông tin cơ bản của công ty hoặc chuỗi cửa hàng.</CardDescription>
+                    <p className="text-sm text-muted-foreground">Cập nhật lần cuối: {lastUpdatedLabel}{info.updatedByName ? ` • Bởi ${info.updatedByName}` : ''}</p>
                 </CardHeader>
                 <CardContent>
-                     <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                        <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                            <h3 className="text-lg font-semibold tracking-tight">Chức năng đang phát triển</h3>
-                            <p className="text-sm">Phần thông tin chung của cửa hàng sẽ được cập nhật sớm.</p>
-                        </div>
-                    </div>
+                    <Form {...form}>
+                        <form onSubmit={handleGeneralInfoSubmit} className="space-y-6">
+                            <section className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold uppercase text-muted-foreground">Thông tin pháp nhân</h4>
+                                    <p className="text-sm text-muted-foreground">Dùng trên hóa đơn và hợp đồng với khách hàng, nhà cung cấp.</p>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="companyName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Tên pháp nhân</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="CÔNG TY TNHH ABC" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="brandName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Tên thương hiệu</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Thương hiệu nội bộ" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="taxCode"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Mã số thuế</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="0102030405" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="registrationNumber"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Số đăng ký kinh doanh</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="0123456789" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </section>
+
+                            <Separator />
+
+                            <section className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold uppercase text-muted-foreground">Người đại diện & liên hệ</h4>
+                                    <p className="text-sm text-muted-foreground">Thông tin hiển thị cho cơ quan thuế và đối tác.</p>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="representativeName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Người đại diện pháp luật</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Nguyễn Văn A" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="representativeTitle"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Chức danh</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Giám đốc" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="hotline"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Hotline</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="0900 000 000" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="email"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Email liên hệ</FormLabel>
+                                                <FormControl>
+                                                    <Input type="email" placeholder="contact@yourbrand.vn" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="website"
+                                        render={({ field }) => (
+                                            <FormItem className="md:col-span-2">
+                                                <FormLabel>Website</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="https://yourbrand.vn" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </section>
+
+                            <Separator />
+
+                            <section className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold uppercase text-muted-foreground">Địa chỉ trụ sở chính</h4>
+                                    <p className="text-sm text-muted-foreground">Thông tin hiển thị trên chứng từ và hóa đơn đầu ra.</p>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="headquartersAddress"
+                                        render={({ field }) => (
+                                            <FormItem className="md:col-span-2">
+                                                <FormLabel>Địa chỉ</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Số 1 Trần Duy Hưng" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="ward"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Phường/Xã</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Phường Trung Hòa" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="district"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Quận/Huyện</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Quận Cầu Giấy" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="province"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Tỉnh/Thành phố</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Hà Nội" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </section>
+
+                            <Separator />
+
+                            <section className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold uppercase text-muted-foreground">Tài khoản ngân hàng</h4>
+                                    <p className="text-sm text-muted-foreground">Sử dụng để hiển thị trên phiếu thu/chi và hợp đồng.</p>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="bankAccountName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Chủ tài khoản</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Công ty TNHH ABC" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="bankAccountNumber"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Số tài khoản</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="0123456789" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="bankName"
+                                        render={({ field }) => (
+                                            <FormItem className="md:col-span-2">
+                                                <FormLabel>Ngân hàng</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </section>
+
+                            <Separator />
+
+                            <section className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold uppercase text-muted-foreground">Ghi chú</h4>
+                                    <p className="text-sm text-muted-foreground">Thêm hướng dẫn nội bộ liên quan tới pháp nhân hoặc thông tin liên hệ.</p>
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="note"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nội dung ghi chú</FormLabel>
+                                            <FormControl>
+                                                <Textarea rows={4} placeholder="Ví dụ: dùng MST này cho hóa đơn điện tử." {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </section>
+
+                            <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                                <Button type="button" variant="outline" className="h-9" onClick={handleResetGeneralInfo}>
+                                    Khôi phục mặc định
+                                </Button>
+                                <Button type="submit" className="h-9" disabled={form.formState.isSubmitting}>
+                                    Lưu thông tin
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
                 </CardContent>
             </Card>
 
@@ -99,7 +480,7 @@ export function StoreInfoPage() {
                             <CardTitle>Quản lý Chi nhánh</CardTitle>
                             <CardDescription>Danh sách các chi nhánh và điểm kinh doanh của bạn.</CardDescription>
                         </div>
-                        <Button size="sm" onClick={handleAddNew}><PlusCircle className="mr-2 h-4 w-4" /> Thêm chi nhánh</Button>
+                        <Button size="sm" onClick={handleAddNew} className="h-9"><PlusCircle className="mr-2 h-4 w-4" /> Thêm chi nhánh</Button>
                     </div>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

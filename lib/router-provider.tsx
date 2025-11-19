@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { ROUTES } from './router';
 import { PageHeaderProvider } from '../contexts/page-header-context.tsx';
+import { useAuth } from '../contexts/auth-context.tsx';
 
 // Loading Component
 function RouteLoadingFallback() {
@@ -107,6 +108,7 @@ function GlobalLoadingIndicator() {
 // Layout wrapper with global loading and error handling
 function RootLayoutWrapper() {
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
   
   // Public routes that don't require authentication
   const publicRoutes: string[] = [
@@ -117,14 +119,13 @@ function RootLayoutWrapper() {
     ROUTES.AUTH.RESET_PASSWORD,
   ];
   
-  // Check if it's a public tracking route (pattern: /complaint-tracking/:id or /warranty-tracking/:id)
-  const isTrackingRoute = location.pathname.startsWith('/complaint-tracking/') || location.pathname.startsWith('/warranty-tracking/');
+  // Check if it's a public tracking route (supports legacy hyphen + new nested path)
+  const isTrackingRoute =
+    location.pathname.startsWith('/complaint-tracking/') ||
+    location.pathname.startsWith('/warranty-tracking/') ||
+    location.pathname.startsWith('/warranty/tracking/');
   
   const isPublicRoute = publicRoutes.includes(location.pathname) || isTrackingRoute;
-  
-  // Check authentication
-  const user = localStorage.getItem('user');
-  const isAuthenticated = !!user;
   
   // Redirect to login if not authenticated and trying to access protected route
   if (!isAuthenticated && !isPublicRoute) {

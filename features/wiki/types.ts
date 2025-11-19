@@ -1,6 +1,8 @@
+import type { SystemId, BusinessId } from '../../lib/id-types.ts';
+
 export type WikiArticle = {
-  systemId: string; // Unique system ID for routing
-  id: string; // Display ID (e.g., "WIKI001")
+  systemId: SystemId; // Unique system ID for routing
+  id: BusinessId; // Display ID (e.g., "WIKI001")
   title: string;
   content: string; // Markdown content
   category: string;

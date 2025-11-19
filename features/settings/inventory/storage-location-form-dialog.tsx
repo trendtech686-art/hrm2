@@ -32,7 +32,7 @@ const storageLocationSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-type StorageLocationFormValues = z.infer<typeof storageLocationSchema>;
+export type StorageLocationFormValues = z.infer<typeof storageLocationSchema>;
 
 interface StorageLocationFormDialogProps {
   open: boolean;

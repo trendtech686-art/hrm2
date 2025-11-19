@@ -8,10 +8,11 @@ import { usePurchaseOrderStore } from "../store.ts";
 import { usePurchaseReturnStore } from "../../purchase-returns/store.ts";
 import { Separator } from "../../../components/ui/separator.tsx";
 import { X } from "lucide-react";
+import type { SystemId } from "@/lib/id-types";
 
 interface SupplierSelectionCardProps {
-  value?: string;
-  onChange: (supplierId: string) => void;
+  value?: SystemId;
+  onChange: (supplierId: SystemId | null) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -52,7 +53,7 @@ export function SupplierSelectionCard({
     const supplierReturns = purchaseReturns.filter(
       (pr) => pr.supplierSystemId === selectedSupplier.systemId
     );
-    const totalReturn = supplierReturns.reduce((sum, pr) => sum + pr.grandTotal, 0);
+    const totalReturn = supplierReturns.reduce((sum, pr) => sum + pr.totalReturnValue, 0);
 
     // Debt = Total Purchase - Total Paid
     const debt = totalPurchase - totalPaid;
@@ -61,7 +62,7 @@ export function SupplierSelectionCard({
   }, [selectedSupplier, purchaseOrders, purchaseReturns]);
 
   const handleClear = () => {
-    onChange('');
+    onChange(null);
   };
 
   return (

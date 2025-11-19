@@ -50,6 +50,8 @@ import { useShippingSettingsStore } from '../settings/shipping/shipping-settings
 import { PartnerShipmentForm } from './components/partner-shipment-form.tsx';
 import { ShippingIntegration } from './components/shipping-integration.tsx';
 import type { OrderFormValues } from './order-form-page.tsx';
+import { useAuth } from '../../contexts/auth-context.tsx';
+import { asSystemId, type SystemId } from '../../lib/id-types.ts';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
     return new Intl.NumberFormat('vi-VN').format(value);
@@ -410,19 +412,19 @@ function CreateShipmentDialog({
 }
 
 function PackerSelectionDialog({
-  isOpen,
-  onOpenChange,
-  onSubmit,
+    isOpen,
+    onOpenChange,
+    onSubmit,
 }: {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (packerId?: string) => void;
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (packerId?: SystemId) => void;
 }) {
   const { searchEmployees } = useEmployeeStore();
   const [selectedEmployee, setSelectedEmployee] = React.useState<ComboboxOption | null>(null);
 
-  const handleSubmit = () => {
-    onSubmit(selectedEmployee?.value);
+    const handleSubmit = () => {
+        onSubmit(selectedEmployee ? asSystemId(selectedEmployee.value) : undefined);
     onOpenChange(false);
   };
 
@@ -562,7 +564,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, salesR
     );
 };
 
-const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount }: { order: Order; costOfGoods: number; profit: number; totalDiscount: number; }) => {
+const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesReturns }: { order: Order; costOfGoods: number; profit: number; totalDiscount: number; salesReturns: SalesReturn[]; }) => {
     // Calculate warranty payments (negative amounts linked to warranty)
     const warrantyPayments = (order?.payments || []).filter(p => p.amount < 0 && (p as any).linkedWarrantySystemId);
     const totalWarrantyDeduction = warrantyPayments.reduce((sum, p) => sum + Math.abs(p.amount), 0);
@@ -630,7 +632,7 @@ const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount }: { order:
                                 <span className="text-muted-foreground">
                                     Giá trị trả hàng {order.linkedSalesReturnSystemId && (
                                         <Link to={`/returns/${order.linkedSalesReturnSystemId}`} className="text-primary hover:underline">
-                                            ({allSalesReturns.find(r => r.systemId === order.linkedSalesReturnSystemId)?.id || 'N/A'})
+                                            ({salesReturns.find(r => r.systemId === order.linkedSalesReturnSystemId)?.id || 'N/A'})
                                         </Link>
                                     )}
                                 </span>
@@ -872,29 +874,44 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
 
 
 export function OrderDetailPage() {
-    // Accept either internal systemId (e.g. ORD00000001) or business id (e.g. DH00000002)
-    const params = ReactRouterDOM.useParams();
-    const idOrSystemId = (params.systemId || params.id || '').toString();
+    const params = ReactRouterDOM.useParams<{ systemId?: string; id?: string }>();
     const navigate = ReactRouterDOM.useNavigate();
 
-    // Find order by systemId OR by business id (`id` field)
-    const order = useOrderStore().data.find(o => o.systemId === idOrSystemId || o.id === idOrSystemId);
-    console.log('🔍 [OrderDetail] lookup param:', idOrSystemId, 'foundOrder:', !!order, order ? { systemId: order.systemId, id: order.id } : null);
-    const { cancelOrder, addPayment, requestPackaging, confirmPackaging, cancelPackagingRequest, processInStorePickup, confirmPartnerShipment, dispatchFromWarehouse, completeDelivery, failDelivery, cancelDelivery, cancelDeliveryOnly, confirmInStorePickup, cancelGHTKShipment } = useOrderStore();
+    const orderStore = useOrderStore();
+    const orders: Order[] = orderStore.data ?? [];
+    const order = React.useMemo(() => {
+        if (params.systemId) {
+            const systemIdParam = asSystemId(params.systemId);
+            const bySystemId = orderStore.findById?.(systemIdParam);
+            if (bySystemId) {
+                return bySystemId;
+            }
+        }
+
+        if (params.id) {
+            return orders.find(o => o.id === params.id) ?? null;
+        }
+
+        return null;
+    }, [orderStore, orders, params.id, params.systemId]);
+
+    console.log('🔍 [OrderDetail] lookup param:', params.systemId || params.id, 'foundOrder:', !!order, order ? { systemId: order.systemId, id: order.id } : null);
+    const { cancelOrder, addPayment, requestPackaging, confirmPackaging, cancelPackagingRequest, processInStorePickup, confirmPartnerShipment, dispatchFromWarehouse, completeDelivery, failDelivery, cancelDelivery, cancelDeliveryOnly, confirmInStorePickup, cancelGHTKShipment } = orderStore;
     const { findById: findProductById } = useProductStore();
     const { data: allSalesReturns } = useSalesReturnStore();
     const { data: warranties } = useWarrantyStore();
     
     const { data: customers } = useCustomerStore();
     const customer = order ? customers.find(c => c.systemId === order.customerSystemId) : null;
-    const loggedInUser = useEmployeeStore.getState().data[0];
+    const { employee: authEmployee } = useAuth();
+    const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
 
     const [isCancelAlertOpen, setIsCancelAlertOpen] = React.useState(false);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
     const [isCreateShipmentDialogOpen, setIsCreateShipmentDialogOpen] = React.useState(false);
     const [isPackerSelectionOpen, setIsPackerSelectionOpen] = React.useState(false);
-    const [cancelPackagingState, setCancelPackagingState] = React.useState<{ packagingSystemId: string } | null>(null);
-    const [cancelShipmentState, setCancelShipmentState] = React.useState<{ packagingSystemId: string; type: 'fail' | 'cancel' } | null>(null);
+    const [cancelPackagingState, setCancelPackagingState] = React.useState<{ packagingSystemId: SystemId } | null>(null);
+    const [cancelShipmentState, setCancelShipmentState] = React.useState<{ packagingSystemId: SystemId; type: 'fail' | 'cancel' } | null>(null);
 
     const totalPaid = React.useMemo(() => (order?.payments || []).reduce((sum, p) => sum + p.amount, 0), [order?.payments]);
     // totalPaid có thể âm (nếu có warranty payment), dương (nếu khách trả tiền), hoặc 0
@@ -1009,7 +1026,7 @@ export function OrderDetailPage() {
                             action: {
                                 label: 'Tiếp tục',
                                 onClick: () => {
-                                    cancelOrder(order.systemId, loggedInUser.systemId);
+                                    cancelOrder(order.systemId, currentEmployeeSystemId);
                                     setIsCancelAlertOpen(false);
                                 }
                             },
@@ -1032,7 +1049,7 @@ export function OrderDetailPage() {
                         action: {
                             label: 'Tiếp tục',
                             onClick: () => {
-                                cancelOrder(order.systemId, loggedInUser.systemId);
+                                cancelOrder(order.systemId, currentEmployeeSystemId);
                                 setIsCancelAlertOpen(false);
                             }
                         },
@@ -1049,29 +1066,29 @@ export function OrderDetailPage() {
         }
         
         // Proceed with order cancellation
-        cancelOrder(order.systemId, loggedInUser.systemId); 
+        cancelOrder(order.systemId, currentEmployeeSystemId); 
         setIsCancelAlertOpen(false); 
     };
-    const handleAddPayment = (paymentData: PaymentFormValues) => { if (order) { addPayment(order.systemId, paymentData, loggedInUser.systemId); setIsPaymentDialogOpen(false); } };
-    const handleRequestPackaging = (assignedEmployeeId?: string) => { if (order) { requestPackaging(order.systemId, loggedInUser.systemId, assignedEmployeeId); } };
-    const handleConfirmPackaging = (packagingSystemId: string) => { if (order) { confirmPackaging(order.systemId, packagingSystemId, loggedInUser.systemId); } };
-    const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, loggedInUser.systemId, reason); setCancelPackagingState(null); }};
-    const handleInStorePickup = (packagingSystemId: string) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } };
+    const handleAddPayment = (paymentData: PaymentFormValues) => { if (order) { addPayment(order.systemId, paymentData, currentEmployeeSystemId); setIsPaymentDialogOpen(false); } };
+    const handleRequestPackaging = (assignedEmployeeId?: SystemId) => { if (order) { requestPackaging(order.systemId, currentEmployeeSystemId, assignedEmployeeId); } };
+    const handleConfirmPackaging = (packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId, currentEmployeeSystemId); } };
+    const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, currentEmployeeSystemId, reason); setCancelPackagingState(null); }};
+    const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } };
     const handleShippingSubmit = (data: any) => { if (order && activePackaging) { return confirmPartnerShipment(order.systemId, activePackaging.systemId, data); } return Promise.resolve({success: false, message: 'Đơn hàng không hợp lệ'}); };
     
-    const handleDispatch = (packagingSystemId: string) => { 
+    const handleDispatch = (packagingSystemId: SystemId) => { 
         if (order) { 
             const pkg = order.packagings.find(p => p.systemId === packagingSystemId);
             if (pkg?.deliveryMethod === 'Nhận tại cửa hàng') {
-                confirmInStorePickup(order.systemId, packagingSystemId, loggedInUser.systemId);
+                confirmInStorePickup(order.systemId, packagingSystemId, currentEmployeeSystemId);
             } else {
-                dispatchFromWarehouse(order.systemId, packagingSystemId, loggedInUser.systemId); 
+                dispatchFromWarehouse(order.systemId, packagingSystemId, currentEmployeeSystemId); 
             }
         } 
     };
 
-    const handleCompleteDelivery = (packagingSystemId: string) => { if (order) { completeDelivery(order.systemId, packagingSystemId, loggedInUser.systemId); }};
-    const handleFailDeliverySubmit = (reason: string) => { if (order && cancelShipmentState) { failDelivery(order.systemId, cancelShipmentState.packagingSystemId, loggedInUser.systemId, reason); setCancelShipmentState(null); }};
+    const handleCompleteDelivery = (packagingSystemId: SystemId) => { if (order) { completeDelivery(order.systemId, packagingSystemId, currentEmployeeSystemId); }};
+    const handleFailDeliverySubmit = (reason: string) => { if (order && cancelShipmentState) { failDelivery(order.systemId, cancelShipmentState.packagingSystemId, currentEmployeeSystemId, reason); setCancelShipmentState(null); }};
     
     // ✅ Hủy giao hàng - KHÔNG trả hàng về kho (hàng bị thất tung/shipper giữ)
     const handleCancelDeliveryOnly = async () => { 
@@ -1097,7 +1114,7 @@ export function OrderDetailPage() {
             }
             
             // ✅ Chỉ update trạng thái, KHÔNG trả hàng về kho
-            cancelDeliveryOnly(order.systemId, cancelShipmentState.packagingSystemId, loggedInUser.systemId, "Hủy giao hàng"); 
+            cancelDeliveryOnly(order.systemId, cancelShipmentState.packagingSystemId, currentEmployeeSystemId, "Hủy giao hàng"); 
             setCancelShipmentState(null); 
         }
     };
@@ -1126,12 +1143,12 @@ export function OrderDetailPage() {
             }
             
             // ✅ Update trạng thái + TRẢ hàng về kho
-            cancelDelivery(order.systemId, cancelShipmentState.packagingSystemId, loggedInUser.systemId, "Hủy giao và nhận lại hàng"); 
+            cancelDelivery(order.systemId, cancelShipmentState.packagingSystemId, currentEmployeeSystemId, "Hủy giao và nhận lại hàng"); 
             setCancelShipmentState(null); 
         }
     };
     
-    const handleCancelGHTKShipment = async (packagingSystemId: string, trackingCode: string) => {
+    const handleCancelGHTKShipment = async (packagingSystemId: SystemId, trackingCode: string) => {
         if (!order) return;
         
         toast.info('Đang hủy vận đơn GHTK...', { description: 'Lưu ý: Chỉ có thể hủy khi đơn chưa được lấy hàng.' });
@@ -1553,7 +1570,7 @@ export function OrderDetailPage() {
                 </Card>
 
                 {/* Product Info Card - Always visible */}
-                <ProductInfoCard order={order} costOfGoods={costOfGoods} profit={profit} totalDiscount={totalDiscount} />
+                <ProductInfoCard order={order} costOfGoods={costOfGoods} profit={profit} totalDiscount={totalDiscount} salesReturns={allSalesReturns} />
                 
                 {/* Return History Card - Show only if there are returns */}
                 {salesReturnsForOrder.length > 0 && (

@@ -11,6 +11,7 @@ import { Card, CardContent } from "../../components/ui/card.tsx"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx"
 import { getApiUrl } from "../../lib/api-config.ts"
 import type { Employee } from "./types.ts"
+import type { SystemId } from '@/lib/id-types';
 
 export function EmployeesTrashPage() {
   const { data, getDeleted, restore, permanentDelete } = useEmployeeStore();
@@ -44,12 +45,12 @@ export function EmployeesTrashPage() {
   }
 
   // Handlers for column actions (these will be called from column buttons)
-  const handleRestoreFromColumn = React.useCallback((systemId: string) => {
+  const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
     restore(systemId);
     toast.success("Đã khôi phục nhân viên");
   }, [restore]);
 
-  const handleDeleteFromColumn = React.useCallback(async (systemId: string) => {
+  const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     try {
       const employee = deletedEmployees.find(e => e.systemId === systemId);
       
@@ -117,7 +118,7 @@ export function EmployeesTrashPage() {
     <GenericTrashPage
       deletedItems={deletedEmployees}
       onRestore={restore}
-      onPermanentDelete={async (systemId: string) => {
+      onPermanentDelete={async (systemId) => {
         permanentDelete(systemId);
       }}
       title="Thùng rác nhân viên"

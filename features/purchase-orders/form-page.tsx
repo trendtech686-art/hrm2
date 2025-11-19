@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { usePurchaseOrderStore } from './store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { useProductStore } from '../products/store.ts';
 import { useSupplierStore } from '../suppliers/store.ts';
 import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
@@ -11,6 +12,8 @@ import { useStockHistoryStore } from '../stock-history/store.ts';
 // import { useVoucherStore } from '../vouchers/store.ts';
 import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
 import { useCashbookStore } from '../cashbook/store.ts';
+import { usePaymentStore } from '../payments/store.ts';
+import type { Payment } from '../payments/types.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useToast } from '../../hooks/use-toast.ts';
 import { getCurrentDate, toISODate, formatDateCustom } from '../../lib/date-utils.ts';
@@ -29,15 +32,18 @@ import {
   type Fee,
   type PaymentRecord,
 } from './components/order-summary-card.tsx';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
+import type { SystemId } from '@/lib/id-types';
 
 export function PurchaseOrderFormPage() {
-  const { systemId } = useParams<{ systemId: string }>();
+  const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { add, update, findById, data: allOrders, processInventoryReceipt } = usePurchaseOrderStore();
   const { data: branches } = useBranchStore();
   const { data: employees } = useEmployeeStore();
+  const { employee: authEmployee } = useAuth();
   const { data: products, updateInventory, findById: findProductById } = useProductStore();
   const { data: suppliers } = useSupplierStore();
   const { data: allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
@@ -46,12 +52,14 @@ export function PurchaseOrderFormPage() {
   const { data: paymentTypes } = usePaymentTypeStore();
   const { accounts } = useCashbookStore();
 
-  const isEditMode = Boolean(systemId);
-  const existingOrder = isEditMode ? findById(systemId!) : null;
+  const purchaseOrderSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
+  const isEditMode = Boolean(purchaseOrderSystemId);
+  const existingOrder = purchaseOrderSystemId ? findById(purchaseOrderSystemId) : null;
   
   // Copy mode: ?copy=systemId
   const copyFromId = searchParams.get('copy');
-  const copyFromOrder = copyFromId ? findById(copyFromId) : null;
+  const copyFromSystemId = copyFromId ? asSystemId(copyFromId) : null;
+  const copyFromOrder = copyFromSystemId ? findById(copyFromSystemId) : null;
 
   // Kiểm tra nếu đơn đã nhập kho thì không cho sửa (theo chuẩn Sapo)
   React.useEffect(() => {
@@ -61,17 +69,17 @@ export function PurchaseOrderFormPage() {
         description: 'Đơn đã nhập kho không thể sửa. Vui lòng sử dụng chức năng Hoàn trả để điều chỉnh.',
         variant: 'destructive',
       });
-      navigate(`/purchase-orders/${systemId}`);
+      navigate(`/purchase-orders/${existingOrder.systemId}`);
     }
-  }, [isEditMode, existingOrder, navigate, systemId, toast]);
+  }, [isEditMode, existingOrder, navigate, toast]);
 
   // Form state
-  const [supplierId, setSupplierId] = React.useState<string>(
-    existingOrder?.supplierSystemId || ''
+  const [supplierId, setSupplierId] = React.useState<SystemId | null>(
+    existingOrder?.supplierSystemId ? asSystemId(existingOrder.supplierSystemId) : null
   );
 
   // Wrap setSupplierId to add logging
-  const handleSetSupplierId = React.useCallback((id: string) => {
+  const handleSetSupplierId = React.useCallback((id: SystemId | null) => {
     console.log('=== setSupplierId called with:', id);
     setSupplierId(id);
   }, []);
@@ -79,17 +87,28 @@ export function PurchaseOrderFormPage() {
   console.log('Form render - supplierId state:', supplierId);
 
   // Use ref to keep latest supplierId value
-  const supplierIdRef = React.useRef(supplierId);
+  const supplierIdRef = React.useRef<SystemId | null>(supplierId);
   React.useEffect(() => {
     supplierIdRef.current = supplierId;
   }, [supplierId]);
 
-  const [branchId, setBranchId] = React.useState<string>(
-    existingOrder?.branchSystemId || (branches[0]?.systemId || '')
-  );
-  const [employeeId, setEmployeeId] = React.useState<string>(
-    existingOrder?.buyerSystemId || (employees[0]?.systemId || '')
-  );
+  const defaultBranchId: SystemId | null = existingOrder?.branchSystemId
+    ? asSystemId(existingOrder.branchSystemId)
+    : branches[0]?.systemId
+    ? asSystemId(branches[0].systemId)
+    : null;
+  const [branchId, setBranchId] = React.useState<SystemId | null>(defaultBranchId);
+  const defaultEmployeeSystemId: SystemId | null = existingOrder?.buyerSystemId
+    ? asSystemId(existingOrder.buyerSystemId)
+    : authEmployee?.systemId
+    ? asSystemId(authEmployee.systemId)
+    : null;
+  const [employeeId, setEmployeeId] = React.useState<SystemId | null>(defaultEmployeeSystemId);
+  React.useEffect(() => {
+    if (!isEditMode && !employeeId && authEmployee?.systemId) {
+      setEmployeeId(asSystemId(authEmployee.systemId));
+    }
+  }, [isEditMode, employeeId, authEmployee]);
   const [reference, setReference] = React.useState<string>(
     existingOrder?.reference || ''
   );
@@ -164,11 +183,11 @@ export function PurchaseOrderFormPage() {
       console.log('=== Copying from order:', copyFromOrder.id);
       
       // Copy supplier
-      setSupplierId(copyFromOrder.supplierSystemId);
+      setSupplierId(asSystemId(copyFromOrder.supplierSystemId));
       
       // Copy branch và employee
-      setBranchId(copyFromOrder.branchSystemId);
-      setEmployeeId(copyFromOrder.buyerSystemId);
+      setBranchId(asSystemId(copyFromOrder.branchSystemId));
+      setEmployeeId(asSystemId(copyFromOrder.buyerSystemId));
       
       // Copy delivery date nếu có
       if (copyFromOrder.deliveryDate) {
@@ -178,7 +197,7 @@ export function PurchaseOrderFormPage() {
       // Copy line items
       const copiedItems: ProductLineItem[] = copyFromOrder.lineItems
         .map(li => {
-          const product = findProductById(li.productSystemId);
+          const product = findProductById(asSystemId(li.productSystemId));
           if (!product) return null;
           
           return {
@@ -329,6 +348,9 @@ export function PurchaseOrderFormPage() {
       return;
     }
 
+    const branchSystemId: SystemId = branchId;
+    const employeeSystemId: SystemId = employeeId;
+
     if (currentItems.length === 0) {
       console.log('Validation failed: No items, items.length =', currentItems.length);
       toast({
@@ -358,8 +380,8 @@ export function PurchaseOrderFormPage() {
       try {
         console.log('Building order data...');
         const supplier = suppliers.find((s) => s.systemId === currentSupplierId);
-        const branch = branches.find((b) => b.systemId === branchId);
-        const employee = employees.find((e) => e.systemId === employeeId);
+        const branch = branches.find((b) => b.systemId === branchSystemId);
+        const employee = employees.find((e) => e.systemId === employeeSystemId);
 
         // Use order ID from state (will be auto-generated if empty)
         const finalOrderId = orderId || '';
@@ -423,9 +445,9 @@ export function PurchaseOrderFormPage() {
           id: finalOrderId,
           supplierSystemId: currentSupplierId,
           supplierName: supplier?.name || '',
-          branchSystemId: branchId,
+          branchSystemId,
           branchName: branch?.name || '',
-          buyerSystemId: employeeId,
+          buyerSystemId: employeeSystemId,
           buyer: employee?.fullName || '',
           reference: reference || undefined,
           orderDate: toISODate(getCurrentDate()),
@@ -455,29 +477,30 @@ export function PurchaseOrderFormPage() {
           deliveryStatus: deliveryStatus,
           paymentStatus: initialPaymentStatus,
           payments: [],
-          creatorSystemId: employeeId,
+          creatorSystemId: employeeSystemId,
           creatorName: employee?.fullName || '',
         };
 
         console.log('Final order data:', orderData);
 
-        let createdOrder: PurchaseOrder;      if (isEditMode && systemId) {
-        console.log('Updating existing order:', systemId);
-        update(systemId, { ...orderData, systemId });
-        createdOrder = { ...orderData, systemId };
-        toast({
-          title: 'Thành công',
-          description: 'Đã cập nhật đơn nhập hàng',
-        });
-      } else {
-        console.log('Creating new order...');
-        createdOrder = add(orderData);
-        console.log('Order created:', createdOrder);
-        toast({
-          title: 'Thành công',
-          description: `Đã tạo đơn nhập hàng ${finalOrderId}`,
-        });
-      }
+        let createdOrder: PurchaseOrder;
+        if (isEditMode && purchaseOrderSystemId) {
+          console.log('Updating existing order:', purchaseOrderSystemId);
+          update(purchaseOrderSystemId, { ...orderData, systemId: purchaseOrderSystemId });
+          createdOrder = { ...orderData, systemId: purchaseOrderSystemId };
+          toast({
+            title: 'Thành công',
+            description: 'Đã cập nhật đơn nhập hàng',
+          });
+        } else {
+          console.log('Creating new order...');
+          createdOrder = add(orderData);
+          console.log('Order created:', createdOrder);
+          toast({
+            title: 'Thành công',
+            description: `Đã tạo đơn nhập hàng ${finalOrderId}`,
+          });
+        }
 
       // ========================================
       // XỬ LÝ KHI "TẠO & NHẬP HÀNG"
@@ -486,16 +509,20 @@ export function PurchaseOrderFormPage() {
         console.log('Processing inventory receipt...');
         // 1. Tạo phiếu nhập kho
         const receiptData = {
-          id: '',
-          purchaseOrderId: createdOrder.systemId, // ✅ Fixed: Use systemId for foreign key
-          supplierSystemId: createdOrder.supplierSystemId,
+          id: asBusinessId(''),
+          purchaseOrderSystemId: asSystemId(createdOrder.systemId),
+          purchaseOrderId: createdOrder.id ? asBusinessId(createdOrder.id) : asBusinessId(''),
+          supplierSystemId: asSystemId(createdOrder.supplierSystemId),
           supplierName: createdOrder.supplierName,
           receivedDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-          receiverSystemId: employeeId,
+          receiverSystemId: employeeSystemId,
           receiverName: employee?.fullName || '',
+          branchSystemId,
+          branchName: branch?.name,
+          warehouseName: branch?.name ? `Kho ${branch.name}` : undefined,
           items: currentItems.map(item => ({
             productSystemId: item.product.systemId,
-            productId: item.product.id || item.product.systemId,
+            productId: item.product.id,
             productName: item.product.name,
             orderedQuantity: item.quantity,
             receivedQuantity: item.quantity,
@@ -504,27 +531,27 @@ export function PurchaseOrderFormPage() {
           notes: 'Nhập kho tự động khi tạo đơn',
         };
 
-        addInventoryReceipt(receiptData);
+        const createdReceipt = addInventoryReceipt(receiptData);
 
         // 2. Cập nhật tồn kho + ghi lịch sử
         currentItems.forEach(item => {
           const productBeforeUpdate = findProductById(item.product.systemId);
-          const oldStock = productBeforeUpdate?.inventoryByBranch?.[branchId] || 0;
+          const oldStock = productBeforeUpdate?.inventoryByBranch?.[branchSystemId] || 0;
           
           // Cập nhật tồn kho
-          updateInventory(item.product.systemId, branchId, item.quantity);
+          updateInventory(item.product.systemId, branchSystemId, item.quantity);
 
           // Ghi lịch sử kho
           addStockHistoryEntry({
-            productId: item.product.id || item.product.systemId,
+            productId: item.product.systemId,
             date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
             employeeName: employee?.fullName || '',
             action: 'Nhập hàng từ NCC',
             quantityChange: item.quantity,
             newStockLevel: oldStock + item.quantity,
-            documentId: newReceiptId,
+            documentId: createdReceipt.id,
             branch: branch?.name || '',
-            branchSystemId: branchId,
+            branchSystemId,
           });
         });
 
@@ -538,25 +565,32 @@ export function PurchaseOrderFormPage() {
           currentPayments.forEach((payment, index) => {
             const paymentCategory = paymentTypes.find(pt => pt.name === 'Thanh toán cho đơn nhập hàng');
 
+            const timestamp = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
             const newPayment: Omit<Payment, 'systemId'> = {
               id: '' as any, // Let Payment store auto-generate PC-XXXXXX
-              date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
+              date: timestamp,
               amount: payment.amount,
-              recipientType: 'Nhà cung cấp',
+              recipientTypeSystemId: 'NHACUNGCAP',
+              recipientTypeName: 'Nhà cung cấp',
               recipientName: supplier?.name || '',
+              recipientSystemId: supplier?.systemId,
               description: payment.note || `Thanh toán đơn nhập hàng ${finalOrderId}`,
-              paymentMethod: payment.paymentMethodName,
+              paymentMethodSystemId: payment.paymentMethodSystemId || 'BANK_TRANSFER',
+              paymentMethodName: payment.paymentMethodName || 'Chuyển khoản',
               accountSystemId: '', // TODO: Add accountSystemId to PaymentRecord
               paymentReceiptTypeSystemId: paymentCategory?.systemId || '',
               paymentReceiptTypeName: paymentCategory?.name || 'Thanh toán cho đơn nhập hàng',
-              branchSystemId: branchId,
+              branchSystemId,
               branchName: branch?.name || '',
               createdBy: employee?.fullName || '',
-              createdAt: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
+              createdAt: timestamp,
               status: 'completed',
               category: 'supplier_payment',
               affectsDebt: true,
-            };
+              purchaseOrderSystemId: createdOrder.systemId,
+              purchaseOrderId: createdOrder.id,
+              originalDocumentId: createdOrder.id,
+            } as any;
 
             addPayment(newPayment);
           });
@@ -672,17 +706,21 @@ export function PurchaseOrderFormPage() {
       {/* Row 1: Supplier Info (70%) + Order Info (30%) - Mobile: Stack vertical */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-[340px]">
         <div className="lg:col-span-7 h-full overflow-hidden order-2 lg:order-1">
-          <SupplierSelectionCard value={supplierId} onChange={handleSetSupplierId} />
+          <SupplierSelectionCard value={supplierId ?? undefined} onChange={handleSetSupplierId} />
         </div>
         <div className="lg:col-span-3 h-full overflow-hidden order-1 lg:order-2">
           <OrderInfoCard
-            branchSystemId={branchId}
-            employeeSystemId={employeeId}
+            branchSystemId={branchId ?? ''}
+            employeeSystemId={employeeId ?? ''}
             reference={reference}
             orderId={orderId}
             deliveryDate={deliveryDate}
-            onBranchChange={setBranchId}
-            onEmployeeChange={setEmployeeId}
+            onBranchChange={(nextBranchId) =>
+              setBranchId(nextBranchId ? asSystemId(nextBranchId) : null)
+            }
+            onEmployeeChange={(nextEmployeeId) =>
+              setEmployeeId(nextEmployeeId ? asSystemId(nextEmployeeId) : null)
+            }
             onReferenceChange={setReference}
             onOrderIdChange={setOrderId}
             onDeliveryDateChange={setDeliveryDate}
@@ -694,7 +732,7 @@ export function PurchaseOrderFormPage() {
         <ProductSelectionCard
           items={items}
           onItemsChange={setItems}
-          supplierId={supplierId}
+          supplierId={supplierId ?? undefined}
         />
 
         {/* Row 3: Notes (60%) + Summary (40%) - Mobile: Stack vertical */}

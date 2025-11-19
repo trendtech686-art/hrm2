@@ -1,3 +1,5 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Tax, TaxType } from './types.ts';
@@ -5,17 +7,17 @@ import type { Tax, TaxType } from './types.ts';
 interface TaxState {
   data: Tax[];
   add: (tax: Omit<Tax, 'systemId'>) => Tax;
-  update: (systemId: string, tax: Partial<Tax>) => void;
-  remove: (systemId: string) => void;
-  findById: (systemId: string) => Tax | undefined;
+  update: (systemId: SystemId, tax: Partial<Tax>) => void;
+  remove: (systemId: SystemId) => void;
+  findById: (systemId: SystemId) => Tax | undefined;
   findByType: (type: TaxType) => Tax[];
   getDefault: (type: TaxType) => Tax | undefined;
-  setDefault: (systemId: string) => void;
+  setDefault: (systemId: SystemId) => void;
   getActive: () => Tax[];
 }
 
 // Sample data
-const sampleTaxes: Tax[] = [
+const rawTaxes = [
   {
     systemId: 'TAX001',
     id: 'VAT10',
@@ -56,7 +58,13 @@ const sampleTaxes: Tax[] = [
     description: 'Không áp dụng thuế',
     createdAt: new Date().toISOString(),
   },
-];
+] as const;
+
+const sampleTaxes: Tax[] = rawTaxes.map((tax) => ({
+  ...tax,
+  systemId: asSystemId(tax.systemId),
+  id: asBusinessId(tax.id),
+}));
 
 export const useTaxStore = create<TaxState>()(
   persist(
@@ -66,7 +74,7 @@ export const useTaxStore = create<TaxState>()(
       add: (tax) => {
         const newTax: Tax = {
           ...tax,
-          systemId: `TAX${Date.now()}`,
+          systemId: asSystemId(`TAX${Date.now()}`),
           createdAt: new Date().toISOString(),
         };
 

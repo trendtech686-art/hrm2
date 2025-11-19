@@ -1,12 +1,12 @@
-import type { SystemId } from '../../../lib/id-config';
+import { SystemId, BusinessId } from '../../../lib/id-types.ts';
 
 export type Branch = {
   systemId: SystemId;
-  id: string; // User-defined code, e.g., "HCM", "HN"
+  id: BusinessId; // User-defined code, e.g., "HCM", "HN"
   name: string; // e.g., "Chi nhánh Hồ Chí Minh"
   address: string;
   phone: string;
-  managerId?: string; // links to Employee.systemId
+  managerId?: SystemId; // links to Employee.systemId
   isDefault: boolean;
   
   // ✅ Địa chỉ 3 cấp (cho shipping integration)

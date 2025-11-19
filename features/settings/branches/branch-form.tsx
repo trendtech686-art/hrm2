@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+import { asSystemId, asBusinessId } from '@/lib/id-types';
 import type { Branch } from './types.ts';
 import { useBranchStore } from './store.ts';
 import { useEmployeeStore } from '../../employees/store.ts';
@@ -30,8 +31,7 @@ interface BranchFormProps {
 }
 
 export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps) {
-  const branchStore = useBranchStore();
-  const branches = branchStore.getState().data;
+  const { data: branches } = useBranchStore();
   const { searchEmployees, data: allEmployees } = useEmployeeStore();
   const { 
     data: provinces, 
@@ -67,7 +67,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
   // Get districts for 3-level
   const districts = React.useMemo(() => {
     if (addressLevel === '3-level' && selectedProvinceId) {
-      return getDistricts3LevelByProvinceId(selectedProvinceId);
+      return getDistricts3LevelByProvinceId(asBusinessId(selectedProvinceId));
     }
     return [];
   }, [addressLevel, selectedProvinceId, getDistricts3LevelByProvinceId]);
@@ -75,7 +75,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
   // Get wards based on level
   const wards = React.useMemo(() => {
     if (addressLevel === '2-level' && selectedProvinceId) {
-      return getWards2LevelByProvinceId(selectedProvinceId);
+      return getWards2LevelByProvinceId(asBusinessId(selectedProvinceId));
     } else if (addressLevel === '3-level' && selectedDistrictId) {
       return getWards3LevelByDistrictId(selectedDistrictId);
     }

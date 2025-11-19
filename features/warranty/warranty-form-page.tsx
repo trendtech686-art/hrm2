@@ -4,6 +4,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/auth-context.tsx';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
 // Types & Store
 import type { WarrantyFormValues, WarrantySettlement, WarrantyProduct, SettlementType } from './types.ts';
@@ -26,7 +27,7 @@ import { CustomerSelector } from '../orders/components/customer-selector.tsx';
 import { OrderNotes } from '../orders/components/order-notes.tsx';
 
 // Warranty-specific adapters
-import { WarrantyInfoCard } from './components/warranty-info-card.tsx';
+import { WarrantyFormInfoCard } from './components/index.ts';
 import { WarrantyProductsSection } from './components/warranty-products-section.tsx';
 import { WarrantySummary } from './components/warranty-summary.tsx';
 
@@ -82,9 +83,10 @@ export function WarrantyFormPage() {
   const { data: employees } = useEmployeeStore();
 
   const isEditing = !!systemId;
-  const ticket = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const ticketSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : null), [systemId]);
+  const ticket = React.useMemo(() => (ticketSystemId ? findById(ticketSystemId) : null), [findById, ticketSystemId]);
 
-  // ✅ Prevent editing if ticket is returned (đã trả hàng cho khách)
+  // Prevent editing if ticket is returned (đã trả hàng cho khách)
   const isReadOnly = React.useMemo(() => {
     if (!ticket) return false;
     return ticket.status === 'returned';
@@ -140,7 +142,7 @@ export function WarrantyFormPage() {
   // Redirect if trying to edit a returned ticket
   React.useEffect(() => {
     if (isReadOnly && isEditing) {
-      toast.error('❌ Không thể chỉnh sửa phiếu đã trả hàng cho khách');
+      toast.error('Không thể chỉnh sửa phiếu đã trả hàng cho khách');
       navigate(`/warranty/${systemId}`);
     }
   }, [isReadOnly, isEditing, systemId, navigate]);
@@ -250,21 +252,21 @@ export function WarrantyFormPage() {
   const validateFormData = React.useCallback((data: WarrantyFormValues) => {
     // Check customer
     if (!data.customer) {
-      toast.error('❌ Thiếu thông tin khách hàng', { 
+      toast.error('Thiếu thông tin khách hàng', { 
         description: 'Vui lòng chọn khách hàng từ danh sách',
         duration: 4000
       });
       return false;
     }
     if (!data.customer.name || data.customer.name.trim() === '') {
-      toast.error('❌ Thiếu tên khách hàng', { 
+      toast.error('Thiếu tên khách hàng', { 
         description: 'Tên khách hàng không được để trống',
         duration: 4000
       });
       return false;
     }
     if (!data.customer.phone || data.customer.phone.trim() === '') {
-      toast.error('❌ Thiếu số điện thoại', { 
+      toast.error('Thiếu số điện thoại', { 
         description: 'Số điện thoại khách hàng không được để trống',
         duration: 4000
       });
@@ -273,7 +275,7 @@ export function WarrantyFormPage() {
     
     // Check branch
     if (!data.branchSystemId) {
-      toast.error('❌ Thiếu chi nhánh', { 
+      toast.error('Thiếu chi nhánh', { 
         description: 'Vui lòng chọn chi nhánh xử lý',
         duration: 4000
       });
@@ -282,7 +284,7 @@ export function WarrantyFormPage() {
     
     // Check employee
     if (!data.employeeSystemId) {
-      toast.error('❌ Thiếu nhân viên', { 
+      toast.error('Thiếu nhân viên', { 
         description: 'Vui lòng chọn nhân viên xử lý',
         duration: 4000
       });
@@ -293,7 +295,7 @@ export function WarrantyFormPage() {
     if (!isEditing && data.id && data.id.trim() !== '') {
       const existingTicket = allTickets.find(t => t.id === data.id.trim());
       if (existingTicket) {
-        toast.error('❌ Mã phiếu đã tồn tại', { 
+        toast.error('Mã phiếu đã tồn tại', { 
           description: `Mã "${data.id}" đã được sử dụng. Vui lòng nhập mã khác hoặc để trống để tự động tạo.`,
           duration: 5000
         });
@@ -303,7 +305,7 @@ export function WarrantyFormPage() {
     
     // Check tracking code
     if (!data.trackingCode || data.trackingCode.trim() === '') {
-      toast.error('❌ Thiếu mã vận đơn', { 
+      toast.error('Thiếu mã vận đơn', { 
         description: 'Vui lòng nhập mã vận đơn',
         duration: 4000
       });
@@ -312,7 +314,7 @@ export function WarrantyFormPage() {
     
     // Check images
     if (!data.receivedImages || data.receivedImages.length === 0) {
-      toast.error('❌ Thiếu hình ảnh', { 
+      toast.error('Thiếu hình ảnh', { 
         description: 'Vui lòng chụp hình đơn hàng lúc nhận (tối thiểu 1 ảnh)',
         duration: 4000
       });
@@ -323,7 +325,7 @@ export function WarrantyFormPage() {
     const returnProducts = data.products.filter(p => p.resolution === 'return');
     const returnProductsWithoutNotes = returnProducts.filter(p => !p.issueDescription || p.issueDescription.trim() === '');
     if (returnProductsWithoutNotes.length > 0) {
-      toast.error('❌ Thiếu ghi chú cho sản phẩm trả lại', { 
+      toast.error('Thiếu ghi chú cho sản phẩm trả lại', { 
         description: `Có ${returnProductsWithoutNotes.length} sản phẩm có kết quả "Trả lại" nhưng chưa ghi rõ lý do. Vui lòng bổ sung ghi chú.`,
         duration: 5000
       });
@@ -370,7 +372,7 @@ export function WarrantyFormPage() {
     const employee = employees.find(e => e.systemId === data.employeeSystemId);
 
     if (!branch) {
-      toast.error('❌ Lỗi dữ liệu', { 
+      toast.error('Lỗi dữ liệu', { 
         description: `Không tìm thấy chi nhánh với ID: ${data.branchSystemId}`,
         duration: 5000
       });
@@ -378,7 +380,7 @@ export function WarrantyFormPage() {
       return;
     }
     if (!employee) {
-      toast.error('❌ Lỗi dữ liệu', { 
+      toast.error('Lỗi dữ liệu', { 
         description: `Không tìm thấy nhân viên với ID: ${data.employeeSystemId}`,
         duration: 5000
       });
@@ -390,7 +392,7 @@ export function WarrantyFormPage() {
     const selectedAddress = data.customer?.addresses?.[0];
     const customerAddress = selectedAddress 
       ? `${selectedAddress.street}, ${selectedAddress.ward}, ${selectedAddress.province}`
-      : (data.customer?.address || '');
+      : '';
 
     // ===== CALCULATE SUMMARY =====
     const summary = calculateSummary(data.products);
@@ -406,7 +408,7 @@ export function WarrantyFormPage() {
     // Pre-generate systemId for new ticket (used for image confirmation)
     let preGeneratedSystemId: string | null = null;
     if (!isEditing) {
-      preGeneratedSystemId = generateNextSystemId() as any; // ✅ Generate ID without creating ticket
+      preGeneratedSystemId = generateNextSystemId() as any; // Generate ID without creating ticket
       targetWarrantyId = preGeneratedSystemId as any;
     }
 
@@ -459,7 +461,7 @@ export function WarrantyFormPage() {
             console.warn('Failed to cleanup received staging files (non-critical):', cleanupError);
           }
         } catch (error) {
-          toast.error('❌ Lỗi lưu hình ảnh lúc nhận', { id: confirmToast });
+          toast.error('Lỗi lưu hình ảnh lúc nhận', { id: confirmToast });
           throw error;
         }
       } else {
@@ -492,7 +494,7 @@ export function WarrantyFormPage() {
             console.warn('Failed to cleanup processed staging files (non-critical):', cleanupError);
           }
         } catch (error) {
-          toast.error('❌ Lỗi lưu hình ảnh đã xử lý', { id: confirmToast });
+          toast.error('Lỗi lưu hình ảnh đã xử lý', { id: confirmToast });
           throw error;
         }
       } else {
@@ -563,7 +565,7 @@ export function WarrantyFormPage() {
             };
           } catch (error) {
             console.error(`Failed to confirm product ${index} images:`, error);
-            toast.error(`❌ Lỗi lưu hình ảnh SP ${index + 1}`, { id: confirmToast });
+            toast.error(`Lỗi lưu hình ảnh SP ${index + 1}`, { id: confirmToast });
             // Fallback: keep staging URLs
             return product;
           }
@@ -623,10 +625,10 @@ export function WarrantyFormPage() {
       if (isEditing && ticket) {
         // ===== UPDATE EXISTING TICKET =====
         
-        // ✅ REMOVED: generateChangeLog - let store auto-history handle it with proper Vietnamese labels
+        // REMOVED: generateChangeLog - let store auto-history handle it with proper Vietnamese labels
         // The store.update() method already tracks all field changes with proper names lookup
         
-        // ✅ CRITICAL: Remove history/comments from updates to preserve existing data
+        // CRITICAL: Remove history/comments from updates to preserve existing data
         const { history, comments, createdAt, createdBy, ...updateData } = ticketData;
         
         // Auto transition status if products added
@@ -642,12 +644,12 @@ export function WarrantyFormPage() {
         update(ticket.systemId, updateData as any);
         
         if (shouldTransitionToComplete) {
-          toast.success('✅ Đã cập nhật phiếu và chuyển sang "Chưa xử lý"', {
+          toast.success('Đã cập nhật phiếu và chuyển sang "Chưa xử lý"', {
             description: `Mã: ${ticket.id}`,
             duration: 3000
           });
         } else {
-          toast.success('✅ Đã cập nhật phiếu', {
+          toast.success('Đã cập nhật phiếu', {
             description: `Mã: ${ticket.id}`,
             duration: 3000
           });
@@ -660,7 +662,7 @@ export function WarrantyFormPage() {
         // Now create ticket with all confirmed images in one go
         const finalTicket = add({
           id: '',
-          systemId: preGeneratedSystemId!, // ✅ Use pre-generated ID
+          systemId: preGeneratedSystemId!, // Use pre-generated ID
           branchSystemId: data.branchSystemId,
           branchName: branch.name,
           employeeSystemId: data.employeeSystemId,
@@ -672,9 +674,9 @@ export function WarrantyFormPage() {
           shippingFee: data.shippingFee || 0,
           referenceUrl: data.referenceUrl?.trim() || undefined,
           externalReference: data.externalReference?.trim() || undefined,
-          receivedImages: finalReceivedImageUrls, // ✅ Already confirmed
-          products: productsWithConfirmedImages, // ✅ Already confirmed
-          processedImages: finalProcessedImageUrls, // ✅ Already confirmed
+          receivedImages: finalReceivedImageUrls, // Already confirmed
+          products: productsWithConfirmedImages, // Already confirmed
+          processedImages: finalProcessedImageUrls, // Already confirmed
           // Auto determine status based on products
           status: (productsWithConfirmedImages && productsWithConfirmedImages.length > 0) 
             ? 'pending' as const   // Có sản phẩm → Chưa xử lý
@@ -688,7 +690,7 @@ export function WarrantyFormPage() {
             settledAmount: 0,
             remainingAmount: 0,
             unsettledProducts: [],
-            linkedOrderSystemId: data.linkedOrderSystemId, // ✅ CHỈ systemId
+            linkedOrderSystemId: data.linkedOrderSystemId, // CHỈ systemId
             voucherCode: data.settlementVoucherCode,
             status: 'pending' as const,
             notes: data.notes || '',
@@ -702,7 +704,7 @@ export function WarrantyFormPage() {
           updatedAt: toISODateTime(getCurrentDate()),
         } as any);
         
-        toast.success('✅ Đã tạo phiếu bảo hành', { 
+        toast.success('Đã tạo phiếu bảo hành', { 
           description: `Mã: ${finalTicket?.id || finalTicket?.systemId} - Khách: ${data.customer?.name}`,
           duration: 3000
         });
@@ -711,12 +713,12 @@ export function WarrantyFormPage() {
         navigate(`/warranty/${preGeneratedSystemId}`);
       }
     } catch (error) {
-      console.error('❌ Error saving warranty ticket:', error);
+      console.error('Error saving warranty ticket:', error);
       
       // Detailed error message
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       
-      toast.error('❌ Lỗi lưu phiếu bảo hành', { 
+      toast.error('Lỗi lưu phiếu bảo hành', { 
         description: `Chi tiết: ${errorMessage}. Vui lòng kiểm tra lại thông tin.`,
         duration: 6000
       });
@@ -820,7 +822,7 @@ export function WarrantyFormPage() {
                 <CustomerSelector disabled={isReadOnly || isUpdateMode} />
               </div>
               <div className="w-full md:w-[30%]">
-                <WarrantyInfoCard disabled={isReadOnly || isUpdateMode} />
+                <WarrantyFormInfoCard disabled={isReadOnly || isUpdateMode} />
               </div>
             </div>
 

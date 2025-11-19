@@ -23,9 +23,10 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import type { TaskAssignee, AssigneeRole } from '../types';
+import { asSystemId, type SystemId } from '../../../lib/id-types.ts';
 
 interface Employee {
-  systemId: string;
+  systemId: SystemId;
   name: string;
   avatar?: string;
 }
@@ -66,7 +67,7 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
   }, [assignees, availableEmployees]);
 
   // Add assignee with default role
-  const handleAddAssignee = (employeeId: string) => {
+  const handleAddAssignee = (employeeId: SystemId) => {
     const employee = availableEmployees.find(e => e.systemId === employeeId);
     if (!employee) return;
 
@@ -74,12 +75,12 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
     const role: AssigneeRole = assignees.length === 0 ? 'owner' : 'contributor';
 
     const newAssignee: TaskAssignee = {
-      systemId: `assignee-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      systemId: asSystemId(`assignee-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`),
       employeeSystemId: employee.systemId,
       employeeName: employee.name,
       role,
       assignedAt: new Date().toISOString(),
-      assignedBy: 'CURRENT_USER', // Will be replaced by actual user in store
+      assignedBy: asSystemId('SYSTEM'), // Will be replaced by actual user in store
     };
 
     onChange([...assignees, newAssignee]);
@@ -87,12 +88,12 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
   };
 
   // Remove assignee
-  const handleRemoveAssignee = (assigneeId: string) => {
+  const handleRemoveAssignee = (assigneeId: SystemId) => {
     onChange(assignees.filter(a => a.systemId !== assigneeId));
   };
 
   // Update assignee role
-  const handleRoleChange = (assigneeId: string, newRole: AssigneeRole) => {
+  const handleRoleChange = (assigneeId: SystemId, newRole: AssigneeRole) => {
     onChange(
       assignees.map(a =>
         a.systemId === assigneeId ? { ...a, role: newRole } : a

@@ -1,17 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
 import type { StorageLocation } from './storage-location-types.ts';
 
 interface StorageLocationStore {
   data: StorageLocation[];
   add: (location: Omit<StorageLocation, 'systemId' | 'createdAt' | 'updatedAt'>) => void;
-  update: (systemId: string, location: Partial<StorageLocation>) => void;
-  remove: (systemId: string) => void;
-  findById: (id: string) => StorageLocation | undefined;
+  update: (systemId: SystemId, location: Partial<StorageLocation>) => void;
+  remove: (systemId: SystemId) => void;
+  findById: (id: BusinessId) => StorageLocation | undefined;
   getActive: () => StorageLocation[];
 }
 
-const initialData: StorageLocation[] = [
+const rawData = [
   {
     systemId: crypto.randomUUID(),
     id: 'KHO-A',
@@ -32,7 +33,13 @@ const initialData: StorageLocation[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-];
+] as const;
+
+const initialData: StorageLocation[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  id: asBusinessId(item.id),
+}));
 
 export const useStorageLocationStore = create<StorageLocationStore>()(
   persist(
@@ -42,7 +49,7 @@ export const useStorageLocationStore = create<StorageLocationStore>()(
       add: (location) => {
         const newLocation: StorageLocation = {
           ...location,
-          systemId: crypto.randomUUID(),
+          systemId: asSystemId(crypto.randomUUID()),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };

@@ -1,7 +1,9 @@
+import { SystemId, BusinessId } from '../../../lib/id-types.ts';
+
 // Common base interface for all setting types
 export interface BaseSetting {
-  systemId: string; // Internal unique ID for store (KHÔNG ĐỔI)
-  id: string; // Mã hiển thị cho user (CÓ THỂ ĐỔI)
+  systemId: SystemId; // Internal unique ID for store (KHÔNG ĐỔI)
+  id: BusinessId; // Mã hiển thị cho user (CÓ THỂ ĐỔI)
   name: string;
   description?: string;
   isActive: boolean;

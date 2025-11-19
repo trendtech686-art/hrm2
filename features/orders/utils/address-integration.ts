@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import type { EnhancedCustomerAddress } from '@/features/customers/types/enhanced-address';
 import type { ShippingAddress } from '@/features/orders/components/shipping/types';
 import { toShippingApiFormat } from '@/features/customers/utils/enhanced-address-helper';
-import { useProvinceStore } from '@/features/provinces/store';
+import { useProvinceStore } from '@/features/settings/provinces/store';
 
 /**
  * Hook: Chuyển đổi EnhancedCustomerAddress sang ShippingAddress

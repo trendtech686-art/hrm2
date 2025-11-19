@@ -13,6 +13,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Pencil, Trash2, MoreHorizontal, Package, Printer, Link as LinkIcon, AlertTriangle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { useWarrantyStore } from './store.ts';
+import { ROUTES, generatePath } from '../../lib/router.ts';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store.ts';
 
@@ -610,6 +611,20 @@ export const getColumns = (
     },
   },
 
+  {
+    id: "completedAt",
+    accessorKey: "completedAt",
+    header: "Ngày kết thúc",
+    cell: ({ row }) => {
+      if (!row.completedAt) return <span className="text-muted-foreground text-xs">—</span>;
+      return <div className="whitespace-nowrap text-xs">{formatDateTime(row.completedAt)}</div>;
+    },
+    meta: {
+      displayName: "Ngày kết thúc",
+      group: "Thời gian"
+    },
+  },
+
   // Audit fields
   {
     id: "createdBy",
@@ -686,7 +701,8 @@ export const getColumns = (
               onClick={() => {
                 if (!row.publicTrackingCode) return;
                 // CHỈ dùng publicTrackingCode (mã tra cứu chính thức)
-                const trackingUrl = `${window.location.origin}/warranty-tracking/${row.publicTrackingCode}`;
+                const trackingPath = generatePath(ROUTES.INTERNAL.WARRANTY_TRACKING, { trackingCode: row.publicTrackingCode });
+                const trackingUrl = `${window.location.origin}${trackingPath}`;
                 navigator.clipboard.writeText(trackingUrl);
                 toast.success(
                   <div className="flex flex-col gap-1">

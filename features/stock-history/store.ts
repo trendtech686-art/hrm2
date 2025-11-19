@@ -2,6 +2,8 @@
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import type { StockHistoryEntry } from './types.ts';
+import { asSystemId } from '../../lib/id-types.ts';
+import type { SystemId } from '../../lib/id-types.ts';
 import { data as initialData } from './data.ts';
 
 // ✨ Migration helper: Convert SKU to systemId for old data
@@ -42,14 +44,14 @@ function migrateHistoryData(entries: StockHistoryEntry[]): StockHistoryEntry[] {
   
   return entries.map(entry => ({
     ...entry,
-    productId: skuToSystemId[entry.productId] || entry.productId // Convert or keep if already systemId
+    productId: asSystemId(skuToSystemId[entry.productId as any] || entry.productId) // Convert or keep if already systemId
   }));
 }
 
 interface StockHistoryState {
   entries: StockHistoryEntry[];
   addEntry: (entry: Omit<StockHistoryEntry, 'systemId'>) => void;
-  getHistoryForProduct: (productId: string, branchSystemId?: 'all' | string) => StockHistoryEntry[];
+  getHistoryForProduct: (productId: SystemId, branchSystemId?: 'all' | SystemId) => StockHistoryEntry[];
 }
 
 let entryCounter = initialData.length;
@@ -62,7 +64,7 @@ export const useStockHistoryStore = create<StockHistoryState>()(
         entryCounter++;
         const newEntry: StockHistoryEntry = {
             ...entry,
-            systemId: `SH_${Date.now()}_${entryCounter}`,
+            systemId: asSystemId(`HISTORY${String(Date.now()).slice(-6)}_${entryCounter}`),
         };
         return { entries: [...state.entries, newEntry] };
       }),

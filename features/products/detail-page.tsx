@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useProductStore } from './store.ts';
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -48,12 +48,11 @@ export function ProductDetailPage() {
   const { data: allWarranties } = useWarrantyStore();
   const { data: allInventoryChecks } = useInventoryCheckStore();
   
-  const [historyBranchFilter, setHistoryBranchFilter] = React.useState<'all' | string>('all');
+  const [historyBranchFilter, setHistoryBranchFilter] = React.useState<'all' | SystemId>('all');
   const [committedDialogOpen, setCommittedDialogOpen] = React.useState(false);
-  const [selectedBranch, setSelectedBranch] = React.useState<{ systemId: string; name: string } | null>(null);
+  const [selectedBranch, setSelectedBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
 
-
-  const product = React.useMemo(() => (systemId ? findProductById(createSystemId(systemId)) : null), [systemId, findProductById]);
+  const product = React.useMemo(() => (systemId ? findProductById(asSystemId(systemId)) : null), [systemId, findProductById]);
   const supplier = React.useMemo(() => (product?.primarySupplierSystemId ? findSupplierById(product.primarySupplierSystemId) : null), [product, findSupplierById]);
   const createdByEmployee = React.useMemo(() => (product?.createdBy ? findEmployeeById(product.createdBy) : null), [product, findEmployeeById]);
   const updatedByEmployee = React.useMemo(() => (product?.updatedBy ? findEmployeeById(product.updatedBy) : null), [product, findEmployeeById]);
@@ -503,8 +502,9 @@ export function ProductDetailPage() {
                                     const itemInPO = po.lineItems.find(item => item.productSystemId === product.systemId);
                                     if (!itemInPO) return total;
 
+                                    const poSystemId = asSystemId(po.systemId);
                                     const totalReceivedForPO = allInventoryReceipts
-                                      .filter(receipt => receipt.purchaseOrderId === po.systemId) // ✅ Fixed: Match by systemId
+                                      .filter(receipt => receipt.purchaseOrderSystemId === poSystemId)
                                       .reduce((receivedSum, receipt) => {
                                         const itemInReceipt = receipt.items.find(item => item.productSystemId === product.systemId);
                                         return receivedSum + (itemInReceipt ? Number(itemInReceipt.receivedQuantity) : 0);
@@ -557,7 +557,12 @@ export function ProductDetailPage() {
                             dateFilterTitle="Ngày ghi nhận"
                             exportFileName={`Lich_su_kho_${product.id}`}
                         >
-                            <Select value={historyBranchFilter} onValueChange={(v) => setHistoryBranchFilter(v)}>
+                            <Select
+                              value={historyBranchFilter}
+                              onValueChange={(value) =>
+                                setHistoryBranchFilter(value === 'all' ? 'all' : asSystemId(value))
+                              }
+                            >
                                 <SelectTrigger className="h-8 w-full sm:w-[200px]">
                                     <SelectValue placeholder="Lọc chi nhánh" />
                                 </SelectTrigger>

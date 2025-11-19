@@ -15,21 +15,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog';
+} from '../../../../../components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
-import { Button } from '../../../components/ui/button';
-import { Label } from '../../../components/ui/label';
-import { Textarea } from '../../../components/ui/textarea';
+} from '../../../../../components/ui/select';
+import { Button } from '../../../../../components/ui/button';
+import { Label } from '../../../../../components/ui/label';
+import { Textarea } from '../../../../../components/ui/textarea';
 import { toast } from 'sonner';
-import { useOrderStore } from '../../orders/store';
-import { VirtualizedCombobox } from '../../../components/ui/virtualized-combobox';
-import type { SettlementType } from '../types';
+import { useOrderStore } from '../../../../orders/store';
+import { VirtualizedCombobox } from '../../../../../components/ui/virtualized-combobox';
+import type { SettlementType } from '../../../types';
 
 interface SettlementDialogProps {
   open: boolean;

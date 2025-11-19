@@ -2,52 +2,63 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { data as initialData } from './data.ts';
 import type { CashAccount } from './types.ts';
-import { findNextAvailableBusinessId } from '../../lib/id-utils';
+import { findNextAvailableBusinessId, generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, type EntityType } from '../../lib/id-utils.ts';
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
+
+const CASH_ACCOUNT_ENTITY: EntityType = 'cash-accounts';
+const SYSTEM_ID_PREFIX = 'ACCOUNT';
+const BUSINESS_ID_PREFIX = 'TK';
+const BUSINESS_ID_DIGITS = 6;
 
 interface CashbookState {
   accounts: CashAccount[];
-  getAccountById: (id: string) => CashAccount | undefined;
+  getAccountById: (id: BusinessId) => CashAccount | undefined;
   add: (item: Omit<CashAccount, 'systemId'>) => void;
-  update: (systemId: string, item: CashAccount) => void;
-  remove: (systemId: string) => void;
-  setDefault: (systemId: string) => void;
+  update: (systemId: SystemId, item: CashAccount) => void;
+  remove: (systemId: SystemId) => void;
+  setDefault: (systemId: SystemId) => void;
 }
 
-let idCounter = initialData.length;
+const getNextSystemId = (accounts: CashAccount[]): SystemId => {
+  const currentCounter = getMaxSystemIdCounter(accounts, SYSTEM_ID_PREFIX);
+  return asSystemId(generateSystemId(CASH_ACCOUNT_ENTITY, currentCounter + 1));
+};
+
+const ensureBusinessId = (accounts: CashAccount[], provided?: BusinessId): BusinessId => {
+  if (provided && provided.trim()) {
+    return provided;
+  }
+
+  const existingIds = accounts.map(acc => acc.id as string);
+  const startCounter = getMaxBusinessIdCounter(accounts, BUSINESS_ID_PREFIX);
+  const { nextId } = findNextAvailableBusinessId(BUSINESS_ID_PREFIX, existingIds, startCounter, BUSINESS_ID_DIGITS);
+  return asBusinessId(nextId);
+};
 
 export const useCashbookStore = create<CashbookState>()(
   persist(
     (set, get) => ({
       accounts: initialData,
       getAccountById: (id) => get().accounts.find(a => a.id === id),
-      add: (item) => set(state => {
-        // Generate systemId using ACCOUNT prefix (6 digits)
-        idCounter++;
-        const newSystemId = `ACCOUNT${String(idCounter).padStart(6, '0')}`;
-        
-        // Auto-generate business ID if empty
-        let businessId = item.id;
-        if (!businessId || !businessId.trim()) {
-          const existingIds = state.accounts.map(acc => acc.id);
-          const result = findNextAvailableBusinessId('TK', existingIds, idCounter, 6);
-          businessId = result.nextId;
-          idCounter = result.updatedCounter;
-        }
-        
-        const newItem = { ...item, systemId: newSystemId, id: businessId } as CashAccount;
-        return { accounts: [...state.accounts, newItem] };
+      add: (item) => set((state) => {
+        const newAccount: CashAccount = {
+          ...item,
+          systemId: getNextSystemId(state.accounts),
+          id: ensureBusinessId(state.accounts, item.id),
+        };
+
+        return { accounts: [...state.accounts, newAccount] };
       }),
-      update: (systemId, updatedItem) => set(state => ({
-        accounts: state.accounts.map(acc => acc.systemId === systemId ? updatedItem : acc)
+      update: (systemId, updatedItem) => set((state) => ({
+        accounts: state.accounts.map((acc) => (acc.systemId === systemId ? updatedItem : acc))
       })),
-      remove: (systemId) => set(state => ({
+      remove: (systemId) => set((state) => ({
         accounts: state.accounts.filter(acc => acc.systemId !== systemId)
       })),
-      setDefault: (systemId) => set(state => {
+      setDefault: (systemId) => set((state) => {
         const targetAccount = state.accounts.find(acc => acc.systemId === systemId);
         if (!targetAccount) return state;
-        
-        // Chỉ set default cho accounts cùng type (cash hoặc bank)
+
         return {
           accounts: state.accounts.map(acc => ({
             ...acc,

@@ -10,6 +10,13 @@ interface User {
   verified?: boolean;
 }
 
+interface CurrentUserInfo {
+  systemId: string;
+  name: string;
+  email?: string;
+  role?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   employee: Employee | null;
@@ -113,10 +120,25 @@ export function useAuth() {
 }
 
 // Helper to get current user systemId for store tracking
+export function getCurrentUserInfo(): CurrentUserInfo {
+  try {
+    const stored = localStorage.getItem('user');
+    if (!stored) {
+      return { systemId: 'SYSTEM', name: 'Hệ thống' };
+    }
+    const user = JSON.parse(stored);
+    return {
+      systemId: user.employeeId || 'SYSTEM',
+      name: user.name || 'Hệ thống',
+      email: user.email,
+      role: user.role,
+    };
+  } catch (error) {
+    console.error('Không thể đọc thông tin user hiện tại:', error);
+    return { systemId: 'SYSTEM', name: 'Hệ thống' };
+  }
+}
+
 export function getCurrentUserSystemId(): string {
-  const stored = localStorage.getItem('user');
-  if (!stored) return 'SYSTEM';
-  
-  const user = JSON.parse(stored);
-  return user.employeeId || 'SYSTEM';
+  return getCurrentUserInfo().systemId;
 }

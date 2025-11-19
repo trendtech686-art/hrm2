@@ -3,7 +3,8 @@ import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, toISODate } from '@/lib/date-utils';
 import { useCustomerStore } from './store.ts';
-import { CustomerForm, type CustomerFormValues } from './customer-form.tsx';
+import { asSystemId } from '@/lib/id-types';
+import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import {
   Card,
@@ -19,17 +20,24 @@ export function CustomerFormPage() {
   const navigate = useNavigate();
   const { findById, add, update } = useCustomerStore();
 
-  const customer = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const isEditMode = !!customer;
 
-  const handleSubmit = (values: CustomerFormValues) => {
+  const handleSubmit = (values: CustomerFormSubmitPayload) => {
     if (customer) {
-      update(customer.systemId, { ...customer, ...values } as Customer);
+      const updated: Customer = {
+        ...customer,
+        ...values,
+        id: values.id ?? customer.id,
+      };
+      update(asSystemId(customer.systemId), updated);
     } else {
+      const createdAt = new Date().toISOString().split('T')[0];
       add({
         ...values,
+        id: values.id,
         status: 'Đang giao dịch',
-        createdAt: new Date().toISOString().split('T')[0],
+        createdAt,
         totalOrders: 0,
         totalSpent: 0,
         totalQuantityPurchased: 0,

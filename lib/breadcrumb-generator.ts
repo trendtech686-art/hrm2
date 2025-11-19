@@ -85,8 +85,8 @@ function parseRouteEntity(pathname: string): RouteEntityInfo {
   
   // Map route type to entity type
   const routeToEntityMap: Record<string, EntityType> = {
-    'receipts': 'vouchers' as EntityType,
-    'payments': 'vouchers' as EntityType,
+    'receipts': 'voucher-receipt',
+    'payments': 'voucher-payment',
     'employees': 'employees',
     'customers': 'customers',
     'products': 'products',
@@ -143,8 +143,8 @@ export function generateBreadcrumb(
  * 
  * @example
  * ```typescript
- * // In voucher detail page
- * const crumbs = generateDetailBreadcrumb('vouchers', voucher.systemId, 'Phiếu thu/chi');
+ * // In voucher detail page (phiếu chi)
+ * const crumbs = generateDetailBreadcrumb('voucher-payment', voucher.systemId, 'Phiếu thu/chi');
  * // Result: ['Phiếu thu/chi', 'PT000051']
  * ```
  */

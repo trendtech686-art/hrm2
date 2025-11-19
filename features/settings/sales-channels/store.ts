@@ -1,52 +1,77 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import type { UseBoundStore, StoreApi } from 'zustand';
 import { data as initialData } from './data.ts';
 import type { SalesChannel } from './types.ts';
+import { createCrudStore, type CrudState } from '../../../lib/store-factory.ts';
+import { getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
+import type { SystemId } from '@/lib/id-types';
 
-interface SalesChannelState {
-  data: SalesChannel[];
-  add: (item: Omit<SalesChannel, 'systemId'>) => void;
-  update: (systemId: string, updatedChannel: Omit<SalesChannel, 'systemId'>) => void;
-  remove: (systemId: string) => void;
-  setDefault: (systemId: string) => void;
-}
+type SalesChannelStore = CrudState<SalesChannel> & {
+  setDefault: (systemId: SystemId) => void;
+};
 
-let idCounter = initialData.length;
+const baseStore = createCrudStore<SalesChannel>(initialData, 'sales-channels', {
+  businessIdField: 'id',
+  persistKey: 'hrm-sales-channel-storage',
+  getCurrentUser: getCurrentUserSystemId,
+}) as UseBoundStore<StoreApi<SalesChannelStore>>;
 
-export const useSalesChannelStore = create<SalesChannelState>()(
-  persist(
-    (set) => ({
-      data: initialData,
-      add: (item) => set((state) => {
-        idCounter++;
-        const newSystemId = `SC${idCounter.toString().padStart(8, '0')}`;
-        let newData = [...state.data, { ...item, systemId: newSystemId }];
-        if (item.isDefault) {
-          newData = newData.map(channel => 
-            channel.systemId === newSystemId ? channel : { ...channel, isDefault: false }
-          );
-        }
-        return { data: newData };
-      }),
-      update: (systemId, updatedFields) => set((state) => {
-        let newData = state.data.map(p => p.systemId === systemId ? { ...p, ...updatedFields } : p);
-        if (updatedFields.isDefault) {
-            newData = newData.map(channel => 
-              channel.systemId === systemId ? channel : { ...channel, isDefault: false }
-            );
-        }
-        return { data: newData };
-      }),
-      remove: (systemId) => set((state) => ({
-        data: state.data.filter((p) => p.systemId !== systemId),
+const originalAdd = baseStore.getState().add;
+const originalUpdate = baseStore.getState().update;
+const originalRemove = baseStore.getState().remove;
+
+const setDefaultAction = (systemId: SystemId) => {
+  baseStore.setState((current) => {
+    const exists = current.data.some((channel) => channel.systemId === systemId);
+    if (!exists) return current;
+
+    return {
+      ...current,
+      data: current.data.map((channel) => ({
+        ...channel,
+        isDefault: channel.systemId === systemId,
       })),
-      setDefault: (systemId) => set((state) => ({
-        data: state.data.map(p => ({ ...p, isDefault: p.systemId === systemId })),
-      })),
-    }),
-    {
-      name: 'hrm-sales-channel-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
-);
+    };
+  });
+};
+
+const ensureDefaultExists = () => {
+  const { data } = baseStore.getState();
+  if (!data.length) return;
+  if (!data.some((channel) => channel.isDefault)) {
+    setDefaultAction(data[0].systemId);
+  }
+};
+
+const enhancedAdd: typeof originalAdd = (item) => {
+  const newItem = originalAdd(item);
+  if (item.isDefault) {
+    setDefaultAction(newItem.systemId);
+  } else {
+    ensureDefaultExists();
+  }
+  return newItem;
+};
+
+const enhancedUpdate: typeof originalUpdate = (systemId, updatedChannel) => {
+  originalUpdate(systemId, updatedChannel);
+  if (updatedChannel.isDefault) {
+    setDefaultAction(systemId);
+  } else {
+    ensureDefaultExists();
+  }
+};
+
+const enhancedRemove: typeof originalRemove = (systemId) => {
+  originalRemove(systemId);
+  ensureDefaultExists();
+};
+
+baseStore.setState((state) => ({
+  ...state,
+  add: enhancedAdd,
+  update: enhancedUpdate,
+  remove: enhancedRemove,
+  setDefault: setDefaultAction,
+}));
+
+export const useSalesChannelStore = baseStore;

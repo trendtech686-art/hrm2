@@ -6,6 +6,7 @@ import { MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
 import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
 import type { ColumnDef } from '../../components/data-table/types.ts';
+import type { SystemId } from '@/lib/id-types';
 
 const statusVariants: Record<SupplierStatus, "success" | "secondary"> = {
   "Đang Giao Dịch": "success",
@@ -14,8 +15,8 @@ const statusVariants: Record<SupplierStatus, "success" | "secondary"> = {
 
 
 export const getColumns = (
-  onDelete: (systemId: string) => void,
-  onRestore: (systemId: string) => void,
+  onDelete: (systemId: SystemId) => void,
+  onRestore: (systemId: SystemId) => void,
   onEdit: (supplier: Supplier) => void,
   navigate: (path: string) => void,
 ): ColumnDef<Supplier>[] => [

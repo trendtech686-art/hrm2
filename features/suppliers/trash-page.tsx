@@ -7,6 +7,7 @@ import { getColumns } from "./trash-columns.tsx"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
 import { Card, CardContent } from "../../components/ui/card.tsx"
 import type { Supplier } from "./types.ts"
+import type { SystemId } from "@/lib/id-types";
 
 export function SuppliersTrashPage() {
   const { data, getDeleted, restore, remove } = useSupplierStore();
@@ -16,12 +17,12 @@ export function SuppliersTrashPage() {
   
   const deletedSuppliers = React.useMemo(() => getDeleted(), [data]);
 
-  const handleRestoreFromColumn = React.useCallback((systemId: string) => {
+  const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
     restore(systemId);
     toast.success("Đã khôi phục nhà cung cấp");
   }, [restore]);
 
-  const handleDeleteFromColumn = React.useCallback(async (systemId: string) => {
+  const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     try {
       remove(systemId);
       toast.success("Đã xóa vĩnh viễn nhà cung cấp");
@@ -65,7 +66,7 @@ export function SuppliersTrashPage() {
     <GenericTrashPage
       deletedItems={deletedSuppliers}
       onRestore={restore}
-      onPermanentDelete={async (systemId: string) => {
+      onPermanentDelete={async (systemId) => {
         remove(systemId);
       }}
       title="Thùng rác nhà cung cấp"

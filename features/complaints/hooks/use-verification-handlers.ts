@@ -5,6 +5,8 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
+import { asSystemId } from '@/lib/id-types';
+import type { SystemId } from '@/lib/id-types';
 import type { Complaint, ComplaintAction } from '../types';
 import type { ComplaintPermissions } from './use-complaint-permissions';
 import { complaintNotifications } from '../notification-utils';
@@ -12,9 +14,9 @@ import { handleVerifyIncorrect } from '../handlers/verify-incorrect-handler.ts';
 
 interface UseVerificationHandlersProps {
   complaint: Complaint | null;
-  currentUser: { systemId: string; name: string };
+  currentUser: { systemId: SystemId; name: string };
   permissions: ComplaintPermissions;
-  updateComplaint: (systemId: string, updates: Partial<Complaint>) => void;
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
 }
 
 export function useVerificationHandlers({
@@ -27,13 +29,13 @@ export function useVerificationHandlers({
   // ==========================================
   // VERIFY CORRECT - WITH DIALOG
   // ==========================================
-  const handleConfirmCorrect = React.useCallback((note: string, confirmedQuantities: Record<string, number>) => {
+  const handleConfirmCorrect = React.useCallback((note: string, confirmedQuantities: Record<SystemId, number>) => {
     if (!complaint) return;
 
     const newAction: ComplaintAction = {
-      id: `action_${Date.now()}`,
+      id: asSystemId(`action_${Date.now()}`),
       actionType: "verified-correct",
-      performedBy: currentUser.name,
+      performedBy: asSystemId(currentUser.systemId),
       performedAt: new Date(),
       note: note ? `Xác nhận khiếu nại đúng: ${note}` : "Xác nhận khiếu nại đúng",
       metadata: {
@@ -83,7 +85,7 @@ export function useVerificationHandlers({
       
       // Convert confirmed images to employeeImages format
       const newEmployeeImages = confirmedImages.map((url, idx) => ({
-        id: `emp-img-${Date.now()}-${idx}`,
+        id: asSystemId(`complaint-employee-image-${Date.now()}-${idx}`),
         url,
         uploadedAt: new Date(),
         uploadedBy: currentUser.systemId,
@@ -132,9 +134,9 @@ export function useVerificationHandlers({
       } else {
         // No payments/receipts/inventory, just update verification status
         const newAction: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "verified-incorrect",
-          performedBy: currentUser.name,
+          performedBy: asSystemId(currentUser.systemId),
           performedAt: new Date(),
           note: note || "Đã xác nhận khiếu nại SAI - Có bằng chứng",
           metadata: {

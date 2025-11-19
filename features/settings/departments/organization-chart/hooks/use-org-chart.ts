@@ -8,6 +8,7 @@ import { useReactFlow, type Node } from 'reactflow';
 import { useEmployeeStore } from '../../../../employees/store';
 import { useDepartmentStore } from '../../store';
 import { toast } from 'sonner';
+import { asSystemId } from '@/lib/id-types';
 import { 
   calculateLayout, 
   resetToAutoLayout,
@@ -109,7 +110,10 @@ export function useOrgChart() {
       if (employeeId.startsWith('NV')) {
         const employee = employees.find(e => e.systemId === employeeId);
         if (employee) {
-          updateEmployee(employeeId as any, { ...employee, managerId: managerId as string | undefined });
+          updateEmployee(asSystemId(employeeId), { 
+            ...employee, 
+            managerId: managerId ? asSystemId(managerId) : undefined,
+          });
         }
       }
     });

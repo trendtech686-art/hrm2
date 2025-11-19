@@ -1,6 +1,7 @@
 import * as React from "react";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isValidDate, getDaysDiff } from '@/lib/date-utils';
 import type { Product } from './types.ts'
+import type { SystemId } from "@/lib/id-types";
 import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
@@ -38,8 +39,8 @@ const getStatusLabel = (status?: string) => {
 
 export const getColumns = (
   navigate: (path: string) => void,
-  onRestore: (id: string) => void,
-  onPermanentDelete: (id: string) => void
+  onRestore: (systemId: SystemId) => void,
+  onPermanentDelete: (systemId: SystemId) => void
 ): ColumnDef<Product>[] => [
   {
     id: "select",
@@ -111,10 +112,10 @@ export const getColumns = (
     },
   },
   {
-    id: "category",
-    accessorKey: "category",
+    id: "categorySystemId",
+    accessorKey: "categorySystemId",
     header: "Danh mục",
-    cell: ({ row }) => row.category || '-',
+    cell: ({ row }) => row.categorySystemId || '-',
     meta: {
       displayName: "Danh mục",
       group: "Phân loại"
@@ -177,7 +178,7 @@ export const getColumns = (
     id: "actions",
     header: () => <div className="text-center">Hành động</div>,
     cell: ({ row }) => {
-      const product = row as unknown as Product;
+      const product = row;
       
       return (
        <div className="flex items-center justify-center gap-0.5">

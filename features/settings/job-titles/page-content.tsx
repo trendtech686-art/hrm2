@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useJobTitleStore } from "./store.ts"
 import { getColumns } from "./columns.tsx"
-import { DataTable } from "../../../components/data-table/data-table.tsx"
+import { ResponsiveDataTable } from "../../../components/data-table/responsive-data-table.tsx"
 import { DataTableToolbar } from "../../../components/data-table/data-table-toolbar.tsx"
 import { Card, CardContent } from "../../../components/ui/card.tsx"
 import {
@@ -27,13 +27,14 @@ import { Button } from "../../../components/ui/button.tsx"
 import { PlusCircle } from "lucide-react"
 import Fuse from "fuse.js"
 import { DataTableColumnCustomizer } from "../../../components/data-table/data-table-column-toggle.tsx"
+import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types"
 
 export function JobTitlesPageContent() {
   const { data: jobTitles, remove, add, update } = useJobTitleStore();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null)
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null)
   const [isFormOpen, setIsFormOpen] = React.useState(false)
   const [editingJobTitle, setEditingJobTitle] = React.useState<JobTitle | null>(null)
   
@@ -44,7 +45,7 @@ export function JobTitlesPageContent() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const handleDelete = React.useCallback((systemId: string) => {
+  const handleDelete = React.useCallback((systemId: SystemId) => {
     setIdToDelete(systemId)
     setIsAlertOpen(true)
   }, [])
@@ -87,9 +88,16 @@ export function JobTitlesPageContent() {
 
   const handleSubmit = (values: JobTitleFormValues) => {
     if (editingJobTitle) {
-      update(editingJobTitle.systemId, { ...editingJobTitle, ...values });
+      update(editingJobTitle.systemId, {
+        ...editingJobTitle,
+        ...values,
+        id: asBusinessId(values.id),
+      });
     } else {
-      add(values as Omit<JobTitle, 'systemId'>);
+      add({
+        ...values,
+        id: asBusinessId(values.id),
+      } as Omit<JobTitle, 'systemId'>);
     }
     setIsFormOpen(false);
     setEditingJobTitle(null);
@@ -154,7 +162,7 @@ export function JobTitlesPageContent() {
         </CardContent>
       </Card>
       
-      <DataTable 
+      <ResponsiveDataTable 
         columns={columns}
         data={paginatedData}
         pageCount={pageCount}

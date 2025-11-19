@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
+import type { BusinessId, SystemId } from '@/lib/id-types';
 import {
   Table,
   TableBody,
@@ -11,14 +12,14 @@ import {
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 
-interface SettingsTableProps<T extends { systemId: string; id: string; name: string; description?: string }> {
+interface SettingsTableProps<T extends { systemId: SystemId; id: BusinessId; name: string; description?: string }> {
   data: T[];
   onEdit: (item: T) => void;
-  onDelete: (systemId: string) => void;
+  onDelete: (systemId: SystemId) => void;
   renderExtraColumns?: (item: T) => React.ReactNode;
 }
 
-export function SettingsTable<T extends { systemId: string; id: string; name: string; description?: string }>({
+export function SettingsTable<T extends { systemId: SystemId; id: BusinessId; name: string; description?: string }>({
   data,
   onEdit,
   onDelete,

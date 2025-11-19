@@ -9,7 +9,7 @@ import { DialogFooter } from "../../../components/ui/dialog.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select.tsx";
 import { NumberInput } from "../../../components/ui/number-input.tsx";
 
-export type SalaryComponentFormValues = Omit<SalaryComponent, 'id'>;
+export type SalaryComponentFormValues = Omit<SalaryComponent, 'systemId' | 'id' | 'applicableDepartmentSystemIds' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>;
 
 type SalaryComponentFormProps = {
   initialData?: SalaryComponentFormValues;

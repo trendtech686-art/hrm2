@@ -1,10 +1,11 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type PenaltyStatus = 'Chưa thanh toán' | 'Đã thanh toán' | 'Đã hủy';
 
 export type Penalty = {
-  // FIX: Added missing systemId
-  systemId: string;
-  id: string; // PP001
-  employeeSystemId: string;
+  systemId: SystemId;
+  id: BusinessId;
+  employeeSystemId: SystemId;
   employeeName: string;
   reason: string;
   amount: number;

@@ -1,9 +1,11 @@
 import { toast } from 'sonner';
+import { asSystemId } from '@/lib/id-types';
 import type { Complaint, ComplaintAction } from '../types';
+import type { SystemId } from '@/lib/id-types';
 
 // User type - chi can systemId va name
 interface User {
-  systemId: string;
+  systemId: SystemId;
   name: string;
   email?: string;
   role?: 'admin' | 'user';
@@ -23,7 +25,7 @@ interface User {
 export async function handleReopenAfterResolved(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: string, updates: any) => void
+  updateComplaint: (systemId: SystemId, updates: any) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('[REOPEN-AFTER-RESOLVE] Starting...');
@@ -35,9 +37,9 @@ export async function handleReopenAfterResolved(
     const timeline: ComplaintAction[] = [
       ...complaint.timeline,
       {
-        id: `action_${Date.now()}`,
+        id: asSystemId(`action_${Date.now()}`),
         actionType: "reopened",
-        performedBy: currentUser.name,
+        performedBy: asSystemId(currentUser.systemId),
         performedAt: new Date(),
         note: `Mở lại khiếu nại sau khi kết thúc`,
       }

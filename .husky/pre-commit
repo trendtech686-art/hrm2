@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+npm run verify-ids && npx tsc --noEmit --pretty false --incremental false

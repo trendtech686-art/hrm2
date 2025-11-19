@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog.tsx';
 import { LeaveTypeForm, type LeaveTypeFormValues } from './leave-type-form.tsx';
 import { SalaryComponentForm, type SalaryComponentFormValues } from './salary-component-form.tsx';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 const weekDays = [
   { id: 1, label: 'Thứ 2' },
@@ -87,7 +88,15 @@ export function EmployeeSettingsPage() {
   };
   
   const handleLeaveTypeFormSubmit = (values: LeaveTypeFormValues) => {
-    const fullValue = { ...values, id: editingLeaveTypeIndex !== null ? leaveTypeFields[editingLeaveTypeIndex].id : `new_${Date.now()}`, applicableGender: 'All' as const };
+    const existing = editingLeaveTypeIndex !== null ? leaveTypeFields[editingLeaveTypeIndex] : undefined;
+    const fullValue: LeaveType = {
+      ...existing,
+      ...values,
+      systemId: existing?.systemId ?? asSystemId(`temp-leave-${Date.now()}`),
+      id: existing?.id ?? asBusinessId(`TEMP${Date.now()}`),
+      applicableGender: existing?.applicableGender ?? 'All',
+      applicableDepartmentSystemIds: existing?.applicableDepartmentSystemIds ?? [],
+    };
     if (editingLeaveTypeIndex !== null) {
         updateLeaveType(editingLeaveTypeIndex, fullValue);
     } else {
@@ -108,7 +117,14 @@ export function EmployeeSettingsPage() {
   };
 
   const handleSalaryComponentFormSubmit = (values: SalaryComponentFormValues) => {
-      const fullValue = { ...values, id: editingSalaryComponentIndex !== null ? salaryComponentFields[editingSalaryComponentIndex].id : `new_${Date.now()}` };
+      const existing = editingSalaryComponentIndex !== null ? salaryComponentFields[editingSalaryComponentIndex] : undefined;
+      const fullValue: SalaryComponent = {
+        ...existing,
+        ...values,
+        systemId: existing?.systemId ?? asSystemId(`temp-sal-${Date.now()}`),
+        id: existing?.id ?? asBusinessId(`TEMP${Date.now()}`),
+        applicableDepartmentSystemIds: existing?.applicableDepartmentSystemIds ?? [],
+      };
        if (editingSalaryComponentIndex !== null) {
           updateSalaryComponent(editingSalaryComponentIndex, fullValue);
       } else {

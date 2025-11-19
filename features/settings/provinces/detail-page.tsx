@@ -3,6 +3,7 @@ import * as React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 // FIX: Import the renamed store.
 import { useProvinceStore } from './store.ts';
+import { asSystemId } from '@/lib/id-types';
 import { usePageHeader } from '../../../contexts/page-header-context.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
 import { Button } from '../../../components/ui/button.tsx';
@@ -16,7 +17,7 @@ export function ProvinceDetailPage() {
   // FIX: Use the renamed store and its methods.
   const { findById, getWardsByProvinceId } = useProvinceStore();
   
-  const province = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const province = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const wards = React.useMemo(() => (province ? getWardsByProvinceId(province.id) : []), [province, getWardsByProvinceId]);
 
   usePageHeader();

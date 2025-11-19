@@ -111,7 +111,7 @@ export function useComplaintTimeTracking(complaint: Complaint | null | undefined
       } else {
         resolutionStatus = 'overdue';
       }
-    } else if (complaint.status === 'resolved' || complaint.status === 'rejected') {
+    } else if (complaint.status === 'resolved' || complaint.status === 'ended') {
       // Đã đóng nhưng không có resolvedAt
       resolutionTime = now - createdAt;
       resolutionStatus = resolutionTime > SLA_CONFIG.resolutionTime ? 'overdue' : 'on-time';

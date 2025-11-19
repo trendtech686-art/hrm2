@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { data as initialData } from './data.ts';
 import type { PaymentMethod } from './types.ts';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 
 interface PaymentMethodState {
   data: PaymentMethod[];
   add: (item: Omit<PaymentMethod, 'systemId' | 'isDefault'>) => void;
-  update: (systemId: string, updatedPolicy: Omit<PaymentMethod, 'isDefault' | 'systemId'>) => void;
-  remove: (systemId: string) => void;
-  setDefault: (systemId: string) => void;
+  update: (systemId: SystemId, updatedPolicy: Omit<PaymentMethod, 'isDefault' | 'systemId'>) => void;
+  remove: (systemId: SystemId) => void;
+  setDefault: (systemId: SystemId) => void;
 }
 
 export const usePaymentMethodStore = create<PaymentMethodState>()(
@@ -18,7 +19,7 @@ export const usePaymentMethodStore = create<PaymentMethodState>()(
       add: (item) => set((state) => {
         const newItem: PaymentMethod = { 
             ...item, 
-            systemId: `PM_${Date.now()}`,
+            systemId: asSystemId(`PM_${Date.now()}`),
             isDefault: state.data.length === 0, // Make first item default
         };
         return { data: [...state.data, newItem] };

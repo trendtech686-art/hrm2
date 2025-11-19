@@ -2,7 +2,7 @@ import * as React from 'react';
 import type { PaymentMethod } from './types.ts';
 import type { ColumnDef } from '../../../../components/data-table/types.ts';
 import { Button } from '../../../../components/ui/button.tsx';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Star } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu.tsx';
 import { Badge } from "../../../../components/ui/badge.tsx";
 

@@ -14,12 +14,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle } from "lucide-react";
 import type { Complaint } from "./types.ts";
+import type { SystemId } from "@/lib/id-types";
 
 interface ConfirmCorrectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   complaint: Complaint | null;
-  onConfirm: (note: string, confirmedQuantities: Record<string, number>) => void;
+  onConfirm: (note: string, confirmedQuantities: Record<SystemId, number>) => void;
 }
 
 export function ConfirmCorrectDialog({
@@ -30,13 +31,13 @@ export function ConfirmCorrectDialog({
 }: ConfirmCorrectDialogProps) {
   const [confirmed, setConfirmed] = React.useState(false);
   const [note, setNote] = React.useState("");
-  const [confirmedQuantities, setConfirmedQuantities] = React.useState<Record<string, number>>({});
+  const [confirmedQuantities, setConfirmedQuantities] = React.useState<Record<SystemId, number>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Initialize confirmed quantities khi mở dialog
   React.useEffect(() => {
     if (open && complaint?.affectedProducts && complaint.affectedProducts.length > 0) {
-      const initialQty: Record<string, number> = {};
+      const initialQty: Record<SystemId, number> = {};
       complaint.affectedProducts.forEach(p => {
         const qty = p.issueType === 'excess' 
           ? p.quantityExcess 

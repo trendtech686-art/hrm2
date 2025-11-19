@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, subtractDays } from '../../lib/date-utils.ts';
 import { FileSpreadsheet, Download, Upload, Eye, Trash2, Filter } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context.tsx"
-import { DataTable } from "../../components/data-table/data-table.tsx"
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
 import { Button } from "../../components/ui/button.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
@@ -429,7 +429,7 @@ export function ImportExportHistoryPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
-          <DataTable
+          <ResponsiveDataTable
             columns={columns as any}
             data={paginatedData}
             pageCount={pageCount}

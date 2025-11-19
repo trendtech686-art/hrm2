@@ -1,37 +1,34 @@
 import * as React from "react";
 import { useNavigate } from 'react-router-dom';
-import { useReceiptStore } from "./store.ts";
-import { useReceiptTypeStore } from "../settings/receipt-types/store.ts";
-import { useCashbookStore } from "../cashbook/store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useCustomerStore } from "../customers/store.ts";
-import type { Receipt } from "./types.ts";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
-import { Card, CardContent } from "../../components/ui/card.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Plus, DollarSign, Calendar, User, Building2, FileText, MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx";
+import { useReceiptStore } from "./store";
+import { useReceiptTypeStore } from "../settings/receipt-types/store";
+import { useCashbookStore } from "../cashbook/store";
+import { useBranchStore } from "../settings/branches/store";
+import { useCustomerStore } from "../customers/store";
+import type { Receipt } from "./types";
+import { usePageHeader } from "@/contexts/page-header-context";
+import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Fuse from "fuse.js";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx";
-import { DataTableImportDialog } from "../../components/data-table/data-table-import-dialog.tsx";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
-import { TouchButton } from "../../components/mobile/touch-button.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu.tsx";
-import { ROUTES, generatePath } from "../../lib/router.ts";
+import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
+import { DataTableExportDialog } from "@/components/data-table/data-table-export-dialog";
+import { DataTableImportDialog } from "@/components/data-table/data-table-import-dialog";
+import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageToolbar } from "@/components/layout/page-toolbar";
+import { PageFilters } from "@/components/layout/page-filters";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { ROUTES, generatePath } from "@/lib/router";
 import { toast } from "sonner";
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '@/lib/date-utils';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
-import { getColumns } from "./columns.tsx";
-import { MobileReceiptCard } from "./card.tsx";
+import { getColumns } from "./columns";
+import { MobileReceiptCard } from "./card";
+import { asSystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
@@ -74,7 +71,6 @@ export function ReceiptsPage() {
     const [isAlertOpen, setIsAlertOpen] = React.useState(false);
     const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
     const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
-    const [isBulkApproveAlertOpen, setIsBulkApproveAlertOpen] = React.useState(false);
 
     const [sorting, setSorting] = React.useState({ id: 'date', desc: true });
     const [globalFilter, setGlobalFilter] = React.useState('');
@@ -119,11 +115,6 @@ export function ReceiptsPage() {
         setIsAlertOpen(true);
     }, []);
     
-    const handleApprove = React.useCallback((systemId: string) => {
-        // TODO: Implement approve logic
-        toast.success("Đã duyệt phiếu thu");
-    }, []);
-
     const handleEdit = React.useCallback((receipt: Receipt) => {
         navigate(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }));
     }, [navigate]);
@@ -132,7 +123,7 @@ export function ReceiptsPage() {
         navigate(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }));
     }, [navigate]);
 
-    const columns = React.useMemo(() => getColumns(accounts, handleCancel, handleApprove, navigate), [accounts, handleCancel, handleApprove, navigate]);
+    const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate), [accounts, handleCancel, navigate]);
     
     // ✅ Export config
     const exportConfig = {
@@ -168,7 +159,7 @@ export function ReceiptsPage() {
     const confirmCancel = () => { 
         if (idToDelete) {
             const { cancel } = useReceiptStore.getState();
-            cancel(idToDelete);
+            cancel(asSystemId(idToDelete));
             toast.success("Đã hủy phiếu thu");
         }
         setIsAlertOpen(false); 
@@ -177,18 +168,10 @@ export function ReceiptsPage() {
     const confirmBulkCancel = () => {
         const idsToCancel = Object.keys(rowSelection);
         const { cancel } = useReceiptStore.getState();
-        idsToCancel.forEach(id => cancel(id));
+        idsToCancel.forEach(id => cancel(asSystemId(id)));
         toast.success(`Đã hủy ${idsToCancel.length} phiếu thu`);
         setRowSelection({});
         setIsBulkDeleteAlertOpen(false);
-    };
-
-    const confirmBulkApprove = () => {
-        const idsToApprove = Object.keys(rowSelection);
-        // TODO: Implement bulk approve logic
-        toast.success(`Đã duyệt ${idsToApprove.length} phiếu thu`);
-        setRowSelection({});
-        setIsBulkApproveAlertOpen(false);
     };
 
     const handleAddNew = () => {
@@ -197,8 +180,7 @@ export function ReceiptsPage() {
     
     // ✅ Filter options
     const statusOptions = React.useMemo(() => [
-        { value: 'pending', label: 'Chờ duyệt' },
-        { value: 'approved', label: 'Đã duyệt' },
+        { value: 'completed', label: 'Hoàn thành' },
         { value: 'cancelled', label: 'Đã hủy' }
     ], []);
     
@@ -221,7 +203,7 @@ export function ReceiptsPage() {
         
         // Status filter
         if (statusFilter.size > 0) {
-            result = result.filter(r => statusFilter.has(r.status || 'pending'));
+            result = result.filter(r => r.status && statusFilter.has(r.status));
         }
         
         // Type filter
@@ -282,23 +264,13 @@ export function ReceiptsPage() {
     }, [filteredData]);
     
     // ✅ Status badge variant
-    const getStatusVariant = (status?: string): "default" | "secondary" | "destructive" | "outline" => {
-        switch (status) {
-            case 'approved': return 'default';
-            case 'pending': return 'secondary';
-            case 'cancelled': return 'destructive';
-            default: return 'outline';
-        }
+    const getStatusVariant = (status?: string): "default" | "destructive" => {
+        return status === 'cancelled' ? 'destructive' : 'default';
     };
     
     // ✅ Status label
     const getStatusLabel = (status?: string): string => {
-        switch (status) {
-            case 'approved': return 'Đã duyệt';
-            case 'pending': return 'Chờ duyệt';
-            case 'cancelled': return 'Đã hủy';
-            default: return 'Chưa rõ';
-        }
+        return status === 'cancelled' ? 'Đã hủy' : 'Hoàn thành';
     };
     
 
@@ -445,7 +417,6 @@ export function ReceiptsPage() {
                                     key={receipt.systemId} 
                                     receipt={receipt}
                                     onCancel={handleCancel}
-                                    onApprove={handleApprove}
                                     navigate={navigate}
                                     handleRowClick={handleRowClick}
                                 />
@@ -483,19 +454,7 @@ export function ReceiptsPage() {
                         rowSelection={rowSelection}
                         setRowSelection={setRowSelection}
                         onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
-                    bulkActionButtons={
-                        Object.keys(rowSelection).length > 0 && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsBulkApproveAlertOpen(true)}
-                                className="border-green-500 text-green-700 hover:bg-green-50"
-                            >
-                                Duyệt {Object.keys(rowSelection).length} phiếu
-                            </Button>
-                        )
-                    }
-                    sorting={sorting}
+                        sorting={sorting}
                     setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
                     allSelectedRows={allSelectedRows}
                     expanded={{}}
@@ -511,7 +470,6 @@ export function ReceiptsPage() {
                         <MobileReceiptCard 
                             receipt={receipt}
                             onCancel={handleCancel}
-                            onApprove={handleApprove}
                             navigate={navigate}
                             handleRowClick={handleRowClick}
                         />
@@ -548,24 +506,6 @@ export function ReceiptsPage() {
                     <AlertDialogFooter>
                         <AlertDialogCancel>Đóng</AlertDialogCancel>
                         <AlertDialogAction onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Bulk Approve Alert Dialog */}
-            <AlertDialog open={isBulkApproveAlertOpen} onOpenChange={setIsBulkApproveAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Duyệt {Object.keys(rowSelection).length} phiếu thu?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Tất cả phiếu thu đã chọn sẽ được duyệt và chuyển sang trạng thái "Hoàn thành".
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmBulkApprove} className="bg-green-600 hover:bg-green-700">
-                            Duyệt tất cả
-                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

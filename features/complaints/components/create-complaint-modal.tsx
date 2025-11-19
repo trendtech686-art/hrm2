@@ -2,6 +2,7 @@ import * as React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { toast } from "sonner";
 import { X, Upload, AlertCircle } from "lucide-react";
+import { asSystemId, type SystemId } from "@/lib/id-types";
 
 // Types & Store
 import type { ComplaintType } from "../types.ts";
@@ -53,7 +54,7 @@ interface CreateComplaintModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   prefilledOrderSystemId?: string; // ⭐ Dùng systemId thay vì orderCode
-  onSuccess?: (complaintId: string) => void;
+  onSuccess?: (complaintId: SystemId) => void;
 }
 
 // =============================================
@@ -75,7 +76,7 @@ export function CreateComplaintModal({
   // Current user
   const currentUser = employee 
     ? { systemId: employee.systemId, name: employee.fullName }
-    : { systemId: 'GUEST', name: 'Guest User' };
+    : { systemId: asSystemId('SYSTEM'), name: 'Guest User' };
 
   // Form
   const form = useForm<CreateComplaintFormValues>({
@@ -139,9 +140,14 @@ export function CreateComplaintModal({
       return;
     }
 
+    if (!data.orderSystemId) {
+      toast.error("Vui lòng chọn đơn hàng cần xử lý");
+      return;
+    }
+
     // Convert images to ComplaintImage format
     const complaintImages = data.images.map((url, index) => ({
-      id: `img_${Date.now()}_${index}`,
+      id: asSystemId(`customer-image-${Date.now()}-${index}`),
       url,
       uploadedBy: currentUser.systemId,
       uploadedAt: new Date(),
@@ -149,10 +155,15 @@ export function CreateComplaintModal({
       type: "initial" as const,
     }));
 
+    const branchSystemId = selectedOrder?.branchSystemId ?? branches[0]?.systemId;
+    if (!branchSystemId) {
+      toast.error("Không xác định được chi nhánh xử lý");
+      return;
+    }
+
     // Create complaint
     const complaintId = addComplaint({
-      id: "", // Empty string means auto-generate
-      orderSystemId: data.orderSystemId, // ⭐ Lưu systemId
+      orderSystemId: asSystemId(data.orderSystemId), // ⭐ Lưu systemId
       orderCode: selectedOrder.id, // ⭐ Optional display code
       orderValue: selectedOrder.total,
       customerSystemId: selectedCustomer.systemId, // ⭐ Lưu systemId
@@ -166,7 +177,7 @@ export function CreateComplaintModal({
       verification: "pending-verification",
       createdBy: currentUser.systemId,
       priority: data.priority,
-      branchSystemId: branches[0]?.systemId || "",
+      branchSystemId,
       tags: [],
     } as any);
 

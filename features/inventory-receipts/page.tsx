@@ -5,7 +5,6 @@ import { formatDate, formatDateCustom, parseDate, isDateAfter, isDateBefore, get
 import { useInventoryReceiptStore } from "./store.ts";
 import { usePurchaseOrderStore } from "../purchase-orders/store.ts";
 import { useSupplierStore } from "../suppliers/store.ts";
-import { useEmployeeStore } from "../employees/store.ts";
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
 import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
@@ -19,8 +18,14 @@ import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types.ts";
 import type { InventoryReceipt } from "./types.ts";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
+import { useBranchStore } from "../settings/branches/store.ts";
+import { toast } from "sonner";
 
-const getColumns = (): ColumnDef<InventoryReceipt>[] => [
+const getColumns = (
+  handlers: {
+    onPrint: (receipt: InventoryReceipt) => void;
+  }
+): ColumnDef<InventoryReceipt>[] => [
   {
     id: "select",
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
@@ -158,9 +163,10 @@ const getColumns = (): ColumnDef<InventoryReceipt>[] => [
       <Button
         variant="ghost"
         size="sm"
+        className="h-8"
         onClick={(e) => {
           e.stopPropagation();
-          alert(`In phiếu nhập: ${row.id}`);
+          handlers.onPrint(row);
         }}
       >
         <Printer className="h-4 w-4 mr-1" />
@@ -179,17 +185,22 @@ export function InventoryReceiptsPage() {
   const { data: receipts } = useInventoryReceiptStore();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
   const { data: suppliers } = useSupplierStore();
+  const { data: branches } = useBranchStore();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   usePageHeader({
-    title: 'Quản lý Phiếu Nhập Kho',
+    title: 'Danh sách phiếu nhập kho',
+    breadcrumb: [
+      { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
+      { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: true }
+    ],
     actions: []
   });
 
   // Không cần combine nữa, chỉ dùng receipts
   const filteredDataBase = React.useMemo(() => {
-    return receipts.sort((a, b) => 
+    return [...receipts].sort((a, b) => 
       getDaysDiff(parseDate(b.receivedDate), parseDate(a.receivedDate))
     );
   }, [receipts]);
@@ -199,26 +210,24 @@ export function InventoryReceiptsPage() {
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [supplierFilter, setSupplierFilter] = React.useState('all');
+  const [branchFilter, setBranchFilter] = React.useState('all');
   const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>();
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const columnVisibilityStorageKey = 'inventory-receipts-column-visibility';
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'inventory-receipts-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    const cols = getColumns();
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
+    if (typeof window === 'undefined') return {};
+    const stored = localStorage.getItem(columnVisibilityStorageKey);
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
+        return JSON.parse(stored);
       } catch (e) {}
     }
-    const initial: Record<string, boolean> = {};
-    cols.forEach(c => { if (c.id) initial[c.id] = true; });
-    return initial;
+    return {};
   });
   
   React.useEffect(() => {
-    localStorage.setItem('inventory-receipts-column-visibility', JSON.stringify(columnVisibility));
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(columnVisibilityStorageKey, JSON.stringify(columnVisibility));
   }, [columnVisibility]);
   
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
@@ -233,16 +242,33 @@ export function InventoryReceiptsPage() {
     return () => clearTimeout(timer);
   }, [globalFilter]);
 
-  const columns = React.useMemo(() => getColumns(), []);
+  const handlePrintReceipt = React.useCallback((receipt: InventoryReceipt) => {
+    toast.info('Đang gửi lệnh in', {
+      description: `Phiếu ${receipt.id} - ${receipt.supplierName}`
+    });
+  }, []);
+
+  const columns = React.useMemo(() => getColumns({ onPrint: handlePrintReceipt }), [handlePrintReceipt]);
   
   React.useEffect(() => {
-    const initialVisibility: Record<string, boolean> = {};
-    columns.forEach(c => {
-      initialVisibility[c.id!] = true;
+    if (!columns.length) return;
+    setColumnVisibility(prev => {
+      const next = { ...prev };
+      let changed = false;
+      columns.forEach(c => {
+        if (!c.id) return;
+        if (typeof next[c.id] === 'undefined') {
+          next[c.id] = true;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
     });
-    setColumnVisibility(initialVisibility);
-    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-  }, []);
+    setColumnOrder(prev => {
+      if (prev.length) return prev;
+      return columns.map(c => c.id).filter(Boolean) as string[];
+    });
+  }, [columns]);
   
   const fuse = React.useMemo(
     () => new Fuse(filteredDataBase, { 
@@ -257,7 +283,11 @@ export function InventoryReceiptsPage() {
     let data = filteredDataBase;
 
     if (supplierFilter !== 'all') {
-      data = data.filter(v => v.supplierName === supplierFilter);
+      data = data.filter(v => v.supplierSystemId === supplierFilter);
+    }
+
+    if (branchFilter !== 'all') {
+      data = data.filter(v => v.branchSystemId === branchFilter);
     }
 
     if (dateRange && (dateRange[0] || dateRange[1])) {
@@ -280,11 +310,11 @@ export function InventoryReceiptsPage() {
     }
 
     return data;
-  }, [filteredDataBase, supplierFilter, dateRange, debouncedGlobalFilter, fuse]);
+  }, [filteredDataBase, supplierFilter, branchFilter, dateRange, debouncedGlobalFilter, fuse]);
 
   React.useEffect(() => {
     setMobileLoadedCount(20);
-  }, [debouncedGlobalFilter, supplierFilter, dateRange]);
+  }, [debouncedGlobalFilter, supplierFilter, branchFilter, dateRange]);
 
   React.useEffect(() => {
     if (!isMobile) return;
@@ -326,9 +356,9 @@ export function InventoryReceiptsPage() {
     return sortedData.slice(start, end);
   }, [sortedData, pagination]);
 
-  const handleRowClick = (row: InventoryReceipt) => {
-    console.log('Receipt clicked:', row);
-  };
+  const handleRowClick = React.useCallback((row: InventoryReceipt) => {
+    navigate(ROUTES.PROCUREMENT.INVENTORY_RECEIPT_VIEW.replace(':systemId', row.systemId));
+  }, [navigate]);
 
   const selectedRows = React.useMemo(() => {
     return sortedData.filter(r => rowSelection[r.systemId]);
@@ -337,8 +367,9 @@ export function InventoryReceiptsPage() {
   // Bulk actions handlers
   const handleBulkPrint = React.useCallback(() => {
     if (selectedRows.length === 0) return;
-    console.log('🖨️ In phiếu nhập kho:', selectedRows.map(r => r.id));
-    alert(`Đang in ${selectedRows.length} phiếu nhập kho: ${selectedRows.map(r => r.id).join(', ')}`);
+    toast.success('Đã gửi lệnh in cho phiếu nhập', {
+      description: selectedRows.map(r => r.id).join(', ')
+    });
     setRowSelection({});
   }, [selectedRows]);
 
@@ -359,10 +390,36 @@ export function InventoryReceiptsPage() {
   }, [filteredData]);
 
   const supplierOptions = React.useMemo(() => {
-    const uniqueSuppliers = new Set<string>();
-    filteredDataBase.forEach(r => uniqueSuppliers.add(r.supplierName));
-    return Array.from(uniqueSuppliers).map(name => ({ value: name, label: name }));
-  }, [filteredDataBase]);
+    const supplierMap = new Map<string, string>();
+    filteredDataBase.forEach(r => {
+      if (r.supplierSystemId) {
+        supplierMap.set(r.supplierSystemId, r.supplierName);
+      }
+    });
+
+    suppliers.forEach(s => {
+      if (filteredDataBase.some(r => r.supplierSystemId === s.systemId)) {
+        supplierMap.set(s.systemId, s.name);
+      }
+    });
+
+    return Array.from(supplierMap.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filteredDataBase, suppliers]);
+
+  const branchOptions = React.useMemo(() => {
+    const branchMap = new Map<string, string>();
+    filteredDataBase.forEach(r => {
+      if (r.branchSystemId) {
+        branchMap.set(r.branchSystemId, r.branchName || branches.find(b => b.systemId === r.branchSystemId)?.name || 'Chưa gắn chi nhánh');
+      }
+    });
+
+    return Array.from(branchMap.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filteredDataBase, branches]);
 
   const MobileReceiptCard = ({ receipt }: { receipt: InventoryReceipt }) => {
     const totalQuantity = receipt.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
@@ -447,6 +504,18 @@ export function InventoryReceiptsPage() {
           <SelectContent>
             <SelectItem value="all">Tất cả NCC</SelectItem>
             {supplierOptions.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={branchFilter} onValueChange={setBranchFilter}>
+          <SelectTrigger className="h-9 w-full sm:w-[200px]">
+            <SelectValue placeholder="Chi nhánh" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+            {branchOptions.map(opt => (
               <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
             ))}
           </SelectContent>

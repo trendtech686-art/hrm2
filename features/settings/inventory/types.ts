@@ -1,7 +1,9 @@
+import type { SystemId, BusinessId } from '@/lib/id-types';
+
 // Product Type (Loại sản phẩm)
 export interface ProductType {
-  systemId: string;
-  id: string; // User-facing ID
+  systemId: SystemId;
+  id: BusinessId; // User-facing ID
   name: string;
   description?: string;
   isDefault?: boolean;
@@ -12,11 +14,11 @@ export interface ProductType {
 
 // Product Category (Danh mục sản phẩm)
 export interface ProductCategory {
-  systemId: string;
-  id: string; // User-facing ID
+  systemId: SystemId;
+  id: BusinessId; // User-facing ID
   name: string;
   description?: string;
-  parentId?: string; // For hierarchical categories
+  parentId?: SystemId; // For hierarchical categories
   path?: string; // Full path like "Điện tử > Máy tính > Bàn phím"
   level?: number; // 0 for root, 1 for first child, etc.
   color?: string; // For UI display

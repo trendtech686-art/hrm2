@@ -3,17 +3,22 @@ import { data as initialData } from './data.ts';
 import type { PaymentType } from './types.ts';
 import { toISODate, getCurrentDate } from '../../../../lib/date-utils';
 
-const baseStore = createCrudStore(initialData as any, 'payment-types') as any;
+const baseStore = createCrudStore<PaymentType>(initialData, 'payment-types', {
+  businessIdField: 'id',
+  persistKey: 'hrm-payment-types',
+});
+
 const originalAdd = baseStore.getState().add;
 
-baseStore.setState({
+baseStore.setState((state) => ({
+  ...state,
   add: (item) => {
     const newItem = {
       ...item,
-      createdAt: toISODate(getCurrentDate()),
-    } as Omit<PaymentType, 'systemId'>;
+      createdAt: item.createdAt ?? toISODate(getCurrentDate()),
+    } satisfies Omit<PaymentType, 'systemId'>;
     return originalAdd(newItem);
   },
-});
+}));
 
 export const usePaymentTypeStore = baseStore;

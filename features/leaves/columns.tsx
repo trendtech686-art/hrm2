@@ -1,6 +1,5 @@
 ﻿import * as React from "react";
-import * as ReactRouterDOM from 'react-router-dom';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import type { LeaveRequest, LeaveStatus } from './types.ts';
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
@@ -9,6 +8,7 @@ import type { ColumnDef } from '../../components/data-table/types.ts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { MoreHorizontal } from "lucide-react";
+import type { SystemId } from '@/lib/id-types';
 
 const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = {
     "Chờ duyệt": "warning",
@@ -17,9 +17,9 @@ const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive">
 };
 
 export const getColumns = (
-  onDelete: (id: string) => void,
+  onDelete: (systemId: SystemId) => void,
   onEdit: (request: LeaveRequest) => void,
-  onStatusChange: (id: string, status: LeaveStatus) => void,
+  onStatusChange: (systemId: SystemId, status: LeaveStatus) => void,
   navigate: (path: string) => void,
 ): ColumnDef<LeaveRequest>[] => [
   {

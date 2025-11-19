@@ -1,10 +1,15 @@
 import { createCrudStore } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
+import type { SystemId } from '@/lib/id-types';
 import type { OtherTarget } from './types.ts';
 import Fuse from 'fuse.js';
 
 type OtherTargetStoreExtension = {
-  searchOtherTargets: (query: string, page: number, limit?: number) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
+    searchOtherTargets: (
+        query: string,
+        page: number,
+        limit?: number
+    ) => Promise<{ items: { value: SystemId; label: string }[]; hasNextPage: boolean }>;
 };
 
 const baseStore = createCrudStore<OtherTarget>(initialData, 'other-targets');
@@ -16,7 +21,7 @@ const fuse = new Fuse(baseStore.getState().data, {
 
 const storeExtension: OtherTargetStoreExtension = {
     searchOtherTargets: async (query: string, page: number, limit: number = 20) => {
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
             setTimeout(() => {
                 const allItems = baseStore.getState().data;
                 const results = query ? fuse.search(query).map(r => r.item) : allItems;
@@ -26,7 +31,7 @@ const storeExtension: OtherTargetStoreExtension = {
                 const paginatedItems = results.slice(start, end);
 
                 resolve({
-                    items: paginatedItems.map(c => ({ value: c.systemId, label: c.name })),
+                    items: paginatedItems.map((c) => ({ value: c.systemId, label: c.name })),
                     hasNextPage: end < results.length,
                 });
             }, 300);

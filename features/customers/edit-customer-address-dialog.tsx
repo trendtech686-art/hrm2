@@ -2,6 +2,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import type { Customer } from "./types.ts";
 import { useCustomerStore } from './store.ts';
+import { asSystemId } from '@/lib/id-types';
 import { useProvinceStore } from "../settings/provinces/store.ts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../../components/ui/dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -26,7 +27,7 @@ interface EditCustomerAddressDialogProps {
 
 export function EditCustomerAddressDialog({ isOpen, onOpenChange, customerSystemId }: EditCustomerAddressDialogProps) {
     const { findById, update } = useCustomerStore();
-    const customer = React.useMemo(() => customerSystemId ? findById(customerSystemId) : null, [customerSystemId, findById]);
+    const customer = React.useMemo(() => customerSystemId ? findById(asSystemId(customerSystemId)) : null, [customerSystemId, findById]);
 
     const { data: provinces, getDistrictsByProvinceId, getWardsByProvinceId } = useProvinceStore();
     const [billingSameAsShipping, setBillingSameAsShipping] = React.useState(true);
@@ -138,7 +139,7 @@ export function EditCustomerAddressDialog({ isOpen, onOpenChange, customerSystem
 
     const onSubmit = (values: AddressFormValues) => {
         if (customer) {
-            update(customer.systemId, { ...customer, ...values });
+            update(asSystemId(customer.systemId), { ...customer, ...values });
             onOpenChange(false);
         }
     };

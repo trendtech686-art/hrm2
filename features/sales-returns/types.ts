@@ -1,10 +1,11 @@
 // FIX: Re-export LineItem to make it available to other modules importing from this file.
 export type { LineItem } from '../orders/types.ts';
 import type { LineItem as LocalLineItem } from '../orders/types.ts';
+import type { BusinessId, SystemId } from '@/lib/id-types';
 
 export type ReturnLineItem = {
-  productSystemId: string;
-  productId: string;
+  productSystemId: SystemId;
+  productId: BusinessId;
   productName: string;
   returnQuantity: number;
   unitPrice: number;
@@ -13,18 +14,18 @@ export type ReturnLineItem = {
 
 export type SalesReturnPayment = {
   method: string;
-  accountSystemId: string;
+  accountSystemId: SystemId;
   amount: number;
 };
 
 export type SalesReturn = {
-  systemId: string;
-  id: string; // e.g., SR000001
-  orderSystemId: string;
-  orderId: string;
-  customerSystemId: string;
+  systemId: SystemId;
+  id: BusinessId; // e.g., SR000001
+  orderSystemId: SystemId;
+  orderId: BusinessId;
+  customerSystemId: SystemId;
   customerName: string;
-  branchSystemId: string; // ✅ Branch systemId only
+  branchSystemId: SystemId; // ✅ Branch systemId only
   branchName: string;
   returnDate: string; // YYYY-MM-DD HH:mm
   reason?: string;
@@ -39,7 +40,7 @@ export type SalesReturn = {
 
   // New items the customer is taking (exchange)
   exchangeItems: LocalLineItem[];
-  exchangeOrderSystemId?: string; // Link to the new order created for exchange items
+  exchangeOrderSystemId?: SystemId; // Link to the new order created for exchange items
   subtotalNew: number;
   shippingFeeNew: number;
   discountNew?: number;
@@ -60,7 +61,7 @@ export type SalesReturn = {
   // For refunds from company to customer (deprecated - use refunds array)
   refundMethod?: string;
   refundAmount?: number;
-  accountSystemId?: string;
+  accountSystemId?: SystemId;
   
   // ✅ NEW: Multiple refund methods support
   refunds?: SalesReturnPayment[];
@@ -69,10 +70,10 @@ export type SalesReturn = {
   payments?: SalesReturnPayment[];
 
   // Link to vouchers if any are created
-  paymentVoucherSystemId?: string; // For single refund (deprecated)
-  paymentVoucherSystemIds?: string[]; // ✅ NEW: For multiple refunds
-  receiptVoucherSystemIds?: string[]; // For multiple customer payments
+  paymentVoucherSystemId?: SystemId; // For single refund (deprecated)
+  paymentVoucherSystemIds?: SystemId[]; // ✅ NEW: For multiple refunds
+  receiptVoucherSystemIds?: SystemId[]; // For multiple customer payments
 
-  creatorSystemId: string; // ✅ Creator employee systemId
+  creatorSystemId: SystemId; // ✅ Creator employee systemId
   creatorName: string;
 };

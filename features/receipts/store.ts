@@ -1,37 +1,43 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Receipt, ReceiptStatus } from './types';
-import { findNextAvailableBusinessId } from '../../lib/id-utils';
-import { asSystemId, asBusinessId } from '../../lib/id-types';
+import type { Receipt } from './types';
+import { findNextAvailableBusinessId } from '@/lib/id-utils';
+import { asSystemId, asBusinessId, type BusinessId, type SystemId } from '@/lib/id-types';
 import { data as initialData } from './data';
+
+export type ReceiptInput = Omit<Receipt, 'systemId'> & { id?: BusinessId | string };
 
 interface ReceiptStore {
   data: Receipt[];
-  add: (item: Omit<Receipt, 'systemId'>) => Receipt;
-  addMultiple: (items: Omit<Receipt, 'systemId'>[]) => void;
-  update: (systemId: string, item: Receipt) => void;
-  remove: (systemId: string) => void;
-  findById: (systemId: string) => Receipt | undefined;
+  add: (item: ReceiptInput) => Receipt;
+  addMultiple: (items: ReceiptInput[]) => void;
+  update: (systemId: SystemId, item: Receipt) => void;
+  remove: (systemId: SystemId) => void;
+  findById: (systemId: SystemId) => Receipt | undefined;
   getActive: () => Receipt[];
-  approve: (systemId: string, approverSystemId: string, approverName: string) => void;
-  complete: (systemId: string, completerSystemId: string, completerName: string) => void;
-  cancel: (systemId: string) => void;
+  cancel: (systemId: SystemId) => void;
 }
 
 let receiptCounter = initialData.length;
 
+const normalizeReceiptStatus = (status?: Receipt['status']): Receipt['status'] =>
+  status === 'cancelled' ? 'cancelled' : 'completed';
+
 export const useReceiptStore = create<ReceiptStore>()(
   persist(
     (set, get) => ({
-      data: initialData,
+      data: initialData.map(receipt => ({
+        ...receipt,
+        status: normalizeReceiptStatus(receipt.status),
+      })),
       
-      add: (item: Omit<Receipt, 'systemId'>): Receipt => {
+      add: (item: ReceiptInput): Receipt => {
         receiptCounter++;
         const systemId = asSystemId(`RECEIPT${String(receiptCounter).padStart(6, '0')}`);
         
         // Auto-generate business ID if empty
-        let businessId = item.id as string;
-        if (!businessId || !businessId.trim()) {
+        let businessId = typeof item.id === 'string' ? item.id.trim() : '';
+        if (!businessId) {
           const existingIds = get().data.map(r => r.id as string);
           const result = findNextAvailableBusinessId('PT', existingIds, receiptCounter, 6);
           businessId = result.nextId;
@@ -43,20 +49,20 @@ export const useReceiptStore = create<ReceiptStore>()(
           systemId, 
           id: asBusinessId(businessId),
           createdAt: item.createdAt || new Date().toISOString(),
-          status: item.status || 'completed'
+          status: normalizeReceiptStatus(item.status)
         };
         
         set(state => ({ data: [...state.data, newReceipt] }));
         return newReceipt;
       },
       
-      addMultiple: (items: Omit<Receipt, 'systemId'>[]) => {
+      addMultiple: (items: ReceiptInput[]) => {
         const newReceipts = items.map(item => {
           receiptCounter++;
           const systemId = asSystemId(`RECEIPT${String(receiptCounter).padStart(6, '0')}`);
           
-          let businessId = item.id as string;
-          if (!businessId || !businessId.trim()) {
+          let businessId = typeof item.id === 'string' ? item.id.trim() : '';
+          if (!businessId) {
             const existingIds = get().data.map(r => r.id as string);
             const result = findNextAvailableBusinessId('PT', existingIds, receiptCounter, 6);
             businessId = result.nextId;
@@ -68,26 +74,26 @@ export const useReceiptStore = create<ReceiptStore>()(
             systemId, 
             id: asBusinessId(businessId),
             createdAt: item.createdAt || new Date().toISOString(),
-            status: item.status || 'completed'
+            status: normalizeReceiptStatus(item.status)
           } as Receipt;
         });
         
         set(state => ({ data: [...state.data, ...newReceipts] }));
       },
       
-      update: (systemId: string, item: Receipt) => {
+      update: (systemId: SystemId, item: Receipt) => {
         set(state => ({
-          data: state.data.map(r => r.systemId === systemId ? { ...item, updatedAt: new Date().toISOString() } : r)
+          data: state.data.map(r => r.systemId === systemId ? { ...item, status: normalizeReceiptStatus(item.status), updatedAt: new Date().toISOString() } : r)
         }));
       },
       
-      remove: (systemId: string) => {
+      remove: (systemId: SystemId) => {
         set(state => ({
           data: state.data.filter(r => r.systemId !== systemId)
         }));
       },
       
-      findById: (systemId: string) => {
+      findById: (systemId: SystemId) => {
         return get().data.find(r => r.systemId === systemId);
       },
       
@@ -95,33 +101,7 @@ export const useReceiptStore = create<ReceiptStore>()(
         return get().data.filter(r => r.status !== 'cancelled');
       },
       
-      approve: (systemId: string, approverSystemId: string, approverName: string) => {
-        const receipt = get().findById(systemId);
-        if (receipt) {
-          get().update(systemId, {
-            ...receipt,
-            status: 'approved',
-            approvedBy: approverSystemId,
-            approvedByName: approverName,
-            approvedAt: new Date().toISOString(),
-          });
-        }
-      },
-      
-      complete: (systemId: string, completerSystemId: string, completerName: string) => {
-        const receipt = get().findById(systemId);
-        if (receipt) {
-          get().update(systemId, {
-            ...receipt,
-            status: 'completed',
-            completedBy: completerSystemId,
-            completedByName: completerName,
-            completedAt: new Date().toISOString(),
-          });
-        }
-      },
-      
-      cancel: (systemId: string) => {
+      cancel: (systemId: SystemId) => {
         const receipt = get().findById(systemId);
         if (receipt) {
           get().update(systemId, {
@@ -135,6 +115,14 @@ export const useReceiptStore = create<ReceiptStore>()(
     {
       name: 'receipt-storage',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state?.data) {
+          state.data = state.data.map(receipt => ({
+            ...receipt,
+            status: normalizeReceiptStatus(receipt.status),
+          }));
+        }
+      },
     }
   )
 );

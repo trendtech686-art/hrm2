@@ -32,7 +32,7 @@ const productTypeSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
-type ProductTypeFormValues = z.infer<typeof productTypeSchema>;
+export type ProductTypeFormValues = z.infer<typeof productTypeSchema>;
 
 interface ProductTypeFormDialogProps {
   open: boolean;
@@ -193,7 +193,7 @@ const productCategorySchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-type ProductCategoryFormValues = z.infer<typeof productCategorySchema>;
+export type ProductCategoryFormValues = z.infer<typeof productCategorySchema>;
 
 interface ProductCategoryFormDialogProps {
   open: boolean;

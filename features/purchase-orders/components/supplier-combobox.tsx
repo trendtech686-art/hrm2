@@ -4,10 +4,11 @@ import { useSupplierStore } from "../../suppliers/store.ts";
 import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox.tsx";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar.tsx";
 import { QuickAddSupplierDialog } from "../../suppliers/components/quick-add-supplier-dialog.tsx";
+import { asSystemId, type SystemId } from "@/lib/id-types";
 
 interface SupplierComboboxProps {
-  value?: string; // supplier systemId
-  onValueChange: (supplierId: string) => void;
+  value?: SystemId; // supplier systemId
+  onValueChange: (supplierId: SystemId | null) => void;
   placeholder?: string;
   className?: string;
 }
@@ -28,7 +29,7 @@ export function SupplierCombobox({
 
   // Find selected supplier
   const selectedSupplier = React.useMemo(
-    () => activeSuppliers.find((s) => s.systemId === value),
+    () => activeSuppliers.find((s) => (value ? s.systemId === value : false)),
     [activeSuppliers, value]
   );
 
@@ -73,13 +74,13 @@ export function SupplierCombobox({
       setShowAddDialog(true);
     } else {
       console.log('SupplierCombobox - calling onValueChange with:', option?.value || "");
-      onValueChange(option?.value || "");
+      onValueChange(option?.value ? asSystemId(option.value) : null);
     }
   };
 
   const handleAddSuccess = (supplierId: string) => {
     console.log('SupplierCombobox - handleAddSuccess:', supplierId);
-    onValueChange(supplierId);
+    onValueChange(asSystemId(supplierId));
   };
 
   return (

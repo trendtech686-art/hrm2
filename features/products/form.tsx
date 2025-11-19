@@ -1,6 +1,7 @@
 import * as React from "react";
 // FIX: Add Controller to imports
 import { useForm, Controller } from "react-hook-form"
+import { asBusinessId } from "@/lib/id-types";
 import type { Product } from "./types.ts"
 import { useProductStore } from "./store.ts";
 import { usePricingPolicyStore } from '../settings/pricing/store.ts';
@@ -28,6 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { PlusCircle } from "lucide-react";
 import { Button } from "../../components/ui/button.tsx";
 import { PricingPolicyForm, type PricingPolicyFormValues } from "../settings/pricing/form.tsx";
+import type { PricingPolicy } from "../settings/pricing/types.ts";
 import { Combobox } from "../../components/ui/combobox.tsx";
 
 // FIX: Redefined ProductFormValues to be specific to the form's needs, separating it from the main Product data model.
@@ -91,7 +93,16 @@ export function ProductForm({ initialData, onSubmit }: ProductFormProps) {
   });
   
   const handlePolicyFormSubmit = (values: PricingPolicyFormValues) => {
-    addPricingPolicy(values);
+    const normalizedPolicy = {
+      id: asBusinessId(values.id.trim().toUpperCase()),
+      name: values.name.trim(),
+      description: values.description?.trim() || undefined,
+      type: values.type,
+      isActive: values.isActive,
+      isDefault: values.isDefault,
+    } satisfies Omit<PricingPolicy, 'systemId'>;
+
+    addPricingPolicy(normalizedPolicy);
     setIsPolicyFormOpen(false);
   };
 

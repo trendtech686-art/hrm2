@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../../components/ui/dropdown-menu.tsx";
 import { Badge } from "../../../../components/ui/badge.tsx";
 import { toast } from "sonner";
+import { asBusinessId, type SystemId } from '@/lib/id-types';
 
 export function PaymentMethodsPageContent() {
   const { data, add, update, remove, setDefault } = usePaymentMethodStore();
@@ -18,10 +19,10 @@ export function PaymentMethodsPageContent() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<PaymentMethod | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
   const handleEdit = (item: PaymentMethod) => { setEditingItem(item); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: string) => { 
+  const handleDeleteRequest = (systemId: SystemId) => { 
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
@@ -40,18 +41,40 @@ export function PaymentMethodsPageContent() {
     setIdToDelete(null);
   };
   
-  const handleSetDefault = (systemId: string) => {
+  const handleSetDefault = (systemId: SystemId) => {
     setDefault(systemId);
     toast.success("Đã đặt làm phương thức mặc định");
   };
   
+  const normalizeValues = (
+    values: PaymentMethodFormValues,
+    fallbackId?: string
+  ): Omit<PaymentMethod, 'systemId' | 'isDefault'> => {
+    const candidateId = fallbackId
+      || values.name.trim().toUpperCase().replace(/\s+/g, '_')
+      || `PM_${Date.now()}`;
+
+    return {
+      id: asBusinessId(candidateId),
+      name: values.name.trim(),
+      isActive: values.isActive,
+      color: values.color || undefined,
+      icon: values.icon || undefined,
+      description: values.description?.trim() || undefined,
+      accountNumber: values.accountNumber?.trim() || undefined,
+      accountName: values.accountName?.trim() || undefined,
+      bankName: values.bankName?.trim() || undefined,
+    };
+  };
+
   const handleFormSubmit = (values: PaymentMethodFormValues) => {
     try {
+      const payload = normalizeValues(values, editingItem?.id);
       if (editingItem) {
-        update(editingItem.systemId, values);
+        update(editingItem.systemId, payload);
         toast.success("Cập nhật thành công");
       } else {
-        add(values);
+        add(payload);
         toast.success("Thêm mới thành công");
       }
       setIsFormOpen(false);

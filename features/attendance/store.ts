@@ -1,31 +1,60 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AttendanceDataRow } from './types.ts';
+import type { AttendanceDataRow, AttendanceDayKey, DailyRecord } from './types.ts';
+import type { SystemId } from '../../lib/id-types.ts';
 
 type AttendanceStoreState = {
   lockedMonths: Record<string, boolean>; // key: "YYYY-MM"
   toggleLock: (monthYear: string) => void;
+  lockMonth: (monthYear: string) => void;
+  unlockMonth: (monthYear: string) => void;
   
   // Data storage
   attendanceData: Record<string, AttendanceDataRow[]>; // key: "YYYY-MM"
   saveAttendanceData: (monthKey: string, data: AttendanceDataRow[]) => void;
   getAttendanceData: (monthKey: string) => AttendanceDataRow[] | null;
-  updateEmployeeRecord: (monthKey: string, employeeId: string, dayKey: string, record: any) => void;
+  updateEmployeeRecord: (
+    monthKey: string,
+    employeeSystemId: SystemId,
+    dayKey: AttendanceDayKey,
+    record: DailyRecord
+  ) => void;
 };
 
 export const useAttendanceStore = create<AttendanceStoreState>()(
   persist(
     (set, get) => ({
       lockedMonths: {},
+      lockMonth: (monthYear) =>
+        set((state) => ({
+          lockedMonths: {
+            ...state.lockedMonths,
+            [monthYear]: true,
+          },
+        })),
+      unlockMonth: (monthYear) =>
+        set((state) => {
+          if (!state.lockedMonths[monthYear]) {
+            return state;
+          }
+          const nextLocked = { ...state.lockedMonths };
+          delete nextLocked[monthYear];
+          return { lockedMonths: nextLocked };
+        }),
       toggleLock: (monthYear) =>
         set((state) => {
-          const newLockedMonths = { ...state.lockedMonths };
-          if (newLockedMonths[monthYear]) {
-            delete newLockedMonths[monthYear];
-          } else {
-            newLockedMonths[monthYear] = true;
+          const isLocked = Boolean(state.lockedMonths[monthYear]);
+          if (isLocked) {
+            const nextLocked = { ...state.lockedMonths };
+            delete nextLocked[monthYear];
+            return { lockedMonths: nextLocked };
           }
-          return { lockedMonths: newLockedMonths };
+          return {
+            lockedMonths: {
+              ...state.lockedMonths,
+              [monthYear]: true,
+            },
+          };
         }),
       
       // Data management
@@ -40,13 +69,13 @@ export const useAttendanceStore = create<AttendanceStoreState>()(
       getAttendanceData: (monthKey) => {
         return get().attendanceData[monthKey] || null;
       },
-      updateEmployeeRecord: (monthKey, employeeId, dayKey, record) =>
+      updateEmployeeRecord: (monthKey, employeeSystemId, dayKey, record) =>
         set((state) => {
           const monthData = state.attendanceData[monthKey];
           if (!monthData) return state;
           
           const updatedData = monthData.map(emp => {
-            if (emp.id === employeeId) {
+            if (emp.employeeSystemId === employeeSystemId) {
               return { ...emp, [dayKey]: record };
             }
             return emp;

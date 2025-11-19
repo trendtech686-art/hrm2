@@ -17,7 +17,7 @@ import type {
   ShippingAddress,
   PackageInfo,
 } from '../components/shipping/types';
-import type { Province, Ward } from '@/features/provinces/types';
+import type { Province, Ward } from '@/features/settings/provinces/types';
 import { mapTo3Level, validateAddress } from './address-level-mapper';
 
 export type CreateShippingOrderParams = {

@@ -1,0 +1,237 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`StockLocationForm > falls back to default branch and captures user input 1`] = `
+<div>
+  <form
+    class="space-y-4 pt-4"
+    id="stock-location-form"
+  >
+    <div
+      class="space-y-2"
+    >
+      <label
+        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        for="_r_7_-form-item"
+      >
+        Tên điểm lưu kho 
+        <span
+          class="text-destructive"
+        >
+          *
+        </span>
+      </label>
+      <input
+        aria-describedby="_r_7_-form-item-description"
+        aria-invalid="false"
+        class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+        id="_r_7_-form-item"
+        name="name"
+        value="Kho Mới"
+      />
+    </div>
+    <div
+      class="grid grid-cols-2 gap-4"
+    >
+      <div
+        class="space-y-2"
+      >
+        <label
+          class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          for="_r_8_-form-item"
+        >
+          Mã
+        </label>
+        <input
+          aria-describedby="_r_8_-form-item-description"
+          aria-invalid="false"
+          class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+          id="_r_8_-form-item"
+          name="id"
+          value=""
+        />
+      </div>
+      <div
+        class="space-y-2"
+      >
+        <label
+          class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          for="_r_9_-form-item"
+        >
+          Chi nhánh
+        </label>
+        <button
+          aria-autocomplete="none"
+          aria-controls="radix-_r_a_"
+          aria-describedby="_r_9_-form-item-description"
+          aria-expanded="false"
+          aria-invalid="false"
+          class="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+          data-state="closed"
+          dir="ltr"
+          id="_r_9_-form-item"
+          role="combobox"
+          type="button"
+        >
+          <span
+            style="pointer-events: none;"
+          >
+            Chi nhánh Hà Nội
+          </span>
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down h-4 w-4 opacity-50"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+        <select
+          aria-hidden="true"
+          style="position: absolute; border: 0px; width: 1px; height: 1px; padding: 0px; margin: -1px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); white-space: nowrap; word-wrap: normal;"
+          tabindex="-1"
+        >
+          <option
+            selected=""
+            value="BRANCH000001"
+          >
+            Chi nhánh Hà Nội
+          </option>
+          <option
+            value="BRANCH000002"
+          >
+            Chi nhánh TP.HCM
+          </option>
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+`;
+
+exports[`StockLocationForm > submits branded IDs via callback when initial data is provided 1`] = `
+<div>
+  <form
+    class="space-y-4 pt-4"
+    id="stock-location-form"
+  >
+    <div
+      class="space-y-2"
+    >
+      <label
+        class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        for="_r_0_-form-item"
+      >
+        Tên điểm lưu kho 
+        <span
+          class="text-destructive"
+        >
+          *
+        </span>
+      </label>
+      <input
+        aria-describedby="_r_0_-form-item-description"
+        aria-invalid="false"
+        class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+        id="_r_0_-form-item"
+        name="name"
+        value="Kho trung tâm"
+      />
+    </div>
+    <div
+      class="grid grid-cols-2 gap-4"
+    >
+      <div
+        class="space-y-2"
+      >
+        <label
+          class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          for="_r_1_-form-item"
+        >
+          Mã
+        </label>
+        <input
+          aria-describedby="_r_1_-form-item-description"
+          aria-invalid="false"
+          class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+          id="_r_1_-form-item"
+          name="id"
+          value="LOC001"
+        />
+      </div>
+      <div
+        class="space-y-2"
+      >
+        <label
+          class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          for="_r_2_-form-item"
+        >
+          Chi nhánh
+        </label>
+        <button
+          aria-autocomplete="none"
+          aria-controls="radix-_r_3_"
+          aria-describedby="_r_2_-form-item-description"
+          aria-expanded="false"
+          aria-invalid="false"
+          class="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+          data-state="closed"
+          dir="ltr"
+          id="_r_2_-form-item"
+          role="combobox"
+          type="button"
+        >
+          <span
+            style="pointer-events: none;"
+          >
+            Chi nhánh TP.HCM
+          </span>
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-chevron-down h-4 w-4 opacity-50"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6 9 6 6 6-6"
+            />
+          </svg>
+        </button>
+        <select
+          aria-hidden="true"
+          style="position: absolute; border: 0px; width: 1px; height: 1px; padding: 0px; margin: -1px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); white-space: nowrap; word-wrap: normal;"
+          tabindex="-1"
+        >
+          <option
+            value="BRANCH000001"
+          >
+            Chi nhánh Hà Nội
+          </option>
+          <option
+            selected=""
+            value="BRANCH000002"
+          >
+            Chi nhánh TP.HCM
+          </option>
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+`;

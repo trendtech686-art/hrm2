@@ -2,32 +2,11 @@ import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
 import { createCrudStore } from '../../../lib/store-factory.ts';
 import type { WarrantyTicket } from '../types.ts';
 import { warrantyInitialData } from '../initial-data.ts';
+import { getCurrentUserInfo, getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
 
 // Utility: Get Current User Info
 export function getCurrentUserName(): string {
-  try {
-    const stored = localStorage.getItem('user');
-    if (stored) {
-      const user = JSON.parse(stored);
-      return user.name || 'Admin';
-    }
-  } catch (e) {
-    console.error('Lỗi khi lấy thông tin user hiện tại:', e);
-  }
-  return 'Admin';
-}
-
-export function getCurrentUserSystemId(): string {
-  try {
-    const stored = localStorage.getItem('user');
-    if (stored) {
-      const user = JSON.parse(stored);
-      return user.systemId || 'EMP000001';
-    }
-  } catch (e) {
-    console.error('Lỗi khi lấy systemId user hiện tại:', e);
-  }
-  return 'EMP000001';
+  return getCurrentUserInfo().name;
 }
 
 // Utility: Generate Public Tracking Code

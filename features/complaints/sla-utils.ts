@@ -49,7 +49,7 @@ export function checkOverdue(complaint: Complaint): OverdueStatus {
   const responseTimeLeft = sla.responseTime - minutesElapsed;
   const isOverdueResponse = !hasResponse && responseTimeLeft < 0;
 
-  const isResolved = complaint.status === 'resolved' || complaint.status === 'rejected';
+  const isResolved = complaint.status === 'resolved' || complaint.status === 'ended';
   const resolveTimeLeft = sla.resolveTime - hoursElapsed;
   const isOverdueResolve = !isResolved && resolveTimeLeft < 0;
 

@@ -5,6 +5,7 @@ import Fuse from "fuse.js";
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from "../../lib/utils.ts";
 import { toast } from "sonner";
+import { asSystemId } from '@/lib/id-types';
 
 // Types & Store
 import type { Complaint, ComplaintStatus } from "./types.ts";
@@ -553,16 +554,16 @@ export function ComplaintsPage() {
       description: 'Bạn có chắc muốn kết thúc khiếu nại này?',
       onConfirm: () => {
         try {
-          updateComplaint(systemId, {
+          updateComplaint(asSystemId(systemId), {
             status: 'resolved',
             updatedAt: new Date(),
             resolvedAt: new Date(),
             timeline: [
               ...complaint.timeline,
               {
-                id: `action_${Date.now()}`,
+                id: asSystemId(`action_${Date.now()}`),
                 actionType: 'resolved',
-                performedBy: 'Admin', // TODO: Get from auth
+                performedBy: asSystemId('Admin'), // TODO: Get from auth
                 performedAt: new Date(),
                 note: 'Kết thúc khiếu nại từ Kanban view',
               },
@@ -591,7 +592,7 @@ export function ComplaintsPage() {
       description: 'Bạn có chắc muốn mở lại khiếu nại này?',
       onConfirm: () => {
         try {
-          updateComplaint(systemId, {
+          updateComplaint(asSystemId(systemId), {
             status: 'investigating',
             // ⭐ Xóa các trường ended/resolved để về trạng thái mở
             endedBy: undefined,
@@ -604,9 +605,9 @@ export function ComplaintsPage() {
             timeline: [
               ...complaint.timeline,
               {
-                id: `action_${Date.now()}`,
+                id: asSystemId(`action_${Date.now()}`),
                 actionType: 'reopened',
-                performedBy: 'Admin', // TODO: Get from auth
+                performedBy: asSystemId('Admin'), // TODO: Get from auth
                 performedAt: new Date(),
                 note: 'Mở lại khiếu nại từ Kanban view',
               },
@@ -635,16 +636,16 @@ export function ComplaintsPage() {
       description: 'Bạn có chắc muốn hủy khiếu nại này?',
       onConfirm: () => {
         try {
-          updateComplaint(systemId, {
+          updateComplaint(asSystemId(systemId), {
             status: 'cancelled',
             updatedAt: new Date(),
             cancelledAt: new Date(),
             timeline: [
               ...complaint.timeline,
               {
-                id: `action_${Date.now()}`,
+                id: asSystemId(`action_${Date.now()}`),
                 actionType: 'cancelled',
-                performedBy: 'Admin', // TODO: Get from auth
+                performedBy: asSystemId('Admin'), // TODO: Get from auth
                 performedAt: new Date(),
                 note: 'Hủy khiếu nại từ Kanban view',
               },
@@ -673,15 +674,15 @@ export function ComplaintsPage() {
       description: 'Bạn có chắc muốn bắt đầu xử lý khiếu nại này?',
       onConfirm: () => {
         try {
-          updateComplaint(systemId, {
+          updateComplaint(asSystemId(systemId), {
             status: 'investigating',
             updatedAt: new Date(),
             timeline: [
               ...complaint.timeline,
               {
-                id: `action_${Date.now()}`,
+                id: asSystemId(`action_${Date.now()}`),
                 actionType: 'investigating',
-                performedBy: 'Admin', // TODO: Get from auth
+                performedBy: asSystemId('Admin'), // TODO: Get from auth
                 performedAt: new Date(),
                 note: 'Bắt đầu xử lý khiếu nại từ Kanban view',
               },
@@ -713,7 +714,7 @@ export function ComplaintsPage() {
 
       // Generate tracking URL and code
       const trackingUrl = generateTrackingUrl(complaint);
-      const trackingCode = getTrackingCode(complaint.systemId);
+      const trackingCode = getTrackingCode(complaint.id);
       
       // Copy to clipboard
       navigator.clipboard.writeText(trackingUrl);
@@ -941,7 +942,7 @@ export function ComplaintsPage() {
     try {
       const trackingLinks = allSelectedRows.map(c => {
         const trackingUrl = generateTrackingUrl(c);
-        const trackingCode = getTrackingCode(c.systemId);
+        const trackingCode = getTrackingCode(c.id);
         return `${trackingCode}: ${trackingUrl}`;
       });
       

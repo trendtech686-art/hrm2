@@ -1,8 +1,10 @@
+import type { SystemId, BusinessId } from '../../lib/id-types.ts';
+
 export type SupplierStatus = "Đang Giao Dịch" | "Ngừng Giao Dịch";
 
 export type Supplier = {
-  systemId: string;
-  id: string; // NCC001
+  systemId: SystemId;
+  id: BusinessId; // NCC001
   name: string;
   taxCode: string;
   phone: string;
@@ -26,6 +28,6 @@ export type Supplier = {
   updatedAt?: string; // ISO timestamp
   deletedAt?: string | null; // ISO timestamp when soft-deleted
   isDeleted?: boolean; // Soft delete flag
-  createdBy?: string; // Employee systemId who created this
-  updatedBy?: string; // Employee systemId who last updated this
+  createdBy?: SystemId; // Employee systemId who created this
+  updatedBy?: SystemId; // Employee systemId who last updated this
 };

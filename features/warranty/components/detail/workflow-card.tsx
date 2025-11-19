@@ -77,7 +77,7 @@ export function WarrantyWorkflowCard({
           readonly
           compact={false}
           statusOptions={[
-            { value: 'new', label: 'Mới' },
+            { value: 'incomplete', label: 'Chưa đầy đủ' },
             { value: 'pending', label: 'Chưa xử lý' },
             { value: 'processed', label: 'Đã xử lý' },
             { value: 'returned', label: 'Đã trả' },

@@ -1,4 +1,6 @@
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
+import { asSystemId } from '../../../lib/id-types.ts';
+import type { SystemId } from '../../../lib/id-types.ts';
 import type { WarrantyProduct, WarrantyHistory, WarrantyTicket } from '../types.ts';
 import { baseStore, originalUpdate, getCurrentUserName } from './base-store.ts';
 import { commitWarrantyStock, uncommitWarrantyStock } from './stock-management.ts';
@@ -63,13 +65,13 @@ function adjustReplacementStock(
 /**
  * Thêm sản phẩm vào phiếu bảo hành
  */
-export function addProduct(ticketSystemId: string, product: Omit<WarrantyProduct, 'systemId'>) {
+export function addProduct(ticketSystemId: SystemId, product: Omit<WarrantyProduct, 'systemId'>) {
   const ticket = baseStore.getState().data.find(t => t.systemId === ticketSystemId);
   if (!ticket) return;
   
   const newProduct: WarrantyProduct = {
     ...product,
-    systemId: `WP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    systemId: asSystemId(`WP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`),
   };
 
   adjustReplacementStock(ticket, undefined, newProduct);
@@ -77,7 +79,7 @@ export function addProduct(ticketSystemId: string, product: Omit<WarrantyProduct
   const updatedProducts = [...ticket.products, newProduct];
   const summary = calculateSummary(updatedProducts);
   
-  originalUpdate(ticketSystemId as any, {
+  originalUpdate(ticketSystemId, {
     ...ticket,
     products: updatedProducts,
     summary,
@@ -103,7 +105,7 @@ export function addProduct(ticketSystemId: string, product: Omit<WarrantyProduct
 /**
  * Cập nhật sản phẩm trong phiếu
  */
-export function updateProduct(ticketSystemId: string, productSystemId: string, updates: Partial<WarrantyProduct>) {
+export function updateProduct(ticketSystemId: SystemId, productSystemId: SystemId, updates: Partial<WarrantyProduct>) {
   const ticket = baseStore.getState().data.find(t => t.systemId === ticketSystemId);
   if (!ticket) return;
   const originalProduct = ticket.products.find(p => p.systemId === productSystemId);
@@ -117,7 +119,7 @@ export function updateProduct(ticketSystemId: string, productSystemId: string, u
   const updatedProduct = updatedProducts.find(p => p.systemId === productSystemId);
   adjustReplacementStock(ticket, originalProduct, updatedProduct);
   
-  originalUpdate(ticketSystemId as any, {
+  originalUpdate(ticketSystemId, {
     ...ticket,
     products: updatedProducts,
     summary,
@@ -133,7 +135,7 @@ export function updateProduct(ticketSystemId: string, productSystemId: string, u
 /**
  * Xóa sản phẩm khỏi phiếu
  */
-export function removeProduct(ticketSystemId: string, productSystemId: string) {
+export function removeProduct(ticketSystemId: SystemId, productSystemId: SystemId) {
   const ticket = baseStore.getState().data.find(t => t.systemId === ticketSystemId);
   if (!ticket) return;
   
@@ -146,7 +148,7 @@ export function removeProduct(ticketSystemId: string, productSystemId: string) {
     adjustReplacementStock(ticket, productToRemove, undefined);
   }
   
-  originalUpdate(ticketSystemId as any, {
+  originalUpdate(ticketSystemId, {
     ...ticket,
     products: updatedProducts,
     summary,
@@ -161,13 +163,13 @@ export function removeProduct(ticketSystemId: string, productSystemId: string) {
 /**
  * Tính toán lại summary
  */
-export function recalculateSummary(ticketSystemId: string) {
+export function recalculateSummary(ticketSystemId: SystemId) {
   const ticket = baseStore.getState().data.find(t => t.systemId === ticketSystemId);
   if (!ticket) return;
   
   const summary = calculateSummary(ticket.products);
   
-  originalUpdate(ticketSystemId as any, {
+  originalUpdate(ticketSystemId, {
     ...ticket,
     summary,
   } as any);
@@ -195,7 +197,7 @@ export function calculateSettlementStatus(
  * Thêm lịch sử (internal use only)
  */
 export function addHistory(
-  ticketSystemId: string, 
+  ticketSystemId: SystemId, 
   action: string, 
   performedBy: string, 
   note?: string,
@@ -205,7 +207,7 @@ export function addHistory(
   if (!ticket) return;
   
   const historyEntry: WarrantyHistory = {
-    systemId: `WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    systemId: asSystemId(`WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`),
     action,
     actionLabel: action,
     performedBy,
@@ -214,7 +216,7 @@ export function addHistory(
     metadata,
   };
   
-  originalUpdate(ticketSystemId as any, {
+  originalUpdate(ticketSystemId, {
     ...ticket,
     history: [...(ticket.history || []), historyEntry],
   } as any);

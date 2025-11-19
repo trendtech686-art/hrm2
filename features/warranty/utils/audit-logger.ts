@@ -12,9 +12,11 @@
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
 import type { WarrantyHistory, WarrantyTicket, WarrantyProduct } from '../types.ts';
 
+import { asSystemId, type SystemId } from '@/lib/id-types';
+
 // Simple ID generator for audit logs
-function generateId(): string {
-  return `AUD_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+function generateId(): SystemId {
+  return asSystemId(`AUD_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 }
 
 /**
@@ -26,9 +28,10 @@ export function createAuditLog(
   performedBy: string,
   options?: {
     entityType?: string;
-    entityId?: string;
+    entityId?: SystemId;
     changes?: Array<{ field: string; oldValue: any; newValue: any }>;
     note?: string;
+    performedBySystemId?: SystemId;
   }
 ): WarrantyHistory {
   const now = getCurrentDate();
@@ -42,6 +45,7 @@ export function createAuditLog(
     entityId: options?.entityId,
     changes: options?.changes,
     performedBy,
+    performedBySystemId: options?.performedBySystemId,
     performedAt: timestamp,
     note: options?.note,
   };
@@ -50,14 +54,15 @@ export function createAuditLog(
 /**
  * Log: Tạo phiếu mới
  */
-export function logCreateTicket(ticketId: string, performedBy: string): WarrantyHistory {
+export function logCreateTicket(ticketSystemId: SystemId, performedBy: string, performedBySystemId?: SystemId): WarrantyHistory {
   return createAuditLog(
     'create_ticket',
-    `Tạo phiếu bảo hành ${ticketId}`,
+    `Tạo phiếu bảo hành ${ticketSystemId}`,
     performedBy,
     {
       entityType: 'ticket',
-      entityId: ticketId,
+      entityId: ticketSystemId,
+      performedBySystemId,
     }
   );
 }
@@ -66,9 +71,10 @@ export function logCreateTicket(ticketId: string, performedBy: string): Warranty
  * Log: Cập nhật thông tin phiếu
  */
 export function logUpdateTicket(
-  ticketId: string,
+  ticketSystemId: SystemId,
   performedBy: string,
-  changes: Array<{ field: string; oldValue: any; newValue: any }>
+  changes: Array<{ field: string; oldValue: any; newValue: any }>,
+  performedBySystemId?: SystemId,
 ): WarrantyHistory {
   const fieldLabels: Record<string, string> = {
     customerName: 'Tên khách hàng',
@@ -89,8 +95,9 @@ export function logUpdateTicket(
     performedBy,
     {
       entityType: 'ticket',
-      entityId: ticketId,
+      entityId: ticketSystemId,
       changes,
+      performedBySystemId,
     }
   );
 }
@@ -210,7 +217,8 @@ export function logDeleteImages(
 export function logStatusChange(
   oldStatus: string,
   newStatus: string,
-  performedBy: string
+  performedBy: string,
+  performedBySystemId?: SystemId,
 ): WarrantyHistory {
   const statusLabels: Record<string, string> = {
     new: 'Mới',
@@ -232,6 +240,7 @@ export function logStatusChange(
           newValue: newStatus,
         },
       ],
+      performedBySystemId,
     }
   );
 }
@@ -270,7 +279,7 @@ export function generateChangeLog(
   });
 
   if (changes.length > 0) {
-    logs.push(logUpdateTicket(newTicket.id, performedBy, changes));
+    logs.push(logUpdateTicket(newTicket.systemId, performedBy, changes));
   }
 
   // Check status change

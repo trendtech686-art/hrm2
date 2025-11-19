@@ -1,7 +1,6 @@
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
 import Fuse from 'fuse.js';
-import { DataTable } from './data-table.tsx';
+import { ResponsiveDataTable } from './responsive-data-table.tsx';
 import { DataTableToolbar } from './data-table-toolbar.tsx';
 import { DataTableExportDialog } from './data-table-export-dialog.tsx';
 import type { ColumnDef } from './types.ts';
@@ -146,7 +145,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
         </div>
       </DataTableToolbar>
 
-      <DataTable
+      <ResponsiveDataTable
         columns={columns}
         data={paginatedData}
         pageCount={pageCount}
@@ -167,6 +166,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
         setColumnOrder={setColumnOrder}
         pinnedColumns={pinnedColumns}
         setPinnedColumns={setPinnedColumns}
+        autoGenerateMobileCards
       />
     </div>
   );

@@ -1,9 +1,9 @@
-import type { SystemId } from '@/lib/id-config';
+import { SystemId, BusinessId } from '../../../lib/id-types.ts';
 
 export type Department = {
   systemId: SystemId;
-  id: string
-  name: string
-  managerId?: string; // systemId of the employee who is the manager
+  id: BusinessId;
+  name: string;
+  managerId?: SystemId; // systemId of the employee who is the manager
   jobTitleIds: string[];
 }

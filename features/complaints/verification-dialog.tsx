@@ -25,6 +25,7 @@ import type { StagingFile } from "@/lib/file-upload-api";
 import { CheckCircle, XCircle, Upload, MessageSquare, AlertCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import type { Complaint } from "./types.ts";
+import type { SystemId } from "@/lib/id-types";
 
 // Response template interface
 interface ResponseTemplate {
@@ -79,8 +80,8 @@ interface VerificationDialogProps {
     cost: number, 
     incurredCost: number, 
     reason: string, 
-    confirmedQuantities?: Record<string, number>,
-    inventoryAdjustments?: Record<string, number>
+    confirmedQuantities?: Record<SystemId, number>,
+    inventoryAdjustments?: Record<SystemId, number>
   ) => void;
   onSubmitIncorrect: (files: StagingFile[], videoLinks: string[], note: string) => void;
 }

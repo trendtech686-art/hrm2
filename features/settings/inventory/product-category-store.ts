@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
 import type { ProductCategory } from './types';
 
 const generateId = () => crypto.randomUUID();
@@ -25,17 +26,17 @@ const calculatePathAndLevel = (category: ProductCategory, allCategories: Product
 interface ProductCategoryState {
   data: ProductCategory[];
   add: (category: Omit<ProductCategory, 'systemId' | 'path' | 'level'>) => ProductCategory;
-  update: (systemId: string, updates: Partial<ProductCategory>) => void;
-  remove: (systemId: string) => void;
-  findById: (systemId: string) => ProductCategory | undefined;
+  update: (systemId: SystemId, updates: Partial<ProductCategory>) => void;
+  remove: (systemId: SystemId) => void;
+  findById: (systemId: SystemId) => ProductCategory | undefined;
   getActive: () => ProductCategory[];
-  getByParent: (parentId?: string) => ProductCategory[];
-  updateSortOrder: (systemId: string, newSortOrder: number) => void;
-  moveCategory: (systemId: string, newParentId: string | undefined, newSortOrder: number) => void;
+  getByParent: (parentId?: SystemId) => ProductCategory[];
+  updateSortOrder: (systemId: SystemId, newSortOrder: number) => void;
+  moveCategory: (systemId: SystemId, newParentId: SystemId | undefined, newSortOrder: number) => void;
   recalculatePaths: () => void;
 }
 
-const initialData: ProductCategory[] = [
+const rawData = [
   {
     systemId: generateId(),
     id: 'CAT001',
@@ -78,7 +79,13 @@ const initialData: ProductCategory[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-];
+] as const;
+
+const initialData: ProductCategory[] = rawData.map((item) => ({
+  ...item,
+  systemId: asSystemId(item.systemId),
+  id: asBusinessId(item.id),
+}));
 
 export const useProductCategoryStore = create<ProductCategoryState>()(
   persist(
@@ -94,7 +101,7 @@ export const useProductCategoryStore = create<ProductCategoryState>()(
         
         const newCategory: ProductCategory = {
           ...category,
-          systemId: generateId(),
+          systemId: asSystemId(generateId()),
           path,
           level,
           createdAt: new Date().toISOString(),

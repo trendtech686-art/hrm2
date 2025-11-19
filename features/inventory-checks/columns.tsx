@@ -13,8 +13,8 @@ const formatDate = (d?: string) => (d ? formatDateCustom(new Date(d), 'dd/MM/yyy
 
 export const getColumns = (
   onEdit: (item: InventoryCheck) => void,
-  onDelete: (systemId: string) => void,
-  onBalance: (systemId: string) => void,
+  onDelete: (item: InventoryCheck) => void,
+  onBalance: (item: InventoryCheck) => void,
   navigate: (path: string) => void,
 ) : ColumnDef<InventoryCheck>[] => [
   // 1 - Select
@@ -181,11 +181,11 @@ export const getColumns = (
               <Pencil className="mr-2 h-4 w-4" />Sửa
             </DropdownMenuItem>
             {row.status === 'draft' && (
-              <DropdownMenuItem onClick={() => onBalance(row.systemId)}>
+              <DropdownMenuItem onClick={() => onBalance(row)}>
                 <Check className="mr-2 h-4 w-4" />Cân bằng
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(row.systemId)}>
+              <DropdownMenuItem className="text-destructive" onClick={() => onDelete(row)}>
               <Trash2 className="mr-2 h-4 w-4" />Xóa
             </DropdownMenuItem>
           </DropdownMenuContent>

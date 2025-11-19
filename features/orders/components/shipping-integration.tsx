@@ -23,6 +23,7 @@ import { useProductStore } from '../../products/store';
 import { useProvinceStore } from '../../settings/provinces/store';
 import { useBranchStore } from '../../settings/branches/store';
 import { useOrderStore } from '../store'; // ✅ Import order store
+import { asSystemId } from '@/lib/id-types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Loader2, PackageCheck } from 'lucide-react';
@@ -206,17 +207,37 @@ interface ShippingIntegrationProps {
 export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTabs, customer: customerProp }: ShippingIntegrationProps) {
   const { control, setValue, getValues } = useFormContext<OrderFormValues>();
   const { settings: shippingSettings } = useShippingSettingsStore();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductByIdBase } = useProductStore();
   const { data: provinces, getWardsByProvinceId } = useProvinceStore();
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchByIdBase } = useBranchStore();
   const { data: partners } = useShippingPartnerStore();
   const { data: allOrders } = useOrderStore(); // ✅ Get all orders for ID generation
+
+  const findProductById = React.useCallback(
+    (id?: string | null) => {
+      if (!id || id.trim().length === 0) return undefined;
+      return findProductByIdBase(asSystemId(id));
+    },
+    [findProductByIdBase]
+  );
+
+  const findBranchById = React.useCallback(
+    (id?: string | null) => {
+      if (!id || id.trim().length === 0) return undefined;
+      return findBranchByIdBase(asSystemId(id));
+    },
+    [findBranchByIdBase]
+  );
 
   // ✅ PHASE 2: Convert watch to useWatch for better performance
   // Use customer from props if provided, otherwise watch from form
   const customerFromForm = useWatch({ control, name: 'customer' });
   const customer = customerProp !== undefined ? customerProp : customerFromForm;
-  const branchSystemId = useWatch({ control, name: 'branchSystemId' });
+  const watchedBranchSystemId = useWatch({ control, name: 'branchSystemId' }) as string | undefined;
+  const branchSystemId = React.useMemo(() => {
+    if (!watchedBranchSystemId || watchedBranchSystemId.trim().length === 0) return undefined;
+    return asSystemId(watchedBranchSystemId);
+  }, [watchedBranchSystemId]);
   const lineItems = useWatch({ control, name: 'lineItems' });
   const grandTotal = useWatch({ control, name: 'grandTotal' });
   const payments = useWatch({ control, name: 'payments' }) || [];

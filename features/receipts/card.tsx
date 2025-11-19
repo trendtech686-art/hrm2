@@ -1,12 +1,13 @@
 import * as React from "react";
-import { formatDate, formatDateCustom } from '../../lib/date-utils.ts';
-import type { Receipt } from './types.ts';
-import { Card, CardContent } from "../../components/ui/card.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
-import { TouchButton } from "../../components/mobile/touch-button.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { MoreHorizontal, Calendar, DollarSign, User, Building2, FileText, CheckCircle, XCircle, Eye, Pencil } from "lucide-react";
+import { formatDate, formatDateCustom } from '@/lib/date-utils';
+import type { Receipt } from './types';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TouchButton } from "@/components/mobile/touch-button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Calendar, DollarSign, User, Building2, FileText, XCircle, Eye, Pencil } from "lucide-react";
+import type { SystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '0';
@@ -19,27 +20,24 @@ const formatDateDisplay = (dateString?: string) => {
     return formatDateCustom(date, "dd/MM/yyyy");
 };
 
-const getStatusBadge = (status: Receipt['status']) => {
-    const variants: Record<Receipt['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-        pending: { label: 'Chờ xử lý', variant: 'secondary' },
-        pending_approval: { label: 'Chờ duyệt', variant: 'outline' },
-        approved: { label: 'Đã duyệt', variant: 'default' },
+const getStatusBadge = (status?: Receipt['status']) => {
+    const normalizedStatus: Receipt['status'] = status === 'cancelled' ? 'cancelled' : 'completed';
+    const variants: Record<Receipt['status'], { label: string; variant: 'default' | 'destructive' }> = {
         completed: { label: 'Hoàn thành', variant: 'default' },
         cancelled: { label: 'Đã hủy', variant: 'destructive' },
     };
-    const config = variants[status];
+    const config = variants[normalizedStatus];
     return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
 export interface MobileReceiptCardProps {
     receipt: Receipt;
-    onCancel: (systemId: string) => void;
-    onApprove: (systemId: string) => void;
+    onCancel: (systemId: SystemId) => void;
     navigate: (path: string) => void;
     handleRowClick: (receipt: Receipt) => void;
 }
 
-export const MobileReceiptCard = ({ receipt, onCancel, onApprove, navigate, handleRowClick }: MobileReceiptCardProps) => {
+export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick }: MobileReceiptCardProps) => {
     const getInitials = (name: string) => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     };
@@ -80,15 +78,6 @@ export const MobileReceiptCard = ({ receipt, onCancel, onApprove, navigate, hand
                                     <Pencil className="mr-2 h-4 w-4" />
                                     Chỉnh sửa
                                 </DropdownMenuItem>
-                                {receipt.status === 'pending_approval' && (
-                                    <>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onApprove(receipt.systemId); }}>
-                                            <CheckCircle className="mr-2 h-4 w-4" />
-                                            Duyệt phiếu
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                     className="text-destructive focus:text-destructive"

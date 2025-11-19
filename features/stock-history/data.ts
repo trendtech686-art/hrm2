@@ -1,7 +1,7 @@
 import type { StockHistoryEntry } from './types.ts';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 
-export const data: StockHistoryEntry[] = [
+export const data = [
   // PROD000001 - Laptop Dell Inspiron 15 (Khởi tạo: CN000001=50, CN000002=30)
   {
     systemId: asSystemId('SH000001'),
@@ -571,4 +571,4 @@ export const data: StockHistoryEntry[] = [
     branchSystemId: asSystemId('CN000001'),
     branch: 'Chi nhánh Trung tâm',
   },
-];
+] satisfies StockHistoryEntry[];

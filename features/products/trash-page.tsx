@@ -9,6 +9,7 @@ import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx
 import { Card, CardContent } from "../../components/ui/card.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
 import type { Product } from "./types.ts"
+import type { SystemId } from "@/lib/id-types";
 
 export function ProductsTrashPage() {
   const store = useProductStore();
@@ -21,14 +22,14 @@ export function ProductsTrashPage() {
   const deletedProducts = getDeleted();
 
   // Handlers for column actions (these will be called from column buttons)
-  const handleRestoreFromColumn = React.useCallback((id: string) => {
-    restore(id);
+  const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
+    restore(systemId);
     toast.success("Đã khôi phục sản phẩm");
   }, [restore]);
 
-  const handleDeleteFromColumn = React.useCallback(async (id: string) => {
+  const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     try {
-      remove(id);
+      remove(systemId);
       toast.success("Đã xóa vĩnh viễn sản phẩm");
     } catch (error) {
       toast.error("Có lỗi khi xóa sản phẩm");
@@ -100,12 +101,12 @@ export function ProductsTrashPage() {
   return (
     <GenericTrashPage
       deletedItems={deletedProducts}
-      onRestore={(id: string) => {
-        restore(id);
+      onRestore={(systemId) => {
+        restore(systemId);
         toast.success("Đã khôi phục sản phẩm");
       }}
-      onPermanentDelete={async (id: string) => {
-        remove(id);
+      onPermanentDelete={async (systemId) => {
+        remove(systemId);
         toast.success("Đã xóa vĩnh viễn sản phẩm");
       }}
       title="Thùng rác sản phẩm"

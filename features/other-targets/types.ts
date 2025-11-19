@@ -1,4 +1,6 @@
+import type { SystemId } from '@/lib/id-types';
+
 export type OtherTarget = {
-  systemId: string;
+  systemId: SystemId;
   name: string;
 };

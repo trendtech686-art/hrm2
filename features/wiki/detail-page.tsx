@@ -2,6 +2,7 @@
 import * as ReactRouterDOM from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { useWikiStore } from './store.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -14,7 +15,7 @@ export function WikiDetailPage() {
   const navigate = ReactRouterDOM.useNavigate();
   const { findById } = useWikiStore();
 
-  const article = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const article = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   
   usePageHeader({
     title: article?.title,

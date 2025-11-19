@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { Customer } from './types.ts';
+import { SystemId, BusinessId } from '../../lib/id-types.ts';
 import { calculateLifecycleStage } from './lifecycle-utils.ts';
 import { getHighRiskDebtCustomers } from './credit-utils.ts';
 import { 
@@ -12,7 +13,7 @@ import {
 } from './intelligence-utils.ts';
 import { getOverdueDebtCustomers, getDueSoonCustomers } from './debt-tracking-utils.ts';
 import Fuse from 'fuse.js';
-import { getCurrentUserSystemId } from '../../contexts/user-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
 
 const baseStore = createCrudStore<Customer>(initialData, 'customers', {
   businessIdField: 'id',
@@ -23,9 +24,9 @@ const baseStore = createCrudStore<Customer>(initialData, 'customers', {
 // Define enhanced interface
 interface CustomerStoreState extends CrudState<Customer> {
   searchCustomers: (query: string, page: number, limit?: number) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
-  updateDebt: (systemId: string, amountChange: number) => void;
-  incrementOrderStats: (systemId: string, orderValue: number) => void;
-  decrementOrderStats: (systemId: string, orderValue: number) => void;
+  updateDebt: (systemId: SystemId, amountChange: number) => void;
+  incrementOrderStats: (systemId: SystemId, orderValue: number) => void;
+  decrementOrderStats: (systemId: SystemId, orderValue: number) => void;
   getHighRiskDebtCustomers: () => Customer[];
   updateCustomerIntelligence: () => void; // Batch update RFM, health score, churn risk
   getCustomersBySegment: (segment: string) => Customer[];
@@ -59,7 +60,7 @@ const augmentedMethods = {
             }, 300);
         });
     },
-    updateDebt: (systemId: string, amountChange: number) => {
+    updateDebt: (systemId: SystemId, amountChange: number) => {
         baseStore.setState(state => ({
             data: state.data.map(customer => {
                 if (customer.systemId === systemId) {
@@ -72,7 +73,7 @@ const augmentedMethods = {
             })
         }));
     },
-    incrementOrderStats: (systemId: string, orderValue: number) => {
+    incrementOrderStats: (systemId: SystemId, orderValue: number) => {
         baseStore.setState(state => ({
             data: state.data.map(customer => {
                 if (customer.systemId === systemId) {
@@ -86,7 +87,7 @@ const augmentedMethods = {
             })
         }));
     },
-    decrementOrderStats: (systemId: string, orderValue: number) => {
+    decrementOrderStats: (systemId: SystemId, orderValue: number) => {
         baseStore.setState(state => ({
             data: state.data.map(customer => {
                 if (customer.systemId === systemId) {
@@ -109,7 +110,7 @@ const augmentedMethods = {
         return baseStore.getState().add(customerWithLifecycle);
     },
     // Override update to auto-calculate lifecycle stage
-    update: (systemId: string, updatedCustomer: Customer) => {
+    update: (systemId: SystemId, updatedCustomer: Customer) => {
         console.log('[CustomerStore] update called:', { systemId, updatedCustomer });
         const customerWithLifecycle = {
             ...updatedCustomer,

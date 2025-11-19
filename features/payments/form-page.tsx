@@ -4,12 +4,12 @@ import { usePaymentStore } from './store.ts';
 import { PaymentForm, type PaymentFormValues } from './payment-form.tsx';
 import type { Payment } from './types.ts';
 import { useCashbookStore } from '../cashbook/store';
-import { useEmployeeStore } from '../employees/store';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useRouteMeta } from '../../hooks/use-route-meta.ts';
 import { ROUTES } from '../../lib/router.ts';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/auth-context.tsx';
+import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
 
 import { Card, CardContent } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -19,14 +19,24 @@ export function PaymentFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const navigate = useNavigate();
   const routeMeta = useRouteMeta();
-  const { findById, add, update } = usePaymentStore();
+  const paymentStore = usePaymentStore();
+  const { findById, add, update } = paymentStore;
+  const payments: Payment[] = paymentStore.data ?? [];
   const { accounts } = useCashbookStore();
-  const { data: employees } = useEmployeeStore();
   const { employee: currentEmployee } = useAuth();
-  
-  const paymentId = systemId || id;
-  const isEditing = !!paymentId;
-  const payment = React.useMemo(() => (paymentId ? findById(paymentId) : null), [paymentId, findById]);
+
+  const paymentSystemId = systemId ? asSystemId(systemId) : undefined;
+  const paymentBusinessId = id ? asBusinessId(id) : undefined;
+  const payment = React.useMemo(() => {
+    if (paymentSystemId) {
+      return findById(paymentSystemId);
+    }
+    if (paymentBusinessId) {
+      return payments.find(p => p.id === paymentBusinessId) ?? null;
+    }
+    return null;
+  }, [findById, paymentBusinessId, paymentSystemId, payments]);
+  const isEditing = Boolean(paymentSystemId || paymentBusinessId);
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
@@ -54,7 +64,7 @@ export function PaymentFormPage() {
       } else {
         const newPayment = add({
           ...values,
-          createdBy: currentEmployee?.fullName || employees[0]?.fullName || 'System',
+          createdBy: currentEmployee?.systemId ?? asSystemId('SYSTEM'),
           createdAt: new Date().toISOString(),
         } as any);
         toast.success("Tạo phiếu chi thành công");

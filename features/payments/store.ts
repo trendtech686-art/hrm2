@@ -1,127 +1,177 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Payment, PaymentStatus } from './types';
-import { findNextAvailableBusinessId } from '../../lib/id-utils';
-import { asSystemId, asBusinessId } from '../../lib/id-types';
-import { data as initialData } from './data';
+import type { Payment } from './types.ts';
+import { data as initialData } from './data.ts';
+import {
+  extractCounterFromBusinessId,
+  findNextAvailableBusinessId,
+  generateSystemId,
+  getMaxBusinessIdCounter,
+  getMaxSystemIdCounter,
+  type EntityType,
+} from '../../lib/id-utils.ts';
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
+
+export type PaymentInput = Omit<Payment, 'systemId' | 'id'> & { id?: BusinessId | string };
 
 interface PaymentStore {
   data: Payment[];
-  add: (item: Omit<Payment, 'systemId'>) => Payment;
-  addMultiple: (items: Omit<Payment, 'systemId'>[]) => void;
-  update: (systemId: string, item: Payment) => void;
-  remove: (systemId: string) => void;
-  findById: (systemId: string) => Payment | undefined;
+  businessIdCounter: number;
+  systemIdCounter: number;
+  add: (item: PaymentInput) => Payment;
+  addMultiple: (items: PaymentInput[]) => void;
+  update: (systemId: SystemId, item: Payment) => void;
+  remove: (systemId: SystemId) => void;
+  findById: (systemId: SystemId) => Payment | undefined;
   getActive: () => Payment[];
-  approve: (systemId: string, approverSystemId: string, approverName: string) => void;
-  complete: (systemId: string, completerSystemId: string, completerName: string) => void;
-  cancel: (systemId: string) => void;
+  cancel: (systemId: SystemId) => void;
 }
 
-let paymentCounter = initialData.length;
+const PAYMENT_ENTITY: EntityType = 'payments';
+const SYSTEM_ID_PREFIX = 'PAYMENT';
+const BUSINESS_ID_PREFIX = 'PC';
+const BUSINESS_ID_DIGITS = 6;
+const PURCHASE_ORDER_SYSTEM_PREFIX = 'PURCHASE';
+const PURCHASE_ORDER_BUSINESS_PREFIX = 'PO';
+
+const normalizePaymentStatus = (status?: Payment['status']): Payment['status'] =>
+  status === 'cancelled' ? 'cancelled' : 'completed';
+
+const normalizePayment = (payment: Payment): Payment => ({
+  ...payment,
+  status: normalizePaymentStatus(payment.status),
+});
+
+const initialPayments = initialData.map(normalizePayment);
+
+let systemIdCounter = getMaxSystemIdCounter(initialPayments, SYSTEM_ID_PREFIX);
+let businessIdCounter = getMaxBusinessIdCounter(initialPayments, BUSINESS_ID_PREFIX);
+
+const getNextSystemId = (): SystemId => {
+  systemIdCounter += 1;
+  return asSystemId(generateSystemId(PAYMENT_ENTITY, systemIdCounter));
+};
+
+const ensurePaymentBusinessId = (payments: Payment[], provided?: BusinessId | string): BusinessId => {
+  if (provided && `${provided}`.trim().length > 0) {
+    const normalized = `${provided}`.trim().toUpperCase();
+    const parsedCounter = extractCounterFromBusinessId(normalized, BUSINESS_ID_PREFIX);
+    if (parsedCounter > businessIdCounter) {
+      businessIdCounter = parsedCounter;
+    }
+    return asBusinessId(normalized);
+  }
+
+  const existingIds = payments.map(payment => payment.id as string).filter(Boolean);
+  const { nextId, updatedCounter } = findNextAvailableBusinessId(
+    BUSINESS_ID_PREFIX,
+    existingIds,
+    businessIdCounter,
+    BUSINESS_ID_DIGITS
+  );
+  businessIdCounter = updatedCounter;
+  return asBusinessId(nextId);
+};
+
+const reconcileLinkedDocuments = (payment: Payment): Payment => {
+  if (!payment.originalDocumentId) {
+    return payment;
+  }
+
+  const normalizedDocId = payment.originalDocumentId.toUpperCase();
+  const nextPayment = { ...payment };
+
+  if (!nextPayment.purchaseOrderSystemId && normalizedDocId.startsWith(PURCHASE_ORDER_SYSTEM_PREFIX)) {
+    nextPayment.purchaseOrderSystemId = asSystemId(payment.originalDocumentId);
+  }
+
+  if (!nextPayment.purchaseOrderId && normalizedDocId.startsWith(PURCHASE_ORDER_BUSINESS_PREFIX)) {
+    nextPayment.purchaseOrderId = asBusinessId(payment.originalDocumentId);
+  }
+
+  return nextPayment;
+};
+
+const buildPayment = (input: PaymentInput, existingPayments: Payment[]): Payment => {
+  const systemId = getNextSystemId();
+  const id = ensurePaymentBusinessId(existingPayments, input.id);
+  const basePayment: Payment = {
+    ...input,
+    systemId,
+    id,
+    createdAt: input.createdAt || new Date().toISOString(),
+    status: normalizePaymentStatus(input.status),
+  };
+
+  return reconcileLinkedDocuments(basePayment);
+};
 
 export const usePaymentStore = create<PaymentStore>()(
   persist(
     (set, get) => ({
-      data: initialData,
-      
-      add: (item: Omit<Payment, 'systemId'>): Payment => {
-        paymentCounter++;
-        const systemId = asSystemId(`PAYMENT${String(paymentCounter).padStart(6, '0')}`);
-        
-        // Auto-generate business ID if empty
-        let businessId = item.id as string;
-        if (!businessId || !businessId.trim()) {
-          const existingIds = get().data.map(p => p.id as string);
-          const result = findNextAvailableBusinessId('PC', existingIds, paymentCounter, 6);
-          businessId = result.nextId;
-          paymentCounter = result.updatedCounter;
-        }
-        
-        const newPayment: Payment = { 
-          ...item, 
-          systemId, 
-          id: asBusinessId(businessId),
-          createdAt: item.createdAt || new Date().toISOString(),
-          status: item.status || 'completed'
-        };
-        
-        set(state => ({ data: [...state.data, newPayment] }));
-        return newPayment;
-      },
-      
-      addMultiple: (items: Omit<Payment, 'systemId'>[]) => {
-        const newPayments = items.map(item => {
-          paymentCounter++;
-          const systemId = asSystemId(`PAYMENT${String(paymentCounter).padStart(6, '0')}`);
-          
-          let businessId = item.id as string;
-          if (!businessId || !businessId.trim()) {
-            const existingIds = get().data.map(p => p.id as string);
-            const result = findNextAvailableBusinessId('PC', existingIds, paymentCounter, 6);
-            businessId = result.nextId;
-            paymentCounter = result.updatedCounter;
-          }
-          
-          return { 
-            ...item, 
-            systemId, 
-            id: asBusinessId(businessId),
-            createdAt: item.createdAt || new Date().toISOString(),
-            status: item.status || 'completed'
-          } as Payment;
+      data: initialPayments,
+      businessIdCounter,
+      systemIdCounter,
+      add: (item) => {
+        let createdPayment: Payment | null = null;
+        set(state => {
+          const newPayment = buildPayment(item, state.data);
+          createdPayment = newPayment;
+          return {
+            data: [...state.data, newPayment],
+            businessIdCounter,
+            systemIdCounter,
+          };
         });
-        
-        set(state => ({ data: [...state.data, ...newPayments] }));
+        return createdPayment!;
       },
-      
-      update: (systemId: string, item: Payment) => {
+      addMultiple: (items) => {
+        set(state => {
+          const created: Payment[] = [];
+
+          items.forEach(item => {
+            const context = [...state.data, ...created];
+            const payment = buildPayment(item, context);
+            created.push(payment);
+          });
+
+          return {
+            data: [...state.data, ...created],
+            businessIdCounter,
+            systemIdCounter,
+          };
+        });
+      },
+      update: (systemId, item) => {
         set(state => ({
-          data: state.data.map(p => p.systemId === systemId ? { ...item, updatedAt: new Date().toISOString() } : p)
+          data: state.data.map(payment =>
+            payment.systemId === systemId
+              ? reconcileLinkedDocuments({
+                  ...item,
+                  systemId,
+                  status: normalizePaymentStatus(item.status),
+                  updatedAt: new Date().toISOString(),
+                })
+              : payment
+          ),
+          businessIdCounter,
+          systemIdCounter,
         }));
       },
-      
-      remove: (systemId: string) => {
+      remove: (systemId) => {
         set(state => ({
-          data: state.data.filter(p => p.systemId !== systemId)
+          data: state.data.filter(payment => payment.systemId !== systemId),
+          businessIdCounter,
+          systemIdCounter,
         }));
       },
-      
-      findById: (systemId: string) => {
-        return get().data.find(p => p.systemId === systemId);
+      findById: (systemId) => {
+        return get().data.find(payment => payment.systemId === systemId);
       },
-      
       getActive: () => {
-        return get().data.filter(p => p.status !== 'cancelled');
+        return get().data.filter(payment => payment.status !== 'cancelled');
       },
-      
-      approve: (systemId: string, approverSystemId: string, approverName: string) => {
-        const payment = get().findById(systemId);
-        if (payment) {
-          get().update(systemId, {
-            ...payment,
-            status: 'approved',
-            approvedBy: approverSystemId,
-            approvedByName: approverName,
-            approvedAt: new Date().toISOString(),
-          });
-        }
-      },
-      
-      complete: (systemId: string, completerSystemId: string, completerName: string) => {
-        const payment = get().findById(systemId);
-        if (payment) {
-          get().update(systemId, {
-            ...payment,
-            status: 'completed',
-            completedBy: completerSystemId,
-            completedByName: completerName,
-            completedAt: new Date().toISOString(),
-          });
-        }
-      },
-      
-      cancel: (systemId: string) => {
+      cancel: (systemId) => {
         const payment = get().findById(systemId);
         if (payment) {
           get().update(systemId, {
@@ -135,6 +185,19 @@ export const usePaymentStore = create<PaymentStore>()(
     {
       name: 'payment-storage',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state?.data) {
+          const normalized = state.data.map(normalizePayment);
+          const nextSystemCounter = getMaxSystemIdCounter(normalized, SYSTEM_ID_PREFIX);
+          const nextBusinessCounter = getMaxBusinessIdCounter(normalized, BUSINESS_ID_PREFIX);
+          systemIdCounter = nextSystemCounter;
+          businessIdCounter = nextBusinessCounter;
+
+          state.data = normalized;
+          state.systemIdCounter = systemIdCounter;
+          state.businessIdCounter = businessIdCounter;
+        }
+      },
     }
   )
 );

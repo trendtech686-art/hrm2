@@ -28,7 +28,6 @@ import { Button } from "../../components/ui/button.tsx"
 import { PlusCircle, Download, Upload, Trash2 } from "lucide-react"
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context.tsx"
-import { useEmployeeStore } from "../employees/store.ts"
 import { useMediaQuery } from "../../lib/use-media-query.ts"
 import { OrderCard } from "./order-card.tsx"
 import { PageFilters } from "../../components/layout/page-filters.tsx"
@@ -36,6 +35,8 @@ import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
 // ✅ REMOVED: import { generateNextId } - not used in this file
 // ✅ REMOVED: Unused imports - ProductQuickViewCard and OrderFormDialog (components don't exist and are never used)
 import { toast } from "sonner"
+import { useAuth } from "../../contexts/auth-context.tsx"
+import { asBusinessId, asSystemId, type SystemId } from "../../lib/id-types.ts"
 
 
 const statusOptions = (Object.keys({
@@ -46,16 +47,18 @@ const statusOptions = (Object.keys({
 }));
 
 export function OrdersPage() {
-  const { data: orders } = useOrderStore();
   const orderStore = useOrderStore();
+  const orders: Order[] = orderStore.data ?? [];
   const navigate = useNavigate();
   const location = useLocation();
-  const loggedInUser = useEmployeeStore().data[0];
+  const { employee: authEmployee } = useAuth();
+  const currentEmployeeName = authEmployee?.fullName ?? 'Hệ thống';
+  const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isCancelAlertOpen, setIsCancelAlertOpen] = React.useState(false)
-  const [idToCancel, setIdToCancel] = React.useState<string | null>(null)
+  const [idToCancel, setIdToCancel] = React.useState<SystemId | null>(null)
   
   // Table state - Sort by systemId (newer orders have higher systemId)
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'systemId', desc: true });
@@ -101,7 +104,7 @@ export function OrdersPage() {
     setMobileLoadedCount(20);
   }, [searchQuery, statusFilter]);
 
-  const handleCancelRequest = React.useCallback((systemId: string) => {
+  const handleCancelRequest = React.useCallback((systemId: SystemId) => {
     setIdToCancel(systemId)
     setIsCancelAlertOpen(true)
   }, [])
@@ -134,7 +137,7 @@ export function OrdersPage() {
   
   const confirmCancel = () => {
     if (idToCancel) {
-      (orderStore as any).cancelOrder(idToCancel, loggedInUser.systemId);
+      orderStore.cancelOrder(idToCancel, currentEmployeeSystemId);
     }
     setIsCancelAlertOpen(false)
     setIdToCancel(null)
@@ -215,11 +218,11 @@ export function OrdersPage() {
     if (!confirm(confirmMessage)) return;
     
     allSelectedRows.forEach(order => {
-      (orderStore as any).cancelOrder(order.systemId, loggedInUser.systemId);
+      (orderStore as any).cancelOrder(order.systemId, currentEmployeeSystemId);
     });
     
     setRowSelection({});
-  }, [allSelectedRows, orderStore, loggedInUser]);
+  }, [allSelectedRows, orderStore, currentEmployeeSystemId]);
   
   // Export config
   const exportConfig = {
@@ -232,37 +235,47 @@ export function OrdersPage() {
     importer: (items) => {
       const processed = items.map((item: any) => {
         const orderDate = item.orderDate ? new Date(item.orderDate) : new Date();
-        
-        // Validate required fields
-        if (!item.id || !item.customerName) {
-          throw new Error(`Dòng có ID "${item.id || 'N/A'}": Thiếu mã đơn hàng hoặc tên khách hàng`);
+
+        if (!item.customerName) {
+          throw new Error(`Dòng "${item.id || 'N/A'}": Thiếu tên khách hàng`);
         }
-        
-        // Validate date
+
+        if (!item.customerSystemId) {
+          throw new Error(`Dòng "${item.id || 'N/A'}": Thiếu systemId khách hàng (customerSystemId)`);
+        }
+
+        if (!item.branchSystemId) {
+          throw new Error(`Dòng "${item.id || 'N/A'}": Thiếu systemId chi nhánh (branchSystemId)`);
+        }
+
         if (isNaN(orderDate.getTime())) {
           throw new Error(`Dòng "${item.id}": Định dạng ngày không hợp lệ`);
         }
-        
-        // Validate status
+
         const validStatuses: OrderMainStatus[] = ['Đặt hàng', 'Đang giao dịch', 'Hoàn thành', 'Đã hủy'];
         if (item.status && !validStatuses.includes(item.status as OrderMainStatus)) {
           throw new Error(`Dòng "${item.id}": Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(', ')}`);
         }
-        
-        // Validate grandTotal
+
         if (item.grandTotal && isNaN(Number(item.grandTotal))) {
           throw new Error(`Dòng "${item.id}": Tổng tiền phải là số`);
         }
-        
+
+        const branchSystemId = asSystemId(item.branchSystemId);
+        const customerSystemId = asSystemId(item.customerSystemId);
+        const salespersonSystemId = item.salespersonSystemId
+          ? asSystemId(item.salespersonSystemId)
+          : currentEmployeeSystemId;
+
         return {
-          id: item.id || '', // Để trống để store auto-generate
+          id: item.id ? asBusinessId(item.id) : asBusinessId(''),
           customerName: item.customerName || '',
-          customerSystemId: '', // Cần map từ customerName nếu có logic
+          customerSystemId,
           orderDate: orderDate.toISOString(),
           branchName: item.branchName || '',
-          branchSystemId: '', // Cần map từ branchName nếu có logic
-          salesperson: item.salesperson || loggedInUser?.fullName || '',
-          salespersonSystemId: loggedInUser?.systemId || '',
+          branchSystemId,
+          salesperson: item.salesperson || currentEmployeeName,
+          salespersonSystemId,
           subtotal: Number(item.grandTotal) || 0,
           shippingFee: 0,
           tax: 0,
@@ -280,14 +293,14 @@ export function OrdersPage() {
           returnStatus: 'Chưa trả hàng' as OrderReturnStatus,
           source: item.source || 'Import',
           notes: item.notes || '',
-          lineItems: [], // Import đơn giản không bao gồm line items
+          lineItems: [],
           deliveryMethod: 'Dịch vụ giao hàng',
-          payments: [], // Chưa có payments khi import
-          packagings: [], // Chưa có packagings khi import
+          payments: [],
+          packagings: [],
           createdAt: new Date().toISOString(),
-          createdBy: loggedInUser?.systemId || '',
+          createdBy: currentEmployeeSystemId,
           updatedAt: new Date().toISOString(),
-          updatedBy: loggedInUser?.systemId || '',
+          updatedBy: currentEmployeeSystemId,
         };
       });
       

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { formatDate } from '@/lib/date-utils';
 import type { Task } from './types.ts';
+import type { SystemId } from '../../lib/id-types.ts';
 import { Card, CardContent } from '../../components/ui/card.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import { Progress } from '../../components/ui/progress.tsx';
@@ -11,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 interface TaskCardProps {
   task: Task;
-  onDelete: (id: string) => void;
+  onDelete: (id: SystemId) => void;
 }
 
 export function TaskCard({ task, onDelete }: TaskCardProps) {
@@ -78,7 +79,7 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
                 className="text-destructive"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDelete(task.id);
+                  onDelete(task.systemId);
                 }}
               >
                 Xóa

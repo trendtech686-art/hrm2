@@ -1,6 +1,8 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type TargetGroup = {
-  systemId: string;
-  id: string;
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   isActive?: boolean;
 };

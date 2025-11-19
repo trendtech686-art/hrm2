@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Download, Upload, Filter, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Download, Upload, Filter, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { cn } from '../../lib/utils.ts';
 import { toast } from 'sonner';
@@ -19,12 +19,13 @@ import type { WarrantyTicket, WarrantyStatus } from './types.ts';
 import { useWarrantyStore } from './store.ts';
 import { useOrderStore } from '../orders/store.ts';
 import { WARRANTY_STATUS_LABELS } from './types.ts';
+import { asSystemId } from '@/lib/id-types';
 
 // Column definitions & Mobile card
 import { getColumns } from './columns.tsx';
 import { WarrantyCard } from './warranty-card.tsx';
 import { WarrantyCardContextMenu } from './warranty-card-context-menu.tsx';
-import { WarrantyReminderModal } from './warranty-reminder-modal.tsx';
+import { WarrantyReminderDialog, WarrantyCancelDialog } from './components/dialogs/index.ts';
 import { useWarrantyReminders } from './hooks/use-warranty-reminders.ts';
 import { useRealtimeUpdates, getWarrantyDataVersion } from './use-realtime-updates.ts';
 
@@ -53,6 +54,7 @@ import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
 import { useDebounce } from '../../hooks/use-debounce.ts';
 import { loadCardColorSettings } from '../settings/warranty/warranty-settings-page.tsx';
 import { checkWarrantyOverdue } from './warranty-sla-utils.ts';
+import { ROUTES, generatePath } from '../../lib/router.ts';
 
 /**
  * KanbanColumn Component - Display warranties by status
@@ -90,6 +92,7 @@ function KanbanColumn({
     processed: CheckCircle2,
     returned: XCircle,
     completed: CheckCircle2,
+    cancelled: XCircle,
   };
 
   const StatusIcon = statusIcons[status];
@@ -265,6 +268,13 @@ export function WarrantyListPage() {
 
   // Dialogs
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
+  const [cancelQueue, setCancelQueue] = React.useState<WarrantyTicket[]>([]);
+  const bulkCancelRef = React.useRef(false);
+  const bulkCancelTicketIdsRef = React.useRef<Set<string>>(new Set());
+  const bulkCancelPendingRef = React.useRef(0);
+  const bulkCancelCompletedRef = React.useRef(0);
+  const currentCancelTicket = cancelQueue[0] ?? null;
 
   // View mode: kanban or table
   const [viewMode, setViewMode] = React.useState<'kanban' | 'table'>('table');
@@ -325,6 +335,7 @@ export function WarrantyListPage() {
       subtasksCount: true, // ✅ Show new columns
       notes: true, // ✅ Show new columns
       returnedAt: true, // ✅ Show new columns
+      completedAt: true,
       createdBy: true,
       createdAt: true,
       updatedAt: true, // ✅ Show new columns
@@ -346,13 +357,6 @@ export function WarrantyListPage() {
   // ==========================================
   // Handlers
   // ==========================================
-  const handleDelete = React.useCallback(
-    (systemId: string) => {
-      deleteWarrantyTicket(systemId);
-    },
-    [deleteWarrantyTicket]
-  );
-
   const handleEdit = React.useCallback(
     (ticket: WarrantyTicket) => {
       navigate(`/warranty/${ticket.systemId}/edit`);
@@ -360,32 +364,99 @@ export function WarrantyListPage() {
     [navigate]
   );
 
+  const startCancelWorkflow = React.useCallback((ticketsToCancel: WarrantyTicket[], options?: { bulk?: boolean }) => {
+    if (!ticketsToCancel || ticketsToCancel.length === 0) {
+      toast.error('Không có phiếu hợp lệ để hủy');
+      return;
+    }
+
+    const normalized = ticketsToCancel
+      .filter((ticket): ticket is WarrantyTicket => Boolean(ticket))
+      .filter((ticket, index, self) => self.findIndex((item) => item.systemId === ticket.systemId) === index)
+      .filter((ticket) => ticket.status !== 'cancelled' && !ticket.cancelledAt);
+
+    const skipped = ticketsToCancel.length - normalized.length;
+
+    if (normalized.length === 0) {
+      toast.info('Các phiếu đã chọn đều đã bị hủy trước đó');
+      return;
+    }
+
+    if (skipped > 0) {
+      toast.info(`${skipped} phiếu đã được bỏ qua vì đã hủy trước đó.`);
+    }
+
+    const isBulk = Boolean(options?.bulk);
+    if (isBulk && bulkCancelPendingRef.current === 0) {
+      bulkCancelCompletedRef.current = 0;
+    }
+
+    setCancelQueue(prevQueue => {
+      if (prevQueue.length === 0) {
+        if (isBulk) {
+          normalized.forEach(ticket => bulkCancelTicketIdsRef.current.add(ticket.systemId));
+          bulkCancelPendingRef.current += normalized.length;
+          bulkCancelRef.current = true;
+        }
+        return normalized;
+      }
+
+      const existingIds = new Set(prevQueue.map(ticket => ticket.systemId));
+      const additionalTickets = normalized.filter(ticket => !existingIds.has(ticket.systemId));
+
+      if (additionalTickets.length === 0) {
+        toast.info('Các phiếu đã nằm trong hàng chờ hủy');
+        return prevQueue;
+      }
+
+      if (isBulk) {
+        additionalTickets.forEach(ticket => bulkCancelTicketIdsRef.current.add(ticket.systemId));
+        bulkCancelPendingRef.current += additionalTickets.length;
+        bulkCancelRef.current = true;
+      }
+
+      return [...prevQueue, ...additionalTickets];
+    });
+    setCancelDialogOpen(true);
+  }, []);
+
   // Context menu handlers
   const handleGetLink = React.useCallback((systemId: string) => {
-    const ticket = tickets.find(t => t.systemId === systemId);
+    const ticket = tickets.find(t => t.systemId === asSystemId(systemId));
     if (!ticket) {
       toast.error('Không tìm thấy phiếu bảo hành');
       return;
     }
-    const trackingUrl = `${window.location.origin}/warranty-tracking/${ticket.publicTrackingCode}`;
+    const trackingPath = generatePath(ROUTES.INTERNAL.WARRANTY_TRACKING, {
+      trackingCode: ticket.publicTrackingCode || ticket.id,
+    });
+    const trackingUrl = `${window.location.origin}${trackingPath}`;
     navigator.clipboard.writeText(trackingUrl);
     toast.success('Đã copy link tracking vào clipboard');
   }, [tickets]);
 
   const handleStartProcessing = React.useCallback((systemId: string) => {
-    const ticket = tickets.find(t => t.systemId === systemId);
-    if (ticket) {
-      useWarrantyStore.getState().update(systemId, { status: 'pending' });
-      toast.success('Đã chuyển sang trạng thái Chưa xử lý');
+    const normalizedId = asSystemId(systemId);
+    const ticket = tickets.find(t => t.systemId === normalizedId);
+    if (!ticket) {
+      toast.error('Không tìm thấy phiếu bảo hành');
+      return;
     }
+
+    useWarrantyStore.getState().updateStatus(normalizedId, 'pending', 'Bắt đầu xử lý từ danh sách');
+    toast.success('Đã chuyển sang trạng thái Chưa xử lý');
   }, [tickets]);
 
   const handleMarkProcessed = React.useCallback((systemId: string) => {
-    const ticket = tickets.find(t => t.systemId === systemId);
-    if (ticket) {
-      useWarrantyStore.getState().update(systemId, { status: 'processed' });
-      toast.success('Đã hoàn thành xử lý');
+    const normalizedId = asSystemId(systemId);
+    const ticket = tickets.find(t => t.systemId === normalizedId);
+    if (!ticket) {
+      toast.error('Không tìm thấy phiếu bảo hành');
+      return;
     }
+
+    useWarrantyStore.getState().updateStatus(normalizedId, 'processed', 'Hoàn thành xử lý từ danh sách');
+    toast.success('Đã hoàn thành xử lý');
   }, [tickets]);
 
   const handleMarkReturned = React.useCallback((systemId: string) => {
@@ -393,14 +464,62 @@ export function WarrantyListPage() {
   }, [navigate]);
 
   const handleCancel = React.useCallback((systemId: string) => {
-    if (confirm('Bạn có chắc muốn hủy phiếu này?')) {
-      deleteWarrantyTicket(systemId);
-      toast.success('Đã hủy phiếu bảo hành');
+    const normalizedId = asSystemId(systemId);
+    const ticket = tickets.find((t) => t.systemId === normalizedId);
+    if (!ticket) {
+      toast.error('Không tìm thấy phiếu bảo hành');
+      return;
     }
-  }, [deleteWarrantyTicket]);
+    startCancelWorkflow([ticket]);
+  }, [tickets, startCancelWorkflow]);
+
+  const handleCancelSuccess = React.useCallback((ticket: WarrantyTicket) => {
+    let queueBecameEmpty = false;
+
+    setCancelQueue(prevQueue => {
+      const [, ...rest] = prevQueue;
+      queueBecameEmpty = rest.length === 0;
+      return rest;
+    });
+
+    if (queueBecameEmpty) {
+      setCancelDialogOpen(false);
+    }
+
+    if (bulkCancelTicketIdsRef.current.has(ticket.systemId)) {
+      bulkCancelTicketIdsRef.current.delete(ticket.systemId);
+      bulkCancelPendingRef.current = Math.max(0, bulkCancelPendingRef.current - 1);
+      bulkCancelCompletedRef.current += 1;
+    }
+
+    if (bulkCancelRef.current && bulkCancelPendingRef.current === 0) {
+      const completed = bulkCancelCompletedRef.current || 0;
+      toast.success(`Đã hủy ${completed} phiếu bảo hành`);
+      setRowSelection({});
+      bulkCancelRef.current = false;
+      bulkCancelPendingRef.current = 0;
+      bulkCancelCompletedRef.current = 0;
+      bulkCancelTicketIdsRef.current.clear();
+    }
+
+    if (queueBecameEmpty && !bulkCancelRef.current) {
+      bulkCancelTicketIdsRef.current.clear();
+    }
+  }, [setRowSelection]);
+
+  const handleCancelDialogOpenChange = React.useCallback((open: boolean) => {
+    setCancelDialogOpen(open);
+    if (!open) {
+      setCancelQueue([]);
+      bulkCancelTicketIdsRef.current.clear();
+      bulkCancelPendingRef.current = 0;
+      bulkCancelCompletedRef.current = 0;
+      bulkCancelRef.current = false;
+    }
+  }, []);
 
   const handleRemind = React.useCallback((systemId: string) => {
-    const ticket = tickets.find(t => t.systemId === systemId);
+    const ticket = tickets.find(t => t.systemId === asSystemId(systemId));
     if (ticket) {
       openReminderModal(ticket);
     }
@@ -409,11 +528,11 @@ export function WarrantyListPage() {
   // Generate columns
   const columns = React.useMemo(
     () => {
-      const cols = getColumns(handleDelete, handleEdit, navigate, orders); // ✅ Pass orders
+      const cols = getColumns(handleCancel, handleEdit, navigate, orders); // ✅ Pass orders
       console.log('📊 Warranty columns generated:', cols.length, 'columns', cols.map(c => c.id));
       return cols;
     },
-    [handleDelete, handleEdit, navigate, orders] // ✅ Add orders dependency
+    [handleCancel, handleEdit, navigate, orders] // ✅ Add orders dependency
   );
 
   // ==========================================
@@ -559,7 +678,8 @@ export function WarrantyListPage() {
     try {
       const trackingLinks = selectedTickets.map(ticket => {
         const publicCode = ticket.publicTrackingCode || ticket.id;
-        const trackingUrl = `${window.location.origin}/warranty-tracking/${publicCode}`;
+        const trackingPath = generatePath(ROUTES.INTERNAL.WARRANTY_TRACKING, { trackingCode: publicCode });
+        const trackingUrl = `${window.location.origin}${trackingPath}`;
         return `${publicCode}: ${trackingUrl}`;
       });
       
@@ -575,15 +695,8 @@ export function WarrantyListPage() {
       toast.error('Vui lòng chọn ít nhất một phiếu');
       return;
     }
-    
-    if (confirm(`Bạn có chắc muốn hủy ${selectedTickets.length} phiếu đã chọn?`)) {
-      selectedTickets.forEach((ticket) => {
-        deleteWarrantyTicket(ticket.systemId);
-      });
-      setRowSelection({});
-      toast.success(`Đã hủy ${selectedTickets.length} phiếu bảo hành`);
-    }
-  }, [selectedTickets, deleteWarrantyTicket]);
+    startCancelWorkflow([...selectedTickets], { bulk: true });
+  }, [selectedTickets, startCancelWorkflow]);
 
   // Bulk actions array
   const bulkActions = React.useMemo(() => [
@@ -853,8 +966,16 @@ export function WarrantyListPage() {
         )}
       </div>
 
-      {/* Reminder Modal */}
-      <WarrantyReminderModal
+      {/* Cancel Dialog */}
+      <WarrantyCancelDialog
+        open={cancelDialogOpen && Boolean(currentCancelTicket)}
+        onOpenChange={handleCancelDialogOpenChange}
+        ticket={currentCancelTicket}
+        onCancelled={handleCancelSuccess}
+      />
+
+      {/* Reminder Dialog */}
+      <WarrantyReminderDialog
         open={isReminderModalOpen}
         onOpenChange={closeReminderModal}
         ticket={selectedTicket}

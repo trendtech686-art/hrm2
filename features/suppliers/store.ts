@@ -1,8 +1,10 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { Supplier } from './types.ts';
+import type { SystemId } from '../../lib/id-types.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 import Fuse from 'fuse.js';
-import { getCurrentUserSystemId } from '../../contexts/user-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
 
 const baseStore = createCrudStore<Supplier>(initialData, 'suppliers', {
   businessIdField: 'id',
@@ -18,8 +20,8 @@ const fuse = new Fuse(baseStore.getState().data, {
 // Define enhanced interface
 interface SupplierStoreState extends CrudState<Supplier> {
   searchSuppliers: (query: string, page: number, limit?: number) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
-  updateStatus: (systemIds: string[], status: Supplier['status']) => void;
-  bulkDelete: (systemIds: string[]) => void;
+  updateStatus: (systemIds: SystemId[], status: Supplier['status']) => void;
+  bulkDelete: (systemIds: SystemId[]) => void;
 }
 
 // Augmented methods
@@ -41,8 +43,8 @@ const augmentedMethods = {
             }, 300);
         });
     },
-    updateStatus: (systemIds: string[], status: Supplier['status']) => {
-        const currentUser = getCurrentUserSystemId();
+    updateStatus: (systemIds: SystemId[], status: Supplier['status']) => {
+        const currentUser = asSystemId(getCurrentUserSystemId());
         baseStore.setState((state) => ({
             data: state.data.map((item) =>
                 systemIds.includes(item.systemId)
@@ -51,8 +53,8 @@ const augmentedMethods = {
             ),
         }));
     },
-    bulkDelete: (systemIds: string[]) => {
-        const currentUser = getCurrentUserSystemId();
+    bulkDelete: (systemIds: SystemId[]) => {
+        const currentUser = asSystemId(getCurrentUserSystemId());
         baseStore.setState((state) => ({
             data: state.data.map((item) =>
                 systemIds.includes(item.systemId)

@@ -1,6 +1,7 @@
 /**
  * Shipping Configuration Types - V2 Multi-Account Structure
  */
+import type { SystemId } from '../id-types.ts';
 
 /**
  * Weight calculation mode
@@ -41,15 +42,25 @@ export interface GlobalShippingConfig {
  */
 export interface PickupAddress {
   id: string;
+  hrm?: Record<string, unknown>;
   
-  // Sapo branch mapping
-  sapoBranchId: string;
-  sapoBranchName: string;
+  // SAPO branch mapping (internal)
+  sapoBranchId?: SystemId;
+  sapoBranchName?: string;
   sapoAddress?: string;
   sapoProvince?: string;
   sapoDistrict?: string;
   sapoWard?: string;
   sapoPhone?: string;
+  
+  // Legacy HRM branch mapping
+  hrmBranchId?: string;
+  hrmBranchName?: string;
+  hrmAddress?: string;
+  hrmProvince?: string;
+  hrmDistrict?: string;
+  hrmWard?: string;
+  hrmPhone?: string;
   
   // Partner warehouse info
   partnerWarehouseId: string;      // ID from partner (e.g., GHTK pick_address_id)

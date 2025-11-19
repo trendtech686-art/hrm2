@@ -30,7 +30,11 @@ const formSchema = z.object({
   managedBy: z.string().optional(),
 });
 
-export type CashAccountFormValues = Omit<CashAccount, 'systemId'>;
+export type CashAccountFormValues = Omit<CashAccount, 'systemId' | 'id' | 'branchSystemId' | 'managedBy'> & {
+  id: string;
+  branchSystemId?: string;
+  managedBy?: string;
+};
 
 type FormProps = {
   initialData?: CashAccount | null;

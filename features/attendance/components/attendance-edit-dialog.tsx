@@ -11,11 +11,12 @@ import { Button } from '../../../components/ui/button.tsx';
 import { TimePicker } from '../../../components/ui/time-picker.tsx';
 import { CheckCircle2, XCircle, Clock, Calendar } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast.ts';
+import type { SystemId } from '../../../lib/id-types.ts';
 
 interface AttendanceEditDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    recordData: { employeeId: string; day: number; record: DailyRecord } | null;
+    recordData: { employeeSystemId: SystemId; day: number; record: DailyRecord } | null;
     onSave: (updatedRecord: DailyRecord) => void;
 }
 

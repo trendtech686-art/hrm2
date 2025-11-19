@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../lib/router.ts';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils.ts';
 import { usePurchaseOrderStore } from "./store.ts"
+import { sumPaymentsForPurchaseOrder } from "./payment-utils.ts"
 import { useBranchStore } from '../settings/branches/store.ts';
 import { getColumns } from "./columns.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
@@ -38,15 +39,44 @@ import { useProductStore } from '../products/store.ts';
 import { useStockHistoryStore } from '../stock-history/store.ts';
 import { useCashbookStore } from '../cashbook/store.ts';
 import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
 // REMOVED: Voucher type no longer exists
 // import type { Voucher } from '../vouchers/types.ts';
 import { usePurchaseReturnStore } from "../purchase-returns/store.ts";
+import type { PurchaseReturnLineItem } from "../purchase-returns/types.ts";
 import { useToast } from "../../hooks/use-toast.ts";
+import { useAuth } from "../../contexts/auth-context.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog.tsx";
+import { Label } from "../../components/ui/label.tsx";
+import { Textarea } from "../../components/ui/textarea.tsx";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table.tsx";
+import { asBusinessId, asSystemId } from "@/lib/id-types";
+import type { SystemId } from "@/lib/id-types";
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+type ReceiveLineItemForm = {
+  productSystemId: SystemId;
+  productId: string;
+  productName: string;
+  orderedQuantity: number;
+  remainingQuantity: number;
+  receiveQuantity: number;
+  unitPrice: number;
+};
+
+type ReceiveDialogState = {
+  isOpen: boolean;
+  purchaseOrder: PurchaseOrder | null;
+  receivedDate: string;
+  targetBranchSystemId: SystemId | null;
+  targetBranchName: string;
+  warehouseName: string;
+  documentCode: string;
+  notes: string;
+  items: ReceiveLineItemForm[];
 };
 
 export function PurchaseOrdersPage() {
@@ -64,7 +94,7 @@ export function PurchaseOrdersPage() {
   
   usePageHeader({
     actions: [
-      <Button key="add" onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}>
+      <Button key="add" className="h-9" onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}>
         <PlusCircle className="mr-2 h-4 w-4" />
         Tạo đơn nhập hàng
       </Button>
@@ -78,8 +108,10 @@ export function PurchaseOrdersPage() {
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
   const { accounts } = useCashbookStore();
   const { data: paymentTypes } = usePaymentTypeStore();
-  const loggedInUser = useEmployeeStore().data[0];
+  const { employee: loggedInUser } = useAuth();
   const { add: addPurchaseReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
+  const currentUserSystemId = loggedInUser?.systemId ?? 'SYSTEM';
+  const currentUserName = loggedInUser?.fullName ?? 'Hệ thống';
 
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
@@ -91,7 +123,19 @@ export function PurchaseOrdersPage() {
   }>({ isOpen: false, po: null });
 
   const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = React.useState(false);
-  const [isBulkReceiveAlertOpen, setIsBulkReceiveAlertOpen] = React.useState(false);
+  const [receiveDialogState, setReceiveDialogState] = React.useState<ReceiveDialogState>({
+    isOpen: false,
+    purchaseOrder: null,
+    receivedDate: '',
+    targetBranchSystemId: null,
+    targetBranchName: '',
+    warehouseName: '',
+    documentCode: '',
+    notes: '',
+    items: [],
+  });
+  const [pendingReceiveQueue, setPendingReceiveQueue] = React.useState<PurchaseOrder[]>([]);
+  const [isSubmittingReceive, setIsSubmittingReceive] = React.useState(false);
   
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'orderDate', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
@@ -131,16 +175,7 @@ export function PurchaseOrdersPage() {
   }, [globalFilter, branchFilter, statusFilter, paymentStatusFilter]);
 
   const handleCancelRequest = React.useCallback((po: PurchaseOrder) => {
-    // Calculate total paid using Payment transactions
-    const poSupplier = suppliers.find(s => s.systemId === po.supplierSystemId);
-    const totalPaid = allPayments.reduce((sum: number, payment: Payment) => {
-        if (payment.status === 'completed' && 
-            payment.recipientType === 'Nhà cung cấp' &&
-            payment.recipientName === poSupplier?.name) {
-            return sum + payment.amount;
-        }
-        return sum;
-    }, 0);
+    const totalPaid = sumPaymentsForPurchaseOrder(allPayments, po);
 
     const hasBeenDelivered = po.deliveryStatus !== 'Chưa nhập';
 
@@ -150,63 +185,300 @@ export function PurchaseOrdersPage() {
         totalPaid: totalPaid,
         willCreateReturn: hasBeenDelivered 
     });
-  }, [allPayments, suppliers]);
+  }, [allPayments]);
 
   const confirmCancel = () => {
     if (!cancelDialogState.po) return;
     const po = cancelDialogState.po;
 
     if (cancelDialogState.willCreateReturn) {
-        const receiptsForPO = allReceipts.filter(r => r.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
-        const returnsForPO = allPurchaseReturns.filter(pr => pr.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
+        const poSystemId = asSystemId(po.systemId);
+        const receiptsForPO = allReceipts.filter(r => r.purchaseOrderSystemId === poSystemId);
+        const returnsForPO = allPurchaseReturns.filter(pr => pr.purchaseOrderSystemId === poSystemId);
 
         const returnItems = po.lineItems
-            .map(item => {
-                const totalReceived = receiptsForPO.reduce((sum, receipt) => {
-                    const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
-                    return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
-                }, 0);
-                const totalReturned = returnsForPO.reduce((sum, pr) => {
-                    const returnItem = pr.items.find(i => i.productSystemId === item.productSystemId);
-                    return sum + (returnItem ? returnItem.returnQuantity : 0);
-                }, 0);
-                const returnableQuantity = totalReceived - totalReturned;
-                
-                return {
-                    productSystemId: item.productSystemId,
-                    productId: item.productId,
-                    productName: item.productName,
-                    orderedQuantity: item.quantity,
-                    returnQuantity: returnableQuantity,
-                    unitPrice: item.unitPrice,
-                };
-            })
-            .filter(item => item.returnQuantity > 0);
+          .map<PurchaseReturnLineItem | null>(item => {
+            const totalReceived = receiptsForPO.reduce((sum, receipt) => {
+              const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
+              return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
+            }, 0);
+            const totalReturned = returnsForPO.reduce((sum, pr) => {
+              const returnItem = pr.items.find(i => i.productSystemId === item.productSystemId);
+              return sum + (returnItem ? returnItem.returnQuantity : 0);
+            }, 0);
+            const returnableQuantity = totalReceived - totalReturned;
+
+            if (returnableQuantity <= 0) {
+              return null;
+            }
+
+            return {
+              productSystemId: asSystemId(item.productSystemId),
+              productId: asBusinessId(item.productId),
+              productName: item.productName,
+              orderedQuantity: item.quantity,
+              returnQuantity: returnableQuantity,
+              unitPrice: item.unitPrice,
+            } satisfies PurchaseReturnLineItem;
+          })
+          .filter((item): item is PurchaseReturnLineItem => Boolean(item));
 
         if (returnItems.length > 0) {
-            const totalReturnValue = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
-            
-            addPurchaseReturn({
-                id: '',
-                purchaseOrderId: po.systemId, // ✅ Fixed: Use systemId for foreign key
-                supplierSystemId: po.supplierSystemId,
-                supplierName: po.supplierName,
-                branchSystemId: po.branchSystemId,
-                branchName: po.branchName,
-                returnDate: toISODate(getCurrentDate()),
-                reason: `Tự động tạo khi hủy đơn nhập hàng ${po.id}`,
-                items: returnItems,
-                totalReturnValue: totalReturnValue,
-                refundAmount: 0, // Refund is handled by PO cancel logic, this is just for inventory.
-                refundMethod: '',
-                creatorName: loggedInUser.fullName,
-            });
+          const totalReturnValue = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
+
+          addPurchaseReturn({
+            id: asBusinessId(''),
+            purchaseOrderSystemId: asSystemId(po.systemId),
+            purchaseOrderId: asBusinessId(po.id),
+            supplierSystemId: asSystemId(po.supplierSystemId),
+            supplierName: po.supplierName,
+            branchSystemId: asSystemId(po.branchSystemId),
+            branchName: po.branchName,
+            returnDate: toISODate(getCurrentDate()),
+            reason: `Tự động tạo khi hủy đơn nhập hàng ${po.id}`,
+            items: returnItems,
+            totalReturnValue,
+            refundAmount: 0,
+            refundMethod: '',
+            creatorName: currentUserName,
+          });
         }
     }
 
-    cancelOrder(po.systemId, loggedInUser.systemId, loggedInUser.fullName);
+    cancelOrder(po.systemId, currentUserSystemId, currentUserName);
     setCancelDialogState({ isOpen: false, po: null });
   };
+
+  const requireLoggedInEmployee = React.useCallback(() => {
+    if (!loggedInUser) {
+      toast({
+        title: 'Chưa xác định người nhận',
+        description: 'Vui lòng đăng nhập để ghi nhận người nhập hàng.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    return true;
+  }, [loggedInUser, toast]);
+
+  const computeReceivableItems = React.useCallback((po: PurchaseOrder): ReceiveLineItemForm[] => {
+    const relatedReceipts = allReceipts.filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId));
+    return po.lineItems
+      .map(item => {
+        const receivedQty = relatedReceipts.reduce((sum, receipt) => {
+          const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
+          return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
+        }, 0);
+        const remaining = Math.max(item.quantity - receivedQty, 0);
+        return {
+          productSystemId: asSystemId(item.productSystemId),
+          productId: item.productId,
+          productName: item.productName,
+          orderedQuantity: item.quantity,
+          remainingQuantity: remaining,
+          receiveQuantity: remaining,
+          unitPrice: item.unitPrice,
+        };
+      })
+      .filter(item => item.remainingQuantity > 0);
+  }, [allReceipts]);
+
+  const openReceiveDialogForOrder = React.useCallback((po: PurchaseOrder, presetItems?: ReceiveLineItemForm[]) => {
+    const computedItems = presetItems ?? computeReceivableItems(po);
+    if (computedItems.length === 0) {
+      toast({
+        title: 'Đơn đã nhận đủ',
+        description: `Đơn ${po.id} không còn số lượng cần nhập`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+    const branchMatch = branches.find(b => b.systemId === po.branchSystemId);
+    const fallbackBranch = branchMatch ?? branches[0];
+    const targetBranchId: SystemId | null =
+      fallbackBranch?.systemId ?? (po.branchSystemId ? asSystemId(po.branchSystemId) : null);
+    const targetBranchName = fallbackBranch?.name || po.branchName || 'Chưa xác định';
+
+    setReceiveDialogState({
+      isOpen: true,
+      purchaseOrder: po,
+      receivedDate: formatDateCustom(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      targetBranchSystemId: targetBranchId,
+      targetBranchName,
+      warehouseName: po.branchName ? `Kho ${po.branchName}` : '',
+      documentCode: '',
+      notes: '',
+      items: computedItems,
+    });
+    return true;
+  }, [branches, computeReceivableItems, toast]);
+
+  const closeReceiveDialog = React.useCallback(() => {
+    setReceiveDialogState({
+      isOpen: false,
+      purchaseOrder: null,
+      receivedDate: '',
+      targetBranchSystemId: null,
+      targetBranchName: '',
+      warehouseName: '',
+      documentCode: '',
+      notes: '',
+      items: [],
+    });
+    setPendingReceiveQueue([]);
+  }, []);
+
+  const beginReceiveFlow = React.useCallback((orders: PurchaseOrder[]) => {
+    if (!requireLoggedInEmployee()) return;
+    const receivableEntries = orders
+      .map(po => ({ po, items: computeReceivableItems(po) }))
+      .filter(entry => entry.items.length > 0);
+
+    if (receivableEntries.length === 0) {
+      toast({
+        title: 'Không có đơn hợp lệ',
+        description: 'Các đơn đã chọn đều đã nhập đủ hàng.',
+      });
+      return;
+    }
+
+    const [firstEntry, ...restEntries] = receivableEntries;
+    setPendingReceiveQueue(restEntries.map(entry => entry.po));
+    openReceiveDialogForOrder(firstEntry.po, firstEntry.items);
+  }, [computeReceivableItems, openReceiveDialogForOrder, requireLoggedInEmployee, toast]);
+
+  const handleReceiveQuantityChange = React.useCallback((productSystemId: SystemId, value: number) => {
+    setReceiveDialogState(prev => ({
+      ...prev,
+      items: prev.items.map(item =>
+        item.productSystemId === productSystemId
+          ? { ...item, receiveQuantity: Math.min(Math.max(value, 0), item.remainingQuantity) }
+          : item
+      )
+    }));
+  }, []);
+
+  const handleReceiveFieldChange = React.useCallback((field: 'documentCode' | 'receivedDate' | 'warehouseName' | 'notes', value: string) => {
+    setReceiveDialogState(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handleReceiveBranchChange = React.useCallback((branchSystemId: string) => {
+    const branch = branches.find(b => b.systemId === branchSystemId);
+    const nextSystemId = branch?.systemId ?? (branchSystemId ? asSystemId(branchSystemId) : null);
+    setReceiveDialogState(prev => ({
+      ...prev,
+      targetBranchSystemId: nextSystemId,
+      targetBranchName: branch?.name || prev.targetBranchName,
+    }));
+  }, [branches]);
+
+  const handleSubmitReceiveDialog = React.useCallback(() => {
+    if (!receiveDialogState.purchaseOrder || !requireLoggedInEmployee()) {
+      return;
+    }
+
+    if (!receiveDialogState.targetBranchSystemId) {
+      toast({
+        title: 'Chưa chọn chi nhánh',
+        description: 'Vui lòng chọn chi nhánh nhận hàng trước khi lưu phiếu.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const itemsToReceive = receiveDialogState.items
+      .filter(item => item.receiveQuantity > 0)
+      .map(item => ({
+        productSystemId: item.productSystemId,
+        productId: item.productId,
+        productName: item.productName,
+        orderedQuantity: item.orderedQuantity,
+        receivedQuantity: item.receiveQuantity,
+        unitPrice: item.unitPrice,
+      }));
+
+    if (itemsToReceive.length === 0) {
+      toast({
+        title: 'Chưa chọn số lượng',
+        description: 'Vui lòng nhập số lượng thực nhận cho ít nhất một sản phẩm.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmittingReceive(true);
+    try {
+      const normalizedDate = receiveDialogState.receivedDate
+        ? receiveDialogState.receivedDate.replace('T', ' ')
+        : formatDateCustom(new Date(), 'yyyy-MM-dd HH:mm');
+
+        const branchSystemId = receiveDialogState.targetBranchSystemId;
+        const receiptPayload = {
+          id: asBusinessId(receiveDialogState.documentCode?.trim() || ''),
+          purchaseOrderSystemId: asSystemId(receiveDialogState.purchaseOrder.systemId),
+          purchaseOrderId: asBusinessId(
+            receiveDialogState.purchaseOrder.id || receiveDialogState.purchaseOrder.systemId,
+          ),
+          supplierSystemId: asSystemId(receiveDialogState.purchaseOrder.supplierSystemId),
+          supplierName: receiveDialogState.purchaseOrder.supplierName,
+          receivedDate: normalizedDate,
+          receiverSystemId: asSystemId(currentUserSystemId),
+          receiverName: currentUserName,
+          notes: receiveDialogState.notes,
+          branchSystemId,
+          branchName: receiveDialogState.targetBranchName,
+          warehouseName: receiveDialogState.warehouseName,
+          items: itemsToReceive.map(item => ({
+            productSystemId: item.productSystemId,
+            productId: asBusinessId(item.productId || ''),
+            productName: item.productName,
+            orderedQuantity: item.orderedQuantity,
+            receivedQuantity: item.receivedQuantity,
+            unitPrice: item.unitPrice,
+          })),
+        };
+
+          const createdReceipt = addInventoryReceipt(receiptPayload);
+
+          itemsToReceive.forEach(item => {
+            const productBeforeUpdate = findProductById(item.productSystemId);
+            const oldStock = productBeforeUpdate?.inventoryByBranch?.[branchSystemId] || 0;
+
+            updateInventory(item.productSystemId, branchSystemId, item.receivedQuantity);
+
+        addStockHistoryEntry({
+          productId: item.productSystemId,
+          date: new Date().toISOString(),
+          employeeName: currentUserName,
+          action: `Nhập hàng từ NCC (${receiveDialogState.purchaseOrder.id})`,
+          quantityChange: item.receivedQuantity,
+          newStockLevel: oldStock + item.receivedQuantity,
+          documentId: createdReceipt.id,
+          branch: receiveDialogState.targetBranchName,
+              branchSystemId,
+        });
+      });
+
+      processInventoryReceipt(receiveDialogState.purchaseOrder.systemId);
+      toast({
+        title: 'Đã lưu phiếu nhập',
+        description: `Hoàn tất nhập hàng cho đơn ${receiveDialogState.purchaseOrder.id}.`,
+      });
+
+      if (pendingReceiveQueue.length > 0) {
+        const [next, ...rest] = pendingReceiveQueue;
+        setPendingReceiveQueue(rest);
+        openReceiveDialogForOrder(next);
+      } else {
+        closeReceiveDialog();
+      }
+    } finally {
+      setIsSubmittingReceive(false);
+    }
+  }, [receiveDialogState, requireLoggedInEmployee, currentUserSystemId, currentUserName, addInventoryReceipt, findProductById, updateInventory, addStockHistoryEntry, processInventoryReceipt, toast, pendingReceiveQueue, openReceiveDialogForOrder, closeReceiveDialog]);
 
   const handlePrint = React.useCallback((po: PurchaseOrder) => {
     printPurchaseOrders([po.systemId]);
@@ -224,13 +496,8 @@ export function PurchaseOrdersPage() {
   }, [navigate, toast]);
 
   const handleReceiveGoods = React.useCallback((po: PurchaseOrder) => {
-    // Process inventory receipt
-    processInventoryReceipt(po.systemId);
-    toast({
-      title: 'Thành công',
-      description: `Đã nhập hàng cho đơn ${po.id}`,
-    });
-  }, [processInventoryReceipt, toast]);
+    beginReceiveFlow([po]);
+  }, [beginReceiveFlow]);
 
   // Bulk actions
   const handleBulkPrint = () => {
@@ -260,7 +527,7 @@ export function PurchaseOrdersPage() {
       });
       return;
     }
-    bulkCancel(selectedIds, loggedInUser.systemId, loggedInUser.fullName);
+    bulkCancel(selectedIds, currentUserSystemId, currentUserName);
     toast({
       title: 'Đã hủy',
       description: `Đã hủy ${selectedIds.length} đơn nhập hàng`,
@@ -277,19 +544,17 @@ export function PurchaseOrdersPage() {
   const confirmBulkPay = () => {
     const paymentCategory = paymentTypes.find(pt => pt.name === 'Thanh toán cho đơn nhập hàng');
     const { add: addPayment } = usePaymentStore.getState();
+    const paymentMethodName = 'Chuyển khoản';
+    const paymentMethodSystemId = 'BANK_TRANSFER';
+    let totalPaymentsCreated = 0;
     
     allSelectedRows.forEach(po => {
-        const poSupplier = suppliers.find(s => s.systemId === po.supplierSystemId);
-        const totalPaid = allPayments.reduce((sum: number, payment: Payment) => {
-            if (payment.status === 'completed' && 
-                payment.recipientType === 'Nhà cung cấp' &&
-                payment.recipientName === poSupplier?.name) {
-                return sum + payment.amount;
-            }
-            return sum;
-        }, 0);
-
-        const amountRemaining = po.grandTotal - totalPaid;
+        const totalPaid = sumPaymentsForPurchaseOrder(allPayments, po);
+        const totalReturnValue = allPurchaseReturns
+          .filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId))
+          .reduce((sum, r) => sum + r.totalReturnValue, 0);
+        const actualDebt = Math.max(po.grandTotal - totalReturnValue, 0);
+        const amountRemaining = actualDebt - totalPaid;
 
         if (amountRemaining > 0) {
             const account = accounts.find(acc => acc.type === 'bank' && acc.branchSystemId === po.branchSystemId) || accounts.find(acc => acc.type === 'bank');
@@ -298,102 +563,71 @@ export function PurchaseOrdersPage() {
                 return;
             }
 
+            const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
             const newPayment: Omit<Payment, 'systemId'> = {
-                id: '' as any,
-                status: 'completed',
-                date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
+              id: '' as any,
+                date: now,
                 amount: amountRemaining,
-                recipientType: 'Nhà cung cấp',
+                recipientTypeSystemId: 'NHACUNGCAP',
+                recipientTypeName: 'Nhà cung cấp',
                 recipientName: po.supplierName,
+                recipientSystemId: po.supplierSystemId,
                 description: `Thanh toán toàn bộ cho đơn nhập hàng ${po.id}`,
-                paymentMethod: 'Chuyển khoản',
+                paymentMethodSystemId,
+                paymentMethodName,
                 accountSystemId: account.systemId,
-                originalDocumentId: po.systemId,
-                createdBy: loggedInUser.fullName,
-                branchSystemId: po.branchSystemId,
-                branchName: po.branchName,
-                createdAt: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-                affectsDebt: true,
-                category: 'supplier_payment',
                 paymentReceiptTypeSystemId: paymentCategory?.systemId || '',
                 paymentReceiptTypeName: paymentCategory?.name || 'Thanh toán cho đơn nhập hàng',
-            };
+                branchSystemId: po.branchSystemId,
+                branchName: po.branchName,
+                createdBy: currentUserName,
+                createdAt: now,
+                status: 'completed',
+                category: 'supplier_payment',
+                affectsDebt: true,
+                purchaseOrderSystemId: po.systemId,
+                purchaseOrderId: po.id,
+                originalDocumentId: po.id,
+            } as any;
             addPayment(newPayment);
+            totalPaymentsCreated += 1;
         }
     });
+
+    if (totalPaymentsCreated > 0) {
+      syncAllPurchaseOrderStatuses();
+      toast({
+        title: 'Đã tạo phiếu chi',
+        description: `Hoàn tất ${totalPaymentsCreated} phiếu chi cho đơn nhập hàng đã chọn.`,
+      });
+    }
 
     setRowSelection({});
     setIsBulkPayAlertOpen(false);
   };
 
-  const confirmBulkReceive = () => {
-    allSelectedRows.forEach(po => {
-        if (po.deliveryStatus === 'Đã nhập') return;
+  const handleBulkReceiveStart = React.useCallback(() => {
+    if (allSelectedRows.length === 0) {
+      toast({
+        title: 'Chưa chọn đơn hàng',
+        description: 'Vui lòng chọn ít nhất một đơn nhập hàng cần nhập kho.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-        const getAlreadyReceivedQty = (productSystemId: string) => {
-          return allReceipts
-            .filter(r => r.purchaseOrderId === po.systemId) // ✅ Fixed: Use systemId
-            .reduce((total, receipt) => {
-              const item = receipt.items.find(i => i.productSystemId === productSystemId);
-              return total + (item ? Number(item.receivedQuantity) : 0);
-            }, 0);
-        };
-    
-        const itemsToReceive = po.lineItems.map(item => {
-          const alreadyReceived = getAlreadyReceivedQty(item.productSystemId);
-          const remaining = item.quantity - alreadyReceived;
-          return {
-            productSystemId: item.productSystemId,
-            productId: item.productId,
-            productName: item.productName,
-            orderedQuantity: item.quantity,
-            receivedQuantity: remaining > 0 ? remaining : 0,
-            unitPrice: item.unitPrice,
-          };
-        }).filter(item => item.receivedQuantity > 0);
-    
-        if (itemsToReceive.length === 0) return;
-        
-        const receiptData = {
-          id: '',
-          purchaseOrderId: po.systemId, // ✅ Fixed: Use systemId for foreign key
-          supplierSystemId: po.supplierSystemId,
-          supplierName: po.supplierName,
-          receivedDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-          receiverSystemId: loggedInUser.systemId,
-          receiverName: loggedInUser.fullName,
-          notes: `Nhập hàng toàn bộ tự động cho đơn hàng ${po.id}`,
-          items: itemsToReceive,
-        };
-        
-        const newReceiptId = `PN-${Date.now()}`; // Generate receipt ID
-        addInventoryReceipt(receiptData);
-    
-        receiptData.items.forEach(item => {
-          const productBeforeUpdate = findProductById(item.productSystemId as any);
-          const oldStock = productBeforeUpdate?.inventoryByBranch[po.branchSystemId] || 0;
-          
-          updateInventory(item.productSystemId as any, po.branchSystemId as any, item.receivedQuantity);
-          
-          addStockHistoryEntry({
-            productId: item.productId,
-            date: new Date().toISOString(),
-            employeeName: loggedInUser.fullName,
-            action: 'Nhập hàng từ NCC',
-            quantityChange: item.receivedQuantity,
-            newStockLevel: oldStock + item.receivedQuantity,
-            documentId: newReceiptId,
-            branch: po.branchName,
-            branchSystemId: po.branchSystemId,
-          });
-        });
-        
-        processInventoryReceipt(po.systemId); // ✅ Fixed: Use systemId
-    });
+    const targetOrders = allSelectedRows.filter(po => po.deliveryStatus !== 'Đã nhập');
+    if (targetOrders.length === 0) {
+      toast({
+        title: 'Tất cả đơn đã nhập',
+        description: 'Các đơn đã chọn đều đã hoàn tất nhập kho.',
+      });
+      return;
+    }
 
     setRowSelection({});
-    setIsBulkReceiveAlertOpen(false);
-  };
+    beginReceiveFlow(targetOrders);
+  }, [allSelectedRows, beginReceiveFlow, toast]);
 
   const columns = React.useMemo(() => getColumns(handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches as any), [handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches]);
   
@@ -479,6 +713,11 @@ export function PurchaseOrdersPage() {
     ? sortedData.slice(0, mobileLoadedCount)
     : paginatedData;
 
+  const hasValidReceiveQuantity = React.useMemo(
+    () => receiveDialogState.items.some(item => item.receiveQuantity > 0),
+    [receiveDialogState.items]
+  );
+
   const bulkActions = [
     {
       label: "In đơn nhập hàng",
@@ -490,7 +729,7 @@ export function PurchaseOrdersPage() {
     },
     {
       label: "Nhập hàng",
-      onSelect: () => setIsBulkReceiveAlertOpen(true)
+      onSelect: handleBulkReceiveStart
     },
     {
       label: "Hủy đơn",
@@ -726,8 +965,8 @@ export function PurchaseOrdersPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setCancelDialogState({ isOpen: false, po: null })}>Thoát</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCancel}>Xác nhận hủy</AlertDialogAction>
+            <AlertDialogCancel className="h-9" onClick={() => setCancelDialogState({ isOpen: false, po: null })}>Thoát</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmCancel}>Xác nhận hủy</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -741,26 +980,141 @@ export function PurchaseOrdersPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkPay}>Xác nhận</AlertDialogAction>
+            <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmBulkPay}>Xác nhận</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog open={isBulkReceiveAlertOpen} onOpenChange={setIsBulkReceiveAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận nhập hàng?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc chắn muốn nhập hàng toàn bộ cho {numSelected} đơn hàng đã chọn không?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkReceive}>Xác nhận</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={receiveDialogState.isOpen} onOpenChange={(open) => {
+        if (!open) {
+          closeReceiveDialog();
+        }
+      }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Nhập hàng cho {receiveDialogState.purchaseOrder?.id || 'đơn hàng'}</DialogTitle>
+            <DialogDescription>
+              Chọn chi nhánh, kho nhận và nhập số lượng thực nhận cho từng sản phẩm theo guideline dual ID.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {pendingReceiveQueue.length > 0 && (
+              <div className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                Còn {pendingReceiveQueue.length} đơn trong hàng đợi sẽ được mở tiếp sau khi lưu phiếu này.
+              </div>
+            )}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Mã phiếu nhập</Label>
+                <Input
+                  placeholder="Ví dụ: PNK000123"
+                  className="h-9"
+                  value={receiveDialogState.documentCode}
+                  onChange={(event) => handleReceiveFieldChange('documentCode', event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Ngày nhận hàng</Label>
+                <Input
+                  type="datetime-local"
+                  className="h-9"
+                  value={receiveDialogState.receivedDate}
+                  onChange={(event) => handleReceiveFieldChange('receivedDate', event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Chi nhánh nhận</Label>
+                <Select value={receiveDialogState.targetBranchSystemId || undefined} onValueChange={handleReceiveBranchChange}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Chọn chi nhánh" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.systemId} value={branch.systemId}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Kho nhận</Label>
+                <Input
+                  placeholder="Kho chính, Kho lẻ..."
+                  className="h-9"
+                  value={receiveDialogState.warehouseName}
+                  onChange={(event) => handleReceiveFieldChange('warehouseName', event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Ghi chú</Label>
+              <Textarea
+                placeholder="Ví dụ: Nhập đợt 1, bao gồm phiếu vận chuyển số..."
+                value={receiveDialogState.notes}
+                onChange={(event) => handleReceiveFieldChange('notes', event.target.value)}
+              />
+            </div>
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sản phẩm</TableHead>
+                    <TableHead>Số lượng đặt</TableHead>
+                    <TableHead>Còn lại</TableHead>
+                    <TableHead className="w-48">Nhập lần này</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receiveDialogState.items.map(item => (
+                    <TableRow key={item.productSystemId}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{item.productName}</span>
+                          <span className="text-xs text-muted-foreground">{item.productId}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{item.orderedQuantity}</TableCell>
+                      <TableCell>{item.remainingQuantity}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={item.remainingQuantity}
+                          className="h-9"
+                          value={item.receiveQuantity}
+                          onChange={(event) => handleReceiveQuantityChange(item.productSystemId, Number(event.target.value))}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {receiveDialogState.items.length === 0 && (
+                <p className="p-4 text-sm text-muted-foreground">Tất cả sản phẩm trong đơn này đã được nhập đủ.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" className="h-9" onClick={closeReceiveDialog} disabled={isSubmittingReceive}>
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              className="h-9"
+              onClick={handleSubmitReceiveDialog}
+              disabled={isSubmittingReceive || !hasValidReceiveQuantity || !receiveDialogState.targetBranchSystemId}
+            >
+              {isSubmittingReceive
+                ? 'Đang lưu...'
+                : pendingReceiveQueue.length > 0
+                  ? 'Lưu & chuyển đơn tiếp theo'
+                  : 'Lưu phiếu nhập'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
     </div>
   )
 }

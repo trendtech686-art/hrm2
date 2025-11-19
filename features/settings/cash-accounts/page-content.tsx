@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
 import { Badge } from "../../../components/ui/badge.tsx";
 import { toast } from "sonner";
+import { asBusinessId, asSystemId, type SystemId } from "../../../lib/id-types.ts";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
@@ -43,10 +44,10 @@ export function CashAccountsPageContent() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<CashAccount | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
   const handleEdit = (item: CashAccount) => { setEditingItem(item); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: string) => { 
+  const handleDeleteRequest = (systemId: SystemId) => { 
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
@@ -70,13 +71,26 @@ export function CashAccountsPageContent() {
     setIdToDelete(null);
   };
   
+  const normalizeFormValues = (values: CashAccountFormValues): Omit<CashAccount, 'systemId'> => {
+    const { id, branchSystemId, managedBy, ...rest } = values;
+    const sanitizedId = id.trim().toUpperCase();
+
+    return {
+      ...rest,
+      id: asBusinessId(sanitizedId),
+      branchSystemId: branchSystemId ? asSystemId(branchSystemId) : undefined,
+      managedBy: managedBy ? asSystemId(managedBy) : undefined,
+    };
+  };
+
   const handleFormSubmit = (values: CashAccountFormValues) => {
     try {
+      const payload = normalizeFormValues(values);
       if (editingItem) {
-        update(editingItem.systemId, { ...editingItem, ...values });
+        update(editingItem.systemId, { ...editingItem, ...payload });
         toast.success("Cập nhật thành công");
       } else {
-        add(values);
+        add(payload);
         toast.success("Thêm mới thành công");
       }
       setIsFormOpen(false);

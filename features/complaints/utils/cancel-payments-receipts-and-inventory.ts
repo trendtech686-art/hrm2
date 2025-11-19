@@ -1,5 +1,6 @@
 import type { Complaint } from '../types';
-import { cancelPaymentsReceiptsAndInventoryChecks } from './payment-receipt-reversal';
+import type { SystemId } from '@/lib/id-types';
+import { cancelPaymentsReceiptsAndInventoryChecks, type ReversalResult } from './payment-receipt-reversal';
 
 /**
  * UTILITY: Huy phieu chi/thu (phieu tu dong khoi phuc kho)
@@ -20,12 +21,12 @@ import { cancelPaymentsReceiptsAndInventoryChecks } from './payment-receipt-reve
  */
 export async function cancelPaymentsReceiptsAndInventory(
   complaint: Complaint,
-  currentUser: { systemId: string; name: string },
+  currentUser: { systemId: SystemId; name: string },
   reason: string,
   options?: { skipInventoryCheck?: boolean }
 ): Promise<{
-  cancelledPaymentsReceiptsHistory: any[];
-  inventoryHistory: any | null;
+  cancelledPaymentsReceiptsHistory: ReversalResult['cancelledPaymentsReceiptsHistory'];
+  inventoryHistory: ReversalResult['inventoryHistory'] | null;
 }> {
   console.log(`[CANCEL UTIL] Starting: ${reason}`);
   
@@ -66,7 +67,7 @@ export async function cancelPaymentsReceiptsAndInventory(
   });
   
   return {
-    cancelledPaymentsReceiptsHistory: result.cancelledPaymentsReceiptsHistory || [],
-    inventoryHistory: result.inventoryHistory,
+    cancelledPaymentsReceiptsHistory: result.cancelledPaymentsReceiptsHistory ?? [],
+    inventoryHistory: result.inventoryHistory ?? null,
   };
 }

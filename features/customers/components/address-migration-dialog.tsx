@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { convertLegacyAddress } from '../utils/enhanced-address-helper';
-import { getDistrictByWardId } from '@/features/provinces/ward-district-mapping';
+import { getDistrictByWardId } from '@/features/settings/provinces/ward-district-mapping';
 import { RefreshCw, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 
 type LegacyAddress = {

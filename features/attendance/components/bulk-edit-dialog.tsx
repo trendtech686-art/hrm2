@@ -11,12 +11,13 @@ import { TimePicker } from '../../../components/ui/time-picker.tsx';
 import { Separator } from '../../../components/ui/separator.tsx';
 import { CheckCircle2, XCircle, Clock, Calendar, Users, Edit3 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast.ts';
+import type { SystemId } from '../../../lib/id-types.ts';
 
 interface BulkEditDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedCells: Array<{ employeeId: string; employeeName: string; day: number }>;
-  onSave: (updates: Array<{ employeeId: string; day: number; record: DailyRecord }>) => void;
+  selectedCells: Array<{ employeeSystemId: SystemId; employeeCode: string; employeeName: string; day: number }>;
+  onSave: (updates: Array<{ employeeSystemId: SystemId; day: number; record: DailyRecord }>) => void;
 }
 
 // Validation schema
@@ -80,7 +81,7 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
 
   const onSubmit = (data: FormValues) => {
     const updates = selectedCells.map(cell => ({
-      employeeId: cell.employeeId,
+      employeeSystemId: cell.employeeSystemId,
       day: cell.day,
       record: data as DailyRecord,
     }));
@@ -93,12 +94,12 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
   };
 
   const groupedByEmployee = React.useMemo(() => {
-    const groups: Record<string, { name: string; days: number[] }> = {};
+    const groups: Record<string, { name: string; code: string; days: number[] }> = {};
     selectedCells.forEach(cell => {
-      if (!groups[cell.employeeId]) {
-        groups[cell.employeeId] = { name: cell.employeeName, days: [] };
+      if (!groups[cell.employeeSystemId]) {
+        groups[cell.employeeSystemId] = { name: cell.employeeName, code: cell.employeeCode, days: [] };
       }
-      groups[cell.employeeId].days.push(cell.day);
+      groups[cell.employeeSystemId].days.push(cell.day);
     });
     return groups;
   }, [selectedCells]);
@@ -119,11 +120,12 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
 
         <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-muted/30">
           <div className="space-y-2 text-sm">
-            {Object.entries(groupedByEmployee).map(([id, info]) => (
-              <div key={id} className="flex items-start gap-2">
+            {Object.entries(groupedByEmployee).map(([systemId, info]) => (
+              <div key={systemId} className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <span className="font-medium">{info.name}</span>
+                  <span className="text-muted-foreground ml-1">({info.code})</span>
                   <span className="text-muted-foreground ml-2">
                     ({info.days.length} ngày: {info.days.sort((a, b) => a - b).join(', ')})
                   </span>

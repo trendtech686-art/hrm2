@@ -10,13 +10,19 @@
  * - Tự động điền: "Quận Ba Đình" (10101)
  */
 
+import { asBusinessId, type BusinessId } from '@/lib/id-types';
+
 export type WardDistrictMapping = {
   wardId: string;        // "10101001"
   wardName: string;      // "Phường Phúc Xá"
   districtId: number;    // 10101
   districtName: string;  // "Quận Ba Đình"
-  provinceId: string;    // "01"
+  provinceId: BusinessId;    // "01"
   provinceName: string;  // "Thành phố Hà Nội"
+};
+
+export type WardDistrictDataInput = Omit<WardDistrictMapping, 'provinceId'> & {
+  provinceId: BusinessId | string | number;
 };
 
 /**
@@ -82,11 +88,26 @@ const wardDistrictMap = new Map<string, WardDistrictMapping>();
  * Load mapping data from Excel import
  * Auto-loads 3,321 records on module initialization
  */
-export function loadWardDistrictMapping(data?: WardDistrictMapping[]) {
+export function loadWardDistrictMapping(data?: ReadonlyArray<WardDistrictDataInput>) {
   wardDistrictMap.clear();
   const dataToLoad = data || WARD_DISTRICT_DATA;
   dataToLoad.forEach(item => {
-    wardDistrictMap.set(item.wardId, item);
+    const provinceId = asBusinessId(
+      typeof item.provinceId === 'number'
+        ? item.provinceId.toString().padStart(2, '0')
+        : item.provinceId
+    );
+
+    const normalized: WardDistrictMapping = {
+      wardId: item.wardId,
+      wardName: item.wardName,
+      districtId: item.districtId,
+      districtName: item.districtName,
+      provinceId,
+      provinceName: item.provinceName,
+    };
+
+    wardDistrictMap.set(normalized.wardId, normalized);
   });
   console.log(`✅ Loaded ${wardDistrictMap.size} ward-district mappings`);
 }

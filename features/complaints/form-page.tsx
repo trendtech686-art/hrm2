@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+import { asSystemId } from '@/lib/id-types';
 
 // Types & Store
 import type { Complaint, ComplaintType } from "./types.ts";
@@ -88,7 +89,7 @@ export function ComplaintFormPage() {
   const { employee } = useAuth();
   
   const isEditing = !!systemId;
-  const complaint = isEditing && systemId ? getComplaintById(systemId) : null;
+  const complaint = isEditing && systemId ? getComplaintById(asSystemId(systemId)) : null;
   
   // Check if complaint has been verified (can only edit note)
   const isVerified = complaint?.verification !== 'pending-verification';
@@ -97,7 +98,7 @@ export function ComplaintFormPage() {
   // Current user (from auth context)
   const currentUser = employee 
     ? { systemId: employee.systemId, name: employee.fullName }
-    : { systemId: 'GUEST', name: 'Guest User' };
+    : { systemId: asSystemId('SYSTEM'), name: 'Guest User' };
 
   // ⭐ Load complaint types from Settings và map với enum
   const complaintTypes = React.useMemo(() => {
@@ -646,7 +647,7 @@ export function ComplaintFormPage() {
         images: finalCustomerImageUrls
           .filter(url => url && url.trim() !== '') // ⭐ Filter empty URLs
           .map((url, idx) => ({
-            id: `img_${Date.now()}_${idx}`,
+            id: asSystemId(`complaint-image-${Date.now()}-${idx}`),
             url,
             uploadedBy: currentUser.systemId,
             uploadedAt: new Date(),
@@ -656,7 +657,7 @@ export function ComplaintFormPage() {
         employeeImages: finalEmployeeImageUrls
           .filter(url => url && url.trim() !== '') // ⭐ Filter empty URLs
           .map((url, idx) => ({
-            id: `emp_img_${Date.now()}_${idx}`,
+            id: asSystemId(`complaint-employee-image-${Date.now()}-${idx}`),
             url,
             uploadedBy: packagingEmployee,
             uploadedAt: new Date(),
@@ -669,7 +670,7 @@ export function ComplaintFormPage() {
       };
       
       if (isEditing && systemId) {
-        updateComplaint(systemId, complaintData as any);
+        updateComplaint(asSystemId(systemId), complaintData as any);
         toast.success("Đã cập nhật khiếu nại");
         navigate(`/complaints/${systemId}`); // Navigate to detail page
       } else {

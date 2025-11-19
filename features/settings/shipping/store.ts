@@ -2,6 +2,7 @@ import { createCrudStore } from '../../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { ShippingPartner } from './types.ts';
 import Fuse from 'fuse.js';
+import type { SystemId } from '@/lib/id-types';
 
 // FIX: Replaced import from a non-existent module and replaced it with a mock function.
 const connectPartner = async (partnerId: string, credentials: any): Promise<{ success: boolean; message: string }> => {
@@ -15,8 +16,8 @@ const connectPartner = async (partnerId: string, credentials: any): Promise<{ su
 
 type ShippingPartnerStoreExtension = {
   searchShippingPartners: (query: string, page: number, limit?: number) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
-  connect: (systemId: string, credentials: Record<string, any>) => Promise<{ success: boolean; message: string }>;
-  disconnect: (systemId: string) => void;
+    connect: (systemId: SystemId, credentials: Record<string, any>) => Promise<{ success: boolean; message: string }>;
+    disconnect: (systemId: SystemId) => void;
 };
 
 const baseStore = createCrudStore<ShippingPartner>(initialData, 'shipping-partners', {
@@ -49,7 +50,7 @@ const storeExtension: ShippingPartnerStoreExtension = {
             }, 300);
         });
     },
-    connect: async (systemId: string, credentials: Record<string, any>) => {
+    connect: async (systemId: SystemId, credentials: Record<string, any>) => {
         // ⚠️ DEPRECATED: Không nên dùng hàm này nữa
         // Vui lòng cấu hình trong Settings → Đối tác vận chuyển
         // Credentials sẽ được lưu vào shipping_partners_config
@@ -77,7 +78,7 @@ const storeExtension: ShippingPartnerStoreExtension = {
         }
         return result;
     },
-    disconnect: (systemId: string) => {
+    disconnect: (systemId: SystemId) => {
         // ⚠️ DEPRECATED: Không nên dùng hàm này nữa
         console.warn('[ShippingPartnerStore] disconnect() is deprecated. Use shipping_partners_config instead.');
         

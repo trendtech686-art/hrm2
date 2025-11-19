@@ -12,7 +12,7 @@ function daysAgo(days: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-export const data: InventoryReceipt[] = [
+export const data = [
   {
     systemId: asSystemId('INVRECEIPT000001'),
     id: asBusinessId('PNK000001'),
@@ -63,4 +63,4 @@ export const data: InventoryReceipt[] = [
       },
     ],
   },
-];
+] satisfies InventoryReceipt[];

@@ -6,7 +6,8 @@
  */
 
 import { useProvinceStore } from '@/features/settings/provinces/store';
-import type { Ward, District } from '@/features/provinces/types';
+import type { Ward, District } from '@/features/settings/provinces/types';
+import { asBusinessId } from '@/lib/id-types';
 
 export type WardSuggestion = {
   ward: Ward;
@@ -40,6 +41,7 @@ export function findMatchingWards(
   } = useProvinceStore.getState();
 
   const suggestions: WardSuggestion[] = [];
+  const businessProvinceId = asBusinessId(provinceId);
   
   // Normalize input
   const normalizedInput = normalizeText(wardName);
@@ -53,7 +55,7 @@ export function findMatchingWards(
   // VD: "Xã Bát Tràng" → Tìm tất cả ward có tên "Bát Tràng" trong province
   for (const ward of wards) {
     // Chỉ tìm trong province hiện tại và phải có districtId (3 cấp)
-    if (ward.provinceId !== provinceId || !ward.districtId) continue;
+    if (ward.provinceId !== businessProvinceId || !ward.districtId) continue;
     
     const normalizedWard = normalizeText(ward.name);
     const coreWardNameCompare = normalizedWard
@@ -83,7 +85,7 @@ export function findMatchingWards(
   // Step 2: Nếu không tìm thấy exact match → Tìm district có tên giống wardName
   // VD: "Phường Hoàn Kiếm" → Tìm "Quận Hoàn Kiếm"
   if (suggestions.length === 0) {
-    const provinceDistricts = getDistrictsByProvinceId(provinceId);
+    const provinceDistricts = getDistrictsByProvinceId(businessProvinceId);
     
     for (const district of provinceDistricts) {
       const normalizedDistrict = normalizeText(district.name);
@@ -115,7 +117,7 @@ export function findMatchingWards(
   if (suggestions.length === 0) {
     for (const ward of wards) {
       // Chỉ tìm trong province hiện tại
-      if (ward.provinceId !== provinceId) continue;
+      if (ward.provinceId !== businessProvinceId) continue;
       
       const normalizedWard = normalizeText(ward.name);
       const coreWardNameCompare = normalizedWard

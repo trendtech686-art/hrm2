@@ -2,13 +2,21 @@ import * as React from 'react';
 import type { SalesChannel } from './types.ts';
 import type { ColumnDef } from '../../../components/data-table/types.ts';
 import { Button } from '../../../components/ui/button.tsx';
-import { MoreHorizontal, Check, X } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
+import type { SystemId } from '@/lib/id-types';
 
 export const getColumns = (
     onEdit: (channel: SalesChannel) => void,
-    onDelete: (systemId: string) => void
+    onDelete: (systemId: SystemId) => void
 ): ColumnDef<SalesChannel>[] => [
+    { 
+        id: 'id',
+        accessorKey: 'id',
+        header: 'Mã',
+        cell: ({ row }) => <span className="font-mono text-sm">{row.id}</span>,
+        meta: { displayName: 'Mã nguồn' }
+    },
     { 
         id: 'name', 
         accessorKey: 'name', 
@@ -45,7 +53,7 @@ export const getColumns = (
             <div className="text-right">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                        <Button variant="ghost" className="h-9 w-9 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onSelect={() => onEdit(row)}>Sửa</DropdownMenuItem>

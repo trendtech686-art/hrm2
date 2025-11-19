@@ -40,6 +40,9 @@ export type EnhancedCustomerAddress = {
   districtId: number;              // 10101 (TMS code)
   
   // Flags
+  isDefault?: boolean;             // Địa chỉ mặc định chung (deprecated, dùng isDefaultShipping thay thế)
+  isShipping?: boolean;            // Sử dụng cho giao hàng (deprecated, dùng isDefaultShipping)
+  isBilling?: boolean;             // Sử dụng cho hóa đơn (deprecated, dùng isDefaultBilling)
   isDefaultShipping: boolean;      // Địa chỉ mặc định cho giao hàng
   isDefaultBilling: boolean;       // Địa chỉ mặc định cho hóa đơn
   notes?: string;
@@ -61,6 +64,9 @@ export type CreateAddress2LevelInput = {
   wardId: string;
   contactName?: string;
   contactPhone?: string;
+  isDefault?: boolean;             // Deprecated, dùng isDefaultShipping
+  isShipping?: boolean;            // Deprecated, dùng isDefaultShipping
+  isBilling?: boolean;             // Deprecated, dùng isDefaultBilling
   isDefaultShipping?: boolean;
   isDefaultBilling?: boolean;
   notes?: string;
@@ -80,6 +86,9 @@ export type CreateAddress3LevelInput = {
   wardId: string;
   contactName?: string;
   contactPhone?: string;
+  isDefault?: boolean;             // Deprecated, dùng isDefaultShipping
+  isShipping?: boolean;            // Deprecated, dùng isDefaultShipping
+  isBilling?: boolean;             // Deprecated, dùng isDefaultBilling
   isDefaultShipping?: boolean;
   isDefaultBilling?: boolean;
   notes?: string;

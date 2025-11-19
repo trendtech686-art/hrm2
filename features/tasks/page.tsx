@@ -21,6 +21,7 @@ import { DataTableColumnCustomizer } from "../../components/data-table/data-tabl
 import { toast } from "sonner";
 import { QuickFilters, QuickFiltersCompact } from "./components/QuickFilters.tsx";
 import { QUICK_FILTERS } from "./types-filter.ts";
+import type { SystemId } from '../../lib/id-types.ts';
 
 export function TasksPage() {
   const store = useTaskStore();
@@ -40,7 +41,7 @@ export function TasksPage() {
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null)
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null)
 
   // Mobile infinite scroll state
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
@@ -77,7 +78,7 @@ export function TasksPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
 
-  const handleDelete = React.useCallback((id: string) => {
+  const handleDelete = React.useCallback((id: SystemId) => {
     setIdToDelete(id);
     setIsAlertOpen(true);
   }, []);
@@ -137,10 +138,10 @@ export function TasksPage() {
 
   const confirmDelete = () => {
     if (idToDelete) {
-      remove(idToDelete as any);
+      remove(idToDelete);
     } else {
       // Bulk delete
-      allSelectedRows.forEach(task => remove(task.systemId as any));
+      allSelectedRows.forEach(task => remove(task.systemId));
       setRowSelection({});
     }
     setIsAlertOpen(false);

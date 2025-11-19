@@ -48,7 +48,7 @@ export const ComplaintHeaderSection: React.FC<Props> = React.memo(({ complaint, 
             )}
           </div>
           {/* SLA Timer & Time Tracking Metrics */}
-          {timeTracking && complaint.status !== 'resolved' && complaint.status !== 'rejected' && complaint.status !== 'cancelled' && (
+          {timeTracking && complaint.status !== 'resolved' && complaint.status !== 'ended' && complaint.status !== 'cancelled' && (
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">SLA:</span>

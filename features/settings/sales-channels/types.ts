@@ -1,5 +1,8 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type SalesChannel = {
-  systemId: string;
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   isApplied: boolean;
   isDefault: boolean;

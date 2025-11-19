@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import type { Complaint } from '../types.ts';
+import type { SystemId } from "@/lib/id-types";
 
 interface Props {
   complaint: Complaint;
@@ -20,7 +21,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
       .find(a => a.actionType === 'verified-correct');
   }, [complaint.timeline, complaint.verification]);
   
-  const confirmedQuantities = lastVerifiedCorrect?.metadata?.confirmedQuantities as Record<string, number> | undefined;
+  const confirmedQuantities = lastVerifiedCorrect?.metadata?.confirmedQuantities as Record<SystemId, number> | undefined;
 
   if (!complaint.affectedProducts || complaint.affectedProducts.length === 0) {
     return null;

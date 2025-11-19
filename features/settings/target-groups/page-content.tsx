@@ -2,6 +2,7 @@ import * as React from "react";
 import { useTargetGroupStore } from "./store.ts";
 import type { TargetGroup } from "./types.ts";
 import { TargetGroupForm, type TargetGroupFormValues } from "./form.tsx";
+import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { Button } from "../../../components/ui/button.tsx";
 import { MoreHorizontal, Pencil, Trash2, PowerOff, Power } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
@@ -17,10 +18,10 @@ export function TargetGroupsPageContent() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<TargetGroup | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
   const handleEdit = (item: TargetGroup) => { setEditingItem(item); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: string) => { 
+  const handleDeleteRequest = (systemId: SystemId) => { 
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
@@ -41,11 +42,22 @@ export function TargetGroupsPageContent() {
   
   const handleFormSubmit = (values: TargetGroupFormValues) => {
     try {
+      const name = values.name.trim();
+      const normalizedId = values.id.trim().toUpperCase();
       if (editingItem) {
-        update(editingItem.systemId, { ...editingItem, ...values });
+        const payload: TargetGroup = {
+          ...editingItem,
+          name,
+          id: normalizedId ? asBusinessId(normalizedId) : editingItem.id,
+        };
+        update(editingItem.systemId, payload);
         toast.success("Cập nhật thành công");
       } else {
-        add(values);
+        add({
+          id: normalizedId ? asBusinessId(normalizedId) : asBusinessId(""),
+          name,
+          isActive: true,
+        });
         toast.success("Thêm mới thành công");
       }
       setIsFormOpen(false);

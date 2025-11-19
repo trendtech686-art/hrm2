@@ -1015,7 +1015,7 @@ export function WarrantySettingsPage() {
                 <div className="p-4 bg-muted rounded-lg space-y-2">
                   <p className="text-sm font-medium">Ví dụ link tracking:</p>
                   <code className="text-xs bg-background px-2 py-1 rounded block">
-                    https://yoursite.com/warranty-tracking/abc123xyz
+                    https://yoursite.com/warranty/tracking/abc123xyz
                   </code>
                   <p className="text-xs text-muted-foreground">
                     Link này sẽ được tạo tự động khi tạo yêu cầu bảo hành mới

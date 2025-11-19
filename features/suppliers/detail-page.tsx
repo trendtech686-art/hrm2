@@ -16,6 +16,7 @@ import { usePaymentStore } from '../payments/store.ts';
 import type { Payment } from '../payments/types.ts';
 import type { PurchaseOrder, PaymentStatus, DeliveryStatus } from '../purchase-orders/types.ts';
 import { usePurchaseReturnStore } from '../purchase-returns/store.ts';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -51,18 +52,19 @@ const debtColumns: ColumnDef<any>[] = [
 
 
 export function SupplierDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+    const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
   const { findById } = useSupplierStore();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
   const { data: allPayments } = usePaymentStore();
   const { data: allPurchaseReturns } = usePurchaseReturnStore();
 
-  const supplier = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+    const supplierSystemId = React.useMemo<SystemId | null>(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
+    const supplier = React.useMemo(() => (supplierSystemId ? findById(supplierSystemId) : null), [supplierSystemId, findById]);
   
   const supplierPurchaseOrders = React.useMemo(() => 
-    allPurchaseOrders.filter(po => po.supplierSystemId === supplier?.systemId || po.supplierSystemId === supplier?.id), 
-  [allPurchaseOrders, supplier]);
+        allPurchaseOrders.filter(po => supplier ? po.supplierSystemId === supplier.systemId : false), 
+    [allPurchaseOrders, supplier]);
 
   const { supplierDebtTransactions, calculatedDebt } = React.useMemo(() => {
     if (!supplier) return { supplierDebtTransactions: [], calculatedDebt: 0 };
@@ -77,7 +79,7 @@ export function SupplierDetailPage() {
     }));
 
     const paymentTransactions = allPayments
-        .filter(payment => payment.recipientName === supplier.name || payment.recipientSystemId === supplier.systemId)
+        .filter(payment => payment.recipientSystemId === supplier.systemId)
         .map(payment => ({
             systemId: `payment-${payment.systemId}`,
             documentId: payment.id,
@@ -88,7 +90,7 @@ export function SupplierDetailPage() {
         }));
 
     const returnTransactions = allPurchaseReturns
-        .filter(pr => pr.supplierId === supplier.systemId)
+        .filter(pr => pr.supplierSystemId === supplier.systemId)
         .map(pr => ({
             systemId: `return-${pr.systemId}`,
             documentId: pr.id,
@@ -114,16 +116,16 @@ export function SupplierDetailPage() {
     };
   }, [supplier, supplierPurchaseOrders, allPayments, allPurchaseReturns]);
 
-  const headerActions = React.useMemo(() => [
-    <Button key="back" variant="outline" onClick={() => navigate('/suppliers')}>
-      <ArrowLeft className="mr-2 h-4 w-4" />
-      Quay lại
-    </Button>,
-    <Button key="edit" onClick={() => navigate(`/suppliers/${systemId}/edit`)}>
-      <Edit className="mr-2 h-4 w-4" />
-      Chỉnh sửa
-    </Button>
-  ], [navigate, systemId]);
+    const headerActions = React.useMemo(() => [
+        <Button key="back" variant="outline" onClick={() => navigate('/suppliers')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Quay lại
+        </Button>,
+        <Button key="edit" onClick={() => supplierSystemId && navigate(`/suppliers/${supplierSystemId}/edit`)} disabled={!supplierSystemId}>
+            <Edit className="mr-2 h-4 w-4" />
+            Chỉnh sửa
+        </Button>
+    ], [navigate, supplierSystemId]);
 
   usePageHeader({
     title: supplier ? `Chi tiết nhà cung cấp: ${supplier.name}` : 'Chi tiết nhà cung cấp',

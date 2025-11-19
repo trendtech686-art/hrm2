@@ -1,9 +1,9 @@
 import { EmployeeRole } from "./roles.ts";
-import { type SystemId } from "../../lib/id-config.ts";
+import { type SystemId, type BusinessId } from "../../lib/id-types.ts";
 
 export type Employee = {
   systemId: SystemId; // System-generated, immutable
-  id: string; // User-facing, editable, e.g., "NV001".
+  id: BusinessId; // User-facing, editable, e.g., "NV001".
   
   // Personal Info
   fullName: string;
@@ -34,7 +34,7 @@ export type Employee = {
   // Employment Info
   jobTitle: string;
   department: "Kỹ thuật" | "Nhân sự" | "Kinh doanh" | "Marketing";
-  branchSystemId?: string; // ✅ Branch systemId (optional)
+  branchSystemId?: SystemId; // ✅ Branch systemId (optional)
   hireDate: string;
   employeeType?: "Chính thức" | "Thử việc" | "Thực tập sinh" | "Bán thời gian";
   employmentStatus: "Đang làm việc" | "Tạm nghỉ" | "Đã nghỉ việc";
@@ -78,7 +78,7 @@ export type Employee = {
   leaveTaken: number;
   
   // Organization Chart
-  managerId?: string; // ID of the manager (for org chart hierarchy)
+  managerId?: SystemId; // SystemId of the manager (for org chart hierarchy)
   positionX?: number; // X position in org chart
   positionY?: number; // Y position in org chart
   
@@ -87,6 +87,6 @@ export type Employee = {
   updatedAt?: string; // ISO timestamp
   deletedAt?: string | null; // ISO timestamp when soft-deleted
   isDeleted?: boolean; // Soft delete flag
-  createdBy?: string; // Employee systemId who created this
-  updatedBy?: string; // Employee systemId who last updated this
+  createdBy?: SystemId; // Employee systemId who created this
+  updatedBy?: SystemId; // Employee systemId who last updated this
 };

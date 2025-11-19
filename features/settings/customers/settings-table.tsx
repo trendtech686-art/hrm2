@@ -23,7 +23,7 @@ import type { BaseSetting } from './types';
 interface SettingsTableProps<T extends BaseSetting> {
   data: T[];
   onEdit: (item: T) => void;
-  onDelete: (systemId: string) => void;
+  onDelete: (item: T) => void;
   renderExtraColumns?: (item: T) => React.ReactNode;
 }
 
@@ -72,7 +72,7 @@ export function SettingsTable<T extends BaseSetting>({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="h-9 w-9 p-0">
                         <span className="sr-only">Mở menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -85,7 +85,7 @@ export function SettingsTable<T extends BaseSetting>({
                         Chỉnh sửa
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => onDelete(item.systemId)}
+                        onClick={() => onDelete(item)}
                         className="text-destructive"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />

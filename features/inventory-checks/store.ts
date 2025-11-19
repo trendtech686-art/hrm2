@@ -1,11 +1,11 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import type { InventoryCheck } from './types.ts';
-import { getCurrentUserSystemId } from '../../contexts/user-context.tsx';
-import { createSystemId, type SystemId } from '../../lib/id-config.ts';
+import { data as initialData } from './data.ts';
+import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+import { asSystemId } from '../../lib/id-types.ts';
+import type { SystemId } from '../../lib/id-types.ts';
 import { registerBreadcrumbStore } from '../../lib/breadcrumb-generator.ts';
-
-// Sample data
-const initialData: InventoryCheck[] = [];
+import { useEmployeeStore } from '../employees/store.ts';
 
 const baseStore = createCrudStore<InventoryCheck>(initialData, 'inventory-checks', {
   businessIdField: 'id',
@@ -17,63 +17,54 @@ const baseStore = createCrudStore<InventoryCheck>(initialData, 'inventory-checks
 registerBreadcrumbStore('inventory-checks', () => baseStore.getState());
 
 interface InventoryCheckStoreState extends CrudState<InventoryCheck> {
-  balanceCheck: (systemId: SystemId) => void;
+  balanceCheck: (systemId: SystemId) => Promise<void>;
   cancelCheck: (systemId: SystemId) => void;
 }
 
 const augmentedMethods = {
-  balanceCheck: (systemId: SystemId) => {
+  balanceCheck: async (systemId: SystemId) => {
     const state = baseStore.getState();
     const check = state.findById(systemId);
     
     if (!check || check.status !== 'draft') return;
     
-    const currentUser = getCurrentUserSystemId();
+    const currentUserSystemId = getCurrentUserSystemId();
+    const currentEmployeeName = useEmployeeStore.getState().data.find(e => e.systemId === currentUserSystemId)?.fullName || 'Hệ thống';
     
     // Update inventory for each item
     if (check.items && check.items.length > 0) {
-      // Import product store và stock history store
-      Promise.all([
+      const [{ useProductStore }, { useStockHistoryStore }] = await Promise.all([
         import('../products/store.ts'),
         import('../stock-history/store.ts')
-      ]).then(([{ useProductStore }, { useStockHistoryStore }]) => {
-        const productStore = useProductStore.getState();
-        const stockHistoryStore = useStockHistoryStore.getState();
-        
-        check.items.forEach(item => {
-          // Calculate the difference to apply
-          const difference = item.actualQuantity - item.systemQuantity;
-          
-          if (difference !== 0) {
-            // Get product to access branch name
-            const product = productStore.findById(createSystemId(item.productSystemId));
-            const oldQuantity = item.systemQuantity;
-            const newQuantity = item.actualQuantity;
-            
-            // Update inventory in product store - convert to SystemId
-            productStore.updateInventory(
-              createSystemId(item.productSystemId),
-              createSystemId(check.branchSystemId),
-              difference
-            );
-            
-            // Add stock history entry with inventory check business ID
-            const actionType = difference > 0 
-              ? 'Nhập kho (Kiểm hàng)' 
-              : 'Xuất kho (Kiểm hàng)';
-            
-            stockHistoryStore.addEntry({
-              productId: item.productSystemId,
-              date: new Date().toISOString(),
-              employeeName: currentUser || 'Hệ thống',
-              action: actionType,
-              quantityChange: difference,
-              newStockLevel: newQuantity,
-              documentId: check.id, // Use business ID (PKK000001)
-              branchSystemId: check.branchSystemId,
-              branch: check.branchName || 'Chi nhánh',
-            });
-          }
+      ]);
+
+      const productStore = useProductStore.getState();
+      const stockHistoryStore = useStockHistoryStore.getState();
+
+      check.items.forEach(item => {
+        const difference = (item.actualQuantity ?? 0) - (item.systemQuantity ?? 0);
+        if (difference === 0) return;
+
+        productStore.updateInventory(
+          item.productSystemId,
+          check.branchSystemId,
+          difference
+        );
+
+        const actionType = difference > 0
+          ? 'Nhập kho (Kiểm hàng)'
+          : 'Xuất kho (Kiểm hàng)';
+
+        stockHistoryStore.addEntry({
+          productId: item.productSystemId,
+          date: new Date().toISOString(),
+          employeeName: currentEmployeeName,
+          action: actionType,
+          quantityChange: difference,
+          newStockLevel: item.actualQuantity ?? 0,
+          documentId: check.id,
+          branchSystemId: check.branchSystemId,
+          branch: check.branchName || 'Chi nhánh',
         });
       });
     }
@@ -83,7 +74,7 @@ const augmentedMethods = {
       ...check,
       status: 'balanced',
       balancedAt: new Date().toISOString(),
-      balancedBy: currentUser || 'SYSTEM',
+      balancedBy: asSystemId(currentUserSystemId),
     });
   },
   

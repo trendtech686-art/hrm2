@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { AddressConversionDialog } from './address-conversion-dialog';
 import { findAllNewWards, findAllOldWards } from '@/features/settings/provinces/ward-old-to-new-mapping.ts';
 import { useProvinceStore } from '@/features/settings/provinces/store.ts';
+import { asBusinessId } from '@/lib/id-types';
 import type { EnhancedCustomerAddress } from '../types/enhanced-address';
 
 type AddressBidirectionalConverterProps = {
@@ -94,7 +95,7 @@ export function AddressBidirectionalConverter({
     const newWard = selectedWardMapping.newWardName;
     
     // Tìm wardId từ store (ward 2 cấp không có districtId)
-    const wards2Level = getWards2LevelByProvinceId(address.provinceId);
+    const wards2Level = getWards2LevelByProvinceId(asBusinessId(address.provinceId));
     console.log('🔍 Looking for 2-level ward:', {
       wardName: newWard,
       provinceId: address.provinceId,

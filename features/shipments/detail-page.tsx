@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { useOrderStore } from '../orders/store.ts';
 import { useCustomerStore } from '../customers/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
 import { useProductStore } from '../products/store.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card.tsx';
@@ -16,6 +15,7 @@ import { Badge } from '../../components/ui/badge.tsx';
 import { Separator } from '../../components/ui/separator.tsx';
 import { cn } from '../../lib/utils.ts';
 import type { OrderDeliveryStatus } from '../orders/types.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -73,9 +73,9 @@ export function ShipmentDetailPage() {
     const navigate = useNavigate();
     const { data: allOrders, dispatchFromWarehouse } = useOrderStore();
     const { findById: findCustomerById } = useCustomerStore();
-    const { findById: findEmployeeById } = useEmployeeStore();
     const { findById: findProductById } = useProductStore();
-    const loggedInUser = useEmployeeStore.getState().data[0];
+    const { employee: authEmployee } = useAuth();
+    const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
 
     const { order, packaging } = React.useMemo(() => {
         if (!systemId) return { order: null, packaging: null };
@@ -103,7 +103,7 @@ export function ShipmentDetailPage() {
                         size="sm" 
                         onClick={() => {
                             if (order && packaging) {
-                                dispatchFromWarehouse(order.systemId, packaging.systemId, loggedInUser.systemId);
+                                dispatchFromWarehouse(order.systemId, packaging.systemId, currentUserSystemId);
                             }
                         }}
                     >
@@ -126,7 +126,7 @@ export function ShipmentDetailPage() {
                 </Button>
             </div>
         );
-    }, [packaging, order, loggedInUser, navigate]);
+    }, [packaging, order, currentUserSystemId, navigate]);
 
     usePageHeader({
         title: `Vận đơn ${packaging?.id || ''}`,

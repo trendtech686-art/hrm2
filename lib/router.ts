@@ -60,6 +60,14 @@ export const ROUTES = {
     LEAVES: '/leaves',
     LEAVE_VIEW: '/leaves/:systemId',
   },
+
+  // Payroll
+  PAYROLL: {
+    LIST: '/payroll',
+    RUN: '/payroll/run',
+    DETAIL: '/payroll/:systemId',
+    TEMPLATES: '/payroll/templates',
+  },
   
   // Sales & CRM
   SALES: {
@@ -140,7 +148,7 @@ export const ROUTES = {
     WARRANTY_VIEW: '/warranty/:systemId',
     WARRANTY_RETURN: '/warranty/:systemId/return',
     WARRANTY_STATISTICS: '/warranty/statistics',
-    WARRANTY_TRACKING: '/warranty-tracking/:trackingCode',
+    WARRANTY_TRACKING: '/warranty/tracking/:trackingCode',
     INTERNAL_TASKS: '/internal-tasks',
     TASKS: '/tasks',
     TASKS_NEW: '/tasks/new',

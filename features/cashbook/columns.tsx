@@ -3,7 +3,7 @@ import type { ColumnDef } from "../../components/data-table/types.ts";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { Eye, MoreHorizontal, Pencil, XCircle, CheckCircle } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, XCircle } from "lucide-react";
 import { generatePath, ROUTES } from "../../lib/router.ts";
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
 import type { Receipt } from "../receipts/types.ts";
@@ -32,22 +32,19 @@ const formatDateTimeDisplay = (dateString?: string) => {
     return formatDateCustom(date, "dd/MM/yyyy HH:mm");
 };
 
-const getStatusBadge = (status: Receipt['status'] | Payment['status']) => {
-    const variants: Record<Receipt['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-        pending: { label: 'Chờ xử lý', variant: 'secondary' },
-        pending_approval: { label: 'Chờ duyệt', variant: 'outline' },
-        approved: { label: 'Đã duyệt', variant: 'default' },
-        completed: { label: 'Hoàn thành', variant: 'default' },
-        cancelled: { label: 'Đã hủy', variant: 'destructive' },
-    };
-    const config = variants[status];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+const getStatusBadge = (status?: Receipt['status'] | Payment['status']) => {
+  const normalizedStatus = status === 'cancelled' ? 'cancelled' : 'completed';
+  const variants: Record<'completed' | 'cancelled', { label: string; variant: 'default' | 'destructive' }> = {
+    completed: { label: 'Hoàn thành', variant: 'default' },
+    cancelled: { label: 'Đã hủy', variant: 'destructive' },
+  };
+  const config = variants[normalizedStatus];
+  return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
 export const getColumns = (
   accounts: CashAccount[],
   onCancel: (systemId: string) => void,
-  onApprove: (systemId: string) => void,
   navigate: (path: string) => void
 ): ColumnDef<CashbookTransaction>[] => [
   {
@@ -334,20 +331,6 @@ export const getColumns = (
                   <Pencil className="mr-2 h-4 w-4" />
                   Chỉnh sửa
                 </DropdownMenuItem>
-                {transaction.status === 'pending_approval' && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onApprove(transaction.systemId);
-                      }}
-                    >
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Duyệt phiếu
-                    </DropdownMenuItem>
-                  </>
-                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"

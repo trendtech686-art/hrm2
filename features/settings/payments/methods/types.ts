@@ -1,6 +1,8 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type PaymentMethod = {
-  systemId: string;
-  id: string;
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   isDefault: boolean;
   isActive: boolean; // Trạng thái hoạt động

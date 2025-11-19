@@ -1,5 +1,5 @@
-import type { Branch } from '../branches/types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
+import type { Branch } from '../settings/branches/types.ts';
+import type { SystemId, BusinessId } from '../../lib/id-types.ts';
 
 // New types for statuses
 export type OrderMainStatus = 'Đặt hàng' | 'Đang giao dịch' | 'Hoàn thành' | 'Đã hủy';
@@ -12,8 +12,8 @@ export type OrderStockOutStatus = 'Chưa xuất kho' | 'Xuất kho toàn bộ';
 export type OrderReturnStatus = 'Chưa trả hàng' | 'Trả hàng một phần' | 'Trả hàng toàn bộ';
 
 export type LineItem = {
-  productSystemId: string;
-  productId: string; // SKU
+  productSystemId: SystemId;
+  productId: BusinessId; // SKU
   productName: string;
   quantity: number;
   unitPrice: number;
@@ -22,19 +22,19 @@ export type LineItem = {
 };
 
 export type OrderPayment = {
-  systemId: string; // systemId of the voucher
-  id: string; // id of the voucher (e.g., PT000001)
+  systemId: SystemId; // systemId of the voucher
+  id: BusinessId; // id of the voucher (e.g., PT000001)
   date: string; // YYYY-MM-DD HH:mm
   method: string;
   amount: number;
-  createdBy: string;
+  createdBy: SystemId;
   description: string;
-  linkedWarrantySystemId?: string; // ✅ Link to warranty (chỉ dùng systemId)
+  linkedWarrantySystemId?: SystemId; // ✅ Link to warranty (chỉ dùng systemId)
 };
 
 export type Packaging = {
-  systemId: string;
-  id: string; // Mã đóng gói, e.g., FUN07302
+  systemId: SystemId;
+  id: BusinessId; // Mã đóng gói, e.g., FUN07302
   
   // Dates
   requestDate: string; // ngày yêu cầu đóng gói
@@ -43,13 +43,13 @@ export type Packaging = {
   deliveredDate?: string; // ngày đã giao hàng
 
   // Employees
-  requestingEmployeeId: string;
+  requestingEmployeeId: SystemId;
   requestingEmployeeName: string;
-  confirmingEmployeeId?: string;
+  confirmingEmployeeId?: SystemId;
   confirmingEmployeeName?: string;
-  cancelingEmployeeId?: string;
+  cancelingEmployeeId?: SystemId;
   cancelingEmployeeName?: string;
-  assignedEmployeeId?: string;
+  assignedEmployeeId?: SystemId;
   assignedEmployeeName?: string;
   
   // Statuses & Details
@@ -111,23 +111,23 @@ export type GHTKWebhookPayload = {
 
 export type Order = {
   systemId: SystemId;
-  id: string; // DH0001
-  customerSystemId: string;
+  id: BusinessId; // DH0001
+  customerSystemId: SystemId;
   customerName: string;
   
   // Customer addresses
   shippingAddress?: string; // Địa chỉ giao hàng đã chọn
   billingAddress?: string; // Địa chỉ nhận hóa đơn đã chọn
   
-  branchSystemId: string; // ✅ Branch systemId only
+  branchSystemId: SystemId; // ✅ Branch systemId only
   branchName: string;
-  salespersonSystemId: string;
+  salespersonSystemId: SystemId;
   salesperson: string;
   orderDate: string; // YYYY-MM-DD HH:mm
-  sourceSalesReturnId?: string;
+  sourceSalesReturnId?: BusinessId;
   
   // ✅ For exchange orders: link to sales return (chỉ dùng systemId)
-  linkedSalesReturnSystemId?: string; // SystemId of sales return
+  linkedSalesReturnSystemId?: SystemId; // SystemId of sales return
   linkedSalesReturnValue?: number; // Value of returned items (to subtract from grandTotal display)
   
   // Expected info
@@ -156,7 +156,7 @@ export type Order = {
   completedDate?: string; // Ngày hoàn thành
   cancelledDate?: string; // Ngày hủy đơn
   dispatchedDate?: string; // Ngày xuất kho
-  dispatchedByEmployeeId?: string;
+  dispatchedByEmployeeId?: SystemId;
   dispatchedByEmployeeName?: string;
   codAmount: number; // Thu hộ COD
 

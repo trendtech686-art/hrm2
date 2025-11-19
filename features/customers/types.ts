@@ -1,4 +1,6 @@
-export type CustomerStatus = "Đang giao dịch" | "Ngừng Giao Dịch"
+import type { SystemId, BusinessId } from '@/lib/id-types';
+
+export type CustomerStatus = "\u0110ang giao d\u1ecbch" | "Ng\u1eebng Giao D\u1ecbch"
 
 export type CustomerLifecycleStage = 
   | "Khách tiềm năng"    // Lead - Chưa mua lần nào
@@ -19,8 +21,8 @@ export type DebtStatus =
   | "Quá hạn > 30 ngày"; // Nguy cơ khó thu hồi
 
 export type DebtTransaction = {
-  systemId: string;
-  orderId: string;           // Mã đơn hàng phát sinh nợ
+  systemId: SystemId;
+  orderId: BusinessId;           // Mã đơn hàng phát sinh nợ
   orderDate: string;         // Ngày đặt hàng (YYYY-MM-DD)
   amount: number;            // Số tiền nợ
   dueDate: string;           // Ngày đến hạn thanh toán (YYYY-MM-DD)
@@ -32,10 +34,10 @@ export type DebtTransaction = {
 };
 
 export type DebtReminder = {
-  systemId: string;
+  systemId: SystemId;
   reminderDate: string;                                      // Ngày nhắc (YYYY-MM-DD)
   reminderType: 'Gọi điện' | 'SMS' | 'Email' | 'Gặp trực tiếp' | 'Khác';
-  reminderBy: string;                                        // Employee systemId
+  reminderBy: SystemId;                                        // Employee systemId
   reminderByName?: string;                                   // Employee name (for display)
   customerResponse?: 'Hứa trả' | 'Từ chối' | 'Không liên lạc được' | 'Đã trả' | 'Khác';
   promisePaymentDate?: string;                               // Ngày KH hứa trả (YYYY-MM-DD)
@@ -48,8 +50,8 @@ import type { EnhancedCustomerAddress } from './types/enhanced-address';
 export type CustomerAddress = EnhancedCustomerAddress;
 
 export type Customer = {
-  systemId: string;
-  id: string;
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   email: string;
   phone: string;
@@ -108,7 +110,7 @@ export type Customer = {
   // Source & Campaign Tracking
   source?: string; // ID của nguồn khách hàng từ settings
   campaign?: string; // Campaign name or code
-  referredBy?: string; // Customer systemId who referred
+  referredBy?: SystemId; // Customer systemId who referred
   
   // Multiple Contacts
   contacts?: Array<{
@@ -155,7 +157,7 @@ export type Customer = {
   notes?: string;
   
   // Account Management
-  accountManagerId?: string;
+  accountManagerId?: SystemId;
   accountManagerName?: string;
   
   // Audit fields
@@ -163,8 +165,8 @@ export type Customer = {
   updatedAt?: string; // ISO timestamp
   deletedAt?: string | null; // ISO timestamp when soft-deleted
   isDeleted?: boolean; // Soft delete flag
-  createdBy?: string; // Employee systemId who created this
-  updatedBy?: string; // Employee systemId who last updated this
+  createdBy?: SystemId; // Employee systemId who created this
+  updatedBy?: SystemId; // Employee systemId who last updated this
   
   // Statistics
   totalOrders?: number;

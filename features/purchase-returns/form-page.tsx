@@ -9,8 +9,9 @@ import { useSupplierStore } from '../suppliers/store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { usePurchaseReturnStore } from './store.ts';
 import type { PurchaseReturnLineItem } from './types.ts';
-import { useEmployeeStore } from '../employees/store.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { useCashbookStore } from '../cashbook/store.ts';
+import { usePaymentStore } from '../payments/store.ts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -22,6 +23,8 @@ import { Textarea } from '../../components/ui/textarea.tsx';
 import { Input } from '../../components/ui/input.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import type { Payment } from '../payments/types.ts';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store.ts';
 import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
@@ -37,6 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog.tsx';
+import { useToast } from '../../hooks/use-toast.ts';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -60,25 +64,24 @@ type PurchaseReturnFormValues = {
 };
 
 export function PurchaseReturnFormPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+  const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
 
   // Stores
   const { data: allPurchaseOrders, findById: findPO } = usePurchaseOrderStore();
-  const po = systemId ? findPO(systemId) : null;
+  const poSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
+  const po = poSystemId ? findPO(poSystemId) : null;
   const { findById: findSupplier } = useSupplierStore();
   const { findById: findBranch } = useBranchStore();
-  const supplier = po ? findSupplier(po.supplierSystemId) : null;
-  const branch = po ? findBranch(po.branchSystemId) : null;
+  const supplier = po ? findSupplier(asSystemId(po.supplierSystemId)) : null;
+  const branch = po ? findBranch(asSystemId(po.branchSystemId)) : null;
   const { add: addReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
-  const loggedInUser = useEmployeeStore().data[0];
+  const { employee: authEmployee } = useAuth();
+  const creatorName = authEmployee?.fullName || 'Hệ thống';
   const { accounts } = useCashbookStore();
   const { data: allPayments } = usePaymentStore();
   const { data: allInventoryReceipts } = useInventoryReceiptStore();
-  
-  // State for PO selection
-  const [selectedPOId, setSelectedPOId] = React.useState<string>('');
-
+  const { toast } = useToast();
   // State for confirmation dialog
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
   const [pendingSubmit, setPendingSubmit] = React.useState<PurchaseReturnFormValues | null>(null);
@@ -103,69 +106,80 @@ export function PurchaseReturnFormPage() {
   });
 
   // Check nếu chưa có phiếu nhập kho
-  const receipts = React.useMemo(() => 
-    allInventoryReceipts.filter(r => r.purchaseOrderId === po?.systemId), // ✅ Fixed: Match by systemId
+  const receipts = React.useMemo(
+    () => (po ? allInventoryReceipts.filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId)) : []),
     [allInventoryReceipts, po]
   );
 
   React.useEffect(() => {
     if (po && receipts.length === 0) {
-      alert('Đơn hàng chưa có phiếu nhập kho nào. Không thể hoàn trả!');
+      toast({
+        variant: 'destructive',
+        title: 'Không thể tạo phiếu trả',
+        description: 'Đơn nhập hàng này chưa có phiếu nhập kho nào.'
+      });
       navigate(-1);
     }
-  }, [po, receipts, navigate]);
+  }, [po, receipts, navigate, toast]);
 
   // Tính số lượng có thể hoàn trả cho mỗi sản phẩm
   const returnableQuantities = React.useMemo(() => {
-    if (!po) return {};
-    
-    const returns = allPurchaseReturns.filter(pr => pr.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
+    if (!po || !poSystemId) return {};
+
+    const returns = allPurchaseReturns.filter(pr => pr.purchaseOrderSystemId === poSystemId);
 
     const quantities: Record<string, number> = {};
 
     po.lineItems.forEach(item => {
-        const totalReceived = receipts.reduce((sum, receipt) => {
-            const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
-            return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
-        }, 0);
+      const totalReceived = receipts.reduce((sum, receipt) => {
+        const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
+        return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
+      }, 0);
 
-        const totalReturned = returns.reduce((sum, pr) => {
-            const returnItem = pr.items.find(i => i.productSystemId === item.productSystemId);
-            return sum + (returnItem ? returnItem.returnQuantity : 0);
-        }, 0);
+      const totalReturned = returns.reduce((sum, pr) => {
+        const returnItem = pr.items.find(i => i.productSystemId === item.productSystemId);
+        return sum + (returnItem ? returnItem.returnQuantity : 0);
+      }, 0);
 
-        quantities[item.productSystemId] = totalReceived - totalReturned;
+      quantities[item.productSystemId] = totalReceived - totalReturned;
     });
 
     return quantities;
-  }, [po, receipts, allPurchaseReturns]);
+  }, [po, poSystemId, receipts, allPurchaseReturns]);
 
   React.useEffect(() => {
     if (po && receipts.length > 0) {
-      const initialItems = po.lineItems.map(item => ({
-        ...item,
-        orderedQuantity: item.quantity,
-        returnableQuantity: returnableQuantities[item.productSystemId] || 0,
-        returnQuantity: 0,
-        total: 0,
-        note: '',
-      }));
-      
-      // ✅ Auto-generate returnId with empty string
+      const initialItems: FormLineItem[] = po.lineItems.map(item => {
+        const productSystemId = asSystemId(item.productSystemId);
+        const productId = asBusinessId(item.productId);
+
+        return {
+          productSystemId,
+          productId,
+          productName: item.productName,
+          orderedQuantity: item.quantity,
+          returnQuantity: 0,
+          unitPrice: item.unitPrice,
+          note: '',
+          total: 0,
+          returnableQuantity: returnableQuantities[item.productSystemId] || 0,
+        };
+      });
+
       const autoReturnId = "";
-      
-      const defaultCashAccount = accounts.find(acc => acc.type === 'cash' && acc.branchSystemId === po.branchSystemId) || accounts.find(acc => acc.type === 'cash');
-      reset({ 
+
+      const defaultCashAccount = accounts.find(acc => acc.type === 'cash' && acc.branchSystemId === branch?.systemId) || accounts.find(acc => acc.type === 'cash');
+      reset({
         returnId: autoReturnId,
-        items: initialItems as any, 
-        returnAll: false, 
-        reason: '', 
-        refundAmount: 0, 
-        refundMethod: 'Tiền mặt', 
-        accountSystemId: defaultCashAccount?.systemId || '' 
+        items: initialItems,
+        returnAll: false,
+        reason: '',
+        refundAmount: 0,
+        refundMethod: 'Tiền mặt',
+        accountSystemId: defaultCashAccount?.systemId || '',
       });
     }
-  }, [po, reset, accounts, returnableQuantities, allPurchaseReturns, receipts]);
+  }, [po, branch, reset, accounts, returnableQuantities, receipts]);
   
   const watchedItems = useWatch({ control, name: "items" }) || [];
   const refundAmountValue = useWatch({ control, name: "refundAmount" });
@@ -177,9 +191,9 @@ export function PurchaseReturnFormPage() {
   
   // Các lần hoàn trả trước đây
   const previousReturns = React.useMemo(() => {
-    if (!po) return [];
-    return allPurchaseReturns.filter(pr => pr.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
-  }, [po, allPurchaseReturns]);
+    if (!poSystemId) return [];
+    return allPurchaseReturns.filter(pr => pr.purchaseOrderSystemId === poSystemId);
+  }, [poSystemId, allPurchaseReturns]);
 
   const totalReturnedValue_Previously = React.useMemo(() => {
       return previousReturns.reduce((sum, pr) => sum + pr.totalReturnValue, 0);
@@ -196,7 +210,7 @@ export function PurchaseReturnFormPage() {
     return allPayments
       .filter((p: Payment) => 
         p.status === 'completed' && 
-        p.recipientType === 'Nhà cung cấp' &&
+        p.recipientTypeName === 'Nhà cung cấp' &&
         p.recipientName === supplier?.name
       )
       .reduce((sum, p) => sum + p.amount, 0);
@@ -224,30 +238,18 @@ export function PurchaseReturnFormPage() {
 
   usePageHeader();
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('🔍 Form Debug:', {
-      systemId,
-      hasPO: !!po,
-      poId: po?.id,
-      receiptsCount: receipts.length,
-      hasSupplier: !!supplier,
-      hasBranch: !!branch
-    });
-  }, [systemId, po, receipts, supplier, branch]);
-
   // If no PO selected, show PO selection screen
-  if (!systemId && !selectedPOId) {
+  if (!systemIdParam) {
     // Filter POs that have been received (can be returned)
     const returnablePOs = allPurchaseOrders.filter(po => {
-      const receiptsForPO = allInventoryReceipts.filter(r => r.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
+      const receiptsForPO = allInventoryReceipts.filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId));
       return receiptsForPO.length > 0 && po.status !== 'Đã hủy';
     });
 
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Quay lại
           </Button>
@@ -273,7 +275,7 @@ export function PurchaseReturnFormPage() {
             ) : (
               <div className="space-y-2">
                 {returnablePOs.map(po => {
-                  const receiptsForPO = allInventoryReceipts.filter(r => r.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
+                  const receiptsForPO = allInventoryReceipts.filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId));
                   const totalReceived = receiptsForPO.reduce((sum, r) => 
                     sum + r.items.reduce((s, i) => s + i.receivedQuantity, 0), 0
                   );
@@ -293,7 +295,7 @@ export function PurchaseReturnFormPage() {
                               Đã nhập: {totalReceived} sản phẩm từ {receiptsForPO.length} phiếu
                             </p>
                           </div>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" className="h-9">
                             Chọn
                           </Button>
                         </div>
@@ -316,10 +318,10 @@ export function PurchaseReturnFormPage() {
         <div className="text-center">
           <p className="text-lg font-semibold">Không tìm thấy đơn nhập hàng</p>
           <p className="text-sm text-muted-foreground mt-1">
-            ID: {systemId || 'Chưa có'}
+            ID: {systemIdParam || 'Chưa có'}
           </p>
         </div>
-        <Button onClick={() => navigate(-1)} variant="outline">
+        <Button onClick={() => navigate(-1)} variant="outline" className="h-9">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay lại
         </Button>
@@ -338,7 +340,7 @@ export function PurchaseReturnFormPage() {
             {!branch && 'Không tìm thấy chi nhánh.'}
           </p>
         </div>
-        <Button onClick={() => navigate(-1)} variant="outline">
+        <Button onClick={() => navigate(-1)} variant="outline" className="h-9">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay lại
         </Button>
@@ -353,7 +355,11 @@ export function PurchaseReturnFormPage() {
   const handleFormSubmit = (data: PurchaseReturnFormValues) => {
     const returnItems = data.items.filter(item => item.returnQuantity > 0);
     if (returnItems.length === 0) {
-      alert('Vui lòng chọn ít nhất một sản phẩm để hoàn trả.');
+      toast({
+        variant: 'destructive',
+        title: 'Chưa chọn sản phẩm',
+        description: 'Vui lòng chọn ít nhất một sản phẩm để hoàn trả.'
+      });
       return;
     }
 
@@ -390,16 +396,13 @@ export function PurchaseReturnFormPage() {
 
     const returnItems = pendingSubmit.items.filter(item => item.returnQuantity > 0);
     
-    // SystemId: TH + 8 digits
-    const newSystemId = `TH${String(allPurchaseReturns.length + 1).padStart(8, '0')}`;
-    
     addReturn({
-      systemId: newSystemId,
-      id: pendingSubmit.returnId,  // User input or auto-generated
-      purchaseOrderId: po.systemId, // ✅ Fixed: Use systemId for foreign key
-      supplierSystemId: supplier.systemId,
+      id: asBusinessId(pendingSubmit.returnId),
+      purchaseOrderSystemId: asSystemId(po.systemId),
+      purchaseOrderId: asBusinessId(po.id),
+      supplierSystemId: asSystemId(supplier.systemId),
       supplierName: supplier.name,
-      branchSystemId: branch.systemId,
+      branchSystemId: asSystemId(branch.systemId),
       branchName: branch.name,
       returnDate: toISODate(getCurrentDate()),
       reason: pendingSubmit.reason,
@@ -415,12 +418,16 @@ export function PurchaseReturnFormPage() {
       totalReturnValue: totalReturnValue,
       refundAmount: pendingSubmit.refundAmount,
       refundMethod: pendingSubmit.refundMethod,
-      accountSystemId: pendingSubmit.accountSystemId,
-      creatorName: loggedInUser.fullName,
+      accountSystemId: pendingSubmit.accountSystemId ? asSystemId(pendingSubmit.accountSystemId) : undefined,
+      creatorName,
     });
     
     setShowConfirmDialog(false);
     setPendingSubmit(null);
+    toast({
+      title: 'Đã tạo phiếu trả',
+      description: pendingSubmit.returnId ? `Phiếu ${pendingSubmit.returnId} đã được lưu.` : 'Phiếu trả NCC đã được lưu.'
+    });
     navigate(`/purchase-orders/${po.systemId}`);
   };
 
@@ -431,12 +438,12 @@ export function PurchaseReturnFormPage() {
     <Form {...form}>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" type="button" onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" type="button" onClick={() => navigate(-1)} className="h-9 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Đơn nhập hàng {po.id}
             </Button>
             <div className="flex items-center gap-2">
-                <Button type="submit" variant="default">Xác nhận hoàn trả</Button>
+                <Button type="submit" variant="default" className="h-9">Xác nhận hoàn trả</Button>
             </div>
         </div>
 
@@ -518,7 +525,7 @@ export function PurchaseReturnFormPage() {
                                                   <Input
                                                     {...noteField}
                                                     placeholder="Ghi chú (VD: Hàng lỗi, sai màu...)"
-                                                    className="mt-2 h-8 text-xs"
+                                                    className="mt-2 h-9 text-xs"
                                                     value={noteField.value || ''}
                                                   />
                                                 )}
@@ -630,7 +637,7 @@ export function PurchaseReturnFormPage() {
                             <Input 
                               {...field} 
                               placeholder="VD: TH000001"
-                              className="font-mono"
+                              className="font-mono h-9"
                             />
                           </FormControl>
                           <FormDescription className="text-xs">
@@ -760,13 +767,13 @@ export function PurchaseReturnFormPage() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => {
+          <AlertDialogCancel className="h-9" onClick={() => {
             setShowConfirmDialog(false);
             setPendingSubmit(null);
           }}>
             Hủy
           </AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirmSubmit}>
+          <AlertDialogAction className="h-9" onClick={handleConfirmSubmit}>
             Xác nhận hoàn trả
           </AlertDialogAction>
         </AlertDialogFooter>

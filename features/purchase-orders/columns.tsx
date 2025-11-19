@@ -2,7 +2,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import type { PurchaseOrder, PurchaseOrderStatus } from './types.ts'
-import type { Branch } from '../branches/types.ts';
+import type { Branch } from '../settings/branches/types.ts';
 import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
 import type { ColumnDef } from '../../components/data-table/types.ts';

@@ -1,3 +1,5 @@
+import type { SystemId, BusinessId } from "@/lib/id-types";
+
 /**
  * Public Tracking Utilities for Complaints
  * Handles tracking URL generation and settings
@@ -42,13 +44,12 @@ export function isTrackingEnabled(): boolean {
 }
 
 /**
- * Generate tracking URL for a complaint
+ * Generate tracking URL cho khiếu nại
  * Format: /complaint-tracking/{publicTrackingCode}
- * @param complaint - Complaint object with publicTrackingCode
  */
-export function generateTrackingUrl(complaint: { publicTrackingCode?: string; systemId: string; id: string }): string {
+export function generateTrackingUrl(complaint: { publicTrackingCode?: string; systemId: SystemId; id: BusinessId }): string {
   const baseUrl = window.location.origin;
-  const trackingCode = complaint.publicTrackingCode || complaint.systemId; // Fallback to systemId if no tracking code
+  const trackingCode = complaint.publicTrackingCode || complaint.systemId; // Fallback SystemId nếu chưa có code riêng
   return `${baseUrl}/complaint-tracking/${trackingCode}`;
 }
 
@@ -56,7 +57,7 @@ export function generateTrackingUrl(complaint: { publicTrackingCode?: string; sy
  * Get tracking code (short ID for customer)
  * Format: First 8 chars of complaintId or custom format
  */
-export function getTrackingCode(complaintId: string | undefined): string {
+export function getTrackingCode(complaintId: BusinessId | undefined): string {
   // Handle undefined/null
   if (!complaintId) {
     return 'N/A';
@@ -98,13 +99,13 @@ export function shouldShowTimeline(): boolean {
 /**
  * Format tracking info for display
  */
-export function formatTrackingInfo(complaint: { publicTrackingCode?: string; systemId: string; id: string }): {
+export function formatTrackingInfo(complaint: { publicTrackingCode?: string; systemId: SystemId; id: BusinessId }): {
   code: string;
   url: string;
   enabled: boolean;
 } {
   return {
-    code: getTrackingCode(complaint.systemId),
+    code: getTrackingCode(complaint.id),
     url: generateTrackingUrl(complaint),
     enabled: isTrackingEnabled(),
   };

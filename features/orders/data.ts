@@ -1,20 +1,31 @@
+import type { Order } from './types.ts';
 import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
 
-export const data = [
+const zeroDiscountLine = (productSystemId: ReturnType<typeof asSystemId>, productId: ReturnType<typeof asBusinessId>, productName: string, quantity: number, unitPrice: number) => ({
+  productSystemId,
+  productId,
+  productName,
+  quantity,
+  unitPrice,
+  discount: 0,
+  discountType: 'fixed' as const,
+});
+
+export const data: Order[] = [
   {
+    systemId: asSystemId('ORDER000001'),
     id: asBusinessId('DH000001'),
-    customerName: 'Công ty Cổ phần Bất động sản Hưng Thịnh',
     customerSystemId: asSystemId('CUST000001'),
+    customerName: 'Công ty Cổ phần Bất động sản Hưng Thịnh',
+    shippingAddress: '123 Đường ABC, Phường 1, Quận 1, TP.HCM',
+    billingAddress: '123 Đường ABC, Phường 1, Quận 1, TP.HCM',
+    branchSystemId: asSystemId('BRANCH000003'),
     branchName: 'Chi nhánh Trung tâm',
-    salesperson: 'Trần Thị B',
     salespersonSystemId: asSystemId('EMP000002'),
+    salesperson: 'Trần Thị B',
     orderDate: '2025-11-01 09:30',
     expectedDeliveryDate: '2025-11-05',
     expectedPaymentMethod: 'Tiền mặt',
-    
-    shippingAddress: '123 Đường ABC, Phường 1, Quận 1, TP.HCM',
-    billingAddress: '123 Đường ABC, Phường 1, Quận 1, TP.HCM',
-    
     status: 'Hoàn thành',
     paymentStatus: 'Thanh toán toàn bộ',
     deliveryStatus: 'Đã giao hàng',
@@ -22,33 +33,16 @@ export const data = [
     stockOutStatus: 'Xuất kho toàn bộ',
     returnStatus: 'Chưa trả hàng',
     deliveryMethod: 'Dịch vụ giao hàng',
-    
     approvedDate: '2025-11-01 10:00',
     completedDate: '2025-11-05 15:30',
     dispatchedDate: '2025-11-02 08:00',
+    dispatchedByEmployeeId: asSystemId('EMP000006'),
     dispatchedByEmployeeName: 'Lê Văn C',
-    
     codAmount: 0,
-    
-    products: [
-      {
-        productId: asBusinessId('SP000001'),
-        productSystemId: asSystemId('SP000001'),
-        productName: 'Laptop Dell Inspiron 15',
-        quantity: 1,
-        price: 15000000,
-        total: 15000000
-      },
-      {
-        productId: asBusinessId('SP000002'),
-        productSystemId: asSystemId('SP000002'),
-        productName: 'Chuột Logitech MX Master 3',
-        quantity: 1,
-        price: 2000000,
-        total: 2000000
-      }
+    lineItems: [
+      zeroDiscountLine(asSystemId('SP000001'), asBusinessId('SP000001'), 'Laptop Dell Inspiron 15', 1, 15000000),
+      zeroDiscountLine(asSystemId('SP000002'), asBusinessId('SP000002'), 'Chuột Logitech MX Master 3', 1, 2000000),
     ],
-    
     subtotal: 17000000,
     shippingFee: 50000,
     tax: 0,
@@ -57,28 +51,44 @@ export const data = [
     orderDiscountReason: 'Khách hàng thân thiết',
     grandTotal: 16550000,
     paidAmount: 16550000,
-    
     payments: [],
-    
-    packagingStatus: 'Đóng gói toàn bộ',
-    
     notes: 'Giao hàng giờ hành chính',
-    tags: ['Khách VIP', 'Ưu tiên']
+    tags: ['Khách VIP', 'Ưu tiên'],
+    packagings: [
+      {
+        systemId: asSystemId('PACK000001'),
+        id: asBusinessId('PKG000001'),
+        requestDate: '2025-11-01 08:30',
+        requestingEmployeeId: asSystemId('EMP000006'),
+        requestingEmployeeName: 'Lê Văn C',
+        status: 'Đã đóng gói',
+        printStatus: 'Đã in',
+        deliveryMethod: 'Dịch vụ giao hàng',
+        deliveryStatus: 'Đã giao hàng',
+        carrier: 'GHN',
+        service: 'Chuẩn',
+        trackingCode: 'GHN000001',
+      },
+    ],
+    shippingInfo: {
+      carrier: 'GHN',
+      service: 'Chuẩn',
+      trackingCode: 'GHN000001',
+    },
   },
-  
   {
+    systemId: asSystemId('ORDER000002'),
     id: asBusinessId('DH000002'),
-    customerName: 'Chuỗi cà phê The Coffee House',
     customerSystemId: asSystemId('CUST000002'),
+    customerName: 'Chuỗi cà phê The Coffee House',
+    shippingAddress: '456 Đường XYZ, Phường 5, Quận 3, TP.HCM',
+    branchSystemId: asSystemId('BRANCH000004'),
     branchName: 'Chi nhánh Quận 3',
-    salesperson: 'Phạm Văn D',
     salespersonSystemId: asSystemId('EMP000003'),
+    salesperson: 'Phạm Văn D',
     orderDate: '2025-11-03 14:20',
     expectedDeliveryDate: '2025-11-08',
     expectedPaymentMethod: 'Chuyển khoản',
-    
-    shippingAddress: '456 Đường XYZ, Phường 5, Quận 3, TP.HCM',
-    
     status: 'Đang giao dịch',
     paymentStatus: 'Thanh toán 1 phần',
     deliveryStatus: 'Đang giao hàng',
@@ -86,59 +96,58 @@ export const data = [
     stockOutStatus: 'Xuất kho toàn bộ',
     returnStatus: 'Chưa trả hàng',
     deliveryMethod: 'Dịch vụ giao hàng',
-    
     approvedDate: '2025-11-03 15:00',
     dispatchedDate: '2025-11-04 09:00',
+    dispatchedByEmployeeId: asSystemId('EMP000007'),
     dispatchedByEmployeeName: 'Nguyễn Thị E',
-    
     codAmount: 5000000,
-    
-    products: [
-      {
-        productId: asBusinessId('SP000003'),
-        productSystemId: asSystemId('SP000003'),
-        productName: 'Điện thoại iPhone 15 Pro',
-        quantity: 1,
-        price: 28000000,
-        total: 28000000
-      },
-      {
-        productId: asBusinessId('SP000004'),
-        productSystemId: asSystemId('SP000004'),
-        productName: 'Ốp lưng iPhone 15 Pro',
-        quantity: 2,
-        price: 300000,
-        total: 600000
-      }
+    lineItems: [
+      zeroDiscountLine(asSystemId('SP000003'), asBusinessId('SP000003'), 'Điện thoại iPhone 15 Pro', 1, 28000000),
+      zeroDiscountLine(asSystemId('SP000004'), asBusinessId('SP000004'), 'Ốp lưng iPhone 15 Pro', 2, 300000),
     ],
-    
     subtotal: 28600000,
     shippingFee: 30000,
     tax: 0,
     grandTotal: 28630000,
     paidAmount: 23630000,
-    
     payments: [],
-    
-    packagingStatus: 'Đóng gói toàn bộ',
-    
     notes: 'Gọi trước khi giao 30 phút',
-    tags: ['COD']
+    tags: ['COD'],
+    packagings: [
+      {
+        systemId: asSystemId('PACK000002'),
+        id: asBusinessId('PKG000002'),
+        requestDate: '2025-11-03 16:00',
+        requestingEmployeeId: asSystemId('EMP000007'),
+        requestingEmployeeName: 'Nguyễn Thị E',
+        status: 'Đã đóng gói',
+        printStatus: 'Đã in',
+        deliveryMethod: 'Dịch vụ giao hàng',
+        deliveryStatus: 'Đang giao hàng',
+        carrier: 'J&T Express',
+        service: 'Gói chuẩn',
+        trackingCode: 'JT000245',
+      },
+    ],
+    shippingInfo: {
+      carrier: 'J&T Express',
+      service: 'Gói chuẩn',
+      trackingCode: 'JT000245',
+    },
   },
-  
   {
+    systemId: asSystemId('ORDER000003'),
     id: asBusinessId('DH000003'),
-    customerName: 'Anh Trần Minh Hoàng',
     customerSystemId: asSystemId('CUST000003'),
+    customerName: 'Anh Trần Minh Hoàng',
+    shippingAddress: '789 Đường MNO, Phường 10, Quận 5, TP.HCM',
+    branchSystemId: asSystemId('BRANCH000003'),
     branchName: 'Chi nhánh Trung tâm',
-    salesperson: 'Trần Thị B',
     salespersonSystemId: asSystemId('EMP000002'),
+    salesperson: 'Trần Thị B',
     orderDate: '2025-11-05 10:15',
     expectedDeliveryDate: '2025-11-06',
     expectedPaymentMethod: 'Tiền mặt',
-    
-    shippingAddress: '789 Đường MNO, Phường 10, Quận 5, TP.HCM',
-    
     status: 'Đang giao dịch',
     paymentStatus: 'Chưa thanh toán',
     deliveryStatus: 'Đã đóng gói',
@@ -146,22 +155,11 @@ export const data = [
     stockOutStatus: 'Chưa xuất kho',
     returnStatus: 'Chưa trả hàng',
     deliveryMethod: 'Nhận tại cửa hàng',
-    
     approvedDate: '2025-11-05 10:30',
-    
     codAmount: 0,
-    
-    products: [
-      {
-        productId: asBusinessId('SP000005'),
-        productSystemId: asSystemId('SP000005'),
-        productName: 'Máy tính bảng iPad Air',
-        quantity: 1,
-        price: 18000000,
-        total: 18000000
-      }
+    lineItems: [
+      zeroDiscountLine(asSystemId('SP000005'), asBusinessId('SP000005'), 'Máy tính bảng iPad Air', 1, 18000000),
     ],
-    
     subtotal: 18000000,
     shippingFee: 0,
     tax: 0,
@@ -169,28 +167,36 @@ export const data = [
     voucherAmount: 1800000,
     grandTotal: 16200000,
     paidAmount: 0,
-    
     payments: [],
-    
-    packagingStatus: 'Đóng gói toàn bộ',
-    
-    notes: 'Khách đến lấy trong ngày'
+    notes: 'Khách đến lấy trong ngày',
+    packagings: [
+      {
+        systemId: asSystemId('PACK000003'),
+        id: asBusinessId('PKG000003'),
+        requestDate: '2025-11-05 09:30',
+        requestingEmployeeId: asSystemId('EMP000008'),
+        requestingEmployeeName: 'Phạm Quốc Huy',
+        status: 'Đã đóng gói',
+        printStatus: 'Đã in',
+        deliveryMethod: 'Nhận tại cửa hàng',
+        deliveryStatus: 'Chờ lấy hàng',
+      },
+    ],
   },
-  
   {
+    systemId: asSystemId('ORDER000004'),
     id: asBusinessId('DH000004'),
-    customerName: 'Shop thời trang GenZ Style',
     customerSystemId: asSystemId('CUST000004'),
+    customerName: 'Shop thời trang GenZ Style',
+    shippingAddress: '321 Đường PQR, Phường Tân Phú, Quận 7, TP.HCM',
+    billingAddress: '321 Đường PQR, Phường Tân Phú, Quận 7, TP.HCM',
+    branchSystemId: asSystemId('BRANCH000005'),
     branchName: 'Chi nhánh Quận 7',
-    salesperson: 'Võ Thị F',
     salespersonSystemId: asSystemId('EMP000004'),
+    salesperson: 'Võ Thị F',
     orderDate: '2025-11-07 16:45',
     expectedDeliveryDate: '2025-11-12',
     expectedPaymentMethod: 'Chuyển khoản',
-    
-    shippingAddress: '321 Đường PQR, Phường Tân Phú, Quận 7, TP.HCM',
-    billingAddress: '321 Đường PQR, Phường Tân Phú, Quận 7, TP.HCM',
-    
     status: 'Đang giao dịch',
     paymentStatus: 'Thanh toán toàn bộ',
     deliveryStatus: 'Chờ đóng gói',
@@ -198,30 +204,12 @@ export const data = [
     stockOutStatus: 'Chưa xuất kho',
     returnStatus: 'Chưa trả hàng',
     deliveryMethod: 'Dịch vụ giao hàng',
-    
     approvedDate: '2025-11-07 17:00',
-    
     codAmount: 0,
-    
-    products: [
-      {
-        productId: asBusinessId('SP000006'),
-        productSystemId: asSystemId('SP000006'),
-        productName: 'Đồng hồ Apple Watch Series 9',
-        quantity: 1,
-        price: 12000000,
-        total: 12000000
-      },
-      {
-        productId: asBusinessId('SP000007'),
-        productSystemId: asSystemId('SP000007'),
-        productName: 'Tai nghe AirPods Pro',
-        quantity: 1,
-        price: 6000000,
-        total: 6000000
-      }
+    lineItems: [
+      zeroDiscountLine(asSystemId('SP000006'), asBusinessId('SP000006'), 'Đồng hồ Apple Watch Series 9', 1, 12000000),
+      zeroDiscountLine(asSystemId('SP000007'), asBusinessId('SP000007'), 'Tai nghe AirPods Pro', 1, 6000000),
     ],
-    
     subtotal: 18000000,
     shippingFee: 40000,
     tax: 0,
@@ -230,28 +218,36 @@ export const data = [
     orderDiscountReason: 'Khuyến mãi 11/11',
     grandTotal: 17040000,
     paidAmount: 17040000,
-    
     payments: [],
-    
-    packagingStatus: 'Chờ xác nhận đóng gói',
-    
     notes: 'Đóng gói cẩn thận, hàng dễ vỡ',
-    tags: ['Đã thanh toán']
+    tags: ['Đã thanh toán'],
+    packagings: [
+      {
+        systemId: asSystemId('PACK000004'),
+        id: asBusinessId('PKG000004'),
+        requestDate: '2025-11-07 18:00',
+        requestingEmployeeId: asSystemId('EMP000009'),
+        requestingEmployeeName: 'Đặng Hà Vy',
+        status: 'Chờ đóng gói',
+        printStatus: 'Chưa in',
+        deliveryMethod: 'Dịch vụ giao hàng',
+        deliveryStatus: 'Chờ đóng gói',
+      },
+    ],
   },
-  
   {
+    systemId: asSystemId('ORDER000005'),
     id: asBusinessId('DH000005'),
-    customerName: 'Công ty Cổ phần Bất động sản Hưng Thịnh',
     customerSystemId: asSystemId('CUST000001'),
+    customerName: 'Công ty Cổ phần Bất động sản Hưng Thịnh',
+    branchSystemId: asSystemId('BRANCH000004'),
     branchName: 'Chi nhánh Quận 3',
-    salesperson: 'Phạm Văn D',
     salespersonSystemId: asSystemId('EMP000003'),
+    salesperson: 'Phạm Văn D',
     orderDate: '2025-11-08 11:00',
     expectedPaymentMethod: 'Tiền mặt',
-    
     referenceUrl: 'https://shopee.vn/order/123456789',
     externalReference: 'SHOPEE-123456789',
-    
     status: 'Đặt hàng',
     paymentStatus: 'Chưa thanh toán',
     deliveryStatus: 'Chờ đóng gói',
@@ -259,45 +255,33 @@ export const data = [
     stockOutStatus: 'Chưa xuất kho',
     returnStatus: 'Chưa trả hàng',
     deliveryMethod: 'Dịch vụ giao hàng',
-    
     codAmount: 0,
-    
-    products: [
-      {
-        productId: asBusinessId('SP000008'),
-        productSystemId: asSystemId('SP000008'),
-        productName: 'Bàn phím cơ Keychron K2',
-        quantity: 1,
-        price: 2500000,
-        total: 2500000
-      },
-      {
-        productId: asBusinessId('SP000009'),
-        productSystemId: asSystemId('SP000009'),
-        productName: 'Keycap custom',
-        quantity: 1,
-        price: 800000,
-        total: 800000
-      },
-      {
-        productId: asBusinessId('SP000010'),
-        productSystemId: asSystemId('SP000010'),
-        productName: 'Switch Gateron Yellow',
-        quantity: 90,
-        price: 5000,
-        total: 450000
-      }
+    lineItems: [
+      zeroDiscountLine(asSystemId('SP000008'), asBusinessId('SP000008'), 'Bàn phím cơ Keychron K2', 1, 2500000),
+      zeroDiscountLine(asSystemId('SP000009'), asBusinessId('SP000009'), 'Keycap custom', 1, 800000),
+      zeroDiscountLine(asSystemId('SP000010'), asBusinessId('SP000010'), 'Switch Gateron Yellow', 90, 5000),
     ],
-    
     subtotal: 3750000,
     shippingFee: 25000,
     tax: 0,
     grandTotal: 3775000,
     paidAmount: 0,
-    
     payments: [],
-    
     notes: 'Đơn từ Shopee - Kiểm tra kỹ trước khi giao',
-    tags: ['Shopee', 'Mới']
-  }
+    tags: ['Shopee', 'Mới'],
+    packagings: [
+      {
+        systemId: asSystemId('PACK000005'),
+        id: asBusinessId('PKG000005'),
+        requestDate: '2025-11-08 12:00',
+        requestingEmployeeId: asSystemId('EMP000007'),
+        requestingEmployeeName: 'Nguyễn Thị E',
+        status: 'Chờ đóng gói',
+        printStatus: 'Chưa in',
+        deliveryMethod: 'Dịch vụ giao hàng',
+        deliveryStatus: 'Chờ đóng gói',
+        noteToShipper: 'Đơn cần kiểm hàng trước khi giao',
+      },
+    ],
+  },
 ];

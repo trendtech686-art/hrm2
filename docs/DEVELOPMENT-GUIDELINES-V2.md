@@ -726,7 +726,49 @@ usePageHeader({
 
 ---
 
-## 8. 📚 Reference
+## 7. 🧪 Testing & CI Requirements
+
+### Workflow bắt buộc trước khi mở PR/merge
+
+1. `npm run lint` – bảo đảm rule eslint + tailwind hoạt động đầy đủ, không skip warning.
+2. `npx tsx scripts/verify-branded-ids.ts --skip-json` – xác nhận hệ thống Dual ID không lẫn `systemId`/`id` và seed data đã chuẩn hóa.
+3. `npx tsc --noEmit` – chạy đúng cấu hình mà CI dùng; chỉ merge khi lệnh này xanh 100%.
+4. `npm run test` (hoặc `npm run vitest -- --run` nếu chưa alias) – ít nhất chạy smoke test/tsd cho domain đã sửa.
+
+> **Tip:** Hãy gom các lệnh trên thành `npm run ci:local` nếu cần, nhưng tuyệt đối không bỏ qua bất kỳ bước nào trước khi push.
+
+### Quy định chất lượng
+
+- Không được merge nếu CI đỏ, kể cả chỉ một job (`lint`, `verify ids`, `tsc`, `test`).
+- Với màn hình high-risk (complaints, warranty, orders, inventory), cần ghi lại checklist QA thủ công sau khi sửa và đính kèm vào PR.
+- Nếu thêm entity hoặc thay đổi schema, cập nhật luôn `scripts/verify-branded-ids.ts`, dataset fixtures và guideline này.
+- Trường hợp cần skip test tạm thời phải tạo issue tương ứng và gắn TODO với deadline rõ ràng.
+
+### Khi CI thất bại
+
+- Ưu tiên đọc log job đỏ → sửa tại local → rerun `npm run lint && npx tsx scripts/verify-branded-ids.ts --skip-json && npx tsc --noEmit && npm run test` trước khi push lại.
+- Nếu lỗi do môi trường (cache, node version), ghi chú cụ thể trong PR và ping phụ trách DevOps để cùng xử lý, tuyệt đối không tắt rule.
+
+---
+
+## 8. 🚀 Migration & Platform Upgrades
+
+### Thứ tự ưu tiên
+
+1. **Ổn định Vite branch hiện tại**: hoàn tất backlog còn dang dở, giữ CI xanh liên tục, có checklist QA smoke cho các module chính.
+2. **Proof-of-Concept Next.js**: thực hiện trên branch riêng hoặc repo sandbox. Chỉ merge vào main khi đã có kế hoạch route/layout rõ ràng và QA xác nhận không mất tính năng.
+3. **Kết nối database thật (Prisma/Drizzle + PostgreSQL/MySQL)**: chỉ bắt đầu sau khi Next.js POC đạt chuẩn và mock stores đã được mapping đủ nghiệp vụ.
+4. **Triển khai VPS/Infra**: chuẩn bị Dockerfile, pipeline deploy, monitoring sau khi các bước trên ổn định.
+
+### Nguyên tắc thực hiện
+
+- Không migrate Next.js song song với việc vá CI; mọi thay đổi nền tảng phải chờ khi các bước ở mục 7 được thực thi ổn định.
+- Khi bật DB thật hay deploy VPS, bắt buộc cập nhật README/Wiki với hướng dẫn setup mới, đồng thời giữ lại fallback mock đến khi production chạy ổn định.
+- Mọi thay đổi platform cần kế hoạch rollback, owner rõ ràng và thông báo cho QA/PO trước tối thiểu 1 sprint.
+
+---
+
+## 9. 📚 Reference
 
 ### Key Files
 

@@ -1,6 +1,8 @@
 import * as React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { asSystemId } from '@/lib/id-types';
+import type { BusinessId, SystemId } from '@/lib/id-types';
 import { cn } from "../../lib/utils.ts";
 import { showNotification, complaintNotifications } from "./notification-utils.ts";
 import { useAuth } from "../../contexts/auth-context.tsx";
@@ -125,7 +127,7 @@ export function ComplaintDetailPage() {
   console.timeEnd('Store Hooks');
 
   console.time('Data Access');
-  const complaint = systemId ? getComplaintById(systemId) : null;
+  const complaint = systemId ? getComplaintById(asSystemId(systemId)) : null;
   
   console.log('Data Size:', {
     employees: employees.length,
@@ -166,7 +168,7 @@ export function ComplaintDetailPage() {
   // Current user (from auth context)
   const currentUser = employee 
     ? { systemId: employee.systemId, name: employee.fullName }
-    : { systemId: 'GUEST', name: 'Guest User' };
+    : { systemId: asSystemId('SYSTEM'), name: 'Guest User' };
 
   console.log('Current User:', {
     hasEmployee: !!employee,
@@ -336,8 +338,8 @@ export function ComplaintDetailPage() {
     cost: number, 
     incurredCost: number, 
     reason: string,
-    confirmedQuantities?: Record<string, number>, //  NEW: Số lượng thiếu thực tế đã xác minh
-    inventoryAdjustments?: Record<string, number> //  NEW: Số lượng muốn điều chỉnh kho (nhập tay)
+    confirmedQuantities?: Record<SystemId, number>, //  NEW: Số lượng thiếu thực tế đã xác minh
+    inventoryAdjustments?: Record<SystemId, number> //  NEW: Số lượng muốn điều chỉnh kho (nhập tay)
   ) => {
     if (!complaint) return;
     if (cost <= 0) {
@@ -389,7 +391,8 @@ export function ComplaintDetailPage() {
       }
       
       // 1. TAO PHIEU CHI - CHI KHI HOAN TIEN
-      let paymentSystemId: string | undefined;
+      let paymentSystemId: SystemId | undefined;
+      let paymentId: BusinessId | undefined;
       
       if (method === 'refund') {
         const complaintPaymentType = paymentTypes.find(pt => 
@@ -407,22 +410,23 @@ export function ComplaintDetailPage() {
           date: new Date().toISOString(),
           amount: cost,
           recipientName: complaint.customerName,
-          recipientTypeSystemId: 'KHACHHANG', // TargetGroup systemId
+          recipientTypeSystemId: asSystemId('KHACHHANG'), // TargetGroup systemId
           recipientTypeName: 'Khách hàng',
-          recipientSystemId: complaint.customerId,
+          recipientSystemId: complaint.customerId ? asSystemId(complaint.customerId) : undefined,
           description: `Hoàn tiền khiếu nại ${complaint.id}\n${reason}`,
           paymentReceiptTypeSystemId: complaintPaymentType.systemId,
           paymentReceiptTypeName: complaintPaymentType.name,
           accountSystemId: defaultAccount.systemId,
-          paymentMethodSystemId: 'CHUYENKHOAN', // PaymentMethod systemId
+          paymentMethodSystemId: asSystemId('CHUYENKHOAN'), // PaymentMethod systemId
           paymentMethodName: 'Chuyển khoản',
-          branchSystemId: employee?.branchSystemId || 'default_branch',
+          branchSystemId: employee?.branchSystemId || asSystemId('default_branch'),
           branchName: 'Chi nhánh',
           status: 'completed',
-          createdBy: employee?.fullName || currentUser.name || 'Admin',
+          createdBy: asSystemId(employee?.systemId || currentUser.systemId || 'SYSTEM'),
           createdAt: new Date().toISOString(),
           affectsDebt: false,
-          originalDocumentId: complaint.systemId,
+          originalDocumentId: complaint.id,
+          linkedComplaintSystemId: complaint.systemId,
           category: 'complaint_refund',
         };
         
@@ -433,7 +437,8 @@ export function ComplaintDetailPage() {
         });
         
         const addedPayment = addPayment(paymentData);
-        paymentSystemId = addedPayment?.systemId; // FIX: Use systemId, not business id
+        paymentSystemId = addedPayment?.systemId;
+        paymentId = addedPayment?.id;
         
         console.log('Payment created:', {
           systemId: addedPayment?.systemId,
@@ -446,7 +451,8 @@ export function ComplaintDetailPage() {
       }
       
       // 2. TAO PHIEU THU - CHI PHI PHAT SINH TU NHAN VIEN
-      let receiptSystemId: string | undefined;
+      let receiptSystemId: SystemId | undefined;
+      let receiptId: BusinessId | undefined;
       if (incurredCost > 0 && responsibleEmployee) {
         const incurredCostReceiptType = receiptTypes.find(pt => 
           pt.name.toLowerCase().includes('chi phí phát sinh') || 
@@ -463,22 +469,23 @@ export function ComplaintDetailPage() {
           date: new Date().toISOString(),
           amount: incurredCost,
           payerName: responsibleEmployee.fullName,
-          payerTypeSystemId: 'NHANVIEN', // TargetGroup systemId
+          payerTypeSystemId: asSystemId('NHANVIEN'), // TargetGroup systemId
           payerTypeName: 'Nhân viên',
           payerSystemId: responsibleEmployee.systemId,
           description: `Thu chi phí phát sinh từ lỗi khiếu nại ${complaint.id}\nNhân viên: ${responsibleEmployee.fullName}\n${reason}`,
           paymentReceiptTypeSystemId: incurredCostReceiptType.systemId,
           paymentReceiptTypeName: incurredCostReceiptType.name,
           accountSystemId: defaultAccount.systemId,
-          paymentMethodSystemId: 'TIENMAT', // PaymentMethod systemId
+          paymentMethodSystemId: asSystemId('TIENMAT'), // PaymentMethod systemId
           paymentMethodName: 'Tiền mặt',
-          branchSystemId: employee?.branchSystemId || 'default_branch',
+          branchSystemId: employee?.branchSystemId || asSystemId('default_branch'),
           branchName: 'Chi nhánh',
           status: 'completed',
-          createdBy: employee?.fullName || currentUser.name || 'Admin',
+          createdBy: asSystemId(employee?.systemId || currentUser.systemId || 'SYSTEM'),
           createdAt: new Date().toISOString(),
           affectsDebt: false,
-          originalDocumentId: complaint.systemId,
+          originalDocumentId: complaint.id,
+          linkedComplaintSystemId: complaint.systemId,
           category: 'customer_payment',
         };
         
@@ -489,14 +496,15 @@ export function ComplaintDetailPage() {
         });
         
         const addedReceipt = addReceipt(receiptData);
-        receiptSystemId = addedReceipt?.systemId; // FIX: Use systemId, not business id
+        receiptSystemId = addedReceipt?.systemId;
+        receiptId = addedReceipt?.id;
       }
       
       // ĐIỀU CHỈNH KHO THEO SỐ LƯỢNG NHẬP TỪ NGƯỜI XÁC MINH
       let inventoryAdjustment;
       if (complaint.affectedProducts && complaint.affectedProducts.length > 0) {
         // ⚡ OPTIMIZE: Use pre-memoized relatedOrder instead of searching
-        const branchSystemId = relatedOrder?.branchSystemId || employee?.branchSystemId || 'default_branch';
+        const branchSystemId = relatedOrder?.branchSystemId || employee?.branchSystemId || asSystemId('default_branch');
         
         // Dung inventoryAdjustments - so luong nhap tay tu user (+ hoac -)
         const adjustedItems = complaint.affectedProducts
@@ -524,7 +532,7 @@ export function ComplaintDetailPage() {
         if (adjustedItems.length > 0) {
           inventoryAdjustment = {
             adjusted: true,
-            adjustedBy: currentUser.name,
+            adjustedBy: currentUser.systemId,
             adjustedAt: new Date(),
             adjustmentNote: `Điều chỉnh kho theo xác minh khiếu nại - ${adjustedItems.length} sản phẩm`,
             items: adjustedItems,
@@ -534,18 +542,20 @@ export function ComplaintDetailPage() {
         }
       }
       
+      const penaltyEmployeeName = responsibleEmployee?.fullName;
+
       const newAction: ComplaintAction = {
-        id: `action_${Date.now()}`,
+        id: asSystemId(`action_${Date.now()}`),
         actionType: "verified-correct",
-        performedBy: currentUser.name,
+        performedBy: currentUser.systemId,
         performedAt: new Date(),
-        note: `Phương án: ${method === "refund" ? "Hoàn tiền" : "Bù trả hàng"}${method === "refund" ? `\nSố tiền hoàn trả: ${cost.toLocaleString("vi-VN")} đ` : ''}\nChi phí phát sinh: ${incurredCost.toLocaleString("vi-VN")} đ\nLý do: ${reason}${paymentSystemId ? `\nĐã tạo phiếu chi: ${paymentSystemId}` : ''}${incurredCost > 0 ? `\nĐã tạo phiếu thu: ${receiptSystemId} (Thu từ ${responsibleEmployee?.name})` : ''}${inventoryAdjustment ? `\nĐã điều chỉnh kho: ${inventoryAdjustment.items.length} sản phẩm` : ''}`,
+        note: `Phương án: ${method === "refund" ? "Hoàn tiền" : "Bù trả hàng"}${method === "refund" ? `\nSố tiền hoàn trả: ${cost.toLocaleString("vi-VN")} đ` : ''}\nChi phí phát sinh: ${incurredCost.toLocaleString("vi-VN")} đ\nLý do: ${reason}${paymentId ? `\nĐã tạo phiếu chi: ${paymentId}` : ''}${incurredCost > 0 && receiptId ? `\nĐã tạo phiếu thu: ${receiptId}${penaltyEmployeeName ? ` (Thu từ ${penaltyEmployeeName})` : ''}` : ''}${inventoryAdjustment ? `\nĐã điều chỉnh kho: ${inventoryAdjustment.items.length} sản phẩm` : ''}`,
         metadata: {
           method,
           cost,
           incurredCost,
           reason,
-          paymentSystemId: paymentSystemId,
+          paymentSystemId,
           receiptSystemId,
         },
       };
@@ -684,13 +694,13 @@ export function ComplaintDetailPage() {
 
   const handleAddComment = (content: string, contentText: string, attachments: string[], mentions: string[]) => {
     const newComment: WarrantyComment = {
-      systemId: `comment_${Date.now()}`,
+      systemId: asSystemId(`comment_${Date.now()}`),
       createdBy: currentUser.systemId,
-      createdBySystemId: currentUser.systemId,
+      createdBySystemId: asSystemId(currentUser.systemId),
       content,
       contentText,
       attachments,
-      mentions,
+      mentions: mentions.map(m => asSystemId(m)),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

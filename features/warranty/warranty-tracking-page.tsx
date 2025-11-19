@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import { useParams } from 'react-router-dom';
-import { Package, Clock, CheckCircle, XCircle, AlertCircle, Phone, MapPin, Link as LinkIcon, Calendar, User, Image as ImageIcon, ExternalLink, Truck, DollarSign } from 'lucide-react';
+import { Package, Clock, CheckCircle, CheckCircle2, XCircle, AlertCircle, Phone, MapPin, Link as LinkIcon, Calendar, User, Image as ImageIcon, ExternalLink, Truck, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Separator } from '../../components/ui/separator';
@@ -15,7 +15,8 @@ import { Button } from '../../components/ui/button';
 import { formatDateTime } from '../../lib/date-utils';
 import { cn } from '../../lib/utils';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, SETTLEMENT_TYPE_LABELS, SETTLEMENT_STATUS_LABELS } from './types';
-import type { WarrantyTicket, WarrantyStatus } from './types';
+import type { WarrantyStatus } from './types';
+import type { PublicWarrantyTicket } from './public-warranty-api.ts';
 import { 
   loadTrackingSettings, 
   shouldShowEmployeeName,
@@ -40,7 +41,8 @@ function getStatusIcon(status: WarrantyStatus) {
     pending: Clock,
     processed: CheckCircle,
     returned: Package,
-    completed: CheckCircle,
+    completed: CheckCircle2,
+    cancelled: XCircle,
   };
   return icons[status] || AlertCircle; // Fallback to AlertCircle if status not found
 }
@@ -48,8 +50,10 @@ function getStatusIcon(status: WarrantyStatus) {
 /**
  * Status timeline component
  */
-function StatusTimeline({ ticket }: { ticket: WarrantyTicket }) {
-  const statuses: WarrantyStatus[] = ['incomplete', 'pending', 'processed', 'returned', 'completed'];
+function StatusTimeline({ ticket }: { ticket: PublicWarrantyTicket }) {
+  const baseStatuses: WarrantyStatus[] = ['incomplete', 'pending', 'processed', 'returned', 'completed'];
+  const statuses: WarrantyStatus[] =
+    ticket.status === 'cancelled' ? [...baseStatuses, 'cancelled'] : baseStatuses;
   const currentIndex = statuses.indexOf(ticket.status);
 
   return (
@@ -112,19 +116,43 @@ function StatusTimeline({ ticket }: { ticket: WarrantyTicket }) {
 /**
  * Get timestamp for a specific status from history
  */
-function getStatusTimestamp(ticket: WarrantyTicket, status: WarrantyStatus): string | null {
-  if (status === 'incomplete') {
-    return ticket.createdAt;
+function getStatusTimestamp(ticket: PublicWarrantyTicket, status: WarrantyStatus): string | null {
+  const directTimestampByStatus: Partial<Record<WarrantyStatus, string | undefined>> = {
+    incomplete: ticket.createdAt,
+    pending: ticket.processingStartedAt,
+    processed: ticket.processedAt,
+    returned: ticket.returnedAt,
+    completed: ticket.completedAt,
+    cancelled: ticket.cancelledAt,
+  };
+
+  const directTimestamp = directTimestampByStatus[status];
+  if (directTimestamp) {
+    return directTimestamp;
   }
 
-  if (status === 'returned' && ticket.returnedAt) {
-    return ticket.returnedAt;
-  }
+  const statusLabel = (WARRANTY_STATUS_LABELS[status] || '').toLowerCase();
 
-  // Find status change in history
-  const historyEntry = ticket.history.find((h) =>
-    h.action.includes(WARRANTY_STATUS_LABELS[status])
-  );
+  const completionKeywords = ['hoàn tất phiếu', 'kết thúc phiếu', 'complete'];
+
+  const historyEntry = ticket.history.find((entry) => {
+    const action = (entry.action || '').toLowerCase();
+    const actionLabel = (entry.actionLabel || '').toLowerCase();
+
+    if (status === 'completed') {
+      return completionKeywords.some((keyword) => action.includes(keyword) || actionLabel.includes(keyword))
+        || action.includes('-> completed')
+        || action.includes(': completed');
+    }
+
+    return (
+      action.includes(`-> ${status}`) ||
+      action.includes(`: ${status}`) ||
+      actionLabel.includes(`-> ${status}`) ||
+      actionLabel.includes(`: ${status}`) ||
+      (!!statusLabel && (action.includes(statusLabel) || actionLabel.includes(statusLabel)))
+    );
+  });
 
   return historyEntry?.performedAt || null;
 }
@@ -136,7 +164,7 @@ export function WarrantyTrackingPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   
   // Use optimized hook to fetch only necessary data
-  const { ticket, receipts, payments, orders, hotline } = usePublicTracking(trackingCode);
+  const { ticket, receipts, payments, orders, hotline, loading, error } = usePublicTracking(trackingCode);
   
   // Load tracking settings (recalculate on every render to catch changes)
   const settings = React.useMemo(() => {
@@ -186,23 +214,68 @@ export function WarrantyTrackingPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <Card className="max-w-md w-full bg-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary animate-spin" />
+              Đang tải dữ liệu bảo hành...
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Vui lòng chờ trong giây lát.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error === 'UNKNOWN') {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <Card className="max-w-md w-full bg-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Không thể tải dữ liệu
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Đã xảy ra lỗi khi tải thông tin phiếu bảo hành. Vui lòng thử lại sau.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!ticket) {
+    const isMissingCode = error === 'MISSING_TRACKING_CODE';
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-white">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
               <XCircle className="h-5 w-5" />
-              Không tìm thấy phiếu bảo hành
+              {isMissingCode ? 'Thiếu mã tra cứu' : 'Không tìm thấy phiếu bảo hành'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Phiếu bảo hành không tồn tại hoặc đã bị xóa. Vui lòng kiểm tra lại mã phiếu.
+            <p className="text-muted-foreground">
+              {isMissingCode
+                ? 'Vui lòng kiểm tra lại đường dẫn tra cứu bảo hành.'
+                : 'Phiếu bảo hành không tồn tại hoặc đã bị xóa. Vui lòng kiểm tra lại mã phiếu.'}
             </p>
-            <p className="text-sm text-muted-foreground">
-              Mã phiếu: <span className="font-mono font-semibold">{trackingCode}</span>
-            </p>
+            {!isMissingCode && trackingCode && (
+              <p className="text-sm text-muted-foreground mt-4">
+                Mã phiếu: <span className="font-mono font-semibold">{trackingCode}</span>
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -517,12 +590,8 @@ export function WarrantyTrackingPage() {
           const netAmount = outOfStockValue + shippingFee;
 
           // Get related payments and receipts
-          const relatedPayments = payments.filter(p => 
-            p.originalDocumentId === ticket.id && p.status !== 'cancelled'
-          );
-          const relatedReceipts = receipts.filter(r => 
-            r.originalDocumentId === ticket.id && r.status !== 'cancelled'
-          );
+          const relatedPayments = payments.filter(p => p.status !== 'cancelled');
+          const relatedReceipts = receipts.filter(r => r.status !== 'cancelled');
 
           // Calculate totalPaid (payments are positive, receipts are negative)
           const totalPaid = relatedPayments.reduce((sum, p) => sum + p.amount, 0) 

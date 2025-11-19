@@ -15,6 +15,7 @@ import { Badge } from '../../../components/ui/badge.tsx';
 import { Checkbox } from '../../../components/ui/checkbox.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
 import { AttendanceEditDialog } from './attendance-edit-dialog.tsx';
+import type { SystemId } from '../../../lib/id-types.ts';
 const MonthYearPicker = ({ value, onChange }: { value: Date, onChange: (date: Date) => void }) => {
     return (
         <div className="flex items-center gap-2 justify-center">
@@ -29,7 +30,10 @@ interface AttendanceImportDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     employees: Employee[];
-    onConfirmImport: (importedData: Record<string, { day: number; checkIn?: string; checkOut?: string, overtimeCheckIn?: string, overtimeCheckOut?: string }[]>, date: Date) => void;
+    onConfirmImport: (
+        importedData: Record<SystemId, { day: number; checkIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]>,
+        date: Date
+    ) => void;
 }
 
 export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConfirmImport }: AttendanceImportDialogProps) {
@@ -182,8 +186,8 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                 if (!fileDate) throw new Error('Không tìm thấy định dạng ngày "Chấm công từ: YYYY-MM-DD~YYYY-MM-DD" trong file.');
 
                 const newPreviewData: ImportPreviewRow[] = [];
-                const foundEmployeeIds = new Set<string>();
-                const employeeIdsWithData = new Set<string>();
+                const foundEmployeeSystemIds = new Set<SystemId>();
+                const employeeSystemIdsWithData = new Set<SystemId>();
                 
                 for (const sheetName of workbook.SheetNames) {
                     const ws = workbook.Sheets[sheetName];
@@ -206,7 +210,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                              continue;
                         }
 
-                        foundEmployeeIds.add(employee.id);
+                        foundEmployeeSystemIds.add(employee.systemId);
                         let hasDataForEmployee = false;
                         
                         // Data starts from row 14 (index 13)
@@ -231,19 +235,22 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                             if (checkIn || checkOut || overtimeCheckIn || overtimeCheckOut) {
                                 hasDataForEmployee = true;
                                 newPreviewData.push({
-                                    excelRow: rowIdx + 1, sheetName, employeeId: employee.id, employeeName: employee.fullName,
+                                    excelRow: rowIdx + 1, sheetName,
+                                    employeeSystemId: employee.systemId,
+                                    employeeId: employee.id,
+                                    employeeName: employee.fullName,
                                     day, checkIn, checkOut, overtimeCheckIn, overtimeCheckOut,
                                     status: 'ok', message: 'Hợp lệ', rawData: dataRow,
                                 });
                             }
                         }
                         if(hasDataForEmployee) {
-                            employeeIdsWithData.add(employee.id);
+                            employeeSystemIdsWithData.add(employee.systemId);
                         }
                     }
                 }
-                setFoundEmployeeCount(foundEmployeeIds.size);
-                setEmployeesWithDataCount(employeeIdsWithData.size);
+                setFoundEmployeeCount(foundEmployeeSystemIds.size);
+                setEmployeesWithDataCount(employeeSystemIdsWithData.size);
                 setPreviewData(newPreviewData);
                 setStep('preview');
             } catch (err: any) {
@@ -256,12 +263,13 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
     };
     
     const handleConfirm = () => {
-        const validData = previewData.filter(row => row.status === 'ok' && row.employeeId);
-        const groupedData: Record<string, { day: number; checkIn?: string; checkOut?: string, overtimeCheckIn?: string, overtimeCheckOut?: string }[]> = {};
+        const validData = previewData.filter(row => row.status === 'ok' && row.employeeSystemId);
+        const groupedData: Record<SystemId, { day: number; checkIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]> = {};
         
         validData.forEach(row => {
-            if (!groupedData[row.employeeId!]) groupedData[row.employeeId!] = [];
-            groupedData[row.employeeId!].push({ 
+            const key = row.employeeSystemId!;
+            if (!groupedData[key]) groupedData[key] = [];
+            groupedData[key].push({ 
                 day: row.day, 
                 checkIn: row.checkIn, 
                 checkOut: row.checkOut,
@@ -276,7 +284,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
 
     const summary = React.useMemo(() => {
         const okRows = previewData.filter(r => r.status === 'ok');
-        const uniqueOkEntries = new Set(okRows.map(r => `${r.employeeId}-${r.day}`)).size;
+        const uniqueOkEntries = new Set(okRows.map(r => `${r.employeeSystemId}-${r.day}`)).size;
         const errorCount = previewData.filter(r => r.status === 'error' || r.status === 'warning').length;
         return { okCount: uniqueOkEntries, errorCount };
     }, [previewData]);
@@ -289,6 +297,10 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
 
     // Handlers for preview interactions
     const handleEdit = (index: number) => {
+        const row = previewData[index];
+        if (!row?.employeeSystemId) {
+            return;
+        }
         setEditingRowIndex(index);
         setIsEditDialogOpen(true);
     };
@@ -329,8 +341,11 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
     const editingRecordData = React.useMemo(() => {
         if (editingRowIndex === null) return null;
         const row = previewData[editingRowIndex];
+        if (!row?.employeeSystemId) {
+            return null;
+        }
         return {
-            employeeId: row.employeeId || '',
+            employeeSystemId: row.employeeSystemId,
             day: row.day,
             record: {
                 status: ((row.checkIn || row.checkOut) ? 'present' : 'absent') as 'present' | 'absent',

@@ -1,5 +1,5 @@
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '../../lib/date-utils.ts';
-import { createCrudStore } from '../../lib/store-factory.ts';
+import { formatDateCustom, getCurrentDate } from '../../lib/date-utils.ts';
+import { createCrudStore, type CrudState } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { PurchaseReturn } from './types.ts';
 import { useProductStore } from '../products/store.ts';
@@ -11,18 +11,19 @@ import { useReceiptTypeStore } from '../settings/receipt-types/store.ts';
 import type { Receipt } from '../receipts/types.ts';
 import type { PurchaseOrderRefundStatus } from '../purchase-orders/types.ts';
 import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
+import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
 
-const baseStore = createCrudStore<any>(
-  initialData as any, 
+const baseStore = createCrudStore<PurchaseReturn>(
+  initialData,
   'purchase-returns',
   {
-    persistKey: 'hrm-purchase-returns' // ✅ Enable localStorage persistence
+    persistKey: 'hrm-purchase-returns',
   }
 );
 
 const originalAdd = baseStore.getState().add;
 
-const newAdd = (item: Omit<PurchaseReturn, 'systemId'>) => {
+const newAdd = (item: Omit<PurchaseReturn, 'systemId'>): PurchaseReturn | undefined => {
     // 1. Get other stores' methods
     const { updateInventory } = useProductStore.getState();
     const { addEntry: addStockHistory } = useStockHistoryStore.getState();
@@ -33,68 +34,90 @@ const newAdd = (item: Omit<PurchaseReturn, 'systemId'>) => {
     const { data: allReceipts } = useInventoryReceiptStore.getState();
     
     // 2. Add the return record itself
-    originalAdd(item);
-    const newReturn = baseStore.getState().data.find(r => r.id === item.id);
+    const newReturn = originalAdd(item);
 
-    if (!newReturn) return;
+    if (!newReturn) {
+      return undefined;
+    }
 
     // 3. Update inventory & create stock history
-    item.items.forEach(lineItem => {
+    newReturn.items.forEach(lineItem => {
         if (lineItem.returnQuantity > 0) {
-            const productBeforeUpdate = useProductStore.getState().findById(lineItem.productSystemId as any);
-            const oldStock = productBeforeUpdate?.inventoryByBranch[item.branchSystemId] || 0;
+            const productBeforeUpdate = useProductStore.getState().findById(lineItem.productSystemId);
+            const oldStock = productBeforeUpdate?.inventoryByBranch[newReturn.branchSystemId] || 0;
             
-            updateInventory(lineItem.productSystemId as any, item.branchSystemId as any, -lineItem.returnQuantity);            addStockHistory({
-                productId: lineItem.productId,
+            updateInventory(lineItem.productSystemId, newReturn.branchSystemId, -lineItem.returnQuantity);
+            addStockHistory({
+                productId: lineItem.productSystemId,
                 date: new Date().toISOString(),
-                employeeName: item.creatorName,
+                employeeName: newReturn.creatorName,
                 action: 'Hoàn trả NCC',
                 quantityChange: -lineItem.returnQuantity,
                 newStockLevel: oldStock - lineItem.returnQuantity,
-                documentId: newReturn.systemId, // ✅ Fixed: Use systemId for document reference
-                branchSystemId: item.branchSystemId,
-                branch: item.branchName,
+                documentId: newReturn.id,
+                branchSystemId: newReturn.branchSystemId,
+                branch: newReturn.branchName,
             });
         }
     });
 
     // 4. Create receipt when supplier refunds money (supplier pays company)
-    if (item.refundAmount > 0) {
-        const receiptCategory = receiptTypes.find(pt => pt.name === 'Nhà cung cấp hoàn tiền');
-        if (item.accountSystemId) {
-            const newReceipt: Omit<Receipt, 'systemId'> = {
-                id: '' as any, // Let receipt store auto-generate PT-XXXXXX
-                date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-                amount: item.refundAmount,
-                payerType: 'Nhà cung cấp', // Supplier is paying (refunding)
-                payerName: item.supplierName,
-                description: `Nhận hoàn tiền cho đơn nhập ${item.purchaseOrderId} (Phiếu trả hàng ${item.id})`,
-                paymentMethod: item.refundMethod,
-                accountSystemId: item.accountSystemId,
-                paymentReceiptTypeSystemId: receiptCategory?.systemId || '',
-                paymentReceiptTypeName: receiptCategory?.name || 'Nhà cung cấp hoàn tiền',
-                branchSystemId: item.branchSystemId,
-                branchName: item.branchName,
-                createdBy: item.creatorName,
-                createdAt: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-                status: 'completed',
-                category: 'other',
-                affectsDebt: true,
-            };
-            addReceipt(newReceipt);
+    if (newReturn.refundAmount > 0) {
+      const receiptCategory = receiptTypes.find(pt => pt.name === 'Nhà cung cấp hoàn tiền');
+      if (newReturn.accountSystemId) {
+        const account = accounts.find(acc => acc.systemId === newReturn.accountSystemId);
+        const issuedAt = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
+
+        const refundReceipt: Omit<Receipt, 'systemId'> = {
+          id: asBusinessId(''), // Let receipt store auto-generate PT-XXXXXX
+          date: issuedAt,
+          amount: newReturn.refundAmount,
+
+          // Payer info (TargetGroup placeholder)
+          payerTypeSystemId: asSystemId('NHACUNGCAP'),
+          payerTypeName: 'Nhà cung cấp',
+          payerName: newReturn.supplierName,
+          payerSystemId: newReturn.supplierSystemId,
+
+          description: `Nhận hoàn tiền cho đơn nhập ${newReturn.purchaseOrderId} (Phiếu trả hàng ${newReturn.id})`,
+
+          // Payment method placeholders — should map to settings
+          paymentMethodSystemId: asSystemId(account?.type === 'cash' ? 'PAYMENT_METHOD_CASH' : 'PAYMENT_METHOD_BANK'),
+          paymentMethodName: newReturn.refundMethod,
+
+          accountSystemId: newReturn.accountSystemId,
+          paymentReceiptTypeSystemId: receiptCategory?.systemId ?? asSystemId('RT_SUPPLIER_REFUND'),
+          paymentReceiptTypeName: receiptCategory?.name ?? 'Nhà cung cấp hoàn tiền',
+
+          branchSystemId: newReturn.branchSystemId,
+          branchName: newReturn.branchName,
+          createdBy: asSystemId('SYSTEM'),
+          createdAt: issuedAt,
+
+          status: 'completed',
+          category: 'other',
+          affectsDebt: true,
+
+          purchaseOrderSystemId: newReturn.purchaseOrderSystemId,
+          purchaseOrderId: newReturn.purchaseOrderId,
+          originalDocumentId: newReturn.id,
+        };
+
+        addReceipt(refundReceipt);
         }
     }
 
     // 5. Update the original Purchase Order's status
-    const po = allPOs.find(p => p.systemId === item.purchaseOrderId); // ✅ Fixed: Match by systemId
+    const po = allPOs.find(p => asSystemId(p.systemId) === newReturn.purchaseOrderSystemId);
     if (po) {
         // A full check would require summing all returns for this PO.
         const allItems = po.lineItems;
+        const poSystemId = asSystemId(po.systemId);
         const allReturnedItems = baseStore.getState().data
-            .filter(pr => pr.purchaseOrderId === po.systemId) // ✅ Fixed: Use systemId
+        .filter(pr => pr.purchaseOrderSystemId === poSystemId)
             .flatMap(pr => pr.items);
             
-        const receiptsForPO = allReceipts.filter(r => r.purchaseOrderId === po.systemId); // ✅ Fixed: Use systemId
+      const receiptsForPO = allReceipts.filter(r => r.purchaseOrderSystemId === poSystemId);
 
         const isFullReturn = allItems.every(poItem => {
             const totalReceived = receiptsForPO.reduce((sum, receipt) => {
@@ -109,7 +132,7 @@ const newAdd = (item: Omit<PurchaseReturn, 'systemId'>) => {
             return totalReturned >= totalReceived;
         });
         
-        const existingReturnsForPO = baseStore.getState().data.filter(pr => pr.purchaseOrderId === po.systemId && pr.systemId !== newReturn.systemId); // ✅ Fixed: Match by systemId
+        const existingReturnsForPO = baseStore.getState().data.filter(pr => pr.purchaseOrderSystemId === poSystemId && pr.systemId !== newReturn.systemId);
         const allReturnsForPO = [...existingReturnsForPO, newReturn];
         const totalReturnedValue = allReturnsForPO.reduce((sum, r) => sum + r.totalReturnValue, 0);
         const totalRefunded = allReturnsForPO.reduce((sum, r) => sum + r.refundAmount, 0);
@@ -127,30 +150,37 @@ const newAdd = (item: Omit<PurchaseReturn, 'systemId'>) => {
 
         updatePOonReturn(po.id, isFullReturn, newRefundStatus, newReturn.id, newReturn.creatorName);
     }
+
+    return newReturn;
 };
 
 const otherMethods = {
-  findByPurchaseOrderId: (purchaseOrderId: string) => {
-    return baseStore.getState().data.filter(pr => pr.purchaseOrderId === purchaseOrderId);
+  findByPurchaseOrderSystemId: (purchaseOrderSystemId: SystemId) => {
+    return baseStore.getState().data.filter(pr => pr.purchaseOrderSystemId === purchaseOrderSystemId);
   }
 };
 
-// Export typed hook
-export const usePurchaseReturnStore = (): any => {
-  const state = baseStore();
-  return {
-    ...state,
-    add: newAdd,
-    ...otherMethods,
-  };
+type BaseState = CrudState<PurchaseReturn>;
+
+export type PurchaseReturnStoreState = Omit<BaseState, 'add'> & {
+  add: typeof newAdd;
+  findByPurchaseOrderSystemId: (purchaseOrderSystemId: SystemId) => PurchaseReturn[];
 };
 
-// Export getState for non-hook usage
-usePurchaseReturnStore.getState = (): any => {
-  const state = baseStore.getState();
+export const usePurchaseReturnStore = (): PurchaseReturnStoreState => {
+  const { add: _unusedAdd, ...rest } = baseStore();
   return {
-    ...state,
+    ...rest,
     add: newAdd,
     ...otherMethods,
-  };
+  } as PurchaseReturnStoreState;
+};
+
+usePurchaseReturnStore.getState = (): PurchaseReturnStoreState => {
+  const { add: _unusedAdd, ...rest } = baseStore.getState();
+  return {
+    ...rest,
+    add: newAdd,
+    ...otherMethods,
+  } as PurchaseReturnStoreState;
 };

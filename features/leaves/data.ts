@@ -1,15 +1,9 @@
-import type { LeaveRequest } from './types.ts';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
+import { LEAVE_TYPE_NAMES, type LeaveRequest, type LeaveTypeName } from './types.ts';
 
-export const leaveTypes = [
-    "Phép năm",
-    "Nghỉ ốm",
-    "Nghỉ kết hôn",
-    "Nghỉ không lương",
-    "Chế độ thai sản",
-];
+export const leaveTypes: LeaveTypeName[] = [...LEAVE_TYPE_NAMES];
 
-export const data: LeaveRequest[] = [
+export const data = [
   {
     systemId: asSystemId('LEAVE000001'),
     id: asBusinessId('PN000001'),
@@ -66,4 +60,4 @@ export const data: LeaveRequest[] = [
     status: 'Đã từ chối',
     requestDate: '2025-10-16',
   },
-];
+] satisfies LeaveRequest[];

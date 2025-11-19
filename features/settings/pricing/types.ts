@@ -1,6 +1,8 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type PricingPolicy = {
-  systemId: string;
-  id: string; // User-facing code, e.g., "GIANHAP", "BANLE"
+  systemId: SystemId;
+  id: BusinessId; // User-facing code, e.g., "GIANHAP", "BANLE"
   name: string; // e.g., "Giá nhập", "Giá bán lẻ"
   description?: string; // Optional description
   type: 'Nhập hàng' | 'Bán hàng';
@@ -9,8 +11,8 @@ export type PricingPolicy = {
 };
 
 export type BasePricingSetting = {
-  systemId: string;
-  id: string;
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   description?: string;
   isActive: boolean;

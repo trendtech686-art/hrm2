@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useNavigate } from 'react-router-dom';
 import { ROUTES, generatePath } from '../../lib/router.ts';
+import { asSystemId, type SystemId } from '../../lib/id-types.ts';
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
 import { useReceiptStore } from '../receipts/store.ts';
@@ -10,6 +11,7 @@ import { useBranchStore } from "../settings/branches/store.ts";
 import { useReceiptTypeStore } from "../settings/receipt-types/store.ts";
 import { usePaymentTypeStore } from "../settings/payments/types/store.ts";
 import { getColumns } from "./columns.tsx";
+import type { CashbookTransaction } from "./columns.tsx";
 import type { Receipt } from "../receipts/types.ts";
 import type { Payment } from "../payments/types.ts";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
@@ -56,10 +58,12 @@ import { PageFilters } from "../../components/layout/page-filters.tsx";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
+type CashbookTransactionWithBalance = CashbookTransaction & { runningBalance?: number };
+
 export function CashbookPage() {
   const { data: receipts } = useReceiptStore();
   const { data: payments, remove: removePayment } = usePaymentStore();
-  const transactions = React.useMemo(() => {
+  const transactions = React.useMemo<CashbookTransaction[]>(() => {
     const validReceipts = (receipts || [])
       .filter(r => r && r.systemId && r.id && r.date && r.accountSystemId)
       .map(r => ({ ...r, type: 'receipt' as const }));
@@ -68,7 +72,7 @@ export function CashbookPage() {
       .map(p => ({ ...p, type: 'payment' as const }));
     return [...validReceipts, ...validPayments];
   }, [receipts, payments]);
-  const remove = (systemId: string) => {
+  const remove = (systemId: SystemId) => {
     const isReceipt = receipts.some(r => r.systemId === systemId);
     if (isReceipt) {
       useReceiptStore.getState().remove(systemId);
@@ -85,7 +89,7 @@ export function CashbookPage() {
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
 
   // Table state
@@ -98,7 +102,7 @@ export function CashbookPage() {
   const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>(undefined);
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
     // ✅ Always use default visibility (don't load from localStorage)
-    const cols = getColumns(accounts, () => {}, () => {}, navigate);
+    const cols = getColumns(accounts, () => {}, navigate);
     const initial: Record<string, boolean> = {};
     cols.forEach((c: any) => { if (c.id) initial[c.id] = true; });
     return initial;
@@ -123,23 +127,18 @@ export function CashbookPage() {
     return () => clearTimeout(timer);
   }, [globalFilter]);
 
-  const handleCancel = React.useCallback((systemId: string) => {
+  const handleCancel = React.useCallback((systemId: SystemId) => {
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   }, []);
   
-  const handleApprove = React.useCallback((systemId: string) => {
-    // TODO: Implement approve logic
-    toast.success("Đã duyệt giao dịch");
-  }, []);
-
   const handleEdit = React.useCallback((transaction: Receipt | Payment) => {
     const isReceipt = 'payerType' in transaction;
     const editRoute = isReceipt ? ROUTES.FINANCE.RECEIPT_EDIT : ROUTES.FINANCE.PAYMENT_EDIT;
     navigate(generatePath(editRoute, { systemId: transaction.systemId }));
   }, [navigate]);
 
-  const columns = React.useMemo(() => getColumns(accounts, handleCancel, handleApprove, navigate), [accounts, handleCancel, handleApprove, navigate]);
+  const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate), [accounts, handleCancel, navigate]);
 
   // ✅ Set default column visibility - Run ONCE on mount
   React.useEffect(() => {
@@ -182,11 +181,12 @@ export function CashbookPage() {
   const confirmBulkCancel = () => {
     const idsToCancel = Object.keys(rowSelection);
     idsToCancel.forEach(systemId => {
-      const isReceipt = receipts.some(r => r.systemId === systemId);
+      const sysId = asSystemId(systemId);
+      const isReceipt = receipts.some(r => r.systemId === sysId);
       if (isReceipt) {
-        useReceiptStore.getState().cancel(systemId);
+        useReceiptStore.getState().cancel(sysId);
       } else {
-        usePaymentStore.getState().cancel(systemId);
+        usePaymentStore.getState().cancel(sysId);
       }
     });
     toast.success(`Đã hủy ${idsToCancel.length} giao dịch`);
@@ -204,74 +204,124 @@ export function CashbookPage() {
     accounts.map(acc => ({ value: acc.systemId, label: acc.name }))
   , [accounts]);
 
-  // Calculate summary stats
-  const { openingBalance, totalReceipts, totalPayments, closingBalance, filteredTransactions } = React.useMemo(() => {
-    // Filter by account first
-    const accountsToConsider = accountFilter === 'all'
+  const filteredAccounts = React.useMemo(() => {
+    const byAccount = accountFilter === 'all'
       ? accounts
       : accounts.filter(acc => acc.systemId === accountFilter);
 
-    const accountIdsToConsider = accountsToConsider.map(a => a.systemId);
+    if (branchFilter === 'all') {
+      return byAccount;
+    }
 
-    // Filter by branch
-    let accountsFiltered = accountsToConsider;
-    if (branchFilter !== 'all') {
-      accountsFiltered = accountsFiltered.filter(acc => acc.branchSystemId === branchFilter);
+    return byAccount.filter(acc => acc.branchSystemId === branchFilter);
+  }, [accounts, accountFilter, branchFilter]);
+
+  const filteredAccountIds = React.useMemo(
+    () => filteredAccounts.map(acc => acc.systemId),
+    [filteredAccounts]
+  );
+
+  // Calculate summary stats
+  const { openingBalance, totalReceipts, totalPayments, closingBalance, filteredTransactions } = React.useMemo(() => {
+    if (filteredAccounts.length === 0 || filteredAccountIds.length === 0) {
+      return {
+        openingBalance: 0,
+        totalReceipts: 0,
+        totalPayments: 0,
+        closingBalance: 0,
+        filteredTransactions: [] as CashbookTransactionWithBalance[]
+      };
     }
 
     const startDate = dateRange?.[0] ? new Date(dateRange[0]) : null;
+    const endDate = dateRange?.[1] ? new Date(dateRange[1]) : null;
 
-    // Calculate opening balance
-    let calculatedOpeningBalance = accountsFiltered.reduce((sum, acc) => sum + acc.initialBalance, 0);
+    const openingBalancesByAccount = new Map<string, number>();
+    filteredAccounts.forEach(acc => {
+      openingBalancesByAccount.set(acc.systemId, acc.initialBalance);
+    });
 
-    // Get all transactions for selected accounts
-    const allAccountTransactions = transactions
-      .filter(t => accountIdsToConsider.includes(t.accountSystemId))
+    const branchAwareTransactions = transactions
+      .filter(t => filteredAccountIds.includes(t.accountSystemId))
       .filter(t => branchFilter === 'all' || t.branchSystemId === branchFilter)
       .sort((a, b) => differenceInMilliseconds(new Date(a.date), new Date(b.date)));
 
-    // Transactions before period
-    const beforePeriodTransactions = startDate
-      ? allAccountTransactions.filter(t => isBefore(new Date(t.date), startDate))
-      : [];
+    // Bring balances forward with transactions before the selected period
+    if (startDate) {
+      branchAwareTransactions.forEach(t => {
+        if (isBefore(new Date(t.date), startDate)) {
+          const delta = t.type === 'receipt' ? t.amount : -t.amount;
+          const current = openingBalancesByAccount.get(t.accountSystemId) ?? 0;
+          openingBalancesByAccount.set(t.accountSystemId, current + delta);
+        }
+      });
+    }
 
-    beforePeriodTransactions.forEach(t => {
-      calculatedOpeningBalance += t.type === 'receipt' ? t.amount : -t.amount;
-    });
+    const aggregateOpeningBalance = Array.from(openingBalancesByAccount.values()).reduce((sum, value) => sum + value, 0);
 
-    // Filter transactions in period
-    const endDate = dateRange?.[1] ? new Date(dateRange[1]) : null;
-    let periodTransactions = allAccountTransactions.filter(t => {
+    let periodTransactions = branchAwareTransactions.filter(t => {
       const tDate = new Date(t.date);
-      const isAfterStart = startDate ? isSameDay(tDate, startDate) || isAfter(tDate, startDate) : true;
-      const isBeforeEnd = endDate ? isSameDay(tDate, endDate) || isBefore(tDate, endDate) : true;
-      return isAfterStart && isBeforeEnd;
+      const matchesStart = startDate ? isSameDay(tDate, startDate) || isAfter(tDate, startDate) : true;
+      const matchesEnd = endDate ? isSameDay(tDate, endDate) || isBefore(tDate, endDate) : true;
+      return matchesStart && matchesEnd;
     });
 
-    // Apply type filter
     if (typeFilter.size > 0) {
       periodTransactions = periodTransactions.filter(t => typeFilter.has(t.type));
     }
 
-    // Apply text search (debounced)
     if (debouncedGlobalFilter) {
       const searchResults = fuse.search(debouncedGlobalFilter);
       const searchIds = new Set(searchResults.map(r => r.item.systemId));
       periodTransactions = periodTransactions.filter(t => searchIds.has(t.systemId));
     }
 
-    const totalReceipts = periodTransactions.reduce((sum, t) => (t.type === 'receipt' ? sum + t.amount : sum), 0);
-    const totalPayments = periodTransactions.reduce((sum, t) => (t.type === 'payment' ? sum + t.amount : sum), 0);
-    const closingBalance = calculatedOpeningBalance + totalReceipts - totalPayments;
+    let totalReceipts = 0;
+    let totalPayments = 0;
+
+    periodTransactions.forEach(t => {
+      if (t.type === 'receipt') {
+        totalReceipts += t.amount;
+      } else {
+        totalPayments += t.amount;
+      }
+    });
+
+    const runningBalancesByAccount = new Map(openingBalancesByAccount);
+    let aggregateRunningBalance = aggregateOpeningBalance;
+    const runningBalanceByTransaction = new Map<string, number>();
+
+    const chronologicalTransactions = [...periodTransactions].sort((a, b) =>
+      differenceInMilliseconds(new Date(a.date), new Date(b.date))
+    );
+
+    chronologicalTransactions.forEach(t => {
+      const delta = t.type === 'receipt' ? t.amount : -t.amount;
+      const currentAccountBalance = runningBalancesByAccount.get(t.accountSystemId) ?? 0;
+      const updatedAccountBalance = currentAccountBalance + delta;
+      runningBalancesByAccount.set(t.accountSystemId, updatedAccountBalance);
+      aggregateRunningBalance += delta;
+      runningBalanceByTransaction.set(
+        t.systemId,
+        accountFilter === 'all' ? aggregateRunningBalance : updatedAccountBalance
+      );
+    });
+
+    const enhancedTransactions: CashbookTransactionWithBalance[] = periodTransactions.map(t => ({
+      ...t,
+      runningBalance: runningBalanceByTransaction.get(t.systemId) ?? (accountFilter === 'all'
+        ? aggregateOpeningBalance
+        : openingBalancesByAccount.get(t.accountSystemId) ?? 0)
+    }));
 
     return {
-      openingBalance: calculatedOpeningBalance,
+      openingBalance: aggregateOpeningBalance,
       totalReceipts,
       totalPayments,
-      closingBalance,
-      filteredTransactions: periodTransactions
+      closingBalance: aggregateRunningBalance,
+      filteredTransactions: enhancedTransactions
     };
-  }, [accounts, accountFilter, branchFilter, dateRange, transactions, typeFilter, debouncedGlobalFilter, fuse]);
+  }, [filteredAccounts, filteredAccountIds, branchFilter, transactions, dateRange, typeFilter, debouncedGlobalFilter, fuse, accountFilter]);
 
   // ✅ Reset mobile loaded count when filters change
   React.useEffect(() => {
@@ -344,15 +394,15 @@ export function CashbookPage() {
       pinnedColumns={pinnedColumns}
       setPinnedColumns={setPinnedColumns}
     />,
-    <Button key="reports" variant="outline" size="sm" onClick={() => navigate(ROUTES.FINANCE.CASHBOOK_REPORTS)}>
+    <Button key="reports" variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.CASHBOOK_REPORTS)}>
       <BarChart3 className="mr-2 h-4 w-4" />
       Báo cáo
     </Button>,
-    <Button key="payment" variant="outline" size="sm" onClick={() => navigate(ROUTES.FINANCE.PAYMENT_NEW)}>
+    <Button key="payment" variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.PAYMENT_NEW)}>
       <Minus className="mr-2 h-4 w-4" />
       Lập Phiếu Chi
     </Button>,
-    <Button key="receipt" size="sm" onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}>
+    <Button key="receipt" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}>
       <Plus className="mr-2 h-4 w-4" />
       Lập Phiếu Thu
     </Button>
@@ -369,7 +419,7 @@ export function CashbookPage() {
   });
 
   // ✅ Mobile card component
-  const MobileTransactionCard = ({ transaction }: { transaction: (Receipt & { type: 'receipt' }) | (Payment & { type: 'payment' }) }) => {
+  const MobileTransactionCard = ({ transaction }: { transaction: CashbookTransactionWithBalance }) => {
     const branch = branches.find(b => b.systemId === transaction.branchSystemId);
     const isReceipt = transaction.type === 'receipt';
     const voucherType = isReceipt
@@ -619,8 +669,8 @@ export function CashbookPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Đóng</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCancel}>Hủy giao dịch</AlertDialogAction>
+            <AlertDialogCancel className="h-9">Đóng</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmCancel}>Hủy giao dịch</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -635,8 +685,8 @@ export function CashbookPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Đóng</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction>
+            <AlertDialogCancel className="h-9">Đóng</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

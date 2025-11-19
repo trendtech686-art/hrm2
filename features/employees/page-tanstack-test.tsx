@@ -9,6 +9,7 @@ import { createEmployeeColumns } from './tanstack-columns';
 import { useEmployeeStore } from './store';
 import { useBranchStore } from '../settings/branches/store';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { asSystemId } from '@/lib/id-types';
 import { Button } from '../../components/ui/button';
 import { PlusCircle, Trash2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -52,7 +53,7 @@ export function EmployeesPageTanStackTest() {
 
   const confirmDelete = () => {
     if (idToDelete) {
-      remove(idToDelete);
+      remove(asSystemId(idToDelete));
       toast.success('Đã xóa nhân viên');
       setIsAlertOpen(false);
       setIdToDelete(null);

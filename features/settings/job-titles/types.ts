@@ -1,6 +1,8 @@
+import type { BusinessId, SystemId } from '@/lib/id-types';
+
 export type JobTitle = {
-  systemId: string;
-  id: string;
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   description?: string;
 };

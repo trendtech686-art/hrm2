@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
+import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { usePageHeader } from "../../../contexts/page-header-context.tsx";
 import { useUnitStore } from "../units/store.ts";
 import { useProductTypeStore } from "./product-type-store.ts";
@@ -9,8 +10,13 @@ import type { Unit } from "../units/types.ts";
 import type { ProductType, ProductCategory } from "./types.ts";
 import type { StorageLocation } from "./storage-location-types.ts";
 import { UnitForm, type UnitFormValues } from "../units/form.tsx";
-import { ProductTypeFormDialog, ProductCategoryFormDialog } from "./setting-form-dialogs.tsx";
-import { StorageLocationFormDialog } from "./storage-location-form-dialog.tsx";
+import {
+  ProductTypeFormDialog,
+  ProductCategoryFormDialog,
+  type ProductTypeFormValues,
+  type ProductCategoryFormValues,
+} from "./setting-form-dialogs.tsx";
+import { StorageLocationFormDialog, type StorageLocationFormValues } from "./storage-location-form-dialog.tsx";
 import { SettingsTable } from "./settings-table.tsx";
 import { CategoryTree } from "./category-tree.tsx";
 import { getUnitColumns } from "../units/columns.tsx";
@@ -20,7 +26,7 @@ import { Button } from "../../../components/ui/button.tsx";
 import { Badge } from "../../../components/ui/badge.tsx";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
-import { DataTable } from "../../../components/data-table/data-table.tsx";
+import { ResponsiveDataTable } from "../../../components/data-table/responsive-data-table.tsx";
 import { toast } from "sonner";
 
 function UnitsTabContent() {
@@ -29,7 +35,7 @@ function UnitsTabContent() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingUnit, setEditingUnit] = React.useState<Unit | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
 
   const [rowSelection, setRowSelection] = React.useState({});
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'name', desc: false });
@@ -58,7 +64,7 @@ function UnitsTabContent() {
   
   const handleAddNew = () => { setEditingUnit(null); setIsFormOpen(true); };
   const handleEdit = (unit: Unit) => { setEditingUnit(unit); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: string) => { setIdToDelete(systemId); setIsAlertOpen(true); };
+  const handleDeleteRequest = (systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); };
   
   const confirmDelete = () => { 
     if (idToDelete) {
@@ -66,14 +72,16 @@ function UnitsTabContent() {
       toast.success('Đã xóa đơn vị tính');
     }
     setIsAlertOpen(false);
+    setIdToDelete(null);
   };
   
   const handleFormSubmit = (values: UnitFormValues) => {
+    const payload: UnitFormValues = { ...values, id: asBusinessId(values.id) };
     if (editingUnit) {
-      update(editingUnit.systemId, { ...editingUnit, ...values });
+      update(editingUnit.systemId, { ...editingUnit, ...payload });
       toast.success('Đã cập nhật đơn vị tính');
     } else {
-      add(values);
+      add(payload);
       toast.success('Đã thêm đơn vị tính mới');
     }
     setIsFormOpen(false);
@@ -118,7 +126,7 @@ function UnitsTabContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable
+            <ResponsiveDataTable
               columns={columns} data={paginatedData} pageCount={pageCount}
               pagination={pagination} setPagination={setPagination} rowCount={data.length}
               rowSelection={rowSelection} setRowSelection={setRowSelection}
@@ -165,7 +173,7 @@ function ProductTypesTabContent() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ProductType | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
 
   const handleAdd = () => {
     setEditingItem(null);
@@ -177,7 +185,7 @@ function ProductTypesTabContent() {
     setDialogOpen(true);
   };
 
-  const handleDeleteRequest = (systemId: string) => {
+  const handleDeleteRequest = (systemId: SystemId) => {
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
@@ -188,15 +196,20 @@ function ProductTypesTabContent() {
       toast.success('Đã xóa loại sản phẩm');
     }
     setIsAlertOpen(false);
+    setIdToDelete(null);
   };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: ProductTypeFormValues) => {
     try {
+      const payload = {
+        ...data,
+        id: asBusinessId(data.id),
+      };
       if (editingItem) {
-        productTypes.update(editingItem.systemId, { ...editingItem, ...data });
+        productTypes.update(editingItem.systemId, payload);
         toast.success('Đã cập nhật loại sản phẩm');
       } else {
-        productTypes.add(data);
+        productTypes.add(payload);
         toast.success('Đã thêm loại sản phẩm mới');
       }
       setDialogOpen(false);
@@ -265,9 +278,9 @@ function ProductCategoriesTabContent() {
   const productCategories = useProductCategoryStore();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ProductCategory | null>(null);
-  const [parentIdForNew, setParentIdForNew] = React.useState<string | undefined>(undefined);
+  const [parentIdForNew, setParentIdForNew] = React.useState<SystemId | undefined>(undefined);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
 
   const activeCategories = React.useMemo(
     () => productCategories.data.filter(c => !c.isDeleted),
@@ -285,7 +298,7 @@ function ProductCategoriesTabContent() {
     setDialogOpen(true);
   };
 
-  const handleAddChild = (parentId: string) => {
+  const handleAddChild = (parentId: SystemId) => {
     setEditingItem(null);
     setParentIdForNew(parentId);
     setDialogOpen(true);
@@ -297,7 +310,7 @@ function ProductCategoriesTabContent() {
     setDialogOpen(true);
   };
 
-  const handleDeleteRequest = (systemId: string) => {
+  const handleDeleteRequest = (systemId: SystemId) => {
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
@@ -308,15 +321,21 @@ function ProductCategoriesTabContent() {
       toast.success('Đã xóa danh mục sản phẩm');
     }
     setIsAlertOpen(false);
+    setIdToDelete(null);
   };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: ProductCategoryFormValues) => {
     try {
+      const payload = {
+        ...data,
+        id: asBusinessId(data.id),
+        parentId: data.parentId ? asSystemId(data.parentId) : undefined,
+      };
       if (editingItem) {
-        productCategories.update(editingItem.systemId, { ...editingItem, ...data });
+        productCategories.update(editingItem.systemId, payload);
         toast.success('Đã cập nhật danh mục');
       } else {
-        productCategories.add(data);
+        productCategories.add(payload);
         toast.success('Đã thêm danh mục mới');
       }
       setDialogOpen(false);
@@ -325,12 +344,12 @@ function ProductCategoriesTabContent() {
     }
   };
 
-  const handleMove = (systemId: string, newParentId: string | undefined, newSortOrder: number) => {
+  const handleMove = (systemId: SystemId, newParentId: SystemId | undefined, newSortOrder: number) => {
     const movedCategory = activeCategories.find(c => c.systemId === systemId);
     const newParent = newParentId ? activeCategories.find(c => c.systemId === newParentId) : null;
     
     // Count how many descendants will be moved
-    const countDescendants = (parentId: string): number => {
+    const countDescendants = (parentId: SystemId): number => {
       const children = activeCategories.filter(c => c.parentId === parentId);
       return children.length + children.reduce((sum, child) => sum + countDescendants(child.systemId), 0);
     };
@@ -426,14 +445,14 @@ function StorageLocationsTabContent() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<StorageLocation | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
 
   const activeLocations = React.useMemo(() => data.filter(loc => !loc.isDeleted), [data]);
   const existingIds = React.useMemo(() => activeLocations.map(loc => loc.id), [activeLocations]);
 
   const handleAddNew = () => { setEditingLocation(null); setIsFormOpen(true); };
   const handleEdit = (location: StorageLocation) => { setEditingLocation(location); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: string) => { setIdToDelete(systemId); setIsAlertOpen(true); };
+  const handleDeleteRequest = (systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); };
 
   const confirmDelete = () => {
     if (idToDelete) {
@@ -441,14 +460,23 @@ function StorageLocationsTabContent() {
       toast.success('Đã xóa điểm lưu kho');
     }
     setIsAlertOpen(false);
+    setIdToDelete(null);
   };
 
-  const handleFormSubmit = (values: { id: string; name: string; description?: string; isActive?: boolean }) => {
+  const handleFormSubmit = (values: StorageLocationFormValues) => {
+    const payload = {
+      ...values,
+      id: asBusinessId(values.id),
+    };
     if (editingLocation) {
-      update(editingLocation.systemId, values);
+      update(editingLocation.systemId, payload);
       toast.success('Đã cập nhật điểm lưu kho');
     } else {
-      add({ ...values, isActive: values.isActive ?? true, isDeleted: false });
+      add({
+        ...payload,
+        isActive: values.isActive ?? true,
+        isDeleted: false,
+      });
       toast.success('Đã thêm điểm lưu kho mới');
     }
     setIsFormOpen(false);

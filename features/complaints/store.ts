@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ENTITY_PREFIXES } from "../../lib/smart-prefix";
+import { ENTITY_PREFIXES } from "@/lib/smart-prefix";
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from "@/lib/id-types";
 import type {
   Complaint,
   ComplaintStatus,
@@ -36,7 +37,7 @@ interface ComplaintFilters {
   status: ComplaintStatus | "all";
   type: ComplaintType | "all";
   verification: ComplaintVerification | "all";
-  assignedTo: string | "all";
+  assignedTo: SystemId | "all";  // Use SystemId for assignedTo
   dateRange?: { from: Date; to: Date };
   priority?: "low" | "medium" | "high" | "urgent" | "all";
 }
@@ -46,41 +47,41 @@ interface ComplaintStore {
   complaints: Complaint[];
   filters: ComplaintFilters;
   searchQuery: string;
-  selectedComplaintId: string | null;
+  selectedComplaintId: SystemId | null;
 
   // Actions - CRUD (sử dụng store-factory internally)
-  addComplaint: (complaint: Omit<Complaint, "systemId" | "createdAt" | "updatedAt" | "timeline" | "id"> & { id?: string }) => string;
-  updateComplaint: (systemId: string, updates: Partial<Complaint>) => void;
-  deleteComplaint: (systemId: string) => void;
-  getComplaintById: (systemId: string) => Complaint | undefined;
+  addComplaint: (complaint: Omit<Complaint, "systemId" | "createdAt" | "updatedAt" | "timeline" | "id"> & { id?: BusinessId }) => SystemId;
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
+  deleteComplaint: (systemId: SystemId) => void;
+  getComplaintById: (systemId: SystemId) => Complaint | undefined;
 
   // Actions - Workflow
-  assignComplaint: (id: string, userId: string) => void;
-  startInvestigation: (id: string, note: string) => void;
-  submitEvidence: (id: string, evidenceImages: string[], investigationNote: string, proposedSolution: string) => void;
-  verifyComplaint: (id: string, isCorrect: boolean, note: string) => void;
+  assignComplaint: (id: SystemId, userId: SystemId) => void;
+  startInvestigation: (id: SystemId, note: string) => void;
+  submitEvidence: (id: SystemId, evidenceImages: string[], investigationNote: string, proposedSolution: string) => void;
+  verifyComplaint: (id: SystemId, isCorrect: boolean, note: string) => void;
   resolveComplaint: (
-    id: string,
+    id: SystemId,
     resolution: ComplaintResolution,
     resolutionNote: string,
-    responsibleUserId?: string
+    responsibleUserId?: SystemId
   ) => void;
-  rejectComplaint: (id: string, reason: string) => void;
+  rejectComplaint: (id: SystemId, reason: string) => void;
 
   // Actions - Images
-  addComplaintImage: (id: string, image: ComplaintImage) => void;
-  removeComplaintImage: (id: string, imageId: string) => void;
+  addComplaintImage: (id: SystemId, image: ComplaintImage) => void;
+  removeComplaintImage: (id: SystemId, imageId: SystemId) => void;
 
   // Actions - Filters & Search
   setFilters: (filters: Partial<ComplaintFilters>) => void;
   resetFilters: () => void;
   setSearchQuery: (query: string) => void;
-  setSelectedComplaint: (id: string | null) => void;
+  setSelectedComplaint: (id: SystemId | null) => void;
 
   // Computed
   getFilteredComplaints: () => Complaint[];
   getComplaintsByStatus: (status: ComplaintStatus) => Complaint[];
-  getComplaintsByAssignee: (userId: string) => Complaint[];
+  getComplaintsByAssignee: (userId: SystemId) => Complaint[];
   getStats: () => {
     total: number;
     pending: number;
@@ -134,10 +135,11 @@ export const useComplaintStore = create<ComplaintStore>()(
               return match ? parseInt(match[1]) : 0;
             }))
           : 0;
-        const systemId = `${SYSTEM_PREFIX}${String(maxSystemIdNumber + 1).padStart(6, '0')}`;
+        const systemId = asSystemId(`${SYSTEM_PREFIX}${String(maxSystemIdNumber + 1).padStart(6, '0')}`);
         
         // Generate Business ID (6 digits) - PKN000001, PKN000002 (if not provided)
-        let id = complaintData.id;
+        let idValue: BusinessId | null = complaintData.id ?? null;
+        let id: string = idValue ? String(idValue) : '';
         if (!id) {
           const maxBusinessIdNumber = currentComplaints.length > 0
             ? Math.max(...currentComplaints.map(c => {
@@ -155,6 +157,7 @@ export const useComplaintStore = create<ComplaintStore>()(
           // Sanitize ID: uppercase + remove spaces
           id = id.toUpperCase().trim().replace(/\s+/g, '');
         }
+        const businessId = asBusinessId(id);
         
         // [NOTE] Generate public tracking code for customer
         const publicTrackingCode = (complaintData as any).publicTrackingCode || generatePublicTrackingCode();
@@ -162,7 +165,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         const now = new Date();
 
         const initialAction: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "created",
           performedBy: complaintData.createdBy,
           performedAt: now,
@@ -172,7 +175,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         const newComplaint: Complaint = {
           ...complaintData,
           systemId,
-          id,
+          id: businessId,
           publicTrackingCode, // [NOTE] Add tracking code
           createdAt: now,
           updatedAt: now,
@@ -217,7 +220,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         if (!complaint) return;
 
         const action: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "assigned",
           performedBy: userId,
           performedAt: new Date(),
@@ -237,7 +240,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         if (!complaint) return;
 
         const action: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "investigated",
           performedBy: complaint.assignedTo || complaint.createdBy,
           performedAt: new Date(),
@@ -255,7 +258,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         if (!complaint) return;
 
         const action: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "investigated",
           performedBy: complaint.assignedTo || complaint.createdBy,
           performedAt: new Date(),
@@ -276,7 +279,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         if (!complaint) return;
 
         const action: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "verified",
           performedBy: complaint.createdBy, // Manager verify
           performedAt: new Date(),
@@ -295,7 +298,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         if (!complaint) return;
 
         const action: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "resolved",
           performedBy: complaint.createdBy, // Manager resolves
           performedAt: new Date(),
@@ -318,7 +321,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         if (!complaint) return;
 
         const action: ComplaintAction = {
-          id: `action_${Date.now()}`,
+          id: asSystemId(`action_${Date.now()}`),
           actionType: "rejected",
           performedBy: complaint.createdBy,
           performedAt: new Date(),
@@ -326,7 +329,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         };
 
         get().updateComplaint(id, {
-          status: "rejected",
+          status: "ended",
           resolution: "rejected",
           resolutionNote: reason,
           resolvedBy: complaint.createdBy,
@@ -452,7 +455,7 @@ export const useComplaintStore = create<ComplaintStore>()(
           pending: complaints.filter((c) => c.status === "pending").length,
           investigating: complaints.filter((c) => c.status === "investigating").length,
           resolved: complaints.filter((c) => c.status === "resolved").length,
-          rejected: complaints.filter((c) => c.status === "rejected").length,
+          rejected: complaints.filter((c) => c.resolution === "rejected").length,
           verifiedCorrect: complaints.filter((c) => c.verification === "verified-correct").length,
           verifiedIncorrect: complaints.filter((c) => c.verification === "verified-incorrect").length,
         };
@@ -460,7 +463,7 @@ export const useComplaintStore = create<ComplaintStore>()(
     }),
     {
       name: "complaint-storage",
-      version: 4, // [NOTE] Updated for new ID system (COM00000001 + COM001)
+      version: 4, // [NOTE] Updated for new ID system (COM000001)
       // Migration function to add publicTrackingCode and update ID format
       migrate: (persistedState: any, version: number) => {
         if (version < 4) {

@@ -9,8 +9,8 @@ import type { SystemId, BusinessId } from '../../lib/id-types.ts';
 // PAYMENT TYPE (Loại Phiếu Chi - Category)
 // ============================================
 export type PaymentType = {
-  systemId: string; // Simple string for categories
-  id: string; // Mã loại
+  systemId: SystemId; // Simple string for categories
+  id: BusinessId; // Mã loại
   name: string; // Tên loại
   description?: string;
   isBusinessResult: boolean; // Hạch toán kết quả kinh doanh
@@ -23,9 +23,6 @@ export type PaymentType = {
 // PAYMENT (Phiếu Chi - Document)
 // ============================================
 export type PaymentStatus = 
-  | 'pending'            // Chờ xử lý
-  | 'pending_approval'   // Chờ duyệt
-  | 'approved'           // Đã duyệt
   | 'completed'          // Hoàn thành
   | 'cancelled';         // Đã hủy
 
@@ -39,9 +36,6 @@ export type PaymentCategory =
   | 'other';             // Khác
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  pending: 'Chờ xử lý',
-  pending_approval: 'Chờ duyệt',
-  approved: 'Đã duyệt',
   completed: 'Hoàn thành',
   cancelled: 'Đã hủy',
 };
@@ -63,26 +57,26 @@ export type Payment = {
   amount: number;
   
   // Recipient info (Link to TargetGroup settings)
-  recipientTypeSystemId: string; // Link to TargetGroup (KHACHHANG, NHACUNGCAP, NHANVIEN, DOITACVC, KHAC)
+  recipientTypeSystemId: SystemId; // Link to TargetGroup (KHACHHANG, NHACUNGCAP, NHANVIEN, DOITACVC, KHAC)
   recipientTypeName: string; // Cached name: "Khách hàng", "Nhà cung cấp", etc.
   recipientName: string;
-  recipientSystemId?: string; // Link to customer/supplier/employee
+  recipientSystemId?: SystemId; // Link to customer/supplier/employee
   
   description: string;
   
   // Payment Method (Link to PaymentMethod settings)
-  paymentMethodSystemId: string; // Link to PaymentMethod
+  paymentMethodSystemId: SystemId; // Link to PaymentMethod
   paymentMethodName: string; // Cached name for display
   
   // Account & Type
-  accountSystemId: string; // Link to CashAccount
-  paymentReceiptTypeSystemId: string; // Link to PaymentType (loại phiếu chi)
+  accountSystemId: SystemId; // Link to CashAccount
+  paymentReceiptTypeSystemId: SystemId; // Link to PaymentType (loại phiếu chi)
   paymentReceiptTypeName: string;
   
   // Branch & User
-  branchSystemId: string;
+  branchSystemId: SystemId;
   branchName: string;
-  createdBy: string;
+  createdBy: SystemId;
   createdAt: string; // ISO timestamp
   
   // Status & Category
@@ -96,21 +90,15 @@ export type Payment = {
   
   // Links to other documents
   originalDocumentId?: string; // Link to Order/Complaint/Warranty (Business ID)
-  linkedWarrantySystemId?: string; // Link to Warranty (System ID)
-  linkedComplaintSystemId?: string; // Link to Complaint (System ID)
-  linkedOrderSystemId?: string; // Link to Order (System ID)
-  customerSystemId?: string;
+  purchaseOrderSystemId?: SystemId; // Link trực tiếp đến đơn nhập hàng (systemId)
+  purchaseOrderId?: BusinessId; // Cache business id để hiển thị
+  linkedWarrantySystemId?: SystemId; // Link to Warranty (System ID)
+  linkedComplaintSystemId?: SystemId; // Link to Complaint (System ID)
+  linkedOrderSystemId?: SystemId; // Link to Order (System ID)
+  customerSystemId?: SystemId;
   customerName?: string;
   
   // Financial
   affectsDebt: boolean;
   runningBalance?: number;
-  
-  // Approval workflow
-  approvedBy?: string;
-  approvedByName?: string;
-  approvedAt?: string;
-  completedBy?: string;
-  completedByName?: string;
-  completedAt?: string;
 };

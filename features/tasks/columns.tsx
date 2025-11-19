@@ -2,6 +2,7 @@ import * as React from "react";
 import * as ReactRouterDOM from 'react-router-dom';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
 import type { Task, TaskPriority, TaskStatus } from './types.ts'
+import type { SystemId } from '../../lib/id-types.ts';
 import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
 import { Progress } from "../../components/ui/progress.tsx"
@@ -25,7 +26,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
   "Hoàn thành": "success",
   "Đã hủy": "default",
 };export const getColumns = (
-  onDelete: (id: string) => void,
+  onDelete: (id: SystemId) => void,
   onEdit: (task: Task) => void,
   navigate: (path: string) => void,
   isAdmin: boolean = true, // Add role parameter
@@ -171,7 +172,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={() => navigate(`/tasks/${row.systemId}`)}>Xem chi tiết</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate(`/tasks/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.id)}>
+                <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.systemId)}>
                   Xóa
                 </DropdownMenuItem>
               </DropdownMenuContent>

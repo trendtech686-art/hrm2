@@ -15,6 +15,7 @@ export const pricingPolicySchema = z.object({
     message: 'Vui lòng chọn loại giá',
   }),
   isActive: z.boolean(),
+  isDefault: z.boolean(),
 });
 
 export type PricingPolicyFormData = z.infer<typeof pricingPolicySchema>;

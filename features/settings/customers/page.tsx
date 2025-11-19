@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { asSystemId } from '@/lib/id-types';
 import { Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -26,6 +27,8 @@ import type {
   CreditRating 
 } from './types';
 import { toast } from 'sonner';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
+import type { BaseSetting } from './types';
 
 export default function CustomerSettingsPage() {
   const [activeTab, setActiveTab] = React.useState('types');
@@ -44,9 +47,19 @@ export default function CustomerSettingsPage() {
     setDialogOpen(true);
   };
 
+  const [deleteDialog, setDeleteDialog] = React.useState<{ isOpen: boolean; item: BaseSetting | null }>({ isOpen: false, item: null });
+
+  const tabLabels: Record<string, string> = {
+    types: 'Loại khách hàng',
+    groups: 'Nhóm khách hàng',
+    sources: 'Nguồn khách hàng',
+    'payment-terms': 'Hạn thanh toán',
+    'credit-ratings': 'Xếp hạng tín dụng',
+  };
+
   // Memo actions to prevent infinite loop
   const headerActions = React.useMemo(() => [
-    <Button key="add" onClick={handleAdd}>
+    <Button key="add" onClick={handleAdd} className="h-9">
       <Plus className="h-4 w-4 mr-2" />
       Thêm mới
     </Button>
@@ -67,26 +80,32 @@ export default function CustomerSettingsPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = (systemId: string) => {
-    // TODO: Add confirmation dialog
+  const handleDeleteRequest = (item: BaseSetting) => {
+    setDeleteDialog({ isOpen: true, item });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteDialog.item) return;
+    const { systemId } = deleteDialog.item;
     switch (activeTab) {
       case 'types':
-        customerTypes.remove(systemId);
+        customerTypes.remove(asSystemId(systemId));
         break;
       case 'groups':
-        customerGroups.remove(systemId);
+        customerGroups.remove(asSystemId(systemId));
         break;
       case 'sources':
-        customerSources.remove(systemId);
+        customerSources.remove(asSystemId(systemId));
         break;
       case 'payment-terms':
-        paymentTerms.remove(systemId);
+        paymentTerms.remove(asSystemId(systemId));
         break;
       case 'credit-ratings':
-        creditRatings.remove(systemId);
+        creditRatings.remove(asSystemId(systemId));
         break;
     }
     toast.success('Đã xóa thành công');
+    setDeleteDialog({ isOpen: false, item: null });
   };
 
   const handleSubmit = (data: any) => {
@@ -190,7 +209,7 @@ export default function CustomerSettingsPage() {
               <SettingsTable<CustomerType>
                 data={customerTypes.getActive()}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={handleDeleteRequest}
               />
             </CardContent>
           </Card>
@@ -209,7 +228,7 @@ export default function CustomerSettingsPage() {
               <SettingsTable<CustomerGroup>
                 data={customerGroups.getActive()}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={handleDeleteRequest}
                 renderExtraColumns={(item) => (
                   <div className="flex items-center gap-2">
                     {item.color && (
@@ -238,7 +257,7 @@ export default function CustomerSettingsPage() {
               <SettingsTable<CustomerSource>
                 data={customerSources.getActive()}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={handleDeleteRequest}
                 renderExtraColumns={(item) => (
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{item.type}</Badge>
@@ -262,7 +281,7 @@ export default function CustomerSettingsPage() {
               <SettingsTable<PaymentTerm>
                 data={paymentTerms.getActive()}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={handleDeleteRequest}
                 renderExtraColumns={(item) => (
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{item.days} ngày</Badge>
@@ -287,7 +306,7 @@ export default function CustomerSettingsPage() {
               <SettingsTable<CreditRating>
                 data={creditRatings.getActive()}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={handleDeleteRequest}
                 renderExtraColumns={(item) => (
                   <div className="flex items-center gap-2">
                     {item.color && (
@@ -360,6 +379,26 @@ export default function CustomerSettingsPage() {
           existingIds={getExistingIds()}
         />
       )}
+
+      <AlertDialog
+        open={deleteDialog.isOpen}
+        onOpenChange={(isOpen) =>
+          setDeleteDialog((prev) => ({ isOpen, item: isOpen ? prev.item : null }))
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa {tabLabels[activeTab] || 'mục'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn sắp xóa "{deleteDialog.item?.name}" ({deleteDialog.item?.id}). Hành động này không thể hoàn tác và có thể ảnh hưởng tới các chứng từ đang dùng loại cấu hình này.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-9" onClick={() => setDeleteDialog({ isOpen: false, item: null })}>Hủy</AlertDialogCancel>
+            <AlertDialogAction className="h-9" onClick={confirmDelete}>Xóa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

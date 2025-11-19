@@ -1,7 +1,7 @@
 import * as React from "react";
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
 import type { Employee } from './types.ts'
-import type { Branch } from "../branches/types.ts";
+import type { Branch } from "../settings/branches/types.ts";
 import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
 import { Badge } from "../../components/ui/badge.tsx"

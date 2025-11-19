@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
+import type { SystemId } from '@/lib/id-types';
 
 export type ShippingPartnerStatus = 'Đang hợp tác' | 'Ngừng hợp tác';
 
 export type ShippingService = {
-    systemId: string;
-    id: string;
-    name: string;
+  systemId?: SystemId;
+  id: string;
+  name: string;
 };
 
 export type CredentialField = {
@@ -17,7 +18,7 @@ export type CredentialField = {
 };
 
 export type AdditionalService = {
-  systemId: string;
+  systemId?: SystemId;
   id: string;
   label: string;
   tooltip?: string;
@@ -36,7 +37,7 @@ export type PartnerConfiguration = {
 };
 
 export type ShippingPartner = {
-  systemId: string;
+  systemId: SystemId;
   id: string; // e.g., "GHN", "VTP"
   name: string;
   logoUrl: string;

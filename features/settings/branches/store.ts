@@ -1,41 +1,53 @@
 import { createCrudStore, CrudState } from '../../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { Branch } from './types.ts';
-import type { SystemId } from '../../../lib/id-config';
+import { SystemId } from '../../../lib/id-types.ts';
+
+export interface BranchStoreState extends CrudState<Branch> {
+  setDefault: (systemId: SystemId) => void;
+}
 
 const baseStore = createCrudStore<Branch>(initialData, 'branches');
 
-const augmentedMethods = {
-  setDefault: (systemId: SystemId) => {
-    baseStore.setState(state => ({
-      data: state.data.map(branch => ({
-        ...branch,
-        isDefault: branch.systemId === systemId,
-      })),
-    }));
-  },
-  // Ensure only one default when adding/updating
+const setDefault = (systemId: SystemId) => {
+  baseStore.setState(state => ({
+    data: state.data.map(branch => ({
+      ...branch,
+      isDefault: branch.systemId === systemId,
+    })),
+  }));
+};
+
+const originalAdd = baseStore.getState().add;
+const originalUpdate = baseStore.getState().update;
+
+baseStore.setState({
   add: (item: Omit<Branch, 'systemId'>) => {
-    const isDefault = (item as Branch).isDefault;
-    const result = baseStore.getState().add(item);
-    if (isDefault) {
-      augmentedMethods.setDefault(result.systemId);
+    const result = originalAdd(item);
+    if ((item as Branch).isDefault) {
+      setDefault(result.systemId);
     }
     return result;
   },
   update: (systemId: SystemId, updatedItem: Branch) => {
-    baseStore.getState().update(systemId, updatedItem);
+    originalUpdate(systemId, updatedItem);
     if (updatedItem.isDefault) {
-      augmentedMethods.setDefault(systemId);
+      setDefault(systemId);
     }
   },
-};
+} as Partial<BranchStoreState>);
 
-// Override add and update methods
-Object.assign(baseStore.getState(), {
-  add: augmentedMethods.add,
-  update: augmentedMethods.update,
+const enhanceState = (state: CrudState<Branch>): BranchStoreState => ({
+  ...state,
+  setDefault,
 });
 
-// Export as zustand store directly
-export const useBranchStore = baseStore;
+type BranchStoreHook = (() => BranchStoreState) & {
+  getState: () => BranchStoreState;
+};
+
+const useBranchStoreBase = (() => enhanceState(baseStore())) as BranchStoreHook;
+
+useBranchStoreBase.getState = () => enhanceState(baseStore.getState());
+
+export const useBranchStore = useBranchStoreBase;

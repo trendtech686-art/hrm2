@@ -174,12 +174,31 @@ export type ShopeeGetLogisticsInfoParams = {
 export class SPXService {
   private partnerId: number;
   private partnerKey: string;
+  private merchantId?: string;
   private testMode: boolean;
 
-  constructor(partnerId: number, partnerKey: string, testMode: boolean = false) {
-    this.partnerId = partnerId;
+  constructor(
+    partnerIdOrKey: number | string,
+    partnerKey: string,
+    merchantIdOrTestMode?: string | boolean,
+    testMode: boolean = false
+  ) {
+    const parsedPartnerId = typeof partnerIdOrKey === 'number'
+      ? partnerIdOrKey
+      : Number(partnerIdOrKey);
+
+    if (!Number.isFinite(parsedPartnerId)) {
+      console.warn('[SPXService] partnerId không hợp lệ, mặc định = 0');
+    }
+    this.partnerId = Number.isFinite(parsedPartnerId) ? parsedPartnerId : 0;
     this.partnerKey = partnerKey;
-    this.testMode = testMode;
+
+    if (typeof merchantIdOrTestMode === 'boolean') {
+      this.testMode = merchantIdOrTestMode;
+    } else {
+      this.merchantId = merchantIdOrTestMode;
+      this.testMode = testMode;
+    }
   }
 
   /**

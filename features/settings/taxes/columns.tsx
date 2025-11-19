@@ -51,18 +51,6 @@ export const createTaxColumns = (
     meta: { displayName: 'Loại thuế' },
   },
   {
-    accessorKey: 'inclusionType',
-    header: 'Loại giá',
-    cell: ({ row }) => (
-      <span className="text-sm">
-        {row.original.inclusionType === 'exclusive'
-          ? 'Chưa bao gồm thuế'
-          : 'Đã bao gồm thuế'}
-      </span>
-    ),
-    meta: { displayName: 'Loại giá' },
-  },
-  {
     accessorKey: 'description',
     header: 'Mô tả',
     cell: ({ row }) => (

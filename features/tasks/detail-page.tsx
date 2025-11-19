@@ -18,7 +18,7 @@ import { EvidenceViewer } from './components/EvidenceViewer.tsx';
 import { EvidenceThumbnailGrid } from './components/EvidenceThumbnailGrid.tsx';
 import { SlaTimer } from '../../components/SlaTimer.tsx';
 import { loadSLASettings } from '../../features/settings/tasks/tasks-settings-page.tsx';
-import { createSystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 import { ArrowLeft, Edit, Trash2, Calendar, Clock, User, Flag, CheckCircle, XCircle, Eye, AlertCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
 import { toast } from 'sonner';
@@ -26,6 +26,7 @@ import type { TaskPriority, TaskStatus } from './types.ts';
 
 export function TaskDetailPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+  const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
   const navigate = ReactRouterDOM.useNavigate();
   const store = useTaskStore();
   const { remove, update, approveTask, rejectTask } = store;
@@ -36,9 +37,10 @@ export function TaskDetailPage() {
 
   // Subscribe to store.data to trigger re-render on updates
   const task = React.useMemo(() => {
+    if (!routeSystemId) return undefined;
     const allTasks = store.data; // This subscribes to store changes
-    return allTasks.find(t => t.systemId === createSystemId(systemId!));
-  }, [store.data, systemId]);
+    return allTasks.find(t => t.systemId === routeSystemId);
+  }, [store.data, routeSystemId]);
   
   // Check if current user can edit this task
   const canEdit = React.useMemo(() => {
@@ -85,7 +87,7 @@ export function TaskDetailPage() {
     // Only show edit/delete for admin or task owner
     if (canEdit) {
       actionButtons.push(
-        <Button key="edit" size="sm" className="h-9" onClick={() => navigate(`/tasks/${systemId}/edit`)}>
+        <Button key="edit" size="sm" className="h-9" onClick={() => navigate(`/tasks/${task.systemId}/edit`)}>
           <Edit className="mr-2 h-4 w-4" />
           Chỉnh sửa
         </Button>
@@ -115,7 +117,7 @@ export function TaskDetailPage() {
 
   const handleDelete = () => {
     if (task) {
-      remove(createSystemId(task.systemId));
+      remove(task.systemId);
       toast.success('Đã xóa công việc');
       navigate('/tasks');
     }
@@ -413,7 +415,7 @@ export function TaskDetailPage() {
                 const updatedSubtasks = (task.subtasks || []).map(s =>
                   s.id === subtaskId ? { ...s, ...updates } : s
                 );
-                update(createSystemId(task.systemId), { 
+                update(task.systemId, { 
                   ...task, 
                   subtasks: updatedSubtasks
                 });
@@ -428,7 +430,7 @@ export function TaskDetailPage() {
                 const newProgress = updatedSubtasks.length > 0 
                   ? Math.round((completedCount / updatedSubtasks.length) * 100)
                   : 0;
-                update(createSystemId(task.systemId), { 
+                update(task.systemId, { 
                   ...task, 
                   subtasks: updatedSubtasks,
                   progress: newProgress
@@ -438,7 +440,7 @@ export function TaskDetailPage() {
               onReorder={(reorderedSubtasks) => {
                 if (!canEdit) return;
                 const updatedSubtasks = reorderedSubtasks.map(({ id, title, completed }) => ({ id, title, completed }));
-                update(createSystemId(task.systemId), { 
+                update(task.systemId, { 
                   ...task, 
                   subtasks: updatedSubtasks
                 });
@@ -458,7 +460,7 @@ export function TaskDetailPage() {
                   ? Math.round((completedCount / updatedSubtasks.length) * 100)
                   : 0;
                 
-                update(createSystemId(task.systemId), { 
+                update(task.systemId, { 
                   ...task, 
                   subtasks: updatedSubtasks,
                   progress: newProgress
@@ -502,7 +504,7 @@ export function TaskDetailPage() {
                 content,
                 createdAt: new Date().toISOString(),
               };
-              update(createSystemId(task.systemId), {
+              update(task.systemId, {
                 ...task,
                 comments: [...(task.comments || []), newComment]
               });
@@ -512,14 +514,14 @@ export function TaskDetailPage() {
               const updatedComments = (task.comments || []).map(c =>
                 c.id === commentId ? { ...c, content } : c
               );
-              update(createSystemId(task.systemId), {
+              update(task.systemId, {
                 ...task,
                 comments: updatedComments
               });
             }}
             onDeleteComment={(commentId) => {
               const updatedComments = (task.comments || []).filter(c => c.id !== commentId);
-              update(createSystemId(task.systemId), {
+              update(task.systemId, {
                 ...task,
                 comments: updatedComments
               });

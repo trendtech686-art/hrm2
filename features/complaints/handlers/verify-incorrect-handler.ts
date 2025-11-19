@@ -1,9 +1,11 @@
+import { asSystemId } from '@/lib/id-types';
+import type { SystemId } from '@/lib/id-types';
 import type { Complaint, ComplaintAction } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
 
 // User type - chỉ cần systemId và name
 interface User {
-  systemId: string;
+  systemId: SystemId;
   name: string;
   email?: string;
   role?: 'admin' | 'user';
@@ -24,7 +26,7 @@ export async function handleVerifyIncorrect(
   complaint: Complaint,
   currentUser: User,
   evidenceNote: string,
-  updateComplaint: (systemId: string, updates: any) => void,
+  updateComplaint: (systemId: SystemId, updates: any) => void,
   options?: {
     evidenceImages?: string[];
     evidenceVideos?: string[];
@@ -45,9 +47,9 @@ export async function handleVerifyIncorrect(
     const timeline: ComplaintAction[] = [
       ...complaint.timeline,
       {
-        id: `action_${Date.now()}`,
+        id: asSystemId(`action_${Date.now()}`),
         actionType: "verified-incorrect",
-        performedBy: currentUser.name,
+        performedBy: asSystemId(currentUser.systemId),
         performedAt: new Date(),
         note: evidenceNote ? `Xác nhận khiếu nại sai: ${evidenceNote}` : 'Xác nhận khiếu nại sai',
         metadata: {

@@ -4,12 +4,14 @@ import { createCrudStore } from '../../lib/store-factory.ts';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils.ts';
 import { data as initialData } from './data.ts';
 import type { WikiArticle } from './types.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import type { SystemId } from '../../lib/id-types.ts';
 type WikiState = {
   data: WikiArticle[];
   add: (item: Omit<WikiArticle, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>) => void;
-  update: (systemId: string, item: Partial<Omit<WikiArticle, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>>) => void;
-  remove: (systemId: string) => void;
-  findById: (systemId: string) => WikiArticle | undefined;
+  update: (systemId: SystemId, item: Partial<Omit<WikiArticle, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>>) => void;
+  remove: (systemId: SystemId) => void;
+  findById: (systemId: SystemId) => WikiArticle | undefined;
 };
 
 export const useWikiStore = create<WikiState>()(
@@ -23,8 +25,8 @@ export const useWikiStore = create<WikiState>()(
           const displayId = `WIKI${String(state.data.length + 1).padStart(6, '0')}`;
           const newItem: WikiArticle = {
             ...item,
-            systemId: `wiki_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            id: displayId,
+            systemId: asSystemId(`WIKI${String(Date.now()).slice(-6)}_${Math.random().toString(36).substr(2, 9)}`),
+            id: asBusinessId(displayId),
             createdAt: currentDate,
             updatedAt: currentDate,
           };

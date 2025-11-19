@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { asSystemId } from '@/lib/id-types';
 import type { Complaint, ComplaintAction } from '../types';
 
 // User type - chi can systemId va name
@@ -35,9 +36,9 @@ export async function handleReopenAfterCancelled(
     const timeline: ComplaintAction[] = [
       ...complaint.timeline,
       {
-        id: `action_${Date.now()}`,
+        id: asSystemId(`action_${Date.now()}`),
         actionType: "reopened",
-        performedBy: currentUser.name,
+        performedBy: asSystemId(currentUser.systemId),
         performedAt: new Date(),
         note: `Mở lại khiếu nại sau khi hủy`,
       }

@@ -62,6 +62,7 @@ export function EnhancedAddressList({
   showShippingInfo = false,
 }: EnhancedAddressListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [conversionDialogOpen, setConversionDialogOpen] = useState<string | null>(null); // addressId đang convert
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -222,16 +223,26 @@ export function EnhancedAddressList({
               <div className="flex gap-2 pt-2 flex-wrap">
                 {/* Nút chuyển đổi cho địa chỉ 2 cấp */}
                 {address.inputLevel === '2-level' && !address.districtId && onConvert && (
-                  <AddressConversionDialog
-                    address={address}
-                    onSuccess={onConvert}
-                    trigger={
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <RefreshCw className="h-4 w-4" />
-                        Chuyển đổi sang 3 cấp
-                      </Button>
-                    }
-                  />
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2"
+                      onClick={() => setConversionDialogOpen(address.id)}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Chuyển đổi sang 3 cấp
+                    </Button>
+                    <AddressConversionDialog
+                      address={address}
+                      onSuccess={(updatedAddress) => {
+                        onConvert(updatedAddress);
+                        setConversionDialogOpen(null);
+                      }}
+                      open={conversionDialogOpen === address.id}
+                      onOpenChange={(open) => setConversionDialogOpen(open ? address.id : null)}
+                    />
+                  </>
                 )}
                 
                 {!address.isDefault && onSetDefault && (

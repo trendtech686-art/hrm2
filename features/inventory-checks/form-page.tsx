@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useInventoryCheckStore } from './store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { useProductStore } from '../products/store.ts';
-import { useCurrentUser } from '../../contexts/user-context.tsx';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { Input } from '../../components/ui/input.tsx';
@@ -17,7 +17,7 @@ import { ProductSearchCombobox } from '../../components/shared/product-search-co
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
 import { Package, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { createSystemId, type SystemId } from '../../lib/id-config.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from './types.ts';
 import type { Product } from '../products/types.ts';
 
@@ -38,40 +38,26 @@ export function InventoryCheckFormPage() {
   const { add, update, findById, balanceCheck } = useInventoryCheckStore();
   const { data: branches } = useBranchStore();
   const { data: allProducts } = useProductStore();
-  const { currentUser: currentUserSystemId } = useCurrentUser();
+  const { employee: authEmployee } = useAuth();
+  const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
   
   // Get current user name
-  const [currentUserName, setCurrentUserName] = React.useState('');
+  const [currentUserName, setCurrentUserName] = React.useState(() =>
+    authEmployee?.fullName || authEmployee?.id || ''
+  );
   
   // Store current check for edit mode
   const [currentCheck, setCurrentCheck] = React.useState<InventoryCheck | null>(null);
   
   // Load current user name
   React.useEffect(() => {
-    if (!currentUserSystemId) {
-      console.log('WARNING: No currentUserSystemId!');
+    if (isEditMode) return;
+    if (authEmployee) {
+      setCurrentUserName(authEmployee.fullName || authEmployee.id || '');
       return;
     }
-    
-    import('../employees/store.ts').then(({ useEmployeeStore }) => {
-      const employeeList = useEmployeeStore.getState().data;
-      console.log('=== EMPLOYEE DEBUG ===');
-      console.log('currentUserSystemId:', currentUserSystemId);
-      console.log('employeeList length:', employeeList.length);
-      
-      const currentEmployee = employeeList.find(emp => emp.systemId === currentUserSystemId);
-      console.log('currentEmployee found:', currentEmployee);
-      
-      if (currentEmployee) {
-        const name = currentEmployee.fullName || currentEmployee.id;
-        console.log('Setting currentUserName to:', name);
-        setCurrentUserName(name);
-      } else {
-        console.log('WARNING: Current user not found in employee list!');
-        setCurrentUserName(currentUserSystemId); // Fallback to systemId
-      }
-    });
-  }, [currentUserSystemId]);
+    setCurrentUserName('Hệ thống');
+  }, [authEmployee, isEditMode]);
 
   // Form state
   const [branchSystemId, setBranchSystemId] = React.useState('');
@@ -90,7 +76,7 @@ export function InventoryCheckFormPage() {
   // Load existing data in edit mode
   React.useEffect(() => {
     if (isEditMode && systemId) {
-      const existing = findById(createSystemId(systemId));
+      const existing = findById(asSystemId(systemId));
       if (existing) {
         // Store current check
         setCurrentCheck(existing);
@@ -300,25 +286,25 @@ export function InventoryCheckFormPage() {
     }
 
     if (isEditMode && systemId) {
-      const existing = findById(createSystemId(systemId));
+      const existing = findById(asSystemId(systemId));
       if (existing) {
         const updated: InventoryCheck = {
           ...existing,
-          branchSystemId,
+          branchSystemId: asSystemId(branchSystemId),
           branchName: selectedBranch?.name || '',
           note,
           items,
         };
-        update(createSystemId(systemId), updated);
+        update(asSystemId(systemId), updated);
         toast.success('Đã cập nhật phiếu kiểm hàng');
       }
     } else {
       const data: Omit<InventoryCheck, 'systemId'> = {
-        id: customId || '',
-        branchSystemId,
+        id: asBusinessId(customId || ''),
+        branchSystemId: asSystemId(branchSystemId),
         branchName: selectedBranch?.name || '',
         status: 'draft',
-        createdBy: currentUserSystemId || 'SYSTEM',
+        createdBy: asSystemId(currentUserSystemId || 'SYSTEM'),
         createdAt: new Date().toISOString(),
         note,
         items,
@@ -346,22 +332,22 @@ export function InventoryCheckFormPage() {
     setShowBalanceConfirm(true);
   }, [items, branchSystemId, validateForm]);
 
-  const confirmBalance = () => {
+  const confirmBalance = async () => {
     setIsBalancing(true);
     
     let checkSystemId: string;
     
     if (isEditMode && systemId) {
-      const existing = findById(createSystemId(systemId));
+      const existing = findById(asSystemId(systemId));
       if (existing) {
         const updated: InventoryCheck = {
           ...existing,
-          branchSystemId,
+          branchSystemId: asSystemId(branchSystemId),
           branchName: selectedBranch?.name || '',
           note,
           items,
         };
-        update(createSystemId(systemId), updated);
+        update(asSystemId(systemId), updated);
         checkSystemId = systemId;
       } else {
         setIsBalancing(false);
@@ -371,11 +357,11 @@ export function InventoryCheckFormPage() {
       }
     } else {
       const data: Omit<InventoryCheck, 'systemId'> = {
-        id: customId || '',
-        branchSystemId,
+        id: asBusinessId(customId || ''),
+        branchSystemId: asSystemId(branchSystemId),
         branchName: selectedBranch?.name || '',
         status: 'draft',
-        createdBy: currentUserSystemId || 'SYSTEM',
+        createdBy: asSystemId(currentUserSystemId || 'SYSTEM'),
         createdAt: new Date().toISOString(),
         note,
         items,
@@ -384,15 +370,16 @@ export function InventoryCheckFormPage() {
       checkSystemId = newCheck.systemId;
     }
 
-    // Balance the check
-    balanceCheck(createSystemId(checkSystemId));
-
-    setIsBalancing(false);
-    setShowBalanceConfirm(false);
-    toast.success('Đã cân bằng kho thành công');
-    
-    // Navigate to detail page of the balanced check
-    navigate(`/inventory-checks/${checkSystemId}`);
+    try {
+      await balanceCheck(asSystemId(checkSystemId));
+      toast.success('Đã cân bằng kho thành công');
+      navigate(`/inventory-checks/${checkSystemId}`);
+    } catch (error) {
+      toast.error('Không thể cân bằng kho, vui lòng thử lại');
+    } finally {
+      setIsBalancing(false);
+      setShowBalanceConfirm(false);
+    }
   };
 
   // Store latest callbacks in refs to avoid stale closure

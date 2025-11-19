@@ -200,7 +200,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
           <SlaTimer
             startTime={ticket.createdAt}
             targetMinutes={
-              ticket.status === 'new' 
+              ticket.status === 'incomplete'
                 ? WARRANTY_SLA_CONFIGS.response.targetMinutes
                 : ticket.status === 'pending'
                 ? WARRANTY_SLA_CONFIGS.processing.targetMinutes
@@ -208,7 +208,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
             }
             isCompleted={ticket.status === 'returned'}
             thresholds={
-              ticket.status === 'new'
+              ticket.status === 'incomplete'
                 ? WARRANTY_SLA_CONFIGS.response.thresholds
                 : ticket.status === 'pending'
                 ? WARRANTY_SLA_CONFIGS.processing.thresholds
@@ -225,8 +225,10 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
 
           {/* Row 4: Returned + Created By */}
           <div className="flex items-center justify-between text-xs">
-            {ticket.returnedAt ? (
-              <span className="text-green-700 font-medium">✓ Đã hoàn thành {formatDateTime(ticket.returnedAt)}</span>
+            {ticket.status === 'completed' && ticket.completedAt ? (
+              <span className="text-blue-700 font-medium">✓ Kết thúc {formatDateTime(ticket.completedAt)}</span>
+            ) : ticket.returnedAt ? (
+              <span className="text-green-700 font-medium">✓ Đã trả {formatDateTime(ticket.returnedAt)}</span>
             ) : (
               <span className="text-muted-foreground">Người tạo: {ticket.createdBy}</span>
             )}

@@ -5,7 +5,7 @@ import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { formatDate } from '../../lib/date-utils';
 import type { Employee } from './types';
-import type { Branch } from '../branches/types';
+import type { Branch } from '../settings/branches/types';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';

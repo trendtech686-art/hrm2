@@ -3,7 +3,7 @@
 // =============================================
 
 import type { Subtask } from '../../components/shared/subtask-list.tsx';
-import { type SystemId } from '../../lib/id-config.ts';
+import { type SystemId, type BusinessId } from '../../lib/id-types';
 
 export type ComplaintType =
   | "wrong-product" // Sai hàng
@@ -31,16 +31,16 @@ export type ComplaintVerification =
   | "pending-verification"; // Chưa xác minh
 
 export interface ComplaintImage {
-  id: string;
+  id: SystemId;
   url: string;
-  uploadedBy: string; // userId
+  uploadedBy: SystemId; // userId (branded)
   uploadedAt: Date;
   description?: string;
   type: "initial" | "evidence"; // initial = từ khách, evidence = bằng chứng từ nhân viên
 }
 
 export interface ComplaintAction {
-  id: string;
+  id: SystemId;
   actionType: 
     | "created" 
     | "assigned" 
@@ -55,7 +55,7 @@ export interface ComplaintAction {
     | "reopened"
     | "status-changed"
     | "commented";
-  performedBy: string; // userId
+  performedBy: SystemId; // userId (branded)
   performedAt: Date;
   note?: string;
   images?: string[]; // image ids
@@ -63,21 +63,21 @@ export interface ComplaintAction {
 }
 
 export interface Complaint {
-  systemId: string; // System-generated, immutable - dùng trong code
-  id: string; // User-facing, auto-generated từ systemId - dùng hiển thị (VD: COM001)
+  systemId: SystemId; // System-generated, immutable - dùng trong code (branded)
+  id: BusinessId; // User-facing, auto-generated từ systemId - dùng hiển thị (VD: COM001) (branded)
   publicTrackingCode?: string; // Mã tracking công khai random (VD: rb5n8xzhrm) - cho khách hàng tra cứu
   
   // Thông tin đơn hàng liên quan
-  orderSystemId: string; // SystemId của đơn hàng (ORD00000001) - dùng để query
+  orderSystemId: SystemId; // SystemId của đơn hàng (ORD00000001) - dùng để query (branded)
   orderCode?: string; // Mã đơn hàng hiển thị (ORD001) - chỉ để hiển thị, có thể lấy từ order
   orderValue?: number; // Giá trị đơn hàng
   
   // Thông tin chi nhánh (lấy từ đơn hàng)
-  branchSystemId: string; // SystemId của chi nhánh (từ order.branchSystemId)
+  branchSystemId: SystemId; // SystemId của chi nhánh (từ order.branchSystemId) (branded)
   branchName: string; // Tên chi nhánh (từ order.branchName)
   
   // Thông tin khách hàng
-  customerSystemId: string; // SystemId của khách hàng (CUS00000001) - dùng để query
+  customerSystemId: SystemId; // SystemId của khách hàng (CUS00000001) - dùng để query (branded)
   customerId?: string; // Mã khách hàng hiển thị (CUS001) - chỉ để hiển thị
   customerName: string;
   customerPhone: string;
@@ -87,9 +87,9 @@ export interface Complaint {
   description: string; // Mô tả ban đầu từ manager/khách
   images: ComplaintImage[]; // Hình ảnh từ khách (type: 'initial')
   employeeImages?: Array<{  // Hình ảnh từ nhân viên kiểm tra (field riêng)
-    id: string;
+    id: SystemId;
     url: string;
-    uploadedBy: string;
+    uploadedBy: SystemId;  // (branded)
     uploadedAt: Date;
   }>;
 
@@ -99,9 +99,9 @@ export interface Complaint {
   resolution?: ComplaintResolution;
 
   // Người xử lý
-  createdBy: string; // userId - Manager tạo
+  createdBy: SystemId; // userId - Manager tạo (branded)
   createdAt: Date;
-  assignedTo?: string; // userId - Nhân viên được giao xử lý
+  assignedTo?: SystemId; // userId - Nhân viên được giao xử lý (branded)
   assignedAt?: Date;
 
   // Xử lý
@@ -112,7 +112,7 @@ export interface Complaint {
 
   // KPI
   isVerifiedCorrect?: boolean; // true = lỗi thật, false = khách sai
-  responsibleUserId?: string; // Người chịu trách nhiệm (nếu lỗi đúng)
+  responsibleUserId?: SystemId; // Người chịu trách nhiệm (nếu lỗi đúng) (branded)
   
   // NEW: Quản lý sản phẩm thiếu/lỗi từ đơn hàng
   affectedProducts?: Array<{
@@ -133,52 +133,52 @@ export interface Complaint {
   // NEW: Theo dõi điều chỉnh kho
   inventoryAdjustment?: {
     adjusted: boolean;           // Đã điều chỉnh kho chưa
-    adjustedBy: string;
+    adjustedBy: SystemId;  // (branded)
     adjustedAt: Date;
     adjustmentNote: string;
-    inventoryCheckSystemId?: SystemId;  // ✅ Foreign Key - Link to Inventory Check
+    inventoryCheckSystemId?: SystemId;  // ✅ Foreign Key - Link to Inventory Check (branded)
     items: Array<{
-      productSystemId: SystemId;
+      productSystemId: SystemId;  // (branded)
       productId: string;
       productName: string;
       quantityAdjusted: number;  // Số lượng cộng lại (+) hoặc trừ (-)
       reason: string;
-      branchSystemId: SystemId;
+      branchSystemId: SystemId;  // (branded)
     }>;
   };
   
   // NEW: Lịch sử phiếu chi/thu đã hủy (khi reopen/cancel/change verification)
   cancelledPaymentsReceipts?: Array<{
-    paymentReceiptSystemId: string;
-    paymentReceiptId: string;    // PC001, PT001
+    paymentReceiptSystemId: SystemId;
+    paymentReceiptId: BusinessId;    // PC001, PT001
     type: 'payment' | 'receipt';
     amount: number;
     cancelledAt: Date;
-    cancelledBy: string;
+    cancelledBy: SystemId;  // (branded)
     cancelledReason: string;     // "Mở lại khiếu nại", "Hủy khiếu nại", "Đổi verification"
   }>;
   
   // NEW: Lịch sử thay đổi kho (tracking mọi lần điều chỉnh và reverse)
   inventoryHistory?: Array<{
     adjustedAt: Date;
-    adjustedBy: string;
+    adjustedBy: SystemId;  // (branded)
     adjustmentType: 'initial' | 'reversed';  // initial = điều chỉnh lần đầu, reversed = khôi phục
     reason: string;                          // "Xác nhận đúng - điều chỉnh kho", "Mở lại - khôi phục kho"
     items: Array<{
-      productSystemId: string;
+      productSystemId: SystemId;  // (branded)
       productId: string;
       productName: string;
       quantityAdjusted: number;              // Số lượng đã thay đổi (+/-)
-      branchSystemId: string;
+      branchSystemId: SystemId;  // (branded)
     }>;
   }>;
   
   // Metadata
-  resolvedBy?: string; // userId - Người giải quyết
+  resolvedBy?: SystemId; // userId - Người giải quyết (branded)
   resolvedAt?: Date;
-  cancelledBy?: string; // userId - Người hủy
+  cancelledBy?: SystemId; // userId - Người hủy (branded)
   cancelledAt?: Date;
-  endedBy?: string; // userId - Người kết thúc
+  endedBy?: SystemId; // userId - Người kết thúc (branded)
   endedAt?: Date;
   updatedAt: Date;
   priority: "low" | "medium" | "high" | "urgent";

@@ -8,21 +8,20 @@ import { Button } from '../../components/ui/button.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import { ArrowLeft, Edit, FileText, User, Calendar, DollarSign, Building2, CreditCard } from 'lucide-react';
 import { formatDateCustom } from '../../lib/date-utils.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-const getStatusBadge = (status: string) => {
-  const variants: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-    pending: { label: 'Chờ xử lý', variant: 'secondary' },
-    pending_approval: { label: 'Chờ duyệt', variant: 'outline' },
-    approved: { label: 'Đã duyệt', variant: 'default' },
+const getStatusBadge = (status?: string) => {
+  const normalized = status === 'cancelled' ? 'cancelled' : 'completed';
+  const variants: Record<'completed' | 'cancelled', { label: string; variant: 'default' | 'destructive' }> = {
     completed: { label: 'Hoàn thành', variant: 'default' },
     cancelled: { label: 'Đã hủy', variant: 'destructive' },
   };
-  const config = variants[status] || { label: status, variant: 'secondary' };
+  const config = variants[normalized];
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
@@ -32,7 +31,7 @@ export function PaymentDetailPage() {
   const { findById } = usePaymentStore();
   
   const payment = React.useMemo(() => 
-    systemId ? findById(systemId) : null, 
+    systemId ? findById(asSystemId(systemId)) : null, 
     [systemId, findById]
   );
   
@@ -171,9 +170,6 @@ export function PaymentDetailPage() {
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           <p>Người tạo: {payment.createdBy}</p>
           <p>Ngày tạo: {formatDateCustom(new Date(payment.createdAt), 'dd/MM/yyyy HH:mm')}</p>
-          {payment.approvedByName && (
-            <p>Người duyệt: {payment.approvedByName} - {payment.approvedAt && formatDateCustom(new Date(payment.approvedAt), 'dd/MM/yyyy HH:mm')}</p>
-          )}
         </CardContent>
       </Card>
     </div>

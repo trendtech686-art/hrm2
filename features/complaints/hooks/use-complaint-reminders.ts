@@ -126,7 +126,7 @@ export function checkComplaintReminder(
   }
   
   // Only track active complaints (not resolved/rejected)
-  if (complaint.status === 'resolved' || complaint.status === 'rejected') {
+  if (complaint.status === 'resolved' || complaint.status === 'ended' || complaint.status === 'cancelled') {
     return {
       needsAction: false,
       hoursIdle: 0,

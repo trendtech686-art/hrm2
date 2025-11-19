@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEmployeeStore } from "./store.ts"
 import { useBranchStore } from "../settings/branches/store.ts";
 import { usePageHeader } from "../../contexts/page-header-context.tsx"
+import { asSystemId } from '@/lib/id-types';
 import { VirtualizedDataTable } from "../../components/data-table/virtualized-data-table.tsx"
 import { getColumns } from "./columns.tsx"
 import { Button } from "../../components/ui/button.tsx"
@@ -111,11 +112,11 @@ export function EmployeesVirtualizedPage() {
   const columns = React.useMemo(
     () => getColumns(
       (systemId: string) => {
-        employeeStore.remove(systemId)
+        employeeStore.remove(asSystemId(systemId))
         toast.success('Đã xóa nhân viên')
       },
       (systemId: string) => {
-        employeeStore.restore(systemId)
+        employeeStore.restore(asSystemId(systemId))
         toast.success('Đã khôi phục nhân viên')
       },
       navigate,

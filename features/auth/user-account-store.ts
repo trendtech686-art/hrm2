@@ -10,7 +10,7 @@ interface UserAccountState {
   createAccount: (account: Omit<UserAccount, 'systemId' | 'createdAt' | 'isLocked' | 'lastPasswordChange'>) => UserAccount;
   updateAccount: (systemId: string, updates: Partial<UserAccount>) => void;
   deleteAccount: (systemId: string) => void;
-  findByEmployeeId: (employeeId: string) => UserAccount | undefined;
+  findByEmployeeId: (employeeSystemId: string) => UserAccount | undefined;
   findByEmail: (email: string) => UserAccount | undefined;
   
   // Account actions
@@ -22,7 +22,7 @@ interface UserAccountState {
   
   // Activity log
   addActivity: (activity: Omit<AccountActivity, 'id' | 'timestamp'>) => void;
-  getActivitiesForEmployee: (employeeId: string) => AccountActivity[];
+  getActivitiesForEmployee: (employeeSystemId: string) => AccountActivity[];
 }
 
 let accountCounter = 1;
@@ -35,7 +35,7 @@ export const useUserAccountStore = create<UserAccountState>()(
         // Mock accounts matching existing employees
         {
           systemId: 'USER00000001',
-          employeeId: 'NV00000001',
+          employeeSystemId: 'NV00000001',
           email: 'an.nguyen@example.com',
           role: 'admin',
           status: 'active',
@@ -48,7 +48,7 @@ export const useUserAccountStore = create<UserAccountState>()(
         },
         {
           systemId: 'USER00000002',
-          employeeId: 'NV00000002',
+          employeeSystemId: 'NV00000002',
           email: 'binh.tran@example.com',
           role: 'user',
           status: 'active',
@@ -78,8 +78,8 @@ export const useUserAccountStore = create<UserAccountState>()(
         
         // Log activity
         get().addActivity({
-          accountId: newAccount.systemId,
-          employeeId: newAccount.employeeId,
+          accountSystemId: newAccount.systemId,
+          employeeSystemId: newAccount.employeeSystemId,
           action: 'account_created',
           performedBy: accountData.createdBy,
           performedByName: accountData.createdBy,
@@ -103,8 +103,8 @@ export const useUserAccountStore = create<UserAccountState>()(
         }));
       },
       
-      findByEmployeeId: (employeeId) => {
-        return get().accounts.find(acc => acc.employeeId === employeeId);
+      findByEmployeeId: (employeeSystemId) => {
+        return get().accounts.find(acc => acc.employeeSystemId === employeeSystemId);
       },
       
       findByEmail: (email) => {
@@ -124,8 +124,8 @@ export const useUserAccountStore = create<UserAccountState>()(
         const account = get().accounts.find(acc => acc.systemId === systemId);
         if (account) {
           get().addActivity({
-            accountId: systemId,
-            employeeId: account.employeeId,
+            accountSystemId: systemId,
+            employeeSystemId: account.employeeSystemId,
             action: 'password_reset',
             performedBy,
             performedByName,
@@ -146,8 +146,8 @@ export const useUserAccountStore = create<UserAccountState>()(
         
         if (account) {
           get().addActivity({
-            accountId: systemId,
-            employeeId: account.employeeId,
+            accountSystemId: systemId,
+            employeeSystemId: account.employeeSystemId,
             action: 'role_changed',
             performedBy,
             performedByName,
@@ -171,8 +171,8 @@ export const useUserAccountStore = create<UserAccountState>()(
         const account = get().accounts.find(acc => acc.systemId === systemId);
         if (account) {
           get().addActivity({
-            accountId: systemId,
-            employeeId: account.employeeId,
+            accountSystemId: systemId,
+            employeeSystemId: account.employeeSystemId,
             action: 'account_locked',
             performedBy,
             performedByName,
@@ -193,8 +193,8 @@ export const useUserAccountStore = create<UserAccountState>()(
         const account = get().accounts.find(acc => acc.systemId === systemId);
         if (account) {
           get().addActivity({
-            accountId: systemId,
-            employeeId: account.employeeId,
+            accountSystemId: systemId,
+            employeeSystemId: account.employeeSystemId,
             action: 'account_unlocked',
             performedBy,
             performedByName,
@@ -225,8 +225,8 @@ export const useUserAccountStore = create<UserAccountState>()(
         }));
       },
       
-      getActivitiesForEmployee: (employeeId) => {
-        return get().activities.filter(act => act.employeeId === employeeId);
+      getActivitiesForEmployee: (employeeSystemId) => {
+        return get().activities.filter(act => act.employeeSystemId === employeeSystemId);
       },
     }),
     {

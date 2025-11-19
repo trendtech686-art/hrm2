@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff, isValidDate } from '@/lib/date-utils'
 import { ResponsiveDataTable } from "../data-table/responsive-data-table.tsx"
 import { toast } from "sonner"
+import { asSystemId, type SystemId } from "@/lib/id-types";
 import { 
   Card, 
   CardContent,
@@ -24,11 +25,11 @@ import { Trash2, RotateCcw, AlertTriangle } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context.tsx"
 import type { ColumnDef } from '../data-table/types.ts';
 
-interface GenericTrashPageProps<T extends { systemId: string; deletedAt?: string }> {
+interface GenericTrashPageProps<T extends { systemId: SystemId; deletedAt?: string }> {
   // Data & Store
   deletedItems: T[];
-  onRestore: (systemId: string) => void;
-  onPermanentDelete: (systemId: string) => Promise<void>;
+  onRestore: (systemId: SystemId) => void;
+  onPermanentDelete: (systemId: SystemId) => Promise<void>;
   
   // Display Configuration
   title: string;
@@ -72,7 +73,7 @@ interface GenericTrashPageProps<T extends { systemId: string; deletedAt?: string
  * />
  * ```
  */
-export function GenericTrashPage<T extends { systemId: string; deletedAt?: string }>({
+export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: string }>({
   deletedItems,
   onRestore,
   onPermanentDelete,
@@ -100,7 +101,7 @@ export function GenericTrashPage<T extends { systemId: string; deletedAt?: strin
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isRestoreDialogOpen, setIsRestoreDialogOpen] = React.useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
-  const [targetId, setTargetId] = React.useState<string | null>(null)
+  const [targetId, setTargetId] = React.useState<SystemId | null>(null)
   const [isBulkRestoreDialogOpen, setIsBulkRestoreDialogOpen] = React.useState(false)
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = React.useState(false)
 
@@ -122,7 +123,7 @@ export function GenericTrashPage<T extends { systemId: string; deletedAt?: strin
   }, [columns]);
 
   // Actions
-  const handleRestore = (id: string) => {
+  const handleRestore = (id: SystemId) => {
     setTargetId(id);
     setIsRestoreDialogOpen(true);
   }
@@ -136,7 +137,7 @@ export function GenericTrashPage<T extends { systemId: string; deletedAt?: strin
     }
   }
 
-  const handlePermanentDelete = async (id: string) => {
+  const handlePermanentDelete = async (id: SystemId) => {
     setTargetId(id);
     setIsDeleteDialogOpen(true);
   }
@@ -170,8 +171,8 @@ export function GenericTrashPage<T extends { systemId: string; deletedAt?: strin
   }
 
   const confirmBulkRestore = () => {
-    const selectedIds = Object.keys(rowSelection);
-    selectedIds.forEach(id => onRestore(id));
+    const selectedIds = Object.keys(rowSelection).map((id) => asSystemId(id));
+    selectedIds.forEach((id) => onRestore(id));
     toast.success(`Đã khôi phục ${selectedIds.length} ${entityName}`);
     setRowSelection({});
     setIsBulkRestoreDialogOpen(false);
@@ -182,7 +183,7 @@ export function GenericTrashPage<T extends { systemId: string; deletedAt?: strin
   }
 
   const confirmBulkDelete = async () => {
-    const selectedIds = Object.keys(rowSelection);
+    const selectedIds = Object.keys(rowSelection).map((id) => asSystemId(id));
     
     try {
       // Delete related files for all selected items

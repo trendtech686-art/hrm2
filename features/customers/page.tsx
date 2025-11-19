@@ -3,9 +3,8 @@ import * as React from "react"
 import { useNavigate } from 'react-router-dom';
 import { useCustomerStore } from "./store.ts"
 import { useCustomerTypeStore } from "../settings/customers/customer-types-store.ts"
-import { createSystemId } from '../../lib/id-config'
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { getColumns } from "./columns.tsx"
-import { DataTable } from "../../components/data-table/data-table.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx"
 import { 
@@ -139,7 +138,7 @@ export function CustomersPage() {
   
   // ✅ Handle restore cho soft delete
   const handleRestore = React.useCallback((systemId: string) => {
-    restore(createSystemId(systemId));
+    restore(asSystemId(systemId));
   }, [restore]);
 
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, navigate), [handleDelete, handleRestore, navigate]);
@@ -171,7 +170,7 @@ export function CustomersPage() {
   
   const confirmDelete = () => {
     if (idToDelete) {
-      remove(createSystemId(idToDelete));
+      remove(asSystemId(idToDelete));
       toast.success('Đã chuyển khách hàng vào thùng rác');
     }
     setIsAlertOpen(false)
@@ -180,7 +179,7 @@ export function CustomersPage() {
 
   const confirmBulkDelete = () => {
     const idsToDelete = Object.keys(rowSelection);
-    idsToDelete.forEach(systemId => remove(createSystemId(systemId)));
+    idsToDelete.forEach(systemId => remove(asSystemId(systemId)));
     setRowSelection({});
     setIsBulkDeleteAlertOpen(false);
   }
@@ -291,10 +290,9 @@ export function CustomersPage() {
     importer: (data: Omit<Customer, "id">[]) => {
       // Không cần generate manual ID, để store tự động generate theo format chuẩn
       // Store sẽ tạo systemId: CUSTOMER000XXX và id: KH000XXX
-      // Cast data với id rỗng để store auto-generate
       const dataWithEmptyId = data.map(item => ({
         ...item,
-        id: '' // Store sẽ tự động tạo KH000XXX
+        id: asBusinessId('')
       })) as Omit<Customer, "systemId">[];
       addMultiple(dataWithEmptyId);
     },
@@ -306,7 +304,7 @@ export function CustomersPage() {
       label: "Chuyển vào thùng rác",
       onSelect: (selectedRows: Customer[]) => {
         const systemIds = selectedRows.map(c => c.systemId);
-        systemIds.forEach(id => remove(createSystemId(id)));
+        systemIds.forEach(id => remove(asSystemId(id)));
         setRowSelection({});
         toast.success(`Đã chuyển ${selectedRows.length} khách hàng vào thùng rác`);
       }
@@ -315,7 +313,7 @@ export function CustomersPage() {
       label: "Đang giao dịch",
       onSelect: (selectedRows: Customer[]) => {
         selectedRows.forEach(customer => {
-          update(createSystemId(customer.systemId), { ...customer, status: 'Đang giao dịch' });
+          update(asSystemId(customer.systemId), { ...customer, status: 'Đang giao dịch' });
         });
         setRowSelection({});
         toast.success(`Đã cập nhật ${selectedRows.length} khách hàng sang trạng thái "Đang giao dịch"`);
@@ -325,7 +323,7 @@ export function CustomersPage() {
       label: "Ngừng giao dịch",
       onSelect: (selectedRows: Customer[]) => {
         selectedRows.forEach(customer => {
-          update(createSystemId(customer.systemId), { ...customer, status: 'Ngừng Giao Dịch' });
+          update(asSystemId(customer.systemId), { ...customer, status: 'Ngừng Giao Dịch' });
         });
         setRowSelection({});
         toast.success(`Đã cập nhật ${selectedRows.length} khách hàng sang trạng thái "Ngừng giao dịch"`);

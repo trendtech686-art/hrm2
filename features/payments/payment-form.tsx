@@ -23,6 +23,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '../../lib/utils.ts';
+import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
 
 export type PaymentFormValues = Omit<Payment, 'systemId' | 'createdAt' | 'runningBalance'>;
 
@@ -50,6 +51,17 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
   const activeAccounts = accounts.filter(acc => acc.isActive);
   const activeBranches = branches;
 
+  const preferredRecipientGroup = activeTargetGroups.find(tg => tg.id === 'NHACUNGCAP');
+  const defaultRecipientGroup = preferredRecipientGroup?.systemId ?? activeTargetGroups[0]?.systemId ?? asSystemId('TARGETGROUP000000');
+  const defaultRecipientGroupName = preferredRecipientGroup?.name ?? activeTargetGroups[0]?.name ?? '';
+  const defaultPaymentMethodSystemId = activePaymentMethods[0]?.systemId ?? asSystemId('PAYMENTMETHOD000000');
+  const defaultPaymentMethodName = activePaymentMethods[0]?.name ?? '';
+  const defaultAccountSystemId = activeAccounts[0]?.systemId ?? asSystemId('CASHACCOUNT000000');
+  const defaultPaymentTypeSystemId = activePaymentTypes[0]?.systemId ?? asSystemId('PAYMENTTYPE000000');
+  const defaultPaymentTypeName = activePaymentTypes[0]?.name ?? '';
+  const defaultBranchSystemId = activeBranches[0]?.systemId ?? asSystemId('BRANCH000000');
+  const defaultBranchName = activeBranches[0]?.name ?? '';
+
   const form = useForm<PaymentFormValues>({
     defaultValues: initialData ? {
       id: initialData.id,
@@ -71,21 +83,21 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
       status: initialData.status,
       affectsDebt: initialData.affectsDebt,
     } : {
-      id: '',
+      id: asBusinessId(''),
       date: new Date().toISOString().split('T')[0],
       amount: 0,
-      recipientTypeSystemId: activeTargetGroups.find(tg => tg.id === 'NHACUNGCAP')?.systemId || activeTargetGroups[0]?.systemId || '',
-      recipientTypeName: activeTargetGroups.find(tg => tg.id === 'NHACUNGCAP')?.name || activeTargetGroups[0]?.name || '',
+      recipientTypeSystemId: defaultRecipientGroup,
+      recipientTypeName: defaultRecipientGroupName,
       recipientName: '',
       description: '',
-      paymentMethodSystemId: activePaymentMethods[0]?.systemId || '',
-      paymentMethodName: activePaymentMethods[0]?.name || '',
-      accountSystemId: activeAccounts[0]?.systemId || '',
-      paymentReceiptTypeSystemId: activePaymentTypes[0]?.systemId || '',
-      paymentReceiptTypeName: activePaymentTypes[0]?.name || '',
-      branchSystemId: activeBranches[0]?.systemId || '',
-      branchName: activeBranches[0]?.name || '',
-      createdBy: '',
+      paymentMethodSystemId: defaultPaymentMethodSystemId,
+      paymentMethodName: defaultPaymentMethodName,
+      accountSystemId: defaultAccountSystemId,
+      paymentReceiptTypeSystemId: defaultPaymentTypeSystemId,
+      paymentReceiptTypeName: defaultPaymentTypeName,
+      branchSystemId: defaultBranchSystemId,
+      branchName: defaultBranchName,
+      createdBy: asSystemId('SYSTEM'),
       status: 'completed',
       affectsDebt: false,
     }
@@ -292,7 +304,11 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
                   <VirtualizedCombobox
                     options={paymentTypeOptions}
                     value={paymentTypeOptions.find(opt => opt.value === field.value) || null}
-                    onChange={(option) => field.onChange(option?.value || '')}
+                    onChange={(option) => {
+                      if (option) {
+                        field.onChange(asSystemId(option.value));
+                      }
+                    }}
                     placeholder="Chọn loại phiếu chi"
                     searchPlaceholder="Tìm loại phiếu chi..."
                     disabled={isEditing}
@@ -316,11 +332,13 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
                     <VirtualizedCombobox
                       value={selectedOption}
                       onChange={(option) => {
-                        field.onChange(option?.value || '');
-                        // Tự động điền recipientTypeName
-                        form.setValue('recipientTypeName', option?.label || '');
-                        // Reset recipientSystemId when changing type
-                        form.setValue('recipientSystemId', '');
+                        if (option) {
+                          field.onChange(asSystemId(option.value));
+                          form.setValue('recipientTypeName', option.label);
+                        } else {
+                          form.setValue('recipientTypeName', '');
+                        }
+                        form.setValue('recipientSystemId', undefined);
                         form.setValue('recipientName', '');
                       }}
                       options={targetGroupOptions}
@@ -371,10 +389,12 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
                       <VirtualizedCombobox
                         value={selectedOption}
                         onChange={(option) => {
-                          field.onChange(option?.value || '');
+                          field.onChange(option ? asSystemId(option.value) : undefined);
                           // Auto-fill recipientName from selected option
                           if (option) {
                             form.setValue('recipientName', option.label);
+                          } else {
+                            form.setValue('recipientName', '');
                           }
                         }}
                         options={recipientOptions}
@@ -404,9 +424,12 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
                     <VirtualizedCombobox
                       value={selectedOption}
                       onChange={(option) => {
-                        field.onChange(option?.value || '');
-                        // Tự động điền paymentMethodName
-                        form.setValue('paymentMethodName', option?.label || '');
+                        if (option) {
+                          field.onChange(asSystemId(option.value));
+                          form.setValue('paymentMethodName', option.label);
+                        } else {
+                          form.setValue('paymentMethodName', '');
+                        }
                       }}
                       options={paymentMethodOptions}
                       placeholder="Chọn phương thức"

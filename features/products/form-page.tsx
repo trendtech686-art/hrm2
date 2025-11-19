@@ -13,9 +13,10 @@ import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useRouteMeta } from '../../hooks/use-route-meta';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 
 export function ProductFormPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
@@ -23,11 +24,12 @@ export function ProductFormPage() {
   const { findById, add, update } = useProductStore();
   const { data: branches } = useBranchStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
-  const { data: employees } = useEmployeeStore();
-  const loggedInUser = employees[0];
+  const { employee: authEmployee } = useAuth();
+  const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
+  const currentUserName = authEmployee?.fullName ?? 'Hệ thống';
 
   const isEditing = !!systemId;
-  const product = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+  const product = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const routeMeta = useRouteMeta();
   
   const handleCancel = () => {
@@ -69,14 +71,14 @@ export function ProductFormPage() {
         ...product, 
         ...values,
         updatedAt: new Date().toISOString(),
-        updatedBy: loggedInUser?.systemId,
+        updatedBy: currentUserSystemId,
       });
       toast.success('Đã cập nhật sản phẩm thành công');
       navigate(`/products/${product.systemId}`);
     } else {
       // Create mode - add new product
       const defaultBranch = branches.find(b => b.isDefault);
-      const inventoryByBranch: Record<string, number> = {};
+      const inventoryByBranch: Record<SystemId, number> = {};
       
       branches.forEach(branch => {
         inventoryByBranch[branch.systemId] = 0; // Start with 0, will be updated via stock receipts
@@ -88,7 +90,7 @@ export function ProductFormPage() {
         committedByBranch: {},
         inTransitByBranch: {},
         createdAt: new Date().toISOString(),
-        createdBy: loggedInUser?.systemId,
+        createdBy: currentUserSystemId,
         isDeleted: false,
       } as Omit<Product, 'systemId'>;
 
@@ -99,7 +101,7 @@ export function ProductFormPage() {
         addStockHistoryEntry({
           productId: newProduct.systemId, // ✅ Use systemId (internal key) not SKU
           date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-          employeeName: loggedInUser?.fullName || 'Hệ thống',
+          employeeName: currentUserName,
           action: 'Khởi tạo sản phẩm',
           quantityChange: 0,
           newStockLevel: 0,

@@ -393,7 +393,7 @@ export function WorkflowTemplatesPage() {
 
   const getStatusOptions = (workflowName: string) => {
     const type = WORKFLOW_TYPES.find(wt => wt.value === workflowName);
-    return type?.statusOptions || [];
+    return type ? [...type.statusOptions] : [];
   };
 
   return (

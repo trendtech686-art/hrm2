@@ -48,6 +48,8 @@ export const ENTITY_PREFIXES = {
   // ========================================
   'receipts': 'PT',            // Phiếu thu (Receipt)
   'payments': 'PC',            // Phiếu chi (Payment)
+  'voucher-receipt': 'PT',     // Alias phiếu thu từ workflow voucher
+  'voucher-payment': 'PC',     // Alias phiếu chi từ workflow voucher
   'cashbook': 'SCT',           // Sổ quỹ (Cashbook)
   'reconciliation': 'DT',      // Đối tài (Reconciliation)
   
@@ -62,6 +64,9 @@ export const ENTITY_PREFIXES = {
   // LƯƠNG & NHÂN SỰ (PAYROLL & HR)
   // ========================================
   'payroll': 'BL',             // Bảng lương (Payroll)
+  'payslips': 'PL',            // Phiếu lương (Payslip)
+  'payroll-audit-log': 'PAL',  // Nhật ký payroll
+  'payroll-templates': 'BTP',  // Mẫu bảng lương (Payroll Template)
   'penalties': 'PF',           // Phiếu phạt (Penalty)
   'leaves': 'PN',              // Phép nghỉ (Leave)
   'attendance': 'CC',          // Chấm công (Attendance)
@@ -87,6 +92,8 @@ export const ENTITY_PREFIXES = {
   // CÀI ĐẶT & DANH MỤC (SETTINGS & CATEGORIES)
   // ========================================
   'provinces': 'TP',           // Tỉnh/Thành phố (Province)
+  'districts': 'QH',           // Quận/Huyện (District)
+  'wards': 'PX',               // Phường/Xã (Ward)
   'wiki': 'TL',                // Tài liệu (Wiki)
   'packaging': 'DG',           // Đóng gói (Packaging)
   'audit-log': 'LOG',          // Nhật ký (Audit Log)
@@ -106,6 +113,9 @@ export const ENTITY_PREFIXES = {
   'employee-types': 'LNV',     // Loại nhân viên (Employee Type)
   'employee-statuses': 'TTNV', // Trạng thái nhân viên (Employee Status)
   'contract-types': 'LHD',     // Loại hợp đồng (Contract Type)
+  'work-shifts': 'CA',         // Ca làm việc (Work Shift)
+  'leave-types': 'LP',         // Loại nghỉ phép (Leave Type)
+  'salary-components': 'SC',   // Thành phần lương (Salary Component)
   
   // ========================================
   // CÀI ĐẶT KHÁC (OTHER SETTINGS)

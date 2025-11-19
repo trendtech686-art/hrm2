@@ -1,10 +1,9 @@
 import * as React from "react";
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../lib/router.ts';
-import { formatDate, formatDateCustom, parseDate, isDateAfter, isDateBefore } from '../../lib/date-utils.ts';
+import { formatDateCustom, parseDate, isDateAfter, isDateBefore } from '../../lib/date-utils.ts';
 import { usePurchaseReturnStore } from "./store.ts";
 import { usePurchaseOrderStore } from "../purchase-orders/store.ts";
-import { useSupplierStore } from "../suppliers/store.ts";
 import { useBranchStore } from "../settings/branches/store.ts";
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
@@ -12,23 +11,24 @@ import { DataTableDateFilter } from "../../components/data-table/data-table-date
 import { PageFilters } from "../../components/layout/page-filters.tsx";
 import { Card, CardContent } from "../../components/ui/card.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
 import { useMediaQuery } from "../../lib/use-media-query.ts";
-import { PackageX, Building2, User, Calendar, FileText, Plus } from "lucide-react";
-import { Printer } from "lucide-react";
+import { PackageX, Building2, User, Calendar, FileText, Plus, Printer } from "lucide-react";
 import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types.ts";
 import type { PurchaseReturn } from "./types.ts";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog.tsx";
+import { ScrollArea } from "../../components/ui/scroll-area.tsx";
+import { useToast } from "../../hooks/use-toast.ts";
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
-const getColumns = (): ColumnDef<PurchaseReturn>[] => [
+const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): ColumnDef<PurchaseReturn>[] => [
   {
     id: "select",
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
@@ -36,7 +36,7 @@ const getColumns = (): ColumnDef<PurchaseReturn>[] => [
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
           onCheckedChange={(value) => onToggleAll(!!value)}
-          aria-label="Select all"
+          aria-label="Chọn tất cả"
         />
       </div>
     ),
@@ -45,7 +45,7 @@ const getColumns = (): ColumnDef<PurchaseReturn>[] => [
         <Checkbox
           checked={isSelected}
           onCheckedChange={onToggleSelect}
-          aria-label="Select row"
+          aria-label="Chọn dòng"
         />
       </div>
     ),
@@ -198,9 +198,10 @@ const getColumns = (): ColumnDef<PurchaseReturn>[] => [
       <Button
         variant="ghost"
         size="sm"
+        className="h-9"
         onClick={(e) => {
           e.stopPropagation();
-          alert(`In phiếu trả: ${row.id}`);
+          onPrint(row);
         }}
       >
         <Printer className="h-4 w-4 mr-1" />
@@ -218,22 +219,29 @@ const getColumns = (): ColumnDef<PurchaseReturn>[] => [
 export function PurchaseReturnsPage() {
   const { data: purchaseReturns } = usePurchaseReturnStore();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
-  const { data: suppliers } = useSupplierStore();
   const { data: branches } = useBranchStore();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const { toast } = useToast();
+  const [printDialogState, setPrintDialogState] = React.useState<{
+    mode: 'single' | 'bulk';
+    entries: PurchaseReturn[];
+  } | null>(null);
   
-  // Debug logging
-  React.useEffect(() => {
-    console.log('🔍 Purchase Returns Data:', purchaseReturns);
-    console.log('📊 Total returns:', purchaseReturns.length);
-  }, [purchaseReturns]);
+  const openPrintDialog = React.useCallback((entries: PurchaseReturn[], mode: 'single' | 'bulk') => {
+    setPrintDialogState({ mode, entries });
+  }, []);
+
+  const handleRowPrint = React.useCallback((entry: PurchaseReturn) => {
+    openPrintDialog([entry], 'single');
+  }, [openPrintDialog]);
   
   // Set page header
   const headerActions = React.useMemo(() => [
     <Button 
       key="create" 
       size="sm" 
+      className="h-9"
       onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}
     >
       <Plus className="mr-2 h-4 w-4" />
@@ -242,8 +250,12 @@ export function PurchaseReturnsPage() {
   ], [navigate]);
 
   usePageHeader({
-    title: 'Quản lý Trả hàng nhập',
-    actions: headerActions
+    title: 'Danh sách phiếu trả NCC',
+    actions: headerActions,
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Trả hàng nhập', href: ROUTES.PROCUREMENT.PURCHASE_RETURNS, isCurrent: true }
+    ]
   });
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -257,7 +269,7 @@ export function PurchaseReturnsPage() {
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
     const storageKey = 'purchase-returns-column-visibility';
     const stored = localStorage.getItem(storageKey);
-    const cols = getColumns();
+    const cols = getColumns((_pr: PurchaseReturn) => undefined);
     const allColumnIds = cols.map(c => c.id).filter(Boolean);
     if (stored) {
       try {
@@ -287,7 +299,7 @@ export function PurchaseReturnsPage() {
     return () => clearTimeout(timer);
   }, [globalFilter]);
 
-  const columns = React.useMemo(() => getColumns(), []);
+  const columns = React.useMemo(() => getColumns(handleRowPrint), [handleRowPrint]);
   
   React.useEffect(() => {
     const initialVisibility: Record<string, boolean> = {};
@@ -391,13 +403,39 @@ export function PurchaseReturnsPage() {
     return filteredData.filter(pr => rowSelection[pr.systemId]);
   }, [filteredData, rowSelection]);
 
+  const dialogEntries = printDialogState?.entries ?? [];
+
+  const handleClosePrintDialog = React.useCallback(() => {
+    setPrintDialogState(null);
+  }, []);
+
+  const handleConfirmPrint = React.useCallback(() => {
+    if (!printDialogState) return;
+    const ids = printDialogState.entries.map(entry => entry.id).join(', ');
+    toast({
+      title: 'Đã gửi lệnh in',
+      description: printDialogState.mode === 'bulk'
+        ? `Đang in ${printDialogState.entries.length} phiếu trả: ${ids}.`
+        : `Đang in phiếu trả ${printDialogState.entries[0]?.id}.`
+    });
+    if (printDialogState.mode === 'bulk') {
+      setRowSelection({});
+    }
+    setPrintDialogState(null);
+  }, [printDialogState, toast]);
+
   // Bulk actions handlers
   const handleBulkPrint = React.useCallback(() => {
-    if (selectedRows.length === 0) return;
-    console.log('🖨️ In phiếu trả hàng:', selectedRows.map(r => r.id));
-    alert(`Đang in ${selectedRows.length} phiếu trả hàng: ${selectedRows.map(r => r.id).join(', ')}`);
-    setRowSelection({});
-  }, [selectedRows]);
+    if (selectedRows.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Chưa chọn phiếu trả',
+        description: 'Vui lòng chọn ít nhất một phiếu trước khi in.'
+      });
+      return;
+    }
+    openPrintDialog(selectedRows, 'bulk');
+  }, [openPrintDialog, selectedRows, toast]);
 
   const bulkActions = [
     {
@@ -500,6 +538,7 @@ export function PurchaseReturnsPage() {
   };
 
   return (
+    <>
     <div className="space-y-4 flex flex-col h-full">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -631,5 +670,76 @@ export function PurchaseReturnsPage() {
         />
       )}
     </div>
+
+    <Dialog open={!!printDialogState} onOpenChange={(open) => {
+      if (!open) {
+        handleClosePrintDialog();
+      }
+    }}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            {printDialogState?.mode === 'bulk'
+              ? `In ${dialogEntries.length} phiếu trả`
+              : dialogEntries[0]
+                ? `In phiếu trả ${dialogEntries[0].id}`
+                : 'Xem trước phiếu trả'}
+          </DialogTitle>
+          <DialogDescription>
+            Kiểm tra nhanh thông tin trước khi in. Nội dung dưới đây chỉ mang tính tham khảo trước khi mở cửa sổ in thực tế.
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh] pr-1">
+          <div className="space-y-4">
+            {dialogEntries.map((entry) => (
+              <div key={entry.systemId} className="rounded-md border p-4 space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-base">{entry.id}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Ngày trả: {formatDateCustom(parseDate(entry.returnDate)!, 'dd/MM/yyyy')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Giá trị hàng trả</p>
+                    <p className="font-semibold text-orange-600">{formatCurrency(entry.totalReturnValue)}</p>
+                    {entry.refundAmount > 0 && (
+                      <p className="text-xs text-green-600">Hoàn: {formatCurrency(entry.refundAmount)}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <p>Nhà cung cấp: <span className="text-foreground font-medium">{entry.supplierName}</span></p>
+                  <p>Chi nhánh: <span className="text-foreground font-medium">{entry.branchName}</span></p>
+                  <p>Đơn nhập: <span className="text-foreground font-medium">{entry.purchaseOrderId}</span></p>
+                  <p>Người tạo: <span className="text-foreground font-medium">{entry.creatorName}</span></p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3 space-y-1 text-sm">
+                  {entry.items.slice(0, 3).map((item) => (
+                    <div key={`${entry.systemId}-${item.productSystemId}`} className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{item.productName}</span>
+                      <span className="text-xs text-muted-foreground">{item.returnQuantity} x {formatCurrency(item.unitPrice)}</span>
+                    </div>
+                  ))}
+                  {entry.items.length > 3 && (
+                    <p className="text-xs text-muted-foreground">+{entry.items.length - 3} sản phẩm khác...</p>
+                  )}
+                </div>
+              </div>
+            ))}
+            {dialogEntries.length === 0 && (
+              <p className="text-sm text-muted-foreground px-2">Chưa có phiếu nào được chọn.</p>
+            )}
+          </div>
+        </ScrollArea>
+        <DialogFooter>
+          <Button variant="outline" className="h-9" onClick={handleClosePrintDialog}>Đóng</Button>
+          <Button className="h-9" onClick={handleConfirmPrint} disabled={!dialogEntries.length}>
+            In ngay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

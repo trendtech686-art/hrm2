@@ -1,4 +1,5 @@
 import * as React from "react";
+import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { usePaymentTypeStore } from "./store.ts";
 import type { PaymentType } from "./types.ts";
 import { PaymentTypeForm, type PaymentTypeFormValues } from "./form.tsx";
@@ -17,10 +18,10 @@ export function PaymentTypesPageContent() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<PaymentType | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
 
   const handleEdit = (item: PaymentType) => { setEditingItem(item); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: string) => { 
+  const handleDeleteRequest = (systemId: SystemId) => { 
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
@@ -41,13 +42,26 @@ export function PaymentTypesPageContent() {
   
   const handleFormSubmit = (values: PaymentTypeFormValues) => {
     try {
+      const now = new Date().toISOString();
+      const normalized = {
+        id: asBusinessId(values.id.trim().toUpperCase()),
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
+        isBusinessResult: values.isBusinessResult,
+        isActive: values.isActive,
+        color: values.color?.trim() || undefined,
+      } satisfies Omit<PaymentType, 'systemId' | 'createdAt'>;
+
       if (editingItem) {
-        update(editingItem.systemId, { ...editingItem, ...values });
+        update(editingItem.systemId, {
+          ...editingItem,
+          ...normalized,
+        });
         toast.success("Cập nhật thành công");
       } else {
         add({
-          ...values,
-          createdAt: new Date().toISOString(),
+          ...normalized,
+          createdAt: now,
         });
         toast.success("Thêm mới thành công");
       }

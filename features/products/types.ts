@@ -1,11 +1,11 @@
 export type ProductStatus = 'active' | 'inactive' | 'discontinued';
 export type ProductType = 'physical' | 'service' | 'digital';
 
-import { type SystemId } from "../../lib/id-config.ts";
+import { type SystemId, type BusinessId } from "@/lib/id-types";
 
 export type Product = {
   systemId: SystemId;
-  id: string; // User-facing SKU
+  id: BusinessId; // User-facing SKU
   name: string;
   
   // Product Content
@@ -16,9 +16,9 @@ export type Product = {
   
   // Classification - Linked to settings
   type?: ProductType; // 'physical' | 'service' | 'digital'
-  productTypeSystemId?: string; // Link to ProductType.systemId from settings
-  categorySystemId?: string; // Link to ProductCategory.systemId from settings
-  storageLocationSystemId?: string; // Link to StorageLocation.systemId - Điểm lưu kho
+  productTypeSystemId?: SystemId; // Link to ProductType.systemId from settings
+  categorySystemId?: SystemId; // Link to ProductCategory.systemId from settings
+  storageLocationSystemId?: SystemId; // Link to StorageLocation.systemId - Điểm lưu kho
   tags?: string[]; // Tags để filter
   status?: ProductStatus; // 'active' | 'inactive' | 'discontinued'
   

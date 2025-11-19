@@ -2,7 +2,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerFormSchema, validateUniqueId, type CustomerFormData } from "./validation.ts";
-import type { Customer } from "./types.ts";
+import type { Customer, CustomerAddress } from "./types.ts";
 import { toast } from 'sonner';
 import { useCustomerStore } from './store.ts';
 import { useProvinceStore } from "../settings/provinces/store.ts";
@@ -38,12 +38,21 @@ import { Textarea } from "../../components/ui/textarea.tsx";
 import { CustomerAddresses } from './customer-addresses.tsx';
 import { Button } from "../../components/ui/button.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
 
 export type CustomerFormValues = CustomerFormData;
 
+export type CustomerFormSubmitPayload = Omit<CustomerFormValues, 'id' | 'accountManagerId' | 'createdBy' | 'updatedBy'> & {
+  id?: BusinessId;
+  accountManagerId?: SystemId;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
+  addresses: CustomerAddress[];
+};
+
 type CustomerFormProps = {
   initialData: Customer | null;
-  onSubmit: (values: Partial<Customer>) => Promise<void> | void;
+  onSubmit: (values: CustomerFormSubmitPayload) => Promise<void> | void;
   onCancel: () => void;
   isEditMode?: boolean;
 };
@@ -63,7 +72,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
   console.log('CustomerForm - isEditMode:', isEditMode, 'initialData:', initialData?.id);
 
   // State for multiple addresses
-  const [addresses, setAddresses] = React.useState(initialData?.addresses || []);
+  const [addresses, setAddresses] = React.useState<CustomerAddress[]>(initialData?.addresses ?? []);
   
   // Image upload management
   const {
@@ -93,15 +102,19 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
     const subscription = form.watch((value, { name }) => {
       if (name === 'id' && value.id) {
         const existingIds = customers.map(c => c.id);
-        const isUnique = validateUniqueId(value.id, existingIds, initialData?.id);
+        const normalized = value.id.trim().toUpperCase();
+        const isUnique = validateUniqueId(normalized, existingIds, initialData?.id);
         
         if (!isUnique) {
           form.setError('id', {
             type: 'manual',
-            message: `Mã khách hàng ${value.id} đã tồn tại`
+            message: `Mã khách hàng ${normalized} đã tồn tại`
           });
         } else {
           form.clearErrors('id');
+        }
+        if (normalized !== value.id) {
+          form.setValue('id', normalized, { shouldDirty: true, shouldValidate: false });
         }
       }
     });
@@ -112,32 +125,46 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
   const handleSubmit = async (values: CustomerFormValues) => {
     try {
       // Validate unique ID
+      const normalizedInputId = values.id?.trim().toUpperCase() ?? '';
       const existingIds = customers.map(c => c.id);
-      const isUnique = validateUniqueId(values.id, existingIds, initialData?.id);
+      const isUnique = validateUniqueId(normalizedInputId, existingIds, initialData?.id);
       
       if (!isUnique) {
         form.setError('id', {
           type: 'manual',
-          message: `Mã khách hàng ${values.id} đã tồn tại. Vui lòng sử dụng mã khác.`
+          message: `Mã khách hàng ${normalizedInputId} đã tồn tại. Vui lòng sử dụng mã khác.`
         });
         toast.error("Lỗi validation", {
-          description: `Mã khách hàng ${values.id} đã tồn tại.`
+          description: `Mã khách hàng ${normalizedInputId} đã tồn tại.`
         });
         return;
       }
 
-      const formattedValues = {
-          ...values,
-          addresses: addresses, // Include addresses array
+      const { id: _rawId, accountManagerId, createdBy, updatedBy, ...restValues } = values;
+      const normalizeSystemId = (value?: string | SystemId | null) => {
+        if (!value) return undefined;
+        const trimmed = String(value).trim();
+        if (!trimmed) return undefined;
+        return asSystemId(trimmed);
+      };
+      const payload: CustomerFormSubmitPayload = {
+        ...restValues,
+        id: normalizedInputId ? asBusinessId(normalizedInputId) : undefined,
+        accountManagerId: normalizeSystemId(accountManagerId),
+        createdBy: normalizeSystemId(createdBy),
+        updatedBy: normalizeSystemId(updatedBy),
+        addresses,
       };
 
       // Call parent onSubmit first to save customer
-      await onSubmit(formattedValues);
+      await onSubmit(payload);
       
       // After customer is saved, confirm images if any
       if (hasImages) {
-        const customerId = values.id;
-        await confirmImages(customerId, formattedValues);
+        const customerId = payload.id ? String(payload.id) : normalizedInputId;
+        if (customerId) {
+          await confirmImages(customerId, payload);
+        }
       }
     } catch (error) {
       toast.error('Lỗi khi lưu thông tin', {

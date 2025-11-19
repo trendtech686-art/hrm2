@@ -1,32 +1,49 @@
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useReceiptStore } from './store.ts';
-import { ReceiptForm, type ReceiptFormValues } from './receipt-form.tsx';
+import { useReceiptStore, type ReceiptInput } from './store';
+import { ReceiptForm, type ReceiptFormValues } from './receipt-form';
 import { useCashbookStore } from '../cashbook/store';
-import { useEmployeeStore } from '../employees/store';
-import type { Receipt } from './types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useRouteMeta } from '../../hooks/use-route-meta.ts';
-import { ROUTES } from '../../lib/router.ts';
+import { usePageHeader } from '@/contexts/page-header-context';
+import { useRouteMeta } from '@/hooks/use-route-meta';
+import { ROUTES } from '@/lib/router';
+import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/auth-context.tsx';
+import { useAuth } from '@/contexts/auth-context';
 
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export function ReceiptFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const navigate = useNavigate();
   const routeMeta = useRouteMeta();
-  const { findById, add, update } = useReceiptStore();
+  const { data, findById, add, update } = useReceiptStore();
   const { accounts } = useCashbookStore();
-  const { data: employees } = useEmployeeStore();
   const { employee: currentEmployee } = useAuth();
-  
-  const receiptId = systemId || id;
-  const isEditing = !!receiptId;
-  const receipt = React.useMemo(() => (receiptId ? findById(receiptId) : null), [receiptId, findById]);
+
+  const resolvedSystemId = React.useMemo(() => {
+    if (systemId) {
+      return asSystemId(systemId);
+    }
+    if (id) {
+      const businessId = asBusinessId(id);
+      const target = data.find((item) => item.id === businessId);
+      return target?.systemId;
+    }
+    return undefined;
+  }, [systemId, id, data]);
+
+  const isEditing = Boolean(resolvedSystemId);
+  const receipt = React.useMemo(
+    () => (resolvedSystemId ? findById(resolvedSystemId) : null),
+    [resolvedSystemId, findById]
+  );
+
+  const currentUserSystemId = React.useMemo(
+    () => currentEmployee?.systemId ?? asSystemId('SYSTEM'),
+    [currentEmployee]
+  );
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
@@ -45,16 +62,28 @@ export function ReceiptFormPage() {
     breadcrumb: routeMeta?.breadcrumb as any
   });
 
+  const normalizeValues = (values: ReceiptFormValues, createdBy: string): ReceiptInput => ({
+    ...values,
+    id: values.id ? asBusinessId(values.id) : undefined,
+    payerTypeSystemId: asSystemId(values.payerTypeSystemId),
+    payerSystemId: values.payerSystemId ? asSystemId(values.payerSystemId) : undefined,
+    paymentMethodSystemId: asSystemId(values.paymentMethodSystemId),
+    accountSystemId: asSystemId(values.accountSystemId),
+    paymentReceiptTypeSystemId: asSystemId(values.paymentReceiptTypeSystemId),
+    branchSystemId: asSystemId(values.branchSystemId),
+    createdBy: asSystemId(createdBy),
+  } as ReceiptInput);
+
   const handleFormSubmit = (values: ReceiptFormValues) => {
     try {
       if (receipt) {
-        update(receipt.systemId, { ...receipt, ...values });
+        update(receipt.systemId, { ...receipt, ...normalizeValues(values, receipt.createdBy) });
         toast.success("Cập nhật phiếu thu thành công");
         navigate(`${ROUTES.FINANCE.RECEIPTS}/${receipt.systemId}`);
       } else {
+        const normalized = normalizeValues(values, currentUserSystemId);
         const newReceipt = add({
-          ...values,
-          createdBy: currentEmployee?.fullName || employees[0]?.fullName || 'System',
+          ...normalized,
           createdAt: new Date().toISOString(),
         });
         toast.success("Tạo phiếu thu thành công");

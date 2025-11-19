@@ -1,31 +1,44 @@
-export type WorkShift = {
-  systemId: string;
-  id: string;
+import type { SystemId, BusinessId } from '@/lib/id-types';
+
+type AuditFields = {
+  createdAt?: string;
+  createdBy?: SystemId;
+  updatedAt?: string;
+  updatedBy?: SystemId;
+};
+
+export type WorkShift = AuditFields & {
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   startTime: string;
   endTime: string;
-  departments: string[];
+  breakMinutes?: number;
+  description?: string;
+  applicableDepartmentSystemIds: SystemId[];
 };
 
-export type LeaveType = {
-  systemId: string;
-  id: string;
+export type LeaveType = AuditFields & {
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   numberOfDays: number;
   isPaid: boolean;
   requiresAttachment: boolean;
   applicableGender: 'All' | 'Male' | 'Female';
+  applicableDepartmentSystemIds: SystemId[];
 };
 
-export type SalaryComponent = {
-  systemId: string;
-  id: string;
+export type SalaryComponent = AuditFields & {
+  systemId: SystemId;
+  id: BusinessId;
   name: string;
   type: 'fixed' | 'formula';
   amount?: number;
   formula?: string;
   taxable: boolean;
   partOfSocialInsurance: boolean;
+  applicableDepartmentSystemIds: SystemId[];
 };
 
 export type EmployeeSettings = {
