@@ -1,16 +1,9 @@
 import { z } from "zod";
-import { LEAVE_TYPE_NAMES, type LeaveTypeName } from "./types.ts";
-
-/**
- * Zod validation schema for Leave Request Form
- * Includes cross-field validation for date logic
- */
-const leaveTypeEnum = z.enum([...LEAVE_TYPE_NAMES] as [LeaveTypeName, ...LeaveTypeName[]]);
 
 export const leaveFormSchema = z.object({
   id: z.string().min(1, "Mã đơn không được để trống"),
   employeeSystemId: z.string().min(1, "Vui lòng chọn nhân viên"),
-  leaveTypeName: leaveTypeEnum,
+  leaveTypeSystemId: z.string().min(1, "Vui lòng chọn loại phép"),
   startDate: z.date({ 
     message: "Vui lòng chọn ngày bắt đầu"
   }),

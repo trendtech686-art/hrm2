@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, subtractDays } from '../../lib/date-utils.ts';
-import { FileSpreadsheet, Download, Upload, Eye, Trash2, Filter } from "lucide-react"
+import { FileSpreadsheet, Download, Upload, Eye, Trash2, Filter, RefreshCw } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
@@ -25,7 +25,14 @@ import { Label } from "../../components/ui/label.tsx"
 import { Separator } from "../../components/ui/separator.tsx"
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { toast } from "sonner"
-// Types
+import { 
+  useImportExportStore,
+  type ImportLogEntry,
+  type ExportLogEntry,
+  formatFileSize,
+} from '../../lib/import-export/index.ts';
+
+// Unified log type for display (combines import and export logs)
 export interface ImportExportLog {
   systemId: string
   fileName: string
@@ -37,61 +44,94 @@ export interface ImportExportLog {
   timestamp: string
   status: 'success' | 'failed' | 'partial'
   recordCount: number
-  successCount?: number
-  failedCount?: number
-  errorDetails?: string
-  fileUrl?: string
-  fileSize?: number
+  successCount?: number | undefined
+  failedCount?: number | undefined
+  errorDetails?: string | undefined
+  fileUrl?: string | undefined
+  fileSize?: number | undefined
 }
 
-// Sample data generator
-function generateSampleLogs(): ImportExportLog[] {
-  const modules = [
-    { id: 'employees', name: 'Nhân viên' },
-    { id: 'customers', name: 'Khách hàng' },
-    { id: 'products', name: 'Sản phẩm' },
-    { id: 'orders', name: 'Đơn hàng' },
-  ]
-  
-  const performers = ['Hoco', 'Ian', 'Admin']
-  const actions: ('import' | 'export')[] = ['import', 'export']
-  const statuses: ('success' | 'failed' | 'partial')[] = ['success', 'failed', 'partial']
-  
+// Module name mapping
+const MODULE_NAMES: Record<string, string> = {
+  employees: 'Nhân viên',
+  customers: 'Khách hàng',
+  products: 'Sản phẩm',
+  orders: 'Đơn hàng',
+  attendance: 'Chấm công',
+  departments: 'Phòng ban',
+  suppliers: 'Nhà cung cấp',
+  complaints: 'Khiếu nại',
+}
+
+// Transform store logs to display format
+function transformStoreLogs(
+  importLogs: ImportLogEntry[],
+  exportLogs: ExportLogEntry[]
+): ImportExportLog[] {
   const logs: ImportExportLog[] = []
   
-  for (let i = 0; i < 50; i++) {
-    const module = modules[Math.floor(Math.random() * modules.length)]
-    const action = actions[Math.floor(Math.random() * actions.length)]
-    const status = statuses[Math.floor(Math.random() * statuses.length)]
-    const recordCount = Math.floor(Math.random() * 500) + 10
-    
+  // Transform import logs
+  for (const log of importLogs) {
     logs.push({
-      systemId: `LOG${String(i + 1).padStart(8, '0')}`,
-      fileName: action === 'import' 
-        ? `import_${module.id}_${i + 1}.xlsx`
-        : `export_${module.id}_${Date.now()}.xlsx`,
-      action,
-      module: module.id,
-      moduleName: module.name,
-      performer: performers[Math.floor(Math.random() * performers.length)],
-      performerId: `USER${Math.floor(Math.random() * 100)}`,
-      timestamp: subtractDays(getCurrentDate(), Math.floor(Math.random() * 30))?.toISOString() || new Date().toISOString(),
-      status,
-      recordCount,
-      successCount: status === 'success' ? recordCount : Math.floor(recordCount * 0.8),
-      failedCount: status === 'failed' ? recordCount : status === 'partial' ? Math.floor(recordCount * 0.2) : 0,
-      errorDetails: status !== 'success' ? 'Một số dòng có lỗi định dạng' : undefined,
-      fileUrl: `/uploads/import-export/${module.id}/${action}_${i + 1}.xlsx`,
-      fileSize: Math.floor(Math.random() * 500000) + 10000,
+      systemId: log.id,
+      fileName: log.fileName,
+      action: 'import',
+      module: log.entityType,
+      moduleName: MODULE_NAMES[log.entityType] || log.entityType,
+      performer: log.performedBy,
+      performerId: log.performedBy,
+      timestamp: log.performedAt,
+      status: log.status,
+      recordCount: log.totalRows,
+      successCount: log.successCount,
+      failedCount: log.errorCount,
+      errorDetails: log.errors?.slice(0, 3).map(e => e.message).join('; ') || undefined,
+      fileUrl: undefined, // Import files are not stored
+      fileSize: log.fileSize,
     })
   }
   
-  return logs.sort((a, b) => getDaysDiff(parseDate(b.timestamp), parseDate(a.timestamp)));
+  // Transform export logs
+  for (const log of exportLogs) {
+    logs.push({
+      systemId: log.id,
+      fileName: log.fileName,
+      action: 'export',
+      module: log.entityType,
+      moduleName: MODULE_NAMES[log.entityType] || log.entityType,
+      performer: log.performedBy,
+      performerId: log.performedBy,
+      timestamp: log.performedAt,
+      status: log.status,
+      recordCount: log.totalRows,
+      successCount: log.totalRows,
+      failedCount: 0,
+      errorDetails: undefined,
+      fileUrl: undefined, // Would be blob URL, not persistent
+      fileSize: log.fileSize,
+    })
+  }
+  
+  // Sort by timestamp desc
+  return logs.sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  )
 }
 
 export function ImportExportHistoryPage() {
   const navigate = useNavigate();
-  const [logs] = React.useState<ImportExportLog[]>(generateSampleLogs())
+  
+  // Get logs from store
+  const importLogs = useImportExportStore(state => state.importLogs)
+  const exportLogs = useImportExportStore(state => state.exportLogs)
+  const deleteLog = useImportExportStore(state => state.deleteLog)
+  const clearLogs = useImportExportStore(state => state.clearLogs)
+  
+  // Transform store logs to display format
+  const logs = React.useMemo(() => 
+    transformStoreLogs(importLogs, exportLogs),
+    [importLogs, exportLogs]
+  )
   
   // Filters
   const [searchQuery, setSearchQuery] = React.useState('')
@@ -111,8 +151,22 @@ export function ImportExportHistoryPage() {
 
   usePageHeader({
     title: 'Quản lý Xuất/Nhập',
-    subtitle: 'Lịch sử import và export dữ liệu',
-    actions: []
+    actions: logs.length > 0 ? [
+      <Button 
+        key="clear-all" 
+        variant="outline" 
+        size="sm"
+        onClick={() => {
+          if (confirm('Bạn có chắc muốn xóa tất cả lịch sử?')) {
+            clearLogs()
+            toast.success('Đã xóa tất cả lịch sử')
+          }
+        }}
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Xóa tất cả
+      </Button>
+    ] : undefined
   });
 
   // Filtered data
@@ -137,6 +191,12 @@ export function ImportExportHistoryPage() {
       sorted.sort((a: any, b: any) => {
         const aVal = a[sorting.id]
         const bVal = b[sorting.id]
+        // Special handling for date columns
+        if (sorting.id === 'createdAt' || sorting.id === 'timestamp') {
+          const aTime = aVal ? new Date(aVal).getTime() : 0
+          const bTime = bVal ? new Date(bVal).getTime() : 0
+          return sorting.desc ? bTime - aTime : aTime - bTime
+        }
         if (aVal < bVal) return sorting.desc ? 1 : -1
         if (aVal > bVal) return sorting.desc ? -1 : 1
         return 0
@@ -165,24 +225,10 @@ export function ImportExportHistoryPage() {
   );
 
   // Actions
-  const handleDownload = (log: ImportExportLog) => {
-    if (log.fileUrl) {
-      toast.success(`Đang tải file: ${log.fileName}`);
-      // In real app: window.open(log.fileUrl)
-    } else {
-      toast.error('File không tồn tại');
-    }
-  };
-
-  const handleViewDetails = (log: ImportExportLog) => {
-    toast.info(`Xem chi tiết: ${log.fileName}`);
-    // Navigate to detail page or open modal
-  }
-
-  const handleDelete = (systemId: string) => {
+  const handleDelete = (systemId: string, action: 'import' | 'export') => {
     if (confirm('Bạn có chắc muốn xóa log này?')) {
+      deleteLog(systemId, action)
       toast.success('Đã xóa log')
-      // In real app: call API to delete
     }
   }
 
@@ -195,9 +241,9 @@ export function ImportExportHistoryPage() {
         <DataTableColumnHeader 
           title="Tên file"
           sortKey="fileName"
-          isSorted={sorting.id === 'fileName'}
-          sortDirection={sorting.desc ? 'desc' : 'asc'}
-          onSort={() => setSorting((s: any) => ({ id: 'fileName', desc: s.id === 'fileName' ? !s.desc : false }))}
+          isSorted={sorting?.id === 'fileName'}
+          sortDirection={sorting?.desc ? 'desc' : 'asc'}
+          onSort={() => setSorting?.((s: any) => ({ id: 'fileName', desc: s.id === 'fileName' ? !s.desc : false }))}
         />
       ),
       cell: ({ row }) => (
@@ -250,9 +296,9 @@ export function ImportExportHistoryPage() {
         <DataTableColumnHeader 
           title="Thời gian"
           sortKey="timestamp"
-          isSorted={sorting.id === 'timestamp'}
-          sortDirection={sorting.desc ? 'desc' : 'asc'}
-          onSort={() => setSorting((s: any) => ({ id: 'timestamp', desc: s.id === 'timestamp' ? !s.desc : false }))}
+          isSorted={sorting?.id === 'timestamp'}
+          sortDirection={sorting?.desc ? 'desc' : 'asc'}
+          onSort={() => setSorting?.((s: any) => ({ id: 'timestamp', desc: s.id === 'timestamp' ? !s.desc : false }))}
         />
       ),
       cell: ({ row }) => formatDateTime(row.timestamp),
@@ -299,6 +345,13 @@ export function ImportExportHistoryPage() {
       meta: { displayName: "Số bản ghi" }
     },
     {
+      id: "fileSize",
+      accessorKey: "fileSize",
+      header: "Kích thước",
+      cell: ({ row }) => row.fileSize ? formatFileSize(row.fileSize) : '-',
+      meta: { displayName: "Kích thước" }
+    },
+    {
       id: "actions",
       header: "Hành động",
       cell: ({ row }) => (
@@ -306,24 +359,9 @@ export function ImportExportHistoryPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleDownload(row as unknown as ImportExportLog)}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => handleViewDetails(row as unknown as ImportExportLog)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
             className="h-8 w-8 text-destructive"
-            onClick={() => handleDelete((row as unknown as ImportExportLog).systemId)}
+            onClick={() => handleDelete((row as unknown as ImportExportLog).systemId, (row as unknown as ImportExportLog).action)}
+            title="Xóa"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -332,6 +370,20 @@ export function ImportExportHistoryPage() {
       meta: { displayName: "Hành động" }
     },
   ]
+
+  // Empty state
+  if (logs.length === 0) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center space-y-4">
+        <FileSpreadsheet className="h-16 w-16 text-muted-foreground" />
+        <h3 className="text-lg font-medium">Chưa có lịch sử xuất/nhập</h3>
+        <p className="text-muted-foreground text-center max-w-md">
+          Khi bạn xuất hoặc nhập dữ liệu từ các module như Nhân viên, Khách hàng, Sản phẩm... 
+          lịch sử sẽ được ghi lại tại đây.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="h-full flex flex-col space-y-4">

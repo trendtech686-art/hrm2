@@ -23,6 +23,7 @@ export type ComplaintResolution =
   | "refund" // Trừ tiền vào đơn hàng
   | "return-shipping" // Gửi trả hàng (shop chịu phí)
   | "advice-only" // Tư vấn/hỗ trợ
+  | "replacement" // Đổi sản phẩm
   | "rejected"; // Không chấp nhận
 
 export type ComplaintVerification =
@@ -102,6 +103,7 @@ export interface Complaint {
   createdBy: SystemId; // userId - Manager tạo (branded)
   createdAt: Date;
   assignedTo?: SystemId; // userId - Nhân viên được giao xử lý (branded)
+  assigneeName?: string; // Tên nhân viên xử lý (denormalized for display)
   assignedAt?: Date;
 
   // Xử lý
@@ -231,6 +233,7 @@ export const complaintResolutionLabels: Record<ComplaintResolution, string> = {
   refund: "Trừ tiền vào đơn hàng",
   "return-shipping": "Gửi trả hàng (shop chịu phí)",
   "advice-only": "Tư vấn/Hỗ trợ",
+  replacement: "Đổi sản phẩm",
   rejected: "Từ chối khiếu nại",
 };
 

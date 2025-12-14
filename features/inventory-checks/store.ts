@@ -1,11 +1,37 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import type { InventoryCheck } from './types.ts';
+import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
 import { data as initialData } from './data.ts';
 import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
 import { asSystemId } from '../../lib/id-types.ts';
 import type { SystemId } from '../../lib/id-types.ts';
 import { registerBreadcrumbStore } from '../../lib/breadcrumb-generator.ts';
 import { useEmployeeStore } from '../employees/store.ts';
+
+// Helper to get current user info
+const getCurrentUserInfo = () => {
+  const currentUserSystemId = getCurrentUserSystemId();
+  const employee = useEmployeeStore.getState().data.find(e => e.systemId === currentUserSystemId);
+  return {
+    systemId: currentUserSystemId || 'SYSTEM',
+    name: employee?.fullName || 'Hệ thống',
+    avatar: employee?.avatarUrl,
+  };
+};
+
+// Helper to create history entry
+const createHistoryEntry = (
+  action: HistoryEntry['action'],
+  description: string,
+  metadata?: HistoryEntry['metadata']
+): HistoryEntry => ({
+  id: crypto.randomUUID(),
+  action,
+  timestamp: new Date(),
+  user: getCurrentUserInfo(),
+  description,
+  metadata,
+});
 
 const baseStore = createCrudStore<InventoryCheck>(initialData, 'inventory-checks', {
   businessIdField: 'id',
@@ -18,7 +44,7 @@ registerBreadcrumbStore('inventory-checks', () => baseStore.getState());
 
 interface InventoryCheckStoreState extends CrudState<InventoryCheck> {
   balanceCheck: (systemId: SystemId) => Promise<void>;
-  cancelCheck: (systemId: SystemId) => void;
+  cancelCheck: (systemId: SystemId, reason?: string) => void;
 }
 
 const augmentedMethods = {
@@ -69,24 +95,43 @@ const augmentedMethods = {
       });
     }
     
+    // Add history entry for balance action
+    const historyEntry = createHistoryEntry(
+      'status_changed',
+      'Đã cân bằng phiếu kiểm kho',
+      { oldValue: 'Nháp', newValue: 'Đã cân bằng' }
+    );
+    
     // Update check status with balanced user and timestamp
     state.update(systemId, {
       ...check,
       status: 'balanced',
       balancedAt: new Date().toISOString(),
       balancedBy: asSystemId(currentUserSystemId),
+      activityHistory: [...(check.activityHistory || []), historyEntry],
     });
   },
   
-  cancelCheck: (systemId: SystemId) => {
+  cancelCheck: (systemId: SystemId, reason?: string) => {
     const state = baseStore.getState();
     const check = state.findById(systemId);
     
     if (!check || check.status === 'cancelled') return;
     
+    const statusLabel = check.status === 'draft' ? 'Nháp' : 'Đã cân bằng';
+    const historyEntry = createHistoryEntry(
+      'cancelled',
+      `Đã hủy phiếu kiểm kho${reason ? `: ${reason}` : ''}`,
+      { oldValue: statusLabel, newValue: 'Đã hủy', note: reason }
+    );
+    
     state.update(systemId, {
       ...check,
       status: 'cancelled',
+      cancelledAt: new Date().toISOString(),
+      cancelledBy: asSystemId(getCurrentUserSystemId()),
+      cancelledReason: reason ?? '',
+      activityHistory: [...(check.activityHistory || []), historyEntry],
     });
   },
 };

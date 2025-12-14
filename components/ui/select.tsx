@@ -5,7 +5,27 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { useModal } from "../../contexts/modal-context.tsx"
 
-const Select = SelectPrimitive.Root
+type BaseSelectProps = React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root>
+
+type SelectProps = Omit<BaseSelectProps, "value" | "defaultValue"> & {
+  value?: string | undefined
+  defaultValue?: string | undefined
+}
+
+const Select = ({ value, defaultValue, ...props }: SelectProps) => {
+  const controlledProps: Partial<BaseSelectProps> = {}
+
+  if (value !== undefined) {
+    controlledProps.value = value
+  }
+
+  if (defaultValue !== undefined) {
+    controlledProps.defaultValue = defaultValue
+  }
+
+  return <SelectPrimitive.Root {...props} {...controlledProps} />
+}
+Select.displayName = SelectPrimitive.Root.displayName
 
 const SelectGroup = SelectPrimitive.Group
 

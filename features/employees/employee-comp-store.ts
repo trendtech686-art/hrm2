@@ -6,22 +6,22 @@ import { useEmployeeSettingsStore } from '../settings/employees/employee-setting
 import type { SalaryComponent, WorkShift } from '../settings/employees/types.ts';
 
 export type PayrollBankAccount = {
-  accountNumber?: string;
-  bankName?: string;
-  bankBranch?: string;
-  accountHolder?: string;
+  accountNumber?: string | undefined;
+  bankName?: string | undefined;
+  bankBranch?: string | undefined;
+  accountHolder?: string | undefined;
 };
 
 export type EmployeePayrollProfile = {
   employeeSystemId: SystemId;
-  workShiftSystemId?: WorkShift['systemId'];
+  workShiftSystemId?: WorkShift['systemId'] | undefined;
   salaryComponentSystemIds: SalaryComponent['systemId'][];
-  payrollBankAccount?: PayrollBankAccount;
+  payrollBankAccount?: PayrollBankAccount | undefined;
   paymentMethod: 'bank_transfer' | 'cash';
   createdAt: string;
-  createdBy?: SystemId;
+  createdBy?: SystemId | undefined;
   updatedAt: string;
-  updatedBy?: SystemId;
+  updatedBy?: SystemId | undefined;
 };
 
 export type ResolvedPayrollProfile = EmployeePayrollProfile & {
@@ -29,10 +29,10 @@ export type ResolvedPayrollProfile = EmployeePayrollProfile & {
 };
 
 export type EmployeePayrollProfileInput = {
-  workShiftSystemId?: WorkShift['systemId'];
-  salaryComponentSystemIds?: SalaryComponent['systemId'][];
-  payrollBankAccount?: PayrollBankAccount;
-  paymentMethod?: EmployeePayrollProfile['paymentMethod'];
+  workShiftSystemId?: WorkShift['systemId'] | undefined;
+  salaryComponentSystemIds?: SalaryComponent['systemId'][] | undefined;
+  payrollBankAccount?: PayrollBankAccount | undefined;
+  paymentMethod?: EmployeePayrollProfile['paymentMethod'] | undefined;
 };
 
 type EmployeeCompState = {

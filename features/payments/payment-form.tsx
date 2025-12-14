@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
 import { usePaymentMethodStore } from '../settings/payments/methods/store.ts';
 import { useTargetGroupStore } from '../settings/target-groups/store.ts';
@@ -11,6 +12,7 @@ import { useEmployeeStore } from '../employees/store.ts';
 import { useShippingPartnerStore } from '../settings/shipping/store.ts';
 import { VirtualizedCombobox, type ComboboxOption } from '../../components/ui/virtualized-combobox.tsx';
 import { CurrencyInput } from '../../components/ui/currency-input.tsx';
+import { Checkbox } from '../../components/ui/checkbox.tsx';
 import type { Payment } from './types.ts';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form.tsx';
 import { Input } from '../../components/ui/input.tsx';
@@ -23,6 +25,8 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '../../lib/utils.ts';
+import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert.tsx';
+import { ROUTES } from '../../lib/router.ts';
 import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
 
 export type PaymentFormValues = Omit<Payment, 'systemId' | 'createdAt' | 'runningBalance'>;
@@ -34,6 +38,7 @@ interface PaymentFormProps {
 }
 
 export function PaymentForm({ initialData, onSubmit, isEditing = false }: PaymentFormProps) {
+  const navigate = useNavigate();
   const { data: paymentTypes } = usePaymentTypeStore();
   const { data: paymentMethods } = usePaymentMethodStore();
   const { data: targetGroups } = useTargetGroupStore();
@@ -50,6 +55,16 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
   const activeTargetGroups = targetGroups.filter(tg => tg.isActive);
   const activeAccounts = accounts.filter(acc => acc.isActive);
   const activeBranches = branches;
+
+  const missingConfigs = React.useMemo(() => {
+    const items: string[] = [];
+    if (activePaymentTypes.length === 0) items.push('Loại phiếu chi');
+    if (activePaymentMethods.length === 0) items.push('Hình thức thanh toán');
+    if (activeAccounts.length === 0) items.push('Tài khoản quỹ');
+    if (activeTargetGroups.length === 0) items.push('Nhóm đối tượng');
+    if (activeBranches.length === 0) items.push('Chi nhánh');
+    return items;
+  }, [activePaymentTypes.length, activePaymentMethods.length, activeAccounts.length, activeTargetGroups.length, activeBranches.length]);
 
   const preferredRecipientGroup = activeTargetGroups.find(tg => tg.id === 'NHACUNGCAP');
   const defaultRecipientGroup = preferredRecipientGroup?.systemId ?? activeTargetGroups[0]?.systemId ?? asSystemId('TARGETGROUP000000');
@@ -102,6 +117,22 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
       affectsDebt: false,
     }
   });
+
+  if (missingConfigs.length > 0) {
+    return (
+      <Alert variant="destructive" className="space-y-3">
+        <div>
+          <AlertTitle>Thiếu cấu hình bắt buộc</AlertTitle>
+          <AlertDescription>
+            {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu chi.`}
+          </AlertDescription>
+        </div>
+        <Button type="button" variant="outline" onClick={() => navigate(ROUTES.SETTINGS.PAYMENTS)}>
+          Mở Cài đặt thanh toán
+        </Button>
+      </Alert>
+    );
+  }
 
   // Watch paymentMethodSystemId và recipientTypeSystemId để filter
   const paymentMethodSystemId = form.watch('paymentMethodSystemId');
@@ -340,6 +371,11 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
                         }
                         form.setValue('recipientSystemId', undefined);
                         form.setValue('recipientName', '');
+                        // ✅ Tự động bật affectsDebt nếu chọn Khách hàng
+                        const selectedGroup = targetGroups.find(tg => tg.systemId === option?.value);
+                        if (selectedGroup?.id === 'KHACHHANG') {
+                          form.setValue('affectsDebt', true);
+                        }
                       }}
                       options={targetGroupOptions}
                       placeholder="Chọn nhóm đối tượng"
@@ -512,6 +548,29 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
                 />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Ảnh hưởng công nợ */}
+        <FormField
+          control={form.control}
+          name="affectsDebt"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={isEditing}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>Ảnh hưởng công nợ</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Nếu bật, phiếu chi sẽ được tính vào công nợ khách hàng
+                </p>
+              </div>
             </FormItem>
           )}
         />

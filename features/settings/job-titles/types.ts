@@ -5,4 +5,8 @@ export type JobTitle = {
   id: BusinessId;
   name: string;
   description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

@@ -4,6 +4,7 @@
 
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import type { District } from './types.ts';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 type DistrictSeed = {
   systemId: string;
@@ -11,6 +12,8 @@ type DistrictSeed = {
   name: string;
   provinceId: string;
 };
+
+const DISTRICT_AUDIT_DATE = '2024-01-16T00:00:00Z';
 
 const rawData = [
   {
@@ -3763,4 +3766,5 @@ export const DISTRICTS_DATA: District[] = rawData.map((item) => ({
   ...item,
   systemId: asSystemId(item.systemId),
   provinceId: asBusinessId(item.provinceId),
+  ...buildSeedAuditFields({ createdAt: DISTRICT_AUDIT_DATE }),
 }));

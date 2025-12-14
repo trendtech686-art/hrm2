@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog.tsx';
 import { Button } from './button.tsx';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2 } from 'lucide-react';
-import { ProgressiveImage } from './progressive-image.tsx';
+import { Spinner } from './spinner.tsx';
 
 interface ImagePreviewDialogProps {
   images: string[];
@@ -38,13 +38,33 @@ export function ImagePreviewDialog({
   const [initialPinchDistance, setInitialPinchDistance] = React.useState<number | null>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const imageViewerRef = React.useRef<HTMLDivElement>(null);
+  const preloadedImages = React.useRef<Set<string>>(new Set());
+  const preloadImage = React.useCallback((url?: string) => {
+    if (!url || preloadedImages.current.has(url)) {
+      return;
+    }
+    const img = new Image();
+    img.src = url;
+    preloadedImages.current.add(url);
+  }, []);
+  const [isImageLoading, setIsImageLoading] = React.useState(true);
 
   React.useEffect(() => {
     setCurrentIndex(initialIndex);
     setZoom(1);
     setRotation(0);
     setPosition({ x: 0, y: 0 });
+    setIsImageLoading(true);
   }, [initialIndex, open]);
+
+  React.useEffect(() => {
+    if (!open || images.length === 0) return;
+    const offsets = [0, 1, -1, 2];
+    offsets.forEach(offset => {
+      const idx = (currentIndex + offset + images.length) % images.length;
+      preloadImage(images[idx]);
+    });
+  }, [open, currentIndex, images, preloadImage]);
 
   // Keyboard shortcuts
   React.useEffect(() => {
@@ -69,6 +89,7 @@ export function ImagePreviewDialog({
     setZoom(1);
     setRotation(0);
     setPosition({ x: 0, y: 0 });
+    setIsImageLoading(true);
   };
 
   const handlePrevious = () => {
@@ -76,6 +97,7 @@ export function ImagePreviewDialog({
     setZoom(1);
     setRotation(0);
     setPosition({ x: 0, y: 0 });
+    setIsImageLoading(true);
   };
 
   const handleZoomIn = () => {
@@ -256,7 +278,15 @@ export function ImagePreviewDialog({
                 maxHeight: '100%',
                 pointerEvents: 'none'
               }}
+              onLoad={() => setIsImageLoading(false)}
+              onError={() => setIsImageLoading(false)}
             />
+
+            {isImageLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+                <Spinner className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
           </div>
 
           {/* Navigation buttons */}
@@ -323,6 +353,7 @@ export function ImagePreviewDialog({
                   setZoom(1);
                   setRotation(0);
                   setPosition({ x: 0, y: 0 });
+                  setIsImageLoading(true);
                 }}
                 className={`shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded border-2 overflow-hidden transition-all ${
                   idx === currentIndex ? 'border-primary ring-2 ring-primary/20' : 'border-gray-300 hover:border-gray-400'

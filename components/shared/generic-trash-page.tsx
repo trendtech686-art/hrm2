@@ -25,7 +25,7 @@ import { Trash2, RotateCcw, AlertTriangle } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context.tsx"
 import type { ColumnDef } from '../data-table/types.ts';
 
-interface GenericTrashPageProps<T extends { systemId: SystemId; deletedAt?: string }> {
+interface GenericTrashPageProps<T extends { systemId: SystemId; deletedAt?: string | null | undefined }> {
   // Data & Store
   deletedItems: T[];
   onRestore: (systemId: SystemId) => void;
@@ -73,7 +73,7 @@ interface GenericTrashPageProps<T extends { systemId: SystemId; deletedAt?: stri
  * />
  * ```
  */
-export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: string }>({
+export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: string | null | undefined }>({
   deletedItems,
   onRestore,
   onPermanentDelete,

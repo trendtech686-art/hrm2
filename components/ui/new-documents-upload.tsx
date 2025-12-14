@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
-import { Upload, X, Eye, AlertCircle, File, Image, FileText } from 'lucide-react';
+import { Upload, X, Eye, AlertCircle, File } from 'lucide-react';
 import { Button } from './button';
 import { Card } from './card';
 import { cn } from '../../lib/utils';
@@ -27,10 +27,11 @@ type NewDocumentsUploadProps = {
   existingFileCount?: number; // Count of permanent files (for maxFiles validation)
   value?: StagingFile[];
   onChange?: (files: StagingFile[]) => void;
-  sessionId?: string;
+  sessionId?: string | undefined;
   onSessionChange?: (sessionId: string) => void;
   disabled?: boolean;
   className?: string;
+  gridTemplateClass?: string; // Allow callers to override the grid layout for previews
 };
 
 const formatFileSize = (bytes: number) => {
@@ -119,22 +120,15 @@ const compressImage = (file: File, quality: number = 0.75): Promise<File> => {
   });
 };
 
-const getFileIcon = (type: string | undefined) => {
-  if (!type || typeof type !== 'string') return File;
-  if (type.startsWith('image/')) return Image;
-  if (type === 'application/pdf') return FileText;
-  return File;
-};
-
-const getFileIconColor = (type: string | undefined): string => {
-  if (!type || typeof type !== 'string') return 'text-muted-foreground';
-  if (type.startsWith('image/')) return 'text-blue-500';
-  if (type === 'application/pdf') return 'text-red-500';
-  return 'text-muted-foreground';
-};
-
 export function NewDocumentsUpload({
-  accept = { 'image/*': ['.png', '.jpg', '.jpeg'], 'application/pdf': ['.pdf'] },
+  accept = { 
+    'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif'], 
+    'application/pdf': ['.pdf'],
+    'application/msword': ['.doc'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    'application/vnd.ms-excel': ['.xls'],
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  },
   maxSize = 10 * 1024 * 1024,
   maxFiles = 50,
   maxTotalSize = 50 * 1024 * 1024, // 50MB total limit per document type
@@ -145,6 +139,7 @@ export function NewDocumentsUpload({
   onSessionChange,
   disabled = false,
   className,
+  gridTemplateClass = 'grid-cols-5',
 }: NewDocumentsUploadProps) {
   const files = value; // Simple controlled component
   const [isUploading, setIsUploading] = React.useState(false);
@@ -253,7 +248,7 @@ export function NewDocumentsUpload({
       
       // Filter files that fit within size limit
       let runningSize = 0;
-      const fittingFiles = [];
+      const fittingFiles: File[] = [];
       for (const file of acceptedFiles) {
         if (runningSize + file.size <= availableSize) {
           fittingFiles.push(file);
@@ -558,13 +553,28 @@ export function NewDocumentsUpload({
       )}
 
       {files.length > 0 && (
-        <div className="grid grid-cols-5 gap-2 mb-2">
+        <div className={`grid ${gridTemplateClass} gap-2 mb-2`}>
           {files.map((file, index) => {
-            const FileIcon = getFileIcon(file.type);
             const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
             const previewUrl = getPreviewUrl(file);
             // Check if this is a permanent file (existing file with empty sessionId)
             const isPermanent = !file.sessionId || file.sessionId === '';
+
+            const handleImageRetry = (event: React.SyntheticEvent<HTMLImageElement>) => {
+              const img = event.currentTarget;
+              const attempts = Number(img.dataset.retryCount || '0');
+              if (attempts >= 4) {
+                console.warn('Image preview failed after retries:', previewUrl);
+                return;
+              }
+              const nextAttempts = attempts + 1;
+              img.dataset.retryCount = String(nextAttempts);
+              const delay = nextAttempts * 400;
+              setTimeout(() => {
+                const separator = previewUrl.includes('?') ? '&' : '?';
+                img.src = `${previewUrl}${separator}retry=${Date.now()}-${nextAttempts}`;
+              }, delay);
+            };
 
             return (
               <Card key={file.id} className={`group p-1.5 transition-all duration-200 hover:shadow-md relative ${
@@ -578,15 +588,10 @@ export function NewDocumentsUpload({
                         alt={file.name || file.originalName}
                         className="h-full w-full object-cover"
                         loading="eager"
-                        onError={(e) => {
-                          console.error('Image failed to load, retrying...:', previewUrl);
-                          setTimeout(() => {
-                            const img = e.currentTarget;
-                            if (img && img.src) {
-                              img.src = previewUrl + '?retry=' + Date.now();
-                            }
-                          }, 1000);
+                        onLoad={(e) => {
+                          e.currentTarget.dataset.retryCount = '0';
                         }}
+                        onError={handleImageRetry}
                       />
                       
                       {/* Status badge */}
@@ -622,7 +627,7 @@ export function NewDocumentsUpload({
                     </div>
                   ) : (
                     <div className="aspect-square rounded-lg bg-muted flex items-center justify-center">
-                      <FileIcon className={`h-8 w-8 ${getFileIconColor(file.type)}`} />
+                      <File className="h-8 w-8 text-muted-foreground" />
                     </div>
                   )}
 

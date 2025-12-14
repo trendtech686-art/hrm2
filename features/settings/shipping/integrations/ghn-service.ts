@@ -17,7 +17,7 @@ export type GHNShippingFeeResponse = {
     pick_station_fee: number; // Phí lấy hàng
     coupon_value: number; // Giá trị coupon
     r2s_fee: number; // Phí return to sender
-  };
+  } | undefined;
 };
 
 export type GHNCreateOrderResponse = {
@@ -41,7 +41,7 @@ export type GHNCreateOrderResponse = {
     };
     total_fee: number;
     expected_delivery_time: string; // ISO date
-  };
+  } | undefined;
 };
 
 export type GHNOrderStatusResponse = {
@@ -83,17 +83,17 @@ export type GHNOrderStatusResponse = {
     order_value: number;
     created_date: string;
     updated_date: string;
-  };
+  } | undefined;
 };
 
 export type GHNCalculateFeeParams = {
   // Service & Payment
-  service_type_id?: number; // 2: Express, 5: Standard
-  payment_type_id?: number; // 1: Shop trả, 2: Người nhận trả
+  service_type_id?: number | undefined; // 2: Express, 5: Standard
+  payment_type_id?: number | undefined; // 1: Shop trả, 2: Người nhận trả
   
   // From
   from_district_id: number; // Mã quận/huyện lấy hàng
-  from_ward_code?: string; // Mã phường/xã lấy hàng
+  from_ward_code?: string | undefined; // Mã phường/xã lấy hàng
   
   // To
   to_district_id: number; // Mã quận/huyện giao hàng
@@ -101,38 +101,38 @@ export type GHNCalculateFeeParams = {
   
   // Package info
   weight: number; // Gram
-  length?: number; // cm
-  width?: number; // cm
-  height?: number; // cm
+  length?: number | undefined; // cm
+  width?: number | undefined; // cm
+  height?: number | undefined; // cm
   
   // Value
-  insurance_value?: number; // Giá trị khai báo bảo hiểm
-  cod_value?: number; // Tiền CoD
+  insurance_value?: number | undefined; // Giá trị khai báo bảo hiểm
+  cod_value?: number | undefined; // Tiền CoD
   
   // Coupon
-  coupon?: string;
+  coupon?: string | undefined;
 };
 
 export type GHNCreateOrderParams = {
   // Service & Payment
-  service_type_id?: number; // 2: Express, 5: Standard (default: 2)
+  service_type_id?: number | undefined; // 2: Express, 5: Standard (default: 2)
   payment_type_id: number; // 1: Shop trả, 2: Người nhận trả
   
   // Required flag
   required_note: 'CHOTHUHANG' | 'CHOXEMHANGKHONGTHU' | 'KHONGCHOXEMHANG'; // Cho thử hàng | Cho xem hàng không thử | Không cho xem hàng
   
   // Order info
-  client_order_code?: string; // Mã đơn hàng của shop (optional)
-  note?: string;
+  client_order_code?: string | undefined; // Mã đơn hàng của shop (optional)
+  note?: string | undefined;
   content: string; // Nội dung đơn hàng
   
   // From (Shop)
   from_name: string;
   from_phone: string;
   from_address: string;
-  from_ward_code?: string;
+  from_ward_code?: string | undefined;
   from_district_id: number;
-  from_province_id?: number;
+  from_province_id?: number | undefined;
   
   // To (Customer)
   to_name: string;
@@ -142,11 +142,11 @@ export type GHNCreateOrderParams = {
   to_district_id: number;
   
   // Return address (optional, default = from)
-  return_name?: string;
-  return_phone?: string;
-  return_address?: string;
-  return_ward_code?: string;
-  return_district_id?: number;
+  return_name?: string | undefined;
+  return_phone?: string | undefined;
+  return_address?: string | undefined;
+  return_ward_code?: string | undefined;
+  return_district_id?: number | undefined;
   
   // Package info
   weight: number; // Gram (min: 1)
@@ -156,26 +156,26 @@ export type GHNCreateOrderParams = {
   
   // Value
   cod_amount: number; // Tiền CoD (VNĐ)
-  insurance_value?: number; // Giá trị khai báo bảo hiểm (VNĐ)
+  insurance_value?: number | undefined; // Giá trị khai báo bảo hiểm (VNĐ)
   
   // Items (optional for better tracking)
   items?: Array<{
     name: string;
-    code?: string;
+    code?: string | undefined;
     quantity: number;
-    price?: number; // đơn giá
-    weight?: number; // gram
-    length?: number; // cm
-    width?: number; // cm
-    height?: number; // cm
-  }>;
+    price?: number | undefined; // đơn giá
+    weight?: number | undefined; // gram
+    length?: number | undefined; // cm
+    width?: number | undefined; // cm
+    height?: number | undefined; // cm
+  }> | undefined;
   
   // Pickup
-  pick_station_id?: number; // Bưu cục lấy hàng
-  deliver_station_id?: number; // Bưu cục giao hàng
+  pick_station_id?: number | undefined; // Bưu cục lấy hàng
+  deliver_station_id?: number | undefined; // Bưu cục giao hàng
   
   // Coupon
-  coupon?: string;
+  coupon?: string | undefined;
 };
 
 /**
@@ -183,9 +183,9 @@ export type GHNCreateOrderParams = {
  */
 export class GHNService {
   private apiToken: string;
-  private shopId?: string; // Optional: Shop ID for some endpoints
+  private shopId?: string | undefined; // Optional: Shop ID for some endpoints
 
-  constructor(apiToken: string, shopId?: string) {
+  constructor(apiToken: string, shopId?: string | undefined) {
     this.apiToken = apiToken;
     this.shopId = shopId;
   }

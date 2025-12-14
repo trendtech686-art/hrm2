@@ -10,6 +10,11 @@
  * Falls back to localhost:3001 for development
  */
 export function getApiBaseUrl(): string {
+  // Use relative path to leverage Vite proxy in development
+  // This avoids CORS issues when frontend (5173) talks to backend (3001)
+  if ((import.meta as any).env?.DEV) {
+    return '/api';
+  }
   return (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001/api';
 }
 

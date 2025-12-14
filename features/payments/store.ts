@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Payment } from './types.ts';
+import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
 import { data as initialData } from './data.ts';
 import {
   extractCounterFromBusinessId,
@@ -11,6 +12,34 @@ import {
   type EntityType,
 } from '../../lib/id-utils.ts';
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
+import { pickAccount, pickPaymentMethod, pickPaymentType, pickTargetGroup } from '@/features/finance/document-lookups';
+import { useEmployeeStore } from '../employees/store.ts';
+import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+
+// Helper to get current user info
+const getCurrentUserInfo = () => {
+  const currentUserSystemId = getCurrentUserSystemId?.() || 'SYSTEM';
+  const employee = useEmployeeStore.getState().data.find(e => e.systemId === currentUserSystemId);
+  return {
+    systemId: currentUserSystemId,
+    name: employee?.fullName || 'Hệ thống',
+    avatar: employee?.avatarUrl,
+  };
+};
+
+// Helper to create history entry
+const createHistoryEntry = (
+  action: HistoryEntry['action'],
+  description: string,
+  metadata?: HistoryEntry['metadata']
+): HistoryEntry => ({
+  id: crypto.randomUUID(),
+  action,
+  timestamp: new Date(),
+  user: getCurrentUserInfo(),
+  description,
+  metadata,
+});
 
 export type PaymentInput = Omit<Payment, 'systemId' | 'id'> & { id?: BusinessId | string };
 
@@ -24,7 +53,7 @@ interface PaymentStore {
   remove: (systemId: SystemId) => void;
   findById: (systemId: SystemId) => Payment | undefined;
   getActive: () => Payment[];
-  cancel: (systemId: SystemId) => void;
+  cancel: (systemId: SystemId, reason?: string) => void;
 }
 
 const PAYMENT_ENTITY: EntityType = 'payments';
@@ -42,7 +71,93 @@ const normalizePayment = (payment: Payment): Payment => ({
   status: normalizePaymentStatus(payment.status),
 });
 
-const initialPayments = initialData.map(normalizePayment);
+const ensurePaymentMetadata = (payment: Payment): Payment => {
+  let mutated = false;
+  const updates: Partial<Payment> = {};
+
+  const targetGroup = pickTargetGroup({
+    systemId: payment.recipientTypeSystemId,
+    name: payment.recipientTypeName,
+  });
+  if (targetGroup) {
+    if (payment.recipientTypeSystemId !== targetGroup.systemId) {
+      updates.recipientTypeSystemId = targetGroup.systemId;
+      mutated = true;
+    }
+    if (payment.recipientTypeName !== targetGroup.name) {
+      updates.recipientTypeName = targetGroup.name;
+      mutated = true;
+    }
+  }
+
+  const paymentMethod = pickPaymentMethod({
+    systemId: payment.paymentMethodSystemId,
+    name: payment.paymentMethodName,
+  });
+  if (paymentMethod) {
+    if (payment.paymentMethodSystemId !== paymentMethod.systemId) {
+      updates.paymentMethodSystemId = paymentMethod.systemId;
+      mutated = true;
+    }
+    if (payment.paymentMethodName !== paymentMethod.name) {
+      updates.paymentMethodName = paymentMethod.name;
+      mutated = true;
+    }
+  }
+
+  const account = pickAccount({
+    accountSystemId: payment.accountSystemId,
+    branchSystemId: payment.branchSystemId,
+    paymentMethodName: paymentMethod?.name ?? payment.paymentMethodName,
+  });
+  if (account && payment.accountSystemId !== account.systemId) {
+    updates.accountSystemId = account.systemId;
+    mutated = true;
+  }
+
+  const paymentType = pickPaymentType({
+    systemId: payment.paymentReceiptTypeSystemId,
+    name: payment.paymentReceiptTypeName,
+  });
+  if (paymentType) {
+    if (payment.paymentReceiptTypeSystemId !== paymentType.systemId) {
+      updates.paymentReceiptTypeSystemId = paymentType.systemId;
+      mutated = true;
+    }
+    if (payment.paymentReceiptTypeName !== paymentType.name) {
+      updates.paymentReceiptTypeName = paymentType.name;
+      mutated = true;
+    }
+  }
+
+  const normalizedGroupName = targetGroup?.name?.trim().toLowerCase();
+  if (normalizedGroupName === 'khách hàng') {
+    if (!payment.customerName && payment.recipientName) {
+      updates.customerName = payment.recipientName;
+      mutated = true;
+    }
+    if (!payment.customerSystemId && payment.recipientSystemId) {
+      updates.customerSystemId = payment.recipientSystemId;
+      mutated = true;
+    }
+  }
+
+  return mutated ? { ...payment, ...updates } : payment;
+};
+
+const backfillPaymentMetadata = (payments: Payment[]): Payment[] => {
+  let mutated = false;
+  const updated = payments.map(payment => {
+    const normalized = ensurePaymentMetadata(payment);
+    if (normalized !== payment) {
+      mutated = true;
+    }
+    return normalized;
+  });
+  return mutated ? updated : payments;
+};
+
+const initialPayments = backfillPaymentMetadata(initialData.map(normalizePayment));
 
 let systemIdCounter = getMaxSystemIdCounter(initialPayments, SYSTEM_ID_PREFIX);
 let businessIdCounter = getMaxBusinessIdCounter(initialPayments, BUSINESS_ID_PREFIX);
@@ -171,13 +286,20 @@ export const usePaymentStore = create<PaymentStore>()(
       getActive: () => {
         return get().data.filter(payment => payment.status !== 'cancelled');
       },
-      cancel: (systemId) => {
+      cancel: (systemId: SystemId, reason?: string) => {
         const payment = get().findById(systemId);
-        if (payment) {
+        if (payment && payment.status !== 'cancelled') {
+          const historyEntry = createHistoryEntry(
+            'cancelled',
+            `Đã hủy phiếu chi${reason ? `: ${reason}` : ''}`,
+            { oldValue: 'Hoàn thành', newValue: 'Đã hủy', note: reason }
+          );
+          
           get().update(systemId, {
             ...payment,
             status: 'cancelled',
             cancelledAt: new Date().toISOString(),
+            activityHistory: [...(payment.activityHistory || []), historyEntry],
           });
         }
       },
@@ -187,7 +309,7 @@ export const usePaymentStore = create<PaymentStore>()(
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
         if (state?.data) {
-          const normalized = state.data.map(normalizePayment);
+          const normalized = backfillPaymentMetadata(state.data.map(normalizePayment));
           const nextSystemCounter = getMaxSystemIdCounter(normalized, SYSTEM_ID_PREFIX);
           const nextBusinessCounter = getMaxBusinessIdCounter(normalized, BUSINESS_ID_PREFIX);
           systemIdCounter = nextSystemCounter;

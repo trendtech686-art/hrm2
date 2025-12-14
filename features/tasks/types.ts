@@ -1,7 +1,7 @@
 import type { SystemId, BusinessId } from '../../lib/id-types';
 
 // Task priorities
-export const TASK_PRIORITIES = ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp'] as const;
+export const TASK_PRIORITIES = ['Thấp', 'Trung bình', 'Cao', 'Khẩn cấp', 'low', 'medium', 'high', 'urgent'] as const;
 export type TaskPriority = typeof TASK_PRIORITIES[number];
 
 // Task statuses
@@ -10,6 +10,7 @@ export const TASK_STATUSES = [
   'Đang thực hiện',
   'Đang chờ',
   'Chờ duyệt',
+  'Chờ xử lý',
   'Hoàn thành',
   'Đã hủy'
 ] as const;
@@ -46,10 +47,10 @@ export interface TaskActivity {
   userId: string;
   userName: string;
   action: TaskActivityAction;
-  fieldName?: string;
-  oldValue?: string;
-  newValue?: string;
-  description?: string; // Human-readable description
+  fieldName?: string | undefined;
+  oldValue?: string | undefined;
+  newValue?: string | undefined;
+  description?: string | undefined; // Human-readable description
   timestamp: string;
 }
 
@@ -86,7 +87,7 @@ export interface ApprovalHistory {
   reviewedBy: string;      // Admin systemId
   reviewedByName: string;  // Admin name
   reviewedAt: string;
-  reason?: string;         // For rejection
+  reason?: string | undefined;         // For rejection
 }
 
 // Multiple Assignees Support
@@ -104,6 +105,7 @@ export interface Task {
   id: BusinessId;  // Task businessId (branded)
   title: string;
   description: string;
+  type?: string | undefined;  // Task type from settings (Phát triển, Thiết kế, etc.)
   
   // Multiple assignees
   assignees: TaskAssignee[];
@@ -117,26 +119,27 @@ export interface Task {
   status: TaskStatus;
   startDate: string;
   dueDate: string;
-  completedDate?: string;
-  estimatedHours?: number;
-  actualHours?: number;
+  completedDate?: string | undefined;
+  estimatedHours?: number | undefined;
+  actualHours?: number | undefined;
   progress: number; // 0-100
-  comments?: TaskComment[];
-  attachments?: TaskAttachment[];
-  subtasks?: Array<{ id: string; title: string; completed: boolean }>;
-  activities?: TaskActivity[];
+  comments?: TaskComment[] | undefined;
+  attachments?: TaskAttachment[] | undefined;
+  subtasks?: Array<{ id: string; title: string; completed: boolean }> | undefined;
+  activities?: TaskActivity[] | undefined;
   // Time tracking fields
-  timerRunning?: boolean;
-  timerStartedAt?: string;
-  totalTrackedSeconds?: number;
+  timerRunning?: boolean | undefined;
+  timerStartedAt?: string | undefined;
+  totalTrackedSeconds?: number | undefined;
   // Completion evidence (for user tasks)
-  requiresEvidence?: boolean;       // Admin sets this when creating task
-  completionEvidence?: CompletionEvidence;
-  approvalStatus?: ApprovalStatus;  // pending, approved, rejected
-  approvalHistory?: ApprovalHistory[]; // Track all approvals/rejections
-  rejectionReason?: string;         // Latest rejection reason
+  requiresEvidence?: boolean | undefined;       // Admin sets this when creating task
+  completionEvidence?: CompletionEvidence | undefined;
+  approvalStatus?: ApprovalStatus | undefined;  // pending, approved, rejected
+  approvalHistory?: ApprovalHistory[] | undefined; // Track all approvals/rejections
+  rejectionReason?: string | undefined;         // Latest rejection reason
   createdAt: string;
   updatedAt: string;
   createdBy: SystemId;  // Creator systemId (branded)
   updatedBy: SystemId;  // Last updater systemId (branded)
+  isDeleted?: boolean | undefined;
 }

@@ -9,22 +9,6 @@ import { Textarea } from "../../../../components/ui/textarea.tsx";
 import { Checkbox } from "../../../../components/ui/checkbox.tsx";
 import { Label } from "../../../../components/ui/label.tsx";
 import { Switch } from "../../../../components/ui/switch.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select.tsx";
-
-const COLOR_OPTIONS = [
-  { value: '#10b981', label: 'Xanh lá' },
-  { value: '#3b82f6', label: 'Xanh dương' },
-  { value: '#8b5cf6', label: 'Tím' },
-  { value: '#f59e0b', label: 'Cam' },
-  { value: '#ef4444', label: 'Đỏ' },
-  { value: '#ec4899', label: 'Hồng' },
-  { value: '#14b8a6', label: 'Xanh ngọc' },
-  { value: '#06b6d4', label: 'Xanh cyan' },
-  { value: '#a855f7', label: 'Tím đậm' },
-  { value: '#22c55e', label: 'Xanh lá đậm' },
-  { value: '#0ea5e9', label: 'Xanh sky' },
-  { value: '#6b7280', label: 'Xám' },
-];
 
 const formSchema = z.object({
   id: z.string().min(1, "Mã loại là bắt buộc"),
@@ -49,16 +33,36 @@ export function PaymentTypeForm({ initialData, onSubmit }: FormProps) {
     description: "",
     isBusinessResult: true,
     isActive: true,
-    color: '#10b981',
+    color: '#0ea5e9',
   }), []);
 
   const form = useForm<PaymentTypeFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData ?? defaultValues,
+    defaultValues: initialData
+      ? {
+          id: initialData.id,
+          name: initialData.name,
+          description: initialData.description ?? '',
+          isBusinessResult: initialData.isBusinessResult,
+          isActive: initialData.isActive,
+          color: initialData.color ?? '',
+        }
+      : defaultValues,
   });
 
   React.useEffect(() => {
-    form.reset(initialData ?? defaultValues);
+    if (initialData) {
+      form.reset({
+        id: initialData.id,
+        name: initialData.name,
+        description: initialData.description ?? '',
+        isBusinessResult: initialData.isBusinessResult,
+        isActive: initialData.isActive,
+        color: initialData.color ?? '',
+      });
+    } else {
+      form.reset(defaultValues);
+    }
   }, [form, initialData, defaultValues]);
 
   return (
@@ -69,7 +73,7 @@ export function PaymentTypeForm({ initialData, onSubmit }: FormProps) {
             <FormItem>
               <FormLabel>Tên <span className="text-destructive">*</span></FormLabel>
               <FormControl>
-                <Input {...field} className="h-9" />
+                <Input {...field} value={field.value ?? ''} className="h-9" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -80,6 +84,7 @@ export function PaymentTypeForm({ initialData, onSubmit }: FormProps) {
               <FormControl>
                 <Input
                   {...field}
+                  value={field.value ?? ''}
                   className="h-9 uppercase"
                   onChange={(event) => field.onChange(event.target.value.toUpperCase())}
                 />
@@ -92,32 +97,19 @@ export function PaymentTypeForm({ initialData, onSubmit }: FormProps) {
           <FormItem>
             <FormLabel>Mô tả</FormLabel>
             <FormControl>
-              <Textarea {...field} rows={3} />
+              <Textarea {...field} value={field.value ?? ''} rows={3} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )} />
-        
+
         <FormField control={form.control} name="color" render={({ field }) => (
           <FormItem>
-            <FormLabel>Màu sắc</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn màu sắc" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {COLOR_OPTIONS.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: option.value }} />
-                      {option.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FormLabel>Màu hiển thị</FormLabel>
+            <FormControl>
+              <Input {...field} value={field.value ?? ''} placeholder="#0ea5e9" />
+            </FormControl>
+            <FormDescription>Dùng để phân biệt trên biểu đồ/báo cáo</FormDescription>
             <FormMessage />
           </FormItem>
         )} />

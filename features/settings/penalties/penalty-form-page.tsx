@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { usePenaltyStore } from './store.ts';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
 import { useRouteMeta } from '../../../hooks/use-route-meta';
 import { PenaltyForm } from './form.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
@@ -16,7 +16,7 @@ export function PenaltyFormPage() {
   const routeMeta = useRouteMeta();
   const { findById, add, update, remove } = usePenaltyStore();
 
-  const penalty = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
+  const penalty = React.useMemo(() => (systemId ? (findById(asSystemId(systemId)) ?? null) : null), [systemId, findById]);
   const isEdit = !!systemId;
 
   const handleCancel = React.useCallback(() => {
@@ -45,17 +45,24 @@ export function PenaltyFormPage() {
     </Button>
   ], [handleCancel]);
 
-  usePageHeader({
+  useSettingsPageHeader({
+    title: isEdit ? 'Chỉnh sửa phiếu phạt' : 'Tạo phiếu phạt',
     actions,
     breadcrumb: isEdit ? [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Phiếu phạt', href: '/penalties', isCurrent: false },
-      { label: penalty?.id || 'Chi tiết', href: `/penalties/${systemId}`, isCurrent: false },
-      { label: 'Chỉnh sửa', href: '', isCurrent: true }
+      penalty ? {
+        label: penalty.id,
+        href: `/penalties/${penalty.systemId}`,
+        isCurrent: false,
+      } : {
+        label: 'Chi tiết',
+        href: systemId ? `/penalties/${systemId}` : '/penalties',
+        isCurrent: false,
+      },
+      { label: 'Chỉnh sửa', href: systemId ? `/penalties/${systemId}/edit` : '/penalties', isCurrent: true }
     ] : [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Phiếu phạt', href: '/penalties', isCurrent: false },
-      { label: 'Thêm mới', href: '', isCurrent: true }
+      { label: 'Thêm mới', href: '/penalties/new', isCurrent: true }
     ]
   });
 

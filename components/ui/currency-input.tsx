@@ -4,7 +4,7 @@ import { cn } from "../../lib/utils.ts";
 
 export interface CurrencyInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
-  value?: number;
+  value?: number | undefined;
   onChange?: (value: number) => void;
 }
 

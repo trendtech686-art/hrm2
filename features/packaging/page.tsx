@@ -11,7 +11,8 @@ import { DataTableExportDialog } from '../../components/data-table/data-table-ex
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
+import { Card, CardContent, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar.tsx';
@@ -20,11 +21,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '../../components/ui/textarea.tsx';
 import { Label } from '../../components/ui/label.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
-import { Package, MoreHorizontal, Calendar, User, Inbox } from 'lucide-react';
+import { Package, MoreHorizontal, Calendar, User, Inbox, Printer } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { useAuth } from '../../contexts/auth-context.tsx';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertToPackingForPrint,
+  mapPackingToPrintData,
+  mapPackingLineItems,
+  createStoreSettings,
+} from '../../lib/print/order-print-helper.ts';
+import { useCustomerStore } from '../customers/store.ts';
 
 function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onConfirm: (reason: string) => void }) {
   const [reason, setReason] = React.useState('');
@@ -51,13 +62,26 @@ function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; on
 
 export function PackagingPage() {
     const { data: allOrders, confirmPackaging, cancelPackagingRequest } = useOrderStore();
-    const { data: branches } = useBranchStore();
+    const { data: branches, findById: findBranchById } = useBranchStore();
+    const { findById: findCustomerById } = useCustomerStore();
     const { employee: authEmployee } = useAuth();
+    const { info: storeInfo } = useStoreInfoStore();
+    const { print, printMultiple } = usePrint();
     const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
     const navigate = useNavigate();
     
-    const headerActions = React.useMemo(() => [], []);
-    usePageHeader({ actions: headerActions });
+    // Print dialog state
+    const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
+    const [itemsToPrint, setItemsToPrint] = React.useState<PackagingSlip[]>([]);
+
+    usePageHeader({
+        title: 'Phiếu đóng gói',
+        breadcrumb: [
+            { label: 'Trang chủ', href: '/', isCurrent: false },
+            { label: 'Đóng gói', href: '/packaging', isCurrent: true }
+        ],
+        showBackButton: false,
+    });
 
     const [cancelDialogState, setCancelDialogState] = React.useState<{ orderSystemId: string, packagingSystemId: string } | null>(null);
     const [branchFilter, setBranchFilter] = React.useState('all');
@@ -65,7 +89,7 @@ export function PackagingPage() {
     const [globalFilter, setGlobalFilter] = React.useState('');
     const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
-    const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'requestDate', desc: true });
+    const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [rowSelection, setRowSelection] = React.useState({});
     const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
     const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
@@ -122,10 +146,104 @@ export function PackagingPage() {
         }
     };
 
-    const handlePrintPackaging = React.useCallback((packagingIds: string[]) => {
-        console.log('In Phiếu Đóng Gói:', packagingIds);
-        // TODO: Implement print logic
+    // Handler để mở dialog in với options
+    const handleBulkPrint = React.useCallback((rows: PackagingSlip[]) => {
+        setItemsToPrint(rows);
+        setPrintDialogOpen(true);
     }, []);
+
+    // Handler khi xác nhận in từ dialog
+    const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+        if (itemsToPrint.length === 0) return;
+
+        const { branchSystemId, paperSize } = options;
+        const selectedBranch = branchSystemId ? findBranchById(branchSystemId) : null;
+        
+        const printOptionsList: any[] = [];
+        
+        itemsToPrint.forEach(pkg => {
+            // Find the order for this packaging
+            let targetOrder: any = null;
+            let targetPkg: any = null;
+
+            for (const order of allOrders) {
+                const foundPkg = order.packagings.find(p => p.systemId === pkg.systemId);
+                if (foundPkg) {
+                    targetOrder = order;
+                    targetPkg = foundPkg;
+                    break;
+                }
+            }
+
+            if (!targetOrder || !targetPkg) return;
+
+            const customer = findCustomerById(targetOrder.customerSystemId);
+            const branch = selectedBranch || findBranchById(targetOrder.branchSystemId);
+            const storeSettings = branch 
+                ? createStoreSettings(branch)
+                : {
+                    name: storeInfo.companyName || storeInfo.brandName || '',
+                    address: storeInfo.headquartersAddress || '',
+                    phone: storeInfo.hotline || '',
+                    email: storeInfo.email || '',
+                    province: storeInfo.province || '',
+                  };
+            const packingData = convertToPackingForPrint(targetOrder, targetPkg, { customer });
+            
+            printOptionsList.push({
+                data: mapPackingToPrintData(packingData, storeSettings),
+                lineItems: mapPackingLineItems(packingData.items),
+                paperSize,
+            });
+        });
+
+        if (printOptionsList.length > 0) {
+            printMultiple('packing', printOptionsList);
+            toast.success(`Đang in ${printOptionsList.length} phiếu đóng gói`);
+        }
+        
+        setPrintDialogOpen(false);
+        setItemsToPrint([]);
+        setRowSelection({});
+    }, [itemsToPrint, allOrders, findCustomerById, findBranchById, storeInfo, printMultiple]);
+    
+    const handlePrintPackaging = React.useCallback((packagingIds: string[]) => {
+        packagingIds.forEach(pkgId => {
+            // Find the packaging slip and the order
+            let targetOrder: any = null;
+            let targetPkg: any = null;
+
+            for (const order of allOrders) {
+                const pkg = order.packagings.find(p => p.systemId === pkgId);
+                if (pkg) {
+                    targetOrder = order;
+                    targetPkg = pkg;
+                    break;
+                }
+            }
+
+            if (!targetOrder || !targetPkg) return;
+
+            // Use helper to prepare print data
+            const customer = findCustomerById(targetOrder.customerSystemId);
+            const branch = findBranchById(targetOrder.branchSystemId);
+            const storeSettings = branch 
+                ? createStoreSettings(branch)
+                : {
+                    name: storeInfo.companyName || storeInfo.brandName || '',
+                    address: storeInfo.headquartersAddress || '',
+                    phone: storeInfo.hotline || '',
+                    email: storeInfo.email || '',
+                    province: storeInfo.province || '',
+                  };
+            const packingData = convertToPackingForPrint(targetOrder, targetPkg, { customer });
+            
+            print('packing', {
+                data: mapPackingToPrintData(packingData, storeSettings),
+                lineItems: mapPackingLineItems(packingData.items),
+            });
+        });
+    }, [allOrders, findCustomerById, findBranchById, storeInfo, print]);
 
     const handleBulkCancelPackaging = React.useCallback((packagingIds: string[]) => {
         console.log('Hủy Phiếu Đóng Gói:', packagingIds);
@@ -168,6 +286,12 @@ export function PackagingPage() {
                 const bValue = (b as any)[sorting.id];
                 if (!aValue) return 1;
                 if (!bValue) return -1;
+                // Special handling for date columns
+                if (sorting.id === 'createdAt' || sorting.id === 'requestDate') {
+                  const aTime = aValue ? new Date(aValue).getTime() : 0;
+                  const bTime = bValue ? new Date(bValue).getTime() : 0;
+                  return sorting.desc ? bTime - aTime : aTime - bTime;
+                }
                 if (aValue < bValue) return sorting.desc ? 1 : -1;
                 if (aValue > bValue) return sorting.desc ? -1 : 1;
                 return 0;
@@ -183,6 +307,15 @@ export function PackagingPage() {
     }, [sortedData, pagination]);
 
     const allSelectedRows = React.useMemo(() => packagingSlips.filter(p => rowSelection[p.systemId]), [packagingSlips, rowSelection]);
+
+    // Bulk actions với SimplePrintOptionsDialog
+    const bulkActions = React.useMemo(() => [
+        {
+            label: 'In phiếu đóng gói',
+            icon: Printer,
+            onSelect: (rows: PackagingSlip[]) => handleBulkPrint(rows),
+        },
+    ], [handleBulkPrint]);
 
     React.useEffect(() => {
         if (!isMobile) return;
@@ -216,11 +349,11 @@ export function PackagingPage() {
                 <CardContent className='p-4'>
                     <div className='flex items-center justify-between mb-2'>
                         <div className='flex items-center gap-2 flex-1 min-w-0'>
-                            <Avatar className='h-8 w-8 flex-shrink-0 bg-blue-100'>
-                                <AvatarFallback className='text-xs text-blue-700'><Inbox className='h-4 w-4' /></AvatarFallback>
+                            <Avatar className='h-8 w-8 flex-shrink-0 bg-primary/10'>
+                                <AvatarFallback className='text-xs text-primary'><Inbox className='h-4 w-4' /></AvatarFallback>
                             </Avatar>
                             <div className='flex items-center gap-1.5 min-w-0 flex-1'>
-                                <h3 className='font-semibold text-sm truncate'>{packaging.id}</h3>
+                                <CardTitle className='font-semibold text-sm truncate'>{packaging.id}</CardTitle>
                                 <span className='text-xs text-muted-foreground'></span>
                                 <span className='text-xs text-muted-foreground font-mono'>{packaging.orderId}</span>
                             </div>
@@ -326,25 +459,7 @@ export function PackagingPage() {
                         rowSelection={rowSelection} 
                         setRowSelection={setRowSelection} 
                         allSelectedRows={allSelectedRows}
-                        bulkActionButtons={
-                            allSelectedRows.length > 0 ? (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant='outline' size='sm'>
-                                            Chọn Hành Động ({allSelectedRows.length})
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align='start'>
-                                        <DropdownMenuItem onClick={() => handlePrintPackaging(allSelectedRows.map(p => p.systemId))}>
-                                            In Phiếu Đóng Gói
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleBulkCancelPackaging(allSelectedRows.map(p => p.systemId))}>
-                                            Hủy Phiếu Đóng Gói
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            ) : null
-                        }
+                        bulkActions={bulkActions}
                         expanded={expanded} 
                         setExpanded={setExpanded} 
                         sorting={sorting} 
@@ -359,6 +474,15 @@ export function PackagingPage() {
                     />
                 </div>
             )}
+
+            {/* Print Options Dialog */}
+            <SimplePrintOptionsDialog
+                open={printDialogOpen}
+                onOpenChange={setPrintDialogOpen}
+                selectedCount={itemsToPrint.length}
+                onConfirm={handlePrintConfirm}
+                title="In phiếu đóng gói"
+            />
             <CancelDialog isOpen={!!cancelDialogState} onOpenChange={(open) => !open && setCancelDialogState(null)} onConfirm={handleConfirmCancel} />
         </div>
     );

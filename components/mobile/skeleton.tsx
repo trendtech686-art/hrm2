@@ -25,8 +25,8 @@ export function MobileCardSkeleton({
   count = 3,
   className 
 }: { 
-  count?: number;
-  className?: string;
+  count?: number | undefined;
+  className?: string | undefined;
 }) {
   return (
     <>

@@ -6,12 +6,13 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { CheckCircle2, Circle, Plus, Trash2, GripVertical } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 export interface Subtask {
   id: string;
   title: string;
   completed: boolean;
-  completedAt?: Date;
+  completedAt?: Date | undefined;
   order: number;
   createdAt: Date;
 }
@@ -97,7 +98,7 @@ export function Subtasks({
     <Card className={className}>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-h5 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
             {title}
           </CardTitle>
@@ -174,7 +175,7 @@ export function Subtasks({
               
               {subtask.completed && subtask.completedAt && (
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  Hoàn thành: {new Date(subtask.completedAt).toLocaleString('vi-VN')}
+                  Hoàn thành: {formatDateTimeForDisplay(subtask.completedAt)}
                 </div>
               )}
             </div>

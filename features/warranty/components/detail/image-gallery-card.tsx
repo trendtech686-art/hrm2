@@ -4,9 +4,9 @@ import { LazyImage } from '../../../../components/ui/lazy-image.tsx';
 
 interface WarrantyImageGalleryCardProps {
   title: string;
-  images?: string[] | null;
+  images?: string[] | null | undefined;
   emptyMessage: string;
-  footnote?: string;
+  footnote?: string | undefined;
   onPreview: (images: string[], initialIndex: number) => void;
 }
 

@@ -1,82 +1,6 @@
 import type { Supplier } from './types.ts';
 import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
-// Helper function to generate sample suppliers
-const generateSampleSuppliers = (): Supplier[] => {
-  const suppliers: Supplier[] = [];
-  const statuses: Array<"Đang Giao Dịch" | "Ngừng Giao Dịch"> = ["Đang Giao Dịch", "Ngừng Giao Dịch"];
-  const companies = [
-    "Công ty TNHH", "Công ty CP", "Xí nghiệp", "Nhà phân phối", "Tập đoàn",
-    "Cửa hàng", "Xưởng", "Nhà máy", "Chi nhánh", "Trung tâm"
-  ];
-  const industries = [
-    "Công nghệ thông tin", "Phần mềm", "Phần cứng máy tính", "Văn phòng phẩm",
-    "Thiết bị điện tử", "Marketing", "In ấn", "Thiết kế", "Tư vấn", "Logistics",
-    "Vận tải", "Bảo hiểm", "Tài chính", "Y tế", "Giáo dục", "Xây dựng",
-    "Nội thất", "Thực phẩm", "Đồ uống", "Thời trang"
-  ];
-  const banks = [
-    "Vietcombank", "BIDV", "VietinBank", "Agribank", "Techcombank",
-    "MB Bank", "ACB", "VPBank", "Sacombank", "HDBank"
-  ];
-  const cities = [
-    { name: "TP.HCM", prefix: "028" },
-    { name: "Hà Nội", prefix: "024" },
-    { name: "Đà Nẵng", prefix: "023" },
-    { name: "Cần Thơ", prefix: "0292" },
-    { name: "Hải Phòng", prefix: "0225" }
-  ];
-  const managers = [
-    "Nguyễn Văn An", "Trần Thị Bình", "Lê Văn Cường", "Phạm Thị Dung",
-    "Hoàng Văn Em", "Vũ Thị Giang", "Đỗ Văn Hùng", "Bùi Thị Lan",
-    "Trịnh Văn Khoa", "Phan Thị Mai"
-  ];
-  const contactNames = [
-    "Nguyễn Minh", "Trần Hòa", "Lê Phương", "Phạm Tuấn", "Hoàng Linh",
-    "Vũ Hải", "Đỗ Khánh", "Bùi Trang", "Trịnh Nam", "Phan Oanh"
-  ];
-
-  for (let i = 1; i <= 96; i++) {
-    const num = i + 4; // Start from 5
-    const systemId = asSystemId(`SUPP${String(num).padStart(8, '0')}`);
-    const id = asBusinessId(`NCC${String(num).padStart(6, '0')}`);
-    const city = cities[i % cities.length];
-    const company = companies[i % companies.length];
-    const industry = industries[i % industries.length];
-    const bank = banks[i % banks.length];
-    const manager = managers[i % managers.length];
-    const contact = contactNames[i % contactNames.length];
-    const status = i % 5 === 0 ? "Ngừng Giao Dịch" : "Đang Giao Dịch";
-    
-    // Generate dates
-    const createdDate = new Date(2024, Math.floor(i / 12), (i % 28) + 1);
-    const updatedDate = new Date(createdDate.getTime() + (i * 24 * 60 * 60 * 1000));
-    
-    suppliers.push({
-      systemId,
-      id,
-      name: `${company} ${industry} ${i % 10 === 0 ? 'Việt Nam' : city.name}`,
-      taxCode: `0${300000000 + i * 111111}`.slice(0, 10),
-      phone: `${city.prefix}${38000000 + i * 100000}`.slice(0, 11),
-      email: `contact${num}@supplier${num}.vn`,
-      address: `${100 + i} Đường ${i % 2 === 0 ? 'Nguyễn Huệ' : 'Lê Lợi'}, ${city.name}`,
-      website: i % 3 === 0 ? `https://supplier${num}.vn` : undefined,
-      accountManager: manager,
-      status,
-      currentDebt: status === "Đang Giao Dịch" ? (i * 1000000) % 200000000 : 0,
-      bankAccount: `${1000000000 + i * 123456789}`.slice(0, 14),
-      bankName: bank,
-      contactPerson: `${contact} (${i % 2 === 0 ? 'Giám đốc' : 'Trưởng phòng'})`,
-      notes: i % 4 === 0 ? `NCC uy tín, hợp tác lâu dài từ ${2020 + (i % 5)} năm` : undefined,
-      createdAt: createdDate.toISOString(),
-      updatedAt: updatedDate.toISOString(),
-      createdBy: asSystemId(`EMP${String((i % 10) + 1).padStart(8, '0')}`),
-    });
-  }
-
-  return suppliers;
-};
-
 export const data: Supplier[] = [
   {
     systemId: asSystemId("SUPP00000001"),
@@ -156,5 +80,24 @@ export const data: Supplier[] = [
     updatedAt: "2024-09-30T13:00:00.000Z",
     createdBy: asSystemId("EMP00000004"),
   },
-  ...generateSampleSuppliers(),
+  {
+    systemId: asSystemId("SUPP00000005"),
+    id: asBusinessId("NCC000005"),
+    name: "Tập đoàn Logistics Việt Nam",
+    taxCode: "0315566778",
+    phone: "02835667788",
+    email: "info@vnlogistics.vn",
+    address: "56 Nguyễn Văn Linh, Q. 7, TP.HCM",
+    website: "https://vnlogistics.vn",
+    accountManager: "Lê Văn Cường",
+    status: "Đang Giao Dịch",
+    currentDebt: 75000000,
+    bankAccount: "6667778889990",
+    bankName: "VPBank",
+    contactPerson: "Hoàng Linh (Giám đốc vận hành)",
+    notes: "Đối tác vận chuyển chính",
+    createdAt: "2024-02-10T08:30:00.000Z",
+    updatedAt: "2024-11-05T10:15:00.000Z",
+    createdBy: asSystemId("EMP00000005"),
+  },
 ];

@@ -3,8 +3,8 @@ import type { SystemId, BusinessId } from '@/lib/id-types';
 type AuditFields = {
   createdAt?: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };
 
 export type Province = AuditFields & {

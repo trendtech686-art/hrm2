@@ -22,7 +22,7 @@ export const getColumns = (
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
       <Checkbox
         checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-        onCheckedChange={(value) => onToggleAll(!!value)}
+        onCheckedChange={(value) => onToggleAll?.(!!value)}
         aria-label="Select all"
       />
     ),
@@ -46,9 +46,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Mã NV"
         sortKey="id"
-        isSorted={sorting.id === 'id'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'id'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => <span className="font-mono">{row.id}</span>,
@@ -64,9 +64,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Họ và tên"
         sortKey="fullName"
-        isSorted={sorting.id === 'fullName'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'fullName'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => (
@@ -126,9 +126,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Ngày xóa"
         sortKey="deletedAt"
-        isSorted={sorting.id === 'deletedAt'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'deletedAt'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => {
@@ -140,9 +140,9 @@ export const getColumns = (
       const daysAgo = getDaysDiff(currentDate, deleted);
       
       return (
-        <div className="text-sm">
+        <div className="text-body-sm">
           <div>{formatDate(deletedAt)}</div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-body-xs text-muted-foreground">
             {daysAgo === 0 ? 'Hôm nay' : `${daysAgo} ngày trước`}
           </div>
         </div>

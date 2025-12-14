@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useSupplierStore } from "../store.ts";
-import { useToast } from "../../../hooks/use-toast.ts";
+import { toast } from 'sonner';
 import { useProvinceStore } from "../../settings/provinces/store.ts";
 import {
   Dialog,
@@ -29,7 +29,6 @@ export function QuickAddSupplierDialog({
 }: QuickAddSupplierDialogProps) {
   const { add } = useSupplierStore();
   const { data: provinces, getWardsByProvinceId } = useProvinceStore();
-  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Form state
@@ -134,10 +133,7 @@ export function QuickAddSupplierDialog({
 
       const addedSupplier = add(newSupplier);
 
-      toast({
-        title: "Thành công",
-        description: `Đã thêm nhà cung cấp "${newSupplier.name}"`,
-      });
+      toast.success(`Đã thêm nhà cung cấp "${newSupplier.name}"`);
 
       onOpenChange(false);
       
@@ -146,11 +142,7 @@ export function QuickAddSupplierDialog({
         onSuccess(addedSupplier.systemId);
       }
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Không thể thêm nhà cung cấp. Vui lòng thử lại.",
-        variant: "destructive",
-      });
+      toast.error('Không thể thêm nhà cung cấp. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }

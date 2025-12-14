@@ -50,8 +50,8 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
         {/* Header: ID + Priority + Menu */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-sm font-semibold text-muted-foreground">{task.id}</span>
-            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+            <span className="text-body-sm font-semibold text-muted-foreground">{task.id}</span>
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-body-xs font-medium ${getPriorityColor(task.priority)}`}>
               <Flag className="h-3 w-3" />
               {task.priority}
             </div>
@@ -89,7 +89,7 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-base mb-2 line-clamp-2">{task.title}</h3>
+        <h3 className="font-semibold text-h4 mb-2 line-clamp-2">{task.title}</h3>
 
         {/* Status + Progress */}
         <div className="flex items-center gap-3 mb-3">
@@ -98,12 +98,12 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
           </Badge>
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Progress value={task.progress} className="h-2 flex-1" />
-            <span className="text-xs text-muted-foreground shrink-0">{task.progress}%</span>
+            <span className="text-body-xs text-muted-foreground shrink-0">{task.progress}%</span>
           </div>
         </div>
 
         {/* Info Grid */}
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 text-body-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <User className="h-4 w-4 shrink-0" />
             <span className="truncate">{task.assigneeName}</span>

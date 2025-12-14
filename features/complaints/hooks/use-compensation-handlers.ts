@@ -56,19 +56,21 @@ export function useCompensationHandlers({
         metadata: {
           ...updatedTimeline[lastVerifiedCorrectIndex].metadata,
           paymentSystemId: result.payment?.systemId,
-          receiptSystemId: result.receipt?.systemId,
+          penaltySystemIds: result.penalties?.map(p => p.systemId),
           inventoryCheckSystemId: result.inventoryCheckSystemId,
         },
       };
     }
 
     // Thêm action mới cho "Xử lý bù trừ"
-    const compensationDetails = [];
+    const compensationDetails: string[] = [];
     if (result.payment) {
       compensationDetails.push(`Phiếu chi: ${result.payment.id} (${result.payment.amount.toLocaleString('vi-VN')} đ)`);
     }
-    if (result.receipt) {
-      compensationDetails.push(`Phiếu thu: ${result.receipt.id} (${result.receipt.amount.toLocaleString('vi-VN')} đ)`);
+    if (result.penalties && result.penalties.length > 0) {
+      result.penalties.forEach(penalty => {
+        compensationDetails.push(`Phiếu phạt: ${penalty.id} - ${penalty.penaltyTypeName || 'Phạt'} (${penalty.amount.toLocaleString('vi-VN')} đ)`);
+      });
     }
     if (result.inventoryCheckSystemId) {
       compensationDetails.push(`Phiếu kiểm kê: ${result.inventoryCheckSystemId}`);
@@ -84,13 +86,16 @@ export function useCompensationHandlers({
     
     updatedTimeline.push(compensationAction);
 
+    // Calculate total penalty amount
+    const totalPenaltyAmount = result.penalties?.reduce((sum, p) => sum + p.amount, 0) || 0;
+
     updateComplaint(complaint.systemId, {
       isVerifiedCorrect: true,
       verification: "verified-correct",
       resolution: result.payment?.description?.includes('Đổi hàng') ? "replacement" : "refund",
       resolutionNote: result.reason,
       compensationAmount: result.payment?.amount || 0,
-      incurredCost: result.receipt?.amount || 0,
+      penaltyAmount: totalPenaltyAmount,
       compensationReason: result.reason,
       timeline: updatedTimeline,
       // ⚠️ REMOVED: Không cập nhật compensationMetadata nữa

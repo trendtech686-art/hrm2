@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
+import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge.tsx';
 import { useOrderStore } from '../../orders/store.ts';
 import { useWarrantyStore } from '../../warranty/store.ts';
@@ -35,6 +36,7 @@ export function CommittedStockDialog({
 
   // Find all orders with committed stock for this product and branch
   const committedOrders = React.useMemo(() => {
+    const productSku = product?.id;
     return allOrders
       .filter(order => {
         // Check branch first
@@ -42,7 +44,8 @@ export function CommittedStockDialog({
 
         // Check if order contains this product
         const hasProduct = order.lineItems?.some(item => 
-          item.productSystemId === productSystemId
+          item.productSystemId === productSystemId ||
+          (productSku && item.productId === productSku)
         );
         if (!hasProduct) return false;
 
@@ -54,7 +57,13 @@ export function CommittedStockDialog({
         );
       })
       .map(order => {
-        const lineItem = order.lineItems.find(item => item.productSystemId === productSystemId)!;
+        const lineItem = order.lineItems.find(item => 
+          item.productSystemId === productSystemId ||
+          (productSku && item.productId === productSku)
+        );
+        if (!lineItem) {
+          return null;
+        }
         return {
           type: 'Đơn hàng' as const,
           id: order.id,
@@ -65,8 +74,9 @@ export function CommittedStockDialog({
           status: order.status,
           deliveryStatus: order.deliveryStatus,
         };
-      });
-  }, [allOrders, productSystemId, branchSystemId]);
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  }, [allOrders, productSystemId, branchSystemId, product]);
 
   // Find all warranties with committed stock for this product and branch
   const committedWarranties = React.useMemo(() => {
@@ -154,8 +164,8 @@ export function CommittedStockDialog({
           <DialogTitle>
             Phiếu đang giữ: {productName}
           </DialogTitle>
-          <div className="text-sm text-muted-foreground">
-            Chi nhánh: {branchName} • Tổng đang giữ: <span className="font-semibold text-orange-600">{totalCommitted}</span> sản phẩm
+          <div className="text-body-sm text-muted-foreground">
+            Chi nhánh: {branchName} • Tổng đang giữ: <span className="text-body-sm font-medium text-orange-600">{totalCommitted}</span> sản phẩm
           </div>
         </DialogHeader>
 
@@ -188,10 +198,10 @@ export function CommittedStockDialog({
                         {item.type}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-medium">{item.id}</TableCell>
-                    <TableCell>{new Date(item.date).toLocaleDateString('vi-VN')}</TableCell>
+                    <TableCell className="text-body-sm font-medium">{item.id}</TableCell>
+                    <TableCell>{formatDateForDisplay(item.date)}</TableCell>
                     <TableCell className="truncate max-w-[250px]" title={item.customerName}>{item.customerName}</TableCell>
-                    <TableCell className="text-right font-semibold text-orange-600">{item.quantity}</TableCell>
+                    <TableCell className="text-right text-body-sm font-medium text-orange-600">{item.quantity}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(item.type, item.status) as any}>
                         {getStatusLabel(item.type, item.status)}

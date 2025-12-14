@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 export type StoreGeneralInfoInput = {
   companyName: string;
   brandName: string;
+  logo?: string;
   taxCode: string;
   registrationNumber: string;
   representativeName: string;
@@ -22,16 +23,16 @@ export type StoreGeneralInfoInput = {
 };
 
 export type StoreGeneralInfo = StoreGeneralInfoInput & {
-  updatedAt?: string;
-  updatedBySystemId?: string;
-  updatedByName?: string;
+  updatedAt?: string | undefined;
+  updatedBySystemId?: string | undefined;
+  updatedByName?: string | undefined;
 };
 
 interface StoreInfoState {
   info: StoreGeneralInfo;
   updateInfo: (
     values: StoreGeneralInfoInput,
-    metadata?: { updatedBySystemId?: string; updatedByName?: string }
+    metadata?: { updatedBySystemId?: string | undefined; updatedByName?: string | undefined }
   ) => void;
   reset: () => void;
 }
@@ -39,6 +40,7 @@ interface StoreInfoState {
 const defaultInfo: StoreGeneralInfo = {
   companyName: '',
   brandName: '',
+  logo: '',
   taxCode: '',
   registrationNumber: '',
   representativeName: '',

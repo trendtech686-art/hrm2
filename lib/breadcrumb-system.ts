@@ -97,6 +97,39 @@ export const MODULES = {
         detail: {
           title: (code) => code ? `Đơn nghỉ phép ${code}` : 'Chi tiết nghỉ phép',
           description: 'Thông tin chi tiết đơn nghỉ phép'
+        },
+        edit: {
+          title: (code) => code ? `Chỉnh sửa đơn ${code}` : 'Chỉnh sửa đơn nghỉ phép',
+          description: 'Cập nhật thông tin đơn nghỉ phép'
+        },
+        new: {
+          title: 'Tạo đơn nghỉ phép mới',
+          description: 'Tạo đơn xin nghỉ phép'
+        }
+      },
+      PAYROLL: {
+        key: 'payroll',
+        name: 'Bảng lương',
+        icon: 'Banknote',
+        list: {
+          title: 'Danh sách bảng lương',
+          description: 'Quản lý bảng lương theo tháng'
+        },
+        detail: {
+          title: (code) => code ? `Bảng lương ${code}` : 'Chi tiết bảng lương',
+          description: 'Thông tin chi tiết bảng lương'
+        },
+        edit: {
+          title: (code) => code ? `Chỉnh sửa ${code}` : 'Chỉnh sửa bảng lương',
+          description: 'Cập nhật thông tin bảng lương'
+        },
+        new: {
+          title: 'Chạy bảng lương mới',
+          description: 'Tạo bảng lương cho kỳ mới'
+        },
+        templates: {
+          title: 'Mẫu bảng lương',
+          description: 'Quản lý bộ thành phần chuẩn để tái sử dụng'
         }
       }
     }
@@ -371,6 +404,48 @@ export const MODULES = {
         new: {
           title: 'Tạo phiếu kiểm hàng mới',
           description: 'Tạo phiếu kiểm kê định kỳ mới'
+        }
+      },
+      STOCK_TRANSFERS: {
+        key: 'stock-transfers',
+        name: 'Chuyển kho',
+        icon: 'Truck',
+        list: {
+          title: 'Danh sách chuyển kho',
+          description: 'Quản lý phiếu chuyển kho giữa các chi nhánh'
+        },
+        detail: {
+          title: (code) => code ? `Phiếu chuyển kho ${code}` : 'Chi tiết chuyển kho',
+          description: 'Thông tin chi tiết phiếu chuyển kho'
+        },
+        edit: {
+          title: (code) => code ? `Chỉnh sửa ${code}` : 'Chỉnh sửa chuyển kho',
+          description: 'Cập nhật thông tin phiếu chuyển kho'
+        },
+        new: {
+          title: 'Tạo phiếu chuyển kho',
+          description: 'Tạo phiếu chuyển kho mới'
+        }
+      },
+      COST_ADJUSTMENTS: {
+        key: 'cost-adjustments',
+        name: 'Điều chỉnh giá vốn',
+        icon: 'CircleDollarSign',
+        list: {
+          title: 'Danh sách điều chỉnh giá vốn',
+          description: 'Quản lý các phiếu điều chỉnh giá vốn sản phẩm'
+        },
+        detail: {
+          title: (code) => code ? `Phiếu điều chỉnh ${code}` : 'Chi tiết điều chỉnh',
+          description: 'Thông tin chi tiết phiếu điều chỉnh giá vốn'
+        },
+        edit: {
+          title: (code) => code ? `Chỉnh sửa ${code}` : 'Chỉnh sửa điều chỉnh',
+          description: 'Cập nhật thông tin phiếu điều chỉnh'
+        },
+        new: {
+          title: 'Tạo phiếu điều chỉnh giá vốn',
+          description: 'Tạo phiếu điều chỉnh giá vốn mới'
         }
       }
     }
@@ -774,6 +849,13 @@ const PATH_PATTERNS = {
   '/leaves': { module: 'HRM', section: 'LEAVES', action: 'list' },
   '/leaves/:systemId': { module: 'HRM', section: 'LEAVES', action: 'detail' },
   
+  // Payroll routes
+  '/payroll': { module: 'HRM', section: 'PAYROLL', action: 'list' },
+  '/payroll/run': { module: 'HRM', section: 'PAYROLL', action: 'new' },
+  '/payroll/templates': { module: 'HRM', section: 'PAYROLL', action: 'templates' },
+  '/payroll/:systemId': { module: 'HRM', section: 'PAYROLL', action: 'detail' },
+  '/payroll/:systemId/edit': { module: 'HRM', section: 'PAYROLL', action: 'edit' },
+  
   // Sales root aliases
   '/customers': { module: 'SALES', section: 'CUSTOMERS', action: 'list' },
   '/customers/new': { module: 'SALES', section: 'CUSTOMERS', action: 'new' },
@@ -831,6 +913,18 @@ const PATH_PATTERNS = {
   '/inventory-checks/:systemId/edit': { module: 'INVENTORY', section: 'INVENTORY_CHECKS', action: 'edit' },
   '/inventory-checks/edit/:systemId': { module: 'INVENTORY', section: 'INVENTORY_CHECKS', action: 'edit' },
   '/inventory-settings': { module: 'SETTINGS', section: 'INVENTORY_SETTINGS', action: 'list' },
+  
+  // Stock Transfers
+  '/stock-transfers': { module: 'INVENTORY', section: 'STOCK_TRANSFERS', action: 'list' },
+  '/stock-transfers/new': { module: 'INVENTORY', section: 'STOCK_TRANSFERS', action: 'new' },
+  '/stock-transfers/:systemId': { module: 'INVENTORY', section: 'STOCK_TRANSFERS', action: 'detail' },
+  '/stock-transfers/:systemId/edit': { module: 'INVENTORY', section: 'STOCK_TRANSFERS', action: 'edit' },
+  
+  // Cost Adjustments
+  '/cost-adjustments': { module: 'INVENTORY', section: 'COST_ADJUSTMENTS', action: 'list' },
+  '/cost-adjustments/new': { module: 'INVENTORY', section: 'COST_ADJUSTMENTS', action: 'new' },
+  '/cost-adjustments/:systemId': { module: 'INVENTORY', section: 'COST_ADJUSTMENTS', action: 'detail' },
+  '/cost-adjustments/:systemId/edit': { module: 'INVENTORY', section: 'COST_ADJUSTMENTS', action: 'edit' },
   
   // Internal operations root aliases
   '/packaging': { module: 'INTERNAL', section: 'PACKAGING', action: 'list' },

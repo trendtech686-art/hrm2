@@ -1,0 +1,53 @@
+import { TemplateVariable } from '../types';
+
+export const PHIEU_XAC_NHAN_HOAN_VARIABLES: TemplateVariable[] = [
+  // Thông tin cửa hàng
+  { key: '{store_logo}', label: 'Logo cửa hàng', group: 'Thông tin cửa hàng' },
+  { key: '{store_name}', label: 'Tên cửa hàng', group: 'Thông tin cửa hàng' },
+  { key: '{store_address}', label: 'Địa chỉ cửa hàng', group: 'Thông tin cửa hàng' },
+  { key: '{location_name}', label: 'Tên chi nhánh', group: 'Thông tin cửa hàng' },
+  { key: '{location_address}', label: 'Địa chỉ chi nhánh', group: 'Thông tin cửa hàng' },
+  { key: '{store_phone_number}', label: 'SĐT cửa hàng', group: 'Thông tin cửa hàng' },
+  { key: '{print_date}', label: 'Ngày in', group: 'Thông tin cửa hàng' },
+  { key: '{print_time}', label: 'Giờ in', group: 'Thông tin cửa hàng' },
+  // Thông tin
+  { key: '{hand_over_code}', label: 'Mã phiếu', group: 'Thông tin' },
+  { key: '{shipping_provider_name}', label: 'Đối tác giao hàng', group: 'Thông tin' },
+  { key: '{service_name}', label: 'Dịch vụ', group: 'Thông tin' },
+  { key: '{total_cod}', label: 'Tổng tiền thu hộ', group: 'Thông tin' },
+  { key: '{order_code}', label: 'Mã đơn hàng', group: 'Thông tin' },
+  { key: '{shipping_name}', label: 'Tên người nhận đơn', group: 'Thông tin' },
+  { key: '{shipping_phone}', label: 'Số điện thoại người nhận', group: 'Thông tin' },
+  { key: '{shipping_phone_hide}', label: 'Số điện thoại người nhận - ẩn 4 số giữa', group: 'Thông tin' },
+  { key: '{printed_on}', label: 'Ngày in phiếu', group: 'Thông tin' },
+  { key: '{district}', label: 'Quận/Huyện giao đến', group: 'Thông tin' },
+  { key: '{quantity}', label: 'Số lượng đơn', group: 'Thông tin' },
+  { key: '{current_account_name}', label: 'Tên nhân viên', group: 'Thông tin' },
+  { key: '{shipment_code}', label: 'Mã vận đơn', group: 'Thông tin' },
+  { key: '{shipping_address}', label: 'Địa chỉ giao hàng', group: 'Thông tin' },
+  { key: '{cod}', label: 'Tiền thu hộ', group: 'Thông tin' },
+  { key: '{note}', label: 'Ghi chú', group: 'Thông tin' },
+  { key: '{city}', label: 'Tỉnh/Thành phố giao', group: 'Thông tin' },
+
+  // === TỰ ĐỘNG THÊM TỪ TEMPLATE ===
+  { key: '{account_name}', label: 'Người tạo', group: 'Thông tin khác' },
+  { key: '{bank_account_name}', label: 'Tên tài khoản ngân hàng', group: 'Thông tin thanh toán' },
+  { key: '{bank_account}', label: 'Số tài khoản', group: 'Thông tin thanh toán' },
+  { key: '{bank_branch}', label: 'Chi nhánh ngân hàng', group: 'Thông tin thanh toán' },
+  { key: '{bank_name}', label: 'Tên ngân hàng', group: 'Thông tin thanh toán' },
+  { key: '{created_on_time}', label: 'Giờ tạo', group: 'Thông tin khác' },
+  { key: '{created_on}', label: 'Ngày tạo', group: 'Thông tin khác' },
+  { key: '{customer_name}', label: 'Tên khách hàng', group: 'Thông tin khách hàng' },
+  { key: '{customer_phone_number}', label: 'SĐT khách hàng', group: 'Thông tin khách hàng' },
+  { key: '{order_date}', label: 'Ngày đặt hàng', group: 'Thông tin đơn hàng' },
+  { key: '{refund_amount_text}', label: 'Số tiền hoàn bằng chữ', group: 'Tổng kết' },
+  { key: '{refund_amount}', label: 'Số tiền hoàn', group: 'Tổng kết' },
+  { key: '{refund_code}', label: 'Mã phiếu hoàn', group: 'Thông tin hoàn tiền' },
+  { key: '{refund_method}', label: 'Phương thức hoàn tiền', group: 'Thông tin hoàn tiền' },
+  { key: '{refund_reason}', label: 'Lý do hoàn tiền', group: 'Thông tin hoàn tiền' },
+  { key: '{refund_status}', label: 'Trạng thái hoàn tiền', group: 'Thông tin hoàn tiền' },
+  { key: '{refunded_on}', label: 'Ngày hoàn tiền', group: 'Thông tin hoàn tiền' },
+  { key: '{return_code}', label: 'Mã đơn trả hàng', group: 'Thông tin trả hàng' },
+  { key: '{return_date}', label: 'Ngày trả hàng', group: 'Thông tin trả hàng' },
+];
+

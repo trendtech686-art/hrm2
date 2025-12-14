@@ -26,9 +26,9 @@ import { EmployeeCombobox } from "./employee-combobox.tsx";
 interface OrderInfoCardProps {
   branchSystemId: string;
   employeeSystemId: string;
-  reference?: string;
-  orderId?: string;
-  deliveryDate?: Date;
+  reference?: string | undefined;
+  orderId?: string | undefined;
+  deliveryDate?: Date | undefined;
   onBranchChange: (branchSystemId: string) => void;
   onEmployeeChange: (employeeSystemId: string) => void;
   onReferenceChange: (reference: string) => void;
@@ -64,21 +64,21 @@ export function OrderInfoCard({
       <CardContent className="space-y-4 flex-1 overflow-y-auto">
         {/* Mã đơn */}
         <div className="space-y-2">
-          <Label htmlFor="order-id" className="text-xs">Mã đơn</Label>
+          <Label htmlFor="order-id" className="text-body-xs">Mã đơn</Label>
           <Input
             id="order-id"
             placeholder="Tự động tạo nếu bỏ trống"
             value={orderId || ""}
             onChange={(e) => onOrderIdChange(e.target.value)}
-            className="text-sm"
+            className="text-body-sm"
           />
         </div>
 
         {/* Chi nhánh */}
         <div className="space-y-2">
-          <Label htmlFor="branch" className="text-xs">Chi nhánh</Label>
+          <Label htmlFor="branch" className="text-body-xs">Chi nhánh</Label>
           <Select value={branchSystemId} onValueChange={onBranchChange}>
-            <SelectTrigger id="branch" className="text-sm">
+            <SelectTrigger id="branch" className="text-body-sm">
               <SelectValue placeholder="Chọn chi nhánh" />
             </SelectTrigger>
             <SelectContent>
@@ -93,7 +93,7 @@ export function OrderInfoCard({
 
         {/* Nhân viên */}
         <div className="space-y-2">
-          <Label htmlFor="employee" className="text-xs">Nhân viên</Label>
+          <Label htmlFor="employee" className="text-body-xs">Nhân viên</Label>
           <EmployeeCombobox
             value={employeeSystemId}
             onValueChange={onEmployeeChange}
@@ -103,13 +103,13 @@ export function OrderInfoCard({
 
         {/* Ngày hẹn giao */}
         <div className="space-y-2">
-          <Label className="text-xs">Ngày hẹn giao</Label>
+          <Label className="text-body-xs">Ngày hẹn giao</Label>
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full justify-start text-left font-normal text-sm",
+                  "w-full justify-start text-left font-normal text-body-sm",
                   !deliveryDate && "text-muted-foreground"
                 )}
                 size="sm"

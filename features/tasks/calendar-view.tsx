@@ -137,14 +137,14 @@ export function TaskCalendarView() {
         <CardContent className="p-6">
           <style>{`
             .fc {
-              --fc-border-color: hsl(var(--border));
-              --fc-button-bg-color: hsl(var(--primary));
-              --fc-button-border-color: hsl(var(--primary));
-              --fc-button-hover-bg-color: hsl(var(--primary) / 0.9);
-              --fc-button-hover-border-color: hsl(var(--primary) / 0.9);
-              --fc-button-active-bg-color: hsl(var(--primary) / 0.8);
-              --fc-button-active-border-color: hsl(var(--primary) / 0.8);
-              --fc-today-bg-color: hsl(var(--accent));
+              --fc-border-color: var(--border);
+              --fc-button-bg-color: var(--primary);
+              --fc-button-border-color: var(--primary);
+              --fc-button-hover-bg-color: color-mix(in oklch, var(--primary), transparent 10%);
+              --fc-button-hover-border-color: color-mix(in oklch, var(--primary), transparent 10%);
+              --fc-button-active-bg-color: color-mix(in oklch, var(--primary), transparent 20%);
+              --fc-button-active-border-color: color-mix(in oklch, var(--primary), transparent 20%);
+              --fc-today-bg-color: var(--accent);
             }
             .fc .fc-button {
               text-transform: none;

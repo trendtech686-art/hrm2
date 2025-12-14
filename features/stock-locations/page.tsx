@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { useSettingsPageHeader } from '../settings/use-settings-page-header.tsx';
 import { useStockLocationStore } from './store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import type { StockLocation } from './types.ts';
@@ -13,6 +13,7 @@ import { PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { SettingsActionButton } from '../../components/settings/SettingsActionButton.tsx';
 
 export function StockLocationsPage() {
   const { data, add, update, remove } = useStockLocationStore();
@@ -48,13 +49,27 @@ export function StockLocationsPage() {
   const handleEdit = React.useCallback((item: StockLocation) => { setEditingItem(item); setIsFormOpen(true); }, []);
   const handleDeleteRequest = React.useCallback((id: string) => { setIdToDelete(asSystemId(id)); setIsAlertOpen(true); }, []);
   
-  usePageHeader({
-    actions: [
-      <Button key="add" onClick={handleAddNew}>
-        <PlusCircle className="mr-2 h-4 w-4" />
-        Thêm điểm lưu kho
-      </Button>
-    ]
+  const locationSummary = React.useMemo(() => {
+    if (!data.length) {
+      return 'Chưa có điểm lưu kho nào, hãy tạo điểm đầu tiên để gán cho chi nhánh.';
+    }
+    const uniqueBranches = new Set(data.map((item) => item.branchSystemId)).size;
+    const defaultBranchName = branches.find((b) => b.isDefault)?.name;
+    const branchLabel = uniqueBranches ? `${uniqueBranches} chi nhánh` : 'Chưa gán chi nhánh';
+    const defaultBranchLabel = defaultBranchName ? ` • Chi nhánh mặc định: ${defaultBranchName}` : '';
+    return `${data.length} điểm lưu kho • ${branchLabel}${defaultBranchLabel}`;
+  }, [data, branches]);
+
+  const headerActions = React.useMemo(() => ([
+    <SettingsActionButton key="add" onClick={handleAddNew}>
+      <PlusCircle className="h-4 w-4" />
+      Thêm điểm lưu kho
+    </SettingsActionButton>
+  ]), [handleAddNew]);
+
+  useSettingsPageHeader({
+    title: 'Vị trí kho',
+    actions: headerActions,
   });
   
   const confirmDelete = () => { if (idToDelete) remove(idToDelete); setIsAlertOpen(false); };
@@ -76,14 +91,9 @@ export function StockLocationsPage() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Danh sách Điểm lưu kho</CardTitle>
-              <CardDescription>Quản lý các vị trí lưu trữ hàng hóa trong từng chi nhánh.</CardDescription>
-            </div>
-            <Button size="sm" onClick={handleAddNew}><PlusCircle className="mr-2 h-4 w-4" /> Thêm điểm lưu kho</Button>
-          </div>
+        <CardHeader className="pb-4">
+          <CardTitle>Danh sách điểm lưu kho</CardTitle>
+          <CardDescription>Theo dõi mapping vị trí giữa chi nhánh và khu vực lưu trữ.</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveDataTable
@@ -95,7 +105,7 @@ export function StockLocationsPage() {
             rowCount={data.length}
             rowSelection={{}}
             setRowSelection={() => {}}
-            sorting={{id: 'name', desc: false}}
+            sorting={{id: 'createdAt', desc: true}}
             setSorting={() => {}}
             allSelectedRows={[]}
             expanded={{}}

@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import {
   Card,
   CardContent,
+  CardTitle,
 } from "../../components/ui/card.tsx";
 import {
   AlertDialog,
@@ -65,10 +66,10 @@ export function CashbookPage() {
   const { data: payments, remove: removePayment } = usePaymentStore();
   const transactions = React.useMemo<CashbookTransaction[]>(() => {
     const validReceipts = (receipts || [])
-      .filter(r => r && r.systemId && r.id && r.date && r.accountSystemId)
+      .filter(r => r && r.systemId && r.id && r.date && r.accountSystemId && r.status !== 'cancelled')
       .map(r => ({ ...r, type: 'receipt' as const }));
     const validPayments = (payments || [])
-      .filter(p => p && p.systemId && p.id && p.date && p.accountSystemId)
+      .filter(p => p && p.systemId && p.id && p.date && p.accountSystemId && p.status !== 'cancelled')
       .map(p => ({ ...p, type: 'payment' as const }));
     return [...validReceipts, ...validPayments];
   }, [receipts, payments]);
@@ -93,7 +94,7 @@ export function CashbookPage() {
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
 
   // Table state
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'date', desc: true });
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [branchFilter, setBranchFilter] = React.useState('all');
@@ -354,6 +355,18 @@ export function CashbookPage() {
       sorted.sort((a, b) => {
         const aValue = (a as any)[sorting.id];
         const bValue = (b as any)[sorting.id];
+        // Special handling for date columns - parse as Date for proper comparison
+        if (sorting.id === 'createdAt' || sorting.id === 'date') {
+          const aTime = aValue ? new Date(aValue).getTime() : 0;
+          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
+          if (aTime === bTime) {
+            const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
+            const bNum = parseInt(b.systemId.replace(/\D/g, '')) || 0;
+            return sorting.desc ? bNum - aNum : aNum - bNum;
+          }
+          return sorting.desc ? bTime - aTime : aTime - bTime;
+        }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
         if (aValue > bValue) return sorting.desc ? -1 : 1;
         return 0;
@@ -375,29 +388,8 @@ export function CashbookPage() {
     columns: columns as any,
   }), [columns]);
 
-  // ✅ Memoize header actions - AFTER filteredTransactions is calculated
+  // ✅ Memoize header actions - CHỈ action chính (tạo phiếu)
   const headerActions = React.useMemo(() => [
-    <DataTableExportDialog
-      key="export"
-      allData={transactions}
-      filteredData={sortedData}
-      pageData={paginatedData}
-      config={exportConfig}
-    />,
-    <DataTableColumnCustomizer
-      key="columns"
-      columns={columns as any}
-      columnVisibility={columnVisibility}
-      setColumnVisibility={setColumnVisibility}
-      columnOrder={columnOrder}
-      setColumnOrder={setColumnOrder}
-      pinnedColumns={pinnedColumns}
-      setPinnedColumns={setPinnedColumns}
-    />,
-    <Button key="reports" variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.CASHBOOK_REPORTS)}>
-      <BarChart3 className="mr-2 h-4 w-4" />
-      Báo cáo
-    </Button>,
     <Button key="payment" variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.PAYMENT_NEW)}>
       <Minus className="mr-2 h-4 w-4" />
       Lập Phiếu Chi
@@ -406,15 +398,18 @@ export function CashbookPage() {
       <Plus className="mr-2 h-4 w-4" />
       Lập Phiếu Thu
     </Button>
-  ], [navigate, transactions, sortedData, paginatedData, exportConfig, columns, columnVisibility, columnOrder, pinnedColumns]);
+  ], [navigate]);
 
-  // Set page header with actions
+  const breadcrumb = React.useMemo(() => ([
+    { label: 'Trang chủ', href: ROUTES.ROOT },
+    { label: 'Sổ quỹ', href: ROUTES.FINANCE.CASHBOOK },
+  ]), []);
+
+  // Set page header with actions - Bỏ subtitle và docLink theo guidelines
   usePageHeader({
     title: 'Sổ quỹ',
-    breadcrumb: [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Sổ quỹ', href: '/cashbook', isCurrent: true }
-    ],
+    showBackButton: false,
+    breadcrumb,
     actions: headerActions
   });
 
@@ -437,13 +432,13 @@ export function CashbookPage() {
           {/* Header: Icon + ID + Type + Menu */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <Avatar className={`h-8 w-8 flex-shrink-0 ${isReceipt ? 'bg-green-100' : 'bg-red-100'}`}>
-                <AvatarFallback className={isReceipt ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+              <Avatar className={`h-8 w-8 flex-shrink-0 ${isReceipt ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+                <AvatarFallback className={isReceipt ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}>
                   {isReceipt ? <DollarSign className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
                 </AvatarFallback>
               </Avatar>
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <h3 className="font-semibold text-sm">{transaction?.id || 'N/A'}</h3>
+                <CardTitle className="font-semibold text-sm">{transaction?.id || 'N/A'}</CardTitle>
                 <Badge variant={isReceipt ? "default" : "destructive"} className="text-xs">
                   {isReceipt ? 'Thu' : 'Chi'}
                 </Badge>
@@ -480,7 +475,7 @@ export function CashbookPage() {
 
           {/* Amount + Date */}
           <div className="mb-3">
-            <div className={`text-lg font-bold ${isReceipt ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-lg font-bold ${isReceipt ? 'text-emerald-600' : 'text-destructive'}`}>
               {isReceipt ? '+' : '-'}{formatCurrency(transaction.amount)}
             </div>
             <div className="text-xs text-muted-foreground flex items-center mt-1">
@@ -528,28 +523,59 @@ export function CashbookPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Số dư đầu kỳ</p>
-            <p className="text-xl font-semibold">{formatCurrency(openingBalance)}</p>
+            <p className="text-h5 font-semibold">{formatCurrency(openingBalance)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tổng thu</p>
-            <p className="text-xl font-semibold text-green-600">{formatCurrency(totalReceipts)}</p>
+            <p className="text-h5 font-semibold text-emerald-600">{formatCurrency(totalReceipts)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tổng chi</p>
-            <p className="text-xl font-semibold text-red-600">{formatCurrency(totalPayments)}</p>
+            <p className="text-h5 font-semibold text-destructive">{formatCurrency(totalPayments)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xl font-bold">{formatCurrency(closingBalance)}</p>
+            <p className="text-h5 font-bold">{formatCurrency(closingBalance)}</p>
             <p className="text-sm text-muted-foreground">Tồn cuối kỳ</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Toolbar - Action phụ (Desktop only) */}
+      {!isMobile && (
+        <PageToolbar
+          leftActions={
+            <>
+              <DataTableExportDialog
+                allData={transactions}
+                filteredData={sortedData}
+                pageData={paginatedData}
+                config={exportConfig}
+              />
+              <Button variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.CASHBOOK_REPORTS)}>
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Báo cáo
+              </Button>
+            </>
+          }
+          rightActions={
+            <DataTableColumnCustomizer
+              columns={columns as any}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              pinnedColumns={pinnedColumns}
+              setPinnedColumns={setPinnedColumns}
+            />
+          }
+        />
+      )}
 
       {/* Filters */}
       <PageFilters

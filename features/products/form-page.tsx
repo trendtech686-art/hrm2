@@ -16,13 +16,18 @@ import { useStockHistoryStore } from '../stock-history/store.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
 import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
-import { asSystemId, type SystemId } from '@/lib/id-types';
+import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
+import { useImageStore } from './image-store.ts';
+import { FileUploadAPI } from '@/lib/file-upload-api.ts';
+import { calculateComboStock } from './combo-utils.ts';
 
 export function ProductFormPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+  const [searchParams] = ReactRouterDOM.useSearchParams();
   const navigate = ReactRouterDOM.useNavigate();
-  const { findById, add, update } = useProductStore();
+  const { findById, add, update, data: allProducts } = useProductStore();
   const { data: branches } = useBranchStore();
+  const imageStore = useImageStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
@@ -32,49 +37,104 @@ export function ProductFormPage() {
   const product = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const routeMeta = useRouteMeta();
   
+  // Check if creating a combo from query param
+  const isComboMode = searchParams.get('type') === 'combo';
+  
   const handleCancel = () => {
+    if (product) {
+      imageStore.clearStagingImages(product.systemId);
+    }
     navigate('/products');
   };
 
-  const pageActions = React.useMemo(() => (
-    <div className="flex items-center gap-2">
-      <Button 
-        variant="outline" 
-        onClick={handleCancel}
-      >
-        Hủy
-      </Button>
-      <Button 
-        type="submit" 
-        form="product-form-complete"
-      >
-        {isEditing ? 'Cập nhật' : 'Tạo mới'}
-      </Button>
-    </div>
-  ), [isEditing, handleCancel]);
-  
-  usePageHeader({
-    actions: [pageActions],
-    breadcrumb: product ? [
+  const headerActions = React.useMemo(() => [
+    <Button 
+      key="cancel"
+      variant="outline"
+      size="sm"
+      className="h-9"
+      onClick={handleCancel}
+    >
+      Hủy
+    </Button>,
+    <Button 
+      key="submit"
+      type="submit" 
+      form="product-form-complete"
+      size="sm"
+      className="h-9"
+    >
+      {isEditing ? 'Cập nhật' : 'Tạo mới'}
+    </Button>
+  ], [handleCancel, isEditing]);
+
+  const fallbackBreadcrumb = React.useMemo(() => (
+    product ? [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Sản phẩm', href: '/products', isCurrent: false },
       { label: product.name, href: `/products/${product.systemId}`, isCurrent: false },
-      { label: 'Chỉnh sửa', href: '', isCurrent: true }
-    ] : routeMeta?.breadcrumb as any
-    // KHÔNG truyền title - để auto-generate từ MODULES config
+      { label: 'Chỉnh sửa', href: `/products/${product.systemId}/edit`, isCurrent: true }
+    ] : [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Sản phẩm', href: '/products', isCurrent: false },
+      { label: 'Thêm mới', href: '/products/new', isCurrent: true }
+    ]
+  ), [product]);
+  
+  usePageHeader({
+    title: isEditing 
+      ? `Chỉnh sửa sản phẩm ${product?.name ?? ''}` 
+      : isComboMode 
+        ? 'Thêm sản phẩm Combo mới' 
+        : 'Thêm sản phẩm mới',
+    subtitle: isEditing 
+      ? 'Cập nhật thông tin, giá và tồn kho cho sản phẩm hiện có' 
+      : isComboMode
+        ? 'Tạo combo từ nhiều sản phẩm đơn lẻ với giá ưu đãi'
+        : 'Hoàn tất thông tin sản phẩm để bắt đầu quản lý tồn kho',
+    actions: headerActions,
+    breadcrumb: (routeMeta?.breadcrumb as any) ?? fallbackBreadcrumb,
+    showBackButton: true,
+    backPath: product ? `/products/${product.systemId}` : '/products'
   });
   
-  const handleSubmit = (values: ProductFormCompleteValues) => {
+  const handleSubmit = async (values: ProductFormCompleteValues): Promise<Product> => {
+    const { _imageFiles, title, seoDescription, ...productData } = values;
+    
+    console.log('[FormPage] handleSubmit received _imageFiles:', _imageFiles);
+    
     if (product) {
       // Edit mode - update existing product
-      update(product.systemId, { 
-        ...product, 
-        ...values,
+      const updatedProduct: Product = {
+        ...product,
+        ...productData,
+        ktitle: title, // Map title -> ktitle
+        seoDescription: seoDescription, // Map seoDescription
+        systemId: product.systemId,
+        id: asBusinessId(productData.id),
+        primarySupplierSystemId: productData.primarySupplierSystemId ? asSystemId(productData.primarySupplierSystemId) : undefined,
         updatedAt: new Date().toISOString(),
         updatedBy: currentUserSystemId,
+      };
+
+      update(product.systemId, updatedProduct);
+      
+      // Confirm staging images if any
+      console.log('[FormPage] Checking if need to confirm images...', { 
+        hasImageFiles: !!_imageFiles, 
+        keysLength: _imageFiles ? Object.keys(_imageFiles).length : 0 
       });
+      
+      if (_imageFiles && Object.keys(_imageFiles).length > 0) {
+        console.log('[FormPage] Calling confirmAllImages...');
+        await confirmAllImages(updatedProduct.systemId, productData, _imageFiles);
+      } else {
+        console.log('[FormPage] No images to confirm');
+      }
+      
       toast.success('Đã cập nhật sản phẩm thành công');
       navigate(`/products/${product.systemId}`);
+      return updatedProduct;
     } else {
       // Create mode - add new product
       const defaultBranch = branches.find(b => b.isDefault);
@@ -85,7 +145,11 @@ export function ProductFormPage() {
       });
 
       const productToAdd: Omit<Product, 'systemId'> = {
-        ...values,
+        ...productData,
+        ktitle: title, // Map title -> ktitle
+        seoDescription: seoDescription, // Map seoDescription
+        id: asBusinessId(productData.id),
+        primarySupplierSystemId: productData.primarySupplierSystemId ? asSystemId(productData.primarySupplierSystemId) : undefined,
         inventoryByBranch,
         committedByBranch: {},
         inTransitByBranch: {},
@@ -96,16 +160,36 @@ export function ProductFormPage() {
 
       const newProduct = add(productToAdd);
       
-      // Add initial stock history entry
+      // Confirm staging images if any
+      if (_imageFiles && Object.keys(_imageFiles).length > 0) {
+        await confirmAllImages(newProduct.systemId, productData, _imageFiles);
+      }
+      
+      // Add initial stock history entry for all product types (including combo)
       branches.forEach(branch => {
+        // Calculate initial stock level
+        let initialStockLevel = 0;
+        
+        if (productData.type === 'combo' && productData.comboItems && productData.comboItems.length > 0) {
+          // For combo: calculate stock from child products
+          initialStockLevel = calculateComboStock(
+            productData.comboItems,
+            allProducts,
+            branch.systemId
+          );
+        } else {
+          // For regular products: use inventoryByBranch if set, otherwise 0
+          initialStockLevel = productData.inventoryByBranch?.[branch.systemId] || 0;
+        }
+        
         addStockHistoryEntry({
           productId: newProduct.systemId, // ✅ Use systemId (internal key) not SKU
           date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
           employeeName: currentUserName,
           action: 'Khởi tạo sản phẩm',
-          quantityChange: 0,
-          newStockLevel: 0,
-          documentId: values.id, // Display ID (SKU) for documentId
+          quantityChange: initialStockLevel, // Initial quantity = stock level
+          newStockLevel: initialStockLevel,
+          documentId: asBusinessId(productData.id), // Display ID (SKU) for documentId
           branch: branch.name,
           branchSystemId: branch.systemId,
         });
@@ -113,6 +197,82 @@ export function ProductFormPage() {
       
       toast.success('Đã thêm sản phẩm thành công');
       navigate(`/products/${newProduct.systemId}`);
+      return newProduct;
+    }
+  };
+
+  const confirmAllImages = async (
+    productSystemId: string,
+    productData: any,
+    imageFiles: Record<string, any[]>
+  ) => {
+    try {
+      console.log('[ConfirmImages] Starting confirm with:', { productSystemId, imageFiles });
+      
+      const productMetadata = {
+        name: productData.name || product?.name || '',
+        sku: productData.id || product?.id || '',
+        confirmedBy: currentUserName,
+      };
+      
+      for (const [imageType, files] of Object.entries(imageFiles)) {
+        console.log(`[ConfirmImages] Processing ${imageType}:`, files);
+        
+        if (files.length > 0) {
+          const sessionId = files[0]?.sessionId;
+          console.log(`[ConfirmImages] SessionId for ${imageType}:`, sessionId);
+          
+          if (sessionId) {
+            console.log(`[ConfirmImages] Calling API to confirm ${imageType}...`);
+            const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
+              sessionId,
+              productSystemId,
+              'products',
+              imageType,
+              {
+                ...productMetadata,
+                imageType,
+              }
+            );
+            console.log(`[ConfirmImages] API returned for ${imageType}:`, confirmedFiles);
+            
+            imageStore.updatePermanentImages(
+              productSystemId,
+              imageType as 'thumbnail' | 'gallery',
+              confirmedFiles.map(f => ({
+                id: f.id,
+                sessionId: '',
+                name: f.name,
+                originalName: f.originalName,
+                slug: f.slug,
+                filename: f.filename,
+                size: f.size,
+                type: f.type,
+                url: f.url,
+                status: 'permanent' as const,
+                uploadedAt: f.uploadedAt,
+                metadata: f.metadata
+              })),
+              Date.now()
+            );
+            
+            // Cleanup staging
+            try {
+              await FileUploadAPI.deleteStagingSession(sessionId);
+            } catch (e) {
+              console.warn('Failed to cleanup staging session:', e);
+            }
+          }
+        }
+      }
+      
+      imageStore.clearStagingImages(productSystemId);
+      toast.success('Đã lưu hình ảnh thành công!');
+    } catch (error) {
+      console.error('Failed to confirm images:', error);
+      toast.warning('Lưu hình ảnh thất bại', {
+        description: 'Vui lòng thử upload lại sau.'
+      });
     }
   };
 
@@ -120,10 +280,11 @@ export function ProductFormPage() {
     <Card>
       <CardContent className="pt-6">
         <ProductFormComplete 
-          initialData={product} 
+          initialData={product ?? null} 
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           isEditMode={isEditing}
+          defaultType={isComboMode ? 'combo' : undefined}
         />
       </CardContent>
     </Card>

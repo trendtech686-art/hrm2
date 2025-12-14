@@ -1,0 +1,48 @@
+# Rà soát module Complaints (29/11/2025)
+
+## 1. Kiến trúc & hiện trạng
+- **Zustand store đơn lớp**: `features/complaints/store.ts` lưu toàn bộ complaint, timeline, reminder flags trong `localStorage` (`persist` key `complaint-storage`). Mọi thao tác (assign, verify, resolve, cancel, lọc, thống kê) diễn ra ngay trên trình duyệt và thao túng trực tiếp state của các store khác (products, payments, receipts, inventory-checks) thông qua các helper import động.
+- **Trang danh sách nặng 1.2k dòng**: `features/complaints/page.tsx` gộp cả Kanban + bảng, filter đa trạng thái, virtual scroll, cấu hình màu, sync realtime (giả lập) và mobile infinite scroll ngay trong component. Logic UI/state/phân quyền chồng chéo khiến việc tách nhỏ hay tái sử dụng gần như bất khả thi.
+- **Trang chi tiết 1k dòng**: `features/complaints/detail-page.tsx` tải mọi store phụ thuộc (`orders`, `employees`, `payments`, `products`, `cashbook`, …), quản lý 6 dialog (verification, compensation, inventory, template, confirm, image preview), đồng thời nhúng thẳng các handler (cancel/reopen/verify) gọi tới store khác mà không có service layer.
+- **Flow bù trừ & inventory**: `features/complaints/compensation-payment-receipt-wizard.tsx` và `hooks/use-compensation-handlers.ts` vừa tạo phiếu chi/thu (`usePaymentStore`, `useReceiptStore`), vừa cập nhật các metadata vào timeline để về sau hàm cancel (`handlers/*.ts`) tra ngược ra và “hủy phiếu” bằng cách đổi status tại client.
+- **Public tracking + thông báo**: `features/complaints/public-tracking-page.tsx` cho phép khách truy cập bằng `publicTrackingCode`, đọc order/cashbook data từ các store cục bộ và thêm comment vào timeline mà không có xác thực nào. SLA (`sla-utils.ts`), notification (`notification-utils.ts`), reminder (`hooks/use-complaint-reminders.ts`), realtime polling (`use-realtime-updates.ts`) đều chỉ là cấu hình `localStorage` + `setInterval`, không có backend/webhook.
+
+## 2. Đối chiếu checklist
+| Hạng mục | Trạng thái | Nhận xét |
+| --- | --- | --- |
+| Types & Validation | ⚠️ Một phần | `features/complaints/types.ts` định nghĩa đầy đủ type, inventory metadata, nhưng không có schema Zod/Prisma dùng chung, form chỉ kiểm tra thủ công trước khi mutate store. |
+| UI/UX | ⚠️ Một phần | Kanban + bảng responsive, có màu SLA, public portal đẹp; tuy nhiên file quá dài, thiếu loading/error boundary thực, public page dùng chung store nên refresh mất dữ liệu. |
+| Performance | ⚠️ Một phần | Có virtual scroll nhưng mọi filter/search dùng Fuse trên toàn bộ dataset phía client; detail page import toàn bộ stores khiến bundle phình lớn, reminder chạy `setInterval` mỗi phút trên mọi tab. |
+| Database Ready | ❌ | Không có bảng `Complaint`, `ComplaintTimeline`, `ComplaintProduct`, `ComplaintCompensation`, `ComplaintTracking`… Inventory/cashbook chỉ là reference ID lưu trong timeline metadata. |
+| API Ready | ❌ | Không có route `/api/complaints`. Public tracking sử dụng `window.location`, comment gửi thẳng vào store. Realtime chỉ tăng số `complaints-version` trong `localStorage`. |
+| Liên kết module | ⚠️ Thiếu | Liên kết Orders/Products/Cashbook/Inventory chỉ tồn tại bằng cách import trực tiếp các store client (ví dụ `compensation-payment-receipt-wizard.tsx`, `utils/payment-receipt-reversal.ts`). Không có hợp đồng dữ liệu hay transaction phía server. |
+
+## 3. Logic & liên kết đáng chú ý
+1. **Bù trừ tài chính/phạt nhân viên** (`compensation-payment-receipt-wizard.tsx`, `hooks/use-compensation-handlers.ts`): FE tự tạo phiếu chi/thu, chọn tài khoản quỹ, phương thức thanh toán, rồi chèn ID phiếu vào metadata của action `verified-correct`. Không có API hay cơ chế rollback transaction, nên refresh trang là mất toàn bộ chứng từ.
+2. **Điều chỉnh tồn kho & hoàn tác** (`handlers/cancel-handler.ts`, `utils/payment-receipt-reversal.ts`): Khi cancel hoặc reopen, FE lazy-load `useInventoryCheckStore`, `useProductStore`, `usePaymentStore`, `useReceiptStore` để đổi status thành `cancelled`. Việc dựa vào metadata trong timeline để tìm phiếu dễ vỡ nếu user sửa timeline hoặc có nhiều lần xác minh.
+3. **Public tracking & bình luận khách** (`public-tracking-page.tsx`, `hooks/use-public-tracking.ts`): Khách chỉ cần biết `publicTrackingCode` là có thể đọc mọi thông tin đơn hàng, bù trừ, và thêm comment vào timeline thông qua `updateComplaint`. Không có rate limit, captcha hay xác thực OTP.
+4. **SLA/Reminder** (`sla-utils.ts`, `hooks/use-complaint-reminders.ts`, `notification-utils.ts`): Toàn bộ SLA target, reminder interval, notification setting lưu trong `localStorage` cá nhân. Mỗi tab trình duyệt chạy `setInterval` 60 giây để nhắc nhở → vừa tốn tài nguyên, vừa không thống nhất giữa người dùng.
+
+## 4. Rủi ro & issue chính
+| Mức độ | Mô tả | Bằng chứng |
+| --- | --- | --- |
+| 🔴 Cao | Complaint data, timeline, compensation, inventory adjustments đều là state `Zustand` trên trình duyệt; không backend, không backup ⇒ refresh là mất, đa người dùng không đồng bộ. | `features/complaints/store.ts`, `features/complaints/detail-page.tsx` |
+| 🔴 Cao | FE tự tạo/huỷ phiếu chi, phiếu thu, phiếu kiểm kê bằng cách trực tiếp gọi `usePaymentStore`, `useReceiptStore`, `useInventoryCheckStore`. Không có transaction hoặc quyền hạn ⇒ người dùng có thể thao túng tài chính/kho. | `features/complaints/compensation-payment-receipt-wizard.tsx`, `features/complaints/utils/payment-receipt-reversal.ts` |
+| 🔴 Cao | Public tracking không có backend, khách có thể sửa timeline (comment) và đọc dữ liệu nội bộ nếu đoán được `publicTrackingCode`. | `features/complaints/public-tracking-page.tsx`, `hooks/use-public-tracking.ts` |
+| 🟠 Trung bình | SLA, reminder, notification setting lưu ở `localStorage`; việc cảnh báo quá hạn hay gửi email/sms chỉ là `toast` FE nên không đáp ứng SLA thật. | `features/complaints/sla-utils.ts`, `hooks/use-complaint-reminders.ts`, `notification-utils.ts` |
+| 🟠 Trung bình | Timeline metadata là nơi duy nhất giữ ID phiếu thu/chi/inventory; nếu người dùng sửa timeline hoặc có nhiều lần xác minh, hàm cancel không còn tìm được chứng từ để hoàn tác. | `hooks/use-compensation-handlers.ts`, `utils/payment-receipt-reversal.ts` |
+| 🟡 Thấp | Test hiện có chỉ là guard kiểm tra method/label; không có unit test cho workflow, wizard, reminder, public tracking. | `features/complaints/__tests__/complaint-store-guards.test.ts` |
+
+## 5. Đề xuất nâng cấp
+1. **Thiết kế domain & Prisma**: Tạo bảng `Complaints`, `ComplaintTimeline`, `ComplaintProductImpact`, `ComplaintInventoryAdjustment`, `ComplaintCompensation`, `ComplaintPublicTracking`. Chuẩn hóa dual ID + indexes theo `orderSystemId`, `customerSystemId`, `publicTrackingCode`.
+2. **Service/API layer**: Xây Route Handler `/api/complaints` (list/filter/pagination/search/export) và sub-route `/api/complaints/{id}/timeline`, `/compensation`, `/inventory-adjustment`, `/tracking`. Tất cả thao tác assign/verify/resolve phải đi qua service có transaction (PostgreSQL + Prisma) và emit event để Cashbook/Warehouse xử lý.
+3. **State machine & timeline**: Chuẩn hóa state diagram (pending → investigating → verified → resolved → ended/cancelled) với guard rõ ràng. Timeline lưu ở DB, metadata có schema (JSONB) và version. Viết migrator đọc dữ liệu local cũ để import vào DB (nếu cần).
+4. **Finance & inventory integration**: Tách `CompensationService` và `InventoryAdjustmentService` ở backend. Khi xác minh đúng, service tạo phiếu chi/thu qua API Cashbook, ghi `stock_ledger` hoặc tạo `inventory_check` thực sự, trả về ID cho timeline (không để FE tự tạo). Cancel/Reopen gọi API để rollback.
+5. **Public portal & notification**: Dựng endpoint `GET /public/complaints/:trackingCode` trả dữ liệu đã ẩn nhạy cảm, comment phải qua OTP/email + rate limit. SLA/reminder chạy bằng job worker (BullMQ/Temporal) + gửi thông báo thật qua Notification Center.
+6. **Quan sát & test**: Viết unit test cho service (compensation, cancellation, tracking) và component test cho Kanban/table view. Bổ sung audit log + metric (thời gian phản hồi, số vụ overdue) để Dashboard tiêu thụ.
+
+## 6. Việc cần làm ngay
+- Ngưng nhập liệu thật trên module Complaints; backup state `localStorage` (`complaint-storage`) để tham khảo khi viết migration.
+- Soạn đặc tả Prisma + API contract cho Complaints, bao gồm payload cho compensation/inventory/notification/public tracking, rồi sync với nhóm Orders, Inventory, Cashbook để chốt event bus.
+- Lên kế hoạch refactor FE: tách Kanban/table thành component nhỏ, chuyển dữ liệu sang React Query gọi API, giữ `useComplaintStore` chỉ cho UI state (filters, selections).
+- Ưu tiên thiết kế Public Tracking service (OTP + rate limit) và Notification worker để kịp đáp ứng SLA customer service đã cam kết (#12 trong bảng ưu tiên).

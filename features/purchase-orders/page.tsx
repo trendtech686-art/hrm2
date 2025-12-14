@@ -9,6 +9,8 @@ import { getColumns } from "./columns.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx"
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
+import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
+import { PageFilters } from "../../components/layout/page-filters.tsx"
 import { Input } from "../../components/ui/input.tsx"
 import { PurchaseOrderCard } from "./purchase-order-card.tsx"
 import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
@@ -43,7 +45,7 @@ import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
 // import type { Voucher } from '../vouchers/types.ts';
 import { usePurchaseReturnStore } from "../purchase-returns/store.ts";
 import type { PurchaseReturnLineItem } from "../purchase-returns/types.ts";
-import { useToast } from "../../hooks/use-toast.ts";
+import { toast } from 'sonner';
 import { useAuth } from "../../contexts/auth-context.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog.tsx";
 import { Label } from "../../components/ui/label.tsx";
@@ -51,6 +53,15 @@ import { Textarea } from "../../components/ui/textarea.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table.tsx";
 import { asBusinessId, asSystemId } from "@/lib/id-types";
 import type { SystemId } from "@/lib/id-types";
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertPurchaseOrderForPrint,
+  mapPurchaseOrderToPrintData,
+  mapPurchaseOrderLineItems,
+  createStoreSettings,
+} from '../../lib/print/purchase-order-print-helper.ts';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
@@ -80,11 +91,12 @@ type ReceiveDialogState = {
 };
 
 export function PurchaseOrdersPage() {
-  const { data: purchaseOrders, cancelOrder, processInventoryReceipt, bulkCancel, printPurchaseOrders, syncAllPurchaseOrderStatuses } = usePurchaseOrderStore();
-  const { data: branches } = useBranchStore();
-  const { data: suppliers } = useSupplierStore();
+  const { data: purchaseOrders, cancelOrder, processInventoryReceipt, bulkCancel, syncAllPurchaseOrderStatuses } = usePurchaseOrderStore();
+  const { data: branches, findById: findBranchById } = useBranchStore();
+  const { data: suppliers, findById: findSupplierById } = useSupplierStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { print } = usePrint();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { isMobile } = useBreakpoint();
   
   // Sync payment statuses when component mounts hoặc khi vouchers thay đổi
@@ -92,13 +104,26 @@ export function PurchaseOrdersPage() {
     syncAllPurchaseOrderStatuses();
   }, [syncAllPurchaseOrderStatuses]);
   
+  const headerActions = React.useMemo(() => [
+    <Button
+      key="add"
+      className="h-9"
+      size="sm"
+      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}
+    >
+      <PlusCircle className="mr-2 h-4 w-4" />
+      Tạo đơn nhập hàng
+    </Button>
+  ], [navigate]);
+
   usePageHeader({
-    actions: [
-      <Button key="add" className="h-9" onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}>
-        <PlusCircle className="mr-2 h-4 w-4" />
-        Tạo đơn nhập hàng
-      </Button>
-    ]
+    title: "Đơn nhập hàng",
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Đơn nhập hàng', href: ROUTES.PROCUREMENT.PURCHASE_ORDERS, isCurrent: true }
+    ],
+    actions: headerActions,
+    showBackButton: false
   });
   
   // Data stores for actions
@@ -137,7 +162,7 @@ export function PurchaseOrdersPage() {
   const [pendingReceiveQueue, setPendingReceiveQueue] = React.useState<PurchaseOrder[]>([]);
   const [isSubmittingReceive, setIsSubmittingReceive] = React.useState(false);
   
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'orderDate', desc: true });
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [branchFilter, setBranchFilter] = React.useState('all');
   const [statusFilter, setStatusFilter] = React.useState('all');
@@ -251,10 +276,8 @@ export function PurchaseOrdersPage() {
 
   const requireLoggedInEmployee = React.useCallback(() => {
     if (!loggedInUser) {
-      toast({
-        title: 'Chưa xác định người nhận',
+      toast.error('Chưa xác định người nhận', {
         description: 'Vui lòng đăng nhập để ghi nhận người nhập hàng.',
-        variant: 'destructive',
       });
       return false;
     }
@@ -286,10 +309,8 @@ export function PurchaseOrdersPage() {
   const openReceiveDialogForOrder = React.useCallback((po: PurchaseOrder, presetItems?: ReceiveLineItemForm[]) => {
     const computedItems = presetItems ?? computeReceivableItems(po);
     if (computedItems.length === 0) {
-      toast({
-        title: 'Đơn đã nhận đủ',
+      toast.error('Đơn đã nhận đủ', {
         description: `Đơn ${po.id} không còn số lượng cần nhập`,
-        variant: 'destructive',
       });
       return false;
     }
@@ -335,8 +356,7 @@ export function PurchaseOrdersPage() {
       .filter(entry => entry.items.length > 0);
 
     if (receivableEntries.length === 0) {
-      toast({
-        title: 'Không có đơn hợp lệ',
+      toast('Không có đơn hợp lệ', {
         description: 'Các đơn đã chọn đều đã nhập đủ hàng.',
       });
       return;
@@ -381,10 +401,8 @@ export function PurchaseOrdersPage() {
     }
 
     if (!receiveDialogState.targetBranchSystemId) {
-      toast({
-        title: 'Chưa chọn chi nhánh',
+      toast.error('Chưa chọn chi nhánh', {
         description: 'Vui lòng chọn chi nhánh nhận hàng trước khi lưu phiếu.',
-        variant: 'destructive',
       });
       return;
     }
@@ -401,10 +419,8 @@ export function PurchaseOrdersPage() {
       }));
 
     if (itemsToReceive.length === 0) {
-      toast({
-        title: 'Chưa chọn số lượng',
+      toast.error('Chưa chọn số lượng', {
         description: 'Vui lòng nhập số lượng thực nhận cho ít nhất một sản phẩm.',
-        variant: 'destructive',
       });
       return;
     }
@@ -453,7 +469,7 @@ export function PurchaseOrdersPage() {
           productId: item.productSystemId,
           date: new Date().toISOString(),
           employeeName: currentUserName,
-          action: `Nhập hàng từ NCC (${receiveDialogState.purchaseOrder.id})`,
+          action: `Nhập hàng từ NCC (${receiveDialogState.purchaseOrder?.id})`,
           quantityChange: item.receivedQuantity,
           newStockLevel: oldStock + item.receivedQuantity,
           documentId: createdReceipt.id,
@@ -463,8 +479,7 @@ export function PurchaseOrdersPage() {
       });
 
       processInventoryReceipt(receiveDialogState.purchaseOrder.systemId);
-      toast({
-        title: 'Đã lưu phiếu nhập',
+      toast.success('Đã lưu phiếu nhập', {
         description: `Hoàn tất nhập hàng cho đơn ${receiveDialogState.purchaseOrder.id}.`,
       });
 
@@ -481,55 +496,90 @@ export function PurchaseOrdersPage() {
   }, [receiveDialogState, requireLoggedInEmployee, currentUserSystemId, currentUserName, addInventoryReceipt, findProductById, updateInventory, addStockHistoryEntry, processInventoryReceipt, toast, pendingReceiveQueue, openReceiveDialogForOrder, closeReceiveDialog]);
 
   const handlePrint = React.useCallback((po: PurchaseOrder) => {
-    printPurchaseOrders([po.systemId]);
-    toast({
-      description: `Đang in đơn nhập hàng ${po.id}`,
+    // Use helper to prepare print data
+    const branch = findBranchById(po.branchSystemId);
+    const supplier = findSupplierById(po.supplierSystemId);
+    const storeSettings = branch 
+      ? createStoreSettings(branch)
+      : createStoreSettings(storeInfo);
+    const poData = convertPurchaseOrderForPrint(po, { branch, supplier });
+    
+    print('purchase-order', {
+      data: mapPurchaseOrderToPrintData(poData, storeSettings),
+      lineItems: mapPurchaseOrderLineItems(poData.items),
     });
-  }, [printPurchaseOrders, toast]);
+    toast(`Đang in đơn nhập hàng ${po.id}`);
+  }, [findBranchById, findSupplierById, storeInfo, print]);
 
   const handlePayment = React.useCallback((po: PurchaseOrder) => {
     // TODO: Implement payment dialog/modal
     navigate(`/purchase-orders/${po.systemId}`);
-    toast({
-      description: `Mở trang thanh toán cho đơn ${po.id}`,
-    });
+    toast(`Mở trang thanh toán cho đơn ${po.id}`);
   }, [navigate, toast]);
 
   const handleReceiveGoods = React.useCallback((po: PurchaseOrder) => {
     beginReceiveFlow([po]);
   }, [beginReceiveFlow]);
 
-  // Bulk actions
+  // Print dialog state
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
+  const [pendingPrintPOs, setPendingPrintPOs] = React.useState<PurchaseOrder[]>([]);
+  const { printMultiple } = usePrint();
+
+  // Bulk actions - open print dialog
   const handleBulkPrint = () => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) {
-      toast({
-        title: 'Chưa chọn đơn hàng',
+      toast.error('Chưa chọn đơn hàng', {
         description: 'Vui lòng chọn ít nhất một đơn hàng',
-        variant: 'destructive',
       });
       return;
     }
-    printPurchaseOrders(selectedIds);
-    toast({
-      description: `Đang in ${selectedIds.length} đơn nhập hàng`,
+    const selectedPOs = purchaseOrders.filter(p => selectedIds.includes(p.systemId));
+    setPendingPrintPOs(selectedPOs);
+    setIsPrintDialogOpen(true);
+  };
+
+  // Handle print confirm from dialog
+  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+    const { branchSystemId, paperSize } = options;
+    
+    const printOptionsList = pendingPrintPOs.map(po => {
+      const branch = branchSystemId 
+        ? findBranchById(branchSystemId)
+        : findBranchById(po.branchSystemId);
+      const supplier = findSupplierById(po.supplierSystemId);
+      const storeSettings = branch 
+        ? createStoreSettings(branch)
+        : createStoreSettings(storeInfo);
+      const poData = convertPurchaseOrderForPrint(po, { branch, supplier });
+      
+      return {
+        data: mapPurchaseOrderToPrintData(poData, storeSettings),
+        lineItems: mapPurchaseOrderLineItems(poData.items),
+        paperSize,
+      };
+    });
+    
+    printMultiple('purchase-order', printOptionsList);
+    
+    toast.success('Đã gửi lệnh in', {
+      description: pendingPrintPOs.map(p => p.id).join(', ')
     });
     setRowSelection({});
-  };
+    setPendingPrintPOs([]);
+  }, [pendingPrintPOs, findBranchById, findSupplierById, storeInfo, printMultiple]);
 
   const handleBulkCancel = () => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) {
-      toast({
-        title: 'Chưa chọn đơn hàng',
+      toast.error('Chưa chọn đơn hàng', {
         description: 'Vui lòng chọn ít nhất một đơn hàng',
-        variant: 'destructive',
       });
       return;
     }
     bulkCancel(selectedIds, currentUserSystemId, currentUserName);
-    toast({
-      title: 'Đã hủy',
+    toast.success('Đã hủy', {
       description: `Đã hủy ${selectedIds.length} đơn nhập hàng`,
     });
     setRowSelection({});
@@ -596,8 +646,7 @@ export function PurchaseOrdersPage() {
 
     if (totalPaymentsCreated > 0) {
       syncAllPurchaseOrderStatuses();
-      toast({
-        title: 'Đã tạo phiếu chi',
+      toast.success('Đã tạo phiếu chi', {
         description: `Hoàn tất ${totalPaymentsCreated} phiếu chi cho đơn nhập hàng đã chọn.`,
       });
     }
@@ -608,18 +657,15 @@ export function PurchaseOrdersPage() {
 
   const handleBulkReceiveStart = React.useCallback(() => {
     if (allSelectedRows.length === 0) {
-      toast({
-        title: 'Chưa chọn đơn hàng',
+      toast.error('Chưa chọn đơn hàng', {
         description: 'Vui lòng chọn ít nhất một đơn nhập hàng cần nhập kho.',
-        variant: 'destructive',
       });
       return;
     }
 
     const targetOrders = allSelectedRows.filter(po => po.deliveryStatus !== 'Đã nhập');
     if (targetOrders.length === 0) {
-      toast({
-        title: 'Tất cả đơn đã nhập',
+      toast('Tất cả đơn đã nhập', {
         description: 'Các đơn đã chọn đều đã hoàn tất nhập kho.',
       });
       return;
@@ -674,6 +720,12 @@ export function PurchaseOrdersPage() {
       sorted.sort((a, b) => {
         const aValue = (a as any)[sorting.id];
         const bValue = (b as any)[sorting.id];
+        // Special handling for date columns
+        if (sorting.id === 'createdAt' || sorting.id === 'orderDate') {
+          const aTime = aValue ? new Date(aValue).getTime() : 0;
+          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          return sorting.desc ? bTime - aTime : aTime - bTime;
+        }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
         if (aValue > bValue) return sorting.desc ? -1 : 1;
         return 0;
@@ -802,48 +854,63 @@ export function PurchaseOrdersPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Tổng đặt hàng</p>
-            <p className="text-2xl font-semibold">{poStats.totalOrdered} SP</p>
+            <p className="text-body-sm text-muted-foreground">Tổng đặt hàng</p>
+            <p className="text-h3">{poStats.totalOrdered} SP</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Đã nhận</p>
-            <p className="text-2xl font-semibold text-green-600">
+            <p className="text-body-sm text-muted-foreground">Đã nhận</p>
+            <p className="text-h3 text-green-600">
               {poStats.totalReceived} SP
-              <span className="text-sm text-muted-foreground ml-2">({poStats.receivedRate}%)</span>
+              <span className="text-body-sm text-muted-foreground ml-2">({poStats.receivedRate}%)</span>
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Đã trả lại</p>
-            <p className="text-2xl font-semibold text-orange-600">
+            <p className="text-body-sm text-muted-foreground">Đã trả lại</p>
+            <p className="text-h3 text-orange-600">
               {poStats.totalReturned} SP
-              <span className="text-sm text-muted-foreground ml-2">({poStats.returnedRate}%)</span>
+              <span className="text-body-sm text-muted-foreground ml-2">({poStats.returnedRate}%)</span>
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Tồn kho thực</p>
-            <p className={`text-2xl font-semibold ${poStats.netInStock >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+            <p className="text-body-sm text-muted-foreground">Tồn kho thực</p>
+            <p className={`text-h3 ${poStats.netInStock >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
               {poStats.netInStock > 0 ? '+' : ''}{poStats.netInStock} SP
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <Input 
-          placeholder="Tìm kiếm đơn nhập hàng..."
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="h-8 w-full sm:w-[250px]"
+      {/* PageToolbar - Desktop only */}
+      {!isMobile && (
+        <PageToolbar
+          rightActions={
+            <DataTableColumnCustomizer
+              columns={columns}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              pinnedColumns={pinnedColumns}
+              setPinnedColumns={setPinnedColumns}
+            />
+          }
         />
+      )}
+
+      {/* PageFilters */}
+      <PageFilters
+        searchValue={globalFilter}
+        onSearchChange={setGlobalFilter}
+        searchPlaceholder="Tìm kiếm đơn nhập hàng..."
+      >
         <Select value={branchFilter} onValueChange={setBranchFilter}>
-          <SelectTrigger className="h-8 w-full sm:w-[180px]">
+          <SelectTrigger className="h-9 w-full sm:w-[180px]">
             <SelectValue placeholder="Chi nhánh" />
           </SelectTrigger>
           <SelectContent>
@@ -852,7 +919,7 @@ export function PurchaseOrdersPage() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-8 w-full sm:w-[180px]">
+          <SelectTrigger className="h-9 w-full sm:w-[180px]">
             <SelectValue placeholder="Trạng thái" />
           </SelectTrigger>
           <SelectContent>
@@ -865,7 +932,7 @@ export function PurchaseOrdersPage() {
           </SelectContent>
         </Select>
         <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
-          <SelectTrigger className="h-8 w-full sm:w-[180px]">
+          <SelectTrigger className="h-9 w-full sm:w-[180px]">
             <SelectValue placeholder="Thanh toán" />
           </SelectTrigger>
           <SelectContent>
@@ -875,18 +942,7 @@ export function PurchaseOrdersPage() {
             <SelectItem value="Đã thanh toán">Đã thanh toán</SelectItem>
           </SelectContent>
         </Select>
-        <div className="ml-auto">
-          <DataTableColumnCustomizer
-            columns={columns}
-            columnVisibility={columnVisibility}
-            setColumnVisibility={setColumnVisibility}
-            columnOrder={columnOrder}
-            setColumnOrder={setColumnOrder}
-            pinnedColumns={pinnedColumns}
-            setPinnedColumns={setPinnedColumns}
-          />
-        </div>
-      </div>
+      </PageFilters>
       
       {/* Responsive Data Table */}
       <ResponsiveDataTable 
@@ -930,10 +986,10 @@ export function PurchaseOrdersPage() {
           {mobileLoadedCount < sortedData.length ? (
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span className="text-sm">Đang tải thêm...</span>
+              <span className="text-body-sm">Đang tải thêm...</span>
             </div>
           ) : sortedData.length > 20 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body-sm text-muted-foreground">
               Đã hiển thị tất cả {sortedData.length} kết quả
             </p>
           ) : null}
@@ -999,7 +1055,7 @@ export function PurchaseOrdersPage() {
           </DialogHeader>
           <div className="space-y-4">
             {pendingReceiveQueue.length > 0 && (
-              <div className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+              <div className="rounded-md bg-blue-50 px-3 py-2 text-body-sm text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
                 Còn {pendingReceiveQueue.length} đơn trong hàng đợi sẽ được mở tiếp sau khi lưu phiếu này.
               </div>
             )}
@@ -1070,8 +1126,8 @@ export function PurchaseOrdersPage() {
                     <TableRow key={item.productSystemId}>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium">{item.productName}</span>
-                          <span className="text-xs text-muted-foreground">{item.productId}</span>
+                          <span className="text-body-sm font-medium">{item.productName}</span>
+                          <span className="text-body-xs text-muted-foreground">{item.productId}</span>
                         </div>
                       </TableCell>
                       <TableCell>{item.orderedQuantity}</TableCell>
@@ -1091,7 +1147,7 @@ export function PurchaseOrdersPage() {
                 </TableBody>
               </Table>
               {receiveDialogState.items.length === 0 && (
-                <p className="p-4 text-sm text-muted-foreground">Tất cả sản phẩm trong đơn này đã được nhập đủ.</p>
+                <p className="p-4 text-body-sm text-muted-foreground">Tất cả sản phẩm trong đơn này đã được nhập đủ.</p>
               )}
             </div>
           </div>
@@ -1114,6 +1170,15 @@ export function PurchaseOrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Print Options Dialog */}
+      <SimplePrintOptionsDialog
+        open={isPrintDialogOpen}
+        onOpenChange={setIsPrintDialogOpen}
+        onConfirm={handlePrintConfirm}
+        selectedCount={pendingPrintPOs.length}
+        title="In đơn nhập hàng"
+      />
       
     </div>
   )

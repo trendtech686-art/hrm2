@@ -1,7 +1,7 @@
 import * as React from "react";
 import { asBusinessId } from "@/lib/id-types";
 import { useProductStore } from "../store.ts";
-import { useToast } from "../../../hooks/use-toast.ts";
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,6 @@ export function QuickAddProductDialog({
   onSuccess,
 }: QuickAddProductDialogProps) {
   const { add } = useProductStore();
-  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Form state
@@ -134,10 +133,7 @@ export function QuickAddProductDialog({
 
       const addedProduct = add(newProduct);
 
-      toast({
-        title: "Thành công",
-        description: `Đã thêm sản phẩm "${newProduct.name}"`,
-      });
+      toast.success(`Đã thêm sản phẩm "${newProduct.name}"`);
 
       onOpenChange(false);
       
@@ -146,11 +142,7 @@ export function QuickAddProductDialog({
         onSuccess(addedProduct.systemId);
       }
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Không thể thêm sản phẩm. Vui lòng thử lại.",
-        variant: "destructive",
-      });
+      toast.error('Không thể thêm sản phẩm. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +175,7 @@ export function QuickAddProductDialog({
               className={errors.name ? "border-destructive" : ""}
             />
             {errors.name && (
-              <p className="text-sm text-destructive">{errors.name}</p>
+              <p className="text-body-sm text-destructive">{errors.name}</p>
             )}
           </div>
 
@@ -214,7 +206,7 @@ export function QuickAddProductDialog({
                 className={errors.costPrice ? "border-destructive" : ""}
               />
               {errors.costPrice && (
-                <p className="text-sm text-destructive">{errors.costPrice}</p>
+                <p className="text-body-sm text-destructive">{errors.costPrice}</p>
               )}
             </div>
 
@@ -230,7 +222,7 @@ export function QuickAddProductDialog({
                 className={errors.basePrice ? "border-destructive" : ""}
               />
               {errors.basePrice && (
-                <p className="text-sm text-destructive">{errors.basePrice}</p>
+                <p className="text-body-sm text-destructive">{errors.basePrice}</p>
               )}
             </div>
           </div>
@@ -255,7 +247,7 @@ export function QuickAddProductDialog({
                 className={errors.importQuantity ? "border-destructive" : ""}
               />
               {errors.importQuantity && (
-                <p className="text-sm text-destructive">{errors.importQuantity}</p>
+                <p className="text-body-sm text-destructive">{errors.importQuantity}</p>
               )}
             </div>
 

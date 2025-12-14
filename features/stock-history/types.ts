@@ -20,4 +20,8 @@ export type StockHistoryEntry = {
   documentId: BusinessId; // ID of the source document (e.g., PNK001, DH001)
   branchSystemId: SystemId; // ✅ Branch systemId
   branch: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

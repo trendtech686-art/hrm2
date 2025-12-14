@@ -46,7 +46,7 @@ export const getColumns = (
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
       <Checkbox
         checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-        onCheckedChange={(value) => onToggleAll(!!value)}
+        onCheckedChange={(value) => onToggleAll?.(!!value)}
         aria-label="Select all"
       />
     ),
@@ -118,7 +118,7 @@ export const getColumns = (
         >
           {row.customerName}
         </button>
-        <span className="text-sm text-muted-foreground flex items-center gap-1">
+        <span className="text-body-xs text-muted-foreground flex items-center gap-1">
           <Phone className="h-3 w-3" />
           {row.customerPhone}
         </span>
@@ -252,7 +252,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Calendar className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm">{formatDate(row.createdAt)}</span>
+        <span className="text-body-sm">{formatDate(row.createdAt)}</span>
       </div>
     ),
     size: 140,
@@ -350,7 +350,7 @@ export const getColumns = (
       return (
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <span className="text-sm">{formatDate(row.resolvedAt)}</span>
+          <span className="text-body-sm">{formatDate(row.resolvedAt)}</span>
         </div>
       );
     },
@@ -372,7 +372,7 @@ export const getColumns = (
       return (
         <div className="flex items-center gap-2">
           <XCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm">{formatDate(row.cancelledAt)}</span>
+          <span className="text-body-sm">{formatDate(row.cancelledAt)}</span>
         </div>
       );
     },

@@ -2,6 +2,7 @@ import React from "react";
 import { ComplaintCompensationSection } from "./complaint-compensation-section.tsx";
 import { ComplaintVerifiedIncorrectSection } from "./complaint-verified-incorrect-section.tsx";
 import type { Complaint } from "../types.ts";
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface Props {
   complaint: Complaint;
@@ -25,7 +26,7 @@ export const ComplaintVerificationHistory: React.FC<Props> = ({ complaint }) => 
     total: verificationActions.length,
     actions: verificationActions.map(a => ({
       type: a.actionType,
-      time: new Date(a.performedAt).toLocaleString('vi-VN'),
+      time: formatDateTimeForDisplay(a.performedAt),
     })),
   });
   

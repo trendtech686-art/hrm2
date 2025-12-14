@@ -31,7 +31,7 @@ export function ResponsiveModal({
 
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog {...(open !== undefined ? { open } : {})} {...(onOpenChange !== undefined ? { onOpenChange } : {})}>
         <DialogTrigger asChild>{trigger}</DialogTrigger>
         <DialogContent className={cn("sm:max-w-[425px]", className)}>
           {(title || description) && (
@@ -47,7 +47,7 @@ export function ResponsiveModal({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet {...(open !== undefined ? { open } : {})} {...(onOpenChange !== undefined ? { onOpenChange } : {})}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent 
         side="bottom" 

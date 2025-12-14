@@ -1,0 +1,160 @@
+import type { SystemId } from '../id-types';
+import type { Product } from '../../features/products/types';
+import { usePkgxSettingsStore } from '../../features/settings/pkgx/store';
+import type { PkgxProductPayload, PkgxProduct } from '../../features/settings/pkgx/types';
+
+// ========================================
+// Mapping Functions
+// ========================================
+
+/**
+ * Lấy cat_id PKGX từ HRM categorySystemId
+ */
+export function getPkgxCatId(hrmCategoryId: SystemId | undefined): number | null {
+  if (!hrmCategoryId) return null;
+  const store = usePkgxSettingsStore.getState();
+  return store.getPkgxCatIdByHrmCategory(hrmCategoryId);
+}
+
+/**
+ * Lấy brand_id PKGX từ HRM brandSystemId
+ */
+export function getPkgxBrandId(hrmBrandId: SystemId | undefined): number | null {
+  if (!hrmBrandId) return null;
+  const store = usePkgxSettingsStore.getState();
+  return store.getPkgxBrandIdByHrmBrand(hrmBrandId);
+}
+
+/**
+ * Lấy giá theo mapping bảng giá
+ */
+export function getPriceByMapping(
+  product: Product,
+  priceField: 'shopPrice' | 'marketPrice' | 'partnerPrice' | 'acePrice' | 'dealPrice'
+): number | undefined {
+  const store = usePkgxSettingsStore.getState();
+  const policyId = store.settings.priceMapping[priceField];
+  
+  if (!policyId) return undefined;
+  
+  return product.prices[policyId];
+}
+
+/**
+ * Tính tổng tồn kho từ tất cả chi nhánh
+ */
+export function getTotalInventory(product: Product): number {
+  if (!product.inventoryByBranch) return 0;
+  return Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0);
+}
+
+/**
+ * Map HRM Product → PKGX Payload để tạo/cập nhật sản phẩm
+ */
+export function mapHrmToPkgxPayload(product: Product): PkgxProductPayload {
+  const payload: PkgxProductPayload = {
+    goods_name: product.name,
+    goods_sn: product.id,
+    goods_number: getTotalInventory(product),
+  };
+
+  // Map category
+  const catId = getPkgxCatId(product.categorySystemId);
+  if (catId) payload.cat_id = catId;
+
+  // Map brand
+  const brandId = getPkgxBrandId(product.brandSystemId);
+  if (brandId) payload.brand_id = brandId;
+
+  // Map prices
+  const shopPrice = getPriceByMapping(product, 'shopPrice');
+  if (shopPrice !== undefined) payload.shop_price = shopPrice;
+
+  const marketPrice = getPriceByMapping(product, 'marketPrice');
+  if (marketPrice !== undefined) payload.market_price = marketPrice;
+
+  const partnerPrice = getPriceByMapping(product, 'partnerPrice');
+  if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
+
+  const acePrice = getPriceByMapping(product, 'acePrice');
+  if (acePrice !== undefined) payload.ace_price = acePrice;
+
+  const dealPrice = getPriceByMapping(product, 'dealPrice');
+  if (dealPrice !== undefined) payload.deal_price = dealPrice;
+
+  // Map content
+  if (product.description) payload.goods_desc = product.description;
+  if (product.shortDescription) payload.goods_brief = product.shortDescription;
+
+  // Map SEO
+  if (product.ktitle) payload.meta_title = product.ktitle;
+  if (product.seoDescription) payload.meta_desc = product.seoDescription;
+  if (product.tags?.length) payload.keywords = product.tags.join(', ');
+
+  // Map flags
+  if (product.isFeatured !== undefined) payload.best = product.isFeatured;
+  if (product.isNewArrival !== undefined) payload.new = product.isNewArrival;
+
+  return payload;
+}
+
+/**
+ * Map PKGX Product → HRM fields để update sau khi tạo
+ */
+export function mapPkgxToHrmFields(pkgxProduct: PkgxProduct): Partial<Product> {
+  return {
+    pkgxId: pkgxProduct.goods_id,
+    // Có thể map thêm các field khác nếu cần
+  };
+}
+
+/**
+ * Tạo payload chỉ chứa giá để update
+ */
+export function createPriceUpdatePayload(product: Product): Partial<PkgxProductPayload> {
+  const payload: Partial<PkgxProductPayload> = {};
+
+  const shopPrice = getPriceByMapping(product, 'shopPrice');
+  if (shopPrice !== undefined) payload.shop_price = shopPrice;
+
+  const marketPrice = getPriceByMapping(product, 'marketPrice');
+  if (marketPrice !== undefined) payload.market_price = marketPrice;
+
+  const partnerPrice = getPriceByMapping(product, 'partnerPrice');
+  if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
+
+  const acePrice = getPriceByMapping(product, 'acePrice');
+  if (acePrice !== undefined) payload.ace_price = acePrice;
+
+  const dealPrice = getPriceByMapping(product, 'dealPrice');
+  if (dealPrice !== undefined) payload.deal_price = dealPrice;
+
+  return payload;
+}
+
+/**
+ * Tạo payload chỉ chứa SEO để update
+ */
+export function createSeoUpdatePayload(product: Product): Partial<PkgxProductPayload> {
+  return {
+    meta_title: product.ktitle || product.name,
+    meta_desc: product.seoDescription || product.shortDescription || '',
+    keywords: product.tags?.join(', ') || '',
+  };
+}
+
+/**
+ * Tạo payload chỉ chứa tồn kho để update
+ */
+export function createInventoryUpdatePayload(product: Product): Partial<PkgxProductPayload> {
+  return {
+    goods_number: getTotalInventory(product),
+  };
+}
+
+/**
+ * Kiểm tra sản phẩm đã được link với PKGX chưa
+ */
+export function isLinkedToPkgx(product: Product): boolean {
+  return typeof product.pkgxId === 'number' && product.pkgxId > 0;
+}

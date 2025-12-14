@@ -1,9 +1,9 @@
 import * as React from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
 import { asSystemId } from '@/lib/id-types';
+import { formatDateForDisplay } from '@/lib/date-utils';
 
 // Types & Store
 import type { Complaint, ComplaintType } from "./types.ts";
@@ -11,6 +11,15 @@ import { useComplaintStore } from "./store.ts";
 import { complaintTypeLabels } from "./types.ts";
 import type { StagingFile } from "../../lib/file-upload-api.ts";
 import { complaintNotifications } from "./notification-utils.ts";
+
+// Product image & type
+import { useProductImage } from '../products/components/product-image.tsx';
+import { useProductStore } from '../products/store.ts';
+import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
+import { Package, Eye, StickyNote } from 'lucide-react';
+
+// Settings
+import { loadComplaintTypes, type ComplaintType as ComplaintTypeSetting } from "../settings/complaints/complaints-settings-page.tsx";
 
 // UI Components
 import { Button } from "../../components/ui/button.tsx";
@@ -23,6 +32,7 @@ import { VirtualizedCombobox, type ComboboxOption } from "../../components/ui/vi
 import { CurrencyInput } from "../../components/ui/currency-input.tsx";
 import { NewDocumentsUpload } from "../../components/ui/new-documents-upload.tsx";
 import { ExistingDocumentsViewer } from "../../components/ui/existing-documents-viewer.tsx";
+import { ImagePreviewDialog } from "../../components/ui/image-preview-dialog.tsx";
 import {
   Select,
   SelectContent,
@@ -33,27 +43,17 @@ import {
 
 // Hooks & Context
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useRouteMeta } from "../../hooks/use-route-meta.ts";
 import { useOrderStore } from "../orders/store.ts";
+import { useSalesReturnStore } from "../sales-returns/store.ts";
 import { useBranchStore } from "../settings/branches/store.ts";
 import { useEmployeeStore } from "../employees/store.ts";
 import { useCustomerStore } from "../customers/store.ts";
 import { useNotificationStore } from "../../components/ui/notification-center.tsx";
 import { FileUploadAPI } from "../../lib/file-upload-api.ts";
 import { useAuth } from "../../contexts/auth-context.tsx";
-
-// Settings helpers
-const STORAGE_KEYS = {
-  COMPLAINT_TYPES: 'complaints-types',
-};
-
-interface ComplaintTypeSetting {
-  id: string;
-  name: string;
-  description: string;
-  order: number;
-  isActive: boolean;
-}
+import { ROUTES, generatePath } from "../../lib/router.ts";
+import type { BreadcrumbItem } from "../../lib/breadcrumb-system.ts";
+import { useRouteMeta } from "../../hooks/use-route-meta.ts";
 
 interface ComplaintFormValues {
   id?: string; // Mã phiếu khiếu nại (optional - tự tạo nếu không điền)
@@ -71,22 +71,90 @@ interface ComplaintFormValues {
   videoLinks?: string; // Video links from customer (YouTube, Google Drive, etc.)
 }
 
+// Product type fallback labels
+const productTypeFallbackLabels: Record<string, string> = {
+  physical: 'Hàng hóa',
+  service: 'Dịch vụ', 
+  digital: 'Sản phẩm số',
+  combo: 'Combo'
+};
+
+// ProductThumbnailCell component for displaying product images
+const ProductThumbnailCell = ({ 
+    productSystemId, 
+    product,
+    productName,
+    size = 'sm',
+    onPreview
+}: { 
+    productSystemId: string; 
+    product?: { thumbnailImage?: string; galleryImages?: string[]; images?: string[]; name?: string } | null;
+    productName: string;
+    size?: 'sm' | 'md';
+    onPreview?: (image: string, title: string) => void;
+}) => {
+    const imageUrl = useProductImage(productSystemId, product);
+    
+    const sizeClasses = size === 'sm' 
+        ? 'w-10 h-9' 
+        : 'w-12 h-10';
+    const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-4 w-4';
+    
+    if (imageUrl) {
+        return (
+            <div
+                className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
+                onClick={() => onPreview?.(imageUrl, productName)}
+            >
+                <img src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                {onPreview && (
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                        <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                    </div>
+                )}
+            </div>
+        );
+    }
+    
+    return (
+        <div className={`${sizeClasses} bg-muted rounded flex items-center justify-center`}>
+            <Package className={`${iconSize} text-muted-foreground`} />
+        </div>
+    );
+};
+
 /**
  * Form Page - Tạo/Sửa khiếu nại
  */
 export function ComplaintFormPage() {
   const { systemId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { setPageHeader } = usePageHeader();
   const routeMeta = useRouteMeta();
   
   const { getComplaintById, addComplaint, updateComplaint } = useComplaintStore();
   const { data: orders } = useOrderStore();
+  const { data: salesReturns } = useSalesReturnStore();
   const { data: branches } = useBranchStore();
   const { data: employees } = useEmployeeStore();
   const { data: customers } = useCustomerStore();
   const { addNotification } = useNotificationStore();
   const { employee } = useAuth();
+  
+  // Product & ProductType for image/type display
+  const { findById: findProductById } = useProductStore();
+  const { findById: findProductTypeById } = useProductTypeStore();
+  
+  // Helper to get product type label
+  const getProductTypeLabel = React.useCallback((product: any) => {
+    if (!product) return 'Hàng hóa';
+    if (product.productTypeSystemId) {
+      const productType = findProductTypeById(product.productTypeSystemId);
+      if (productType?.name) return productType.name;
+    }
+    return productTypeFallbackLabels[product.type] || 'Hàng hóa';
+  }, [findProductTypeById]);
   
   const isEditing = !!systemId;
   const complaint = isEditing && systemId ? getComplaintById(asSystemId(systemId)) : null;
@@ -103,41 +171,38 @@ export function ComplaintFormPage() {
   // ⭐ Load complaint types from Settings và map với enum
   const complaintTypes = React.useMemo(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.COMPLAINT_TYPES);
-      if (stored) {
-        const types = JSON.parse(stored) as ComplaintTypeSetting[];
-        
-        // Map các loại phổ biến từ settings → enum
-        // Nếu không match, fallback về 'product-condition'
-        const nameToEnumMap: Record<string, ComplaintType> = {
-          'sản phẩm lỗi': 'product-condition',
-          'giao hàng chậm': 'warehouse-defect',
-          'sai sản phẩm': 'wrong-product',
-          'sai hàng': 'wrong-product',
-          'thiếu hàng': 'missing-items',
-          'đóng gói sai': 'wrong-packaging',
-          'lỗi do kho': 'warehouse-defect',
-          'tình trạng hàng': 'product-condition',
-          'dịch vụ chăm sóc': 'product-condition',
-          'khác': 'product-condition',
-        };
-        
-        const mappedTypes = types
-          .filter(t => t.isActive)
-          .sort((a, b) => a.order - b.order)
-          .map(t => {
-            const normalizedName = t.name.toLowerCase().trim();
-            const enumValue = nameToEnumMap[normalizedName] || 'product-condition';
-            
-            return {
-              value: enumValue as ComplaintType,
-              label: t.name,
-            };
-          });
-        
-        if (mappedTypes.length > 0) {
-          return mappedTypes;
-        }
+      const types = loadComplaintTypes();
+      
+      // Map các loại phổ biến từ settings → enum
+      // Nếu không match, fallback về 'product-condition'
+      const nameToEnumMap: Record<string, ComplaintType> = {
+        'sản phẩm lỗi': 'product-condition',
+        'giao hàng chậm': 'warehouse-defect',
+        'sai sản phẩm': 'wrong-product',
+        'sai hàng': 'wrong-product',
+        'thiếu hàng': 'missing-items',
+        'đóng gói sai': 'wrong-packaging',
+        'lỗi do kho': 'warehouse-defect',
+        'tình trạng hàng': 'product-condition',
+        'dịch vụ chăm sóc': 'product-condition',
+        'khác': 'product-condition',
+      };
+      
+      const mappedTypes = types
+        .filter(t => t.isActive)
+        .sort((a, b) => a.order - b.order)
+        .map(t => {
+          const normalizedName = t.name.toLowerCase().trim();
+          const enumValue = nameToEnumMap[normalizedName] || 'product-condition';
+          
+          return {
+            value: enumValue as ComplaintType,
+            label: t.name,
+          };
+        });
+      
+      if (mappedTypes.length > 0) {
+        return mappedTypes;
       }
     } catch (e) {
       console.error('Failed to load complaint types:', e);
@@ -189,6 +254,17 @@ export function ComplaintFormPage() {
   
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
+  // Image preview state
+  const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+    open: false,
+    image: '',
+    title: ''
+  });
+  
+  const handlePreview = React.useCallback((image: string, title: string) => {
+    setPreviewState({ open: true, image, title });
+  }, []);
+  
   // Form
   const form = useForm<ComplaintFormValues>({
     defaultValues: {
@@ -217,7 +293,7 @@ export function ComplaintFormPage() {
     return orders.map((order) => ({
       value: order.systemId, // ⭐ Dùng systemId làm value
       label: `${order.id} - ${order.customerName}`, // Hiển thị business ID
-      subtitle: `${new Date(order.orderDate).toLocaleDateString('vi-VN')} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
+      subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
     }));
   }, [orders]);
   
@@ -277,7 +353,7 @@ export function ComplaintFormPage() {
         setSelectedOrder({
           value: order.systemId, // ⭐ Value là systemId
           label: `${order.id} - ${order.customerName}`, // Label hiển thị business ID
-          subtitle: `${new Date(order.orderDate).toLocaleDateString('vi-VN')} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
+          subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
         });
       }
       
@@ -397,49 +473,98 @@ export function ComplaintFormPage() {
   }, []);
   
   // Page header
+  const selectedOrderEntity = React.useMemo(() => {
+    if (!selectedOrder) return null;
+    return orders.find(o => o.systemId === selectedOrder.value) ?? null;
+  }, [orders, selectedOrder]);
+
+  const headerActions = React.useMemo(() => ([
+    <Button
+      key="cancel"
+      variant="outline"
+      size="sm"
+      className="h-9"
+      onClick={() => navigate(ROUTES.INTERNAL.COMPLAINTS)}
+      disabled={isSubmitting}
+    >
+      Hủy
+    </Button>,
+    <Button
+      key="submit"
+      size="sm"
+      className="h-9"
+      onClick={() => {
+        const form = document.querySelector('form[data-complaint-form]') as HTMLFormElement;
+        if (form) form.requestSubmit();
+      }}
+      disabled={isSubmitting || !selectedOrder}
+    >
+      {isSubmitting ? "Đang lưu..." : isEditing ? "Cập nhật" : "Tạo khiếu nại"}
+    </Button>,
+  ]), [isEditing, isSubmitting, navigate, selectedOrder]);
+
+  const headerSubtitle = React.useMemo(() => {
+    if (complaint) {
+      return [
+        `Phiếu ${complaint.id}`,
+        complaint.customerName && `Khách ${complaint.customerName}`,
+        (complaint.orderCode || complaint.orderSystemId) && `Đơn ${complaint.orderCode || complaint.orderSystemId}`,
+      ].filter(Boolean).join(' • ');
+    }
+    if (selectedOrderEntity) {
+      return [
+        `Đơn ${selectedOrderEntity.id}`,
+        selectedOrderEntity.customerName && `Khách ${selectedOrderEntity.customerName}`,
+        selectedOrderEntity.branchName && `Chi nhánh ${selectedOrderEntity.branchName}`,
+      ].filter(Boolean).join(' • ');
+    }
+    return 'Điền thông tin đơn hàng, khách hàng và ảnh bằng chứng theo checklist.';
+  }, [complaint, selectedOrderEntity]);
+
+  const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
+    if (complaint) {
+      const detailPath = generatePath(ROUTES.INTERNAL.COMPLAINT_VIEW, { systemId: complaint.systemId as unknown as string });
+      const editPath = generatePath(ROUTES.INTERNAL.COMPLAINT_EDIT, { systemId: complaint.systemId as unknown as string });
+      return [
+        { label: "Trang chủ", href: ROUTES.ROOT },
+        { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS },
+        { label: complaint.id, href: detailPath },
+        { label: "Chỉnh sửa", href: editPath },
+      ];
+    }
+    if (routeMeta?.breadcrumb) {
+      return routeMeta.breadcrumb.map((item, index, arr) => {
+        if (typeof item === "string") {
+          return {
+            label: item,
+            href: location.pathname,
+            isCurrent: index === arr.length - 1,
+          } satisfies BreadcrumbItem;
+        }
+        return {
+          label: item.label,
+          href: item.href ?? location.pathname,
+          isCurrent: index === arr.length - 1,
+        } satisfies BreadcrumbItem;
+      });
+    }
+    return [
+      { label: "Trang chủ", href: ROUTES.ROOT },
+      { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS },
+      { label: "Tạo mới", href: ROUTES.INTERNAL.COMPLAINT_NEW },
+    ];
+  }, [complaint, routeMeta, location.pathname]);
+
   React.useEffect(() => {
-    const breadcrumb: { label: string; href: string }[] = complaint
-      ? [
-          { label: "Trang chủ", href: "/" },
-          { label: "Quản lý Khiếu nại", href: "/complaints" },
-          { label: complaint.id, href: `/complaints/${systemId}` },
-          { label: "Chỉnh sửa", href: "" }
-        ]
-      : [
-          { label: "Trang chủ", href: "/" },
-          { label: "Quản lý Khiếu nại", href: "/complaints" },
-          { label: "Tạo mới", href: "" }
-        ];
-    
     setPageHeader({
+      title: complaint ? "Chỉnh sửa khiếu nại" : "Tạo khiếu nại",
+      subtitle: headerSubtitle,
       breadcrumb,
-      actions: [
-        <Button
-          key="cancel"
-          variant="outline"
-          size="sm"
-          className="h-9"
-          onClick={() => navigate("/complaints")}
-          disabled={isSubmitting}
-        >
-          Hủy
-        </Button>,
-        <Button
-          key="submit"
-          size="sm"
-          className="h-9"
-          onClick={() => {
-            // Trigger form submit programmatically
-            const form = document.querySelector('form[data-complaint-form]') as HTMLFormElement;
-            if (form) form.requestSubmit();
-          }}
-          disabled={isSubmitting || !selectedOrder}
-        >
-          {isSubmitting ? "Đang lưu..." : isEditing ? "Cập nhật" : "Tạo khiếu nại"}
-        </Button>,
-      ],
+      showBackButton: true,
+      backPath: ROUTES.INTERNAL.COMPLAINTS,
+      actions: headerActions,
     });
-  }, [complaint, systemId, navigate, setPageHeader, routeMeta, isSubmitting, selectedOrder, isEditing]);
+  }, [breadcrumb, complaint, headerActions, headerSubtitle, setPageHeader]);
   
   // Submit handler
   const onSubmit = handleSubmit(async (data) => {
@@ -462,6 +587,10 @@ export function ComplaintFormPage() {
         targetComplaintId = 'TEMP_' + Date.now(); // ⭐ Tạo 1 lần duy nhất
       } else if (isEditing && systemId) {
         targetComplaintId = systemId;
+      }
+
+      if (!targetComplaintId) {
+        throw new Error('Không xác định được complaintId để đồng bộ file.');
       }
       
       // ===== XỬ LÝ CUSTOMER IMAGES =====
@@ -498,13 +627,14 @@ export function ComplaintFormPage() {
         try {
           // ✅ Dùng API chuẩn giống WARRANTY
           const result = await FileUploadAPI.confirmStagingFiles(
-            customerSessionId, 
+            // @ts-ignore
+            (customerSessionId as any), 
             targetComplaintId,
             'complaint',        // entityType
             'customer-images',  // subCategory
             {
-              orderSystemId: data.orderSystemId, // ⭐ Dùng systemId
-              customerName: data.customerName,
+              orderSystemId: data.orderSystemId ?? "", // ⭐ Dùng systemId
+              customerName: data.customerName ?? "",
             }
           );
           
@@ -579,13 +709,14 @@ export function ComplaintFormPage() {
         try {
           // ✅ Dùng API chuẩn giống WARRANTY
           const result = await FileUploadAPI.confirmStagingFiles(
-            employeeSessionId, 
+            // @ts-ignore
+            (employeeSessionId as any), 
             targetComplaintId,
             'complaint',        // entityType
             'employee-images',  // subCategory
             {
-              orderSystemId: data.orderSystemId, // ⭐ Dùng systemId
-              customerName: data.customerName,
+              orderSystemId: data.orderSystemId ?? "", // ⭐ Dùng systemId
+              customerName: data.customerName ?? "",
               employeeName: packagingEmployeeName,
             }
           );
@@ -712,19 +843,19 @@ export function ComplaintFormPage() {
         {/* Main Form Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
+            <CardTitle className="text-h4">
               {isEditing ? "Chỉnh sửa khiếu nại" : "Tạo khiếu nại mới"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {canOnlyEditNote && (
-              <div className="bg-muted/50 border border-muted-foreground/20 rounded-md p-3 text-sm text-muted-foreground">
+              <div className="bg-muted/50 border border-muted-foreground/20 rounded-md p-3 text-body-sm text-muted-foreground">
                 ℹ️ Khiếu nại đã được xác minh. Chỉ có thể chỉnh sửa ghi chú.
               </div>
             )}
             {/* Mã phiếu khiếu nại (optional) */}
             <div>
-              <Label htmlFor="id" className="text-sm">Mã phiếu khiếu nại (tùy chọn)</Label>
+              <Label htmlFor="id" className="text-body-sm">Mã phiếu khiếu nại (tùy chọn)</Label>
               <Input
                 id="id"
                 placeholder="Để trống để tự động tạo mã"
@@ -732,14 +863,14 @@ export function ComplaintFormPage() {
                 disabled={canOnlyEditNote}
                 {...register("id")}
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-body-xs text-muted-foreground mt-1">
                 Nếu không điền, hệ thống sẽ tự động tạo mã
               </p>
             </div>
             
             {/* Chọn đơn hàng */}
             <div>
-              <Label className="text-sm">Chọn đơn hàng *</Label>
+              <Label className="text-body-sm">Chọn đơn hàng *</Label>
               <VirtualizedCombobox
                 value={selectedOrder}
                 onChange={setSelectedOrder}
@@ -749,7 +880,7 @@ export function ComplaintFormPage() {
                 disabled={canOnlyEditNote}
               />
               {!selectedOrder && (
-                <p className="text-xs text-destructive mt-1">Vui lòng chọn đơn hàng</p>
+                <p className="text-body-xs text-destructive mt-1">Vui lòng chọn đơn hàng</p>
               )}
             </div>
           </CardContent>
@@ -761,9 +892,9 @@ export function ComplaintFormPage() {
           return (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Thông tin đơn hàng</CardTitle>
+                <CardTitle className="text-h4">Thông tin đơn hàng</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
+              <CardContent className="space-y-3 text-body-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Mã đơn hàng:</span>
@@ -795,7 +926,7 @@ export function ComplaintFormPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ngày bán:</span>
-                    <span className="font-medium">{new Date(order.orderDate).toLocaleDateString('vi-VN')}</span>
+                    <span className="font-medium">{formatDateForDisplay(order.orderDate)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Giá trị đơn:</span>
@@ -804,13 +935,13 @@ export function ComplaintFormPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Thời gian giao hàng:</span>
                     <span className="font-medium">
-                      {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString('vi-VN') : "Chưa có"}
+                      {order.expectedDeliveryDate ? formatDateForDisplay(order.expectedDeliveryDate) : "Chưa có"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Thời gian xuất kho:</span>
                     <span className="font-medium">
-                      {order.packagings?.[0]?.requestDate ? new Date(order.packagings[0].requestDate).toLocaleDateString('vi-VN') : "Chưa xuất"}
+                      {order.packagings?.[0]?.requestDate ? formatDateForDisplay(order.packagings[0].requestDate) : "Chưa xuất"}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -828,24 +959,48 @@ export function ComplaintFormPage() {
           const order = orders.find(o => o.systemId === selectedOrder.value)!;
           const orderProducts = order.lineItems || [];
           
+          // Tính số lượng đã trả cho từng sản phẩm từ các phiếu trả hàng
+          const returnedQuantities: Record<string, number> = {};
+          salesReturns
+            .filter(sr => sr.orderSystemId === order.systemId)
+            .forEach(sr => {
+              sr.items.forEach(item => {
+                const key = item.productSystemId;
+                returnedQuantities[key] = (returnedQuantities[key] || 0) + item.returnQuantity;
+              });
+            });
+          
+          // Lọc sản phẩm: chỉ hiện những SP còn hàng (chưa trả hết)
+          const availableProducts = orderProducts.filter(item => {
+            const returnedQty = returnedQuantities[item.productSystemId] || 0;
+            return item.quantity > returnedQty; // Còn hàng để khiếu nại
+          });
+          
           return (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Sản phẩm bị ảnh hưởng</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
+                <CardTitle className="text-h4">Sản phẩm bị ảnh hưởng</CardTitle>
+                <p className="text-body-sm text-muted-foreground mt-1">
                   Chọn sản phẩm và nhập số lượng thừa/thiếu/hỏng
                 </p>
               </CardHeader>
               <CardContent>
+                {availableProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Tất cả sản phẩm trong đơn hàng đã được trả lại.</p>
+                    <p className="text-body-sm mt-1">Không thể tạo khiếu nại cho đơn hàng này.</p>
+                  </div>
+                ) : (
                 <div className="border rounded-lg overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body-sm">
                     <thead className="bg-muted/50 border-b">
                       <tr>
                         <th className="text-left p-2 font-medium w-12">Chọn</th>
-                        <th className="text-left p-2 font-medium min-w-[180px]">Sản phẩm</th>
+                        <th className="text-center p-2 font-medium w-12">Ảnh</th>
+                        <th className="text-left p-2 font-medium min-w-[220px]">Tên sản phẩm</th>
                         <th className="text-right p-2 font-medium w-24">Đơn giá</th>
-                        <th className="text-center p-2 font-medium w-20">SL đặt</th>
-                        <th className="text-left p-2 font-medium w-28">Loại</th>
+                        <th className="text-center p-2 font-medium w-20">Số lượng</th>
+                        <th className="text-left p-2 font-medium w-28">Loại KN</th>
                         <th className="text-center p-2 font-medium w-20">Thừa</th>
                         <th className="text-center p-2 font-medium w-20">Thiếu</th>
                         <th className="text-center p-2 font-medium w-20">Hỏng</th>
@@ -854,7 +1009,9 @@ export function ComplaintFormPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orderProducts.map((item, idx) => {
+                      {availableProducts.map((item, idx) => {
+                        const returnedQty = returnedQuantities[item.productSystemId] || 0;
+                        const remainingQty = item.quantity - returnedQty; // Số lượng còn lại có thể khiếu nại
                         const affected = affectedProducts.find(p => p.productSystemId === item.productSystemId);
                         const isSelected = !!affected;
                         
@@ -862,6 +1019,11 @@ export function ComplaintFormPage() {
                         const totalAffectedAmount = affected 
                           ? (affected.quantityMissing + affected.quantityDefective + affected.quantityExcess) * item.unitPrice
                           : 0;
+                        
+                        // Get product info for image and type
+                        const product = findProductById(item.productSystemId);
+                        const productTypeLabel = getProductTypeLabel(product);
+                        const isCombo = !!(product?.type === 'combo' && product.comboItems?.length);
                         
                         return (
                           <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
@@ -882,7 +1044,7 @@ export function ComplaintFormPage() {
                                       productId: item.productId,
                                       productName: item.productName,
                                       unitPrice: item.unitPrice || item.price || 0,
-                                      quantityOrdered: item.quantity,
+                                      quantityOrdered: remainingQty, // Sử dụng số lượng còn lại
                                       quantityReceived: item.quantity,
                                       quantityMissing: 0,
                                       quantityDefective: 0,
@@ -900,13 +1062,53 @@ export function ComplaintFormPage() {
                               />
                             </td>
                             <td className="p-2">
-                              <div className="font-medium text-sm">{item.productName}</div>
-                              <div className="text-xs text-muted-foreground">{item.productId}</div>
+                              <ProductThumbnailCell
+                                productSystemId={item.productSystemId}
+                                product={product}
+                                productName={item.productName}
+                                onPreview={handlePreview}
+                              />
                             </td>
-                            <td className="p-2 text-right text-sm">
+                            <td className="p-2">
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-body-sm">{item.productName}</span>
+                                  {isCombo && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                                      COMBO
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
+                                  <span>{productTypeLabel}</span>
+                                  <span>-</span>
+                                  <Link 
+                                    to={`/products/${item.productSystemId}`} 
+                                    className="text-primary hover:underline"
+                                  >
+                                    {item.productId}
+                                  </Link>
+                                  {item.note && (
+                                    <>
+                                      <StickyNote className="h-3 w-3 text-amber-600 ml-1" />
+                                      <span className="text-amber-600 italic">{item.note}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-2 text-right text-body-sm">
                               {(item.unitPrice || 0).toLocaleString('vi-VN')}đ
                             </td>
-                            <td className="p-2 text-center">{item.quantity}</td>
+                            <td className="p-2 text-center">
+                              {returnedQty > 0 ? (
+                                <span title={`Đặt ${item.quantity}, đã trả ${returnedQty}`}>
+                                  {remainingQty} <span className="text-muted-foreground text-body-xs">/ {item.quantity}</span>
+                                </span>
+                              ) : (
+                                item.quantity
+                              )}
+                            </td>
                             <td className="p-2">
                               <Select
                                 disabled={!isSelected || canOnlyEditNote}
@@ -927,7 +1129,7 @@ export function ComplaintFormPage() {
                                   }));
                                 }}
                               >
-                                <SelectTrigger className="h-9 text-xs">
+                                <SelectTrigger className="h-9 text-body-xs">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -942,8 +1144,8 @@ export function ComplaintFormPage() {
                               <Input
                                 type="number"
                                 min={0}
-                                disabled={!isSelected || affected?.issueType !== 'excess' || canOnlyEditNote}
-                                className="h-9 w-full text-center text-xs"
+                                disabled={!isSelected || (affected?.issueType !== 'excess' && affected?.issueType !== 'other') || canOnlyEditNote}
+                                className="h-9 w-full text-center text-body-xs"
                                 value={affected?.quantityExcess ?? 0}
                                 onChange={(e) => {
                                   const excess = Math.max(0, Number(e.target.value));
@@ -959,12 +1161,12 @@ export function ComplaintFormPage() {
                               <Input
                                 type="number"
                                 min={0}
-                                max={item.quantity}
-                                disabled={!isSelected || affected?.issueType !== 'missing' || canOnlyEditNote}
-                                className="h-9 w-full text-center text-xs"
+                                max={remainingQty}
+                                disabled={!isSelected || (affected?.issueType !== 'missing' && affected?.issueType !== 'other') || canOnlyEditNote}
+                                className="h-9 w-full text-center text-body-xs"
                                 value={affected?.quantityMissing ?? 0}
                                 onChange={(e) => {
-                                  const missing = Math.min(Number(e.target.value), item.quantity);
+                                  const missing = Math.min(Math.max(0, Number(e.target.value)), remainingQty);
                                   setAffectedProducts(prev => prev.map(p => 
                                     p.productSystemId === item.productSystemId 
                                       ? { ...p, quantityMissing: missing }
@@ -977,12 +1179,12 @@ export function ComplaintFormPage() {
                               <Input
                                 type="number"
                                 min={0}
-                                max={item.quantity}
-                                disabled={!isSelected || affected?.issueType !== 'defective' || canOnlyEditNote}
-                                className="h-9 w-full text-center text-xs"
+                                max={remainingQty}
+                                disabled={!isSelected || (affected?.issueType !== 'defective' && affected?.issueType !== 'other') || canOnlyEditNote}
+                                className="h-9 w-full text-center text-body-xs"
                                 value={affected?.quantityDefective ?? 0}
                                 onChange={(e) => {
-                                  const defective = Math.min(Number(e.target.value), item.quantity);
+                                  const defective = Math.min(Math.max(0, Number(e.target.value)), remainingQty);
                                   setAffectedProducts(prev => prev.map(p => 
                                     p.productSystemId === item.productSystemId 
                                       ? { ...p, quantityDefective: defective }
@@ -992,7 +1194,7 @@ export function ComplaintFormPage() {
                               />
                             </td>
                             <td className="p-2 text-right">
-                              <span className={`font-semibold text-sm ${totalAffectedAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              <span className={`font-semibold text-body-sm ${totalAffectedAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                                 {totalAffectedAmount.toLocaleString('vi-VN')}đ
                               </span>
                             </td>
@@ -1001,7 +1203,7 @@ export function ComplaintFormPage() {
                                 type="text"
                                 disabled={!isSelected || canOnlyEditNote}
                                 placeholder="Ghi chú..."
-                                className="h-9 text-xs"
+                                className="h-9 text-body-xs"
                                 value={affected?.note || ''}
                                 onChange={(e) => {
                                   setAffectedProducts(prev => prev.map(p => 
@@ -1018,6 +1220,7 @@ export function ComplaintFormPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </CardContent>
             </Card>
           );
@@ -1027,7 +1230,7 @@ export function ComplaintFormPage() {
         {affectedProducts.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
+              <CardTitle className="text-h4">Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -1046,9 +1249,9 @@ export function ComplaintFormPage() {
                   
                   return (
                     <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-xs font-medium text-muted-foreground uppercase">Thừa</p>
-                      <p className="text-2xl font-bold tracking-tight">{totalExcessQty}</p>
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Thừa</p>
+                      <p className="text-h3 font-bold tracking-tight">{totalExcessQty}</p>
+                      <p className="text-body-sm font-medium text-foreground">
                         {totalExcessAmount.toLocaleString('vi-VN')}đ
                       </p>
                     </div>
@@ -1070,9 +1273,9 @@ export function ComplaintFormPage() {
                   
                   return (
                     <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-xs font-medium text-muted-foreground uppercase">Thiếu</p>
-                      <p className="text-2xl font-bold tracking-tight">{totalMissingQty}</p>
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Thiếu</p>
+                      <p className="text-h3 font-bold tracking-tight">{totalMissingQty}</p>
+                      <p className="text-body-sm font-medium text-foreground">
                         {totalMissingAmount.toLocaleString('vi-VN')}đ
                       </p>
                     </div>
@@ -1094,9 +1297,9 @@ export function ComplaintFormPage() {
                   
                   return (
                     <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-xs font-medium text-muted-foreground uppercase">Hỏng</p>
-                      <p className="text-2xl font-bold tracking-tight">{totalDefectiveQty}</p>
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Hỏng</p>
+                      <p className="text-h3 font-bold tracking-tight">{totalDefectiveQty}</p>
+                      <p className="text-body-sm font-medium text-foreground">
                         {totalDefectiveAmount.toLocaleString('vi-VN')}đ
                       </p>
                     </div>
@@ -1111,9 +1314,9 @@ export function ComplaintFormPage() {
                   
                   return (
                     <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-xs font-medium text-muted-foreground uppercase">Khác</p>
-                      <p className="text-2xl font-bold tracking-tight">{otherItems.length}</p>
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Khác</p>
+                      <p className="text-h3 font-bold tracking-tight">{otherItems.length}</p>
+                      <p className="text-body-sm font-medium text-foreground">
                         Xem ghi chú
                       </p>
                     </div>
@@ -1127,13 +1330,13 @@ export function ComplaintFormPage() {
         {/* Card: Thông tin khiếu nại */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Thông tin khiếu nại</CardTitle>
+            <CardTitle className="text-h4">Thông tin khiếu nại</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Type + Priority */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="type" className="text-sm">Loại khiếu nại *</Label>
+                <Label htmlFor="type" className="text-body-sm">Loại khiếu nại *</Label>
                 <Select
                   value={watch("type")}
                   onValueChange={(value) => setValue("type", value as ComplaintType)}
@@ -1150,13 +1353,13 @@ export function ComplaintFormPage() {
                   </SelectContent>
                 </Select>
                 {complaintTypes.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-body-xs text-muted-foreground mt-1">
                     Chưa có loại khiếu nại nào. Vui lòng thêm trong Cài đặt.
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="priority" className="text-sm">Mức độ ưu tiên *</Label>
+                <Label htmlFor="priority" className="text-body-sm">Mức độ ưu tiên *</Label>
                 <Select
                   value={watch("priority")}
                   onValueChange={(value) => setValue("priority", value as any)}
@@ -1176,14 +1379,14 @@ export function ComplaintFormPage() {
 
             {/* Row 6: Video Links */}
             <div>
-              <Label htmlFor="videoLinks" className="text-sm">Link video từ khách hàng (tùy chọn)</Label>
+              <Label htmlFor="videoLinks" className="text-body-sm">Link video từ khách hàng (tùy chọn)</Label>
               <Textarea
                 id="videoLinks"
                 rows={3}
                 placeholder="Dán link video (YouTube, Google Drive, v.v.) - mỗi link một dòng..."
                 {...register("videoLinks")}
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-body-xs text-muted-foreground mt-1">
                 Có thể dán nhiều link, mỗi link một dòng
               </p>
             </div>
@@ -1194,8 +1397,8 @@ export function ComplaintFormPage() {
               {/* Customer Images - Hình ảnh từ khách hàng */}
               <div className="space-y-4">
                 <div>
-                  <Label className="text-sm">Hình ảnh từ khách hàng</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <Label className="text-body-sm">Hình ảnh từ khách hàng</Label>
+                  <p className="text-body-xs text-muted-foreground mb-2">
                     Tải lên ảnh bằng chứng từ khách hàng (tối đa 10 ảnh, mỗi ảnh max 10MB)
                   </p>
                 </div>
@@ -1216,7 +1419,7 @@ export function ComplaintFormPage() {
                   maxFiles={10}
                   value={customerStagingFiles}
                   onChange={setCustomerStagingFiles}
-                  sessionId={customerSessionId}
+                  sessionId={customerSessionId ?? undefined}
                   onSessionChange={setCustomerSessionId}
                 />
               </div>
@@ -1224,8 +1427,8 @@ export function ComplaintFormPage() {
               {/* Employee Images - Hình ảnh từ nhân viên */}
               <div className="space-y-4">
                 <div>
-                  <Label className="text-sm">Hình ảnh kiểm tra từ nhân viên</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <Label className="text-body-sm">Hình ảnh kiểm tra từ nhân viên</Label>
+                  <p className="text-body-xs text-muted-foreground mb-2">
                     Nhân viên chụp ảnh xác nhận tình trạng sau khi kiểm tra (tối đa 10 ảnh, mỗi ảnh max 10MB)
                   </p>
                 </div>
@@ -1246,7 +1449,7 @@ export function ComplaintFormPage() {
                   maxFiles={10}
                   value={employeeStagingFiles}
                   onChange={setEmployeeStagingFiles}
-                  sessionId={employeeSessionId}
+                  sessionId={employeeSessionId ?? undefined}
                   onSessionChange={setEmployeeSessionId}
                 />
               </div>
@@ -1256,6 +1459,14 @@ export function ComplaintFormPage() {
         </Card>
 
       </form>
+      
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog
+        images={previewState.image ? [previewState.image] : []}
+        title={previewState.title}
+        open={previewState.open}
+        onOpenChange={(open) => setPreviewState(prev => ({ ...prev, open }))}
+      />
     </div>
   );
 }

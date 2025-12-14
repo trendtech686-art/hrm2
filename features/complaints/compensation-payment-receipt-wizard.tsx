@@ -7,6 +7,7 @@
  */
 
 import * as React from "react";
+import { formatDateForDisplay } from '@/lib/date-utils';
 import {
   Dialog,
   DialogContent,
@@ -35,18 +36,19 @@ import type { Receipt } from "../receipts/types.ts";
 import type { CashAccount } from "../cashbook/types.ts";
 import type { Employee } from "../employees/types.ts";
 import type { Complaint } from "./types.ts";
-import type { SystemId } from "@/lib/id-types";
+import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { usePaymentStore } from "../payments/store.ts";
-import { useReceiptStore } from "../receipts/store.ts";
 import { usePaymentTypeStore } from "../settings/payments/types/store.ts";
-import { useReceiptTypeStore } from "../settings/receipt-types/store.ts";
 import { useTargetGroupStore } from "../settings/target-groups/store.ts";
 import { useBranchStore } from "../settings/branches/store.ts";
 import { usePaymentMethodStore } from "../settings/payments/methods/store.ts";
+import { usePenaltyStore, usePenaltyTypeStore } from "../settings/penalties/store.ts";
+import type { Penalty, PenaltyType } from "../settings/penalties/types.ts";
 
 export interface CompensationResult {
   payment?: Payment;  // Optional - only for refund
   receipt?: Receipt;
+  penalties?: Penalty[]; // NEW: Penalties created
   inventoryCheckSystemId?: SystemId; // NEW: Link to inventory check nếu tạo
   inventoryAdjustments?: Array<{
     productSystemId: SystemId;
@@ -57,6 +59,9 @@ export interface CompensationResult {
   compensationDate: string;
   reason: string;
 }
+
+// Who bears the incurred cost
+type CostBearer = 'customer' | 'company' | 'employee';
 
 interface CompensationPaymentReceiptWizardProps {
   open: boolean;
@@ -82,6 +87,11 @@ export function CompensationPaymentReceiptWizard({
   const [responsibleEmployeeId, setResponsibleEmployeeId] = React.useState<string>("");
   const [accounts, setAccounts] = React.useState<CashAccount[]>(accountsProp);
   const [paymentMethods, setPaymentMethods] = React.useState<Array<{systemId: string; name: string; isDefault: boolean}>>([]);
+  
+  // NEW: Cost bearer & penalty type fields
+  const [costBearer, setCostBearer] = React.useState<CostBearer>('company');
+  const [selectedPenaltyTypeId, setSelectedPenaltyTypeId] = React.useState<string>("");
+  const [complaintPenaltyTypes, setComplaintPenaltyTypes] = React.useState<PenaltyType[]>([]);
   
   // NEW: Additional fields
   const [recognitionDate, setRecognitionDate] = React.useState<Date>(new Date());
@@ -112,6 +122,17 @@ export function CompensationPaymentReceiptWizard({
     }
   }, [open, paymentMethods.length, paymentMethodId]);
   
+  // Lazy-load penalty types (category = complaint)
+  React.useEffect(() => {
+    if (open && complaintPenaltyTypes.length === 0) {
+      const penaltyTypes = usePenaltyTypeStore.getState().data;
+      const complaintTypes = penaltyTypes
+        .filter(pt => pt.category === 'complaint' && pt.isActive)
+        .sort((a, b) => a.order - b.order);
+      setComplaintPenaltyTypes(complaintTypes);
+    }
+  }, [open, complaintPenaltyTypes.length]);
+  
   // Set default account when accounts loaded
   React.useEffect(() => {
     if (accounts.length > 0 && !selectedAccountId) {
@@ -121,12 +142,6 @@ export function CompensationPaymentReceiptWizard({
       }
     }
   }, [accounts, selectedAccountId]);
-
-  // Find responsible employee
-  const responsibleEmployee = React.useMemo(() => 
-    employees.find(e => e.systemId === (complaint.assignedTo || responsibleEmployeeId)),
-    [employees, complaint.assignedTo, responsibleEmployeeId]
-  );
   
   // Filter accounts based on selected payment method
   const filteredAccounts = React.useMemo(() => {
@@ -165,6 +180,8 @@ export function CompensationPaymentReceiptWizard({
       setResolutionReason("");
       setResponsibleEmployeeId("");
       setRecognitionDate(new Date());
+      setCostBearer('company');
+      setSelectedPenaltyTypeId("");
       // Don't reset paymentMethodId and selectedAccountId - keep defaults
     }
   }, [open]);
@@ -183,19 +200,24 @@ export function CompensationPaymentReceiptWizard({
       return;
     }
     
-    if (!selectedAccountId) {
+    // Only require account if company pays for incurred cost OR refund
+    if ((resolutionMethod === 'refund' || (incurredCost > 0 && costBearer === 'company')) && !selectedAccountId) {
       toast.error("Vui lòng chọn tài khoản quỹ");
       return;
     }
     
-    if (incurredCost > 0 && !responsibleEmployee) {
-      // Auto-assign to complaint assignee
-      const assignee = employees.find(e => e.systemId === complaint.assignedTo);
-      if (!assignee) {
-        toast.error("Không tìm thấy nhân viên phụ trách để tạo phiếu thu");
+    // Validate employee for employee-related costs
+    if (incurredCost > 0 && costBearer === 'employee') {
+      if (!responsibleEmployeeId && !complaint.assignedTo) {
+        toast.error("Vui lòng chọn nhân viên chịu chi phí phát sinh");
         return;
       }
-      setResponsibleEmployeeId(assignee.systemId);
+    }
+    
+    // Validate penalty type if employee has fault
+    if (selectedPenaltyTypeId && !responsibleEmployeeId && !complaint.assignedTo) {
+      toast.error("Vui lòng chọn nhân viên bị phạt");
+      return;
     }
 
     // Create payments/receipts immediately
@@ -212,20 +234,13 @@ export function CompensationPaymentReceiptWizard({
     onOpenChange(false);
   };
 
-  // Get default account
-  const defaultAccount = React.useMemo(() => 
-    accounts.find(acc => acc.isDefault && acc.type === 'cash') || accounts[0],
-    [accounts]
-  );
-
   // Create payments/receipts function
   const createVouchers = React.useCallback(async () => {
     try {
       // Use static imports instead of lazy-loading to ensure same store instance
       const addPayment = usePaymentStore.getState().add;
-      const addReceipt = useReceiptStore.getState().add;
+      const addPenalty = usePenaltyStore.getState().add;
       const paymentTypes = usePaymentTypeStore.getState().data;
-      const receiptTypes = useReceiptTypeStore.getState().data;
       const targetGroups = useTargetGroupStore.getState().data;
       const branches = useBranchStore.getState().data;
       const paymentMethods = usePaymentMethodStore.getState().data;
@@ -239,15 +254,21 @@ export function CompensationPaymentReceiptWizard({
       }
 
       const selectedAccount = accounts.find(acc => acc.systemId === selectedAccountId);
-      if (!selectedAccount) {
-        toast.error("Không tìm thấy tài khoản quỹ");
-        return;
-      }
 
       let createdPayment: Payment | null = null;
+      const createdPenalties: Penalty[] = [];
 
-      // 1. CHỈ TẠO PHIẾU CHI KHI HOÀN TIỀN
-      if (resolutionMethod === 'refund') {
+      // Lấy nhân viên được giao xử lý
+      const assignedEmployee = employees.find(e => e.systemId === complaint.assignedTo);
+      const targetEmployee = employees.find(e => e.systemId === responsibleEmployeeId) || assignedEmployee;
+
+      // 1. TẠO PHIẾU CHI KHI HOÀN TIỀN
+      if (resolutionMethod === 'refund' && compensationCost > 0) {
+        if (!selectedAccount) {
+          toast.error("Vui lòng chọn tài khoản quỹ");
+          return;
+        }
+        
         const complaintPaymentType = paymentTypes.find(pt => 
           pt.name.toLowerCase().includes('bù trừ') || 
           pt.name.toLowerCase().includes('khiếu nại')
@@ -258,12 +279,8 @@ export function CompensationPaymentReceiptWizard({
           return;
         }
 
-        // Tạo phiếu chi cho khách
         // Lấy thông tin chi nhánh TỪ ĐƠN HÀNG GỐC
         const orderBranch = branches.find(b => b.systemId === relatedOrder.branchSystemId);
-        
-        // Lấy nhân viên được giao xử lý (cho createdBy)
-        const assignedEmployee = employees.find(e => e.systemId === complaint.assignedTo);
         
         // Lấy loại người nhận (Khách hàng)
         const customerTargetGroup = targetGroups.find(tg => 
@@ -306,85 +323,140 @@ export function CompensationPaymentReceiptWizard({
 
         createdPayment = addPayment(paymentData);
         toast.success(`Đã tạo phiếu chi ${createdPayment.id}`);
-      } else {
+      } else if (resolutionMethod === 'replace') {
         // Đổi hàng - KHÔNG tạo phiếu chi
         toast.success('Đã ghi nhận bù trả hàng cho khách');
       }
 
-      // 2. Create receipt if needed
-      let createdReceipt: Receipt | null = null;
-      if (incurredCost > 0 && responsibleEmployee) {
-        const incurredCostReceiptType = receiptTypes.find(pt => 
-          pt.name.toLowerCase().includes('chi phí phát sinh') || 
-          pt.name.toLowerCase().includes('phạt')
-        );
-        
-        if (!incurredCostReceiptType) {
-          toast.error("Không tìm thấy loại phiếu thu 'Chi phí phát sinh'");
-          return;
-        }
+      // 2. XỬ LÝ CHI PHÍ PHÁT SINH
+      if (incurredCost > 0) {
+        if (costBearer === 'company') {
+          // Công ty chịu chi phí -> Tạo Phiếu chi
+          if (!selectedAccount) {
+            toast.error("Vui lòng chọn tài khoản quỹ");
+            return;
+          }
+          
+          const incurredCostPaymentType = paymentTypes.find(pt => 
+            pt.name.toLowerCase().includes('chi phí phát sinh') ||
+            pt.name.toLowerCase().includes('chi phí khác')
+          ) || paymentTypes[0];
+          
+          const orderBranch = branches.find(b => b.systemId === relatedOrder.branchSystemId);
+          const selectedPaymentMethod = paymentMethods.find(pm => pm.systemId === paymentMethodId);
+          
+          const paymentData: Omit<Payment, 'systemId'> = {
+            id: "",
+            date: recognitionDate.toISOString(),
+            amount: incurredCost,
+            recipientTypeSystemId: 'KHAC',
+            recipientTypeName: 'Khác',
+            recipientName: 'Chi phí phát sinh khiếu nại',
+            description: `Chi phí phát sinh - ${resolutionReason}`,
+            paymentReceiptTypeSystemId: incurredCostPaymentType?.systemId || '',
+            paymentReceiptTypeName: incurredCostPaymentType?.name || 'Chi phí phát sinh',
+            paymentMethodSystemId: selectedPaymentMethod?.systemId || '',
+            paymentMethodName: selectedPaymentMethod?.name || '',
+            accountSystemId: selectedAccount.systemId,
+            branchSystemId: orderBranch?.systemId || relatedOrder.branchSystemId,
+            branchName: orderBranch?.name || relatedOrder.branchName,
+            status: 'completed' as const,
+            createdBy: assignedEmployee?.fullName || 'Admin',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            affectsDebt: false,
+            originalDocumentId: complaint.id,
+            recognitionDate: recognitionDate.toISOString(),
+          } as any;
 
-        // Lấy thông tin chi nhánh TỪ ĐƠN HÀNG GỐC (không phải chi nhánh của nhân viên)
-        const orderBranch = branches.find(b => b.systemId === relatedOrder.branchSystemId);
-        
-        // Lấy loại người nộp (Nhân viên)
-        const employeeTargetGroup = targetGroups.find(tg => 
-          tg.name.toLowerCase().includes('nhân viên') || tg.systemId === 'NHANVIEN'
-        );
-        
-        // Lấy phương thức thanh toán
-        const selectedPaymentMethod = paymentMethods.find(pm => pm.systemId === paymentMethodId);
-        if (!selectedPaymentMethod) {
-          toast.error('Vui lòng chọn hình thức thanh toán');
-          return;
-        }
-        
-        const receiptData: Omit<Receipt, 'systemId'> = {
-          id: "",
-          date: recognitionDate.toISOString(),
-          amount: incurredCost,
-          payerTypeSystemId: employeeTargetGroup?.systemId || 'NHANVIEN',
-          payerTypeName: employeeTargetGroup?.name || 'Nhân viên',
-          payerName: responsibleEmployee.fullName,
-          payerSystemId: responsibleEmployee.systemId,
-          description: resolutionReason,
-          paymentReceiptTypeSystemId: incurredCostReceiptType.systemId,
-          paymentReceiptTypeName: incurredCostReceiptType.name,
-          paymentMethodSystemId: selectedPaymentMethod.systemId,
-          paymentMethodName: selectedPaymentMethod.name,
-          accountSystemId: selectedAccount.systemId,
-          branchSystemId: orderBranch?.systemId || relatedOrder.branchSystemId,
-          branchName: orderBranch?.name || relatedOrder.branchName,
-          status: 'completed',
-          createdBy: employees.find(e => e.systemId === complaint.assignedTo)?.fullName || 'Admin',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          affectsDebt: false,
-          originalDocumentId: complaint.id,
-          recognitionDate: recognitionDate.toISOString(),
-        } as any;
+          const incurredPayment = addPayment(paymentData);
+          toast.success(`Đã tạo phiếu chi chi phí phát sinh ${incurredPayment.id}`);
+          
+        } else if (costBearer === 'employee') {
+          // Nhân viên chịu chi phí -> Tạo Phiếu phạt "Thu hồi chi phí phát sinh"
+          if (!targetEmployee) {
+            toast.error("Không tìm thấy nhân viên chịu chi phí");
+            return;
+          }
+          
+          // Find penalty type "Thu hồi chi phí phát sinh"
+          const recoveryPenaltyType = complaintPenaltyTypes.find(pt => 
+            pt.name.toLowerCase().includes('thu hồi chi phí')
+          );
+          
+          const penaltyData: Omit<Penalty, 'systemId'> = {
+            id: asBusinessId(""),
+            employeeSystemId: targetEmployee.systemId,
+            employeeName: targetEmployee.fullName,
+            reason: `Thu hồi chi phí phát sinh từ khiếu nại ${complaint.id}: ${resolutionReason}`,
+            amount: incurredCost,
+            issueDate: recognitionDate.toISOString().split('T')[0],
+            status: 'Chưa thanh toán',
+            issuerName: assignedEmployee?.fullName || 'Admin',
+            issuerSystemId: assignedEmployee?.systemId,
+            linkedComplaintSystemId: complaint.systemId,
+            linkedOrderSystemId: complaint.orderSystemId,
+            penaltyTypeSystemId: recoveryPenaltyType?.systemId,
+            penaltyTypeName: recoveryPenaltyType?.name || 'Thu hồi chi phí phát sinh',
+            category: 'complaint',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
 
-        createdReceipt = addReceipt(receiptData);
-        toast.success(`Đã tạo phiếu thu ${createdReceipt.id}`);
+          const createdPenalty = addPenalty(penaltyData);
+          createdPenalties.push(createdPenalty);
+          toast.success(`Đã tạo phiếu phạt thu hồi chi phí ${createdPenalty.id}`);
+        }
+        // costBearer === 'customer' -> Không tạo gì (ĐVVC thu từ khách)
       }
 
-      // 3. Complete and callback - Only if at least one payment/receipt was created
-      if (!createdPayment && !createdReceipt) {
-        toast.error('Không tạo được phiếu thu chi');
+      // 3. TẠO PHIẾU PHẠT LỖI NHÂN VIÊN (nếu có)
+      if (selectedPenaltyTypeId && targetEmployee) {
+        const selectedPenaltyType = complaintPenaltyTypes.find(pt => pt.systemId === selectedPenaltyTypeId);
+        
+        if (selectedPenaltyType) {
+          const penaltyData: Omit<Penalty, 'systemId'> = {
+            id: asBusinessId(""),
+            employeeSystemId: targetEmployee.systemId,
+            employeeName: targetEmployee.fullName,
+            reason: `Phạt lỗi từ khiếu nại ${complaint.id}: ${selectedPenaltyType.name} - ${resolutionReason}`,
+            amount: selectedPenaltyType.defaultAmount,
+            issueDate: recognitionDate.toISOString().split('T')[0],
+            status: 'Chưa thanh toán',
+            issuerName: assignedEmployee?.fullName || 'Admin',
+            issuerSystemId: assignedEmployee?.systemId,
+            linkedComplaintSystemId: complaint.systemId,
+            linkedOrderSystemId: complaint.orderSystemId,
+            penaltyTypeSystemId: selectedPenaltyType.systemId,
+            penaltyTypeName: selectedPenaltyType.name,
+            category: 'complaint',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          const createdPenalty = addPenalty(penaltyData);
+          createdPenalties.push(createdPenalty);
+          toast.success(`Đã tạo phiếu phạt ${createdPenalty.id}`);
+        }
+      }
+
+      // 4. Complete and callback
+      if (!createdPayment && createdPenalties.length === 0 && resolutionMethod !== 'replace') {
+        toast.error('Không tạo được phiếu nào');
         return;
       }
 
       const result: CompensationResult = {
         payment: createdPayment || undefined,
-        receipt: createdReceipt || undefined,
-        inventoryCheckSystemId: complaint.inventoryAdjustment?.inventoryCheckSystemId, // Link to inventory check
+        penalties: createdPenalties.length > 0 ? createdPenalties : undefined,
+        inventoryCheckSystemId: complaint.inventoryAdjustment?.inventoryCheckSystemId,
         inventoryAdjustments: complaint.inventoryAdjustment?.items.map(item => ({
           productSystemId: item.productSystemId,
           productId: item.productId,
           productName: item.productName,
           quantityAdjusted: item.quantityAdjusted,
         })),
-        compensationDate: new Date().toLocaleDateString('vi-VN'),
+        compensationDate: formatDateForDisplay(new Date()),
         reason: resolutionReason,
       } as any;
       
@@ -397,7 +469,7 @@ export function CompensationPaymentReceiptWizard({
       toast.error('Có lỗi khi tạo phiếu');
       throw error;
     }
-  }, [compensationCost, incurredCost, resolutionReason, resolutionMethod, complaint, responsibleEmployee, employees, accounts, recognitionDate, paymentMethodId, paymentMethods, selectedAccountId, onComplete, onOpenChange]);
+  }, [compensationCost, incurredCost, resolutionReason, resolutionMethod, costBearer, selectedPenaltyTypeId, complaintPenaltyTypes, complaint, responsibleEmployeeId, employees, accounts, recognitionDate, paymentMethodId, paymentMethods, selectedAccountId, onComplete, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -459,6 +531,23 @@ export function CompensationPaymentReceiptWizard({
                   className="h-9"
                 />
               </div>
+              
+              {/* Người chịu chi phí phát sinh - hiển thị khi có chi phí */}
+              {incurredCost > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Người chịu chi phí phát sinh</Label>
+                  <Select value={costBearer} onValueChange={(value) => setCostBearer(value as CostBearer)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Chọn người chịu chi phí" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="customer">Khách hàng (ĐVVC thu)</SelectItem>
+                      <SelectItem value="company">Công ty chịu</SelectItem>
+                      <SelectItem value="employee">Nhân viên chịu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             {/* Row 2: Hình thức thanh toán + Tài khoản quỹ */}
@@ -499,19 +588,22 @@ export function CompensationPaymentReceiptWizard({
             </div>
 
             {/* Row 3: Nhân viên chịu trách nhiệm (nếu có) - Full width */}
-            {incurredCost > 0 && (
+            {((incurredCost > 0 && costBearer === 'employee') || selectedPenaltyTypeId) && (
               <div className="space-y-1.5">
                 <Label htmlFor="responsible-employee" className="flex items-center gap-1">
                   Nhân viên chịu trách nhiệm <span className="text-destructive">*</span>
                 </Label>
                 <VirtualizedCombobox
                   value={
-                    responsibleEmployee
-                      ? {
-                          value: responsibleEmployee.systemId,
-                          label: responsibleEmployee.fullName,
-                          subtitle: responsibleEmployee.id,
-                        }
+                    (responsibleEmployeeId || complaint.assignedTo)
+                      ? (() => {
+                          const emp = employees.find(e => e.systemId === (responsibleEmployeeId || complaint.assignedTo));
+                          return emp ? {
+                            value: emp.systemId,
+                            label: emp.fullName,
+                            subtitle: emp.id,
+                          } : null;
+                        })()
                       : null
                   }
                   onChange={(option) => setResponsibleEmployeeId(option?.value || "")}
@@ -525,6 +617,29 @@ export function CompensationPaymentReceiptWizard({
                 />
               </div>
             )}
+            
+            {/* Row 4: Loại lỗi phạt nhân viên (optional) */}
+            <div className="space-y-1.5">
+              <Label>Loại lỗi phạt nhân viên (nếu có)</Label>
+              <Select 
+                value={selectedPenaltyTypeId || "none"} 
+                onValueChange={(val) => setSelectedPenaltyTypeId(val === "none" ? "" : val)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Chọn loại lỗi phạt (không bắt buộc)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- Không phạt --</SelectItem>
+                  {complaintPenaltyTypes
+                    .filter(pt => !pt.name.toLowerCase().includes('thu hồi chi phí')) // Exclude recovery type
+                    .map(penaltyType => (
+                      <SelectItem key={penaltyType.systemId} value={penaltyType.systemId}>
+                        {penaltyType.name} ({penaltyType.defaultAmount.toLocaleString('vi-VN')}đ)
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Lý do xử lý - Full width */}
             <div className="space-y-1.5">
@@ -544,10 +659,11 @@ export function CompensationPaymentReceiptWizard({
             </div>
 
             {/* Summary */}
-            {(compensationCost > 0 || incurredCost > 0) && (
+            {(compensationCost > 0 || incurredCost > 0 || selectedPenaltyTypeId) && (
               <div className="p-2.5 rounded-lg border bg-muted/50 space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Tóm tắt:</p>
+                <p className="text-xs font-medium text-muted-foreground">Tóm tắt các phiếu sẽ được tạo:</p>
                 
+                {/* Phiếu chi hoàn tiền khách */}
                 {resolutionMethod === 'refund' && compensationCost > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Phiếu chi (PC - hoàn tiền khách):</span>
@@ -557,6 +673,7 @@ export function CompensationPaymentReceiptWizard({
                   </div>
                 )}
                 
+                {/* Bù trả hàng */}
                 {resolutionMethod === 'replace' && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Bù trả hàng:</span>
@@ -566,29 +683,68 @@ export function CompensationPaymentReceiptWizard({
                   </div>
                 )}
                 
+                {/* Chi phí phát sinh */}
                 {incurredCost > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Phiếu thu (PT - chi phí phát sinh):</span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">
-                      +{incurredCost.toLocaleString('vi-VN')} đ
+                  <>
+                    {costBearer === 'customer' && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Chi phí phát sinh (Khách chịu):</span>
+                        <span className="font-semibold text-gray-600 dark:text-gray-400">
+                          ĐVVC thu {incurredCost.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    )}
+                    {costBearer === 'company' && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Phiếu chi (PC - chi phí phát sinh):</span>
+                        <span className="font-semibold text-red-600 dark:text-red-400">
+                          -{incurredCost.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    )}
+                    {costBearer === 'employee' && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Phiếu phạt (PP - thu hồi chi phí):</span>
+                        <span className="font-semibold text-orange-600 dark:text-orange-400">
+                          {incurredCost.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Phiếu phạt lỗi nhân viên */}
+                {selectedPenaltyTypeId && (() => {
+                  const selectedType = complaintPenaltyTypes.find(pt => pt.systemId === selectedPenaltyTypeId);
+                  return selectedType ? (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Phiếu phạt (PP - {selectedType.name}):</span>
+                      <span className="font-semibold text-orange-600 dark:text-orange-400">
+                        {selectedType.defaultAmount.toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
+                
+                {/* Tổng tác động quỹ */}
+                {(compensationCost > 0 || (incurredCost > 0 && costBearer === 'company')) && (
+                  <div className="flex justify-between text-sm pt-1 border-t">
+                    <span className="font-medium">Tác động quỹ (tiền ra):</span>
+                    <span className="font-bold text-red-600 dark:text-red-400">
+                      -{((resolutionMethod === 'refund' ? compensationCost : 0) + 
+                         (costBearer === 'company' ? incurredCost : 0)).toLocaleString('vi-VN')} đ
                     </span>
                   </div>
                 )}
                 
-                {resolutionMethod === 'refund' && (compensationCost > 0 || incurredCost > 0) && (
+                {/* Tổng phạt nhân viên */}
+                {(costBearer === 'employee' && incurredCost > 0 || selectedPenaltyTypeId) && (
                   <div className="flex justify-between text-sm pt-1 border-t">
-                    <span className="font-medium">Tác động quỹ:</span>
-                    <span className={`font-bold ${(compensationCost - incurredCost) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                      {(compensationCost - incurredCost) > 0 ? '-' : '+'}{Math.abs(compensationCost - incurredCost).toLocaleString('vi-VN')} đ
-                    </span>
-                  </div>
-                )}
-                
-                {resolutionMethod === 'replace' && incurredCost > 0 && (
-                  <div className="flex justify-between text-sm pt-1 border-t">
-                    <span className="font-medium">Tác động quỹ:</span>
-                    <span className="font-bold text-green-600 dark:text-green-400">
-                      +{incurredCost.toLocaleString('vi-VN')} đ
+                    <span className="font-medium">Tổng phạt nhân viên:</span>
+                    <span className="font-bold text-orange-600 dark:text-orange-400">
+                      {((costBearer === 'employee' ? incurredCost : 0) + 
+                        (selectedPenaltyTypeId ? (complaintPenaltyTypes.find(pt => pt.systemId === selectedPenaltyTypeId)?.defaultAmount || 0) : 0)
+                      ).toLocaleString('vi-VN')} đ
                     </span>
                   </div>
                 )}

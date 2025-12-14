@@ -150,6 +150,8 @@ usePageTitle({
   // Complaint
   complaintCode: 'KN001',
 });
+
+> **Wiki onboarding tip:** Các bài wiki mô tả quy trình (ví dụ onboarding) nên trỏ về [`docs/ID-GOVERNANCE.md`](../ID-GOVERNANCE.md) khi nhắc tới SystemId/BusinessId để thành tài liệu chuẩn duy nhất.
 ```
 
 ---

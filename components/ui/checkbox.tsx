@@ -4,10 +4,17 @@ import { Check } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 
+type BaseCheckboxProps = React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+
+type CheckboxProps = Omit<BaseCheckboxProps, "checked" | "defaultChecked"> & {
+  checked?: CheckboxPrimitive.CheckedState | undefined
+  defaultChecked?: CheckboxPrimitive.CheckedState | undefined
+}
+
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
->(({ className, ...props }, ref) => (
+  CheckboxProps
+>(({ className, checked, defaultChecked, ...props }, ref) => (
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
@@ -15,6 +22,8 @@ const Checkbox = React.forwardRef<
       className
     )}
     {...props}
+    {...(checked !== undefined ? { checked } : {})}
+    {...(defaultChecked !== undefined ? { defaultChecked } : {})}
   >
     <CheckboxPrimitive.Indicator
       className={cn("flex items-center justify-center text-current")}

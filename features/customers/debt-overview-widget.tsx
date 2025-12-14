@@ -1,16 +1,19 @@
 import * as React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
 import { AlertTriangle, Clock, DollarSign, TrendingUp } from "lucide-react";
 import { useCustomerStore } from "./store.ts";
 import { calculateTotalOverdueDebt } from "./debt-tracking-utils.ts";
-import { cn } from "../../lib/utils.ts";
+import { AlertListBox } from "./components/alert-list-box.tsx";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-export function DebtOverviewWidget() {
+interface DebtOverviewWidgetProps {
+  activeFilter?: 'all' | 'totalOverdue' | 'overdue' | 'dueSoon' | 'hasDebt';
+  onFilterChange?: (filter: 'all' | 'totalOverdue' | 'overdue' | 'dueSoon' | 'hasDebt') => void;
+}
+
+export function DebtOverviewWidget({ activeFilter = 'all', onFilterChange }: DebtOverviewWidgetProps) {
   const { getOverdueDebtCustomers, getDueSoonCustomers, getActive } = useCustomerStore();
   
   const overdueCustomers = React.useMemo(() => getOverdueDebtCustomers(), [getOverdueDebtCustomers]);
@@ -27,67 +30,53 @@ export function DebtOverviewWidget() {
     [activeCustomers]
   );
   
-  if (overdueCustomers.length === 0 && dueSoonCustomers.length === 0) {
-    return null; // Don't show widget if no debt issues
+  if (overdueCustomers.length === 0 && dueSoonCustomers.length === 0 && totalCustomersWithDebt === 0) {
+    return null;
   }
+
+  const handleFilterChange = (key: string) => {
+    if (onFilterChange) {
+      onFilterChange(key as 'all' | 'totalOverdue' | 'overdue' | 'dueSoon' | 'hasDebt');
+    }
+  };
+
+  const debtItems = [
+    {
+      key: 'totalOverdue',
+      label: `Tổng công nợ quá hạn: ${formatCurrency(totalOverdueDebt)}`,
+      value: overdueCustomers.length,
+      Icon: DollarSign,
+      accent: 'text-destructive',
+    },
+    {
+      key: 'overdue',
+      label: 'Quá hạn thanh toán',
+      value: overdueCustomers.length,
+      Icon: AlertTriangle,
+      accent: 'text-destructive',
+    },
+    {
+      key: 'dueSoon',
+      label: 'Sắp đến hạn (1-3 ngày)',
+      value: dueSoonCustomers.length,
+      Icon: Clock,
+      accent: 'text-orange-500',
+    },
+    {
+      key: 'hasDebt',
+      label: 'Tổng KH có công nợ',
+      value: totalCustomersWithDebt,
+      Icon: TrendingUp,
+      accent: 'text-muted-foreground',
+    },
+  ];
   
   return (
-    <div className="grid gap-4 md:grid-cols-4 mb-4">
-      {/* Total Overdue Debt */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Tổng công nợ quá hạn</CardTitle>
-          <DollarSign className="h-4 w-4 text-destructive" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-destructive">{formatCurrency(totalOverdueDebt)}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {overdueCustomers.length} khách hàng
-          </p>
-        </CardContent>
-      </Card>
-      
-      {/* Overdue Customers */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Quá hạn thanh toán</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-destructive" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{overdueCustomers.length}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Cần xử lý ngay
-          </p>
-        </CardContent>
-      </Card>
-      
-      {/* Due Soon Customers */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Sắp đến hạn</CardTitle>
-          <Clock className="h-4 w-4 text-warning" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{dueSoonCustomers.length}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Trong 1-3 ngày tới
-          </p>
-        </CardContent>
-      </Card>
-      
-      {/* Total Customers with Debt */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Tổng KH có công nợ</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{totalCustomersWithDebt}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Đang theo dõi
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <AlertListBox
+      items={debtItems}
+      activeFilter={activeFilter}
+      onFilterChange={handleFilterChange}
+      variant="destructive"
+    />
   );
 }

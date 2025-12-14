@@ -17,7 +17,7 @@ interface InsufficientBalanceDialogProps {
   totalAmount: number;
   orderAmount: number;
   shortageAmount: number;
-  orderLabel?: string;
+  orderLabel?: string | undefined;
   onSelectMixed: () => void;
   onSelectCashOnly: () => void;
 }

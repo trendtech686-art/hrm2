@@ -68,8 +68,8 @@ export function PurchaseOrderCard({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm font-mono">{po.id}</span>
-              <Badge variant={getStatusVariant(po.status)} className="text-xs">
+              <span className="text-body-sm font-medium font-mono">{po.id}</span>
+              <Badge variant={getStatusVariant(po.status)} className="text-body-xs">
                 {po.status}
               </Badge>
             </div>
@@ -136,8 +136,8 @@ export function PurchaseOrderCard({
         </div>
 
         {/* Supplier + Branch */}
-        <div className="text-sm font-medium mb-1">{po.supplierName}</div>
-        <div className="text-xs text-muted-foreground mb-3 flex items-center">
+        <div className="text-body-sm font-medium mb-1">{po.supplierName}</div>
+        <div className="text-body-xs text-muted-foreground mb-3 flex items-center">
           <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
           <span className="truncate">{po.branchName}</span>
         </div>
@@ -147,12 +147,12 @@ export function PurchaseOrderCard({
 
         {/* Date Info */}
         <div className="space-y-2 mb-3">
-          <div className="flex items-center text-xs text-muted-foreground">
+          <div className="flex items-center text-body-xs text-muted-foreground">
             <Calendar className="h-3 w-3 mr-1.5 flex-shrink-0" />
             <span>Đặt hàng: {formatDate(po.orderDate)}</span>
           </div>
           {po.deliveryDate && (
-            <div className="flex items-center text-xs text-muted-foreground">
+            <div className="flex items-center text-body-xs text-muted-foreground">
               <Package className="h-3 w-3 mr-1.5 flex-shrink-0" />
               <span>Dự kiến: {formatDate(po.deliveryDate)}</span>
             </div>
@@ -161,10 +161,10 @@ export function PurchaseOrderCard({
 
         {/* Delivery & Payment Status */}
         <div className="flex flex-wrap gap-1.5 mb-3">
-          <Badge variant={getDeliveryStatusVariant(po.deliveryStatus)} className="text-xs">
+          <Badge variant={getDeliveryStatusVariant(po.deliveryStatus)} className="text-body-xs">
             {po.deliveryStatus}
           </Badge>
-          <Badge variant={getPaymentStatusVariant(po.paymentStatus)} className="text-xs">
+          <Badge variant={getPaymentStatusVariant(po.paymentStatus)} className="text-body-xs">
             {po.paymentStatus}
           </Badge>
         </div>
@@ -174,10 +174,10 @@ export function PurchaseOrderCard({
 
         {/* Amount */}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Tổng tiền:</span>
+          <span className="text-body-xs text-muted-foreground">Tổng tiền:</span>
           <div className="flex items-center gap-1">
             <DollarSign className="h-3 w-3 text-muted-foreground" />
-            <span className="font-semibold text-sm">{formatCurrency(po.grandTotal)}</span>
+            <span className="text-body-sm font-semibold">{formatCurrency(po.grandTotal)}</span>
           </div>
         </div>
       </CardContent>

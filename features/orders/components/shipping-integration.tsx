@@ -7,6 +7,7 @@ import { useDebounce } from '../hooks/use-debounce';
 import { GHTKService, type GHTKCreateOrderParams } from '../../settings/shipping/integrations/ghtk-service';
 import { useShippingPartnerStore } from '../../settings/shipping/store';
 import { loadShippingConfig } from '../../../lib/utils/shipping-config-migration';
+import { useGlobalShippingConfig } from '../hooks/use-global-shipping-config'; // ✅ Import global config hook
 import { getGHTKCredentials } from '../../../lib/utils/get-shipping-credentials'; // ✅ Import helper
 import { toast } from 'sonner';
 import type { 
@@ -207,6 +208,7 @@ interface ShippingIntegrationProps {
 export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTabs, customer: customerProp }: ShippingIntegrationProps) {
   const { control, setValue, getValues } = useFormContext<OrderFormValues>();
   const { settings: shippingSettings } = useShippingSettingsStore();
+  const { globalConfig, getDimensions, getWeight, getDefaultShippingOptions } = useGlobalShippingConfig(); // ✅ Get global config
   const { findById: findProductByIdBase } = useProductStore();
   const { data: provinces, getWardsByProvinceId } = useProvinceStore();
   const { findById: findBranchByIdBase } = useBranchStore();
@@ -540,6 +542,9 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
 
   // Package info (use debounced weight for stability, allow manual override)
   const packageInfo: PackageInfo = React.useMemo(() => {
+    // ✅ Get default dimensions from global config
+    const defaultDimensions = getDimensions();
+    
     // ✅ Use weight from form field (already auto-filled by useEffect)
     // This avoids timing issues with debounced totalWeight
     const finalWeight = formWeight ?? customWeight ?? Math.round(totalWeight);
@@ -549,15 +554,16 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     const result = {
       weight: finalWeight,
       weightUnit: shippingSettings.weightUnit || 'gram',
-      length: customLength ?? (shippingSettings.length || 10),
-      width: customWidth ?? (shippingSettings.width || 10),
-      height: customHeight ?? (shippingSettings.height || 10),
+      // ✅ Use global config dimensions as default, then shippingSettings, then fallback
+      length: customLength ?? defaultDimensions.length ?? (shippingSettings.length || 10),
+      width: customWidth ?? defaultDimensions.width ?? (shippingSettings.width || 10),
+      height: customHeight ?? defaultDimensions.height ?? (shippingSettings.height || 10),
       codAmount: customCodAmount ?? codAmount,
       insuranceValue: grandTotal
     };
     
     return result;
-  }, [formWeight, totalWeight, codAmount, grandTotal, shippingSettings.weightUnit, shippingSettings.length, shippingSettings.width, shippingSettings.height, customWeight, customLength, customWidth, customHeight, customCodAmount]);
+  }, [formWeight, totalWeight, codAmount, grandTotal, shippingSettings.weightUnit, shippingSettings.length, shippingSettings.width, shippingSettings.height, customWeight, customLength, customWidth, customHeight, customCodAmount, getDimensions]);
 
   // ✅ Build shipping calculation request with auto-recalculation
   const shippingRequest: ShippingCalculationRequest | null = React.useMemo(() => {
@@ -599,12 +605,12 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       codAmount: packageInfo.codAmount,
       insuranceValue: packageInfo.insuranceValue,
       options: {
-        transport: serviceOptions.transport || ghtkDefaults.transport || 'road',
-        tags: serviceOptions.tags || ghtkDefaults.tags || [],
-        deliverWorkShift: serviceOptions.deliverWorkShift || ghtkDefaults.deliverWorkShift || 1,
-        pickWorkShift: serviceOptions.pickWorkShift || ghtkDefaults.pickWorkShift || 1,
-        orderValue: serviceOptions.orderValue || grandTotal || 0,
-        pickAddressId: serviceOptions.pickAddressId,
+        transport: serviceOptions?.transport || ghtkDefaults.transport || 'road',
+        tags: serviceOptions?.tags || ghtkDefaults.tags || [],
+        deliverWorkShift: serviceOptions?.deliverWorkShift || ghtkDefaults.deliverWorkShift || 1,
+        pickWorkShift: serviceOptions?.pickWorkShift || ghtkDefaults.pickWorkShift || 1,
+        orderValue: serviceOptions?.orderValue || grandTotal || 0,
+        pickAddressId: serviceOptions?.pickAddressId,
       }
     };
     
@@ -628,12 +634,12 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     packageInfo.height,
     packageInfo.insuranceValue,
     grandTotal,
-    serviceOptions.transport,
-    JSON.stringify(serviceOptions.tags || []),
-    serviceOptions.deliverWorkShift,
-    serviceOptions.pickWorkShift,
-    serviceOptions.orderValue,
-    serviceOptions.pickAddressId,
+    serviceOptions?.transport,
+    JSON.stringify(serviceOptions?.tags || []),
+    serviceOptions?.deliverWorkShift,
+    serviceOptions?.pickWorkShift,
+    serviceOptions?.orderValue,
+    serviceOptions?.pickAddressId,
   ]);
 
   // ✅ REMOVED: Don't reset service when address changes
@@ -681,7 +687,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
         height: packageInfo.height
       },
       pickupAddressId: branchSystemId,
-      deliveryAddress: customerAddress!,
+      deliveryAddress: customerAddress,
       options: options
     };
 
@@ -696,8 +702,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     setValue('length', packageInfo.length);
     setValue('width', packageInfo.width);
     setValue('height', packageInfo.height);
-    setValue('payer', options.payer === 'CUSTOMER' ? 'Người nhận' : 'Người gửi');
-    setValue('shippingNote', options.note || '');
+    setValue('payer', options?.payer === 'CUSTOMER' ? 'Người nhận' : 'Người gửi');
+    setValue('shippingNote', options?.note || '');
     setValue('configuration', options);
     
   }, [selectedService, packageInfo, branchSystemId, customerAddress, setValue]);

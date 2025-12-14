@@ -4,8 +4,9 @@ import { useOrderStore } from '../orders/store.ts';
 import type { Order, Packaging } from '../orders/types.ts';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
 import { getColumns } from './columns.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { DataTableToolbar } from '../../components/data-table/data-table-toolbar.tsx';
+import { Card, CardContent, CardTitle } from '../../components/ui/card.tsx';
+import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
+import { PageFilters } from '../../components/layout/page-filters.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { CheckCircle2 } from 'lucide-react';
 import Fuse from 'fuse.js';
@@ -14,6 +15,8 @@ import { DataTableColumnCustomizer } from '../../components/data-table/data-tabl
 import { Badge } from '../../components/ui/badge.tsx';
 import { formatDate } from '../../lib/date-utils.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
+import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
+import { ROUTES } from '../../lib/router.ts';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
@@ -29,12 +32,13 @@ export type ReconciliationItem = Packaging & {
 export function ReconciliationPage() {
     const { data: allOrders, confirmCodReconciliation } = useOrderStore();
     const { employee: authEmployee } = useAuth();
+    const { isMobile } = useBreakpoint();
     const currentEmployeeSystemId = authEmployee?.systemId ?? 'SYSTEM';
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
     const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
     const [globalFilter, setGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-    const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'deliveredDate', desc: true });
+    const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     
     const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
         const storageKey = 'reconciliation-column-visibility';
@@ -118,21 +122,32 @@ export function ReconciliationPage() {
     };
     
     // Page header configuration
-    const pageHeaderConfig = React.useMemo(() => ({
+    const pendingCount = reconciliationList.length;
+    const pendingCodTotal = React.useMemo(() =>
+        reconciliationList.reduce((total, item) => total + (item.codAmount ?? 0), 0),
+    [reconciliationList]);
+    const selectedCount = React.useMemo(() => Object.keys(rowSelection).length, [rowSelection]);
+
+    usePageHeader(React.useMemo(() => ({
+        title: 'Đối soát COD',
+        breadcrumb: [
+            { label: 'Trang chủ', href: ROUTES.ROOT },
+            { label: 'Đối soát COD', href: ROUTES.INTERNAL.RECONCILIATION, isCurrent: true }
+        ],
+        showBackButton: false,
         actions: [
             <Button 
                 key="confirm"
-                size="sm" 
+                size="sm"
+                className="h-9 px-4"
                 onClick={() => setIsConfirmOpen(true)}
-                disabled={Object.keys(rowSelection).length === 0}
+                disabled={selectedCount === 0}
             >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Xác nhận đã nhận tiền ({Object.keys(rowSelection).length})
+                Xác nhận đã nhận tiền ({selectedCount})
             </Button>
         ]
-    }), [rowSelection]);
-
-    usePageHeader(pageHeaderConfig);
+    }), [pendingCount, pendingCodTotal, selectedCount]));
     
     const columns = React.useMemo(() => getColumns(), []);
     
@@ -151,36 +166,30 @@ export function ReconciliationPage() {
 
     return (
         <div className="h-full flex flex-col space-y-4">
-            <Card>
-                <CardContent className="p-4">
-                     <DataTableToolbar
-                        search={globalFilter}
-                        onSearchChange={setGlobalFilter}
-                        searchPlaceholder="Tìm mã vận đơn, mã đơn hàng..."
-                        numResults={filteredData.length}
-                    >
-                        <div className="flex items-center gap-2">
-                            <Button 
-                                size="sm" 
-                                onClick={() => setIsConfirmOpen(true)}
-                                disabled={Object.keys(rowSelection).length === 0}
-                            >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Xác nhận đã nhận tiền ({Object.keys(rowSelection).length})
-                            </Button>
-                             <DataTableColumnCustomizer
-                                columns={columns}
-                                columnVisibility={columnVisibility}
-                                setColumnVisibility={setColumnVisibility}
-                                columnOrder={columnOrder}
-                                setColumnOrder={setColumnOrder}
-                                pinnedColumns={pinnedColumns}
-                                setPinnedColumns={setPinnedColumns}
-                            />
-                        </div>
-                    </DataTableToolbar>
-                </CardContent>
-            </Card>
+            {/* PageToolbar - Desktop only */}
+            {!isMobile && (
+                <PageToolbar
+                    rightActions={
+                        <DataTableColumnCustomizer
+                            columns={columns}
+                            columnVisibility={columnVisibility}
+                            setColumnVisibility={setColumnVisibility}
+                            columnOrder={columnOrder}
+                            setColumnOrder={setColumnOrder}
+                            pinnedColumns={pinnedColumns}
+                            setPinnedColumns={setPinnedColumns}
+                        />
+                    }
+                />
+            )}
+
+            {/* PageFilters */}
+            <PageFilters
+                searchValue={globalFilter}
+                onSearchChange={setGlobalFilter}
+                searchPlaceholder="Tìm mã vận đơn, mã đơn hàng..."
+            />
+
             <ResponsiveDataTable<ReconciliationItem>
                 className="flex-grow"
                 columns={columns}
@@ -207,7 +216,7 @@ export function ReconciliationPage() {
                         <CardContent className="p-4 space-y-3">
                             <div className="flex justify-between items-start">
                                 <div className="space-y-1">
-                                    <div className="font-semibold">{item.orderId}</div>
+                                    <CardTitle className="text-sm font-semibold">{item.orderId}</CardTitle>
                                     <div className="text-sm text-muted-foreground">{item.customerName}</div>
                                 </div>
                                 <Badge variant="secondary">{item.reconciliationStatus || 'Chưa đối soát'}</Badge>

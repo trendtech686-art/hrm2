@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
 import { SubtaskList, type Subtask } from '../../../../components/shared/subtask-list.tsx';
 import type { WarrantyTicket } from '../../types.ts';
-import { getWorkflowTemplate } from '../../../settings/templates/workflow-templates-page.tsx';
+import { getWorkflowTemplate } from '../../../settings/printer/workflow-templates-page.tsx';
 
 interface WarrantyWorkflowCardProps {
   ticket: WarrantyTicket;
@@ -38,23 +38,14 @@ export function WarrantyWorkflowCard({
         subtask.id === id ? { ...subtask, completed, completedAt: completed ? new Date() : undefined } : subtask
       );
 
-      let nextStatus: WarrantyTicket['status'] = ticket.status;
-      if (completed && toggledSubtask?.triggerStatus) {
-        nextStatus = toggledSubtask.triggerStatus as WarrantyTicket['status'];
-      }
-
-      if (nextStatus !== ticket.status) {
-        onUpdateStatus(ticket.systemId, nextStatus);
-      } else {
-        onUpdateTicket(ticket.systemId, { ...ticket, subtasks: updatedSubtasks });
-      }
+      onUpdateTicket(ticket.systemId, { ...ticket, subtasks: updatedSubtasks });
 
       if (toggledSubtask) {
         const action = completed ? 'Hoàn thành bước' : 'Bỏ hoàn thành bước';
         onAddHistory(ticket.systemId, action, currentUserName, `"${toggledSubtask.title}"`);
       }
     },
-    [subtasks, ticket, onUpdateStatus, onUpdateTicket, onAddHistory, currentUserName]
+    [subtasks, ticket, onUpdateTicket, onAddHistory, currentUserName]
   );
 
   const handleAllCompleted = React.useCallback(() => {
@@ -62,6 +53,25 @@ export function WarrantyWorkflowCard({
       onUpdateStatus(ticket.systemId, 'returned', 'Hoàn thành toàn bộ quy trình xử lý');
     }
   }, [ticket, onUpdateStatus]);
+
+  // Show message if no workflow template is configured
+  if (subtasks.length === 0) {
+    return (
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Quy trình xử lý</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4 text-muted-foreground">
+            <p className="text-sm">Chưa cấu hình quy trình</p>
+            <p className="text-xs mt-1">
+              Vào <a href="/settings/workflow-templates" className="text-primary hover:underline">Cài đặt → Quy trình</a> để thiết lập
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -76,12 +86,6 @@ export function WarrantyWorkflowCard({
           showProgress
           readonly
           compact={false}
-          statusOptions={[
-            { value: 'incomplete', label: 'Chưa đầy đủ' },
-            { value: 'pending', label: 'Chưa xử lý' },
-            { value: 'processed', label: 'Đã xử lý' },
-            { value: 'returned', label: 'Đã trả' },
-          ]}
         />
       </CardContent>
     </Card>

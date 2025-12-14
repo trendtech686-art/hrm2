@@ -40,7 +40,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog.tsx';
-import { useToast } from '../../hooks/use-toast.ts';
+import { toast } from 'sonner';
+import { ROUTES } from '../../lib/router.ts';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -66,6 +67,7 @@ type PurchaseReturnFormValues = {
 export function PurchaseReturnFormPage() {
   const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
+  const isSelectMode = !systemIdParam;
 
   // Stores
   const { data: allPurchaseOrders, findById: findPO } = usePurchaseOrderStore();
@@ -81,7 +83,6 @@ export function PurchaseReturnFormPage() {
   const { accounts } = useCashbookStore();
   const { data: allPayments } = usePaymentStore();
   const { data: allInventoryReceipts } = useInventoryReceiptStore();
-  const { toast } = useToast();
   // State for confirmation dialog
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
   const [pendingSubmit, setPendingSubmit] = React.useState<PurchaseReturnFormValues | null>(null);
@@ -113,14 +114,12 @@ export function PurchaseReturnFormPage() {
 
   React.useEffect(() => {
     if (po && receipts.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Không thể tạo phiếu trả',
+      toast.error('Không thể tạo phiếu trả', {
         description: 'Đơn nhập hàng này chưa có phiếu nhập kho nào.'
       });
       navigate(-1);
     }
-  }, [po, receipts, navigate, toast]);
+  }, [po, receipts, navigate]);
 
   // Tính số lượng có thể hoàn trả cho mỗi sản phẩm
   const returnableQuantities = React.useMemo(() => {
@@ -236,7 +235,67 @@ export function PurchaseReturnFormPage() {
     setValue('refundAmount', maxRefundableAmount);
   }, [maxRefundableAmount, setValue]);
 
-  usePageHeader();
+  const headerTitle = React.useMemo(() => {
+    if (isSelectMode) return 'Chọn đơn nhập hàng để tạo phiếu trả';
+    return po ? `Tạo phiếu trả cho ${po.id}` : 'Tạo phiếu trả nhà cung cấp';
+  }, [isSelectMode, po]);
+
+  const headerActions = React.useMemo(() => {
+    if (isSelectMode) {
+      return [
+        <Button
+          key="list"
+          variant="outline"
+          size="sm"
+          className="h-9"
+          onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_RETURNS)}
+        >
+          Danh sách phiếu trả
+        </Button>
+      ];
+    }
+
+    return [
+      <Button
+        key="cancel"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        onClick={() => navigate(-1)}
+      >
+        Hủy
+      </Button>,
+      <Button
+        key="submit"
+        size="sm"
+        className="h-9"
+        type="submit"
+        form="purchase-return-form"
+      >
+        Xác nhận hoàn trả
+      </Button>
+    ];
+  }, [isSelectMode, navigate]);
+
+  usePageHeader({
+    title: headerTitle,
+    actions: headerActions,
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Trả hàng nhập', href: ROUTES.PROCUREMENT.PURCHASE_RETURNS, isCurrent: false },
+      {
+        label: isSelectMode ? 'Chọn đơn' : 'Tạo phiếu trả',
+        href: isSelectMode
+          ? ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW
+          : po
+            ? `${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${po.systemId}/return`
+            : '',
+        isCurrent: true,
+      }
+    ],
+    showBackButton: true,
+    backPath: ROUTES.PROCUREMENT.PURCHASE_RETURNS
+  });
 
   // If no PO selected, show PO selection screen
   if (!systemIdParam) {
@@ -316,8 +375,8 @@ export function PurchaseReturnFormPage() {
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <AlertCircle className="h-12 w-12 text-muted-foreground" />
         <div className="text-center">
-          <p className="text-lg font-semibold">Không tìm thấy đơn nhập hàng</p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-h3 font-semibold">Không tìm thấy đơn nhập hàng</p>
+          <p className="text-body-sm text-muted-foreground mt-1">
             ID: {systemIdParam || 'Chưa có'}
           </p>
         </div>
@@ -334,8 +393,8 @@ export function PurchaseReturnFormPage() {
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <AlertCircle className="h-12 w-12 text-muted-foreground" />
         <div className="text-center">
-          <p className="text-lg font-semibold">Thiếu thông tin</p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-h3 font-semibold">Thiếu thông tin</p>
+          <p className="text-body-sm text-muted-foreground mt-1">
             {!supplier && 'Không tìm thấy nhà cung cấp. '}
             {!branch && 'Không tìm thấy chi nhánh.'}
           </p>
@@ -355,9 +414,7 @@ export function PurchaseReturnFormPage() {
   const handleFormSubmit = (data: PurchaseReturnFormValues) => {
     const returnItems = data.items.filter(item => item.returnQuantity > 0);
     if (returnItems.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Chưa chọn sản phẩm',
+      toast.error('Chưa chọn sản phẩm', {
         description: 'Vui lòng chọn ít nhất một sản phẩm để hoàn trả.'
       });
       return;
@@ -373,18 +430,32 @@ export function PurchaseReturnFormPage() {
         return;
     }
 
-    // Validate returnId format (6 digits after TH)
-    if (!data.returnId || !/^TH\d{6}$/.test(data.returnId)) {
+    // Validate returnId format (6 digits after TH) - chỉ validate nếu có nhập
+    let finalReturnId = data.returnId;
+    if (data.returnId && !/^TH\d{6}$/.test(data.returnId)) {
       form.setError('returnId', { type: 'manual', message: 'Mã hoàn trả phải có format THxxxxxx (6 chữ số)' });
       return;
     }
 
+    // Auto-generate returnId nếu không nhập
+    if (!finalReturnId) {
+      const existingIds = allPurchaseReturns
+        .map(pr => pr.id)
+        .filter(id => /^TH\d{6}$/.test(id))
+        .map(id => parseInt(id.replace('TH', ''), 10));
+      const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
+      finalReturnId = `TH${String(maxId + 1).padStart(6, '0')}`;
+    }
+
     // Check duplicate returnId
-    const isDuplicate = allPurchaseReturns.some(pr => pr.id === data.returnId);
+    const isDuplicate = allPurchaseReturns.some(pr => pr.id === finalReturnId);
     if (isDuplicate) {
       form.setError('returnId', { type: 'manual', message: 'Mã hoàn trả đã tồn tại' });
       return;
     }
+
+    // Update data with finalReturnId
+    data.returnId = finalReturnId;
 
     // Show confirmation dialog
     setPendingSubmit(data);
@@ -424,8 +495,7 @@ export function PurchaseReturnFormPage() {
     
     setShowConfirmDialog(false);
     setPendingSubmit(null);
-    toast({
-      title: 'Đã tạo phiếu trả',
+    toast.success('Đã tạo phiếu trả', {
       description: pendingSubmit.returnId ? `Phiếu ${pendingSubmit.returnId} đã được lưu.` : 'Phiếu trả NCC đã được lưu.'
     });
     navigate(`/purchase-orders/${po.systemId}`);
@@ -436,8 +506,8 @@ export function PurchaseReturnFormPage() {
   return (
     <>
     <Form {...form}>
-      <form onSubmit={handleSubmit(handleFormSubmit)}>
-        <div className="flex items-center justify-between mb-4">
+      <form id="purchase-return-form" onSubmit={handleSubmit(handleFormSubmit)}>
+        <div className="flex items-center justify-between mb-4 lg:hidden">
             <Button variant="ghost" type="button" onClick={() => navigate(-1)} className="h-9 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Đơn nhập hàng {po.id}
@@ -451,22 +521,22 @@ export function PurchaseReturnFormPage() {
         {po && supplier && (
           <Card className="mb-6 border-blue-200 bg-blue-50/50">
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-body-sm">
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Nhà cung cấp</p>
-                  <p className="font-semibold text-base">{supplier.name}</p>
+                  <p className="font-semibold text-body-base">{supplier.name}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Tổng đơn hàng</p>
-                  <p className="font-semibold text-base">{formatCurrency(po.grandTotal)} VNĐ</p>
+                  <p className="font-semibold text-body-base">{formatCurrency(po.grandTotal)} VNĐ</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Đã thanh toán</p>
-                  <p className="font-semibold text-base text-green-600">{formatCurrency(totalPaid)} VNĐ</p>
+                  <p className="font-semibold text-body-base text-green-600">{formatCurrency(totalPaid)} VNĐ</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Còn phải trả NCC</p>
-                  <p className="font-semibold text-base text-red-600">{formatCurrency(Math.max(0, po.grandTotal - totalPaid))} VNĐ</p>
+                  <p className="font-semibold text-body-base text-red-600">{formatCurrency(Math.max(0, po.grandTotal - totalPaid))} VNĐ</p>
                 </div>
               </div>
             </CardContent>
@@ -515,9 +585,9 @@ export function PurchaseReturnFormPage() {
                                 <TableBody>
                                     {fields.map((field, index) => (
                                         <TableRow key={field.id}>
-                                            <TableCell className="font-mono text-sm align-top">{field.productId}</TableCell>
+                                            <TableCell className="font-mono text-body-sm align-top">{field.productId}</TableCell>
                                             <TableCell className="align-top">
-                                              <div>{field.productName}</div>
+                                              <div className="text-body-sm">{field.productName}</div>
                                               <Controller
                                                 control={control}
                                                 name={`items.${index}.note`}
@@ -525,7 +595,7 @@ export function PurchaseReturnFormPage() {
                                                   <Input
                                                     {...noteField}
                                                     placeholder="Ghi chú (VD: Hàng lỗi, sai màu...)"
-                                                    className="mt-2 h-9 text-xs"
+                                                    className="mt-2 h-9 text-body-xs"
                                                     value={noteField.value || ''}
                                                   />
                                                 )}
@@ -536,7 +606,7 @@ export function PurchaseReturnFormPage() {
                                                     <Controller control={control} name={`items.${index}.returnQuantity`} render={({ field: qtyField }) => (
                                                         <NumberInput 
                                                           {...qtyField} 
-                                                          className="h-9 text-center" 
+                                                          className="h-9 text-center text-body-sm" 
                                                           format={false} 
                                                           min={0} 
                                                           max={field.returnableQuantity}
@@ -547,11 +617,11 @@ export function PurchaseReturnFormPage() {
                                                           }}
                                                         />
                                                     )} />
-                                                    <span className="text-muted-foreground text-sm">/ {field.returnableQuantity}</span>
+                                                    <span className="text-muted-foreground text-body-sm">/ {field.returnableQuantity}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-right align-top">{formatCurrency(field.unitPrice)} VNĐ</TableCell>
-                                            <TableCell className="text-right font-semibold align-top">{formatCurrency(watchedItems[index]?.total || 0)} VNĐ</TableCell>
+                                            <TableCell className="text-right align-top text-body-sm">{formatCurrency(field.unitPrice)} VNĐ</TableCell>
+                                            <TableCell className="text-right font-semibold align-top text-body-sm">{formatCurrency(watchedItems[index]?.total || 0)} VNĐ</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -559,9 +629,9 @@ export function PurchaseReturnFormPage() {
                         </div>
                          <div className="flex justify-end mt-4">
                             <div className="w-full max-w-sm space-y-2">
-                                <div className="flex justify-between items-center text-sm">
+                                <div className="flex justify-between items-center text-body-sm">
                                   <span className="text-muted-foreground">Tổng giá trị hàng hoàn trả</span>
-                                  <span className="font-bold text-lg">{formatCurrency(totalReturnValue)} VNĐ</span>
+                                  <span className="font-bold text-h3">{formatCurrency(totalReturnValue)} VNĐ</span>
                                 </div>
                             </div>
                         </div>
@@ -578,7 +648,7 @@ export function PurchaseReturnFormPage() {
                             <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent className="max-w-sm">
-                            <p className="text-xs">
+                            <p className="text-body-xs">
                               Số tiền tối đa có thể nhận lại = (Tổng đã trả NCC - Tổng đã nhận lại trước đó) - Giá trị hàng còn giữ sau khi hoàn trả lần này
                             </p>
                           </TooltipContent>
@@ -589,7 +659,7 @@ export function PurchaseReturnFormPage() {
                          <FormField control={control} name="refundAmount" rules={{ max: { value: maxRefundableAmount, message: `Không thể hoàn lại nhiều hơn ${formatCurrency(maxRefundableAmount)} VNĐ` } }} render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Số tiền nhận lại từ NCC</FormLabel>
-                                <FormControl><NumberInput {...field} value={field.value as number} onChange={field.onChange} /></FormControl>
+                                <FormControl><NumberInput {...field} value={field.value as number} onChange={field.onChange} className="text-body-sm" /></FormControl>
                                 <FormDescription>Tối đa: {formatCurrency(maxRefundableAmount)} VNĐ</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -600,7 +670,7 @@ export function PurchaseReturnFormPage() {
                                 <FormItem>
                                     <FormLabel>Hình thức nhận tiền</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value as string}>
-                                        <FormControl><SelectTrigger className="h-9"><SelectValue /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="h-9 text-body-sm"><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             <SelectItem value="Tiền mặt">Tiền mặt</SelectItem>
                                             <SelectItem value="Chuyển khoản">Chuyển khoản</SelectItem>
@@ -612,7 +682,7 @@ export function PurchaseReturnFormPage() {
                                 <FormItem>
                                     <FormLabel>Tài khoản quỹ nhận tiền</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value as string}>
-                                        <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="h-9 text-body-sm"><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {accounts.map(acc => <SelectItem key={acc.systemId} value={acc.systemId}>{acc.name}</SelectItem>)}
                                         </SelectContent>
@@ -637,10 +707,10 @@ export function PurchaseReturnFormPage() {
                             <Input 
                               {...field} 
                               placeholder="VD: TH000001"
-                              className="font-mono h-9"
+                              className="font-mono h-9 text-body-sm"
                             />
                           </FormControl>
-                          <FormDescription className="text-xs">
+                          <FormDescription className="text-body-xs">
                             Tự động tạo hoặc bạn có thể sửa (Format: THxxxxxx - 6 chữ số)
                           </FormDescription>
                           <FormMessage />
@@ -651,8 +721,8 @@ export function PurchaseReturnFormPage() {
 
                 <Card>
                     <CardHeader><CardTitle>Nhà cung cấp</CardTitle></CardHeader>
-                    <CardContent className="text-sm space-y-1">
-                        <p className="font-semibold text-primary text-base">{supplier.name}</p>
+                    <CardContent className="text-body-sm space-y-1">
+                        <p className="font-semibold text-primary text-body-base">{supplier.name}</p>
                         {supplier.phone && <p className="text-muted-foreground">{supplier.phone}</p>}
                         {supplier.email && <p className="text-muted-foreground">{supplier.email}</p>}
                     </CardContent>
@@ -660,7 +730,7 @@ export function PurchaseReturnFormPage() {
 
                 <Card>
                     <CardHeader><CardTitle>Chi nhánh hoàn trả</CardTitle></CardHeader>
-                    <CardContent className="text-sm">
+                    <CardContent className="text-body-sm">
                         <p className="font-medium">{branch.name}</p>
                     </CardContent>
                 </Card>
@@ -672,25 +742,25 @@ export function PurchaseReturnFormPage() {
                       <CardTitle>Lịch sử hoàn trả ({previousReturns.length})</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3 text-sm">
+                      <div className="space-y-3 text-body-sm">
                         {previousReturns.slice(0, 3).map(pr => (
                           <div key={pr.id} className="flex justify-between items-start pb-3 border-b last:border-0">
                             <div>
                               <p className="font-medium">{pr.id}</p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-body-xs text-muted-foreground">
                                 {formatDateCustom(parseDate(pr.returnDate) || getCurrentDate(), 'dd/MM/yyyy')}
                               </p>
                             </div>
                             <div className="text-right">
                               <p className="font-semibold">{formatCurrency(pr.totalReturnValue)} VNĐ</p>
                               {pr.refundAmount > 0 && (
-                                <p className="text-xs text-green-600">Hoàn: {formatCurrency(pr.refundAmount)} VNĐ</p>
+                                <p className="text-body-xs text-green-600">Hoàn: {formatCurrency(pr.refundAmount)} VNĐ</p>
                               )}
                             </div>
                           </div>
                         ))}
                         {previousReturns.length > 3 && (
-                          <p className="text-xs text-muted-foreground text-center">
+                          <p className="text-body-xs text-muted-foreground text-center">
                             Còn {previousReturns.length - 3} phiếu khác...
                           </p>
                         )}
@@ -710,10 +780,10 @@ export function PurchaseReturnFormPage() {
                                   placeholder="Ví dụ: Hàng không đúng chất lượng, sai sót trong đơn hàng, thừa hàng..." 
                                   value={field.value as string}
                                   rows={4}
-                                  className="resize-none"
+                                  className="resize-none text-body-sm"
                                 />
                               </FormControl>
-                              <FormDescription className="text-xs">
+                              <FormDescription className="text-body-xs">
                                 Ghi rõ lý do để dễ tra cứu sau này. Có thể thêm ghi chú riêng cho từng sản phẩm ở bảng trên.
                               </FormDescription>
                             </FormItem>

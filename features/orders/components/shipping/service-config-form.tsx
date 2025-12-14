@@ -21,6 +21,7 @@ import { Calendar as CalendarIcon, Loader2, Check, ChevronsUpDown, Pencil } from
 import { cn } from '@/lib/utils';
 import { getBaseUrl } from '@/lib/api-config';
 import { loadShippingConfig } from '@/lib/utils/shipping-config-migration'; // ✅ Use shared utility
+import { useGlobalShippingConfig, getGHTKTagsFromRequirement } from '@/features/orders/hooks/use-global-shipping-config'; // ✅ Use global config
 import { toast } from 'sonner'; // ✅ Import toast
 import { AddressFormDialog } from '@/features/customers/components/address-form-dialog'; // ✅ Reuse existing component
 import type { ShippingService, SelectedShippingConfig, ShippingAddress } from './types';
@@ -28,10 +29,10 @@ import type { CustomerAddress } from '@/features/customers/types';
 
 interface ServiceConfigFormProps {
   service: ShippingService;
-  config?: Partial<SelectedShippingConfig['options']>;
+  config?: Partial<SelectedShippingConfig['options']> | undefined;
   onConfigChange: (config: Partial<SelectedShippingConfig['options']>) => void;
-  grandTotal?: number; // ✅ Add grandTotal prop
-  customerAddress?: ShippingAddress | null; // ✅ Add customer address for specific addresses API
+  grandTotal?: number | undefined; // ✅ Add grandTotal prop
+  customerAddress?: ShippingAddress | null | undefined; // ✅ Add customer address for specific addresses API
 }
 
 // GHTK Pick Address type
@@ -62,14 +63,27 @@ function getSpecificAddressCacheKey(province: string, district: string, ward: st
   return `${province}|${district}|${ward}`.toLowerCase();
 }
 
+type ShippingOptions = NonNullable<SelectedShippingConfig['options']>;
+
 export function ServiceConfigForm({ service, config = {}, onConfigChange, grandTotal = 0, customerAddress }: ServiceConfigFormProps) {
-  // ✅ Initialize options with config
-  const [options, setOptions] = React.useState<Partial<SelectedShippingConfig['options']>>(() => ({
-    transport: config.transport || 'road',
-    payer: config.payer || 'CUSTOMER',
-    pickOption: config.pickOption || 'cod',
-    ...config, // Override with any explicitly provided config
-  }));
+  // ✅ Get global shipping config
+  const { globalConfig, getDefaultShippingOptions, getDimensions, deliveryRequirement, defaultNote } = useGlobalShippingConfig();
+  
+  // ✅ Initialize options with global config defaults
+  const [options, setOptions] = React.useState<Partial<ShippingOptions>>(() => {
+    const defaultOptions = getDefaultShippingOptions();
+    const ghtkTags = service.partnerCode === 'GHTK' ? getGHTKTagsFromRequirement(deliveryRequirement) : [];
+    
+    return {
+      transport: config?.transport || 'road',
+      payer: config?.payer || 'CUSTOMER',
+      pickOption: config?.pickOption || 'cod',
+      note: config?.note || defaultNote, // ✅ Use global default note
+      requirement: config?.requirement || deliveryRequirement, // ✅ Use global delivery requirement
+      tags: config?.tags || ghtkTags, // ✅ Apply GHTK tags based on global requirement
+      ...config, // Override with any explicitly provided config
+    };
+  });
   
   const [pickAddresses, setPickAddresses] = React.useState<GHTKPickAddress[]>([]);
   const [loadingAddresses, setLoadingAddresses] = React.useState(false);
@@ -472,7 +486,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
       returnName: address.contactName,
       returnTel: address.contactPhone,
       returnProvince: address.province,
-      returnProvinceId: address.provinceId,
+      returnProvinceId: Number(address.provinceId),
       returnDistrict: address.district,
       returnDistrictId: address.districtId,
       returnWard: address.ward,
@@ -631,7 +645,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                         handleInputChange('returnName', '');
                         handleInputChange('returnTel', '');
                         handleInputChange('returnProvince', '');
-                        handleInputChange('returnProvinceId', '');
+                        handleInputChange('returnProvinceId', undefined);
                         handleInputChange('returnDistrict', '');
                         handleInputChange('returnDistrictId', undefined);
                         handleInputChange('returnWard', '');
@@ -660,7 +674,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                             label: 'Địa chỉ trả hàng',
                             street: options.returnAddress || '',
                             province: options.returnProvince || '',
-                            provinceId: options.returnProvinceId || '',
+                            provinceId: String(options.returnProvinceId || 0),
                             district: options.returnDistrict || '',
                             districtId: options.returnDistrictId || 0,
                             ward: options.returnWard || '',
@@ -814,8 +828,8 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   mode="single"
                   selected={pickDate}
                   onSelect={(date) => {
-                    setPickDate(date);
                     if (date) {
+                      setPickDate(date);
                       handleInputChange('pickDate', format(date, 'yyyy-MM-dd'));
                       setOpenPickDate(false);
                     }

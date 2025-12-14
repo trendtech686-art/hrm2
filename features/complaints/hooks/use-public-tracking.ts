@@ -50,12 +50,13 @@ export function usePublicComplaintTracking(complaintId: string | undefined) {
       .reverse()
       .find(a => a.actionType === 'verified-correct');
 
-    const payment = verifiedCorrectAction?.metadata?.paymentSystemId
-      ? payments.find(p => p.systemId === verifiedCorrectAction.metadata.paymentSystemId)
+    const metadata = verifiedCorrectAction?.metadata;
+    const payment = metadata?.paymentSystemId
+      ? payments.find(p => p.systemId === metadata.paymentSystemId)
       : null;
 
-    const receipt = verifiedCorrectAction?.metadata?.receiptSystemId
-      ? receipts.find(r => r.systemId === verifiedCorrectAction.metadata.receiptSystemId)
+    const receipt = metadata?.receiptSystemId
+      ? receipts.find(r => r.systemId === metadata.receiptSystemId)
       : null;
 
     const defaultBranch = branches.find(b => b.isDefault);

@@ -293,7 +293,8 @@ export function WarrantyFormPage() {
     
     // Check warranty ID duplicate (only if provided)
     if (!isEditing && data.id && data.id.trim() !== '') {
-      const existingTicket = allTickets.find(t => t.id === data.id.trim());
+      const idToCheck = data.id.trim();
+      const existingTicket = allTickets.find(t => t.id === idToCheck);
       if (existingTicket) {
         toast.error('Mã phiếu đã tồn tại', { 
           description: `Mã "${data.id}" đã được sử dụng. Vui lòng nhập mã khác hoặc để trống để tự động tạo.`,
@@ -408,7 +409,7 @@ export function WarrantyFormPage() {
     // Pre-generate systemId for new ticket (used for image confirmation)
     let preGeneratedSystemId: string | null = null;
     if (!isEditing) {
-      preGeneratedSystemId = generateNextSystemId() as any; // Generate ID without creating ticket
+      preGeneratedSystemId = generateNextSystemId ? (generateNextSystemId() as any) : `WARRANTY${Date.now()}`; // Generate ID without creating ticket
       targetWarrantyId = preGeneratedSystemId as any;
     }
 
@@ -783,6 +784,7 @@ export function WarrantyFormPage() {
     setPageHeader({
       title,
       breadcrumb,
+      backPath: '/warranty',
       actions,
     });
   }, [isEditing, isUpdateMode, ticket, actions, setPageHeader]);
@@ -796,7 +798,7 @@ export function WarrantyFormPage() {
             {isReadOnly && (
               <Card className="border-amber-200 bg-amber-50">
                 <CardContent className="pt-6">
-                  <p className="text-sm text-amber-800">
+                  <p className="text-body-sm text-amber-800">
                     <strong>Lưu ý:</strong> Phiếu đã xử lý/trả hàng. Không thể chỉnh sửa.
                   </p>
                 </CardContent>
@@ -807,7 +809,7 @@ export function WarrantyFormPage() {
             {isUpdateMode && (
               <Card className="border-blue-200 bg-blue-50">
                 <CardContent className="pt-6">
-                  <p className="text-sm text-blue-800">
+                  <p className="text-body-sm text-blue-800">
                     <strong>Chế độ cập nhật thông tin:</strong> Chỉ có thể thêm/sửa sản phẩm bảo hành và ghi chú. Các thông tin khác đã bị khóa.
                   </p>
                 </CardContent>
@@ -831,7 +833,7 @@ export function WarrantyFormPage() {
               {/* Card 1: Hình ảnh lúc nhận */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Hình ảnh lúc nhận</CardTitle>
+                  <CardTitle className="text-h4">Hình ảnh lúc nhận</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-3">
                   {/* Existing permanent files */}
@@ -851,7 +853,7 @@ export function WarrantyFormPage() {
                   {/* New staging files upload section */}
                   <div className="space-y-2">
                     {isEditing && receivedPermanentFiles.length > 0 && (
-                      <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                      <div className="flex items-center gap-2 text-body-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
                         <span>📤</span>
                         <span>Thêm file mới (tạm thời)</span>
                       </div>
@@ -873,7 +875,7 @@ export function WarrantyFormPage() {
               {/* Card 2: Hình ảnh đã xử lý */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">Hình ảnh đã xử lý</CardTitle>
+                  <CardTitle className="text-h4">Hình ảnh đã xử lý</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-3">
                   {/* Existing permanent files */}
@@ -893,7 +895,7 @@ export function WarrantyFormPage() {
                   {/* New staging files upload section */}
                   <div className="space-y-2">
                     {isEditing && processedPermanentFiles.length > 0 && (
-                      <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                      <div className="flex items-center gap-2 text-body-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
                         <span>📤</span>
                         <span>Thêm file mới (tạm thời)</span>
                       </div>

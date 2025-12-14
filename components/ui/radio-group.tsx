@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils.ts"
 type RadioGroupContextType = {
   value: string | number | undefined;
   onValueChange: (value: string | number) => void;
-  name?: string;
+  name?: string | undefined;
 };
 
 const RadioGroupContext = React.createContext<RadioGroupContextType | undefined>(undefined);
@@ -22,10 +22,10 @@ const useRadioGroup = () => {
 const RadioGroup = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & {
-    value?: string | number;
-    defaultValue?: string | number;
-    onValueChange?: (value: string | number) => void;
-    name?: string;
+    value?: string | number | undefined;
+    defaultValue?: string | number | undefined;
+    onValueChange?: ((value: string | number) => void) | undefined;
+    name?: string | undefined;
   }
 >(({ className, children, value, defaultValue, onValueChange, name, ...props }, ref) => {
   const [internalValue, setInternalValue] = React.useState(defaultValue);

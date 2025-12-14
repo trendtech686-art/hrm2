@@ -1,6 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
+import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog.tsx";
+import { useProductStore } from "../../products/store.ts";
+import { useProductTypeStore } from "../../settings/inventory/product-type-store.ts";
+import { Package, Eye } from 'lucide-react';
 import type { Complaint } from '../types.ts';
 import type { SystemId } from "@/lib/id-types";
 
@@ -10,6 +14,14 @@ interface Props {
 
 export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complaint }) => {
   const navigate = useNavigate();
+  const { findById: findProductById } = useProductStore();
+  const { findById: findProductTypeById } = useProductTypeStore();
+  const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
+
+  const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
+    const productType = findProductTypeById(productTypeSystemId);
+    return productType?.name || 'Hàng hóa';
+  }, [findProductTypeById]);
 
   // Get confirmed quantities from last verified-correct action
   // ONLY show if complaint is currently verified-correct
@@ -39,22 +51,29 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b">
                 <tr>
-                  <th className="text-left p-2 font-medium min-w-[180px]">Sản phẩm</th>
+                  <th className="text-center p-2 font-medium w-16">Ảnh</th>
+                  <th className="text-left p-2 font-medium min-w-[200px]">Sản phẩm</th>
                   <th className="text-right p-2 font-medium w-24">Đơn giá</th>
                   <th className="text-center p-2 font-medium w-20">SL đặt</th>
-                  <th className="text-left p-2 font-medium w-28">Loại</th>
-                  <th className="text-center p-2 font-medium w-20">Thừa</th>
-                  <th className="text-center p-2 font-medium w-20">Thiếu</th>
-                  <th className="text-center p-2 font-medium w-20">Hỏng</th>
+                  <th className="text-left p-2 font-medium w-20">Loại lỗi</th>
+                  <th className="text-center p-2 font-medium w-16">Thừa</th>
+                  <th className="text-center p-2 font-medium w-16">Thiếu</th>
+                  <th className="text-center p-2 font-medium w-16">Hỏng</th>
                   {confirmedQuantities && (
                     <th className="text-center p-2 font-medium w-24">Thực tế</th>
                   )}
                   <th className="text-right p-2 font-medium w-28">Tổng tiền</th>
-                  <th className="text-left p-2 font-medium min-w-[150px]">Ghi chú</th>
+                  <th className="text-left p-2 font-medium min-w-[120px]">Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
                 {complaint.affectedProducts.map((item, idx) => {
+                  const product = findProductById(item.productSystemId);
+                  const productTypeName = product?.productTypeSystemId 
+                    ? getProductTypeName(product.productTypeSystemId)
+                    : 'Hàng hóa';
+                  const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                  
                   const totalAmount = (
                     (item.quantityMissing || 0) + 
                     (item.quantityDefective || 0) + 
@@ -83,6 +102,24 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                   
                   return (
                     <tr key={idx} className="border-b last:border-0">
+                      {/* Ảnh sản phẩm */}
+                      <td className="p-2">
+                        {imageUrl ? (
+                          <div
+                            className="group/thumbnail relative w-10 h-9 rounded border overflow-hidden bg-muted cursor-pointer mx-auto"
+                            onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                          >
+                            <img src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                              <Eye className="w-3 h-3 text-white drop-shadow-md" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-10 h-9 bg-muted rounded flex items-center justify-center mx-auto">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </td>
                       <td className="p-2">
                         <button
                           onClick={() => navigate(`/products/${item.productSystemId}`)}
@@ -90,7 +127,11 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                         >
                           {item.productName}
                         </button>
-                        <div className="text-xs text-muted-foreground">{item.productId}</div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span>{productTypeName}</span>
+                          <span>-</span>
+                          <span>{item.productId}</span>
+                        </div>
                       </td>
                       <td className="p-2 text-right text-sm">
                         {(item.unitPrice || 0).toLocaleString('vi-VN')}đ
@@ -234,6 +275,14 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
           </div>
         </CardContent>
       </Card>
+
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog
+        images={previewImage ? [previewImage.url] : []}
+        open={!!previewImage}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+        title={previewImage?.title}
+      />
     </>
   );
 });

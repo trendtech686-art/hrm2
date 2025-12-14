@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Plus, MoreHorizontal } from "lucide-react";
 import { useCashbookStore } from "../../cashbook/store.ts";
 import { useReceiptStore } from "../../receipts/store.ts";
 import { usePaymentStore } from "../../payments/store.ts";
@@ -6,7 +7,7 @@ import { useBranchStore } from "../branches/store.ts";
 import type { CashAccount } from "../../cashbook/types.ts";
 import { CashAccountForm, type CashAccountFormValues } from "./form.tsx";
 import { Button } from "../../../components/ui/button.tsx";
-import { MoreHorizontal, Pencil, Trash2, PowerOff, Power, Star } from "lucide-react";
+import { Switch } from "../../../components/ui/switch.tsx";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table.tsx";
@@ -14,10 +15,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Badge } from "../../../components/ui/badge.tsx";
 import { toast } from "sonner";
 import { asBusinessId, asSystemId, type SystemId } from "../../../lib/id-types.ts";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import type { RegisterTabActions } from "../use-tab-action-registry.ts";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
-export function CashAccountsPageContent() {
+type CashAccountsPageContentProps = {
+  isActive: boolean;
+  onRegisterActions: RegisterTabActions;
+};
+
+export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAccountsPageContentProps) {
   const { accounts: data, add, update, remove, setDefault } = useCashbookStore();
   const { data: receipts } = useReceiptStore();
   const { data: payments } = usePaymentStore();
@@ -46,40 +54,86 @@ export function CashAccountsPageContent() {
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
-  const handleEdit = (item: CashAccount) => { setEditingItem(item); setIsFormOpen(true); };
+  const handleAddNew = React.useCallback(() => {
+    setEditingItem(null);
+    setIsFormOpen(true);
+  }, []);
+
+  const handleEdit = React.useCallback((item: CashAccount) => { setEditingItem(item); setIsFormOpen(true); }, []);
   const handleDeleteRequest = (systemId: SystemId) => { 
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
   
-  const handleToggleStatus = (item: CashAccount) => {
-    update(item.systemId, { ...item, isActive: !item.isActive });
-    toast.success(item.isActive ? "Đã ngừng hoạt động" : "Đã kích hoạt");
+  const handleToggleStatus = (item: CashAccount, isActive: boolean) => {
+    update(item.systemId, { ...item, isActive });
+    toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
   };
+  
+  const handleToggleDefault = React.useCallback((item: CashAccount, checked: boolean) => {
+    if (checked) {
+      setDefault(item.systemId);
+      toast.success(`Đã đặt "${item.name}" làm mặc định`);
+    } else {
+      const otherAccounts = data.filter(a => a.systemId !== item.systemId);
+      if (otherAccounts.length > 0) {
+        setDefault(otherAccounts[0].systemId);
+        toast.success(`Đã đặt "${otherAccounts[0].name}" làm mặc định`);
+      } else {
+        toast.error('Phải có ít nhất một tài khoản mặc định');
+      }
+    }
+  }, [data, setDefault]);
   
   const handleSetDefault = (item: CashAccount) => {
     setDefault(item.systemId);
-    toast.success(`Đã đặt ${item.name} làm tài khoản mặc định`);
+    toast.success(`Đã đặt "${item.name}" làm mặc định`);
   };
   
   const confirmDelete = () => {
     if (idToDelete) {
+      const item = data.find(a => a.systemId === idToDelete);
       remove(idToDelete);
-      toast.success("Đã xóa thành công");
+      toast.success(`Đã xóa "${item?.name}"`);
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
   };
   
   const normalizeFormValues = (values: CashAccountFormValues): Omit<CashAccount, 'systemId'> => {
-    const { id, branchSystemId, managedBy, ...rest } = values;
-    const sanitizedId = id.trim().toUpperCase();
+    const sanitizedId = values.id.trim().toUpperCase();
+    const sanitizedName = values.name.trim();
+    const branchId = values.branchSystemId ? asSystemId(values.branchSystemId) : undefined;
+    const managerId = values.managedBy ? asSystemId(values.managedBy) : undefined;
+
+    const trimmed = (input?: string) => {
+      if (!input) return undefined;
+      const next = input.trim();
+      return next.length > 0 ? next : undefined;
+    };
+
+    const bankAccountNumber = trimmed(values.bankAccountNumber);
+    const bankBranch = trimmed(values.bankBranch);
+    const bankName = trimmed(values.bankName);
+    const bankCode = trimmed(values.bankCode);
+    const accountHolder = trimmed(values.accountHolder);
 
     return {
-      ...rest,
       id: asBusinessId(sanitizedId),
-      branchSystemId: branchSystemId ? asSystemId(branchSystemId) : undefined,
-      managedBy: managedBy ? asSystemId(managedBy) : undefined,
+      name: sanitizedName,
+      initialBalance: values.initialBalance,
+      type: values.type,
+      isActive: values.isActive,
+      ...(values.isDefault !== undefined ? { isDefault: values.isDefault } : {}),
+      ...(bankAccountNumber ? { bankAccountNumber } : {}),
+      ...(bankBranch ? { bankBranch } : {}),
+      ...(bankName ? { bankName } : {}),
+      ...(bankCode ? { bankCode } : {}),
+      ...(accountHolder ? { accountHolder } : {}),
+      ...(values.minBalance !== undefined ? { minBalance: values.minBalance } : {}),
+      ...(values.maxBalance !== undefined ? { maxBalance: values.maxBalance } : {}),
+      ...(branchId ? { branchSystemId: branchId } : {}),
+      ...(managerId ? { managedBy: managerId } : {}),
     };
   };
 
@@ -101,6 +155,18 @@ export function CashAccountsPageContent() {
     }
   };
 
+  React.useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    onRegisterActions([
+      <SettingsActionButton key="add-cash-account" onClick={handleAddNew}>
+        <Plus className="mr-2 h-4 w-4" /> Thêm tài khoản quỹ
+      </SettingsActionButton>,
+    ]);
+  }, [handleAddNew, isActive, onRegisterActions]);
+
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
@@ -113,8 +179,8 @@ export function CashAccountsPageContent() {
               <TableHead>Ngân hàng</TableHead>
               <TableHead>Chi nhánh</TableHead>
               <TableHead className="text-right">Số dư hiện tại</TableHead>
+              <TableHead>Mặc định</TableHead>
               <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-center">Mặc định</TableHead>
               <TableHead className="text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
@@ -164,16 +230,16 @@ export function CashAccountsPageContent() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                        {item.isActive ? 'Hoạt động' : 'Ngừng'}
-                      </Badge>
+                      <Switch 
+                        checked={item.isDefault} 
+                        onCheckedChange={(checked) => handleToggleDefault(item, checked)}
+                      />
                     </TableCell>
-                    <TableCell className="text-center">
-                      {item.isDefault ? (
-                        <span className="text-sm font-medium">Mặc định</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                    <TableCell>
+                      <Switch 
+                        checked={item.isActive} 
+                        onCheckedChange={(checked) => handleToggleStatus(item, checked)}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -187,33 +253,17 @@ export function CashAccountsPageContent() {
                           <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleEdit(item)}>
-                            <Pencil className="mr-2 h-4 w-4" />
                             Chỉnh sửa
                           </DropdownMenuItem>
                           {!item.isDefault && (
                             <DropdownMenuItem onClick={() => handleSetDefault(item)}>
-                              <Star className="mr-2 h-4 w-4" />
                               Đặt làm mặc định
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
-                            {item.isActive ? (
-                              <>
-                                <PowerOff className="mr-2 h-4 w-4" />
-                                Ngừng hoạt động
-                              </>
-                            ) : (
-                              <>
-                                <Power className="mr-2 h-4 w-4" />
-                                Kích hoạt
-                              </>
-                            )}
-                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDeleteRequest(item.systemId)}
                             className="text-destructive"
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
                             Xóa
                           </DropdownMenuItem>
                         </DropdownMenuContent>

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { usePurchaseOrderStore } from './store.ts';
+import { ROUTES } from '../../lib/router.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
@@ -15,7 +16,7 @@ import { useCashbookStore } from '../cashbook/store.ts';
 import { usePaymentStore } from '../payments/store.ts';
 import type { Payment } from '../payments/types.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useToast } from '../../hooks/use-toast.ts';
+import { toast } from 'sonner';
 import { getCurrentDate, toISODate, formatDateCustom } from '../../lib/date-utils.ts';
 import type { PurchaseOrder, PaymentStatus, PurchaseOrderStatus, DeliveryStatus } from './types.ts';
 import { Button } from '../../components/ui/button.tsx';
@@ -39,7 +40,6 @@ export function PurchaseOrderFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { add, update, findById, data: allOrders, processInventoryReceipt } = usePurchaseOrderStore();
   const { data: branches } = useBranchStore();
   const { data: employees } = useEmployeeStore();
@@ -64,10 +64,8 @@ export function PurchaseOrderFormPage() {
   // Kiểm tra nếu đơn đã nhập kho thì không cho sửa (theo chuẩn Sapo)
   React.useEffect(() => {
     if (isEditMode && existingOrder && existingOrder.deliveryStatus !== 'Chưa nhập') {
-      toast({
-        title: 'Không thể sửa đơn',
+      toast.error('Không thể sửa đơn', {
         description: 'Đơn đã nhập kho không thể sửa. Vui lòng sử dụng chức năng Hoàn trả để điều chỉnh.',
-        variant: 'destructive',
       });
       navigate(`/purchase-orders/${existingOrder.systemId}`);
     }
@@ -243,8 +241,7 @@ export function PurchaseOrderFormPage() {
       setNotes(`Sao chép từ đơn ${copyFromOrder.id}\n${copyFromOrder.notes || ''}`);
       
       // Hiện toast thông báo
-      toast({
-        title: 'Đã sao chép đơn hàng',
+      toast('Đã sao chép đơn hàng', {
         description: `Dữ liệu từ đơn ${copyFromOrder.id} đã được điền sẵn. Vui lòng kiểm tra lại trước khi lưu.`,
       });
     }
@@ -285,6 +282,19 @@ export function PurchaseOrderFormPage() {
     [items]
   );
 
+  const { preTaxSubtotal, totalTax } = React.useMemo(() => {
+    return items.reduce((acc, item) => {
+      const taxRate = item.tax || 0;
+      const itemTotal = item.total;
+      const preTax = itemTotal / (1 + taxRate / 100);
+      const tax = itemTotal - preTax;
+      return {
+        preTaxSubtotal: acc.preTaxSubtotal + preTax,
+        totalTax: acc.totalTax + tax
+      };
+    }, { preTaxSubtotal: 0, totalTax: 0 });
+  }, [items]);
+
   const totalQuantity = React.useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
     [items]
@@ -294,7 +304,7 @@ export function PurchaseOrderFormPage() {
     discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const totalShippingFees = shippingFees.reduce((sum, fee) => sum + fee.amount, 0);
   const totalOtherFees = otherFees.reduce((sum, fee) => sum + fee.amount, 0);
-  const grandTotal = subtotal - discountAmount + totalShippingFees + totalOtherFees;
+  const grandTotal = subtotal - discountAmount;
 
   const handleSave = async (receiveImmediately: boolean = false) => {
     // Use ref to get latest values
@@ -320,30 +330,24 @@ export function PurchaseOrderFormPage() {
     // Validation
     if (!currentSupplierId) {
       console.log('Validation failed: No supplier, supplierId =', currentSupplierId);
-      toast({
-        title: 'Lỗi',
+      toast.error('Lỗi', {
         description: 'Vui lòng chọn nhà cung cấp',
-        variant: 'destructive',
       });
       return;
     }
 
     if (!branchId) {
       console.log('Validation failed: No branch');
-      toast({
-        title: 'Lỗi',
+      toast.error('Lỗi', {
         description: 'Vui lòng chọn chi nhánh',
-        variant: 'destructive',
       });
       return;
     }
 
     if (!employeeId) {
       console.log('Validation failed: No employee');
-      toast({
-        title: 'Lỗi',
+      toast.error('Lỗi', {
         description: 'Vui lòng chọn nhân viên',
-        variant: 'destructive',
       });
       return;
     }
@@ -353,10 +357,8 @@ export function PurchaseOrderFormPage() {
 
     if (currentItems.length === 0) {
       console.log('Validation failed: No items, items.length =', currentItems.length);
-      toast({
-        title: 'Lỗi',
+      toast.error('Lỗi', {
         description: 'Vui lòng thêm ít nhất một sản phẩm',
-        variant: 'destructive',
       });
       return;
     }
@@ -366,10 +368,8 @@ export function PurchaseOrderFormPage() {
     if (itemsWithZeroPrice.length > 0) {
       const itemNames = itemsWithZeroPrice.map(item => item.product.name).join(', ');
       console.log('Validation failed: Items with zero price:', itemNames);
-      toast({
-        title: 'Cảnh báo',
+      toast.error('Cảnh báo', {
         description: `Các sản phẩm sau chưa có giá: ${itemNames}. Vui lòng nhập giá trước khi lưu.`,
-        variant: 'destructive'
       });
       return;
     }
@@ -401,7 +401,7 @@ export function PurchaseOrderFormPage() {
         
         const calculatedShippingFee = currentShippingFees.reduce((sum, fee) => sum + fee.amount, 0);
         const calculatedTax = currentOtherFees.reduce((sum, fee) => sum + fee.amount, 0);
-        const calculatedGrandTotal = calculatedSubtotal - calculatedDiscountAmount + calculatedShippingFee + calculatedTax;
+        const calculatedGrandTotal = calculatedSubtotal - calculatedDiscountAmount;
 
         console.log('Fee arrays:', {
           shippingFees: currentShippingFees,
@@ -458,7 +458,7 @@ export function PurchaseOrderFormPage() {
             productName: item.product.name,
             sku: item.product.id,
             unit: item.product.unit,
-            imageUrl: item.product.images?.[0],
+            imageUrl: item.product.thumbnailImage ?? item.product.images?.[0],
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             discount: item.discount,
@@ -488,16 +488,14 @@ export function PurchaseOrderFormPage() {
           console.log('Updating existing order:', purchaseOrderSystemId);
           update(purchaseOrderSystemId, { ...orderData, systemId: purchaseOrderSystemId });
           createdOrder = { ...orderData, systemId: purchaseOrderSystemId };
-          toast({
-            title: 'Thành công',
+          toast.success('Thành công', {
             description: 'Đã cập nhật đơn nhập hàng',
           });
         } else {
           console.log('Creating new order...');
           createdOrder = add(orderData);
           console.log('Order created:', createdOrder);
-          toast({
-            title: 'Thành công',
+          toast.success('Thành công', {
             description: `Đã tạo đơn nhập hàng ${finalOrderId}`,
           });
         }
@@ -600,7 +598,7 @@ export function PurchaseOrderFormPage() {
           update(createdOrder.systemId, {
             ...createdOrder,
             paymentStatus: updatedPaymentStatus,
-            payments: payments.map((p, idx) => ({
+            payments: currentPayments.map((p, idx) => ({
               systemId: `PAY${finalOrderId}${String(idx + 1).padStart(3, '0')}`,
               id: `PAY_${finalOrderId}_${idx + 1}`,
               method: p.paymentMethodName,
@@ -610,15 +608,88 @@ export function PurchaseOrderFormPage() {
               payerName: employee?.fullName || '',
             })),
           });
+        }
 
-          toast({
-            title: 'Hoàn tất',
-            description: `Đã nhập kho và tạo ${payments.length} phiếu chi`,
+        // Tính tổng số phiếu chi đã tạo (bao gồm thanh toán NCC + phí vận chuyển + chi phí khác)
+        const shippingFeeCount = currentShippingFees.filter(f => f.amount > 0).length;
+        const otherFeeCount = currentOtherFees.filter(f => f.amount > 0).length;
+        const totalVoucherCount = currentPayments.length + shippingFeeCount + otherFeeCount;
+
+        if (totalVoucherCount > 0) {
+          toast.success('Hoàn tất', {
+            description: `Đã nhập kho và tạo ${totalVoucherCount} phiếu chi`,
           });
         } else {
-          toast({
-            title: 'Hoàn tất',
-            description: `Đã nhập kho ${items.length} sản phẩm`,
+          toast.success('Hoàn tất', {
+            description: `Đã nhập kho ${currentItems.length} sản phẩm`,
+          });
+        }
+
+        // 5. Tạo phiếu chi cho Phí vận chuyển và Chi phí khác (Trả bên thứ 3)
+        if (currentShippingFees.length > 0 || currentOtherFees.length > 0) {
+          const expenseCategory = paymentTypes.find(pt => pt.name === 'Chi phí nhập hàng') || paymentTypes[0];
+          const timestamp = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
+
+          // Tạo phiếu chi cho từng khoản phí vận chuyển
+          currentShippingFees.forEach(fee => {
+             if (fee.amount <= 0) return;
+             const feePayment: Omit<Payment, 'systemId'> = {
+              id: '' as any,
+              date: timestamp,
+              amount: fee.amount,
+              recipientTypeSystemId: 'KHAC',
+              recipientTypeName: 'Khác',
+              recipientName: 'Đơn vị vận chuyển',
+              recipientSystemId: '',
+              description: `Chi phí vận chuyển cho đơn nhập hàng ${finalOrderId} - ${fee.name}`,
+              paymentMethodSystemId: 'CASH', // Mặc định tiền mặt
+              paymentMethodName: 'Tiền mặt',
+              accountSystemId: '',
+              paymentReceiptTypeSystemId: expenseCategory?.systemId || '',
+              paymentReceiptTypeName: 'Chi phí nhập hàng',
+              branchSystemId,
+              branchName: branch?.name || '',
+              createdBy: employee?.fullName || '',
+              createdAt: timestamp,
+              status: 'completed',
+              category: 'expense',
+              affectsDebt: false,
+              purchaseOrderSystemId: createdOrder.systemId,
+              purchaseOrderId: createdOrder.id,
+              originalDocumentId: createdOrder.id,
+            } as any;
+            addPayment(feePayment);
+          });
+
+          // Tạo phiếu chi cho từng khoản phí khác
+          currentOtherFees.forEach(fee => {
+             if (fee.amount <= 0) return;
+             const feePayment: Omit<Payment, 'systemId'> = {
+              id: '' as any,
+              date: timestamp,
+              amount: fee.amount,
+              recipientTypeSystemId: 'KHAC',
+              recipientTypeName: 'Khác',
+              recipientName: 'Bên thứ 3',
+              recipientSystemId: '',
+              description: `Chi phí khác cho đơn nhập hàng ${finalOrderId} - ${fee.name}`,
+              paymentMethodSystemId: 'CASH', // Mặc định tiền mặt
+              paymentMethodName: 'Tiền mặt',
+              accountSystemId: '',
+              paymentReceiptTypeSystemId: expenseCategory?.systemId || '',
+              paymentReceiptTypeName: 'Chi phí nhập hàng',
+              branchSystemId,
+              branchName: branch?.name || '',
+              createdBy: employee?.fullName || '',
+              createdAt: timestamp,
+              status: 'completed',
+              category: 'expense',
+              affectsDebt: false,
+              purchaseOrderSystemId: createdOrder.systemId,
+              purchaseOrderId: createdOrder.id,
+              originalDocumentId: createdOrder.id,
+            } as any;
+            addPayment(feePayment);
           });
         }
       }
@@ -626,10 +697,8 @@ export function PurchaseOrderFormPage() {
       // Chuyển đến trang chi tiết đơn vừa tạo/cập nhật
       navigate(`/purchase-orders/${createdOrder.systemId}`);
     } catch (error) {
-      toast({
-        title: 'Lỗi',
+      toast.error('Lỗi', {
         description: 'Không thể lưu đơn nhập hàng. Vui lòng thử lại.',
-        variant: 'destructive',
       });
     } finally {
       setIsSaving(false);
@@ -661,7 +730,7 @@ export function PurchaseOrderFormPage() {
     handleSave(true);
   };
 
-  const actions = [
+  const headerActions = [
     <Button 
       key="exit" 
       type="button" 
@@ -696,9 +765,20 @@ export function PurchaseOrderFormPage() {
     </Button>,
   ];
 
+  const headerTitle = isEditMode
+    ? `Chỉnh sửa đơn nhập hàng ${existingOrder?.id ?? ''}`.trim()
+    : 'Tạo đơn nhập hàng mới';
+
   usePageHeader({ 
-    actions,
-    title: isEditMode ? "Chỉnh sửa đơn nhập hàng" : "Tạo đơn mua hàng mới"
+    title: headerTitle,
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Đơn nhập hàng', href: ROUTES.PROCUREMENT.PURCHASE_ORDERS, isCurrent: false },
+      { label: isEditMode ? 'Chỉnh sửa' : 'Tạo mới', href: isEditMode ? `${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${existingOrder?.systemId}/edit` : `${ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW}`, isCurrent: true }
+    ],
+    actions: headerActions,
+    showBackButton: true,
+    backPath: ROUTES.PROCUREMENT.PURCHASE_ORDERS
   });
 
   return (
@@ -747,7 +827,8 @@ export function PurchaseOrderFormPage() {
           </div>
           <div className="lg:col-span-4 order-1 lg:order-2">
             <OrderSummaryCard
-              subtotal={subtotal}
+              subtotal={preTaxSubtotal}
+              tax={totalTax}
               discount={discount}
               discountType={discountType}
               shippingFees={shippingFees}

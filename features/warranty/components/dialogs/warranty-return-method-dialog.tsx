@@ -16,7 +16,7 @@ type ReturnMethod = 'direct' | 'order' | null;
 interface WarrantyReturnMethodDialogProps {
   open: boolean;
   ticket: WarrantyTicket | null;
-  currentMethodLabel?: string | null;
+  currentMethodLabel?: string | null | undefined;
   returnMethod: ReturnMethod;
   onReturnMethodChange: (method: ReturnMethod) => void;
   selectedOrderValue: ComboboxOption | null;

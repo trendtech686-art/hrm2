@@ -15,7 +15,7 @@ const connectPartner = async (partnerId: string, credentials: any): Promise<{ su
 };
 
 type ShippingPartnerStoreExtension = {
-  searchShippingPartners: (query: string, page: number, limit?: number) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
+    searchShippingPartners: (query: string, page: number, limit?: number | undefined) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
     connect: (systemId: SystemId, credentials: Record<string, any>) => Promise<{ success: boolean; message: string }>;
     disconnect: (systemId: SystemId) => void;
 };

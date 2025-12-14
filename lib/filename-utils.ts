@@ -77,7 +77,7 @@ export function generateSmartFilename(
 
   // Add metadata based on context
   if (employeeInfo) {
-    const parts = [];
+    const parts: string[] = [];
     
     if (employeeInfo.employeeId) {
       parts.push(`nv${employeeInfo.employeeId}`);
@@ -114,7 +114,7 @@ export function generateSmartFilename(
   // Generate display name with metadata info
   let displayName = originalFilename;
   if (duplicateCount > 0 || metadata) {
-    const displayParts = [];
+    const displayParts: string[] = [];
     if (metadata) {
       displayParts.push(`${employeeInfo?.name || 'NV'} - ${employeeInfo?.department || ''}`);
     }

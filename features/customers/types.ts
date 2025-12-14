@@ -1,8 +1,8 @@
 import type { SystemId, BusinessId } from '@/lib/id-types';
+import type { HistoryEntry } from '@/lib/activity-history-helper';
 
-export type CustomerStatus = "\u0110ang giao d\u1ecbch" | "Ng\u1eebng Giao D\u1ecbch"
-
-export type CustomerLifecycleStage = 
+export type CustomerStatus = "Đang giao dịch" | "Ngừng Giao Dịch" | "inactive" | "active";
+export type CustomerLifecycleStage =
   | "Khách tiềm năng"    // Lead - Chưa mua lần nào
   | "Khách mới"          // First-time - Mua lần đầu
   | "Khách quay lại"     // Repeat - Mua 2-4 lần
@@ -27,7 +27,7 @@ export type DebtTransaction = {
   amount: number;            // Số tiền nợ
   dueDate: string;           // Ngày đến hạn thanh toán (YYYY-MM-DD)
   isPaid: boolean;           // Đã thanh toán chưa?
-  paidDate?: string;         // Ngày thanh toán (YYYY-MM-DD)
+  paidDate?: string | undefined;         // Ngày thanh toán (YYYY-MM-DD)
   paidAmount?: number;       // Số tiền đã trả (nếu trả một phần)
   remainingAmount?: number;  // Số tiền còn lại
   notes?: string;            // Ghi chú
@@ -41,6 +41,8 @@ export type DebtReminder = {
   reminderByName?: string;                                   // Employee name (for display)
   customerResponse?: 'Hứa trả' | 'Từ chối' | 'Không liên lạc được' | 'Đã trả' | 'Khác';
   promisePaymentDate?: string;                               // Ngày KH hứa trả (YYYY-MM-DD)
+  dueDate?: string;                                         // Hạn thanh toán liên quan
+  amountDue?: number;                                       // Số tiền đến hạn
   notes?: string;                                            // Ghi chú chi tiết
   createdAt?: string;                                        // Timestamp tạo
 };
@@ -55,49 +57,49 @@ export type Customer = {
   name: string;
   email: string;
   phone: string;
-  company?: string;
+  company?: string | undefined;
   status: CustomerStatus;
   
   // Tax & Business Info
-  taxCode?: string;
-  representative?: string; // Người đại diện
-  position?: string; // Chức vụ
+  taxCode?: string | undefined;
+  representative?: string | undefined; // Người đại diện
+  position?: string | undefined; // Chức vụ
 
   // Multiple Addresses
-  addresses?: CustomerAddress[];
+  addresses?: CustomerAddress[] | undefined;
 
   // Legacy flat address fields (backward compatible)
-  shippingAddress_street?: string;
-  shippingAddress_ward?: string;
-  shippingAddress_district?: string;
-  shippingAddress_province?: string;
-  billingAddress_street?: string;
-  billingAddress_ward?: string;
-  billingAddress_district?: string;
-  billingAddress_province?: string;
+  shippingAddress_street?: string | undefined;
+  shippingAddress_ward?: string | undefined;
+  shippingAddress_district?: string | undefined;
+  shippingAddress_province?: string | undefined;
+  billingAddress_street?: string | undefined;
+  billingAddress_ward?: string | undefined;
+  billingAddress_district?: string | undefined;
+  billingAddress_province?: string | undefined;
 
   // Contact & Banking
-  zaloPhone?: string;
-  bankName?: string;
-  bankAccount?: string;
+  zaloPhone?: string | undefined;
+  bankName?: string | undefined;
+  bankAccount?: string | undefined;
   
   // Debt Management
-  currentDebt?: number;
-  maxDebt?: number; // Hạn mức công nợ
+  currentDebt?: number | undefined;
+  maxDebt?: number | undefined; // Hạn mức công nợ
   
   // Customer Classification
-  type?: string; // ID của loại khách hàng từ settings
-  customerGroup?: string; // ID của nhóm khách hàng từ settings
-  lifecycleStage?: CustomerLifecycleStage; // Giai đoạn vòng đời khách hàng
+  type?: string | undefined; // ID của loại khách hàng từ settings
+  customerGroup?: string | undefined; // ID của nhóm khách hàng từ settings
+  lifecycleStage?: CustomerLifecycleStage | undefined; // Giai đoạn vòng đời khách hàng
   
   // Customer Intelligence (auto-calculated)
   rfmScores?: {
     recency: 1 | 2 | 3 | 4 | 5;
     frequency: 1 | 2 | 3 | 4 | 5;
     monetary: 1 | 2 | 3 | 4 | 5;
-  };
-  segment?: string; // RFM segment: Champions, Loyal, At Risk, etc.
-  healthScore?: number; // 0-100
+  } | undefined;
+  segment?: string | undefined; // RFM segment: Champions, Loyal, At Risk, etc.
+  healthScore?: number | undefined; // 0-100
   churnRisk?: 'low' | 'medium' | 'high';
   
   // Debt Tracking (NEW)
@@ -108,71 +110,83 @@ export type Customer = {
   debtStatus?: DebtStatus;               // Trạng thái công nợ (auto-calculated)
   
   // Source & Campaign Tracking
-  source?: string; // ID của nguồn khách hàng từ settings
-  campaign?: string; // Campaign name or code
-  referredBy?: SystemId; // Customer systemId who referred
+  source?: string | undefined; // ID của nguồn khách hàng từ settings
+  campaign?: string | undefined; // Campaign name or code
+  referredBy?: SystemId | undefined; // Customer systemId who referred
   
   // Multiple Contacts
   contacts?: Array<{
     id: string;
     name: string;
     role: string; // e.g., "Giám đốc", "Kế toán", "Mua hàng"
-    phone?: string;
-    email?: string;
+    phone?: string | undefined;
+    email?: string | undefined;
     isPrimary: boolean;
-  }>;
+  }> | undefined;
   
   // Payment Terms & Credit
-  paymentTerms?: string; // ID của payment term từ settings (COD, NET7, NET15...)
-  creditRating?: string; // ID của credit rating từ settings (AAA, AA, A...)
-  allowCredit?: boolean;
+  paymentTerms?: string | undefined; // ID của payment term từ settings (COD, NET7, NET15...)
+  creditRating?: string | undefined; // ID của credit rating từ settings (AAA, AA, A...)
+  allowCredit?: boolean | undefined;
   
   // Discount & Pricing Level
-  defaultDiscount?: number; // % (0-100)
-  pricingLevel?: 'Retail' | 'Wholesale' | 'VIP' | 'Partner';
+  defaultDiscount?: number | undefined; // % (0-100)
+  pricingLevel?: 'Retail' | 'Wholesale' | 'VIP' | 'Partner' | undefined;
   
   // Contract Information
   contract?: {
-    number?: string;
-    startDate?: string; // ISO date
-    endDate?: string; // ISO date
-    value?: number; // Total contract value
-    status?: 'Active' | 'Expired' | 'Pending' | 'Cancelled';
-  };
+    number?: string | undefined;
+    startDate?: string | undefined; // ISO date
+    endDate?: string | undefined; // ISO date
+    value?: number | undefined; // Total contract value
+    status?: 'Active' | 'Expired' | 'Pending' | 'Cancelled' | undefined;
+    fileUrl?: string | undefined; // Link to contract file
+    details?: string | undefined; // Contract terms/details
+  } | undefined;
   
   // Tags/Labels for flexible categorization
-  tags?: string[];
+  tags?: string[] | undefined;
   
   // Images (avatar, company logo, etc.)
-  images?: string[];
+  images?: string[] | undefined;
   
   // Social Media
   social?: {
-    facebook?: string;
-    linkedin?: string;
-    website?: string;
-  };
+    facebook?: string | undefined;
+    linkedin?: string | undefined;
+    website?: string | undefined;
+  } | undefined;
   
   // Notes
-  notes?: string;
+  notes?: string | undefined;
   
   // Account Management
-  accountManagerId?: SystemId;
-  accountManagerName?: string;
+  accountManagerId?: SystemId | undefined;
+  accountManagerName?: string | undefined;
   
   // Audit fields
-  createdAt?: string; // ISO timestamp (replaces YYYY-MM-DD)
-  updatedAt?: string; // ISO timestamp
-  deletedAt?: string | null; // ISO timestamp when soft-deleted
-  isDeleted?: boolean; // Soft delete flag
-  createdBy?: SystemId; // Employee systemId who created this
-  updatedBy?: SystemId; // Employee systemId who last updated this
+  createdAt?: string | undefined; // ISO timestamp (replaces YYYY-MM-DD)
+  updatedAt?: string | undefined; // ISO timestamp
+  deletedAt?: string | null | undefined; // ISO timestamp when soft-deleted
+  isDeleted?: boolean | undefined; // Soft delete flag
+  createdBy?: SystemId | undefined; // Employee systemId who created this
+  updatedBy?: SystemId | undefined; // Employee systemId who last updated this
   
   // Statistics
-  totalOrders?: number;
-  totalSpent?: number;
-  totalQuantityPurchased?: number;
-  totalQuantityReturned?: number;
-  lastPurchaseDate?: string; // YYYY-MM-DD
-  failedDeliveries?: number;
+  totalOrders?: number | undefined;
+  totalSpent?: number | undefined;
+  totalQuantityPurchased?: number | undefined;
+  totalQuantityReturned?: number | undefined;
+  lastPurchaseDate?: string | undefined; // YYYY-MM-DD
+  failedDeliveries?: number | undefined;
+
+  // Relationship tracking
+  lastContactDate?: string | undefined; // YYYY-MM-DD
+  nextFollowUpDate?: string | undefined; // YYYY-MM-DD
+  followUpReason?: string | undefined;
+  followUpAssigneeId?: SystemId | undefined;
+  followUpAssigneeName?: string | undefined;
+
+  // Activity History
+  activityHistory?: HistoryEntry[];
 }

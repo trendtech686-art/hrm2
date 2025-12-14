@@ -11,7 +11,7 @@ interface UseWarrantyCommentsParams {
   ticket: WarrantyTicket | null;
   currentUser: CurrentUser;
   onUpdateTicket: (systemId: SystemId, updates: Partial<WarrantyTicket>) => void;
-  onAddHistory: (ticketSystemId: SystemId, action: string, performedBy: string, note?: string) => void;
+  onAddHistory: (ticketSystemId: SystemId, action: string, performedBy: string, note?: string | undefined) => void;
 }
 
 interface CommentAttachment {
@@ -29,8 +29,8 @@ interface CommentViewModel {
     name: string;
   };
   createdAt: Date;
-  updatedAt?: Date;
-  parentId?: SystemId;
+  updatedAt?: Date | undefined;
+  parentId?: SystemId | undefined;
   attachments: CommentAttachment[];
 }
 
@@ -73,7 +73,7 @@ export function useWarrantyComments({
     });
   }, [onUpdateTicket, ticket]);
 
-  const handleAddComment = React.useCallback((content: string, parentId?: SystemId) => {
+  const handleAddComment = React.useCallback((content: string, parentId?: SystemId | undefined) => {
     if (!ticket) return;
 
     const newComment = {

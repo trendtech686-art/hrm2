@@ -142,3 +142,7 @@ export function getCurrentUserInfo(): CurrentUserInfo {
 export function getCurrentUserSystemId(): string {
   return getCurrentUserInfo().systemId;
 }
+
+export function getCurrentUserName(): string {
+  return getCurrentUserInfo().name;
+}

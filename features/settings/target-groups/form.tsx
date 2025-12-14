@@ -41,10 +41,10 @@ export function TargetGroupForm({ initialData, onSubmit }: FormProps) {
         className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto px-1"
       >
         <FormField control={form.control} name="name" render={({ field }) => (
-          <FormItem><FormLabel>Tên nhóm <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Tên nhóm <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="id" render={({ field }) => (
-          <FormItem><FormLabel>Mã nhóm</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Mã nhóm</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
         )} />
       </form>
     </Form>

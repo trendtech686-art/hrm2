@@ -12,7 +12,7 @@ type ReturnMethod = 'direct' | 'order' | null;
 
 interface UseReturnMethodDialogOptions {
   ticket: WarrantyTicket | null;
-  linkedOrder?: Order;
+  linkedOrder?: Order | undefined;
   orders: Order[];
   currentUserName: string;
 }

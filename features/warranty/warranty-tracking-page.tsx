@@ -101,7 +101,7 @@ function StatusTimeline({ ticket }: { ticket: PublicWarrantyTicket }) {
                 )}
               </div>
               {timestamp && (
-                <div className="text-sm text-muted-foreground">
+                <div className="text-body-sm text-muted-foreground">
                   {formatDateTime(timestamp)}
                 </div>
               )}
@@ -225,7 +225,7 @@ export function WarrantyTrackingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body-sm text-muted-foreground">
               Vui lòng chờ trong giây lát.
             </p>
           </CardContent>
@@ -272,7 +272,7 @@ export function WarrantyTrackingPage() {
                 : 'Phiếu bảo hành không tồn tại hoặc đã bị xóa. Vui lòng kiểm tra lại mã phiếu.'}
             </p>
             {!isMissingCode && trackingCode && (
-              <p className="text-sm text-muted-foreground mt-4">
+              <p className="text-body-sm text-muted-foreground mt-4">
                 Mã phiếu: <span className="font-mono font-semibold">{trackingCode}</span>
               </p>
             )}
@@ -291,11 +291,11 @@ export function WarrantyTrackingPage() {
             <div className="flex items-start justify-between gap-2 sm:gap-3">
               <div className="space-y-1 min-w-0 flex-1">
                 <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight">Phiếu bảo hành {ticket.id}</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-body-xs sm:text-body-sm text-muted-foreground">
                   Nhân viên phụ trách: {shouldShowEmployeeName() ? ticket.employeeName : 'Đang xử lý'}
                 </p>
               </div>
-              <Badge className={cn("shrink-0 text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1", WARRANTY_STATUS_COLORS[ticket.status])}>
+              <Badge className={cn("shrink-0 text-[10px] sm:text-body-xs px-2 py-0.5 sm:px-2.5 sm:py-1", WARRANTY_STATUS_COLORS[ticket.status])}>
                 {WARRANTY_STATUS_LABELS[ticket.status]}
               </Badge>
             </div>
@@ -310,7 +310,7 @@ export function WarrantyTrackingPage() {
         {/* Card 1: Thông tin phiếu bảo hành */}
         <Card>
           <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-            <CardTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+            <CardTitle className="flex items-center gap-2 text-h4">
               <Package className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
               Thông tin phiếu bảo hành
             </CardTitle>
@@ -318,16 +318,16 @@ export function WarrantyTrackingPage() {
           <CardContent className="grid gap-3 sm:gap-4 md:gap-6 px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
             <div className="grid gap-2.5 sm:gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
               <div>
-                <div className="text-xs sm:text-sm text-muted-foreground mb-1">Ngày tạo</div>
-                <div className="font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs sm:text-sm">
+                <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Ngày tạo</div>
+                <div className="font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-body-xs sm:text-body-sm">
                   <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
                   <span className="break-all">{formatDateTime(ticket.createdAt)}</span>
                 </div>
               </div>
               {ticket.returnedAt && (
                 <div>
-                  <div className="text-xs sm:text-sm text-muted-foreground mb-1">Ngày trả hàng</div>
-                  <div className="font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs sm:text-sm">
+                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Ngày trả hàng</div>
+                  <div className="font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-body-xs sm:text-body-sm">
                     <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
                     <span className="break-all">{formatDateTime(ticket.returnedAt)}</span>
                   </div>
@@ -335,16 +335,16 @@ export function WarrantyTrackingPage() {
               )}
               {ticket.linkedOrderSystemId && (
                 <div>
-                  <div className="text-xs sm:text-sm text-muted-foreground mb-1">Đơn bảo hành được trả vào </div>
-                  <div className="font-mono font-medium text-blue-600 break-all text-xs sm:text-sm">
+                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Đơn bảo hành được trả vào </div>
+                  <div className="font-mono font-medium text-blue-600 break-all text-body-xs sm:text-body-sm">
                     {linkedOrder?.id || ticket.linkedOrderSystemId}
                   </div>
                 </div>
               )}
               {ticket.trackingCode && (
                 <div>
-                  <div className="text-xs sm:text-sm text-muted-foreground mb-1">Mã vận đơn</div>
-                  <div className="font-mono font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs sm:text-sm">
+                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Mã vận đơn</div>
+                  <div className="font-mono font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-body-xs sm:text-body-sm">
                     <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span className="break-all">{ticket.trackingCode}</span>
                   </div>
@@ -352,8 +352,8 @@ export function WarrantyTrackingPage() {
               )}
               {ticket.status === 'returned' && (
                 <div>
-                  <div className="text-xs sm:text-sm text-muted-foreground mb-1">Phương thức trả hàng</div>
-                  <div className="font-medium text-xs sm:text-sm">
+                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Phương thức trả hàng</div>
+                  <div className="font-medium text-body-xs sm:text-body-sm">
                     {ticket.linkedOrderSystemId 
                       ? `Giao qua đơn hàng (${linkedOrder?.id || ticket.linkedOrderSystemId})`
                       : 'Khách lấy trực tiếp tại cửa hàng'
@@ -361,9 +361,9 @@ export function WarrantyTrackingPage() {
                   </div>
                 </div>
               )}
-              {ticket.shippingFee > 0 && (
+              {ticket.shippingFee !== undefined && ticket.shippingFee > 0 && (
                 <div>
-                  <div className="text-xs sm:text-sm text-muted-foreground mb-1">Phí ship gửi về( shop ko chịu phí cước này sẽ thu thêm )</div>
+                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Phí ship gửi về( shop ko chịu phí cước này sẽ thu thêm )</div>
                   <div className="font-medium text-orange-600 text-base sm:text-lg">
                     {ticket.shippingFee.toLocaleString('vi-VN')} đ
                   </div>
@@ -373,28 +373,28 @@ export function WarrantyTrackingPage() {
 
             {/* Customer Info */}
             <div className="grid gap-3 sm:gap-4">
-              <div className="text-xs sm:text-sm font-semibold">Thông tin khách hàng</div>
+              <div className="text-body-xs sm:text-body-sm font-semibold">Thông tin khách hàng</div>
               <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
                 <div className="flex gap-2 sm:gap-3">
                   <User className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="grid gap-0.5 sm:gap-1">
-                    <div className="text-xs sm:text-sm text-muted-foreground">Tên khách hàng</div>
-                    <div className="font-medium text-xs sm:text-sm">{ticket.customerName}</div>
+                    <div className="text-body-xs sm:text-body-sm text-muted-foreground">Tên khách hàng</div>
+                    <div className="font-medium text-body-xs sm:text-body-sm">{ticket.customerName}</div>
                   </div>
                 </div>
                 <div className="flex gap-2 sm:gap-3">
                   <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="grid gap-0.5 sm:gap-1">
-                    <div className="text-xs sm:text-sm text-muted-foreground">Số điện thoại</div>
-                    <div className="font-medium text-xs sm:text-sm">{ticket.customerPhone}</div>
+                    <div className="text-body-xs sm:text-body-sm text-muted-foreground">Số điện thoại</div>
+                    <div className="font-medium text-body-xs sm:text-body-sm">{ticket.customerPhone}</div>
                   </div>
                 </div>
                 {ticket.customerAddress && (
                   <div className="flex gap-2 sm:gap-3 col-span-1 sm:col-span-2">
                     <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="grid gap-0.5 sm:gap-1">
-                      <div className="text-xs sm:text-sm text-muted-foreground">Địa chỉ</div>
-                      <div className="text-xs sm:text-sm">{ticket.customerAddress}</div>
+                      <div className="text-body-xs sm:text-body-sm text-muted-foreground">Địa chỉ</div>
+                      <div className="text-body-xs sm:text-body-sm">{ticket.customerAddress}</div>
                     </div>
                   </div>
                 )}
@@ -403,8 +403,8 @@ export function WarrantyTrackingPage() {
 
             {ticket.notes && (
               <div className="grid gap-1.5 sm:gap-2">
-                <div className="text-xs sm:text-sm font-semibold">Ghi chú</div>
-                <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{ticket.notes}</p>
+                <div className="text-body-xs sm:text-body-sm font-semibold">Ghi chú</div>
+                <p className="text-body-xs sm:text-body-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{ticket.notes}</p>
               </div>
             )}
           </CardContent>
@@ -413,7 +413,7 @@ export function WarrantyTrackingPage() {
         {/* Card 2: Danh sách sản phẩm bảo hành */}
         <Card>
           <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-            <CardTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+            <CardTitle className="flex items-center gap-2 text-h4">
               <Package className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
               Danh sách sản phẩm bảo hành
             </CardTitle>
@@ -431,7 +431,7 @@ export function WarrantyTrackingPage() {
         {ticket.products.length > 0 && (
           <Card>
             <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+              <CardTitle className="flex items-center gap-2 text-h4">
                 <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
                 Tổng kết bảo hành
               </CardTitle>
@@ -439,8 +439,8 @@ export function WarrantyTrackingPage() {
             <CardContent className="space-y-2 sm:space-y-2.5 md:space-y-3 px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
               {/* Tổng giá trị bảo hành */}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs sm:text-sm text-muted-foreground">Tổng giá trị bảo hành</span>
-                <span className="font-semibold text-xs sm:text-sm">
+                <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị bảo hành</span>
+                <span className="font-semibold text-body-xs sm:text-body-sm">
                   {new Intl.NumberFormat('vi-VN').format(
                     ticket.products.reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0)
                   )} đ
@@ -461,8 +461,8 @@ export function WarrantyTrackingPage() {
                   return (
                     <>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs sm:text-sm text-muted-foreground">Tổng giá trị trả lại</span>
-                        <span className="font-medium text-xs sm:text-sm">
+                        <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị trả lại</span>
+                        <span className="font-medium text-body-xs sm:text-body-sm">
                           {new Intl.NumberFormat('vi-VN').format(returnedValue)} đ
                         </span>
                       </div>
@@ -485,8 +485,8 @@ export function WarrantyTrackingPage() {
                   return (
                     <>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs sm:text-sm text-muted-foreground">Tổng giá trị đổi mới</span>
-                        <span className="font-medium text-xs sm:text-sm">
+                        <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị đổi mới</span>
+                        <span className="font-medium text-body-xs sm:text-body-sm">
                           {new Intl.NumberFormat('vi-VN').format(replacedValue)} đ
                         </span>
                       </div>
@@ -499,8 +499,8 @@ export function WarrantyTrackingPage() {
 
               {/* Tổng hàng trừ */}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs sm:text-sm text-muted-foreground">Tổng hàng trừ</span>
-                <span className="font-medium text-xs sm:text-sm">
+                <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng hàng trừ</span>
+                <span className="font-medium text-body-xs sm:text-body-sm">
                   {new Intl.NumberFormat('vi-VN').format(
                     ticket.products
                       .filter(p => p.resolution === 'out_of_stock')
@@ -512,11 +512,11 @@ export function WarrantyTrackingPage() {
               <Separator />
 
               {/* Phí ship gửi về */}
-              {ticket.shippingFee > 0 && (
+              {ticket.shippingFee !== undefined && ticket.shippingFee > 0 && (
                 <>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs sm:text-sm text-muted-foreground">Phí ship gửi về (shop ko chịu phí cước này sẽ thu thêm)</span>
-                    <span className="font-medium text-xs sm:text-sm">
+                    <span className="text-body-xs sm:text-body-sm text-muted-foreground">Phí ship gửi về (shop ko chịu phí cước này sẽ thu thêm)</span>
+                    <span className="font-medium text-body-xs sm:text-body-sm">
                       {new Intl.NumberFormat('vi-VN').format(ticket.shippingFee)} đ
                     </span>
                   </div>
@@ -526,7 +526,7 @@ export function WarrantyTrackingPage() {
 
               {/* Tổng cộng */}
               <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold text-sm sm:text-base">Tổng cộng</span>
+                <span className="font-semibold text-body-sm sm:text-body-md">Tổng cộng</span>
                 <span className="text-base sm:text-lg font-bold text-destructive">
                   {new Intl.NumberFormat('vi-VN').format(
                     ticket.products
@@ -540,16 +540,16 @@ export function WarrantyTrackingPage() {
 
               {/* Tổng số lượng */}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs sm:text-sm text-muted-foreground">Tổng số lượng</span>
-                <span className="font-medium text-xs sm:text-sm">
+                <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng số lượng</span>
+                <span className="font-medium text-body-xs sm:text-body-sm">
                   {ticket.products.reduce((sum, p) => sum + (p.quantity || 1), 0)}
                 </span>
               </div>
 
               {/* Số lượng đổi mới */}
               <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-                <span className="text-xs text-muted-foreground">↳ Đổi mới</span>
-                <span className="text-xs font-medium">
+                <span className="text-body-xs text-muted-foreground">↳ Đổi mới</span>
+                <span className="text-body-xs font-medium">
                   {ticket.products
                     .filter(p => p.resolution === 'replace')
                     .reduce((sum, p) => sum + (p.quantity || 1), 0)}
@@ -558,8 +558,8 @@ export function WarrantyTrackingPage() {
 
               {/* Số lượng trả lại */}
               <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-                <span className="text-xs text-muted-foreground">↳ Trả lại</span>
-                <span className="text-xs font-medium">
+                <span className="text-body-xs text-muted-foreground">↳ Trả lại</span>
+                <span className="text-body-xs font-medium">
                   {ticket.products
                     .filter(p => p.resolution === 'return')
                     .reduce((sum, p) => sum + (p.quantity || 1), 0)}
@@ -568,8 +568,8 @@ export function WarrantyTrackingPage() {
 
               {/* Số lượng hết hàng */}
               <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-                <span className="text-xs text-muted-foreground">↳ Hết hàng</span>
-                <span className="text-xs font-medium">
+                <span className="text-body-xs text-muted-foreground">↳ Hết hàng</span>
+                <span className="text-body-xs font-medium">
                   {ticket.products
                     .filter(p => p.resolution === 'out_of_stock')
                     .reduce((sum, p) => sum + (p.quantity || 1), 0)}
@@ -608,7 +608,7 @@ export function WarrantyTrackingPage() {
           return (
             <Card>
               <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+                <CardTitle className="flex items-center gap-2 text-h4">
                   <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
                   Thông tin thanh toán
                 </CardTitle>
@@ -619,8 +619,8 @@ export function WarrantyTrackingPage() {
                   <>
                     <div className="space-y-4">
                       <div className="flex justify-between items-center gap-3">
-                        <span className="text-xs sm:text-sm text-muted-foreground">Đã thanh toán:</span>
-                        <span className="font-semibold text-emerald-600 text-xs sm:text-sm">
+                        <span className="text-body-xs sm:text-body-sm text-muted-foreground">Đã thanh toán:</span>
+                        <span className="font-semibold text-emerald-600 text-body-xs sm:text-body-sm">
                           {totalPaid.toLocaleString('vi-VN')} đ
                         </span>
                       </div>
@@ -636,17 +636,17 @@ export function WarrantyTrackingPage() {
                             <div key={payment.systemId} className="space-y-1">
                               <div className="flex justify-between items-start gap-2 sm:gap-4">
                                 <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-xs sm:text-sm">
+                                  <div className="font-medium text-body-xs sm:text-body-sm">
                                     {linkedOrder 
                                       ? `Trừ vào đơn hàng ${linkedOrder.id}` 
                                       : payment.paymentMethodName || 'Phương thức khác'
                                     }
                                   </div>
-                                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                  <div className="text-[10px] sm:text-body-xs text-muted-foreground mt-1">
                                     {formatDateTime(payment.createdAt)}
                                   </div>
                                 </div>
-                                <span className="font-semibold text-emerald-600 whitespace-nowrap text-xs sm:text-sm">
+                                <span className="font-semibold text-emerald-600 whitespace-nowrap text-body-xs sm:text-body-sm">
                                   {payment.amount.toLocaleString('vi-VN')} đ
                                 </span>
                               </div>
@@ -658,14 +658,14 @@ export function WarrantyTrackingPage() {
                           <div key={receipt.systemId} className="space-y-1">
                             <div className="flex justify-between items-start gap-2 sm:gap-4">
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium text-xs sm:text-sm">
+                                <div className="font-medium text-body-xs sm:text-body-sm">
                                   {receipt.paymentMethodName || 'Thu tiền'}
                                 </div>
-                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                                <div className="text-[10px] sm:text-body-xs text-muted-foreground mt-1">
                                   {formatDateTime(receipt.createdAt)}
                                 </div>
                               </div>
-                              <span className="font-semibold text-destructive whitespace-nowrap text-xs sm:text-sm">
+                              <span className="font-semibold text-destructive whitespace-nowrap text-body-xs sm:text-body-sm">
                                 -{receipt.amount.toLocaleString('vi-VN')} đ
                               </span>
                             </div>
@@ -681,8 +681,8 @@ export function WarrantyTrackingPage() {
                   <>
                     <Separator />
                     <div className="flex justify-between items-center gap-3">
-                      <span className="text-xs sm:text-sm text-muted-foreground">Còn lại:</span>
-                      <span className="font-semibold text-orange-600 text-xs sm:text-sm">
+                      <span className="text-body-xs sm:text-body-sm text-muted-foreground">Còn lại:</span>
+                      <span className="font-semibold text-orange-600 text-body-xs sm:text-body-sm">
                         {remaining.toLocaleString('vi-VN')} đ
                       </span>
                     </div>
@@ -694,7 +694,7 @@ export function WarrantyTrackingPage() {
                     <Separator />
                     <div className="flex items-center justify-center gap-2 py-2 text-green-600">
                       <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="font-semibold text-xs sm:text-sm">Đã thanh toán đủ</span>
+                      <span className="font-semibold text-body-xs sm:text-body-sm">Đã thanh toán đủ</span>
                     </div>
                   </>
                 )}
@@ -707,7 +707,7 @@ export function WarrantyTrackingPage() {
         {ticket.receivedImages && ticket.receivedImages.length > 0 && (
           <Card>
             <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+              <CardTitle className="flex items-center gap-2 text-h4">
                 <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
                 Hình ảnh lúc nhận ({ticket.receivedImages.length})
               </CardTitle>
@@ -740,7 +740,7 @@ export function WarrantyTrackingPage() {
         {ticket.processedImages && ticket.processedImages.length > 0 && (
           <Card>
             <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+              <CardTitle className="flex items-center gap-2 text-h4">
                 <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
                 Hình ảnh đã xử lý ({ticket.processedImages.length})
               </CardTitle>
@@ -773,7 +773,7 @@ export function WarrantyTrackingPage() {
         {shouldShowTimeline() && (
           <Card className="bg-white">
             <CardHeader className="px-3 pt-3 pb-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="text-sm sm:text-base md:text-lg font-semibold">Tiến trình xử lý</CardTitle>
+              <CardTitle className="text-h4">Tiến trình xử lý</CardTitle>
             </CardHeader>
             <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
               <StatusTimeline ticket={ticket} />
@@ -785,7 +785,7 @@ export function WarrantyTrackingPage() {
         {shouldShowTimeline() && (
           <Card className="bg-white">
             <CardHeader className="px-3 pt-3 pb-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="text-sm sm:text-base md:text-lg font-semibold">Lịch sử thao tác</CardTitle>
+              <CardTitle className="text-h4">Lịch sử thao tác</CardTitle>
             </CardHeader>
             <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
               <ScrollArea className="h-[300px]">
@@ -804,12 +804,12 @@ export function WarrantyTrackingPage() {
                             <div className="h-2 w-2 rounded-full bg-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-xs sm:text-sm">{entry.actionLabel || entry.action}</div>
-                            <div className="text-[10px] sm:text-xs text-muted-foreground">
+                            <div className="font-medium text-body-xs sm:text-body-sm">{entry.actionLabel || entry.action}</div>
+                            <div className="text-[10px] sm:text-body-xs text-muted-foreground">
                               {formatDateTime(entry.performedAt)} • {entry.performedBy}
                             </div>
                             {entry.note && (
-                              <div className="text-xs sm:text-sm text-muted-foreground mt-1">
+                              <div className="text-body-xs sm:text-body-sm text-muted-foreground mt-1">
                                 {entry.note}
                               </div>
                             )}
@@ -825,8 +825,8 @@ export function WarrantyTrackingPage() {
 
         {/* Footer */}
         <div className="text-center text-muted-foreground py-6 sm:py-8 border-t">
-          <p className="text-xs sm:text-sm md:text-base px-4">
-            Có thắc mắc? Liên hệ hotline: <span className="font-semibold text-primary text-sm sm:text-base md:text-lg">{hotline}</span>
+          <p className="text-body-xs sm:text-body-sm md:text-body-md px-4">
+            Có thắc mắc? Liên hệ hotline: <span className="font-semibold text-primary text-body-sm sm:text-body-md md:text-body-lg">{hotline}</span>
           </p>
         </div>
         </div>

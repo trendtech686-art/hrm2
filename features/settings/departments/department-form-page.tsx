@@ -2,9 +2,10 @@ import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DepartmentForm, DepartmentFormValues } from './department-form';
 import { useDepartmentStore } from './store';
-import { usePageHeader } from '../../../contexts/page-header-context';
-import { Button } from '../../../components/ui/button';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
+import { ROUTES, generatePath } from '../../../lib/router';
 
 export function DepartmentFormPage() {
   const navigate = useNavigate();
@@ -12,14 +13,41 @@ export function DepartmentFormPage() {
   const { findById, update, add } = useDepartmentStore();
   
   const isEditMode = !!id;
-  const department = isEditMode ? findById(id as any) : null;
+  const department = (isEditMode ? findById(id as any) : null) ?? null;
 
-  usePageHeader({
-    title: isEditMode ? 'Chỉnh sửa phòng ban' : 'Thêm phòng ban mới',
+  const backPath = ROUTES.HRM.DEPARTMENTS;
+  const headerActions = React.useMemo(() => [
+    <SettingsActionButton
+      key="cancel"
+      variant="outline"
+      onClick={() => navigate(backPath)}
+    >
+      Hủy
+    </SettingsActionButton>,
+    <SettingsActionButton
+      key="save"
+      type="submit"
+      form="department-form"
+    >
+      {isEditMode ? 'Cập nhật' : 'Tạo mới'}
+    </SettingsActionButton>,
+  ], [backPath, navigate, isEditMode]);
+
+  useSettingsPageHeader({
+    title: isEditMode ? `Chỉnh sửa phòng ban${department?.name ? ` • ${department.name}` : ''}` : 'Thêm phòng ban mới',
     breadcrumb: [
-      { label: 'Phòng ban', href: '/departments' },
-      { label: isEditMode ? 'Chỉnh sửa' : 'Thêm mới', href: '' }
-    ]
+      { label: 'Phòng ban', href: ROUTES.HRM.DEPARTMENTS, isCurrent: false },
+      {
+        label: isEditMode ? 'Chỉnh sửa' : 'Thêm mới',
+        href: isEditMode && id
+          ? generatePath(ROUTES.HRM.DEPARTMENT_EDIT, { systemId: id })
+          : ROUTES.HRM.DEPARTMENT_NEW,
+        isCurrent: true,
+      },
+    ],
+    showBackButton: true,
+    backPath,
+    actions: headerActions,
   });
 
   const handleSubmit = (values: DepartmentFormValues) => {
@@ -34,10 +62,9 @@ export function DepartmentFormPage() {
         id: values.id,
         name: values.name,
         jobTitleIds: [],
-        managerId: null,
       });
     }
-    navigate('/departments');
+    navigate(backPath);
   };
 
   return (
@@ -53,18 +80,6 @@ export function DepartmentFormPage() {
             initialData={department}
             onSubmit={handleSubmit}
           />
-          <div className="flex justify-end gap-2 mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/departments')}
-            >
-              Hủy
-            </Button>
-            <Button type="submit" form="department-form">
-              {isEditMode ? 'Cập nhật' : 'Tạo mới'}
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>

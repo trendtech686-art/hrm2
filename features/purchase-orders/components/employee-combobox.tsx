@@ -70,14 +70,14 @@ export function EmployeeCombobox({
       renderOption={(option, isSelected) => (
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Avatar className="h-8 w-8 flex-shrink-0">
-            <AvatarFallback className="text-xs">
+            <AvatarFallback className="text-body-xs">
               {getInitials(option.label)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="font-medium text-sm truncate">{option.label}</span>
+            <span className="font-medium text-body-sm truncate">{option.label}</span>
             {option.subtitle && (
-              <span className="text-xs text-muted-foreground truncate">
+              <span className="text-body-xs text-muted-foreground truncate">
                 {option.subtitle}
               </span>
             )}

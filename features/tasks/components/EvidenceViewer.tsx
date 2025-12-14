@@ -26,7 +26,7 @@ export function EvidenceViewer({ evidence, open, onClose }: EvidenceViewerProps)
 
           <div className="space-y-4 py-4">
             {/* Meta info */}
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-4 text-body-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 <span>{evidence.submittedByName}</span>
@@ -58,7 +58,7 @@ export function EvidenceViewer({ evidence, open, onClose }: EvidenceViewerProps)
                       className="w-full h-40 object-cover rounded-lg border hover:opacity-90 transition-opacity"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center">
-                      <span className="text-white opacity-0 group-hover:opacity-100 text-sm font-medium">
+                      <span className="text-white opacity-0 group-hover:opacity-100 text-body-sm font-medium">
                         Xem lớn
                       </span>
                     </div>

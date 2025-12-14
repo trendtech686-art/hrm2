@@ -13,7 +13,7 @@ interface DataTableHeaderActionsProps<TData> extends React.HTMLAttributes<HTMLDi
     fileName: string;
     existingData?: TData[];
     getUniqueKey?: (item: any) => string;
-  };
+  } | undefined;
   columnCustomizerProps: {
     columns: ColumnDef<TData>[];
     columnVisibility: Record<string, boolean>;

@@ -1,5 +1,6 @@
 import type { ShippingPartner } from './types.ts';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: ShippingPartner[] = [
   {
@@ -33,6 +34,7 @@ export const data: ShippingPartner[] = [
     },
     credentials: { token: 'mock-ghn-token-from-user-settings', account_name: 'Tài khoản 1' },
     configuration: { payer: 'shop', pickup_type: 'Tại kho hàng' },
+        ...buildSeedAuditFields({ createdAt: '2024-02-10T08:00:00Z' }),
   },
   {
     systemId: asSystemId('DVVC00000002'),
@@ -70,6 +72,7 @@ export const data: ShippingPartner[] = [
     },
     credentials: { account_name: 'Tài khoản 1', email: 'nhlpkgx@gmail.com', phone: '0981239686' },
     configuration: { payer: 'customer' },
+        ...buildSeedAuditFields({ createdAt: '2024-02-11T08:00:00Z' }),
   },
   {
     systemId: asSystemId('DVVC00000003'),
@@ -113,6 +116,7 @@ export const data: ShippingPartner[] = [
     },
     credentials: { email: 'trendtech686@gmail.com' },
     configuration: { payer: 'customer', transport: 'Đường bộ' },
+        ...buildSeedAuditFields({ createdAt: '2024-02-12T08:00:00Z' }),
   },
   {
     systemId: asSystemId('DVVC00000004'),
@@ -139,6 +143,7 @@ export const data: ShippingPartner[] = [
     },
     credentials: { userId: '36701998557837', secretKey: 'e23507d5-21e2-4f88-a46e-b3a9bfb48bf7' },
     configuration: { payer: 'customer' },
+        ...buildSeedAuditFields({ createdAt: '2024-02-13T08:00:00Z' }),
   },
   {
     systemId: asSystemId('DVVC00000005'),
@@ -169,6 +174,7 @@ export const data: ShippingPartner[] = [
     },
     credentials: { customer_id: '024LC15753' },
     configuration: { partial_delivery: true },
+        ...buildSeedAuditFields({ createdAt: '2024-02-14T08:00:00Z' }),
   },
     {
      systemId: asSystemId('DVVC00000006'),
@@ -191,6 +197,7 @@ export const data: ShippingPartner[] = [
     },
     credentials: {},
     configuration: {},
+        ...buildSeedAuditFields({ createdAt: '2024-02-15T08:00:00Z' }),
   },
     {
      systemId: asSystemId('DVVC00000007'),
@@ -213,6 +220,7 @@ export const data: ShippingPartner[] = [
     },
     credentials: {},
     configuration: {},
+        ...buildSeedAuditFields({ createdAt: '2024-02-16T08:00:00Z' }),
   },
     {
         systemId: asSystemId('DVVC00000008'),
@@ -235,5 +243,6 @@ export const data: ShippingPartner[] = [
     },
     credentials: {},
     configuration: {},
+        ...buildSeedAuditFields({ createdAt: '2024-02-17T08:00:00Z' }),
   },
 ];

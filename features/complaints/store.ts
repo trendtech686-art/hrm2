@@ -12,6 +12,204 @@ import type {
   ComplaintImage,
 } from "./types";
 
+const complaintSeedData: Complaint[] = [
+  {
+    systemId: asSystemId("COMPLAINT000001"),
+    id: asBusinessId("PKN000001"),
+    publicTrackingCode: "rb5n8xzhrm",
+    orderSystemId: asSystemId("ORDER000001"),
+    orderCode: "DH000001",
+    orderValue: 16550000,
+    branchSystemId: asSystemId("BRANCH000003"),
+    branchName: "Chi nhánh Trung tâm",
+    customerSystemId: asSystemId("CUST000001"),
+    customerId: "KH000001",
+    customerName: "Công ty Cổ phần Bất động sản Hưng Thịnh",
+    customerPhone: "0901112233",
+    type: "missing-items",
+    description: "Khách nhận thiếu adapter USB-C trong hộp laptop Dell Inspiron 15.",
+    images: [
+      {
+        id: asSystemId("CMPIMG000001"),
+        url: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=640&q=80",
+        uploadedBy: asSystemId("EMP000002"),
+        uploadedAt: new Date("2025-11-14T09:00:00Z"),
+        description: "Ảnh khách chụp hộp sản phẩm",
+        type: "initial",
+      },
+    ],
+    employeeImages: [],
+    status: "investigating",
+    verification: "pending-verification",
+    createdBy: asSystemId("EMP000002"),
+    createdAt: new Date("2025-11-14T08:45:00Z"),
+    assignedTo: asSystemId("EMP000005"),
+    assigneeName: "Lê Văn Kho", // Tên nhân viên xử lý
+    assignedAt: new Date("2025-11-14T09:15:00Z"),
+    investigationNote: "Kho xác nhận thiếu phụ kiện trong kiện hàng. Đang kiểm tra tồn kho để gửi bổ sung.",
+    evidenceImages: [],
+    proposedSolution: "Gửi bổ sung adapter trong 24h và tặng voucher 2% cho đơn tiếp theo.",
+    timeline: [
+      {
+        id: asSystemId("CMPACT000001"),
+        actionType: "created",
+        performedBy: asSystemId("EMP000002"),
+        performedAt: new Date("2025-11-14T08:45:00Z"),
+        note: "Tạo phiếu khiếu nại từ khách Hưng Thịnh.",
+      },
+      {
+        id: asSystemId("CMPACT000002"),
+        actionType: "assigned",
+        performedBy: asSystemId("EMP000002"),
+        performedAt: new Date("2025-11-14T09:15:00Z"),
+        note: "Giao cho nhân viên kho kiểm tra.",
+      },
+      {
+        id: asSystemId("CMPACT000003"),
+        actionType: "investigated",
+        performedBy: asSystemId("EMP000005"),
+        performedAt: new Date("2025-11-14T11:00:00Z"),
+        note: "Đang chờ adapter bổ sung từ kho trung tâm.",
+      },
+    ],
+    priority: "high",
+    tags: ["Hưng Thịnh", "Thiếu phụ kiện"],
+    updatedAt: new Date("2025-11-14T11:15:00Z"),
+    affectedProducts: [
+      {
+        productSystemId: asSystemId("SP000001"),
+        productId: "SP000001",
+        productName: "Laptop Dell Inspiron 15",
+        unitPrice: 15000000,
+        quantityOrdered: 1,
+        quantityReceived: 1,
+        quantityMissing: 1,
+        quantityDefective: 0,
+        quantityExcess: 0,
+        issueType: "missing",
+        note: "Thiếu adapter USB-C trong hộp",
+        resolutionType: "replacement",
+      },
+    ],
+  },
+  {
+    systemId: asSystemId("COMPLAINT000002"),
+    id: asBusinessId("PKN000002"),
+    publicTrackingCode: "m1p9l0sdxz",
+    orderSystemId: asSystemId("ORDER000005"),
+    orderCode: "DH000005",
+    orderValue: 3775000,
+    branchSystemId: asSystemId("BRANCH000004"),
+    branchName: "Chi nhánh Quận 3",
+    customerSystemId: asSystemId("CUST000001"),
+    customerId: "KH000001",
+    customerName: "Công ty Cổ phần Bất động sản Hưng Thịnh",
+    customerPhone: "0901112233",
+    type: "product-condition",
+    description: "Keycap custom bị trầy và 6 switch Gateron không nhận tín hiệu sau khi lắp.",
+    images: [
+      {
+        id: asSystemId("CMPIMG000002"),
+        url: "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=640&q=80",
+        uploadedBy: asSystemId("EMP000003"),
+        uploadedAt: new Date("2025-11-19T02:20:00Z"),
+        description: "Ảnh khách gửi về keycap trầy",
+        type: "initial",
+      },
+      {
+        id: asSystemId("CMPIMG000003"),
+        url: "https://images.unsplash.com/photo-1478562853135-c3c9e3ef7905?auto=format&fit=crop&w=640&q=80",
+        uploadedBy: asSystemId("EMP000003"),
+        uploadedAt: new Date("2025-11-19T02:25:00Z"),
+        description: "Ảnh switch lỗi",
+        type: "initial",
+      },
+    ],
+    employeeImages: [],
+    status: "resolved",
+    verification: "verified-correct",
+    createdBy: asSystemId("EMP000003"),
+    createdAt: new Date("2025-11-19T02:10:00Z"),
+    assignedTo: asSystemId("EMP000003"),
+    assigneeName: "Trần Thị Hoa", // Tên nhân viên xử lý
+    assignedAt: new Date("2025-11-19T02:15:00Z"),
+    investigationNote: "Đã test tại cửa hàng, xác nhận 6 switch lỗi. Keycap bị trầy do quá trình đóng gói.",
+    evidenceImages: [
+      "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=640&q=80",
+    ],
+    proposedSolution: "Hoàn 60.000đ cho switch lỗi và gửi kèm bộ switch mới dự phòng.",
+    timeline: [
+      {
+        id: asSystemId("CMPACT000004"),
+        actionType: "created",
+        performedBy: asSystemId("EMP000003"),
+        performedAt: new Date("2025-11-19T02:10:00Z"),
+        note: "Khách báo switch lỗi và keycap trầy.",
+      },
+      {
+        id: asSystemId("CMPACT000005"),
+        actionType: "investigated",
+        performedBy: asSystemId("EMP000003"),
+        performedAt: new Date("2025-11-19T10:30:00Z"),
+        note: "Đã kiểm tra thực tế, xác nhận lỗi.",
+      },
+      {
+        id: asSystemId("CMPACT000006"),
+        actionType: "verified",
+        performedBy: asSystemId("EMP000003"),
+        performedAt: new Date("2025-11-20T04:00:00Z"),
+        note: "Xác nhận lỗi thuộc về kho đóng gói.",
+      },
+      {
+        id: asSystemId("CMPACT000007"),
+        actionType: "resolved",
+        performedBy: asSystemId("EMP000003"),
+        performedAt: new Date("2025-11-20T05:00:00Z"),
+        note: "Hoàn tiền và tạo voucher xin lỗi khách.",
+      },
+    ],
+    resolution: "refund",
+    resolutionNote: "Hoàn 60.000đ cho switch lỗi, tặng voucher 5% và gửi switch mới.",
+    resolvedBy: asSystemId("EMP000003"),
+    resolvedAt: new Date("2025-11-20T05:00:00Z"),
+    responsibleUserId: asSystemId("EMP000003"),
+    isVerifiedCorrect: true,
+    priority: "medium",
+    tags: ["Keychron", "Switch lỗi"],
+    updatedAt: new Date("2025-11-20T05:30:00Z"),
+    affectedProducts: [
+      {
+        productSystemId: asSystemId("SP000008"),
+        productId: "SP000008",
+        productName: "Bàn phím cơ Keychron K2",
+        unitPrice: 2500000,
+        quantityOrdered: 1,
+        quantityReceived: 1,
+        quantityMissing: 0,
+        quantityDefective: 1,
+        quantityExcess: 0,
+        issueType: "defective",
+        note: "Keycap trầy nhẹ",
+        resolutionType: "replacement",
+      },
+      {
+        productSystemId: asSystemId("SP000010"),
+        productId: "SP000010",
+        productName: "Switch Gateron Yellow",
+        unitPrice: 5000,
+        quantityOrdered: 90,
+        quantityReceived: 90,
+        quantityMissing: 0,
+        quantityDefective: 6,
+        quantityExcess: 0,
+        issueType: "defective",
+        note: "6 switch không nhận tín hiệu",
+        resolutionType: "refund",
+      },
+    ],
+  },
+];
+
 // =============================================
 // HELPER FUNCTIONS
 // =============================================
@@ -56,7 +254,7 @@ interface ComplaintStore {
   getComplaintById: (systemId: SystemId) => Complaint | undefined;
 
   // Actions - Workflow
-  assignComplaint: (id: SystemId, userId: SystemId) => void;
+  assignComplaint: (id: SystemId, userId: SystemId, userName?: string) => void;
   startInvestigation: (id: SystemId, note: string) => void;
   submitEvidence: (id: SystemId, evidenceImages: string[], investigationNote: string, proposedSolution: string) => void;
   verifyComplaint: (id: SystemId, isCorrect: boolean, note: string) => void;
@@ -113,7 +311,7 @@ export const useComplaintStore = create<ComplaintStore>()(
   persist(
     (set, get) => ({
       // Initial State - Load sample data if empty
-      complaints: [],
+      complaints: complaintSeedData,
       filters: defaultFilters,
       searchQuery: "",
       selectedComplaintId: null,
@@ -215,7 +413,7 @@ export const useComplaintStore = create<ComplaintStore>()(
       // WORKFLOW ACTIONS
       // =============================================
 
-      assignComplaint: (id, userId) => {
+      assignComplaint: (id, userId, userName) => {
         const complaint = get().complaints.find((c) => c.systemId === id);
         if (!complaint) return;
 
@@ -224,11 +422,14 @@ export const useComplaintStore = create<ComplaintStore>()(
           actionType: "assigned",
           performedBy: userId,
           performedAt: new Date(),
-          note: `Khiếu nại được giao cho nhân viên xử lý`,
+          note: userName 
+            ? `Khiếu nại được giao cho ${userName}` 
+            : `Khiếu nại được giao cho nhân viên xử lý`,
         };
 
         get().updateComplaint(id, {
           assignedTo: userId,
+          assigneeName: userName,
           assignedAt: new Date(),
           status: "investigating",
           timeline: [...complaint.timeline, action],
@@ -305,15 +506,18 @@ export const useComplaintStore = create<ComplaintStore>()(
           note: resolutionNote,
         };
 
-        get().updateComplaint(id, {
+        const updatePayload: Partial<Complaint> = {
           status: "resolved",
           resolution,
           resolutionNote,
-          responsibleUserId,
           resolvedBy: complaint.createdBy,
           resolvedAt: new Date(),
           timeline: [...complaint.timeline, action],
-        });
+        };
+        if (responsibleUserId) {
+          updatePayload.responsibleUserId = responsibleUserId;
+        }
+        get().updateComplaint(id, updatePayload);
       },
 
       rejectComplaint: (id, reason) => {
@@ -470,7 +674,7 @@ export const useComplaintStore = create<ComplaintStore>()(
           console.warn('[Complaints] Migrating to new ID system. Clearing old data...');
           // Clear old data and use fresh sample data
           return {
-            complaints: [],
+            complaints: complaintSeedData,
             filters: defaultFilters,
             searchQuery: "",
             selectedComplaintId: null,

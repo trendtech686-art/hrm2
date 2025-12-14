@@ -1,16 +1,24 @@
 ﻿import * as React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import { useOrderStore } from '../orders/store.ts';
 import type { Order, Packaging, PackagingStatus } from '../orders/types.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
-import { ArrowLeft, Printer, History } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table.tsx';
+import { ArrowLeft, Printer } from 'lucide-react';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertToPackingForPrint,
+  mapPackingToPrintData, 
+  mapPackingLineItems,
+  createStoreSettings,
+} from '../../lib/print/order-print-helper.ts';
+import { useBranchStore } from '../settings/branches/store.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
 import { useCustomerStore } from '../customers/store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
-import { useProductStore } from '../products/store.ts';
+import { useStorageLocationStore } from '../settings/inventory/storage-location-store.ts';
 import { Badge } from '../../components/ui/badge.tsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog.tsx';
 import { Label } from '../../components/ui/label.tsx';
@@ -18,19 +26,17 @@ import { Textarea } from '../../components/ui/textarea.tsx';
 import { Separator } from '../../components/ui/separator.tsx';
 import { DetailField } from '../../components/ui/detail-field.tsx';
 import { useAuth } from '../../contexts/auth-context.tsx';
-
-
-const formatCurrency = (value?: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return '0';
-    return new Intl.NumberFormat('vi-VN').format(value);
-};
+import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table.tsx';
+import type { Product } from '../products/types.ts';
+import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { asSystemId, type SystemId } from '../../lib/id-types.ts';
 
 const packagingStatusVariants: Record<PackagingStatus, "warning" | "success" | "destructive"> = {
     "Chờ đóng gói": "warning",
     "Đã đóng gói": "success",
     "Hủy đóng gói": "destructive",
 };
-
 
 function CancelPackagingDialog({
   isOpen,
@@ -68,9 +74,9 @@ function CancelPackagingDialog({
             placeholder="Nhập lý do..."
           />
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Thoát</Button>
-          <Button variant="destructive" onClick={handleConfirm}>Xác nhận Hủy</Button>
+                <DialogFooter>
+                    <Button variant="outline" className="h-9" onClick={() => onOpenChange(false)}>Thoát</Button>
+                    <Button variant="destructive" className="h-9" onClick={handleConfirm}>Xác nhận Hủy</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -84,11 +90,56 @@ export function PackagingDetailPage() {
     const { data: allOrders, confirmPackaging, cancelPackagingRequest } = useOrderStore();
     const { findById: findCustomerById } = useCustomerStore();
     const { findById: findEmployeeById } = useEmployeeStore();
-    const { findById: findProductById } = useProductStore();
+    const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
     const { employee: authEmployee } = useAuth();
     const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
 
     const [isCancelDialogOpen, setIsCancelDialogOpen] = React.useState(false);
+
+    // Comments state with localStorage persistence
+    type PackagingComment = CommentType<SystemId>;
+    const [comments, setComments] = React.useState<PackagingComment[]>(() => {
+        const saved = localStorage.getItem(`packaging-comments-${systemId}`);
+        return saved ? JSON.parse(saved) : [];
+    });
+
+    React.useEffect(() => {
+        if (systemId) {
+            localStorage.setItem(`packaging-comments-${systemId}`, JSON.stringify(comments));
+        }
+    }, [comments, systemId]);
+
+    const handleAddComment = React.useCallback((content: string, attachments?: string[], parentId?: string) => {
+        const newComment: PackagingComment = {
+            id: asSystemId(`comment-${Date.now()}`),
+            content,
+            author: {
+                systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
+                name: authEmployee?.fullName || 'Hệ thống',
+                avatar: authEmployee?.avatar,
+            },
+            createdAt: new Date().toISOString(),
+            attachments,
+            parentId: parentId as SystemId | undefined,
+        };
+        setComments(prev => [...prev, newComment]);
+    }, [authEmployee]);
+
+    const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
+        setComments(prev => prev.map(c => 
+            c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
+        ));
+    }, []);
+
+    const handleDeleteComment = React.useCallback((commentId: string) => {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+    }, []);
+
+    const commentCurrentUser = React.useMemo(() => ({
+        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
+        name: authEmployee?.fullName || 'Hệ thống',
+        avatar: authEmployee?.avatar,
+    }), [authEmployee]);
 
     const { order, packaging } = React.useMemo(() => {
         if (!systemId) return { order: null, packaging: null };
@@ -121,53 +172,118 @@ export function PackagingDetailPage() {
         return findEmployeeById(packaging.confirmingEmployeeSystemId);
     }, [packaging?.confirmingEmployeeSystemId, findEmployeeById]);
 
-    const pageActions = React.useMemo(() => {
-        if (!packaging) return null;
-        
-        return (
-            <div className="flex items-center gap-2 flex-wrap">
-                {packaging.status === 'Chờ đóng gói' && (
-                    <>
-                        <Button 
-                            size="sm" 
-                            onClick={() => {
-                                if (order && packaging) {
-                                    confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId);
-                                }
-                            }}
+    const { findById: findBranchById } = useBranchStore();
+    const { info: storeInfo } = useStoreInfoStore();
+    const { print } = usePrint(order?.branchSystemId);
+
+    const handlePrint = React.useCallback(() => {
+        if (!packaging || !order) return;
+
+        const branch = order.branchSystemId ? findBranchById(order.branchSystemId) : undefined;
+        const customer = findCustomerById(order.customerSystemId);
+
+        // Use helper to prepare print data
+        const storeSettings = createStoreSettings(branch || undefined);
+        const packingForPrint = convertToPackingForPrint(order, packaging, { 
+            customer: customer || undefined,
+            assignedEmployee: assignedEmployee || undefined,
+        });
+
+        const printData = mapPackingToPrintData(packingForPrint, storeSettings);
+        const lineItems = mapPackingLineItems(packingForPrint.items);
+
+        print('packing', {
+            data: printData,
+            lineItems: lineItems
+        });
+    }, [packaging, order, storeInfo, print, findCustomerById, findBranchById, assignedEmployee]);
+
+        const headerActions = React.useMemo(() => {
+            const actions: React.ReactNode[] = [];
+
+            if (packaging && order) {
+                if (packaging.status === 'Chờ đóng gói') {
+                    actions.push(
+                        <Button
+                            key="confirm"
+                            size="sm"
+                            className="h-9"
+                            onClick={() => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId)}
                         >
                             Xác nhận đã đóng gói
                         </Button>
-                        <Button 
-                            variant="destructive" 
-                            size="sm" 
+                    );
+                    actions.push(
+                        <Button
+                            key="cancel"
+                            variant="destructive"
+                            size="sm"
+                            className="h-9"
                             onClick={() => setIsCancelDialogOpen(true)}
                         >
                             Hủy yêu cầu đóng gói
                         </Button>
-                    </>
-                )}
-                <Button variant="outline" size="sm" onClick={() => navigate('/packaging')}>
-                    Quay lại
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => alert('Chức năng đang phát triển')}>
-                    In
-                </Button>
-            </div>
-        );
-    }, [packaging, order, currentUserSystemId, navigate]);
+                    );
+                }
 
-    usePageHeader({
-        title: `Phiếu đóng gói ${packaging?.id || ''}`,
-        actions: pageActions ? [pageActions] : []
-    });
+                actions.push(
+                    <Button
+                        key="print"
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
+                        onClick={handlePrint}
+                    >
+                        <Printer className="mr-2 h-4 w-4" />
+                        In phiếu
+                    </Button>
+                );
+            }
+
+            actions.push(
+                <Button
+                    key="back"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => navigate('/packaging')}
+                >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Danh sách đóng gói
+                </Button>
+            );
+
+            return actions;
+        }, [packaging, order, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, navigate]);
+
+        const headerBadge = React.useMemo(() => {
+            if (!packaging) return undefined;
+            return (
+                <Badge variant={packagingStatusVariants[packaging.status]}>
+                    {packaging.status}
+                </Badge>
+            );
+        }, [packaging]);
+
+        usePageHeader({
+            title: packaging ? `Phiếu đóng gói ${packaging.id}` : 'Phiếu đóng gói',
+            breadcrumb: [
+                { label: 'Trang chủ', href: '/', isCurrent: false },
+                { label: 'Đóng gói', href: '/packaging', isCurrent: false },
+                { label: packaging ? packaging.id : 'Chi tiết', href: systemId ? `/packaging/${systemId}` : '/packaging', isCurrent: true }
+            ],
+            showBackButton: true,
+            backPath: '/packaging',
+            badge: headerBadge,
+            actions: headerActions
+        });
 
     if (!packaging || !order) {
         return (
             <div className="flex h-full items-center justify-center">
                 <div className="text-center">
-                    <h2 className="text-2xl font-bold">Không tìm thấy phiếu đóng gói</h2>
-                    <Button onClick={() => navigate('/packaging')} className="mt-4">
+                    <h2 className="text-h3 font-bold">Không tìm thấy phiếu đóng gói</h2>
+                    <Button onClick={() => navigate('/packaging')} className="mt-4 h-9">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Quay về danh sách
                     </Button>
@@ -182,30 +298,22 @@ export function PackagingDetailPage() {
         }
     };
 
-    const totalQuantity = order.lineItems.reduce((sum, item) => sum + item.quantity, 0);
+    // Helper function for storage location name
+    const getStorageLocationName = React.useCallback((product: Product | undefined) => {
+        if (!product?.storageLocationSystemId) return '---';
+        const location = findStorageLocationBySystemId(product.storageLocationSystemId);
+        return location?.name || '---';
+    }, [findStorageLocationBySystemId]);
 
     return (
         <>
             <div className="space-y-4 md:space-y-6">
-                {/* Status Badge Card */}
-                <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <Badge variant={packagingStatusVariants[packaging.status]}>{packaging.status}</Badge>
-                            <Separator orientation="vertical" className="h-6" />
-                            <span className="text-sm text-muted-foreground">
-                                Ngày yêu cầu: {formatDate(packaging.requestDate)}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-
                 {/* Main Info Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                     {/* Left Column - 2/3 width */}
                     <Card className="lg:col-span-2">
                         <CardHeader>
-                            <CardTitle className="text-base font-semibold">Thông tin phiếu đóng gói</CardTitle>
+                            <CardTitle className="text-h6 font-semibold">Thông tin phiếu đóng gói</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -291,22 +399,13 @@ export function PackagingDetailPage() {
                             <DetailField label="Địa chỉ giao">
                                 {[customer?.shippingAddress_street, customer?.shippingAddress_ward, customer?.shippingAddress_province].filter(Boolean).join(', ') || '---'}
                             </DetailField>
-                            
-                            <Button 
-                                variant="link" 
-                                className="p-0 h-auto text-sm"
-                                onClick={() => alert('Chức năng lịch sử đang phát triển')}
-                            >
-                                <History className="mr-1.5 h-4 w-4" />
-                                Lịch sử thao tác phiếu đóng gói
-                            </Button>
                         </CardContent>
                     </Card>
 
                     {/* Right Column - 1/3 width */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base font-semibold">Thông tin bổ sung</CardTitle>
+                            <CardTitle className="text-h6 font-semibold">Thông tin bổ sung</CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm space-y-3">
                             <div>
@@ -318,96 +417,41 @@ export function PackagingDetailPage() {
                 </div>
 
                 {/* Product Information Table */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base font-semibold">Thông tin sản phẩm</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="border rounded-md">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-12 text-center">STT</TableHead>
-                                        <TableHead className="w-16">Ảnh</TableHead>
-                                        <TableHead>Tên sản phẩm</TableHead>
-                                        <TableHead>Đơn vị</TableHead>
-                                        <TableHead className="text-center">Số lượng</TableHead>
-                                        <TableHead className="text-right">Đơn giá</TableHead>
-                                        <TableHead className="text-right">Chiết khấu</TableHead>
-                                        <TableHead className="text-center">Thuế</TableHead>
-                                        <TableHead className="text-right">Thành tiền</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {order.lineItems.map((item, index) => {
-                                        const product = findProductById(item.productSystemId);
-                                        const total = item.quantity * item.unitPrice;
-                                        return (
-                                            <TableRow key={item.productSystemId}>
-                                                <TableCell className="text-center">{index + 1}</TableCell>
-                                                <TableCell><div className="w-12 h-12 bg-muted rounded-md" /></TableCell>
-                                                <TableCell>
-                                                    {product ? (
-                                                        <>
-                                                            <ReactRouterDOM.Link 
-                                                                to={`/products/${product.systemId}`}
-                                                                className="font-medium text-primary hover:underline"
-                                                            >
-                                                                {item.productName}
-                                                            </ReactRouterDOM.Link>
-                                                            <p className="text-xs text-muted-foreground">Mặc định</p>
-                                                            <ReactRouterDOM.Link 
-                                                                to={`/products/${product.systemId}`} 
-                                                                className="text-xs text-muted-foreground hover:text-primary hover:underline"
-                                                            >
-                                                                {item.productId}
-                                                            </ReactRouterDOM.Link>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <p className="font-medium">{item.productName}</p>
-                                                            <p className="text-xs text-muted-foreground">Mặc định</p>
-                                                            <p className="text-xs text-muted-foreground">{item.productId}</p>
-                                                        </>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>sản phẩm</TableCell>
-                                                <TableCell className="text-center">{item.quantity}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                                                <TableCell className="text-center">0%</TableCell>
-                                                <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                                <TableFooter>
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-right font-bold">Tổng cộng</TableCell>
-                                        <TableCell className="text-center font-bold">{totalQuantity}</TableCell>
-                                        <TableCell colSpan={4} className="text-right font-bold">{formatCurrency(order.subtotal)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-right">Tổng tiền</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(order.subtotal)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-right">Chiết khấu</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(0)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-right">Phí giao hàng</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(order.shippingFee)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-right font-bold text-base">Khách phải trả</TableCell>
-                                        <TableCell className="text-right font-bold text-base">{formatCurrency(order.grandTotal)}</TableCell>
-                                    </TableRow>
-                                </TableFooter>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                <ReadOnlyProductsTable 
+                    lineItems={order.lineItems}
+                    showStorageLocation={true}
+                    showDiscount={true}
+                    showUnit={true}
+                    getStorageLocationName={getStorageLocationName}
+                    summary={{
+                        subtotal: order.subtotal,
+                        discount: 0,
+                        shippingFee: order.shippingFee,
+                        grandTotal: order.grandTotal,
+                    }}
+                />
+
+                {/* Comments */}
+                <Comments
+                    entityType="packaging"
+                    entityId={packaging.systemId}
+                    comments={comments}
+                    onAddComment={handleAddComment}
+                    onUpdateComment={handleUpdateComment}
+                    onDeleteComment={handleDeleteComment}
+                    currentUser={commentCurrentUser}
+                    title="Bình luận"
+                    placeholder="Thêm bình luận về yêu cầu đóng gói..."
+                />
+
+                {/* Activity History */}
+                <ActivityHistory
+                    history={packaging.activityHistory || []}
+                    title="Lịch sử hoạt động"
+                    emptyMessage="Chưa có lịch sử hoạt động"
+                    groupByDate
+                    maxHeight="400px"
+                />
             </div>
 
             <CancelPackagingDialog

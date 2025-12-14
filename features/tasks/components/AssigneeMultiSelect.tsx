@@ -112,12 +112,12 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
             className="flex items-center gap-2 rounded-md border bg-background p-2"
           >
             {/* Avatar */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-body-xs font-medium">
               {assignee.employeeName.charAt(0).toUpperCase()}
             </div>
 
             {/* Name */}
-            <span className="text-sm font-medium">{assignee.employeeName}</span>
+            <span className="text-body-sm font-medium">{assignee.employeeName}</span>
 
             {/* Role Selector */}
             {showRoles && (
@@ -127,18 +127,18 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
                   handleRoleChange(assignee.systemId, role as AssigneeRole)
                 }
               >
-                <SelectTrigger className="h-6 w-32 text-xs">
+                <SelectTrigger className="h-6 w-32 text-body-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="owner">
-                    <span className="text-xs">{roleLabels.owner}</span>
+                    <span className="text-body-xs">{roleLabels.owner}</span>
                   </SelectItem>
                   <SelectItem value="contributor">
-                    <span className="text-xs">{roleLabels.contributor}</span>
+                    <span className="text-body-xs">{roleLabels.contributor}</span>
                   </SelectItem>
                   <SelectItem value="reviewer">
-                    <span className="text-xs">{roleLabels.reviewer}</span>
+                    <span className="text-body-xs">{roleLabels.reviewer}</span>
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -181,7 +181,7 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
                         onSelect={() => handleAddAssignee(employee.systemId)}
                       >
                         <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-body-xs font-medium">
                             {employee.name.charAt(0).toUpperCase()}
                           </div>
                           <span>{employee.name}</span>
@@ -198,7 +198,7 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
 
       {/* Role Legend */}
       {showRoles && assignees.length > 0 && (
-        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap gap-2 text-body-xs text-muted-foreground">
           <Badge variant="outline" className={roleColors.owner}>
             {roleLabels.owner}
           </Badge>
@@ -213,7 +213,7 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
 
       {/* Limits Warning */}
       {assignees.length >= maxAssignees && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-body-xs text-muted-foreground">
           Đã đạt giới hạn {maxAssignees} người được phân công.
         </p>
       )}

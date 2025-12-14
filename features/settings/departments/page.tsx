@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core';
 import { Search, Users, Crown, MoreHorizontal, PlusCircle, Eye, Copy, Check, GripVertical } from 'lucide-react';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
 import { useDepartmentStore } from './store.ts';
 import { useEmployeeStore } from '../../employees/store.ts';
 import { useJobTitleStore } from '../job-titles/store.ts';
@@ -22,9 +22,12 @@ import type { Employee } from '../../employees/types.ts';
 import type { JobTitle } from '../job-titles/types.ts';
 import { cn } from '../../../lib/utils.ts';
 import { Button } from '../../../components/ui/button.tsx';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
 import { Input } from '../../../components/ui/input.tsx';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar.tsx';
 import { ScrollArea } from '../../../components/ui/scroll-area.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
+import { SortableCard } from '../../../components/settings/SortableCard.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
 import { DepartmentForm, type DepartmentFormValues } from './department-form.tsx';
@@ -71,99 +74,99 @@ const CopyableDetailField = ({ label, value }: { label: string; value?: string }
     );
 };
 
-const EmployeeCard = React.memo(function EmployeeCard({ employee, onView, isDragging }: { employee: Employee, onView: (employee: Employee) => void, isDragging?: boolean }) {
+const EmployeeCard = React.memo(function EmployeeCard({ employee, onView, isDragging }: { employee: Employee; onView: (employee: Employee) => void; isDragging?: boolean }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: employee.systemId,
     data: {
       type: 'employee',
-      employee
-    }
+      employee,
+    },
   });
 
-  const style = React.useMemo(() => ({
+  const cardStyle = React.useMemo(() => ({
     transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-    // GPU acceleration for smoother animation
-    willChange: transform ? 'transform' : 'auto',
-  }), [transform, isDragging]);
+    willChange: transform ? 'transform' : undefined,
+  }), [transform]);
+
+  const dragHandleProps = listeners as React.HTMLAttributes<HTMLButtonElement> | undefined;
+  const dragProps = dragHandleProps ? { dragHandleProps } : {};
+  const dragging = Boolean(isDragging);
 
   return (
-    <div 
+    <SortableCard
       ref={setNodeRef}
-      style={style}
+      style={cardStyle}
       {...attributes}
-      className={cn(
-        "group relative flex items-center gap-3 p-2.5 rounded-md border shadow-sm transition-all",
-        "bg-card hover:shadow-md hover:border-primary/50",
-        isDragging && "opacity-30 scale-95"
-      )}
-    >
-      {/* Drag Handle */}
-      <div 
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </div>
-      
-      <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-background">
-        {employee.avatarUrl && <AvatarImage src={employee.avatarUrl} alt={employee.fullName} />}
-        <AvatarFallback className="text-xs">{getInitials(employee.fullName)}</AvatarFallback>
-      </Avatar>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">{employee.fullName}</p>
-        <p className="text-xs text-muted-foreground truncate">{employee.jobTitle || 'Chưa có chức vụ'}</p>
-      </div>
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" 
-        onClick={(e) => { 
-          e.stopPropagation(); 
-          onView(employee); 
-        }}
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-    </div>
+      {...dragProps}
+      title={employee.fullName}
+      description={employee.jobTitle || 'Chưa có chức vụ'}
+      media={
+        <Avatar className="h-10 w-10 ring-2 ring-background">
+          {employee.avatarUrl && <AvatarImage src={employee.avatarUrl} alt={employee.fullName} />}
+          <AvatarFallback className="text-xs font-semibold">{getInitials(employee.fullName)}</AvatarFallback>
+        </Avatar>
+      }
+      actions={
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation();
+            onView(employee);
+          }}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      }
+      isDragging={dragging}
+      className={cn('touch-none select-none')}
+    />
   );
 });
 
-const DropZone = React.memo(function DropZone({ 
-  id, 
-  icon: Icon, 
-  title, 
-  count, 
-  children, 
-  isOver 
-}: React.PropsWithChildren<{ 
+const DropZone = React.memo(function DropZone({
+  id,
+  icon: Icon,
+  title,
+  count,
+  children,
+  isOver,
+  helperText,
+}: React.PropsWithChildren<{
   id: string;
   icon: React.ElementType;
   title: string;
   count: number;
   isOver?: boolean;
+  helperText?: string;
 }>) {
   const { setNodeRef } = useDroppable({
     id,
   });
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       className={cn(
-        "rounded-md p-2 transition-all border-2 border-dashed",
-        isOver ? "border-primary bg-primary/5" : "border-transparent bg-muted/30"
+        'rounded-2xl border border-dashed border-border/70 bg-background/80 p-3 transition-all',
+        'shadow-[inset_0_1px_0_rgba(0,0,0,0.02)]',
+        isOver && 'border-primary/60 bg-primary/5 shadow-lg shadow-primary/10'
       )}
     >
-      <div className="flex items-center text-xs font-medium text-muted-foreground mb-2 px-1">
-        <Icon className="h-3.5 w-3.5 mr-1.5" />
-        <span className="flex-1">{title}</span>
-        <span className="text-[10px] bg-muted rounded-full px-1.5 py-0.5">{count}</span>
+      <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <span className="flex-1 text-sm text-foreground">{title}</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
+          {count}
+        </span>
       </div>
-      <div className="space-y-2 min-h-[60px]">
+      <div className="space-y-2">
         {children || (
-          <div className="flex items-center justify-center h-[60px] text-xs text-muted-foreground">
-            Kéo thả để thêm
+          <div className="flex min-h-[72px] flex-col items-center justify-center rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+            <span>{helperText ?? 'Kéo thả để thêm vào nhóm này'}</span>
           </div>
         )}
       </div>
@@ -172,141 +175,160 @@ const DropZone = React.memo(function DropZone({
 });
 
 
-const DepartmentColumn = React.memo(function DepartmentColumn({ 
-  department, 
-  employees, 
+const DepartmentColumn = React.memo(function DepartmentColumn({
+  department,
+  employees,
   onViewEmployee,
   activeId,
-  overId
-}: { 
+  overId,
+}: {
   department: Department;
   employees: Employee[];
   onViewEmployee: (employee: Employee) => void;
   activeId: string | null;
   overId: string | null;
 }) {
-  const manager = React.useMemo(() => employees.find(e => e.systemId === department.managerId), [employees, department.managerId]);
-  const members = React.useMemo(() => employees.filter(e => e.department === department.name && e.systemId !== department.managerId), [employees, department]);
+  const manager = React.useMemo(
+    () => employees.find((employee) => employee.systemId === department.managerId),
+    [employees, department.managerId],
+  );
+  const members = React.useMemo(
+    () => employees.filter((employee) => employee.department === department.name && employee.systemId !== department.managerId),
+    [employees, department],
+  );
 
   const managerZoneId = `dept-${department.systemId}-manager`;
   const memberZoneId = `dept-${department.systemId}-members`;
 
   return (
-    <div className={cn(
-      "w-[280px] sm:w-[300px] md:w-[320px] h-full flex-shrink-0 rounded-lg p-3 flex flex-col transition-all border shadow-sm",
-      "bg-gradient-to-br from-card to-card/50"
-    )}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-2 mb-3 rounded-md bg-muted/50">
-        <h3 className="font-semibold text-sm md:text-base truncate">{department.name}</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5">
-            {employees.length}
+    <Card className="flex h-full w-[280px] flex-shrink-0 flex-col sm:w-[300px] md:w-[320px]">
+      <CardHeader className="border-b bg-muted/40 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-base leading-6">{department.name}</CardTitle>
+            <CardDescription>{employees.length} thành viên</CardDescription>
+          </div>
+          <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-primary">
+            {manager ? 'Đang có trưởng phòng' : 'Chưa có trưởng phòng'}
           </span>
         </div>
-      </div>
-      
-      {/* Content */}
-      <ScrollArea className="flex-grow pr-2">
-        <div className="space-y-3">
-          <DropZone 
-            id={managerZoneId}
-            icon={Crown} 
-            title="Trưởng phòng" 
-            count={manager ? 1 : 0}
-            isOver={overId === managerZoneId}
-          >
-            {manager && (
-              <EmployeeCard 
-                employee={manager} 
-                onView={onViewEmployee}
-                isDragging={activeId === manager.systemId}
-              />
-            )}
-          </DropZone>
-          <DropZone 
-            id={memberZoneId}
-            icon={Users} 
-            title="Nhân viên" 
-            count={members.length}
-            isOver={overId === memberZoneId}
-          >
-            {members.map(emp => (
-              <EmployeeCard 
-                key={emp.systemId}
-                employee={emp} 
-                onView={onViewEmployee}
-                isDragging={activeId === emp.systemId}
-              />
-            ))}
-          </DropZone>
-        </div>
-      </ScrollArea>
-    </div>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col overflow-hidden px-3 py-3">
+        <ScrollArea className="flex-1">
+          <div className="space-y-3 pr-2">
+            <DropZone
+              id={managerZoneId}
+              icon={Crown}
+              title="Trưởng phòng"
+              count={manager ? 1 : 0}
+              isOver={overId === managerZoneId}
+              helperText="Kéo nhân viên bất kỳ để bổ nhiệm trưởng phòng"
+            >
+              {manager && (
+                <EmployeeCard
+                  employee={manager}
+                  onView={onViewEmployee}
+                  isDragging={activeId === manager.systemId}
+                />
+              )}
+            </DropZone>
+            <DropZone
+              id={memberZoneId}
+              icon={Users}
+              title="Nhân viên"
+              count={members.length}
+              isOver={overId === memberZoneId}
+              helperText="Thả nhân viên vào đây để thêm vào phòng ban"
+            >
+              {members.map((emp) => (
+                <EmployeeCard
+                  key={emp.systemId}
+                  employee={emp}
+                  onView={onViewEmployee}
+                  isDragging={activeId === emp.systemId}
+                />
+              ))}
+            </DropZone>
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   );
 });
 
-const UnassignedColumn = React.memo(function UnassignedColumn({ 
-  employees, 
+const UnassignedColumn = React.memo(function UnassignedColumn({
+  employees,
   onViewEmployee,
   activeId,
-  overId
-}: { 
+  overId,
+}: {
   employees: Employee[];
   onViewEmployee: (employee: Employee) => void;
   activeId: string | null;
   overId: string | null;
 }) {
-    const [search, setSearch] = React.useState('');
-    const filteredEmployees = React.useMemo(() => 
-        search ? employees.filter(e => e.fullName.toLowerCase().includes(search.toLowerCase())) : employees,
-    [employees, search]);
+  const [search, setSearch] = React.useState('');
+  const filteredEmployees = React.useMemo(
+    () => (search ? employees.filter((employee) => employee.fullName.toLowerCase().includes(search.toLowerCase())) : employees),
+    [employees, search],
+  );
 
-    const unassignedZoneId = 'unassigned';
+  const unassignedZoneId = 'unassigned';
+  const { setNodeRef, isOver } = useDroppable({ id: unassignedZoneId });
 
-    return (
-        <div className={cn(
-          "w-[280px] sm:w-[300px] md:w-[320px] h-full flex-shrink-0 rounded-lg p-3 flex flex-col transition-all border shadow-sm",
-          "bg-gradient-to-br from-orange-50 to-card dark:from-orange-950/20 dark:to-card"
-        )}>
-            {/* Header */}
-            <div className="p-2 mb-3 rounded-md bg-orange-100 dark:bg-orange-950/30">
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-sm md:text-base">Chưa có phòng ban</h3>
-                    <span className="text-xs font-medium bg-orange-500 text-white rounded-full px-2 py-0.5">
-                        {employees.length}
-                    </span>
-                </div>
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Tìm nhân viên..." 
-                        className="w-full pl-8 h-9 bg-background" 
-                        value={search} 
-                        onChange={(e) => setSearch(e.target.value)} 
-                    />
-                </div>
-            </div>
-            
-            {/* Content */}
-            <div className="flex-grow overflow-y-auto pr-2 space-y-2" style={{ scrollbarGutter: 'stable' }}>
-                {filteredEmployees.length === 0 ? (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                        {search ? 'Không tìm thấy nhân viên' : 'Tất cả nhân viên đã có phòng ban'}
-                    </div>
-                ) : (
-                    filteredEmployees.map(emp => (
-                        <EmployeeCard 
-                            key={emp.systemId}
-                            employee={emp} 
-                            onView={onViewEmployee}
-                            isDragging={activeId === emp.systemId}
-                        />
-                    ))
-                )}
-            </div>
+  return (
+    <Card className="flex h-full w-[280px] flex-shrink-0 flex-col bg-gradient-to-br from-orange-50/60 to-card dark:from-orange-950/20 dark:to-card sm:w-[300px] md:w-[320px]">
+      <CardHeader className="pb-3">
+        <div className="mb-2 flex items-center justify-between">
+          <CardTitle className="text-base">Chưa có phòng ban</CardTitle>
+          <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-semibold text-white">
+            {employees.length}
+          </span>
         </div>
-    );
+        <CardDescription className="text-xs">
+          Kéo nhân viên sang phòng ban phù hợp hoặc sử dụng ô tìm kiếm để lọc nhanh.
+        </CardDescription>
+        <div className="relative pt-3">
+          <Search className="absolute left-2.5 top-[22px] h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Tìm nhân viên..."
+            className="h-9 w-full pl-8"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex flex-1 flex-col overflow-hidden px-3 py-3">
+        <div
+          ref={setNodeRef}
+          className={cn(
+            'flex-1 rounded-2xl border border-dashed border-orange-200/80 bg-background/70 p-3 transition-all dark:border-orange-900/50',
+            isOver && 'border-primary/50 bg-primary/5 shadow-lg shadow-primary/10'
+          )}
+        >
+          <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
+            <div className="space-y-2 pr-2">
+              {filteredEmployees.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/60 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">
+                  {search ? 'Không tìm thấy nhân viên' : 'Tất cả nhân viên đã có phòng ban'}
+                </div>
+              ) : (
+                filteredEmployees.map((emp) => (
+                  <EmployeeCard
+                    key={emp.systemId}
+                    employee={emp}
+                    onView={onViewEmployee}
+                    isDragging={activeId === emp.systemId}
+                  />
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      </CardContent>
+    </Card>
+  );
 });
 
 const ManageDepartmentsDialog = React.memo(function ManageDepartmentsDialog({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
@@ -333,7 +355,7 @@ const ManageDepartmentsDialog = React.memo(function ManageDepartmentsDialog({ is
                          <h4 className="font-semibold mb-2">{editingDepartment ? 'Chỉnh sửa' : 'Thêm mới'}</h4>
                         <React.Fragment key={editingDepartment?.systemId || 'new'}>
                           <DepartmentForm
-                              initialData={editingDepartment ? { ...editingDepartment, jobTitleIds: [] } : undefined}
+                              initialData={editingDepartment ? { ...editingDepartment, jobTitleIds: [] } : null}
                               onSubmit={handleFormSubmit}
                           />
                         </React.Fragment>
@@ -376,8 +398,6 @@ const ManageJobTitlesDialog = React.memo(function ManageJobTitlesDialog({ isOpen
 
 
 export function DepartmentsPage() {
-  const { setPageHeader } = usePageHeader();
-  
   const { data: departments, update: updateDepartment } = useDepartmentStore();
   const { data: employees, update: updateEmployee } = useEmployeeStore();
   const navigate = useNavigate();
@@ -497,44 +517,38 @@ export function DepartmentsPage() {
       description: `${employee.fullName} chuyển về chưa có phòng ban`
     });
   }, [employees, departments, updateEmployee, updateDepartment]);
-  
-  // Setup page header
-  React.useEffect(() => {
-    setPageHeader({
-      title: 'Quản lý Phòng ban',
-      breadcrumb: [
-        { label: 'Trang chủ', href: '/' },
-        { label: 'Quản lý', href: '/departments' },
-        { label: 'Phòng ban', href: '/departments' }
-      ],
-      actions: [
-        <Button 
-          key="manage-job-titles"
-          variant="outline" 
-          size="sm"
-          onClick={() => setIsJobTitleFormOpen(true)}
-        >
-          Quản lý Chức vụ
-        </Button>,
-        <Button 
-          key="manage-departments"
-          variant="outline" 
-          size="sm"
-          onClick={() => setIsDeptFormOpen(true)}
-        >
-          Quản lý Phòng ban
-        </Button>,
-        <Button 
-          key="view-org-chart"
-          size="sm"
-          onClick={() => navigate('/departments/organization-chart')}
-        >
-          <Users className="mr-2 h-4 w-4" />
-          Sơ đồ tổ chức
-        </Button>
-      ]
-    });
-  }, [setPageHeader, navigate]);
+
+  const headerActions = React.useMemo(() => [
+    <SettingsActionButton 
+      key="manage-job-titles"
+      variant="outline" 
+      onClick={() => setIsJobTitleFormOpen(true)}
+    >
+      Quản lý Chức vụ
+    </SettingsActionButton>,
+    <SettingsActionButton 
+      key="manage-departments"
+      variant="outline" 
+      onClick={() => setIsDeptFormOpen(true)}
+    >
+      Quản lý Phòng ban
+    </SettingsActionButton>,
+    <SettingsActionButton 
+      key="view-org-chart"
+      onClick={() => navigate('/departments/organization-chart')}
+    >
+      <Users className="h-4 w-4" />
+      Sơ đồ tổ chức
+    </SettingsActionButton>
+  ], [navigate]);
+
+  useSettingsPageHeader({
+    title: 'Quản lý Phòng ban',
+    breadcrumb: [
+      { label: 'Phòng ban', href: '/departments', isCurrent: true }
+    ],
+    actions: headerActions,
+  });
 
   const SimpleDetailField = ({ label, value }: { label: string; value?: React.ReactNode }) => (
     <div className="grid grid-cols-3 items-center gap-2">

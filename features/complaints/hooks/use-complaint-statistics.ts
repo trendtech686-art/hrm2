@@ -203,10 +203,11 @@ export function useComplaintStatistics(
       'refund': 'Hoàn tiền',
       'return-shipping': 'Trả hàng',
       'advice-only': 'Tư vấn',
+      'replacement': 'Đổi sản phẩm',
       'rejected': 'Từ chối',
     };
 
-    const resolutions: ComplaintResolution[] = ['refund', 'return-shipping', 'advice-only', 'rejected'];
+    const resolutions: ComplaintResolution[] = ['refund', 'return-shipping', 'advice-only', 'replacement', 'rejected'];
     const resolvedComplaints = complaints.filter(c => c.resolution);
 
     const byResolution = resolutions.map(resolution => {

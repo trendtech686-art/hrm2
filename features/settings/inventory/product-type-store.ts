@@ -21,6 +21,7 @@ const rawData = [
     name: 'Hàng hóa',
     description: 'Sản phẩm vật lý có tồn kho',
     isDefault: true,
+    isActive: true,
     createdAt: new Date().toISOString(),
   },
   {
@@ -28,6 +29,7 @@ const rawData = [
     id: 'PT002',
     name: 'Dịch vụ',
     description: 'Dịch vụ không có tồn kho',
+    isActive: true,
     createdAt: new Date().toISOString(),
   },
   {
@@ -35,6 +37,7 @@ const rawData = [
     id: 'PT003',
     name: 'Digital',
     description: 'Sản phẩm số (ebook, khóa học online...)',
+    isActive: true,
     createdAt: new Date().toISOString(),
   },
 ] as const;
@@ -86,7 +89,7 @@ export const useProductTypeStore = create<ProductTypeState>()(
       },
       
       getActive: () => {
-        return get().data.filter((item) => !item.isDeleted);
+        return get().data.filter((item) => !item.isDeleted && item.isActive !== false);
       },
     }),
     {

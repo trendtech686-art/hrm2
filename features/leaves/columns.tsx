@@ -27,7 +27,7 @@ export const getColumns = (
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
       <Checkbox
         checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-        onCheckedChange={(value) => onToggleAll(!!value)}
+        onCheckedChange={(value) => onToggleAll?.(!!value)}
       />
     ),
     cell: ({ isSelected, onToggleSelect }) => (
@@ -49,7 +49,7 @@ export const getColumns = (
             className="text-left hover:underline"
         >
             <div className="font-medium">{row.employeeName}</div>
-            <div className="text-xs text-muted-foreground">{row.employeeId}</div>
+            <div className="text-body-xs text-muted-foreground">{row.employeeId}</div>
         </button>
     ),
     meta: { displayName: "Nhân viên" },
@@ -78,15 +78,78 @@ export const getColumns = (
     id: "reason",
     accessorKey: "reason",
     header: "Lý do",
-    cell: ({ row }) => <span className="truncate">{row.reason}</span>,
+    cell: ({ row }) => <span className="truncate max-w-[200px] block">{row.reason}</span>,
     meta: { displayName: "Lý do" },
   },
   {
     id: "status",
     accessorKey: "status",
     header: "Trạng thái",
-    cell: ({ row }) => <Badge variant={statusVariants[row.status] as any}>{row.status}</Badge>,
+    cell: ({ row }) => <Badge variant={statusVariants[row.status] as any} className="text-body-xs">{row.status}</Badge>,
     meta: { displayName: "Trạng thái" },
+  },
+  {
+    id: "startDate",
+    accessorKey: "startDate",
+    header: "Ngày bắt đầu",
+    cell: ({ row }) => formatDate(row.startDate),
+    meta: { displayName: "Ngày bắt đầu" },
+  },
+  {
+    id: "endDate",
+    accessorKey: "endDate",
+    header: "Ngày kết thúc",
+    cell: ({ row }) => formatDate(row.endDate),
+    meta: { displayName: "Ngày kết thúc" },
+  },
+  {
+    id: "requestDate",
+    accessorKey: "requestDate",
+    header: "Ngày yêu cầu",
+    cell: ({ row }) => formatDate(row.requestDate),
+    meta: { displayName: "Ngày yêu cầu" },
+  },
+  {
+    id: "leaveTypeIsPaid",
+    accessorKey: "leaveTypeIsPaid",
+    header: "Có lương",
+    cell: ({ row }) => row.leaveTypeIsPaid ? <Badge variant="success">Có</Badge> : <Badge variant="secondary">Không</Badge>,
+    meta: { displayName: "Có lương" },
+  },
+  {
+    id: "leaveTypeRequiresAttachment",
+    accessorKey: "leaveTypeRequiresAttachment",
+    header: "Yêu cầu đính kèm",
+    cell: ({ row }) => row.leaveTypeRequiresAttachment ? <Badge variant="warning">Có</Badge> : <Badge variant="secondary">Không</Badge>,
+    meta: { displayName: "Yêu cầu đính kèm" },
+  },
+  {
+    id: "createdAt",
+    accessorKey: "createdAt",
+    header: "Ngày tạo",
+    cell: ({ row }) => row.createdAt ? formatDate(row.createdAt) : '-',
+    meta: { displayName: "Ngày tạo" },
+  },
+  {
+    id: "updatedAt",
+    accessorKey: "updatedAt",
+    header: "Cập nhật lần cuối",
+    cell: ({ row }) => row.updatedAt ? formatDate(row.updatedAt) : '-',
+    meta: { displayName: "Cập nhật lần cuối" },
+  },
+  {
+    id: "employeeId",
+    accessorKey: "employeeId",
+    header: "Mã nhân viên",
+    cell: ({ row }) => row.employeeId,
+    meta: { displayName: "Mã nhân viên" },
+  },
+  {
+    id: "leaveTypeId",
+    accessorKey: "leaveTypeId",
+    header: "Mã loại phép",
+    cell: ({ row }) => row.leaveTypeId || '-',
+    meta: { displayName: "Mã loại phép" },
   },
   {
     id: "actions",

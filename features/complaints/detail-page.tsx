@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
 import type { BusinessId, SystemId } from '@/lib/id-types';
 import { cn } from "../../lib/utils.ts";
+import { FileUploadAPI } from "../../lib/file-upload-api.ts";
 import { showNotification, complaintNotifications } from "./notification-utils.ts";
 import { useAuth } from "../../contexts/auth-context.tsx";
 import { useComplaintPermissions } from "./hooks/use-complaint-permissions.ts";
@@ -14,6 +15,7 @@ import { cancelPaymentsReceiptsAndInventoryChecks } from './utils/payment-receip
 import { COMPLAINT_TOAST_MESSAGES as MSG } from './constants/toast-messages';
 import { handleCancelComplaint as cancelComplaintHandler } from './handlers/cancel-handler';
 import { handleReopenComplaint as reopenComplaintHandler } from './handlers/reopen-handler';
+import { complaintResolutionLabels } from './types.ts';
 import type { Payment } from '../payments/types.ts';
 import type { Receipt } from '../receipts/types.ts';
 
@@ -97,6 +99,16 @@ import { TemplateDialog } from "./components/template-dialog.tsx";
 import { Comments } from '../../components/Comments.tsx';
 import type { WarrantyComment } from '../warranty/types.ts';
 import { ConfirmDialog } from "../../components/ui/confirm-dialog.tsx";
+import { Printer } from 'lucide-react';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertComplaintForPrint,
+  mapComplaintToPrintData, 
+  mapComplaintLineItems,
+  createStoreSettings,
+} from '../../lib/print/complaint-print-helper.ts';
+import { useBranchStore } from '../settings/branches/store.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
 
 // Hooks & Context
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
@@ -126,8 +138,19 @@ export function ComplaintDetailPage() {
   // REMOVED: Payments/receipts loaded separately in components that need them
   console.timeEnd('Store Hooks');
 
+  // Get all employees for @mention in comments
+  const employeeMentions = React.useMemo(() => {
+    return employees
+      .filter(e => !e.isDeleted)
+      .map(e => ({
+        id: e.systemId,
+        label: e.fullName,
+        avatar: e.avatarUrl,
+      }));
+  }, [employees]);
+
   console.time('Data Access');
-  const complaint = systemId ? getComplaintById(asSystemId(systemId)) : null;
+  const complaint = systemId ? (getComplaintById(asSystemId(systemId)) ?? null) : null;
   
   console.log('Data Size:', {
     employees: employees.length,
@@ -226,7 +249,7 @@ export function ComplaintDetailPage() {
   // USE NEW EXTRACTED HOOKS
   // ==========================================
   const complaintHandlers = useComplaintHandlers({
-    complaint,
+    complaint: complaint ?? null,
     currentUser,
     permissions,
     assignComplaint,
@@ -234,14 +257,14 @@ export function ComplaintDetailPage() {
   });
 
   const verificationHandlers = useVerificationHandlers({
-    complaint,
+    complaint: complaint ?? null,
     currentUser,
     permissions,
     updateComplaint,
   });
 
   const compensationHandlers = useCompensationHandlers({
-    complaint,
+    complaint: complaint ?? null,
     updateComplaint,
     currentUser,
   });
@@ -253,7 +276,7 @@ export function ComplaintDetailPage() {
   } = compensationHandlers;
 
   const inventoryHandlers = useInventoryHandlers({
-    complaint,
+    complaint: complaint ?? null,
     currentUser,
     updateComplaint,
     relatedOrder,
@@ -319,6 +342,32 @@ export function ComplaintDetailPage() {
   // NEW: Handler for inventory adjustment submission
   // REPLACED: handleInventoryAdjustment → inventoryHandlers.handleInventoryAdjustment
   const handleInventoryAdjustment = inventoryHandlers.handleInventoryAdjustment;
+
+  const { findById: findBranchById } = useBranchStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { print } = usePrint(complaint?.branchSystemId);
+
+  const handlePrint = React.useCallback(() => {
+    if (!complaint) return;
+
+    const branch = complaint.branchSystemId ? findBranchById(complaint.branchSystemId) : undefined;
+
+    // Use helper to convert complaint to print format
+    const complaintForPrint = convertComplaintForPrint(complaint, {
+      branch,
+      assignee: assignedEmployee,
+    });
+
+    const storeSettings = createStoreSettings(storeInfo);
+
+    const printData = mapComplaintToPrintData(complaintForPrint, storeSettings);
+    const lineItems = mapComplaintLineItems(complaintForPrint.items);
+
+    print('complaint', {
+      data: printData,
+      lineItems: lineItems
+    });
+  }, [complaint, storeInfo, print, findBranchById, assignedEmployee]);
 
   const handleVerifyIncorrect = React.useCallback(() => {
     if (!complaint) return;
@@ -651,39 +700,21 @@ export function ComplaintDetailPage() {
 
   // Comments handlers
   const handleCommentImageUpload = React.useCallback(async (file: File): Promise<string> => {
+    if (!complaint) {
+      throw new Error('Không tìm thấy khiếu nại để upload ảnh');
+    }
+
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const serverUrl = (import.meta as any).env.VITE_SERVER_URL || 'http://localhost:3001';
-      const response = await fetch(`${serverUrl}/api/comments/upload-image`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || 'Upload failed');
-      }
-
-      // Return full URL
-      return `${serverUrl}${data.file.url}`;
+      const asset = await FileUploadAPI.uploadComplaintCommentImage(complaint.systemId, file);
+      return asset.url;
     } catch (error) {
       console.error('Image upload error:', error);
       toast.error('Không thể upload ảnh', {
         description: error instanceof Error ? error.message : 'Vui lòng thử lại'
       });
-      
-      // Fallback to base64 if server upload fails
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      throw error;
     }
-  }, []);
+  }, [complaint]);
 
   // Image preview handler
   const handleImagePreview = React.useCallback((images: string[], index: number) => {
@@ -726,7 +757,20 @@ export function ComplaintDetailPage() {
   const headerActions = React.useMemo(() => {
     if (!complaint) return [];
     
-    const actions = [];
+    const actions: React.ReactNode[] = [];
+
+    actions.push(
+      <Button
+        key="print"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        onClick={handlePrint}
+      >
+        <Printer className="mr-2 h-4 w-4" />
+        In phiếu
+      </Button>
+    );
 
     // Add Change Verification buttons (for verified complaints that are not resolved/cancelled)
     if (isVerified && complaint.status !== "resolved" && complaint.status !== "cancelled") {
@@ -763,9 +807,9 @@ export function ComplaintDetailPage() {
       actions.push(
         <Button
           key="cancel"
-          variant="destructive"
+          variant="outline"
           size="sm"
-          className="h-9"
+          className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50"
           onClick={handleCancelComplaint}
         >
           Hủy khiếu nại
@@ -863,7 +907,7 @@ export function ComplaintDetailPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <h3 className="text-lg font-semibold mb-2">Không tìm thấy khiếu nại</h3>
+          <h3 className="text-h4 font-semibold mb-2">Không tìm thấy khiếu nại</h3>
           <Button className="h-9" onClick={() => navigate("/complaints")}>
             Quay lại danh sách
           </Button>
@@ -882,7 +926,7 @@ export function ComplaintDetailPage() {
         {!isVerified && complaint.status !== "cancelled" && (
         <Card className="border-2 border-primary/20">
           <CardHeader>
-            <CardTitle className="text-base">
+            <CardTitle className="text-h4">
               Xác minh khiếu nại
             </CardTitle>
           </CardHeader>
@@ -982,6 +1026,7 @@ export function ComplaintDetailPage() {
         onDeleteComment={(commentId) => {
           handleDeleteComment(commentId);
         }}
+        mentions={employeeMentions}
       />
 
       {/* Timeline - Full Width */}
@@ -1039,8 +1084,8 @@ export function ComplaintDetailPage() {
         onOpenChange={setConfirmDialogOpen}
         title={confirmDialogConfig.title}
         description={confirmDialogConfig.description}
-        confirmText={confirmDialogConfig.confirmText}
-        variant={confirmDialogConfig.variant}
+        confirmText={confirmDialogConfig.confirmText ?? "Xác nhận"}
+        variant={confirmDialogConfig.variant ?? "default"}
         onConfirm={confirmDialogConfig.onConfirm}
       />
 

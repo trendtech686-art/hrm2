@@ -28,7 +28,7 @@ export const getColumns = (
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-            onCheckedChange={(value) => onToggleAll(!!value)}
+            onCheckedChange={(value) => onToggleAll?.(!!value)}
             aria-label="Select all"
           />
         </div>
@@ -179,6 +179,5 @@ export const getColumns = (
             </div>
         ),
         meta: { displayName: 'Hành động', sticky: 'right' },
-        size: 200,
     }
 ];

@@ -1,16 +1,19 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Filter, X, LayoutGrid, Table, AlertCircle, CheckCircle2, Clock, XCircle, AlertTriangle, Settings, Settings2, BarChart3, CheckCircle, FolderOpen, Ban, Link2, RefreshCw } from "lucide-react";
+import { Plus, Filter, X, LayoutGrid, Table, AlertCircle, CheckCircle2, Clock, XCircle, AlertTriangle, Settings, Settings2, BarChart3, CheckCircle, FolderOpen, Ban, Link2, RefreshCw, Printer } from "lucide-react";
 import Fuse from "fuse.js";
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from "../../lib/utils.ts";
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
+import { formatDateForDisplay } from '@/lib/date-utils';
 
 // Types & Store
 import type { Complaint, ComplaintStatus } from "./types.ts";
 import { useComplaintStore } from "./store.ts";
 import { useEmployeeStore } from "../employees/store.ts";
+import { useBranchStore } from "../settings/branches/store.ts";
+import { useStoreInfoStore } from "../settings/store-info/store-info-store.ts";
 import {
   complaintStatusLabels,
   complaintStatusColors,
@@ -18,6 +21,16 @@ import {
   complaintTypeColors,
 } from "./types.ts";
 import { checkOverdue, formatTimeLeft } from "./sla-utils.ts";
+
+// Print
+import { usePrint } from "../../lib/use-print.ts";
+import { 
+  convertComplaintForPrint,
+  mapComplaintToPrintData,
+  mapComplaintLineItems,
+  createStoreSettings,
+} from "../../lib/print/complaint-print-helper.ts";
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
 
 // UI Components
 import { Button } from "../../components/ui/button.tsx";
@@ -36,7 +49,7 @@ import { PageFilters } from "../../components/layout/page-filters.tsx";
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
 import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx";
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
+import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table.tsx";
 import { SlaTimer } from "../../components/SlaTimer.tsx";
 import { getColumns } from "./columns.tsx";
 import { ComplaintCard } from "./complaint-card.tsx";
@@ -47,6 +60,8 @@ import { useRouteMeta } from "../../hooks/use-route-meta.ts";
 import { loadCardColorSettings } from "../settings/complaints/complaints-settings-page.tsx";
 import { useRealtimeUpdates, getDataVersion, triggerDataUpdate } from "./use-realtime-updates.ts";
 import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from "./tracking-utils.ts";
+import { ROUTES } from "../../lib/router.ts";
+import type { BreadcrumbItem } from "../../lib/breadcrumb-system.ts";
 
 /**
  * Kanban Column Component - Unified neutral header with search
@@ -115,12 +130,12 @@ function KanbanColumn({
   return (
     <div className="flex-1 min-w-[300px] flex flex-col max-h-[calc(100vh-320px)]">
       {/* Header - Shadcn style with darker background */}
-      <div className="text-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
+      <div className="text-body-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
         <div className="flex items-center gap-2">
           <StatusIcon className="h-4 w-4" />
           {complaintStatusLabels[status]}
         </div>
-        <span className="text-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
+        <span className="text-body-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
           {filteredComplaints.length}
         </span>
       </div>
@@ -201,13 +216,13 @@ function KanbanColumn({
                     >
                       {/* Header */}
                       <div className="flex items-start justify-between mb-2">
-                        <div className="text-sm font-semibold">
+                        <div className="text-body-sm font-semibold">
                           {complaint.id}
                         </div>
                         <div className="flex items-center gap-1 flex-wrap justify-end">
                           <Badge
                             variant="outline"
-                            className={cn("text-xs", complaintTypeColors[complaint.type])}
+                            className={cn("text-body-xs", complaintTypeColors[complaint.type])}
                           >
                             {complaintTypeLabels[complaint.type]}
                           </Badge>
@@ -216,17 +231,17 @@ function KanbanColumn({
 
                       {/* Order Info */}
                       <div className="mb-2">
-                        <div className="text-sm font-medium text-foreground mb-1">
+                        <div className="text-body-sm font-medium text-foreground mb-1">
                           Đơn hàng: #{complaint.orderCode || complaint.orderSystemId}
                         </div>
-                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2 text-body-xs text-muted-foreground">
                           <span className="truncate">{complaint.customerName}</span>
                           <span className="flex-shrink-0">{complaint.customerPhone}</span>
                         </div>
                       </div>
 
                       {/* Description Preview */}
-                      <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                      <div className="text-body-xs text-muted-foreground mb-2 line-clamp-2">
                         {complaint.description}
                       </div>
 
@@ -240,7 +255,7 @@ function KanbanColumn({
                       />
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-body-xs">
                         <div className="flex items-center gap-2">
                           {complaint.assignedTo && (() => {
                             const assignedEmployee = employees.find(e => e.systemId === complaint.assignedTo);
@@ -267,7 +282,7 @@ function KanbanColumn({
                           })()}
                         </div>
                         <div className="text-muted-foreground">
-                          {new Date(complaint.createdAt).toLocaleDateString("vi-VN")}
+                          {formatDateForDisplay(complaint.createdAt)}
                         </div>
                       </div>
                     </Card>
@@ -279,7 +294,7 @@ function KanbanColumn({
         </div>
 
         {filteredComplaints.length === 0 && (
-          <div className="flex items-center justify-center h-40 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+          <div className="flex items-center justify-center h-40 text-body-sm text-muted-foreground border-2 border-dashed rounded-lg">
             Không có khiếu nại nào
           </div>
         )}
@@ -310,6 +325,13 @@ export function ComplaintsPage() {
   } = useComplaintStore();
   
   const { data: employees } = useEmployeeStore();
+  const { data: branches } = useBranchStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { print, printMultiple } = usePrint();
+
+  // Print dialog state
+  const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
+  const [itemsToPrint, setItemsToPrint] = React.useState<Complaint[]>([]);
 
   // ==========================================
   // State Management
@@ -347,7 +369,7 @@ export function ComplaintsPage() {
     return initial;
   });
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean } | null>(null);
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'complaintId']);
 
@@ -476,7 +498,7 @@ export function ComplaintsPage() {
   // ==========================================
   // Data Processing
   // ==========================================
-  const stats = React.useMemo(() => getStats(), [getStats]);
+  const stats = React.useMemo(() => getStats(), [complaints, getStats]);
 
   // Memoize Fuse instance
   const fuseInstance = React.useMemo(() => {
@@ -820,7 +842,35 @@ export function ComplaintsPage() {
     </Button>,
   ], [navigate, viewMode, isPolling, togglePolling]);
 
-  usePageHeader({ actions });
+  const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
+    if (routeMeta?.breadcrumb) {
+      return routeMeta.breadcrumb.map((item, index, arr) => {
+        if (typeof item === "string") {
+          return {
+            label: item,
+            href: ROUTES.INTERNAL.COMPLAINTS,
+            isCurrent: index === arr.length - 1,
+          } satisfies BreadcrumbItem;
+        }
+        return {
+          label: item.label,
+          href: item.href ?? ROUTES.ROOT,
+          isCurrent: index === arr.length - 1,
+        } satisfies BreadcrumbItem;
+      });
+    }
+    return [
+      { label: "Trang chủ", href: ROUTES.ROOT },
+      { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS, isCurrent: true },
+    ];
+  }, [routeMeta]);
+
+  usePageHeader({
+    title: "Quản lý Khiếu nại",
+    breadcrumb,
+    showBackButton: false,
+    actions,
+  });
 
   // Set column order on mount
   React.useEffect(() => {
@@ -953,7 +1003,43 @@ export function ComplaintsPage() {
     }
   }, [allSelectedRows]);
 
-  const bulkActions = React.useMemo(() => [
+  // Bulk print handlers
+  const handleBulkPrint = React.useCallback((rows: Complaint[]) => {
+    setItemsToPrint(rows);
+    setPrintDialogOpen(true);
+  }, []);
+
+  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+    if (itemsToPrint.length === 0) return;
+    
+    const printItems = itemsToPrint.map(complaint => {
+      const selectedBranch = options.branchSystemId 
+        ? branches.find(b => b.systemId === options.branchSystemId)
+        : branches.find(b => b.systemId === complaint.branchSystemId);
+      const storeSettings = selectedBranch 
+        ? createStoreSettings(selectedBranch)
+        : createStoreSettings(storeInfo);
+      const complaintData = convertComplaintForPrint(complaint, {});
+      
+      return {
+        data: mapComplaintToPrintData(complaintData, storeSettings),
+        lineItems: mapComplaintLineItems(complaintData.items || []),
+        paperSize: options.paperSize,
+      };
+    });
+
+    printMultiple('complaint', printItems);
+    toast.success(`Đang in ${itemsToPrint.length} phiếu khiếu nại`);
+    setItemsToPrint([]);
+    setPrintDialogOpen(false);
+  }, [itemsToPrint, branches, storeInfo, printMultiple]);
+
+  const bulkActions: BulkAction<Complaint>[] = React.useMemo(() => [
+    {
+      label: 'In phiếu',
+      icon: Printer,
+      onSelect: handleBulkPrint,
+    },
     {
       label: 'Kết thúc',
       onSelect: handleBulkFinish
@@ -970,7 +1056,7 @@ export function ComplaintsPage() {
       label: 'Hủy',
       onSelect: handleBulkCancel
     }
-  ], [handleBulkFinish, handleBulkOpen, handleBulkGetLink, handleBulkCancel]);
+  ], [handleBulkPrint, handleBulkFinish, handleBulkOpen, handleBulkGetLink, handleBulkCancel]);
 
   // Reset mobile loaded count when filters change
   React.useEffect(() => {
@@ -1189,7 +1275,7 @@ export function ComplaintsPage() {
             setColumnVisibility={setColumnVisibility}
             columnOrder={columnOrder}
             setColumnOrder={setColumnOrder}
-            sorting={sorting}
+            sorting={sorting ?? { id: 'createdAt', desc: true }}
             setSorting={setSorting}
             pagination={pagination}
             setPagination={setPagination}
@@ -1218,10 +1304,10 @@ export function ComplaintsPage() {
           {mobileLoadedCount < filteredComplaints.length ? (
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-              <span className="text-sm">Đang tải thêm...</span>
+              <span className="text-body-sm">Đang tải thêm...</span>
             </div>
           ) : filteredComplaints.length > 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body-sm text-muted-foreground">
               Đã hiển thị tất cả {filteredComplaints.length} khiếu nại
             </p>
           ) : null}
@@ -1232,7 +1318,7 @@ export function ComplaintsPage() {
       {filteredComplaints.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Chưa có khiếu nại nào</h3>
+          <h3 className="text-h4 font-semibold mb-2">Chưa có khiếu nại nào</h3>
           <p className="text-muted-foreground mb-4">
             {hasActiveFilters
               ? "Không tìm thấy khiếu nại phù hợp với bộ lọc"
@@ -1268,6 +1354,15 @@ export function ComplaintsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Print Options Dialog */}
+      <SimplePrintOptionsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        onConfirm={handlePrintConfirm}
+        selectedCount={itemsToPrint.length}
+        title="In phiếu khiếu nại"
+      />
     </div>
   );
 }

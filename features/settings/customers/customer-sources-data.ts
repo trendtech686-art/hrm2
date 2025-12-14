@@ -1,5 +1,6 @@
 import { asSystemId, asBusinessId } from '../../../lib/id-types';
 import type { CustomerSource } from './types';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const defaultCustomerSources: CustomerSource[] = [
   {
@@ -9,8 +10,7 @@ export const defaultCustomerSources: CustomerSource[] = [
     description: 'Khách hàng đến từ website công ty',
     type: 'Online',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...buildSeedAuditFields({ createdAt: '2024-01-07T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CSOURCE00000002'),
@@ -19,8 +19,7 @@ export const defaultCustomerSources: CustomerSource[] = [
     description: 'Khách hàng từ quảng cáo Facebook',
     type: 'Online',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...buildSeedAuditFields({ createdAt: '2024-01-08T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CSOURCE00000003'),
@@ -29,8 +28,7 @@ export const defaultCustomerSources: CustomerSource[] = [
     description: 'Khách hàng từ Zalo',
     type: 'Online',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...buildSeedAuditFields({ createdAt: '2024-01-09T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CSOURCE00000004'),
@@ -39,8 +37,7 @@ export const defaultCustomerSources: CustomerSource[] = [
     description: 'Khách hàng được giới thiệu bởi khách cũ',
     type: 'Referral',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...buildSeedAuditFields({ createdAt: '2024-01-10T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CSOURCE00000005'),
@@ -49,8 +46,7 @@ export const defaultCustomerSources: CustomerSource[] = [
     description: 'Khách hàng đến trực tiếp cửa hàng',
     type: 'Offline',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...buildSeedAuditFields({ createdAt: '2024-01-11T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CSOURCE00000006'),
@@ -59,7 +55,6 @@ export const defaultCustomerSources: CustomerSource[] = [
     description: 'Khách hàng từ đối tác liên kết',
     type: 'Other',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...buildSeedAuditFields({ createdAt: '2024-01-12T08:00:00Z' }),
   },
 ];

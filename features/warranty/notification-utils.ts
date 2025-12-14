@@ -63,7 +63,7 @@ export function saveWarrantyNotificationSettings(settings: WarrantyNotificationS
 export function showWarrantyNotification(
   type: 'success' | 'error' | 'info' | 'warning',
   message: string,
-  options?: { id?: string | number; description?: string; duration?: number }
+  options?: { id?: string | number; description?: string | undefined; duration?: number }
 ) {
   const settings = loadWarrantyNotificationSettings();
   

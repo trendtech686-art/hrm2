@@ -11,10 +11,10 @@ export type PayrollSummaryCard = {
   id: string;
   title: string;
   value: string | number;
-  description?: string;
-  icon?: LucideIcon;
-  trend?: SummaryTrend;
-  className?: string;
+  description?: string | undefined;
+  icon?: LucideIcon | undefined;
+  trend?: SummaryTrend | undefined;
+  className?: string | undefined;
 };
 
 type PayrollSummaryCardsProps = {

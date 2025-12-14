@@ -1,83 +1,309 @@
-import * as React from "react"
-import * as XLSX from 'xlsx';
-import Fuse from "fuse.js"
-import { useProvinceStore } from "./store.ts"
-import { asSystemId, asBusinessId } from '@/lib/id-types';
-import { ProvinceForm, type ProvinceFormValues } from "./form.tsx"
-import { WardForm, type WardFormValues } from "./ward-form.tsx"
-import { DistrictForm, type DistrictFormValues } from "./district-form.tsx"
-import type { Province, Ward, District } from "./types.ts"
-import { usePageHeader } from "../../../contexts/page-header-context.tsx";
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx"
-import { Button } from "../../../components/ui/button.tsx"
-import { Input } from "../../../components/ui/input.tsx"
+import * as React from "react";
+import * as XLSX from "xlsx";
+import Fuse from "fuse.js";
+import { useProvinceStore } from "./store.ts";
+import { asSystemId, asBusinessId } from "@/lib/id-types";
+import { ProvinceForm, type ProvinceFormValues } from "./form.tsx";
+import { WardForm, type WardFormValues } from "./ward-form.tsx";
+import { DistrictForm, type DistrictFormValues } from "./district-form.tsx";
+import type { Province, Ward, District } from "./types.ts";
+import { useSettingsPageHeader } from "../use-settings-page-header.tsx";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card.tsx";
+import { Button } from "../../../components/ui/button.tsx";
+import { Input } from "../../../components/ui/input.tsx";
 import { ScrollArea } from "../../../components/ui/scroll-area.tsx";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog.tsx";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../../components/ui/alert-dialog.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs.tsx";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table.tsx";
-import { PlusCircle, Search, Upload, Download, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
+import { PlusCircle, Search, Upload, Download, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../../lib/utils.ts";
-import { useToast } from "../../../hooks/use-toast.ts";
+import { toast } from 'sonner';
+import { SortableCard } from "../../../components/settings/SortableCard.tsx";
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = React.useState(value);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 type ImportPreviewState = {
-  provinces: Array<Omit<Province, 'systemId'>>;
-  wards: Array<Omit<Ward, 'systemId'>>;
+  provinces: Array<Omit<Province, "systemId">>;
+  wards: Array<Omit<Ward, "systemId">>;
   summary: {
     provinceCount: number;
     wardCount: number;
   };
 };
 
+const getInitials = (name: string) => {
+  const fallback = name.slice(0, 2).toUpperCase();
+  const parts = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  return parts || fallback;
+};
+
+interface ProvinceItemProps {
+  province: Province;
+  isActive: boolean;
+  onSelect: (systemId: string) => void;
+  onEdit: (province: Province) => void;
+  onDelete: (systemId: string) => void;
+  index: number;
+}
+
+const ProvinceItem = React.memo(function ProvinceItem({
+  province,
+  isActive,
+  onSelect,
+  onEdit,
+  onDelete,
+  index,
+}: ProvinceItemProps) {
+  return (
+    <div
+      onClick={() => onSelect(province.systemId)}
+      className={cn(
+        "group flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition-colors hover:bg-muted/50",
+        isActive ? "bg-primary/5 border-primary/20" : "hover:border-border/50"
+      )}
+    >
+       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+          {province.name.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex flex-1 flex-col gap-0.5">
+            <span className="text-sm font-medium leading-none">{province.name}</span>
+            <span className="text-xs text-muted-foreground">Mã: {province.id}</span>
+        </div>
+        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(province);
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(province.systemId);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+    </div>
+  );
+});
+
+interface DistrictItemProps {
+  district: District;
+  isActive: boolean;
+  onSelect: (id: number) => void;
+  onEdit: (district: District) => void;
+  onDelete: (systemId: string) => void;
+}
+
+const DistrictItem = React.memo(function DistrictItem({
+  district,
+  isActive,
+  onSelect,
+  onEdit,
+  onDelete,
+}: DistrictItemProps) {
+  return (
+    <div
+      onClick={() => onSelect(district.id)}
+      className={cn(
+        "group flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition-colors hover:bg-muted/50",
+        isActive ? "bg-primary/5 border-primary/20" : "hover:border-border/50"
+      )}
+    >
+       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+          {district.name.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex flex-1 flex-col gap-0.5">
+            <span className="text-sm font-medium leading-none">{district.name}</span>
+            <span className="text-xs text-muted-foreground">Mã: {district.id}</span>
+        </div>
+        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(district);
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(district.systemId);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+    </div>
+  );
+});
+
+interface WardListProps {
+  wards: Ward[];
+  onEdit: (ward: Ward) => void;
+  onDelete: (id: string) => void;
+}
+
+function WardList({ wards, onEdit, onDelete }: WardListProps) {
+  const parentRef = React.useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: wards.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 5,
+  });
+
+  return (
+    <div ref={parentRef} className="h-full w-full overflow-auto">
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+          const ward = wards[virtualItem.index];
+          return (
+            <div
+              key={virtualItem.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: `${virtualItem.size}px`,
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+              className="flex items-center justify-between border-b px-4 hover:bg-muted/50 group"
+            >
+              <div className="flex flex-col justify-center h-full">
+                <span className="font-medium text-sm">{ward.name}</span>
+                <span className="text-xs text-muted-foreground font-mono">{ward.id}</span>
+              </div>
+              <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => onEdit(ward)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => onDelete(ward.systemId)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function ProvincesPage() {
-  const { 
-    data: provinces, 
-    districts,
-    getWards2Level,
-    getWards2LevelByProvinceId,
-    getWards3LevelByProvinceId,
-    getWards3LevelByDistrictId,
-    getDistricts3LevelByProvinceId,
-    remove, 
-    add, 
-    update, 
-    addWard, 
-    updateWard, 
+  const {
+    data: provinces,
+    add,
+    update,
+    remove,
+    addWard,
+    updateWard,
     removeWard,
     addDistrict,
     updateDistrict,
     removeDistrict,
-    importAdministrativeUnits
+    getWards2LevelByProvinceId,
+    getWards3LevelByDistrictId,
+    getDistricts3LevelByProvinceId,
+    importAdministrativeUnits,
   } = useProvinceStore();
-  const { toast } = useToast();
   const [importPreview, setImportPreview] = React.useState<ImportPreviewState | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
   const [isImporting, setIsImporting] = React.useState(false);
-  
-  const [mode, setMode] = React.useState<'2-level' | '3-level'>('3-level');
-  
-  usePageHeader({
-    title: 'Tỉnh thành - Quận huyện',
-    breadcrumb: [
-      { label: 'Trang chủ', href: '/' },
-      { label: 'Cài đặt', href: '/settings' },
-      { label: 'Tỉnh thành', href: '/settings/provinces', isCurrent: true }
-    ],
-    actions: [
-      <Button key="add" onClick={() => setIsProvinceFormOpen(true)} className="h-9">
-        <PlusCircle className="mr-2 h-4 w-4" />
-        Thêm tỉnh thành
-      </Button>
-    ]
-  });
-  
-  // State for selections and modals
-  const [selectedProvinceId, setSelectedProvinceId] = React.useState<string | null>(provinces[0]?.systemId || null);
+
+  const [mode, setMode] = React.useState<"2-level" | "3-level">("3-level");
+  const importInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const [selectedProvinceId, setSelectedProvinceId] = React.useState<Province["systemId"] | null>(
+    provinces[0]?.systemId ?? null,
+  );
   const [selectedDistrictId, setSelectedDistrictId] = React.useState<number | null>(null);
-  const [provinceSearch, setProvinceSearch] = React.useState('');
-  const [districtSearch, setDistrictSearch] = React.useState('');
-  const [wardSearch, setWardSearch] = React.useState('');
+  
+  const [provinceSearchInput, setProvinceSearchInput] = React.useState("");
+  const [districtSearchInput, setDistrictSearchInput] = React.useState("");
+  const [wardSearchInput, setWardSearchInput] = React.useState("");
+
+  const provinceSearch = useDebounce(provinceSearchInput, 300);
+  const districtSearch = useDebounce(districtSearchInput, 300);
+  const wardSearch = useDebounce(wardSearchInput, 300);
 
   const [isProvinceFormOpen, setIsProvinceFormOpen] = React.useState(false);
   const [editingProvince, setEditingProvince] = React.useState<Province | null>(null);
@@ -86,14 +312,12 @@ export function ProvincesPage() {
   const [isDistrictFormOpen, setIsDistrictFormOpen] = React.useState(false);
   const [editingDistrict, setEditingDistrict] = React.useState<District | null>(null);
 
-  const [dialogState, setDialogState] = React.useState<{ type: 'province' | 'ward' | 'district'; systemId: string } | null>(null);
-  
-  // Pagination states
-  const [wardPage, setWardPage] = React.useState(0);
-  const [districtPage, setDistrictPage] = React.useState(0);
-  const pageSize = 15;
+  const [dialogState, setDialogState] = React.useState<{ type: "province" | "ward" | "district"; systemId: string } | null>(null);
 
-  const selectedProvince = React.useMemo(() => provinces.find(p => p.systemId === selectedProvinceId), [provinces, selectedProvinceId]);
+  const selectedProvince = React.useMemo(
+    () => provinces.find((province) => province.systemId === selectedProvinceId) ?? null,
+    [provinces, selectedProvinceId],
+  );
 
   React.useEffect(() => {
     if (!provinces.length) {
@@ -108,55 +332,62 @@ export function ProvincesPage() {
       setSelectedProvinceId(provinces[0]?.systemId ?? null);
     }
   }, [provinces, selectedProvinceId]);
-  
-  // Get wards based on mode
+
   const wardsForSelectedProvince = React.useMemo(() => {
     if (!selectedProvince) return [];
-    
-    if (mode === '2-level') {
+    if (mode === "2-level") {
       return getWards2LevelByProvinceId(selectedProvince.id);
-    } else {
-      // For 3-level, get wards by selected district
-      if (selectedDistrictId) {
-        return getWards3LevelByDistrictId(selectedDistrictId);
-      }
-      return [];
     }
+    if (selectedDistrictId) {
+      return getWards3LevelByDistrictId(selectedDistrictId);
+    }
+    return [];
   }, [mode, selectedProvince, selectedDistrictId, getWards2LevelByProvinceId, getWards3LevelByDistrictId]);
 
-  // Get districts for 3-level mode
   const districtsForProvince = React.useMemo(() => {
-    if (mode !== '3-level' || !selectedProvince) return [];
+    if (mode !== "3-level" || !selectedProvince) return [];
     return getDistricts3LevelByProvinceId(selectedProvince.id);
   }, [mode, selectedProvince, getDistricts3LevelByProvinceId]);
-  
-  const provinceFuse = React.useMemo(() => new Fuse(provinces, { keys: ["name", "id"], threshold: 0.3 }), [provinces]);
-  const filteredProvinces = React.useMemo(() => provinceSearch ? provinceFuse.search(provinceSearch).map(r => r.item) : provinces, [provinces, provinceSearch, provinceFuse]);
 
-  const districtFuse = React.useMemo(() => new Fuse(districtsForProvince, { keys: ["name"], threshold: 0.3 }), [districtsForProvince]);
-  const filteredDistricts = React.useMemo(() => districtSearch ? districtFuse.search(districtSearch).map(r => r.item) : districtsForProvince, [districtsForProvince, districtSearch, districtFuse]);
+  const provinceFuse = React.useMemo(
+    () => new Fuse(provinces, { keys: ["name", "id"], threshold: 0.3 }),
+    [provinces],
+  );
+  const filteredProvinces = React.useMemo(
+    () => (provinceSearch ? provinceFuse.search(provinceSearch).map((result) => result.item) : provinces),
+    [provinceFuse, provinceSearch, provinces],
+  );
+  const orderedProvinces = React.useMemo(() => {
+    return [...filteredProvinces].sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredProvinces]);
 
-  const wardFuse = React.useMemo(() => new Fuse(wardsForSelectedProvince, { keys: ["name", "id"], threshold: 0.3 }), [wardsForSelectedProvince]);
-  const filteredWards = React.useMemo(() => wardSearch ? wardFuse.search(wardSearch).map(r => r.item) : wardsForSelectedProvince, [wardsForSelectedProvince, wardSearch, wardFuse]);
+  const districtFuse = React.useMemo(
+    () => new Fuse(districtsForProvince, { keys: ["name"], threshold: 0.3 }),
+    [districtsForProvince],
+  );
+  const filteredDistricts = React.useMemo(
+    () => (districtSearch ? districtFuse.search(districtSearch).map((result) => result.item) : districtsForProvince),
+    [districtFuse, districtSearch, districtsForProvince],
+  );
 
-  // Paginated data
-  const paginatedWards = React.useMemo(() => {
-    const start = wardPage * pageSize;
-    return filteredWards.slice(start, start + pageSize);
-  }, [filteredWards, wardPage]);
+  const wardFuse = React.useMemo(
+    () => new Fuse(wardsForSelectedProvince, { keys: ["name", "id"], threshold: 0.3 }),
+    [wardsForSelectedProvince],
+  );
+  const filteredWards = React.useMemo(
+    () => (wardSearch ? wardFuse.search(wardSearch).map((result) => result.item) : wardsForSelectedProvince),
+    [wardFuse, wardSearch, wardsForSelectedProvince],
+  );
 
-  const paginatedDistricts = React.useMemo(() => {
-    const start = districtPage * pageSize;
-    return filteredDistricts.slice(start, start + pageSize);
-  }, [filteredDistricts, districtPage]);
-
-  const wardTotalPages = Math.ceil(filteredWards.length / pageSize);
-  const districtTotalPages = Math.ceil(filteredDistricts.length / pageSize);
-
-  // Handlers for Provinces
-  const handleAddProvince = () => { setEditingProvince(null); setIsProvinceFormOpen(true); };
-  const handleEditProvince = (province: Province) => { setEditingProvince(province); setIsProvinceFormOpen(true); };
-  const handleDeleteProvince = (systemId: string) => setDialogState({ type: 'province', systemId });
+  const handleAddProvince = React.useCallback(() => {
+    setEditingProvince(null);
+    setIsProvinceFormOpen(true);
+  }, [setEditingProvince, setIsProvinceFormOpen]);
+  const handleEditProvince = (province: Province) => {
+    setEditingProvince(province);
+    setIsProvinceFormOpen(true);
+  };
+  const handleDeleteProvince = (systemId: string) => setDialogState({ type: "province", systemId });
   const handleProvinceFormSubmit = (values: ProvinceFormValues) => {
     if (editingProvince) {
       update(editingProvince.systemId, { ...editingProvince, ...values });
@@ -166,10 +397,15 @@ export function ProvincesPage() {
     setIsProvinceFormOpen(false);
   };
 
-  // Handlers for Wards
-  const handleAddWard = () => { setEditingWard(null); setIsWardFormOpen(true); };
-  const handleEditWard = (ward: Ward) => { setEditingWard(ward); setIsWardFormOpen(true); };
-  const handleDeleteWard = (systemId: string) => setDialogState({ type: 'ward', systemId });
+  const handleAddWard = () => {
+    setEditingWard(null);
+    setIsWardFormOpen(true);
+  };
+  const handleEditWard = (ward: Ward) => {
+    setEditingWard(ward);
+    setIsWardFormOpen(true);
+  };
+  const handleDeleteWard = (systemId: string) => setDialogState({ type: "ward", systemId });
   const handleWardFormSubmit = (values: WardFormValues) => {
     if (!selectedProvince) return;
     const finalValues = { ...values, provinceId: selectedProvince.id };
@@ -181,10 +417,15 @@ export function ProvincesPage() {
     setIsWardFormOpen(false);
   };
 
-  // Handlers for Districts
-  const handleAddDistrict = () => { setEditingDistrict(null); setIsDistrictFormOpen(true); };
-  const handleEditDistrict = (district: District) => { setEditingDistrict(district); setIsDistrictFormOpen(true); };
-  const handleDeleteDistrict = (systemId: string) => setDialogState({ type: 'district', systemId });
+  const handleAddDistrict = () => {
+    setEditingDistrict(null);
+    setIsDistrictFormOpen(true);
+  };
+  const handleEditDistrict = (district: District) => {
+    setEditingDistrict(district);
+    setIsDistrictFormOpen(true);
+  };
+  const handleDeleteDistrict = (systemId: string) => setDialogState({ type: "district", systemId });
   const handleDistrictFormSubmit = (values: DistrictFormValues) => {
     if (!selectedProvince) return;
     const finalValues = { ...values, provinceId: selectedProvince.id };
@@ -195,21 +436,24 @@ export function ProvincesPage() {
     }
     setIsDistrictFormOpen(false);
   };
-  
+
   const confirmDelete = () => {
     if (!dialogState) return;
-    if (dialogState.type === 'province') {
-        if (dialogState.systemId === selectedProvinceId) {
-            setSelectedProvinceId(provinces.length > 1 ? provinces.find(p => p.systemId !== dialogState.systemId)?.systemId || null : null);
-        }
-        remove(asSystemId(dialogState.systemId));
-    } else if (dialogState.type === 'ward') {
-        removeWard(asSystemId(dialogState.systemId));
-    } else if (dialogState.type === 'district') {
-        if (dialogState.systemId === districtsForProvince.find(d => d.id === selectedDistrictId)?.systemId) {
-            setSelectedDistrictId(null);
-        }
-        removeDistrict(asSystemId(dialogState.systemId));
+    if (dialogState.type === "province") {
+      if (dialogState.systemId === selectedProvinceId) {
+        const fallback = provinces.find((province) => province.systemId !== dialogState.systemId);
+        setSelectedProvinceId(fallback?.systemId ?? null);
+        setSelectedDistrictId(null);
+      }
+      remove(asSystemId(dialogState.systemId));
+    } else if (dialogState.type === "ward") {
+      removeWard(asSystemId(dialogState.systemId));
+    } else if (dialogState.type === "district") {
+      const district = districtsForProvince.find((d) => d.systemId === dialogState.systemId);
+      if (district && district.id === selectedDistrictId) {
+        setSelectedDistrictId(null);
+      }
+      removeDistrict(asSystemId(dialogState.systemId));
     }
     setDialogState(null);
   };
@@ -219,28 +463,28 @@ export function ProvincesPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (loadEvent) => {
       try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        const data = loadEvent.target?.result;
+        const workbook = XLSX.read(data, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
-        const provincesMap = new Map<string, Omit<Province, 'systemId'>>();
-        const wards: Array<Omit<Ward, 'systemId'>> = [];
+        const provincesMap = new Map<string, Omit<Province, "systemId">>();
+        const wards: Array<Omit<Ward, "systemId">> = [];
 
         json.forEach((row) => {
-          const rawProvinceId = row['Mã tỉnh (BNV)'] ?? row['Ma Tinh'];
-          const provinceName = row['Tên tỉnh/TP mới'] ?? row['Ten tinh'];
-          const wardCode = row['Mã phường/xã mới'] ?? row['Ma phuong/xa'];
-          const wardName = row['Tên Phường/Xã mới'] ?? row['Ten Phuong/Xa'];
+          const rawProvinceId = row["Mã tỉnh (BNV)"] ?? row["Ma Tinh"];
+          const provinceName = row["Tên tỉnh/TP mới"] ?? row["Ten tinh"];
+          const wardCode = row["Mã phường/xã mới"] ?? row["Ma phuong/xa"];
+          const wardName = row["Tên Phường/Xã mới"] ?? row["Ten Phuong/Xa"];
 
           if (!rawProvinceId || !provinceName || !wardCode || !wardName) {
             return;
           }
 
-          const provinceId = String(rawProvinceId).padStart(2, '0');
+          const provinceId = String(rawProvinceId).padStart(2, "0");
 
           if (!provincesMap.has(provinceId)) {
             provincesMap.set(provinceId, {
@@ -258,10 +502,8 @@ export function ProvincesPage() {
         });
 
         if (provincesMap.size === 0 || wards.length === 0) {
-          toast({
-            title: 'Không tìm thấy dữ liệu hợp lệ',
+          toast.error('Không tìm thấy dữ liệu hợp lệ', {
             description: 'Vui lòng kiểm tra lại định dạng file Excel.',
-            variant: 'destructive',
           });
           return;
         }
@@ -276,15 +518,13 @@ export function ProvincesPage() {
         });
         setIsImportDialogOpen(true);
       } catch (error) {
-        toast({
-          title: 'Lỗi khi đọc file',
+        toast.error('Lỗi khi đọc file', {
           description: error instanceof Error ? error.message : 'File không hợp lệ',
-          variant: 'destructive',
         });
       }
     };
     reader.readAsBinaryString(file);
-    event.target.value = '';
+    event.target.value = "";
   };
 
   const handleImportDialogChange = (open: boolean) => {
@@ -305,29 +545,32 @@ export function ProvincesPage() {
         provinces: importPreview.provinces,
         wards: importPreview.wards,
       });
-
-      toast({
-        title: 'Đã nhập dữ liệu hành chính',
-        description: `Ghi đè ${importPreview.summary.provinceCount.toLocaleString('vi-VN')} tỉnh/thành và ${importPreview.summary.wardCount.toLocaleString('vi-VN')} phường/xã (2 cấp).`,
+      toast.success('Đã nhập dữ liệu hành chính', {
+        description: `Ghi đè ${importPreview.summary.provinceCount.toLocaleString("vi-VN")} tỉnh/thành và ${importPreview.summary.wardCount.toLocaleString("vi-VN")} phường/xã (2 cấp).`,
       });
       setIsImportDialogOpen(false);
       setImportPreview(null);
     } catch (error) {
-      toast({
-        title: 'Không thể ghi dữ liệu',
+      toast.error('Không thể ghi dữ liệu', {
         description: error instanceof Error ? error.message : 'Vui lòng thử lại sau.',
-        variant: 'destructive',
       });
     } finally {
       setIsImporting(false);
     }
   };
-  
-  const handleExport = () => {
-    const provincesToExport = provinces.map(({ systemId, ...rest }) => ({'Mã tỉnh': rest.id, 'Tên Tỉnh/Thành phố': rest.name}));
-    
-    const wards2Level = getWards2LevelByProvinceId(asBusinessId('08')); // Example
-    const wardsToExport = wards2Level.map(({ systemId, ...rest }) => ({'Mã tỉnh': rest.provinceId, 'Mã Phường/Xã': rest.id, 'Tên Phường/Xã': rest.name}));
+
+  const handleExport = React.useCallback(() => {
+    const provincesToExport = provinces.map(({ systemId, ...rest }) => ({
+      "Mã tỉnh": rest.id,
+      "Tên Tỉnh/Thành phố": rest.name,
+    }));
+
+    const wards2Level = getWards2LevelByProvinceId(asBusinessId("08"));
+    const wardsToExport = wards2Level.map(({ systemId, ...rest }) => ({
+      "Mã tỉnh": rest.provinceId,
+      "Mã Phường/Xã": rest.id,
+      "Tên Phường/Xã": rest.name,
+    }));
 
     const provincesWs = XLSX.utils.json_to_sheet(provincesToExport);
     const wardsWs = XLSX.utils.json_to_sheet(wardsToExport);
@@ -335,479 +578,355 @@ export function ProvincesPage() {
     XLSX.utils.book_append_sheet(wb, provincesWs, "TinhThanh");
     XLSX.utils.book_append_sheet(wb, wardsWs, "PhuongXa");
     XLSX.writeFile(wb, "Danh_sach_Don_vi_hanh_chinh.xlsx");
-  }
+  }, [provinces, getWards2LevelByProvinceId]);
+
+  const handleImportButtonClick = React.useCallback(() => {
+    importInputRef.current?.click();
+  }, [importInputRef]);
+
+  const headerActions = React.useMemo(
+    () => [
+      <SettingsActionButton key="import" variant="outline" onClick={handleImportButtonClick}>
+        <Upload className="h-4 w-4" />
+        Nhập file
+      </SettingsActionButton>,
+      <SettingsActionButton key="export" variant="outline" onClick={handleExport}>
+        <Download className="h-4 w-4" />
+        Xuất file
+      </SettingsActionButton>,
+      <SettingsActionButton key="add" onClick={handleAddProvince}>
+        <PlusCircle className="h-4 w-4" />
+        Thêm tỉnh thành
+      </SettingsActionButton>,
+    ],
+    [handleImportButtonClick, handleExport, handleAddProvince],
+  );
+
+  useSettingsPageHeader({
+    title: "Tỉnh thành - Quận huyện",
+    actions: headerActions,
+  });
+
+  const handleSelectProvince = React.useCallback((systemId: Province["systemId"]) => {
+    setSelectedProvinceId(systemId);
+    setSelectedDistrictId(null);
+  }, []);
 
   return (
-    <div className="h-full flex flex-col">
-       <div className="flex-shrink-0 flex items-center justify-between mb-4">
-        <Tabs value={mode} onValueChange={(v) => {
-          setMode(v as '2-level' | '3-level');
-          setSelectedDistrictId(null);
-          setWardPage(0);
-          setDistrictPage(0);
-        }}>
+    <div className="flex h-full flex-col">
+      <input
+        ref={importInputRef}
+        type="file"
+        className="hidden"
+        accept=".xlsx, .xls"
+        onChange={handleImport}
+      />
+
+      <div className="mb-4 flex flex-shrink-0 items-center">
+        <Tabs
+          value={mode}
+          onValueChange={(value) => {
+            setMode(value as "2-level" | "3-level");
+            setSelectedDistrictId(null);
+          }}
+        >
           <TabsList>
-            <TabsTrigger value="2-level">
-              2 cấp (Tỉnh → Phường) - 3,321 wards
-            </TabsTrigger>
-            <TabsTrigger value="3-level">
-              3 cấp (Tỉnh → Quận → Phường) - 10,035 wards
-            </TabsTrigger>
+            <TabsTrigger value="2-level">2 cấp (Tỉnh → Phường) - 3,321 wards</TabsTrigger>
+            <TabsTrigger value="3-level">3 cấp (Tỉnh → Quận → Phường) - 10,035 wards</TabsTrigger>
           </TabsList>
         </Tabs>
-        
-        <div className="flex items-center gap-2">
-            <input
-                type="file"
-                id="import-file-input"
-                className="hidden"
-                accept=".xlsx, .xls"
-                onChange={handleImport}
-            />
-            <Button asChild variant="outline" size="sm" className="h-9">
-                <label htmlFor="import-file-input" className="cursor-pointer">
-                    <Upload className="mr-2 h-4 w-4" /> Nhập file
-                </label>
-            </Button>
-            <Button variant="outline" size="sm" className="h-9" onClick={handleExport}>
-                <Download className="mr-2 h-4 w-4" /> Xuất file
-            </Button>
-        </div>
       </div>
-      
-      {/* Content based on mode */}
-      {mode === '2-level' ? (
-        // 2-LEVEL: Province → Ward (2 panels)
-        <div className="flex-grow flex gap-4 min-h-0">
-          {/* LEFT: Provinces */}
-          <Card className="w-1/3 flex flex-col">
+
+      {mode === "2-level" ? (
+        <div className="flex min-h-0 flex-grow gap-4">
+          <Card className="flex w-1/3 flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
-                  <CardTitle>Tỉnh/Thành phố</CardTitle>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleAddProvince}><PlusCircle className="h-4 w-4" /></Button>
+                <CardTitle>Tỉnh/Thành phố</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleAddProvince}>
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="relative pt-2">
-                  <Search className="absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input placeholder="Tìm kiếm..." className="pl-8 h-9" value={provinceSearch} onChange={e => setProvinceSearch(e.target.value)} />
+                <Search className="pointer-events-none absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Tìm kiếm..."
+                  className="h-9 pl-8"
+                  value={provinceSearchInput}
+                  onChange={(event) => setProvinceSearchInput(event.target.value)}
+                />
               </div>
             </CardHeader>
-            <CardContent className="p-2 flex-grow overflow-hidden">
+            <CardContent className="flex-grow overflow-hidden p-2">
               <ScrollArea className="h-full">
-                <div className="space-y-1">
-                  {filteredProvinces.map(p => (
-                    <div key={p.systemId} className="group relative">
-                      <Button
-                        variant="ghost"
-                        className={cn("w-full justify-start h-auto py-2 pr-16 flex-col items-start", selectedProvinceId === p.systemId && "bg-accent text-accent-foreground")}
-                        onClick={() => {
-                          setSelectedProvinceId(p.systemId);
-                          setWardPage(0);
-                        }}
-                      >
-                        <span className="font-medium">{p.name}</span>
-                        <span className="text-xs text-muted-foreground">Mã: {p.id}</span>
-                      </Button>
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditProvince(p);
-                          }}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-destructive hover:text-destructive" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteProvince(p.systemId);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
+                <div className="space-y-2 pb-2">
+                  {orderedProvinces.map((province, index) => (
+                    <ProvinceItem
+                      key={province.systemId}
+                      province={province}
+                      index={index}
+                      isActive={selectedProvinceId === province.systemId}
+                      onSelect={handleSelectProvince}
+                      onEdit={handleEditProvince}
+                      onDelete={handleDeleteProvince}
+                    />
                   ))}
                 </div>
               </ScrollArea>
             </CardContent>
           </Card>
 
-          {/* RIGHT: Wards */}
-          <div className="w-2/3 flex flex-col">
+          <div className="flex w-2/3 flex-col">
             {selectedProvince ? (
-              <Card className="flex-grow flex flex-col">
+              <Card className="flex flex-grow flex-col">
                 <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>{selectedProvince.name}</CardTitle>
-                          <CardDescription>Mã: {selectedProvince.id} • {filteredWards.length} phường/xã (2 cấp)</CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" onClick={handleAddWard}><PlusCircle className="mr-2 h-4 w-4" />Thêm phường/xã</Button>
-                        </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>{selectedProvince.name}</CardTitle>
+                      <CardDescription>
+                        Mã: {selectedProvince.id} • {filteredWards.length} phường/xã (2 cấp)
+                      </CardDescription>
                     </div>
-                    <div className="relative pt-2">
-                        <Search className="absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground pointer-events-none" />
-                        <Input placeholder="Tìm phường/xã..." className="pl-8 h-9" value={wardSearch} onChange={e => {setWardSearch(e.target.value); setWardPage(0);}} />
-                    </div>
+                    <Button size="sm" onClick={handleAddWard}>
+                      <PlusCircle className="mr-2 h-4 w-4" /> Thêm phường/xã
+                    </Button>
+                  </div>
+                  <div className="relative pt-2">
+                    <Search className="pointer-events-none absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Tìm phường/xã..."
+                      className="h-9 pl-8"
+                      value={wardSearchInput}
+                      onChange={(event) => setWardSearchInput(event.target.value)}
+                    />
+                  </div>
                 </CardHeader>
-                <CardContent className="flex-grow flex flex-col p-4 pt-0">
-                    <div className="flex-1 overflow-auto rounded-md border">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-muted/50">
-                          <TableRow>
-                            <TableHead className="w-[100px]">Mã</TableHead>
-                            <TableHead>Tên phường/xã</TableHead>
-                            <TableHead className="w-[100px] text-right">Thao tác</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {paginatedWards.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                                Không tìm thấy phường/xã nào
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            paginatedWards.map(ward => (
-                              <TableRow key={ward.systemId}>
-                                <TableCell className="font-mono text-xs">{ward.id}</TableCell>
-                                <TableCell>{ward.name}</TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditWard(ward)}><Edit className="h-4 w-4" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteWard(ward.systemId)}><Trash2 className="h-4 w-4" /></Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
+                <CardContent className="flex flex-grow flex-col p-0">
+                  {filteredWards.length > 0 ? (
+                    <div className="flex-1 h-full overflow-hidden">
+                      <WardList
+                        wards={filteredWards}
+                        onEdit={handleEditWard}
+                        onDelete={handleDeleteWard}
+                      />
                     </div>
-                    
-                    {/* Pagination */}
-                    {wardTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="text-sm text-muted-foreground">
-                          Trang {wardPage + 1} / {wardTotalPages} • {filteredWards.length} kết quả
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setWardPage(p => Math.max(0, p - 1))}
-                            disabled={wardPage === 0}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setWardPage(p => Math.min(wardTotalPages - 1, p + 1))}
-                            disabled={wardPage >= wardTotalPages - 1}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+                      <p className="font-medium text-muted-foreground">Chưa có phường/xã</p>
+                      <p className="text-sm text-muted-foreground">Thêm phường/xã mới cho tỉnh/thành này.</p>
+                      <Button size="sm" onClick={handleAddWard}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Thêm phường/xã
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ) : (
-              <Card className="h-full flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                      <p>Chọn một Tỉnh/Thành phố để xem chi tiết.</p>
-                  </div>
+              <Card className="flex h-full items-center justify-center">
+                <div className="text-center text-muted-foreground">Chọn một Tỉnh/Thành phố để xem chi tiết.</div>
               </Card>
             )}
           </div>
         </div>
       ) : (
-        // 3-LEVEL: Province → District → Ward (3 panels)
-        <div className="flex-grow flex gap-4 min-h-0">
-          {/* LEFT: Provinces */}
-          <Card className="w-1/4 flex flex-col">
+        <div className="flex min-h-0 flex-grow gap-4">
+          <Card className="flex w-1/4 flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
-                  <CardTitle>Tỉnh/TP</CardTitle>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleAddProvince}><PlusCircle className="h-4 w-4" /></Button>
+                <CardTitle>Tỉnh/TP</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleAddProvince}>
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="relative pt-2">
-                  <Search className="absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <Input placeholder="Tìm..." className="pl-8 h-9" value={provinceSearch} onChange={e => setProvinceSearch(e.target.value)} />
+                <Search className="pointer-events-none absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Tìm..."
+                  className="h-9 pl-8"
+                  value={provinceSearchInput}
+                  onChange={(event) => setProvinceSearchInput(event.target.value)}
+                />
               </div>
             </CardHeader>
-            <CardContent className="p-2 flex-grow overflow-hidden">
+            <CardContent className="flex-grow overflow-hidden p-2">
               <ScrollArea className="h-full">
-                <div className="space-y-1">
-                  {filteredProvinces.map(p => (
-                    <div key={p.systemId} className="group relative">
-                      <Button
-                        variant="ghost"
-                        className={cn("w-full justify-start h-auto py-2 pr-16 flex-col items-start", selectedProvinceId === p.systemId && "bg-accent text-accent-foreground")}
-                        onClick={() => {
-                          setSelectedProvinceId(p.systemId);
-                          setSelectedDistrictId(null);
-                          setDistrictPage(0);
-                          setWardPage(0);
-                        }}
-                      >
-                        <span className="font-medium text-sm">{p.name}</span>
-                        <span className="text-xs text-muted-foreground">Mã: {p.id}</span>
-                      </Button>
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditProvince(p);
-                          }}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-destructive hover:text-destructive" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteProvince(p.systemId);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
+                <div className="space-y-2 pb-2">
+                  {orderedProvinces.map((province, index) => (
+                    <ProvinceItem
+                      key={province.systemId}
+                      province={province}
+                      index={index}
+                      isActive={selectedProvinceId === province.systemId}
+                      onSelect={handleSelectProvince}
+                      onEdit={handleEditProvince}
+                      onDelete={handleDeleteProvince}
+                    />
                   ))}
                 </div>
               </ScrollArea>
             </CardContent>
           </Card>
 
-          {/* MIDDLE: Districts */}
-          <Card className="w-1/4 flex flex-col">
+          <Card className="flex w-1/4 flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Quận/Huyện</CardTitle>
-                {selectedProvince && (
+                {selectedProvince ? (
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleAddDistrict}>
                     <PlusCircle className="h-4 w-4" />
                   </Button>
-                )}
+                ) : null}
               </div>
-              {selectedProvince && (
+              {selectedProvince ? (
                 <div className="relative pt-2">
-                    <Search className="absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input placeholder="Tìm quận/huyện..." className="pl-8 h-9" value={districtSearch} onChange={e => {setDistrictSearch(e.target.value); setDistrictPage(0);}} />
+                  <Search className="pointer-events-none absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm quận/huyện..."
+                    className="h-9 pl-8"
+                    value={districtSearchInput}
+                    onChange={(event) => setDistrictSearchInput(event.target.value)}
+                  />
                 </div>
-              )}
+              ) : null}
             </CardHeader>
-            <CardContent className="p-2 flex-grow overflow-hidden">
+            <CardContent className="flex-grow overflow-hidden p-2">
               {selectedProvince ? (
                 <>
-                  <ScrollArea className="h-[calc(100%-60px)]">
-                    <div className="space-y-1">
-                      {paginatedDistricts.map(d => (
-                        <div key={d.systemId} className="group relative">
-                          <Button
-                            variant="ghost"
-                            className={cn("w-full justify-start h-auto py-1.5 pr-16 flex-col items-start", selectedDistrictId === d.id && "bg-accent text-accent-foreground")}
-                            onClick={() => {
-                              setSelectedDistrictId(d.id);
-                              setWardPage(0);
-                            }}
-                          >
-                            <span className="font-medium text-sm">{d.name}</span>
-                            <span className="text-xs text-muted-foreground">Mã: {d.id}</span>
-                          </Button>
-                          <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditDistrict(d);
-                              }}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 text-destructive hover:text-destructive" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteDistrict(d.systemId);
-                              }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
+                  <ScrollArea className="h-full">
+                    <div className="space-y-2 pb-2">
+                      {filteredDistricts.map((district) => (
+                        <DistrictItem
+                          key={district.systemId}
+                          district={district}
+                          isActive={selectedDistrictId === district.id}
+                          onSelect={setSelectedDistrictId}
+                          onEdit={handleEditDistrict}
+                          onDelete={handleDeleteDistrict}
+                        />
                       ))}
                     </div>
                   </ScrollArea>
-                  {districtTotalPages > 1 && (
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t">
-                      <span className="text-xs text-muted-foreground">{districtPage + 1}/{districtTotalPages}</span>
-                      <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => setDistrictPage(p => Math.max(0, p - 1))} disabled={districtPage === 0}>
-                          <ChevronLeft className="h-3 w-3" />
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => setDistrictPage(p => Math.min(districtTotalPages - 1, p + 1))} disabled={districtPage >= districtTotalPages - 1}>
-                          <ChevronRight className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   Chọn tỉnh/TP trước
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* RIGHT: Wards */}
-          <Card className="flex-1 flex flex-col">
+          <Card className="flex flex-1 flex-col">
             <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">Phường/Xã</CardTitle>
-                      {selectedDistrictId && (
-                        <CardDescription className="text-xs mt-1">
-                          {districtsForProvince.find(d => d.id === selectedDistrictId)?.name} • {filteredWards.length} phường/xã
-                        </CardDescription>
-                      )}
-                    </div>
-                    {selectedDistrictId && (
-                      <Button size="sm" onClick={handleAddWard}><PlusCircle className="mr-2 h-4 w-4" />Thêm</Button>
-                    )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Phường/Xã</CardTitle>
+                  {selectedDistrictId ? (
+                    <CardDescription className="mt-1 text-xs text-muted-foreground">
+                      {districtsForProvince.find((district) => district.id === selectedDistrictId)?.name} • {filteredWards.length} phường/xã
+                    </CardDescription>
+                  ) : null}
                 </div>
-                {selectedDistrictId && (
-                  <div className="relative pt-2">
-                      <Search className="absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <Input placeholder="Tìm phường/xã..." className="pl-8 h-9" value={wardSearch} onChange={e => {setWardSearch(e.target.value); setWardPage(0);}} />
-                  </div>
-                )}
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col p-4 pt-0">
                 {selectedDistrictId ? (
-                  <>
-                    <div className="flex-1 overflow-auto rounded-md border">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-muted/50">
-                          <TableRow>
-                            <TableHead className="w-[100px]">Mã</TableHead>
-                            <TableHead>Tên phường/xã</TableHead>
-                            <TableHead className="w-[100px] text-right">Thao tác</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {paginatedWards.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                                Không tìm thấy phường/xã nào
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            paginatedWards.map(ward => (
-                              <TableRow key={ward.systemId}>
-                                <TableCell className="font-mono text-xs">{ward.id}</TableCell>
-                                <TableCell>{ward.name}</TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditWard(ward)}><Edit className="h-4 w-4" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteWard(ward.systemId)}><Trash2 className="h-4 w-4" /></Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                    
-                    {wardTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="text-sm text-muted-foreground">
-                          Trang {wardPage + 1} / {wardTotalPages} • {filteredWards.length} kết quả
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setWardPage(p => Math.max(0, p - 1))} disabled={wardPage === 0}>
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => setWardPage(p => Math.min(wardTotalPages - 1, p + 1))} disabled={wardPage >= wardTotalPages - 1}>
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    Chọn quận/huyện để xem phường/xã
+                  <Button size="sm" onClick={handleAddWard}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Thêm
+                  </Button>
+                ) : null}
+              </div>
+              {selectedDistrictId ? (
+                <div className="relative pt-2">
+                  <Search className="pointer-events-none absolute left-2.5 top-[18px] h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm phường/xã..."
+                    className="h-9 pl-8"
+                    value={wardSearchInput}
+                    onChange={(event) => setWardSearchInput(event.target.value)}
+                  />
+                </div>
+              ) : null}
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col p-0">
+              {selectedDistrictId ? (
+                filteredWards.length > 0 ? (
+                  <div className="flex-1 h-full overflow-hidden">
+                    <WardList
+                      wards={filteredWards}
+                      onEdit={handleEditWard}
+                      onDelete={handleDeleteWard}
+                    />
                   </div>
-                )}
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+                    <p className="font-medium text-muted-foreground">Chưa có phường/xã</p>
+                    <p className="text-sm text-muted-foreground">Thêm phường/xã mới cho quận/huyện này.</p>
+                    <Button size="sm" onClick={handleAddWard}>
+                      <PlusCircle className="mr-2 h-4 w-4" /> Thêm phường/xã
+                    </Button>
+                  </div>
+                )
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                  Chọn quận/huyện để xem phường/xã
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Dialogs */}
       <Dialog open={isProvinceFormOpen} onOpenChange={setIsProvinceFormOpen}>
         <DialogContent>
-            <DialogHeader>
-                <DialogTitle>{editingProvince ? 'Chỉnh sửa Tỉnh thành' : 'Thêm Tỉnh thành mới'}</DialogTitle>
-            </DialogHeader>
-            <ProvinceForm initialData={editingProvince} onSubmit={handleProvinceFormSubmit} onCancel={() => setIsProvinceFormOpen(false)} />
+          <DialogHeader>
+            <DialogTitle>{editingProvince ? "Chỉnh sửa Tỉnh thành" : "Thêm Tỉnh thành mới"}</DialogTitle>
+          </DialogHeader>
+          <ProvinceForm
+            initialData={editingProvince}
+            onSubmit={handleProvinceFormSubmit}
+            onCancel={() => setIsProvinceFormOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
       <Dialog open={isWardFormOpen} onOpenChange={setIsWardFormOpen}>
         <DialogContent>
-            <DialogHeader>
-                <DialogTitle>{editingWard ? 'Chỉnh sửa Phường/Xã' : 'Thêm Phường/Xã mới'}</DialogTitle>
-            </DialogHeader>
-            <WardForm initialData={editingWard} onSubmit={handleWardFormSubmit} onCancel={() => setIsWardFormOpen(false)} />
+          <DialogHeader>
+            <DialogTitle>{editingWard ? "Chỉnh sửa Phường/Xã" : "Thêm Phường/Xã mới"}</DialogTitle>
+          </DialogHeader>
+          <WardForm
+            initialData={editingWard}
+            onSubmit={handleWardFormSubmit}
+            onCancel={() => setIsWardFormOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
       <Dialog open={isDistrictFormOpen} onOpenChange={setIsDistrictFormOpen}>
         <DialogContent>
-            <DialogHeader>
-                <DialogTitle>{editingDistrict ? 'Chỉnh sửa Quận/Huyện' : 'Thêm Quận/Huyện mới'}</DialogTitle>
-            </DialogHeader>
-            <DistrictForm 
-              initialData={editingDistrict} 
-              provinceId={selectedProvince?.id || ''} 
-              onSubmit={handleDistrictFormSubmit} 
-              onCancel={() => setIsDistrictFormOpen(false)} 
-            />
+          <DialogHeader>
+            <DialogTitle>{editingDistrict ? "Chỉnh sửa Quận/Huyện" : "Thêm Quận/Huyện mới"}</DialogTitle>
+          </DialogHeader>
+          <DistrictForm
+            initialData={editingDistrict}
+            provinceId={selectedProvince?.id ?? ""}
+            onSubmit={handleDistrictFormSubmit}
+            onCancel={() => setIsDistrictFormOpen(false)}
+          />
         </DialogContent>
       </Dialog>
-      
+
       <AlertDialog open={!!dialogState} onOpenChange={() => setDialogState(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
             <AlertDialogDescription>
-              {dialogState?.type === 'province' 
-                ? 'Hành động này sẽ xóa Tỉnh/Thành phố và tất cả Phường/Xã liên quan. Hành động này không thể được hoàn tác.'
-                : dialogState?.type === 'district'
-                ? 'Hành động này sẽ xóa Quận/Huyện và tất cả Phường/Xã liên quan. Hành động này không thể được hoàn tác.'
-                : 'Hành động này sẽ xóa Phường/Xã. Hành động này không thể được hoàn tác.'}
+              {dialogState?.type === "province"
+                ? "Hành động này sẽ xóa Tỉnh/Thành phố và tất cả Phường/Xã liên quan. Hành động này không thể được hoàn tác."
+                : dialogState?.type === "district"
+                ? "Hành động này sẽ xóa Quận/Huyện và tất cả Phường/Xã liên quan. Hành động này không thể được hoàn tác."
+                : "Hành động này sẽ xóa Phường/Xã. Hành động này không thể được hoàn tác."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -817,7 +936,7 @@ export function ProvincesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {importPreview && (
+      {importPreview ? (
         <Dialog open={isImportDialogOpen} onOpenChange={handleImportDialogChange}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
@@ -831,15 +950,9 @@ export function ProvincesPage() {
               <div className="rounded-md border border-dashed bg-muted/40 p-4 text-sm">
                 <p className="font-medium">Tóm tắt</p>
                 <ul className="mt-2 space-y-1 text-muted-foreground">
-                  <li>
-                    • {importPreview.summary.provinceCount.toLocaleString('vi-VN')} tỉnh/thành phố mới
-                  </li>
-                  <li>
-                    • {importPreview.summary.wardCount.toLocaleString('vi-VN')} phường/xã (2 cấp)
-                  </li>
-                  <li>
-                    • Ghi đè toàn bộ dữ liệu hiện có cho cấp tỉnh và phường/xã 2 cấp
-                  </li>
+                  <li>• {importPreview.summary.provinceCount.toLocaleString("vi-VN")} tỉnh/thành phố mới</li>
+                  <li>• {importPreview.summary.wardCount.toLocaleString("vi-VN")} phường/xã (2 cấp)</li>
+                  <li>• Ghi đè toàn bộ dữ liệu hiện có cho cấp tỉnh và phường/xã 2 cấp</li>
                 </ul>
               </div>
 
@@ -857,7 +970,7 @@ export function ProvincesPage() {
                     </ul>
                   </ScrollArea>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Hiển thị tối đa 12 / {importPreview.summary.provinceCount.toLocaleString('vi-VN')} tỉnh/thành.
+                    Hiển thị tối đa 12 / {importPreview.summary.provinceCount.toLocaleString("vi-VN")} tỉnh/thành.
                   </p>
                 </div>
 
@@ -877,34 +990,25 @@ export function ProvincesPage() {
                     </ul>
                   </ScrollArea>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Hiển thị tối đa 12 / {importPreview.summary.wardCount.toLocaleString('vi-VN')} phường/xã.
+                    Hiển thị tối đa 12 / {importPreview.summary.wardCount.toLocaleString("vi-VN")} phường/xã.
                   </p>
                 </div>
               </div>
             </div>
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9"
-                onClick={() => handleImportDialogChange(false)}
-                disabled={isImporting}
-              >
+              <Button type="button" variant="outline" className="h-9" onClick={() => handleImportDialogChange(false)} disabled={isImporting}>
                 Hủy
               </Button>
-              <Button
-                type="button"
-                className="h-9"
-                onClick={handleConfirmImport}
-                disabled={isImporting}
-              >
-                {isImporting ? 'Đang ghi dữ liệu...' : 'Xác nhận nhập file'}
+              <Button type="button" className="h-9" onClick={handleConfirmImport} disabled={isImporting}>
+                {isImporting ? "Đang ghi dữ liệu..." : "Xác nhận nhập file"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      )}
+      ) : null}
     </div>
-  )
+  );
 }
+
+export default ProvincesPage;

@@ -7,6 +7,7 @@ import type { InventoryReceipt } from '../inventory-receipts/types.ts';
 import type { Order } from '../orders/types.ts';
 import type { WarrantyTicket } from '../warranty/types.ts';
 import type { InventoryCheck } from '../inventory-checks/types.ts';
+import type { StockTransfer } from '../stock-transfers/types.ts';
 
 
 
@@ -14,8 +15,9 @@ export const getStockHistoryColumns = (
     purchaseOrders: PurchaseOrder[],
     inventoryReceipts: InventoryReceipt[],
     orders: Order[],
-    warranties: WarrantyTicket[] = [], // ✅ Add warranties parameter
-    inventoryChecks: InventoryCheck[] = [] // ✅ Add inventory checks parameter
+    warranties: WarrantyTicket[] = [],
+    inventoryChecks: InventoryCheck[] = [],
+    stockTransfers: StockTransfer[] = [] // ✅ Add stock transfers parameter
 ): ColumnDef<StockHistoryEntry>[] => [
     { id: 'date', accessorKey: 'date', header: 'Ngày ghi nhận', cell: ({ row }) => formatDate(row.date), meta: { displayName: 'Ngày ghi nhận' } },
     { id: 'employeeName', accessorKey: 'employeeName', header: 'Nhân viên', cell: ({ row }) => row.employeeName, meta: { displayName: 'Nhân viên' } },
@@ -47,6 +49,10 @@ export const getStockHistoryColumns = (
             // ✅ Add inventory check link support
             const invCheck = inventoryChecks.find(ic => ic.id === docId);
             if (invCheck) linkPath = `/inventory-checks/${invCheck.systemId}`;
+        } else if (docId.startsWith('PCK')) {
+            // ✅ Add stock transfer link support
+            const stockTransfer = stockTransfers.find(st => st.id === docId);
+            if (stockTransfer) linkPath = `/stock-transfers/${stockTransfer.systemId}`;
         }
         
         if (linkPath) {

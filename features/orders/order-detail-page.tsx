@@ -4,6 +4,7 @@ import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, pa
 import { useForm, FormProvider } from 'react-hook-form';
 import { useOrderStore } from './store.ts';
 import type { Order, OrderMainStatus, OrderPayment, Packaging, PackagingStatus, OrderDeliveryStatus } from './types.ts';
+import { formatOrderAddress } from './address-utils.ts';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -11,22 +12,30 @@ import { Badge } from '../../components/ui/badge.tsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table.tsx';
 import { Separator } from '../../components/ui/separator.tsx';
 import { useCustomerStore } from '../customers/store.ts';
-import { ArrowLeft, Edit, Printer, Check, Copy, Settings, ChevronDown, Users, Truck, CheckCircle2, FileWarning, PackageSearch, Package, PackageCheck, MoreHorizontal, Ban, File, Calendar, User, Info, MessageSquare, Banknote, PlusCircle, ThumbsUp, PackageX, ChevronRight, Undo2, Store, Clock } from 'lucide-react';
+import { useCustomerTypeStore } from '../settings/customers/customer-types-store.ts';
+import { useCustomerGroupStore } from '../settings/customers/customer-groups-store.ts';
+import { useCustomerSourceStore } from '../settings/customers/customer-sources-store.ts';
+import { ArrowLeft, Edit, Printer, Check, Copy, Settings, ChevronDown, Users, Truck, CheckCircle2, FileWarning, PackageSearch, Package, PackageCheck, MoreHorizontal, Ban, File, Calendar, User, Info, MessageSquare, Banknote, PlusCircle, ThumbsUp, PackageX, ChevronRight, Undo2, Store, Clock, Eye, StickyNote, ArrowDownLeft } from 'lucide-react';
 import { cn } from '../../lib/utils.ts';
 import { useEmployeeStore } from '../employees/store.ts';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
+import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert.tsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog.tsx';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form.tsx';
 import { Input } from '../../components/ui/input.tsx';
 import { Label } from '../../components/ui/label.tsx';
+import { Checkbox } from '../../components/ui/checkbox.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { CurrencyInput } from '../../components/ui/currency-input.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
 import { DetailField } from '../../components/ui/detail-field.tsx';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
 import { Textarea } from '../../components/ui/textarea.tsx';
 import { useShippingPartnerStore } from '../settings/shipping/store.ts';
 import { useProductStore } from '../products/store.ts';
+import { ProductImage, useProductImage } from '../products/components/product-image.tsx';
 import { useWarrantyStore } from '../warranty/store.ts';
+import { useComplaintStore } from '../complaints/store.ts';
 import { Link } from 'react-router-dom';
 import { Spinner } from '../../components/ui/spinner.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
@@ -39,7 +48,9 @@ import { CancelShipmentDialog } from './components/cancel-shipment-dialog.tsx';
 import { CancelPackagingDialog } from './components/cancel-packaging-dialog.tsx';
 import { DeliveryFailureDialog } from './components/delivery-failure-dialog.tsx';
 import { PaymentInfo } from './components/payment-info.tsx';
+
 import { ShippingTrackingTab } from './components/shipping-tracking-tab.tsx';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../components/ui/collapsible.tsx';
 import { useSalesReturnStore } from '../sales-returns/store.ts';
 import type { SalesReturn } from '../sales-returns/types.ts';
 import { useReceiptStore } from '../receipts/store.ts';
@@ -52,7 +63,79 @@ import { ShippingIntegration } from './components/shipping-integration.tsx';
 import type { OrderFormValues } from './order-form-page.tsx';
 import { useAuth } from '../../contexts/auth-context.tsx';
 import { asSystemId, type SystemId } from '../../lib/id-types.ts';
+import { OrderWorkflowCard } from './components/order-workflow-card.tsx';
+import { getWorkflowTemplates } from '../settings/printer/workflow-templates-page.tsx';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
+import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
+import { usePricingPolicyStore } from '../settings/pricing/store.ts';
+import { useCustomerSlaEvaluation } from '../customers/sla/hooks.ts';
+import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table.tsx';
+import { OrderPrintButton } from './components/order-print-button.tsx';
+import { useBranchStore } from '../settings/branches/store.ts';
+import { useBranding, getFullLogoUrl } from '../../hooks/use-branding.ts';
+import { mapSalesReturnToPrintData, SalesReturnForPrint } from '../../lib/print-mappers/sales-return.mapper.ts';
+import { mapPaymentToPrintData, PaymentForPrint } from '../../lib/print-mappers/payment.mapper.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { StoreSettings, numberToWords, formatTime } from '../../lib/print-service.ts';
+
+// Component hiển thị ảnh sản phẩm với preview - sử dụng server image priority
+// Nhận product trực tiếp từ parent để tránh re-call useProductStore trong mỗi row
+const ProductThumbnailCell = ({ 
+    productSystemId, 
+    product,
+    productName, 
+    size = 'md',
+    onPreview 
+}: { 
+    productSystemId: string; 
+    product?: { thumbnailImage?: string; galleryImages?: string[]; images?: string[]; name?: string } | null;
+    productName: string;
+    size?: 'sm' | 'md';
+    onPreview?: (image: string, title: string) => void;
+}) => {
+    const imageUrl = useProductImage(productSystemId, product);
+    
+    const sizeClasses = size === 'sm' 
+        ? 'w-10 h-9' 
+        : 'w-12 h-10';
+    const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-4 w-4';
+    
+    if (imageUrl) {
+        return (
+            <div
+                className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
+                onClick={() => onPreview?.(imageUrl, productName)}
+            >
+                <img src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                {onPreview && (
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                        <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                    </div>
+                )}
+            </div>
+        );
+    }
+    
+    return (
+        <div className={`${sizeClasses} bg-muted rounded flex items-center justify-center`}>
+            <Package className={`${iconSize} text-muted-foreground`} />
+        </div>
+    );
+};
+
+const normalizeCurrencyValue = (value?: number) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+    return Math.abs(value) < 0.005 ? 0 : value;
+};
+
 const formatCurrency = (value?: number) => {
+    const normalized = normalizeCurrencyValue(value);
+    return new Intl.NumberFormat('vi-VN').format(normalized);
+};
+
+const formatNumber = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
     return new Intl.NumberFormat('vi-VN').format(value);
 };
@@ -91,18 +174,7 @@ const getCustomerAddress = (customer: any, type: 'shipping' | 'billing'): string
 };
 
 // ✅ Helper to format address object or string
-const formatAddressObject = (address: any): string => {
-    if (!address) return '';
-    if (typeof address === 'string') return address;
-    
-    // If address is an object, format it
-    return [
-        address.street,
-        address.ward,
-        address.district,
-        address.province
-    ].filter(Boolean).join(', ');
-};
+const formatAddressObject = (address: any): string => formatOrderAddress(address);
 
 const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
     "Đặt hàng": "secondary",
@@ -110,6 +182,15 @@ const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary
     "Hoàn thành": "success",
     "Đã hủy": "destructive",
 };
+
+const productTypeFallbackLabels: Record<string, string> = {
+    physical: 'Hàng hóa',
+    service: 'Dịch vụ',
+    digital: 'Sản phẩm số',
+    combo: 'Combo',
+};
+
+type OrderComment = CommentType<SystemId>;
 
 // A simple deterministic hash function to generate stable mock prices
 function simpleHash(str: string): number {
@@ -167,21 +248,21 @@ const StatusStepper = ({ order }: { order: Order }) => {
                     <React.Fragment key={step.name}>
                         <div className="flex flex-col items-center text-center w-24">
                             <div className={cn(
-                                "flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-sm",
+                                "flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-body-sm",
                                 isCancelled ? "bg-red-100 border-red-500 text-red-500" :
-                                isCompleted ? "bg-blue-600 border-blue-600 text-white" :
-                                isCurrent ? "border-blue-600 text-blue-600" :
+                                isCompleted ? "bg-primary border-primary text-primary-foreground" :
+                                isCurrent ? "border-primary text-primary" :
                                 "border-gray-300 bg-gray-100 text-gray-400"
                             )}>
                                 {isCompleted ? <Icon className="h-4 w-4" /> : index + 1}
                             </div>
-                            <p className={cn("text-sm mt-2 font-medium", isCompleted || isCurrent ? "text-foreground" : "text-muted-foreground")}>{step.name}</p>
-                            <p className="text-xs text-gray-500 mt-1">{step.date ? formatDateTime(step.date) : '-'}</p>
+                            <p className={cn("text-body-sm mt-2 font-medium", isCompleted || isCurrent ? "text-foreground" : "text-foreground")}>{step.name}</p>
+                            <p className="text-body-xs text-foreground mt-1">{step.date ? formatDateTime(step.date) : '-'}</p>
                         </div>
                         {index < steps.length - 1 && (
                             <div className={cn(
                                 "flex-1 mt-4 h-0.5",
-                                index < currentStepIndex ? "bg-blue-600" : "bg-gray-300",
+                                index < currentStepIndex ? "bg-primary" : "bg-gray-300",
                             )} />
                         )}
                     </React.Fragment>
@@ -290,7 +371,7 @@ function PaymentDialog({
                         />
                     </FormControl>
                     {fieldState.error && (
-                        <p className="text-sm text-destructive">{fieldState.error.message}</p>
+                        <p className="text-body-sm text-destructive">{fieldState.error.message}</p>
                     )}
                 </FormItem>
             )} />
@@ -304,7 +385,7 @@ function PaymentDialog({
             {/* Bank account info - only show when method is "Chuyển khoản" */}
             {selectedMethod === 'Chuyển khoản' && (
               <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                <p className="text-sm font-medium">Thông tin tài khoản nhận</p>
+                <p className="text-body-sm font-medium">Thông tin tài khoản nhận</p>
                 <FormField control={form.control} name="accountNumber" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Số tài khoản</FormLabel>
@@ -415,10 +496,12 @@ function PackerSelectionDialog({
     isOpen,
     onOpenChange,
     onSubmit,
+    existingPackerSystemId,
 }: {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     onSubmit: (packerId?: SystemId) => void;
+    existingPackerSystemId?: SystemId;
 }) {
   const { searchEmployees } = useEmployeeStore();
   const [selectedEmployee, setSelectedEmployee] = React.useState<ComboboxOption | null>(null);
@@ -428,11 +511,20 @@ function PackerSelectionDialog({
     onOpenChange(false);
   };
 
+  // Preload existing packer if set in order
   React.useEffect(() => {
-      if (isOpen) {
+      if (isOpen && existingPackerSystemId) {
+          // Find employee and set as selected
+          searchEmployees('', 0, 100).then(result => {
+              const existing = result.items.find(e => e.value === existingPackerSystemId);
+              if (existing) {
+                  setSelectedEmployee(existing);
+              }
+          });
+      } else if (isOpen) {
           setSelectedEmployee(null);
       }
-  }, [isOpen]);
+  }, [isOpen, existingPackerSystemId, searchEmployees]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -464,166 +556,341 @@ function PackerSelectionDialog({
   );
 }
 
-const OrderHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, salesReturnsForOrder: SalesReturn[] }) => {
+const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order: Order; salesReturnsForOrder: SalesReturn[]; orderComments: OrderComment[] }) => {
     const { data: receipts } = useReceiptStore();
     const { data: payments } = usePaymentStore();
     const { data: warranties } = useWarrantyStore();
+    const { findById: findEmployeeById } = useEmployeeStore();
     const allTransactions = React.useMemo(() => [...receipts, ...payments], [receipts, payments]);
 
-    const historyItems = React.useMemo(() => {
+    const parseTimestamp = React.useCallback((value?: string) => {
+        if (!value) return undefined;
+        return new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+    }, []);
+
+    const buildUser = React.useCallback((systemId?: SystemId | string, fallbackName?: string) => {
+        if (systemId && typeof systemId === 'string') {
+            const employee = findEmployeeById(asSystemId(systemId));
+            if (employee) {
+                return { systemId: employee.systemId, name: employee.fullName };
+            }
+        }
+
+        if (fallbackName) {
+            return { systemId: typeof systemId === 'string' ? systemId : 'SYSTEM', name: fallbackName };
+        }
+
+        return { systemId: typeof systemId === 'string' ? systemId : 'SYSTEM', name: 'Hệ thống' };
+    }, [findEmployeeById]);
+
+    const historyEntries = React.useMemo<HistoryEntry[]>(() => {
         if (!order) return [];
-        
-        type HistoryItem = { date: string; userName?: string; details: React.ReactNode; icon: React.ElementType };
-        let items: HistoryItem[] = [];
+        const entries: HistoryEntry[] = [];
 
-        items.push({ date: order.orderDate, userName: order.salesperson, details: <>đã tạo đơn hàng.</>, icon: PlusCircle });
+        const pushEntry = (entry: HistoryEntry | null | undefined) => {
+            if (entry && entry.timestamp) {
+                entries.push(entry);
+            }
+        };
 
-        if (order.approvedDate) items.push({ date: order.approvedDate, userName: 'Hệ thống', details: 'đã duyệt đơn hàng.', icon: CheckCircle2 });
-        if (order.dispatchedDate) items.push({ date: order.dispatchedDate, userName: order.dispatchedByEmployeeName, details: 'đã xuất kho.', icon: Truck });
-        if (order.completedDate) items.push({ date: order.completedDate, userName: 'Hệ thống', details: 'đã hoàn thành đơn hàng.', icon: ThumbsUp });
-        if (order.cancelledDate) items.push({ date: order.cancelledDate, userName: '...', details: <>đã hủy đơn hàng. Lý do: <span className="italic">{order.cancellationReason}</span></>, icon: Ban });
+        const createdAt = parseTimestamp(order.orderDate);
+        if (createdAt) {
+            pushEntry({
+                id: `${order.systemId}-created`,
+                action: 'created',
+                timestamp: createdAt,
+                user: buildUser(order.salespersonSystemId, order.salesperson),
+                description: `Tạo đơn hàng ${order.id}`,
+            });
+        }
 
-        order.payments.forEach(p => {
-            // ✨ Build warranty link if payment is from warranty
-            const warrantyLink = p.linkedWarrantySystemId ? (
+        const approvedAt = parseTimestamp(order.approvedDate);
+        if (approvedAt) {
+            pushEntry({
+                id: `${order.systemId}-approved`,
+                action: 'status_changed',
+                timestamp: approvedAt,
+                user: buildUser(undefined, 'Hệ thống'),
+                description: 'Đã duyệt đơn hàng',
+            });
+        }
+
+        const dispatchedAt = parseTimestamp(order.dispatchedDate);
+        if (dispatchedAt) {
+            pushEntry({
+                id: `${order.systemId}-dispatched`,
+                action: 'status_changed',
+                timestamp: dispatchedAt,
+                user: buildUser(order.dispatchedByEmployeeId, order.dispatchedByEmployeeName),
+                description: 'Xuất kho cho đơn hàng',
+            });
+        }
+
+        const completedAt = parseTimestamp(order.completedDate);
+        if (completedAt) {
+            pushEntry({
+                id: `${order.systemId}-completed`,
+                action: 'status_changed',
+                timestamp: completedAt,
+                user: buildUser(undefined, 'Hệ thống'),
+                description: 'Hoàn thành đơn hàng',
+            });
+        }
+
+        const cancelledAt = parseTimestamp(order.cancelledDate);
+        if (cancelledAt) {
+            pushEntry({
+                id: `${order.systemId}-cancelled`,
+                action: 'cancelled',
+                timestamp: cancelledAt,
+                user: buildUser(undefined, 'Hệ thống'),
+                description: 'Hủy đơn hàng',
+                content: (
+                    <div className="text-body-sm">
+                        <span>Lý do: </span>
+                        <span className="font-medium">{order.cancellationReason || 'Không rõ'}</span>
+                        {order.cancellationMetadata && (
+                            <p className="mt-1 text-body-xs text-muted-foreground">
+                                {order.cancellationMetadata.restockItems ? 'Đã hoàn kho' : 'Không hoàn kho'} ·{' '}
+                                {order.cancellationMetadata.notifyCustomer ? 'Đã gửi email cho khách' : 'Không gửi email cho khách'}
+                            </p>
+                        )}
+                    </div>
+                ),
+            });
+        }
+
+        order.payments.forEach(payment => {
+            const timestamp = parseTimestamp(payment.date);
+            if (!timestamp) return;
+            const isRefund = payment.amount < 0;
+            const absAmount = formatCurrency(Math.abs(payment.amount));
+            const voucherPath = isRefund ? 'payments' : 'receipts';
+            const paymentLink = (
+                <Link to={`/${voucherPath}/${payment.systemId}`} className="font-semibold text-primary hover:underline">
+                    {payment.id}
+                </Link>
+            );
+            const warrantyLink = payment.linkedWarrantySystemId ? (
                 <>
-                    {' '}từ bảo hành <Link to={`/warranty/${p.linkedWarrantySystemId}`} className="text-primary hover:underline font-semibold">
-                        {warranties.find(w => w.systemId === p.linkedWarrantySystemId)?.id || 'N/A'}
+                    {' '}từ bảo hành{' '}
+                    <Link
+                        to={`/warranty/${payment.linkedWarrantySystemId}`}
+                        className="font-semibold text-primary hover:underline"
+                    >
+                        {warranties.find(w => w.systemId === payment.linkedWarrantySystemId)?.id || 'N/A'}
                     </Link>
                 </>
             ) : null;
-            
-            items.push({ 
-                date: p.date, 
-                userName: p.createdBy, 
-                details: <>đã thanh toán <span className="font-semibold">{formatCurrency(p.amount)}</span> qua {p.method} (<Link to={`/receipts/${p.systemId}`} className="text-primary hover:underline">{p.id}</Link>){warrantyLink}.</>, 
-                icon: Banknote 
+
+            pushEntry({
+                id: `${order.systemId}-payment-${payment.systemId}`,
+                action: 'payment_made',
+                timestamp,
+                user: buildUser(payment.createdBy),
+                description: `${isRefund ? 'Hoàn tiền' : 'Thanh toán'} ${absAmount} qua ${payment.method}`,
+                content: (
+                    <>
+                        {isRefund ? 'Hoàn tiền' : 'Thanh toán'}{' '}
+                        <span className="font-semibold">{absAmount}</span> qua {payment.method} ({paymentLink}){warrantyLink}.
+                    </>
+                ),
             });
         });
 
-        order.packagings.forEach(p => {
-            items.push({ date: p.requestDate, userName: p.requestingEmployeeName, details: <>đã yêu cầu đóng gói (<Link to={`/packaging/${p.systemId}`} className="text-primary hover:underline">{p.id}</Link>).</>, icon: PackageSearch });
-            if (p.confirmDate) items.push({ date: p.confirmDate, userName: p.confirmingEmployeeName, details: <>đã xác nhận đóng gói (<Link to={`/packaging/${p.systemId}`} className="text-primary hover:underline">{p.id}</Link>).</>, icon: PackageCheck });
-            if (p.cancelDate) items.push({ date: p.cancelDate, userName: p.cancelingEmployeeName, details: <>đã hủy yêu cầu đóng gói (<Link to={`/packaging/${p.systemId}`} className="text-primary hover:underline">{p.id}</Link>). Lý do: <span className="italic">{p.cancelReason}</span></>, icon: PackageX });
+        order.packagings.forEach(pkg => {
+            const requestDate = parseTimestamp(pkg.requestDate);
+            if (requestDate) {
+                pushEntry({
+                    id: `${pkg.systemId}-request`,
+                    action: 'product_added',
+                    timestamp: requestDate,
+                    user: buildUser(pkg.requestingEmployeeId, pkg.requestingEmployeeName),
+                    description: 'Yêu cầu đóng gói',
+                    content: (
+                        <>
+                            Yêu cầu đóng gói{' '}
+                            <Link to={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
+                                {pkg.id}
+                            </Link>
+                            .
+                        </>
+                    ),
+                });
+            }
+
+            const confirmDate = parseTimestamp(pkg.confirmDate);
+            if (confirmDate) {
+                pushEntry({
+                    id: `${pkg.systemId}-confirm`,
+                    action: 'status_changed',
+                    timestamp: confirmDate,
+                    user: buildUser(pkg.confirmingEmployeeId, pkg.confirmingEmployeeName),
+                    description: 'Xác nhận đóng gói',
+                    content: (
+                        <>
+                            Xác nhận đóng gói{' '}
+                            <Link to={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
+                                {pkg.id}
+                            </Link>
+                            .
+                        </>
+                    ),
+                });
+            }
+
+            const cancelDate = parseTimestamp(pkg.cancelDate);
+            if (cancelDate) {
+                pushEntry({
+                    id: `${pkg.systemId}-cancel`,
+                    action: 'cancelled',
+                    timestamp: cancelDate,
+                    user: buildUser(pkg.cancelingEmployeeId, pkg.cancelingEmployeeName),
+                    description: 'Hủy yêu cầu đóng gói',
+                    content: (
+                        <>
+                            Hủy đóng gói{' '}
+                            <Link to={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
+                                {pkg.id}
+                            </Link>
+                            . Lý do: <span className="italic">{pkg.cancelReason || 'Không rõ'}</span>
+                        </>
+                    ),
+                });
+            }
         });
-        
+
         salesReturnsForOrder.forEach(returnSlip => {
-            // Check both payment and receipt
+            const timestamp = parseTimestamp(returnSlip.returnDate);
+            if (!timestamp) return;
             const transactionSystemId = returnSlip.paymentVoucherSystemId || returnSlip.receiptVoucherSystemIds?.[0];
             const transaction = transactionSystemId ? allTransactions.find(t => t.systemId === transactionSystemId) : null;
             const transactionLink = transaction ? (
                 <>
-                    {' '}và tạo chứng từ <Link to={`/${returnSlip.paymentVoucherSystemId ? 'payments' : 'receipts'}/${transaction.systemId}`} className="font-semibold text-primary hover:underline">{transaction.id}</Link>
+                    {' '}và chứng từ{' '}
+                    <Link
+                        to={`/${returnSlip.paymentVoucherSystemId ? 'payments' : 'receipts'}/${transaction.systemId}`}
+                        className="font-semibold text-primary hover:underline"
+                    >
+                        {transaction.id}
+                    </Link>
                 </>
             ) : null;
-
             const exchangeOrderLink = returnSlip.exchangeOrderSystemId ? (
                 <>
-                    {' '}và tạo đơn đổi <Link to={`/orders/${returnSlip.exchangeOrderSystemId}`} className="font-semibold text-primary hover:underline">{order.lineItems.length > 0 ? 'xem chi tiết' : ''}</Link>
+                    {' '}và tạo đơn đổi{' '}
+                    <Link to={`/orders/${returnSlip.exchangeOrderSystemId}`} className="font-semibold text-primary hover:underline">
+                        Xem đơn đổi
+                    </Link>
                 </>
             ) : null;
 
-            items.push({
-                date: returnSlip.returnDate,
-                userName: returnSlip.creatorName,
-                details: <>đã tạo phiếu trả hàng <Link to={`/returns/${returnSlip.systemId}`} className="font-semibold text-primary hover:underline">{returnSlip.id}</Link>{transactionLink}{exchangeOrderLink}.</>,
-                icon: Undo2
+            pushEntry({
+                id: `${order.systemId}-return-${returnSlip.systemId}`,
+                action: 'custom',
+                timestamp,
+                user: buildUser(returnSlip.creatorSystemId, returnSlip.creatorName),
+                description: `Tạo phiếu trả hàng ${returnSlip.id}`,
+                content: (
+                    <>
+                        Tạo phiếu trả hàng{' '}
+                        <Link to={`/returns/${returnSlip.systemId}`} className="font-semibold text-primary hover:underline">
+                            {returnSlip.id}
+                        </Link>
+                        {transactionLink}
+                        {exchangeOrderLink}.
+                    </>
+                ),
             });
         });
 
-        if(order.notes) items.push({ date: order.orderDate, userName: order.salesperson, details: <>đã thêm ghi chú: <span className="italic">"{order.notes}"</span></>, icon: MessageSquare });
-        
-        // ✅ Sort by date descending (newest first) - ISO string comparison works directly
-        return items.sort((a, b) => {
-            // ISO date strings can be compared directly (YYYY-MM-DD HH:mm:ss)
-            if (!a.date || !b.date) return 0;
-            return b.date.localeCompare(a.date); // Descending: b > a means b comes first
-        });
+        if (order.notes && createdAt) {
+            pushEntry({
+                id: `${order.systemId}-note`,
+                action: 'comment_added',
+                timestamp: createdAt,
+                user: buildUser(order.salespersonSystemId, order.salesperson),
+                description: 'Thêm ghi chú đơn hàng',
+                content: (
+                    <>
+                        Ghi chú: <span className="italic">{order.notes}</span>
+                    </>
+                ),
+            });
+        }
 
-    }, [order, salesReturnsForOrder, allTransactions]);
-    
+        // NOTE: Comments are displayed in separate Comments section, not in history
+        
+        return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    }, [order, salesReturnsForOrder, allTransactions, warranties, buildUser, parseTimestamp]);
+
     return (
-        <Card>
-            <CardContent className="p-4">
-                <Timeline>
-                    {historyItems.map((item, index) => (
-                        <TimelineItem key={index} time={item.date} icon={<item.icon className="h-4 w-4" />}>
-                           <div>
-                               <p>
-                                   <span className="font-semibold">{item.userName}</span> {item.details}
-                               </p>
-                               <p className="text-xs text-muted-foreground mt-0.5">
-                                   {formatDateTime(item.date)}
-                               </p>
-                           </div>
-                        </TimelineItem>
-                    ))}
-                </Timeline>
-            </CardContent>
-        </Card>
+        <ActivityHistory
+            history={historyEntries}
+            title="Lịch sử & Ghi chú"
+            showFilters={false}
+            showMetadata={false}
+        />
     );
 };
 
-const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesReturns }: { order: Order; costOfGoods: number; profit: number; totalDiscount: number; salesReturns: SalesReturn[]; }) => {
+const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesReturns, getProductTypeLabel }: { order: Order; costOfGoods: number; profit: number; totalDiscount: number; salesReturns: SalesReturn[]; getProductTypeLabel: (productSystemId: SystemId) => string; }) => {
     // Calculate warranty payments (negative amounts linked to warranty)
     const warrantyPayments = (order?.payments || []).filter(p => p.amount < 0 && (p as any).linkedWarrantySystemId);
     const totalWarrantyDeduction = warrantyPayments.reduce((sum, p) => sum + Math.abs(p.amount), 0);
     
+    // Check if any line item has tax
+    const hasTax = order.lineItems.some(item => item.tax && item.tax > 0);
+    
+    // Convert order lineItems to ReadOnlyProductsTable format
+    const lineItems = order.lineItems.map(item => {
+        // Calculate line total with tax
+        const lineGross = item.unitPrice * item.quantity;
+        const taxAmount = item.tax ? lineGross * (item.tax / 100) : 0;
+        let discountValue = 0;
+        if (item.discount && item.discount > 0) {
+            discountValue = item.discountType === 'fixed' ? item.discount : (lineGross + taxAmount) * (item.discount / 100);
+        }
+        const lineTotal = lineGross + taxAmount - discountValue;
+        
+        return {
+            productSystemId: item.productSystemId,
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount,
+            discountType: item.discountType,
+            tax: item.tax, // Tax rate (%)
+            taxId: item.taxId, // Tax systemId
+            total: lineTotal,
+            note: item.note,
+        };
+    });
+    
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-base font-semibold">Thông tin sản phẩm</CardTitle>
+                <CardTitle className="text-h4">Thông tin sản phẩm</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="border rounded-md bg-background">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-12">STT</TableHead>
-                                <TableHead>Tên sản phẩm</TableHead>
-                                <TableHead className="text-center">Số lượng</TableHead>
-                                <TableHead className="text-right">Đơn giá</TableHead>
-                                <TableHead className="text-right">Chiết khấu</TableHead>
-                                <TableHead className="text-right">Thành tiền</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {order.lineItems.map((item, index) => {
-                                let discountValue = 0;
-                                if (item.discount > 0) {
-                                if (item.discountType === 'fixed') {
-                                    discountValue = item.discount;
-                                } else {
-                                    discountValue = item.unitPrice * (item.discount / 100);
-                                }
-                                }
-                                const finalLineTotal = (item.unitPrice * item.quantity) - (discountValue * item.quantity);
-                                return (
-                                <TableRow key={item.productSystemId}>
-                                    <TableCell className="text-center text-muted-foreground">{index + 1}</TableCell>
-                                    <TableCell>
-                                        <Link to={`/products/${item.productSystemId}`} className="font-medium text-primary hover:underline">{item.productName}</Link>
-                                        <div className="text-xs text-muted-foreground">Mặc định</div>
-                                        <div className="text-xs text-muted-foreground">
-                                            <Link to={`/products/${item.productSystemId}`} className="hover:underline">{item.productId}</Link>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-center">{item.quantity}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(discountValue * item.quantity)}</TableCell>
-                                    <TableCell className="text-right font-semibold">{formatCurrency(finalLineTotal)}</TableCell>
-                                </TableRow>
-                            )})}
-                        </TableBody>
-                    </Table>
-                </div>
+                <ReadOnlyProductsTable
+                    lineItems={lineItems}
+                    showStorageLocation={false}
+                    showUnit={false}
+                    showDiscount={true}
+                    showTax={hasTax}
+                />
                 <div className="flex justify-end mt-4">
-                    <div className="w-full max-w-sm space-y-2 text-sm">
+                    <div className="w-full max-w-sm space-y-2 text-body-sm">
                         <div className="flex justify-between"><span className="text-muted-foreground">Tổng tiền ({order.lineItems.length} sản phẩm)</span> <span>{formatCurrency(order.subtotal)}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Giá vốn</span> <span>{formatCurrency(costOfGoods)}</span></div>
-                        <div className="flex justify-between font-semibold text-green-600"><span className="text-green-600">Lợi nhuận tạm tính</span> <span>{formatCurrency(profit)}</span></div>
+                        <div className="flex justify-between font-semibold"><span>Lợi nhuận tạm tính</span> <span>{formatCurrency(profit)}</span></div>
                         <Separator className="!my-2" />
-                        <div className="flex justify-between"><span className="text-muted-foreground">Chiết khấu</span> <span>-{formatCurrency(totalDiscount)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Chiết khấu</span> <span>{formatCurrency(-totalDiscount)}</span></div>
+                        {hasTax && order.tax > 0 && (
+                            <div className="flex justify-between"><span className="text-muted-foreground">Thuế (VAT)</span> <span>{formatCurrency(order.tax)}</span></div>
+                        )}
                         <div className="flex justify-between"><span className="text-muted-foreground">Phí giao hàng</span> <span>{formatCurrency(order.shippingFee)}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Mã giảm giá</span> <span>{formatCurrency(0)}</span></div>
                         {/* ✅ Show linked sales return value if this is an exchange order */}
@@ -636,7 +903,7 @@ const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesRetur
                                         </Link>
                                     )}
                                 </span>
-                                <span className="text-red-600">-{formatCurrency(order.linkedSalesReturnValue)}</span>
+                                <span className="text-red-600">{formatCurrency(-(order.linkedSalesReturnValue ?? 0))}</span>
                             </div>
                         )}
                         {totalWarrantyDeduction > 0 && (
@@ -657,11 +924,11 @@ const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesRetur
                                         </React.Fragment>
                                     ))}:
                                 </span>
-                                <span className="text-red-600">-{formatCurrency(totalWarrantyDeduction)}</span>
+                                <span className="text-red-600">{formatCurrency(-totalWarrantyDeduction)}</span>
                             </div>
                         )}
                         <Separator className="!my-2" />
-                        <div className="flex justify-between font-bold text-base"><span>Khách phải trả</span> <span>{formatCurrency(order.grandTotal)}</span></div>
+                        <div className="flex justify-between font-bold text-h4"><span>Khách phải trả</span> <span>{formatCurrency(order.grandTotal)}</span></div>
                     </div>
                 </div>
             </CardContent>
@@ -691,9 +958,133 @@ const getFinancialResolutionText = (returnSlip: SalesReturn, allTransactions: (R
     return 'Không thay đổi tài chính';
 };
 
-const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, salesReturnsForOrder: SalesReturn[] }) => {
+const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, onPreview }: { 
+    order: Order, 
+    salesReturnsForOrder: SalesReturn[],
+    getProductTypeLabel?: (productSystemId: string) => string,
+    onPreview?: (image: string, title: string) => void 
+}) => {
     const [expandedReturnId, setExpandedReturnId] = React.useState<string | null>(null);
+    const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
     const { data: orders } = useOrderStore();
+    const { data: allProducts } = useProductStore();
+    const { findById: findBranchById } = useBranchStore();
+    const { info: storeInfo } = useStoreInfoStore();
+    const { print } = usePrint(order.branchSystemId);
+    const { findById: findCustomerById } = useCustomerStore();
+
+    const toggleComboRow = React.useCallback((key: string) => {
+        setExpandedCombos(prev => ({ ...prev, [key]: !prev[key] }));
+    }, []);
+
+    const handlePrintReturn = React.useCallback((e: React.MouseEvent, salesReturn: SalesReturn) => {
+        e.stopPropagation();
+        if (!salesReturn) return;
+
+        const branch = findBranchById(salesReturn.branchSystemId);
+        const customer = findCustomerById(salesReturn.customerSystemId);
+        const storeSettings: StoreSettings = {
+            name: storeInfo.brandName || storeInfo.companyName,
+            address: storeInfo.headquartersAddress,
+            phone: storeInfo.hotline,
+            email: storeInfo.email,
+            province: storeInfo.province,
+        };
+
+        const printData: SalesReturnForPrint = {
+            code: salesReturn.id,
+            orderCode: salesReturn.orderId,
+            createdAt: salesReturn.returnDate,
+            createdBy: salesReturn.creatorName,
+            
+            // Customer
+            customerName: salesReturn.customerName,
+            customerPhone: customer?.phone,
+            shippingAddress: customer?.addresses?.[0] ? 
+                [customer.addresses[0].street, customer.addresses[0].ward, customer.addresses[0].district, customer.addresses[0].province].filter(Boolean).join(', ') 
+                : undefined,
+            
+            // Branch
+            location: branch ? {
+                name: branch.name,
+                address: branch.address,
+                province: branch.province
+            } : undefined,
+
+            // Items (Exchange items - kept for reference in mapper)
+            items: salesReturn.exchangeItems.map(item => ({
+                productName: item.productName,
+                quantity: item.quantity,
+                price: item.unitPrice,
+                amount: item.quantity * item.unitPrice,
+                unit: 'Cái', // Default
+            })),
+            
+            returnItems: salesReturn.items.map(item => ({
+                productName: item.productName,
+                quantity: item.returnQuantity,
+                price: item.unitPrice,
+                amount: item.totalValue,
+                unit: 'Cái', // Default
+            })),
+            
+            // Totals
+            total: salesReturn.grandTotalNew, // Tổng giá trị hàng đổi
+            returnTotalAmount: salesReturn.totalReturnValue, // Tổng giá trị hàng trả
+            totalAmount: Math.abs(salesReturn.finalAmount), // Số tiền chênh lệch
+            
+            note: salesReturn.note,
+        };
+
+        const mappedData = mapSalesReturnToPrintData(printData, storeSettings);
+        
+        // Inject missing fields based on user feedback/template
+        mappedData['{reason_return}'] = salesReturn.reason || '';
+        mappedData['{reason}'] = salesReturn.reason || '';
+        mappedData['{note}'] = salesReturn.note || '';
+        
+        // Calculate refund status
+        let refundStatus = 'Chưa hoàn tiền';
+        const totalRefunded = (salesReturn.refunds || []).reduce((sum, r) => sum + (r.amount || 0), 0) || salesReturn.refundAmount || 0;
+        const totalPaid = (salesReturn.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        
+        if (salesReturn.finalAmount < 0) { // Company needs to refund
+             if (totalRefunded >= Math.abs(salesReturn.finalAmount)) {
+                 refundStatus = 'Đã hoàn tiền';
+             } else if (totalRefunded > 0) {
+                 refundStatus = 'Hoàn tiền một phần';
+             }
+        } else if (salesReturn.finalAmount > 0) { // Customer needs to pay
+             if (totalPaid >= salesReturn.finalAmount) {
+                 refundStatus = 'Đã thanh toán';
+             } else if (totalPaid > 0) {
+                 refundStatus = 'Thanh toán một phần';
+             } else {
+                 refundStatus = 'Chưa thanh toán';
+             }
+        } else {
+            refundStatus = 'Đã hoàn thành';
+        }
+        mappedData['refund_status'] = refundStatus;
+
+        // Map return items for the main table (since template shows "SL Trả")
+        const lineItems = salesReturn.items.map((item, index) => ({
+            '{line_stt}': (index + 1).toString(),
+            '{line_product_name}': item.productName,
+            '{line_variant_code}': item.productId, // Map SKU/ID to variant code
+            '{line_variant}': '', // Variant name not available in return items, leave empty to remove placeholder
+            '{line_unit}': 'Cái',
+            '{line_quantity}': item.returnQuantity.toString(),
+            '{line_price}': formatCurrency(item.unitPrice),
+            '{line_total}': formatCurrency(item.totalValue), // Matches {line_total} in screenshot
+            '{line_amount}': formatCurrency(item.totalValue), // Standard fallback
+        }));
+
+        print('sales-return', {
+            data: mappedData,
+            lineItems: lineItems
+        });
+    }, [findBranchById, storeInfo, print, findCustomerById]);
 
     return (
         <Card>
@@ -711,6 +1102,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
                             <TableHead className="text-center">Số lượng hàng đổi</TableHead>
                             <TableHead className="text-right">Giá trị hàng đổi</TableHead>
                             <TableHead className="text-right">Chênh lệch</TableHead>
+                            <TableHead className="w-10"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -738,7 +1130,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
                                             </Link>
                                         </TableCell>
                                         <TableCell>
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-body-xs font-medium ${
                                                 returnSlip.isReceived 
                                                     ? 'bg-green-100 text-green-800' 
                                                     : 'bg-amber-100 text-amber-800'
@@ -768,17 +1160,46 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
                                         <TableCell className="text-right font-medium">
                                             {returnSlip.grandTotalNew > 0 ? formatCurrency(returnSlip.grandTotalNew) : <span className="text-muted-foreground">-</span>}
                                         </TableCell>
-                                        <TableCell className={`text-right font-semibold ${
-                                            returnSlip.finalAmount < 0 ? 'text-green-600' : 
-                                            returnSlip.finalAmount > 0 ? 'text-amber-600' : 
-                                            'text-muted-foreground'
-                                        }`}>
-                                            {returnSlip.finalAmount < 0 && '-'}{formatCurrency(Math.abs(returnSlip.finalAmount))}
+                                        <TableCell className="text-right font-semibold">
+                                            {(() => {
+                                                // Tính số tiền thực tế đã hoàn/thu
+                                                const totalRefunded = (returnSlip.refunds || []).reduce((sum, r) => sum + (r.amount || 0), 0) || returnSlip.refundAmount || 0;
+                                                const totalPaid = (returnSlip.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+                                                const actualAmount = totalPaid - totalRefunded;
+                                                
+                                                // Nếu không có hoàn tiền và không có thanh toán → hiển thị dấu "-"
+                                                if (totalRefunded === 0 && totalPaid === 0) {
+                                                    return <span className="text-muted-foreground">-</span>;
+                                                }
+                                                
+                                                // Có hoàn tiền → hiển thị số âm (màu xanh)
+                                                if (totalRefunded > 0) {
+                                                    return <span className="text-green-600">-{formatCurrency(totalRefunded)}</span>;
+                                                }
+                                                
+                                                // Có thanh toán từ khách → hiển thị số dương (màu vàng)
+                                                if (totalPaid > 0) {
+                                                    return <span className="text-amber-600">{formatCurrency(totalPaid)}</span>;
+                                                }
+                                                
+                                                return <span className="text-muted-foreground">-</span>;
+                                            })()}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8"
+                                                onClick={(e) => handlePrintReturn(e, returnSlip)}
+                                                title="In phiếu trả hàng"
+                                            >
+                                                <Printer className="h-4 w-4" />
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                     {isExpanded && (
                                         <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                            <TableCell colSpan={10} className="p-4">
+                                            <TableCell colSpan={11} className="p-4">
                                                 <div className="space-y-4">
                                                     <div>
                                                         <h4 className="font-semibold mb-2">Chi tiết hàng trả</h4>
@@ -786,7 +1207,8 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
                                                             <Table>
                                                                 <TableHeader>
                                                                     <TableRow>
-                                                                        <TableHead>STT</TableHead>
+                                                                        <TableHead className="w-12">STT</TableHead>
+                                                                        <TableHead className="w-16 text-center">Ảnh</TableHead>
                                                                         <TableHead>Tên sản phẩm</TableHead>
                                                                         <TableHead className="text-center">Số lượng</TableHead>
                                                                         <TableHead className="text-right">Đơn giá trả</TableHead>
@@ -794,22 +1216,132 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
                                                                     </TableRow>
                                                                 </TableHeader>
                                                                 <TableBody>
-                                                                    {returnSlip.items.map((item: any, index: number) => (
-                                                                        <TableRow key={item.productSystemId}>
-                                                                            <TableCell>{index + 1}</TableCell>
-                                                                            <TableCell>
-                                                                                <p className="font-medium">{item.productName}</p>
-                                                                                <p className="text-xs text-muted-foreground">{item.productId}</p>
-                                                                            </TableCell>
-                                                                            <TableCell className="text-center">{item.returnQuantity}</TableCell>
-                                                                            <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                                                                            <TableCell className="text-right font-medium">{formatCurrency(item.totalValue)}</TableCell>
-                                                                        </TableRow>
-                                                                    ))}
+                                                                    {returnSlip.items.map((item: any, index: number) => {
+                                                                        const product = allProducts.find((p: any) => p.systemId === item.productSystemId);
+                                                                        const productType = getProductTypeLabel?.(item.productSystemId) || '---';
+                                                                        const isCombo = product?.type === 'combo';
+                                                                        const comboKey = `return-${returnSlip.systemId}-${item.productSystemId}`;
+                                                                        const isComboExpanded = expandedCombos[comboKey] ?? false;
+                                                                        const comboChildren = isCombo && product?.comboItems ? product.comboItems : [];
+                                                                        
+                                                                        return (
+                                                                            <React.Fragment key={item.productSystemId}>
+                                                                                <TableRow>
+                                                                                    <TableCell className="text-center text-muted-foreground">
+                                                                                        <div className="flex items-center justify-center gap-1">
+                                                                                            {isCombo && (
+                                                                                                <Button
+                                                                                                    type="button"
+                                                                                                    variant="ghost"
+                                                                                                    size="icon"
+                                                                                                    className="h-6 w-6 p-0"
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        toggleComboRow(comboKey);
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {isComboExpanded ? (
+                                                                                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                                                                    ) : (
+                                                                                                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                                                                    )}
+                                                                                                </Button>
+                                                                                            )}
+                                                                                            <span>{index + 1}</span>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <ProductThumbnailCell 
+                                                                                            productSystemId={item.productSystemId} 
+                                                                                            product={product}
+                                                                                            productName={item.productName} 
+                                                                                            size="sm"
+                                                                                            onPreview={onPreview}
+                                                                                        />
+                                                                                    </TableCell>
+                                                                                    <TableCell>
+                                                                                        <div className="flex flex-col gap-0.5">
+                                                                                            <div className="flex items-center gap-2">
+                                                                                                <Link 
+                                                                                                    to={`/products/${item.productSystemId}`}
+                                                                                                    className="font-medium text-primary hover:underline"
+                                                                                                >
+                                                                                                    {item.productName}
+                                                                                                </Link>
+                                                                                                {isCombo && (
+                                                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                                                                                                        COMBO
+                                                                                                    </span>
+                                                                                                )}n                                                                                            </div>
+                                                                                            <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
+                                                                                                <span>{productType}</span>
+                                                                                                <span>-</span>
+                                                                                                <Link 
+                                                                                                    to={`/products/${item.productSystemId}`}
+                                                                                                    className="text-primary hover:underline"
+                                                                                                >
+                                                                                                    {item.productId}
+                                                                                                </Link>
+                                                                                                {item.note && (
+                                                                                                    <>
+                                                                                                        <StickyNote className="h-3 w-3 text-amber-600 ml-1" />
+                                                                                                        <span className="text-amber-600 italic">{item.note}</span>
+                                                                                                    </>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                    <TableCell className="text-center">{item.returnQuantity}</TableCell>
+                                                                                    <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                                                                                    <TableCell className="text-right font-medium">{formatCurrency(item.totalValue)}</TableCell>
+                                                                                </TableRow>
+                                                                                {/* Combo children rows */}
+                                                                                {isCombo && isComboExpanded && comboChildren.map((comboItem: any, childIndex: number) => {
+                                                                                    const childProduct = allProducts.find((p: any) => p.systemId === comboItem.productSystemId);
+                                                                                    return (
+                                                                                        <TableRow key={`${comboKey}-child-${childIndex}`} className="bg-muted/40">
+                                                                                            <TableCell className="text-center text-muted-foreground pl-8">
+                                                                                                <span className="text-muted-foreground/60">└</span>
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <ProductThumbnailCell 
+                                                                                                    productSystemId={comboItem.productSystemId}
+                                                                                                    product={childProduct}
+                                                                                                    productName={childProduct?.name || comboItem.productName || 'Sản phẩm'}
+                                                                                                    size="sm"
+                                                                                                    onPreview={onPreview}
+                                                                                                />
+                                                                                            </TableCell>
+                                                                                            <TableCell>
+                                                                                                <div className="flex flex-col gap-0.5">
+                                                                                                    <span className="font-medium text-foreground">
+                                                                                                        {childProduct?.name || 'Sản phẩm không tồn tại'}
+                                                                                                    </span>
+                                                                                                    {childProduct && (
+                                                                                                        <Link
+                                                                                                            to={`/products/${childProduct.systemId}`}
+                                                                                                            className="text-body-xs text-primary hover:underline"
+                                                                                                        >
+                                                                                                            {childProduct.id}
+                                                                                                        </Link>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </TableCell>
+                                                                                            <TableCell className="text-center text-muted-foreground">
+                                                                                                x{comboItem.quantity * item.returnQuantity}
+                                                                                            </TableCell>
+                                                                                            <TableCell className="text-right text-muted-foreground">-</TableCell>
+                                                                                            <TableCell className="text-right text-muted-foreground">-</TableCell>
+                                                                                        </TableRow>
+                                                                                    );
+                                                                                })}
+                                                                            </React.Fragment>
+                                                                        );
+                                                                    })}
                                                                 </TableBody>
                                                                 <TableFooter>
                                                                     <TableRow>
-                                                                        <TableCell colSpan={4} className="text-right font-semibold">Tổng cộng</TableCell>
+                                                                        <TableCell colSpan={5} className="text-right font-semibold">Tổng cộng</TableCell>
                                                                         <TableCell className="text-right font-bold">{formatCurrency(returnSlip.totalReturnValue)}</TableCell>
                                                                     </TableRow>
                                                                 </TableFooter>
@@ -824,7 +1356,8 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
                                                                 <Table>
                                                                     <TableHeader>
                                                                         <TableRow>
-                                                                            <TableHead>STT</TableHead>
+                                                                            <TableHead className="w-12">STT</TableHead>
+                                                                            <TableHead className="w-16 text-center">Ảnh</TableHead>
                                                                             <TableHead>Tên sản phẩm</TableHead>
                                                                             <TableHead className="text-center">Số lượng</TableHead>
                                                                             <TableHead className="text-right">Đơn giá</TableHead>
@@ -834,23 +1367,132 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder }: { order: Order, sales
                                                                     <TableBody>
                                                                         {returnSlip.exchangeItems.map((item: any, index: number) => {
                                                                             const lineTotal = item.quantity * item.unitPrice - (item.discountType === 'percentage' ? (item.quantity * item.unitPrice * item.discount / 100) : item.discount);
+                                                                            const product = allProducts.find((p: any) => p.systemId === item.productSystemId);
+                                                                            const productType = getProductTypeLabel?.(item.productSystemId) || '---';
+                                                                            const isCombo = product?.type === 'combo';
+                                                                            const comboKey = `exchange-${returnSlip.systemId}-${item.productSystemId}`;
+                                                                            const isComboExpanded = expandedCombos[comboKey] ?? false;
+                                                                            const comboChildren = isCombo && product?.comboItems ? product.comboItems : [];
+                                                                            
                                                                             return (
-                                                                                <TableRow key={item.productSystemId}>
-                                                                                    <TableCell>{index + 1}</TableCell>
-                                                                                    <TableCell>
-                                                                                        <p className="font-medium">{item.productName}</p>
-                                                                                        <p className="text-xs text-muted-foreground">{item.productId}</p>
-                                                                                    </TableCell>
-                                                                                    <TableCell className="text-center">{item.quantity}</TableCell>
-                                                                                    <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                                                                                    <TableCell className="text-right font-medium">{formatCurrency(lineTotal)}</TableCell>
-                                                                                </TableRow>
+                                                                                <React.Fragment key={item.productSystemId}>
+                                                                                    <TableRow>
+                                                                                        <TableCell className="text-center text-muted-foreground">
+                                                                                            <div className="flex items-center justify-center gap-1">
+                                                                                                {isCombo && (
+                                                                                                    <Button
+                                                                                                        type="button"
+                                                                                                        variant="ghost"
+                                                                                                        size="icon"
+                                                                                                        className="h-6 w-6 p-0"
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            toggleComboRow(comboKey);
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        {isComboExpanded ? (
+                                                                                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                                                                        ) : (
+                                                                                                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                                                                        )}
+                                                                                                    </Button>
+                                                                                                )}
+                                                                                                <span>{index + 1}</span>
+                                                                                            </div>
+                                                                                        </TableCell>
+                                                                                        <TableCell>
+                                                                                            <ProductThumbnailCell 
+                                                                                                productSystemId={item.productSystemId} 
+                                                                                                product={product}
+                                                                                                productName={item.productName} 
+                                                                                                size="sm"
+                                                                                                onPreview={onPreview}
+                                                                                            />
+                                                                                        </TableCell>
+                                                                                        <TableCell>
+                                                                                            <div className="flex flex-col gap-0.5">
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <Link 
+                                                                                                        to={`/products/${item.productSystemId}`}
+                                                                                                        className="font-medium text-primary hover:underline"
+                                                                                                    >
+                                                                                                        {item.productName}
+                                                                                                    </Link>
+                                                                                                    {isCombo && (
+                                                                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                                                                                                            COMBO
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                                <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
+                                                                                                    <span>{productType}</span>
+                                                                                                    <span>-</span>
+                                                                                                    <Link 
+                                                                                                        to={`/products/${item.productSystemId}`}
+                                                                                                        className="text-primary hover:underline"
+                                                                                                    >
+                                                                                                        {item.productId}
+                                                                                                    </Link>
+                                                                                                    {item.note && (
+                                                                                                        <>
+                                                                                                            <StickyNote className="h-3 w-3 text-amber-600 ml-1" />
+                                                                                                            <span className="text-amber-600 italic">{item.note}</span>
+                                                                                                        </>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </TableCell>
+                                                                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                                                                        <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                                                                                        <TableCell className="text-right font-medium">{formatCurrency(lineTotal)}</TableCell>
+                                                                                    </TableRow>
+                                                                                    {/* Combo children rows */}
+                                                                                    {isCombo && isComboExpanded && comboChildren.map((comboItem: any, childIndex: number) => {
+                                                                                        const childProduct = allProducts.find((p: any) => p.systemId === comboItem.productSystemId);
+                                                                                        return (
+                                                                                            <TableRow key={`${comboKey}-child-${childIndex}`} className="bg-muted/40">
+                                                                                                <TableCell className="text-center text-muted-foreground pl-8">
+                                                                                                    <span className="text-muted-foreground/60">└</span>
+                                                                                                </TableCell>
+                                                                                                <TableCell>
+                                                                                                    <ProductThumbnailCell 
+                                                                                                        productSystemId={comboItem.productSystemId}
+                                                                                                        product={childProduct}
+                                                                                                        productName={childProduct?.name || comboItem.productName || 'Sản phẩm'}
+                                                                                                        size="sm"
+                                                                                                        onPreview={onPreview}
+                                                                                                    />
+                                                                                                </TableCell>
+                                                                                                <TableCell>
+                                                                                                    <div className="flex flex-col gap-0.5">
+                                                                                                        <span className="font-medium text-foreground">
+                                                                                                            {childProduct?.name || 'Sản phẩm không tồn tại'}
+                                                                                                        </span>
+                                                                                                        {childProduct && (
+                                                                                                            <Link
+                                                                                                                to={`/products/${childProduct.systemId}`}
+                                                                                                                className="text-body-xs text-primary hover:underline"
+                                                                                                            >
+                                                                                                                {childProduct.id}
+                                                                                                            </Link>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                </TableCell>
+                                                                                                <TableCell className="text-center text-muted-foreground">
+                                                                                                    x{comboItem.quantity * item.quantity}
+                                                                                                </TableCell>
+                                                                                                <TableCell className="text-right text-muted-foreground">-</TableCell>
+                                                                                                <TableCell className="text-right text-muted-foreground">-</TableCell>
+                                                                                            </TableRow>
+                                                                                        );
+                                                                                    })}
+                                                                                </React.Fragment>
                                                                             );
                                                                         })}
                                                                     </TableBody>
                                                                     <TableFooter>
                                                                         <TableRow>
-                                                                            <TableCell colSpan={4} className="text-right font-semibold">Tổng cộng</TableCell>
+                                                                            <TableCell colSpan={5} className="text-right font-semibold">Tổng cộng</TableCell>
                                                                             <TableCell className="text-right font-bold">{formatCurrency(returnSlip.grandTotalNew)}</TableCell>
                                                                         </TableRow>
                                                                     </TableFooter>
@@ -898,27 +1540,440 @@ export function OrderDetailPage() {
     console.log('🔍 [OrderDetail] lookup param:', params.systemId || params.id, 'foundOrder:', !!order, order ? { systemId: order.systemId, id: order.id } : null);
     const { cancelOrder, addPayment, requestPackaging, confirmPackaging, cancelPackagingRequest, processInStorePickup, confirmPartnerShipment, dispatchFromWarehouse, completeDelivery, failDelivery, cancelDelivery, cancelDeliveryOnly, confirmInStorePickup, cancelGHTKShipment } = orderStore;
     const { findById: findProductById } = useProductStore();
+    const { findById: findProductTypeById } = useProductTypeStore();
     const { data: allSalesReturns } = useSalesReturnStore();
+    const { data: pricingPolicies } = usePricingPolicyStore();
+    const defaultPricingPolicy = React.useMemo(
+        () => (pricingPolicies ?? []).find(policy => policy.type === 'Bán hàng' && policy.isDefault),
+        [pricingPolicies]
+    );
     const { data: warranties } = useWarrantyStore();
+    const { data: allReceipts } = useReceiptStore();
+    const { data: allPayments } = usePaymentStore();
+    const complaints = useComplaintStore((state) => state.complaints);
+    const slaEngine = useCustomerSlaEvaluation();
+    const { data: branches, findById: findBranchById } = useBranchStore();
+    const { info: storeInfo } = useStoreInfoStore();
+    const { print } = usePrint();
     
     const { data: customers } = useCustomerStore();
     const customer = order ? customers.find(c => c.systemId === order.customerSystemId) : null;
+    const orderBranch = order ? findBranchById?.(order.branchSystemId) : null;
     const { employee: authEmployee } = useAuth();
     const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
+    const [isCopying, setIsCopying] = React.useState(false);
+
+    // State for image preview in ReturnHistoryTab
+    const [returnHistoryPreviewState, setReturnHistoryPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+        open: false,
+        image: '',
+        title: ''
+    });
+    const handlePreview = React.useCallback((image: string, title: string) => {
+        setReturnHistoryPreviewState({ open: true, image, title });
+    }, []);
+
+    const customerOrders = React.useMemo(() => {
+        if (!customer) return [];
+        return orders.filter(o => o.customerSystemId === customer.systemId);
+    }, [customer?.systemId, orders]);
+    // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
+    const deliveredCustomerOrders = React.useMemo(
+        () => customerOrders.filter(o => 
+            o.status !== 'Đã hủy' &&
+            (o.status === 'Hoàn thành' || 
+             o.deliveryStatus === 'Đã giao hàng' || 
+             o.stockOutStatus === 'Xuất kho toàn bộ')
+        ),
+        [customerOrders]
+    );
+
+    const customerOrderStats = React.useMemo(() => {
+        if (!customer) {
+            return {
+                totalSpent: order?.grandTotal || 0,
+                totalOrders: order ? 1 : 0,
+                lastOrderDate: order?.orderDate ?? null,
+            };
+        }
+
+        if (!customerOrders.length) {
+            return {
+                totalSpent: customer.totalSpent ?? 0,
+                totalOrders: customer.totalOrders ?? 0,
+                lastOrderDate: customer.lastPurchaseDate ?? order?.orderDate ?? null,
+            };
+        }
+
+        let totalSpent = 0;
+        let lastOrderDate: string | null = null;
+
+        deliveredCustomerOrders.forEach(o => {
+            totalSpent += o.grandTotal || 0;
+        });
+
+        const recencySource = deliveredCustomerOrders.length ? deliveredCustomerOrders : customerOrders;
+
+        recencySource.forEach(o => {
+            if (!lastOrderDate || new Date(o.orderDate).getTime() > new Date(lastOrderDate).getTime()) {
+                lastOrderDate = o.orderDate;
+            }
+        });
+
+        return {
+            totalSpent,
+            totalOrders: customerOrders.length,
+            lastOrderDate: lastOrderDate ?? customer.lastPurchaseDate ?? order?.orderDate ?? null,
+        };
+    }, [customer, customerOrders, deliveredCustomerOrders, order?.grandTotal, order?.orderDate]);
+
+    const customerDebtBalance = React.useMemo(() => {
+        if (!customer) return 0;
+
+        const transactions: Array<{ date: string; change: number }> = [];
+
+        deliveredCustomerOrders.forEach(o => {
+            // ✅ Use grandTotal (không trừ paidAmount) vì phiếu thu đã được tính riêng
+            transactions.push({ date: o.orderDate, change: o.grandTotal || 0 });
+        });
+
+        allReceipts
+            .filter(r => r.payerTypeName === 'Khách hàng' && r.payerName === customer.name)
+            .forEach(receipt => {
+                transactions.push({ date: receipt.date, change: -receipt.amount });
+            });
+
+        allPayments
+            .filter(p => p.recipientTypeName === 'Khách hàng' && p.recipientName === customer.name)
+            .forEach(payment => {
+                transactions.push({ date: payment.date, change: payment.amount });
+            });
+
+        if (!transactions.length) {
+            return customer.currentDebt ?? 0;
+        }
+
+        transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        let balance = 0;
+        transactions.forEach(entry => {
+            balance += entry.change;
+        });
+
+        return balance;
+    }, [customer, deliveredCustomerOrders, allReceipts, allPayments]);
+
+    const customerWarranties = React.useMemo(() => {
+        if (!customer) return [];
+        return warranties.filter(ticket => ticket.customerPhone === customer.phone);
+    }, [customer?.phone, warranties]);
+
+    const customerWarrantyCount = customerWarranties.length;
+
+    const activeWarrantyCount = React.useMemo(() => {
+        return customerWarranties.filter(ticket => !['returned', 'completed', 'cancelled'].includes(ticket.status)).length;
+    }, [customerWarranties]);
+
+    const customerComplaints = React.useMemo(() => {
+        if (!customer) return [];
+        return complaints.filter(complaint => complaint.customerSystemId === customer.systemId);
+    }, [customer?.systemId, complaints]);
+
+    const customerComplaintCount = customerComplaints.length;
+
+    const activeComplaintCount = React.useMemo(() => {
+        return customerComplaints.filter(complaint => complaint.status === 'pending' || complaint.status === 'investigating').length;
+    }, [customerComplaints]);
+
+    const slaDisplay = React.useMemo(() => {
+        if (!customer) {
+            return {
+                title: 'Đúng hạn',
+                detail: 'Chưa có dữ liệu SLA',
+                tone: 'secondary' as const,
+            };
+        }
+
+        const entry = slaEngine.index?.entries?.[customer.systemId];
+        const alerts = entry?.alerts ?? [];
+        if (!alerts.length) {
+            return {
+                title: 'Đúng hạn',
+                detail: 'Không có cảnh báo',
+                tone: 'success' as const,
+            };
+        }
+
+        const sortedAlerts = [...alerts].sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime());
+        const nextAlert = sortedAlerts[0];
+        const remaining = nextAlert.daysRemaining;
+        const timeText = remaining === 0
+            ? 'Hôm nay'
+            : remaining > 0
+                ? `Còn ${remaining} ngày`
+                : `Trễ ${Math.abs(remaining)} ngày`;
+        const tone = remaining < 0
+            ? 'destructive'
+            : nextAlert.alertLevel === 'warning'
+                ? 'warning'
+                : 'secondary';
+
+        return {
+            title: nextAlert.slaName,
+            detail: `${timeText}${nextAlert.targetDate ? ` • hạn ${formatDate(nextAlert.targetDate)}` : ''}`,
+            tone,
+        } as const;
+    }, [customer, slaEngine.index]);
+
+    // Order breakdown by status
+    const orderBreakdown = React.useMemo(() => {
+        const pending = customerOrders.filter(o => o.status === 'Đặt hàng').length;
+        const inProgress = customerOrders.filter(o => o.status === 'Đang giao dịch').length;
+        const completed = customerOrders.filter(o => o.status === 'Hoàn thành').length;
+        const cancelled = customerOrders.filter(o => o.status === 'Đã hủy').length;
+        return { pending, inProgress, completed, cancelled };
+    }, [customerOrders]);
+
+    const customerMetrics = React.useMemo(() => {
+        const lastOrderDate = customerOrderStats.lastOrderDate;
+        return [
+            {
+                key: 'orders',
+                label: 'Tổng số đơn đặt',
+                value: formatNumber(customerOrderStats.totalOrders),
+                subValue: `${orderBreakdown.pending} đặt hàng, ${orderBreakdown.inProgress} đang giao dịch, ${orderBreakdown.completed} hoàn thành, ${orderBreakdown.cancelled} đã hủy`,
+            },
+            {
+                key: 'warranty',
+                label: 'Tổng số lần bảo hành',
+                value: formatNumber(customerWarrantyCount),
+                badge: activeWarrantyCount > 0 ? { label: `${activeWarrantyCount} chưa trả`, tone: 'warning' as const } : undefined,
+                link: customer ? `/warranty?customer=${encodeURIComponent(customer.systemId)}` : undefined,
+            },
+            {
+                key: 'complaints',
+                label: 'Tổng số lần khiếu nại',
+                value: formatNumber(customerComplaintCount),
+                badge: activeComplaintCount > 0 ? { label: `${activeComplaintCount} chưa xử lý`, tone: 'destructive' as const } : undefined,
+                link: customer ? `/complaints?customer=${encodeURIComponent(customer.systemId)}` : undefined,
+            },
+            {
+                key: 'last-order',
+                label: 'Lần đặt đơn gần nhất',
+                value: lastOrderDate ? formatDate(lastOrderDate) : '---',
+            },
+            {
+                key: 'failed-delivery',
+                label: 'Giao hàng thất bại',
+                value: formatNumber(customer?.failedDeliveries ?? 0),
+            },
+            {
+                key: 'sla',
+                label: 'SLA',
+                value: slaDisplay.title,
+                subValue: slaDisplay.detail,
+                tone: slaDisplay.tone,
+            },
+        ];
+    }, [customerOrderStats.totalOrders, customerOrderStats.lastOrderDate, customer, orderBreakdown, customerWarrantyCount, customerComplaintCount, activeWarrantyCount, activeComplaintCount, slaDisplay]);
+
+    const handleCopyOrder = React.useCallback(() => {
+        if (!order || isCopying) {
+            return;
+        }
+
+        setIsCopying(true);
+        try {
+            navigate(`/orders/new?copy=${order.systemId}`);
+        } finally {
+            // Component will unmount after navigation, but keep defensive reset to be safe when navigation fails
+            setTimeout(() => setIsCopying(false), 300);
+        }
+    }, [order, isCopying, navigate]);
+
+    // Customer Settings Stores
+    const customerTypes = useCustomerTypeStore();
+    const customerGroups = useCustomerGroupStore();
+    const customerSources = useCustomerSourceStore();
+    const { findById: findEmployeeById } = useEmployeeStore();
+
+    // Branding for print
+    const { logoUrl } = useBranding();
+
+    const getTypeName = (id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined;
+    const getGroupName = (id?: string) => id ? customerGroups.findById(asSystemId(id))?.name : undefined;
+    const getSourceName = (id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined;
+    const getEmployeeName = (id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined;
+
+    // Get salesperson employee for print
+    const salespersonEmployee = React.useMemo(() => {
+        if (!order?.salespersonSystemId) return null;
+        return findEmployeeById(asSystemId(order.salespersonSystemId));
+    }, [order?.salespersonSystemId, findEmployeeById]);
 
     const [isCancelAlertOpen, setIsCancelAlertOpen] = React.useState(false);
+    const [cancelReasonText, setCancelReasonText] = React.useState('');
+    const [restockItems, setRestockItems] = React.useState(true);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
     const [isCreateShipmentDialogOpen, setIsCreateShipmentDialogOpen] = React.useState(false);
     const [isPackerSelectionOpen, setIsPackerSelectionOpen] = React.useState(false);
     const [cancelPackagingState, setCancelPackagingState] = React.useState<{ packagingSystemId: SystemId } | null>(null);
     const [cancelShipmentState, setCancelShipmentState] = React.useState<{ packagingSystemId: SystemId; type: 'fail' | 'cancel' } | null>(null);
+    const [orderComments, setOrderComments] = React.useState<OrderComment[]>([]);
+    const commentStorageKey = order ? `order-comments-${order.systemId}` : null;
+    const [hasOrderWorkflowTemplate, setHasOrderWorkflowTemplate] = React.useState(true);
 
-    const totalPaid = React.useMemo(() => (order?.payments || []).reduce((sum, p) => sum + p.amount, 0), [order?.payments]);
-    // totalPaid có thể âm (nếu có warranty payment), dương (nếu khách trả tiền), hoặc 0
-    // amountRemaining = grandTotal + totalPaid (vì totalPaid âm khi có warranty)
-    // VD: 3.775.000 + (-2.000.000) = 1.775.000
-    const amountRemaining = (order?.grandTotal || 0) + totalPaid;
-    
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const templates = getWorkflowTemplates('orders');
+            setHasOrderWorkflowTemplate(templates.length > 0);
+        } catch (error) {
+            console.error('[OrderDetail] Failed to load workflow templates', error);
+            setHasOrderWorkflowTemplate(true);
+        }
+    }, []);
+
+    const resetCancelForm = React.useCallback(() => {
+        setCancelReasonText('');
+        setRestockItems(true);
+    }, []);
+
+    React.useEffect(() => {
+        if (!isCancelAlertOpen) {
+            resetCancelForm();
+        }
+    }, [isCancelAlertOpen, resetCancelForm]);
+
+    React.useEffect(() => {
+        if (!commentStorageKey || typeof window === 'undefined') {
+            setOrderComments([]);
+            return;
+        }
+
+        try {
+            const stored = window.localStorage.getItem(commentStorageKey);
+            if (!stored) {
+                setOrderComments([]);
+                return;
+            }
+
+            const parsed = JSON.parse(stored) as Array<{
+                id: string;
+                content: string;
+                author: OrderComment['author'];
+                parentId?: string;
+                createdAt: string;
+                updatedAt?: string;
+            }>;
+            setOrderComments(
+                parsed.map(comment => ({
+                    ...comment,
+                    createdAt: new Date(comment.createdAt),
+                    updatedAt: comment.updatedAt ? new Date(comment.updatedAt) : undefined,
+                }))
+            );
+        } catch (error) {
+            console.error('[OrderDetail] Failed to load order comments', error);
+            setOrderComments([]);
+        }
+    }, [commentStorageKey]);
+
+    const persistOrderComments = React.useCallback((comments: OrderComment[]) => {
+        if (!commentStorageKey || typeof window === 'undefined') return;
+        const serializable = comments.map(comment => ({
+            ...comment,
+            createdAt: new Date(comment.createdAt).toISOString(),
+            updatedAt: comment.updatedAt ? new Date(comment.updatedAt).toISOString() : undefined,
+        }));
+        window.localStorage.setItem(commentStorageKey, JSON.stringify(serializable));
+    }, [commentStorageKey]);
+
+    const handleAddOrderComment = React.useCallback((content: string, parentId?: string) => {
+        if (!order) return;
+        const trimmed = content.trim();
+        if (!trimmed) return;
+
+        const randomId = typeof window !== 'undefined' && window.crypto?.randomUUID
+            ? window.crypto.randomUUID()
+            : `order-comment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+        const newComment: OrderComment = {
+            id: randomId,
+            content: trimmed,
+            author: {
+                systemId: currentEmployeeSystemId,
+                name: authEmployee?.fullName || 'Nhân viên',
+                avatar: authEmployee?.avatarUrl,
+            },
+            createdAt: new Date(),
+            parentId,
+        };
+
+        setOrderComments(prev => {
+            const updated = [...prev, newComment];
+            persistOrderComments(updated);
+            return updated;
+        });
+    }, [order, currentEmployeeSystemId, authEmployee?.fullName, authEmployee?.avatarUrl, persistOrderComments]);
+
+    const handleUpdateOrderComment = React.useCallback((commentId: string, content: string) => {
+        const trimmed = content.trim();
+        if (!trimmed) return;
+
+        setOrderComments(prev => {
+            const updated = prev.map(comment =>
+                comment.id === commentId
+                    ? { ...comment, content: trimmed, updatedAt: new Date() }
+                    : comment
+            );
+            persistOrderComments(updated);
+            return updated;
+        });
+    }, [persistOrderComments]);
+
+    const handleDeleteOrderComment = React.useCallback((commentId: string) => {
+        setOrderComments(prev => {
+            const idsToRemove = new Set<string>([commentId]);
+            const queue = [commentId];
+
+            while (queue.length > 0) {
+                const current = queue.shift()!;
+                prev.forEach(comment => {
+                    if (comment.parentId === current && !idsToRemove.has(comment.id)) {
+                        idsToRemove.add(comment.id);
+                        queue.push(comment.id);
+                    }
+                });
+            }
+
+            const updated = prev.filter(comment => !idsToRemove.has(comment.id));
+            persistOrderComments(updated);
+            return updated;
+        });
+    }, [persistOrderComments]);
+
+    const commentCurrentUser = React.useMemo(() => {
+        if (!authEmployee) return undefined;
+        return {
+            systemId: currentEmployeeSystemId,
+            name: authEmployee.fullName || authEmployee.workEmail || 'Nhân viên',
+            ...(authEmployee.avatarUrl ? { avatar: authEmployee.avatarUrl } : {}),
+        };
+    }, [authEmployee, currentEmployeeSystemId]);
+
+    // Get all employees for @mention in comments
+    const { data: allEmployees } = useEmployeeStore();
+    const employeeMentions = React.useMemo(() => {
+        return allEmployees
+            .filter(e => !e.isDeleted)
+            .map(e => ({
+                id: e.systemId,
+                label: e.fullName,
+                avatar: e.avatarUrl,
+            }));
+    }, [allEmployees]);
+
     const salesReturnsForOrder = React.useMemo(() => {
         if (!order) return [];
         return allSalesReturns.filter(sr => sr.orderSystemId === order.systemId);
@@ -927,6 +1982,37 @@ export function OrderDetailPage() {
     const totalReturnedValue = React.useMemo(() => 
         salesReturnsForOrder.reduce((sum, sr) => sum + sr.totalReturnValue, 0),
     [salesReturnsForOrder]);
+
+    // Tính tổng số tiền đã hoàn cho khách từ các phiếu trả hàng
+    const totalRefundedFromReturns = React.useMemo(() => 
+        salesReturnsForOrder.reduce((sum, sr) => {
+            const refundFromArray = (sr.refunds || []).reduce((s, r) => s + (r.amount || 0), 0);
+            return sum + (refundFromArray || sr.refundAmount || 0);
+        }, 0),
+    [salesReturnsForOrder]);
+
+    // Lấy các phiếu chi hoàn tiền liên quan đến đơn hàng này (từ sales returns)
+    const refundPaymentsForOrder = React.useMemo(() => {
+        if (!order) return [];
+        return allPayments.filter(p => 
+            p.status !== 'cancelled' &&
+            (p.linkedOrderSystemId === order.systemId || 
+             salesReturnsForOrder.some(sr => sr.paymentVoucherSystemIds?.includes(p.systemId)))
+        );
+    }, [order, allPayments, salesReturnsForOrder]);
+
+    const totalPaid = React.useMemo(() => (order?.payments || []).reduce((sum, p) => sum + p.amount, 0), [order?.payments]);
+    // totalPaid: số tiền khách đã thanh toán
+    // totalRefundedFromReturns: số tiền đã hoàn lại cho khách (từ sales returns)
+    // netGrandTotal: công nợ thực tế sau khi trừ hàng trả
+    // amountRemaining = netGrandTotal - totalPaid + totalRefundedFromReturns
+    const netGrandTotal = Math.max(0, (order?.grandTotal || 0) - totalReturnedValue);
+    const amountRemaining = netGrandTotal - totalPaid + totalRefundedFromReturns;
+
+    const totalLineQuantity = React.useMemo(() => {
+        if (!order) return 0;
+        return order.lineItems.reduce((sum, item) => sum + item.quantity, 0);
+    }, [order]);
 
     const codPayments = React.useMemo(() => (order?.payments || []).filter(p => p.method === 'Đối soát COD'), [order?.payments]);
     const directPayments = React.useMemo(() => (order?.payments || []).filter(p => p.method !== 'Đối soát COD'), [order?.payments]);
@@ -945,6 +2031,24 @@ export function OrderDetailPage() {
     
     const totalCodAmount = totalActiveCod + codPayments.reduce((s, p) => s + p.amount, 0);
     const payableAmount = Math.max(0, amountRemaining);
+
+    const getProductTypeLabel = React.useCallback((productSystemId: SystemId) => {
+        const product = findProductById(productSystemId);
+        if (!product) return '---';
+
+        if (product.productTypeSystemId) {
+            const productType = findProductTypeById(product.productTypeSystemId);
+            if (productType?.name) {
+                return productType.name;
+            }
+        }
+
+        if (product.type && productTypeFallbackLabels[product.type]) {
+            return productTypeFallbackLabels[product.type];
+        }
+
+        return 'Hàng hóa';
+    }, [findProductById, findProductTypeById]);
     
     const { costOfGoods, profit, totalDiscount } = React.useMemo(() => {
         if (!order) return { costOfGoods: 0, profit: 0, totalDiscount: 0 };
@@ -969,6 +2073,27 @@ export function OrderDetailPage() {
         }
         return [...order.packagings].reverse().find(p => p.status !== 'Hủy đóng gói') || null;
     }, [order]);
+
+    const existingPackerSystemId = React.useMemo<SystemId | undefined>(() => {
+        if (!order) {
+            return undefined;
+        }
+
+        const explicitPacker = order.assignedPackerSystemId || (order as any).assignedPackerSystemId || (order as any).packerId;
+        if (explicitPacker) {
+            return asSystemId(explicitPacker);
+        }
+
+        if (activePackaging?.assignedEmployeeId) {
+            return activePackaging.assignedEmployeeId;
+        }
+
+        const fallbackPackaging = [...(order.packagings ?? [])]
+            .reverse()
+            .find(pkg => pkg.assignedEmployeeId);
+
+        return fallbackPackaging?.assignedEmployeeId;
+    }, [order, activePackaging]);
 
     // Auto-sync GHTK status on page load
     const [isSyncing, setIsSyncing] = React.useState(false);
@@ -997,6 +2122,15 @@ export function OrderDetailPage() {
 
     const handleConfirmCancel = async () => { 
         if (!order) return;
+        const finalReason = cancelReasonText.trim();
+        if (!finalReason) {
+            toast.error('Vui lòng nhập lý do hủy đơn hàng.');
+            return;
+        }
+        const cancelOptions = {
+            reason: finalReason,
+            restock: restockItems,
+        };
         
         // Check if order has active GHTK shipment that needs to be cancelled
         const ghtkPackaging = order.packagings.find(p => 
@@ -1026,7 +2160,8 @@ export function OrderDetailPage() {
                             action: {
                                 label: 'Tiếp tục',
                                 onClick: () => {
-                                    cancelOrder(order.systemId, currentEmployeeSystemId);
+                                    cancelOrder(order.systemId, currentEmployeeSystemId, cancelOptions);
+                                    resetCancelForm();
                                     setIsCancelAlertOpen(false);
                                 }
                             },
@@ -1049,7 +2184,8 @@ export function OrderDetailPage() {
                         action: {
                             label: 'Tiếp tục',
                             onClick: () => {
-                                cancelOrder(order.systemId, currentEmployeeSystemId);
+                                cancelOrder(order.systemId, currentEmployeeSystemId, cancelOptions);
+                                resetCancelForm();
                                 setIsCancelAlertOpen(false);
                             }
                         },
@@ -1066,11 +2202,16 @@ export function OrderDetailPage() {
         }
         
         // Proceed with order cancellation
-        cancelOrder(order.systemId, currentEmployeeSystemId); 
+        cancelOrder(order.systemId, currentEmployeeSystemId, cancelOptions); 
+        resetCancelForm();
         setIsCancelAlertOpen(false); 
     };
     const handleAddPayment = (paymentData: PaymentFormValues) => { if (order) { addPayment(order.systemId, paymentData, currentEmployeeSystemId); setIsPaymentDialogOpen(false); } };
-    const handleRequestPackaging = (assignedEmployeeId?: SystemId) => { if (order) { requestPackaging(order.systemId, currentEmployeeSystemId, assignedEmployeeId); } };
+    const handleRequestPackaging = React.useCallback((assignedEmployeeId?: SystemId) => {
+        if (order) {
+            requestPackaging(order.systemId, currentEmployeeSystemId, assignedEmployeeId);
+        }
+    }, [order, requestPackaging, currentEmployeeSystemId]);
     const handleConfirmPackaging = (packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId, currentEmployeeSystemId); } };
     const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, currentEmployeeSystemId, reason); setCancelPackagingState(null); }};
     const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } };
@@ -1167,81 +2308,217 @@ export function OrderDetailPage() {
     };
 
 
-    const pageActions = React.useMemo(() => {
-        const canReturn = order && 
-            (order.status === 'Hoàn thành' || order.status === 'Đang giao dịch') && 
+    const handleRequestPackagingClick = React.useCallback(() => {
+        if (existingPackerSystemId) {
+            handleRequestPackaging(existingPackerSystemId);
+            return;
+        }
+        setIsPackerSelectionOpen(true);
+    }, [existingPackerSystemId, handleRequestPackaging, setIsPackerSelectionOpen]);
+
+    const headerActions = React.useMemo(() => {
+        if (!order) {
+            return [];
+        }
+
+        const canReturn = order.status !== 'Đã hủy' && 
             order.returnStatus !== 'Trả hàng toàn bộ' &&
             order.stockOutStatus !== 'Chưa xuất kho';
         
-        // Check packaging status
-        const activePackaging = order?.packagings?.find(p => p.status !== 'Hủy đóng gói');
         const canRequestPackaging = isActionable && (!activePackaging || activePackaging.deliveryStatus === 'Chờ giao lại');
         const canConfirmPackaging = activePackaging?.status === 'Chờ đóng gói';
-        const canShip = activePackaging?.status === 'Đã đóng gói' && activePackaging?.deliveryStatus === 'Chờ lấy hàng';
-        const canStockOut = order?.stockOutStatus === 'Chưa xuất kho' && order?.status !== 'Đã hủy';
-            
+        const canShip = activePackaging?.status === 'Đã đóng gói' && 
+                        activePackaging?.deliveryStatus === 'Chờ lấy hàng' &&
+                        order.stockOutStatus !== 'Chưa xuất kho';
+        
+        // ✅ Chỉ hiện nút Xuất kho khi đã đóng gói xong VÀ đã chọn hình thức giao hàng (theo yêu cầu user)
+        const canStockOut = order.stockOutStatus === 'Chưa xuất kho' && 
+                            order.status !== 'Đã hủy' && 
+                            activePackaging?.status === 'Đã đóng gói' &&
+                            !!activePackaging?.deliveryMethod;
+
+        const actions: React.ReactNode[] = [];
+
+        if (canStockOut) {
+            actions.push(
+                <Button 
+                    key="stockout" 
+                    size="sm" 
+                    className="h-9" 
+                    onClick={() => {
+                        if (activePackaging) {
+                            handleDispatch(activePackaging.systemId);
+                        } else {
+                            toast.error('Vui lòng tạo yêu cầu đóng gói trước khi xuất kho');
+                        }
+                    }}
+                >
+                    Xác nhận xuất kho
+                </Button>
+            );
+        }
+
+        if (canRequestPackaging) {
+            actions.push(
+                <Button key="request-packaging" size="sm" className="h-9" onClick={handleRequestPackagingClick}>
+                    Yêu cầu đóng gói
+                </Button>
+            );
+        }
+
+        if (canConfirmPackaging) {
+            actions.push(
+                <Button 
+                    key="confirm-packaging" 
+                    size="sm" 
+                    className="h-9" 
+                    onClick={() => {
+                        if (activePackaging) {
+                            handleConfirmPackaging(activePackaging.systemId);
+                        } else {
+                            toast.error('Không tìm thấy gói hàng cần đóng gói');
+                        }
+                    }}
+                >
+                    Xác nhận đóng gói
+                </Button>
+            );
+        }
+
+        if (canShip) {
+            actions.push(
+                <Button 
+                    key="ship" 
+                    size="sm" 
+                    className="h-9" 
+                    onClick={() => {
+                        if (activePackaging) {
+                            handleDispatch(activePackaging.systemId);
+                        } else {
+                            toast.error('Không tìm thấy gói hàng để giao');
+                        }
+                    }}
+                >
+                    Giao hàng
+                </Button>
+            );
+        }
+
+        if (canReturn) {
+            actions.push(
+                <Button
+                    key="return"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => navigate(`/orders/${order.systemId}/return`)}
+                >
+                    Hoàn trả hàng
+                </Button>
+            );
+        }
+
+        // Cho phép hủy đơn nếu:
+        // - Chưa hủy
+        // - Chưa có phiếu trả hàng (nếu đã trả hàng thì không được hủy vì sẽ gây rối stock và công nợ)
+        const canCancelOrder = order.status !== 'Đã hủy' && 
+            (!order.returnStatus || order.returnStatus === 'Chưa trả hàng');
+        
+        if (canCancelOrder) {
+            actions.push(
+                <Button
+                    key="cancel"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => setIsCancelAlertOpen(true)}
+                >
+                    Hủy đơn hàng
+                </Button>
+            );
+        }
+
+        if (order.status !== 'Đã hủy') {
+            actions.push(
+                <Button
+                    key="edit"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => navigate(`/orders/${order.systemId}/edit`)}
+                >
+                    Sửa
+                </Button>
+            );
+        }
+
+        return actions;
+    }, [order, isActionable, navigate, setIsCancelAlertOpen, activePackaging, handleRequestPackagingClick]);
+
+    const displayStatus = React.useMemo(() => {
+        if (!order) return undefined;
+        // Fix for existing orders that are stuck in 'Đặt hàng' but have been dispatched
+        if (order.status === 'Đặt hàng' && (order.stockOutStatus === 'Xuất kho toàn bộ' || order.deliveryStatus === 'Đang giao hàng' || order.deliveryStatus === 'Đã giao hàng')) {
+            return 'Đang giao dịch';
+        }
+        return order.status;
+    }, [order]);
+
+    const headerBadge = React.useMemo(() => {
+        if (!order || !displayStatus) {
+            return undefined;
+        }
         return (
-            <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={() => navigate('/orders')}>
-                    Quay lại
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => toast.info('Chức năng đang phát triển')}>
-                    In
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => toast.info('Chức năng đang phát triển')}>
+            <div className="flex items-center gap-2">
+                <OrderPrintButton
+                    order={order}
+                    customer={customer}
+                    branch={orderBranch}
+                    createdByEmployee={salespersonEmployee}
+                    logoUrl={getFullLogoUrl(logoUrl)}
+                />
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7"
+                    onClick={handleCopyOrder}
+                    disabled={isCopying}
+                >
+                    {isCopying ? (
+                        <Spinner className="mr-2 h-4 w-4" />
+                    ) : (
+                        <Copy className="mr-2 h-4 w-4" />
+                    )}
                     Sao chép
                 </Button>
-                {canStockOut && (
-                    <Button size="sm" onClick={() => toast.info('Xác nhận xuất kho')}>
-                        Xác nhận xuất kho
-                    </Button>
+                <Badge variant={statusVariants[displayStatus]} className="uppercase tracking-wide">
+                    {displayStatus}
+                </Badge>
+                {order.returnStatus === 'Trả hàng một phần' && (
+                    <Badge variant="outline" className="border-orange-500 text-orange-600 bg-orange-50">
+                        Trả hàng một phần
+                    </Badge>
                 )}
-                {canRequestPackaging && (
-                    <Button size="sm" onClick={() => setIsPackerSelectionOpen(true)}>
-                        Yêu cầu đóng gói
-                    </Button>
-                )}
-                {canConfirmPackaging && (
-                    <Button size="sm" onClick={() => toast.info('Xác nhận đóng gói')}>
-                        Xác nhận đóng gói
-                    </Button>
-                )}
-                {canShip && (
-                    <Button size="sm" onClick={() => toast.info('Giao hàng')}>
-                        Giao hàng
-                    </Button>
-                )}
-                {canReturn && (
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/orders/${order.systemId}/return`)}>
-                        Hoàn trả hàng
-                    </Button>
-                )}
-                {isActionable && (
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setIsCancelAlertOpen(true)} 
-                        className="border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive"
-                    >
-                        Hủy đơn hàng
-                    </Button>
-                )}
-                {order?.status !== 'Hoàn thành' && order?.status !== 'Đã hủy' && (
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/orders/${order.systemId}/edit`)}>
-                        Sửa
-                    </Button>
+                {order.returnStatus === 'Trả hàng toàn bộ' && (
+                    <Badge variant="outline" className="border-red-500 text-red-600 bg-red-50">
+                        Trả hàng toàn bộ
+                    </Badge>
                 )}
             </div>
         );
-    }, [navigate, order, isActionable]);
+    }, [order, displayStatus, handleCopyOrder, isCopying, customer, orderBranch, salespersonEmployee, logoUrl]);
 
-    const pageTitle = React.useMemo(() => (
-        <span>Đơn hàng {order?.id}</span>
-    ), [order?.id]);
+    const breadcrumb = React.useMemo(() => ([
+        { label: 'Trang chủ', href: '/', isCurrent: false },
+        { label: 'Đơn hàng', href: '/orders', isCurrent: false },
+        { label: order?.id ? `Đơn ${order.id}` : 'Chi tiết', href: order ? `/orders/${order.systemId}` : '/orders', isCurrent: true },
+    ]), [order]);
 
     usePageHeader({ 
-        title: pageTitle,
-        actions: [pageActions] 
+        title: order ? `Đơn hàng ${order.id}` : 'Chi tiết đơn hàng',
+        breadcrumb,
+        badge: headerBadge,
+        actions: headerActions,
     });
 
     if (!order) {
@@ -1270,7 +2547,7 @@ export function OrderDetailPage() {
         const canRequestPackaging = !activePackaging || activePackaging.deliveryStatus === 'Chờ giao lại';
         
         if (canRequestPackaging) {
-            return <Button size="sm" onClick={() => setIsPackerSelectionOpen(true)}>Yêu cầu đóng gói</Button>;
+            return <Button size="sm" onClick={handleRequestPackagingClick}>Yêu cầu đóng gói</Button>;
         }
         
         return null;
@@ -1294,61 +2571,195 @@ export function OrderDetailPage() {
                 {/* Status Card - Full width */}
                 <Card>
                     <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <Badge variant={statusVariants[order.status]}>{order.status}</Badge>
-                        </div>
                         <StatusStepper order={order} />
                     </CardContent>
                 </Card>
 
-                {/* Row 1: Thông tin đơn hàng + Thông tin khách hàng */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Thông tin khách hàng - 2/3 width on desktop */}
-                    <Card className="lg:col-span-2 flex flex-col">
+                {/* Row 1: Thông tin khách hàng (40%) + Quy trình xử lý (30%) + Thông tin đơn hàng (30%) */}
+                <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+                    {/* Thông tin khách hàng - 40% width on desktop */}
+                    <Card className="lg:col-span-4 flex flex-col">
                         <CardHeader className="flex-shrink-0">
                             <CardTitle className="text-base font-semibold">Thông tin khách hàng</CardTitle>
                         </CardHeader>
                         <CardContent className="flex-1">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="md:col-span-2 space-y-4">
-                                    <p className="font-semibold text-primary cursor-pointer hover:underline" onClick={() => navigate(`/customers/${customer?.systemId}`)}>{order.customerName}</p>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground font-semibold">
-                                            ĐỊA CHỈ GIAO HÀNG
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">{shippingAddress || 'Chưa có thông tin giao hàng'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground font-semibold">
-                                            ĐỊA CHỈ NHẬN HÓA ĐƠN
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">{billingAddress || '-'}</p>
+                            <div className="space-y-3">
+                                {/* Tên và thông tin liên hệ */}
+                                <div>
+                                    <p className="font-semibold text-primary cursor-pointer hover:underline text-lg" onClick={() => navigate(`/customers/${customer?.systemId}`)}>{order.customerName}</p>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
+                                        {customer?.phone && (
+                                            <span className="font-medium text-foreground inline-flex items-center gap-1">
+                                                {customer.phone}
+                                                <Copy 
+                                                    className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground" 
+                                                    onClick={() => { navigator.clipboard.writeText(customer.phone); toast.success('Đã sao chép số điện thoại'); }}
+                                                />
+                                            </span>
+                                        )}
+                                        {customer?.email && (
+                                            <span className="inline-flex items-center gap-1">
+                                                {customer.email}
+                                                <Copy 
+                                                    className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground" 
+                                                    onClick={() => { navigator.clipboard.writeText(customer.email!); toast.success('Đã sao chép email'); }}
+                                                />
+                                            </span>
+                                        )}
+                                        {customer?.taxCode && (
+                                            <span className="inline-flex items-center gap-1">
+                                                MST: {customer.taxCode}
+                                                <Copy 
+                                                    className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground" 
+                                                    onClick={() => { navigator.clipboard.writeText(customer.taxCode!); toast.success('Đã sao chép mã số thuế'); }}
+                                                />
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="text-sm space-y-2">
+                                
+                                {/* Địa chỉ giao hàng - 1 hàng */}
+                                <div>
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Địa chỉ giao hàng</p>
+                                    <div className="flex items-start gap-1">
+                                        <p className="text-sm flex-1">{shippingAddress || 'Chưa có thông tin giao hàng'}</p>
+                                        {shippingAddress && (
+                                            <Copy 
+                                                className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground flex-shrink-0 mt-0.5" 
+                                                onClick={() => { navigator.clipboard.writeText(shippingAddress); toast.success('Đã sao chép địa chỉ giao hàng'); }}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {/* Địa chỉ nhận hóa đơn - 1 hàng */}
+                                <div>
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Địa chỉ nhận hóa đơn</p>
+                                    <div className="flex items-start gap-1">
+                                        <p className="text-sm flex-1">{billingAddress || '-'}</p>
+                                        {billingAddress && (
+                                            <Copy 
+                                                className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground flex-shrink-0 mt-0.5" 
+                                                onClick={() => { navigator.clipboard.writeText(billingAddress); toast.success('Đã sao chép địa chỉ hóa đơn'); }}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {/* Tags */}
+                                {customer?.tags && customer.tags.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Tags</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {customer.tags.map((tag, idx) => (
+                                                <Badge key={idx} variant="outline" className="text-xs font-normal">{tag}</Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Thống kê khách hàng */}
+                                <div className="text-sm space-y-1.5 border-t pt-3">
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Nợ phải thu:</span>
-                                        <span className="font-medium text-red-500">{formatCurrency(customer?.currentDebt)}</span>
+                                        <span className="text-muted-foreground">Nhóm KH:</span>
+                                        <span className="font-medium">{getGroupName(customer?.customerGroup) || '---'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">NV phụ trách:</span>
+                                        <span className="font-medium">{getEmployeeName(customer?.accountManagerId) || '---'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Công nợ/Hạn mức:</span>
+                                        <div className="text-right">
+                                            <Link 
+                                                to={`/customers/${customer?.systemId}?tab=debt`} 
+                                                className="font-medium text-red-500 hover:underline cursor-pointer"
+                                            >
+                                                {formatCurrency(customerDebtBalance)}
+                                            </Link>
+                                            <span className="text-muted-foreground mx-1">/</span>
+                                            <span className="font-medium">{formatCurrency(customer?.maxDebt)}</span>
+                                        </div>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Tổng chi tiêu:</span>
-                                        <span className="font-medium">{formatCurrency(customer?.totalSpent)}</span>
+                                        <span className="font-medium">{formatCurrency(customerOrderStats.totalSpent)}</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Trả hàng:</span>
-                                        <span className="font-medium">0</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Giao thất bại:</span>
-                                        <span className="font-medium">0</span>
-                                    </div>
+                                    <div className="border-t border-dashed my-2" />
+                                    {customerMetrics.map(metric => {
+                                        const toneClass = metric.tone === 'destructive'
+                                            ? 'text-red-600'
+                                            : metric.tone === 'warning'
+                                                ? 'text-amber-600'
+                                                : metric.tone === 'success'
+                                                    ? 'text-green-600'
+                                                    : 'text-foreground';
+                                        const ValueContent = (
+                                            <div className="flex items-center gap-2 justify-end">
+                                                <span className={cn('font-medium', toneClass, metric.link && 'hover:underline cursor-pointer')}>{metric.value}</span>
+                                                {metric.badge && (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={cn(
+                                                            'text-[11px] uppercase tracking-tight',
+                                                            metric.badge.tone === 'destructive'
+                                                                ? 'bg-red-100 text-red-700 border-red-200'
+                                                                : 'bg-amber-100 text-amber-700 border-amber-200'
+                                                        )}
+                                                    >
+                                                        {metric.badge.label}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        );
+                                        return (
+                                            <div key={metric.key} className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                                                <span className="text-muted-foreground">{metric.label}:</span>
+                                                <div className="text-right space-y-0.5">
+                                                    {metric.link ? (
+                                                        <Link to={metric.link} className="block">
+                                                            {ValueContent}
+                                                        </Link>
+                                                    ) : (
+                                                        ValueContent
+                                                    )}
+                                                    {metric.subValue && (
+                                                        <p className="text-xs text-muted-foreground">{metric.subValue}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Thông tin đơn hàng - 1/3 width on desktop */}
-                    <Card className="flex flex-col h-full lg:h-auto">
+                    {/* Quy trình xử lý - 30% width on desktop */}
+                    <div className="lg:col-span-3 space-y-3">
+                        {!hasOrderWorkflowTemplate && (
+                            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                                <Info className="h-4 w-4 text-amber-600" />
+                                <AlertTitle>Chưa cấu hình quy trình xử lý đơn hàng</AlertTitle>
+                                <AlertDescription>
+                                    Thiết lập quy trình mặc định tại{' '}
+                                    <Link to="/settings/workflow-templates" className="font-semibold text-primary underline">
+                                        Cài đặt &gt; Quy trình
+                                    </Link>{' '}
+                                    để đội vận hành có checklist thống nhất.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        <OrderWorkflowCard 
+                            order={order} 
+                            onUpdateOrder={(systemId, updates) => {
+                                orderStore.update(asSystemId(systemId), updates);
+                            }} 
+                        />
+                    </div>
+
+                    {/* Thông tin đơn hàng - 30% width on desktop */}
+                    <Card className="lg:col-span-3 flex flex-col h-full lg:h-auto">
                         <CardHeader className="flex-shrink-0">
                             <CardTitle className="text-base font-semibold">Thông tin đơn hàng</CardTitle>
                         </CardHeader>
@@ -1358,7 +2769,7 @@ export function OrderDetailPage() {
                                 scrollbarColor: 'rgb(203 213 225) transparent'
                             }}
                         >
-                            <DetailField label="Chính sách giá" value="Giá bán lẻ" />
+                            <DetailField label="Chính sách giá" value={defaultPricingPolicy?.name || 'Giá bán lẻ'} />
                             <DetailField label="Bán tại" value={order.branchName} />
                             <div className="flex">
                                 <span className="text-muted-foreground min-w-[140px]">Bán bởi:</span>
@@ -1389,9 +2800,7 @@ export function OrderDetailPage() {
                                     <span className="text-muted-foreground">Tags:</span>{' '}
                                     <div className="flex flex-wrap gap-1 mt-1">
                                         {order.tags.map((tag, idx) => (
-                                            <Badge key={idx} variant="secondary" className="text-xs">
-                                                {tag}
-                                            </Badge>
+                                            <Badge key={idx} variant="secondary" className="text-xs">{tag}</Badge>
                                         ))}
                                     </div>
                                 </div>
@@ -1416,7 +2825,6 @@ export function OrderDetailPage() {
                                 variant="link" 
                                 className="p-0 h-auto text-sm" 
                                 onClick={() => {
-                                    // Scroll to history tab
                                     const historyTab = document.querySelector('[value="history"]');
                                     if (historyTab) {
                                         (historyTab as HTMLElement).click();
@@ -1466,19 +2874,25 @@ export function OrderDetailPage() {
                             {totalReturnedValue > 0 && (
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Giá trị hàng bị trả lại:</span>
-                                    <span className="font-medium">-{formatCurrency(totalReturnedValue)}</span>
+                                    <span className="font-medium text-amber-600">-{formatCurrency(totalReturnedValue)}</span>
                                 </div>
                             )}
                             {totalReturnedValue > 0 && (
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground font-semibold">Công nợ thực tế:</span>
-                                    <span className="font-semibold">{formatCurrency(order.grandTotal - totalReturnedValue)}</span>
+                                    <span className="font-semibold">{formatCurrency(netGrandTotal)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Đã trả:</span>
-                                <span className="font-medium">{totalPaid >= 0 ? '-' : ''}{formatCurrency(Math.abs(totalPaid))}</span>
+                                <span className="font-medium">{totalPaid > 0 ? formatCurrency(totalPaid) : '0'}</span>
                             </div>
+                            {totalRefundedFromReturns > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Đã hoàn tiền (trả hàng):</span>
+                                    <span className="font-medium text-green-600">-{formatCurrency(totalRefundedFromReturns)}</span>
+                                </div>
+                            )}
                             
                             {totalCodAmount > 0 && (
                                 <div className="flex justify-between">
@@ -1495,16 +2909,22 @@ export function OrderDetailPage() {
                                 <span className="text-muted-foreground font-bold">Còn phải trả:</span>
                                 <span className={cn(
                                     "font-bold text-lg",
-                                    amountRemaining > 0 ? 'text-red-500' : 'text-foreground'
-                                )}>{formatCurrency(amountRemaining)}</span>
+                                    amountRemaining > 0 ? 'text-red-500' : amountRemaining < 0 ? 'text-green-600' : 'text-foreground'
+                                )}>{amountRemaining >= 0 ? formatCurrency(amountRemaining) : formatCurrency(0)}</span>
                             </div>
+                            {amountRemaining < 0 && (
+                                <div className="flex justify-between text-green-600">
+                                    <span className="font-medium">Thừa tiền (cần hoàn thêm):</span>
+                                    <span className="font-bold">{formatCurrency(Math.abs(amountRemaining))}</span>
+                                </div>
+                            )}
                         </div>
 
                         {directPayments.length > 0 && (
                             <div className="space-y-2 pt-2">
                                 {[...directPayments].reverse().map((payment, index) => (
                                     <React.Fragment key={`direct-${payment.systemId}-${index}`}>
-                                        <PaymentInfo payment={payment} />
+                                        <PaymentInfo payment={payment} order={order} />
                                     </React.Fragment>
                                 ))}
                             </div>
@@ -1514,7 +2934,7 @@ export function OrderDetailPage() {
                             <div className="space-y-2 pt-2">
                                 {codPayments.length > 0 && [...codPayments].reverse().map((payment, index) => (
                                     <React.Fragment key={`cod-${payment.systemId}-${index}`}>
-                                        <PaymentInfo payment={payment} />
+                                        <PaymentInfo payment={payment} order={order} />
                                     </React.Fragment>
                                 ))}
                                 {totalActiveCod > 0 && (
@@ -1526,6 +2946,106 @@ export function OrderDetailPage() {
                                         <div className="font-semibold">{formatCurrency(totalActiveCod)}</div>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Phiếu chi hoàn tiền từ trả hàng */}
+                        {refundPaymentsForOrder.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t">
+                                <p className="text-sm font-medium text-muted-foreground pt-2">Phiếu chi hoàn tiền</p>
+                                {[...refundPaymentsForOrder].reverse().map((refund, index) => (
+                                    <div key={`refund-${refund.systemId}-${index}`} className="border rounded-md text-sm">
+                                        <Collapsible>
+                                            <CollapsibleTrigger asChild>
+                                                <div className="w-full p-3 flex items-center justify-between hover:bg-muted/50 rounded-md transition-colors cursor-pointer">
+                                                <div className="flex items-center gap-2">
+                                                    <ArrowDownLeft className="h-4 w-4 text-green-600" />
+                                                    <Link 
+                                                        to={`/payments/${refund.systemId}`} 
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="font-medium text-primary hover:underline"
+                                                    >
+                                                        {refund.id}
+                                                    </Link>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-muted-foreground">{formatDate(refund.date)}</span>
+                                                    <span className="font-semibold text-green-600">-{formatCurrency(refund.amount)}</span>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-6 w-6"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            // Reuse handlePrintTransaction logic or similar
+                                                            // Since we don't have handlePrintTransaction here, we need to implement it or pass it
+                                                            // But wait, we are inside OrderDetailPage, we can access print function
+                                                            // Let's implement inline or call a helper
+                                                            
+                                                            const branch = findBranchById(order.branchSystemId);
+                                                            const storeSettings: StoreSettings = {
+                                                                name: storeInfo.brandName || storeInfo.companyName,
+                                                                address: storeInfo.headquartersAddress,
+                                                                phone: storeInfo.hotline,
+                                                                email: storeInfo.email,
+                                                                province: storeInfo.province,
+                                                            };
+                                                            
+                                                            const paymentData: PaymentForPrint = {
+                                                                code: refund.id,
+                                                                createdAt: refund.date,
+                                                                issuedAt: refund.date,
+                                                                createdBy: findEmployeeById(refund.createdBy)?.fullName || refund.createdBy,
+                                                                recipientName: order.customerName,
+                                                                recipientPhone: order.customerPhone,
+                                                                recipientAddress: order.customerAddress,
+                                                                recipientType: 'Khách hàng',
+                                                                amount: refund.amount,
+                                                                description: refund.description,
+                                                                paymentMethod: refund.paymentMethodName,
+                                                                documentRootCode: order.id,
+                                                                note: refund.description,
+                                                                location: branch ? {
+                                                                    name: branch.name,
+                                                                    address: branch.address,
+                                                                    province: branch.province
+                                                                } : undefined
+                                                            };
+                                                            
+                                                            const printData = mapPaymentToPrintData(paymentData, storeSettings);
+                                                            printData['amount_text'] = numberToWords(refund.amount);
+                                                            printData['print_date'] = formatDateTime(new Date());
+                                                            printData['print_time'] = formatTime(new Date());
+                                                            
+                                                            print('payment', { data: printData });
+                                                        }}
+                                                        title="In phiếu"
+                                                    >
+                                                        <Printer className="h-4 w-4" />
+                                                    </Button>
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                </div>
+                                                </div>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="px-3 pb-3">
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm pt-2 border-t">
+                                                    <div>
+                                                        <span className="text-muted-foreground">Phương thức</span>
+                                                        <p className="font-medium">{refund.paymentMethodName}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-muted-foreground">Người tạo</span>
+                                                        <p className="font-medium">{findEmployeeById(refund.createdBy)?.fullName || refund.createdBy}</p>
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <span className="text-muted-foreground">Diễn giải</span>
+                                                        <p className="font-medium">{refund.description}</p>
+                                                    </div>
+                                                </div>
+                                            </CollapsibleContent>
+                                        </Collapsible>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </CardContent>
@@ -1570,7 +3090,14 @@ export function OrderDetailPage() {
                 </Card>
 
                 {/* Product Info Card - Always visible */}
-                <ProductInfoCard order={order} costOfGoods={costOfGoods} profit={profit} totalDiscount={totalDiscount} salesReturns={allSalesReturns} />
+                <ProductInfoCard 
+                    order={order} 
+                    costOfGoods={costOfGoods} 
+                    profit={profit} 
+                    totalDiscount={totalDiscount} 
+                    salesReturns={allSalesReturns} 
+                    getProductTypeLabel={getProductTypeLabel}
+                />
                 
                 {/* Return History Card - Show only if there are returns */}
                 {salesReturnsForOrder.length > 0 && (
@@ -1581,60 +3108,106 @@ export function OrderDetailPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ReturnHistoryTab order={order} salesReturnsForOrder={salesReturnsForOrder} />
+                            <ReturnHistoryTab 
+                                order={order} 
+                                salesReturnsForOrder={salesReturnsForOrder}
+                                getProductTypeLabel={getProductTypeLabel}
+                                onPreview={handlePreview}
+                            />
                         </CardContent>
                     </Card>
                 )}
+
+                <Comments
+                    entityType="order"
+                    entityId={order.systemId}
+                    comments={orderComments}
+                    onAddComment={handleAddOrderComment}
+                    onUpdateComment={handleUpdateOrderComment}
+                    onDeleteComment={handleDeleteOrderComment}
+                    currentUser={commentCurrentUser}
+                    title="Bình luận nội bộ"
+                    placeholder="Nhập bình luận cho đơn hàng..."
+                    mentions={employeeMentions}
+                />
                 
-                {/* Tabs - Order History, Shipping Tracking & Notes */}
-                <Tabs defaultValue="history" className="w-full">
-                    <TabsList className="w-full sm:w-auto">
-                        <TabsTrigger value="history" className="flex-1 sm:flex-none">Lịch sử & Ghi chú</TabsTrigger>
-                        {/* Show Vận chuyển tab if order has shipping partner delivery */}
-                        {order.packagings.some(p => p.deliveryMethod === 'Dịch vụ giao hàng' && p.status !== 'Hủy đóng gói') && (
-                            <TabsTrigger value="shipping" className="flex-1 sm:flex-none">
-                                <Truck className="h-4 w-4 mr-1" />
-                                Vận chuyển
-                            </TabsTrigger>
-                        )}
-                    </TabsList>
-                    <TabsContent value="history" className="mt-4">
-                        <OrderHistoryTab order={order} salesReturnsForOrder={salesReturnsForOrder}/>
-                    </TabsContent>
-                    <TabsContent value="shipping" className="mt-4">
-                        <ShippingTrackingTab order={order} />
-                    </TabsContent>
-                </Tabs>
+                {/* Order History & Notes */}
+                <OrderHistoryTab order={order} salesReturnsForOrder={salesReturnsForOrder} orderComments={orderComments} />
+
+                {/* Shipping Tracking - Show if order has shipping partner delivery */}
+                {order.packagings.some(p => p.deliveryMethod === 'Dịch vụ giao hàng' && p.status !== 'Hủy đóng gói') && (
+                    <ShippingTrackingTab order={order} />
+                )}
             </div>
 
-            <Dialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="h-9 w-10 rounded-full bg-red-100 flex items-center justify-center">
-                                <Ban className="h-5 w-5 text-red-600" />
+            <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Xác nhận hủy đơn hàng</AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-4">
+                            <div className="space-y-3">
+                                <p>Bạn có chắc chắn muốn hủy đơn hàng này không?</p>
+                                <p className="text-sm">Khi hủy đơn hàng, hệ thống sẽ thực hiện các thay đổi sau:</p>
+                                <ul className="text-sm space-y-1 ml-4 list-disc">
+                                    <li>Trả hàng về kho và cập nhật số lượng tồn kho</li>
+                                    <li>Hủy các vận đơn liên quan (nếu có)</li>
+                                    <li>Hủy các phiếu thu thanh toán đơn hàng</li>
+                                    <li>Hủy các phiếu thu đặt cọc shipper (nếu có)</li>
+                                    <li>Cập nhật công nợ khách hàng</li>
+                                    <li>Cập nhật công nợ đối tác vận chuyển</li>
+                                    <li>Hoàn lại khuyến mại và điểm tích lũy (nếu có)</li>
+                                </ul>
+                                {order && order.payments && order.payments.length > 0 && (
+                                    <p className="text-amber-600 font-medium">
+                                        Lưu ý: Đơn hàng đã có thanh toán. Một phiếu chi hoàn tiền sẽ được tạo tự động.
+                                    </p>
+                                )}
+                                <p className="font-semibold text-destructive">Hành động này không thể hoàn tác!</p>
                             </div>
-                            <DialogTitle className="text-lg">Hủy đơn hàng</DialogTitle>
-                        </div>
-                        <DialogDescription className="text-sm leading-relaxed">
-                            Bạn có chắc chắn muốn hủy đơn hàng này không? Đơn hàng sẽ chuyển sang trạng thái "Đã hủy" và không thể khôi phục.
-                            {order && order.payments && order.payments.length > 0 && (
-                                <span className="block mt-2 text-amber-600 font-medium">
-                                    Lưu ý: Đơn hàng đã có thanh toán. Một phiếu chi hoàn tiền sẽ được tạo tự động.
-                                </span>
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="outline" onClick={() => setIsCancelAlertOpen(false)} className="flex-1 sm:flex-none">
-                            Quay lại
-                        </Button>
-                        <Button variant="destructive" onClick={handleConfirmCancel} className="flex-1 sm:flex-none">
-                            Xác nhận hủy
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="cancel-reason-textarea" className="text-sm font-semibold">
+                                    Lý do hủy đơn hàng
+                                </Label>
+                                <Textarea
+                                    id="cancel-reason-textarea"
+                                    value={cancelReasonText}
+                                    onChange={(event) => setCancelReasonText(event.target.value)}
+                                    placeholder="Nhập rõ lý do hủy để đội vận hành nắm được..."
+                                    rows={3}
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label className="text-sm font-semibold">Tùy chọn bổ sung</Label>
+                                <div className="space-y-2">
+                                    <div className="flex items-start gap-3 rounded-md border p-3">
+                                        <Checkbox
+                                            id="cancel-restock-option"
+                                            checked={restockItems}
+                                            onCheckedChange={(checked) => setRestockItems(checked === true)}
+                                        />
+                                        <div className="space-y-1">
+                                            <Label htmlFor="cancel-restock-option" className="text-sm font-medium">
+                                                Hoàn kho {totalLineQuantity} sản phẩm
+                                            </Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                Giữ tồn kho và số liệu chi phí chính xác sau khi hủy.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Không, giữ đơn hàng</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmCancel} className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                            Có, hủy đơn hàng
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
              <PaymentDialog 
                 isOpen={isPaymentDialogOpen}
@@ -1655,6 +3228,7 @@ export function OrderDetailPage() {
                 isOpen={isPackerSelectionOpen}
                 onOpenChange={setIsPackerSelectionOpen}
                 onSubmit={handleRequestPackaging}
+                {...(existingPackerSystemId ? { existingPackerSystemId } : {})}
             />
             
             <CancelPackagingDialog
@@ -1678,6 +3252,14 @@ export function OrderDetailPage() {
                     onCancelAndRestock={handleCancelDeliveryAndRestock}
                 />
             )}
+
+            {/* Image Preview Dialog for ReturnHistoryTab */}
+            <ImagePreviewDialog 
+                open={returnHistoryPreviewState.open} 
+                onOpenChange={(open) => setReturnHistoryPreviewState(prev => ({ ...prev, open }))} 
+                images={[returnHistoryPreviewState.image]} 
+                title={returnHistoryPreviewState.title}
+            />
         </>
     );
 }

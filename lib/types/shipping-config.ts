@@ -42,25 +42,25 @@ export interface GlobalShippingConfig {
  */
 export interface PickupAddress {
   id: string;
-  hrm?: Record<string, unknown>;
+  hrm?: Record<string, unknown> | undefined;
   
   // SAPO branch mapping (internal)
-  sapoBranchId?: SystemId;
-  sapoBranchName?: string;
-  sapoAddress?: string;
-  sapoProvince?: string;
-  sapoDistrict?: string;
-  sapoWard?: string;
-  sapoPhone?: string;
+  sapoBranchId?: SystemId | undefined;
+  sapoBranchName?: string | undefined;
+  sapoAddress?: string | undefined;
+  sapoProvince?: string | undefined;
+  sapoDistrict?: string | undefined;
+  sapoWard?: string | undefined;
+  sapoPhone?: string | undefined;
   
   // Legacy HRM branch mapping
-  hrmBranchId?: string;
-  hrmBranchName?: string;
-  hrmAddress?: string;
-  hrmProvince?: string;
-  hrmDistrict?: string;
-  hrmWard?: string;
-  hrmPhone?: string;
+  hrmBranchId?: string | undefined;
+  hrmBranchName?: string | undefined;
+  hrmAddress?: string | undefined;
+  hrmProvince?: string | undefined;
+  hrmDistrict?: string | undefined;
+  hrmWard?: string | undefined;
+  hrmPhone?: string | undefined;
   
   // Partner warehouse info
   partnerWarehouseId: string;      // ID from partner (e.g., GHTK pick_address_id)
@@ -68,8 +68,8 @@ export interface PickupAddress {
   partnerWarehouseAddress: string;
   partnerWarehouseProvince: string;
   partnerWarehouseDistrict: string;
-  partnerWarehouseWard?: string;
-  partnerWarehouseTel?: string;
+  partnerWarehouseWard?: string | undefined;
+  partnerWarehouseTel?: string | undefined;
   
   isDefault: boolean;
   active: boolean;
@@ -80,47 +80,47 @@ export interface PickupAddress {
  */
 export interface GHTKDefaultSettings {
   // Vận chuyển bằng
-  transport?: 'road' | 'fly'; // Đường bộ / Đường bay
+  transport?: 'road' | 'fly' | undefined; // Đường bộ / Đường bay
   
   // Địa chỉ trả hàng
-  useReturnAddress?: 0 | 1; // 0: trả về địa chỉ lấy hàng, 1: trả về địa chỉ khác
-  returnAddress?: string;
+  useReturnAddress?: 0 | 1 | undefined; // 0: trả về địa chỉ lấy hàng, 1: trả về địa chỉ khác
+  returnAddress?: string | undefined;
   
   // Dự kiến giao hàng (ca)
-  deliverWorkShift?: 1 | 2; // 1: sáng, 2: chiều
+  deliverWorkShift?: 1 | 2 | undefined; // 1: sáng, 2: chiều
   
   // Hẹn ca lấy hàng
-  pickWorkShift?: 1 | 2; // 1: sáng, 2: chiều
+  pickWorkShift?: 1 | 2 | undefined; // 1: sáng, 2: chiều
   
   // Người trả phí
-  isFreeship?: 0 | 1; // 0: khách trả ship (mặc định), 1: shop trả ship
+  isFreeship?: 0 | 1 | undefined; // 0: khách trả ship (mặc định), 1: shop trả ship
   
   // Lấy hàng tại
-  pickOption?: 'cod' | 'post'; // cod: COD đến lấy, post: gửi tại bưu cục
+  pickOption?: 'cod' | 'post' | undefined; // cod: COD đến lấy, post: gửi tại bưu cục
   
   // Dịch vụ cộng thêm (tags)
   tags?: {
-    hangDeVo?: boolean; // Tag 1: Hàng dễ vỡ
+    hangDeVo?: boolean | undefined; // Tag 1: Hàng dễ vỡ
     // Tag 2: Giá trị cao - REMOVED: GHTK tự động tính dựa trên field "value"
-    nongSanThucPhamKho?: boolean; // Tag 6: Nông sản/thực phẩm khô
-    dongKiem?: boolean; // Tag 7: Đóng kiểm
-    hangKhongXepChong?: boolean; // Tag 8: Hàng không xếp chồng
-    choXemHang?: boolean; // Tag 10: Cho xem hàng
-    goiShopKhiGapVanDe?: boolean; // Tag 13: Gọi shop khi khách không nhận
-    giaoHang1PhanChonSanPham?: boolean; // Tag 17: Giao 1 phần chọn sản phẩm
-    giao1PhanDoiTra?: boolean; // Tag 18: Giao 1 phần đổi trả
-    thuTienHuyHang?: boolean; // Tag 19: Không giao được thu phí
-    giaoHang1PhanThuHoiChungTu?: boolean; // Tag 62: Giao 1 phần thu hồi chứng từ
-  };
+    nongSanThucPhamKho?: boolean | undefined; // Tag 6: Nông sản/thực phẩm khô
+    dongKiem?: boolean | undefined; // Tag 7: Đóng kiểm
+    hangKhongXepChong?: boolean | undefined; // Tag 8: Hàng không xếp chồng
+    choXemHang?: boolean | undefined; // Tag 10: Cho xem hàng
+    goiShopKhiGapVanDe?: boolean | undefined; // Tag 13: Gọi shop khi khách không nhận
+    giaoHang1PhanChonSanPham?: boolean | undefined; // Tag 17: Giao 1 phần chọn sản phẩm
+    giao1PhanDoiTra?: boolean | undefined; // Tag 18: Giao 1 phần đổi trả
+    thuTienHuyHang?: boolean | undefined; // Tag 19: Không giao được thu phí
+    giaoHang1PhanThuHoiChungTu?: boolean | undefined; // Tag 62: Giao 1 phần thu hồi chứng từ
+  } | undefined;
   
   // Sub tags cho hàng cây cối (chỉ khi có tag cây cối)
   plantSubTags?: {
-    hatGiong?: boolean; // Sub tag 1
-    cayNon?: boolean; // Sub tag 2
-    cayCoBau?: boolean; // Sub tag 3
-    cayCoChauDeVo?: boolean; // Sub tag 4
-    cayKhac?: boolean; // Sub tag 5
-  };
+    hatGiong?: boolean | undefined; // Sub tag 1
+    cayNon?: boolean | undefined; // Sub tag 2
+    cayCoBau?: boolean | undefined; // Sub tag 3
+    cayCoChauDeVo?: boolean | undefined; // Sub tag 4
+    cayKhac?: boolean | undefined; // Sub tag 5
+  } | undefined;
 }
 
 /**
@@ -136,7 +136,7 @@ export interface PartnerAccount {
   pickupAddresses: PickupAddress[];
   
   // Default settings (for GHTK)
-  defaultSettings?: GHTKDefaultSettings;
+  defaultSettings?: GHTKDefaultSettings | undefined;
   
   createdAt: string;
   updatedAt: string;

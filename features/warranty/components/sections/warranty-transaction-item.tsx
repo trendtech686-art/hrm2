@@ -6,11 +6,12 @@ import type { Order } from '../../../orders/types.ts';
 import type { WarrantyTransaction } from '../../types/transactions.ts';
 import type { SettlementMethod } from '../../types.ts';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types.ts';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface WarrantyTransactionItemProps {
   transaction: WarrantyTransaction;
   orders: Order[];
-  settlementMethod?: SettlementMethod | null;
+  settlementMethod?: SettlementMethod | null | undefined;
 }
 
 export function WarrantyTransactionItem({ transaction, orders, settlementMethod }: WarrantyTransactionItemProps) {
@@ -115,7 +116,7 @@ export function WarrantyTransactionItem({ transaction, orders, settlementMethod 
 
           {transaction.status === 'cancelled' && transaction.cancelledAt && (
             <span className="text-xs text-muted-foreground">
-              Hủy lúc: {new Date(transaction.cancelledAt).toLocaleString('vi-VN')}
+              Hủy lúc: {formatDateTimeForDisplay(transaction.cancelledAt)}
             </span>
           )}
         </div>

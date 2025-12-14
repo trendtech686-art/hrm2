@@ -18,7 +18,7 @@ export const getColumns = (): ColumnDef<ReconciliationItem>[] => [
       header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
       ),

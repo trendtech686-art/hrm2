@@ -9,10 +9,34 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Tax code validation (10-13 digits)
 const taxCodeRegex = /^\d{10,13}$/;
 
+// Address Schema
+export const addressSchema = z.object({
+  id: z.string(),
+  label: z.string().min(1, "Nhãn địa chỉ là bắt buộc"),
+  street: z.string().min(1, "Địa chỉ chi tiết là bắt buộc"),
+  contactName: z.string().optional(),
+  contactPhone: z.string().regex(phoneRegex, "Số điện thoại không hợp lệ").optional().or(z.literal('')),
+  
+  inputLevel: z.enum(['2-level', '3-level']).optional(),
+  autoFilled: z.boolean().optional(),
+  
+  province: z.string().min(1, "Vui lòng chọn Tỉnh/Thành"),
+  provinceId: z.string(),
+  ward: z.string().min(1, "Vui lòng chọn Phường/Xã"),
+  wardId: z.string(),
+  
+  district: z.string().min(1, "Vui lòng chọn Quận/Huyện"),
+  districtId: z.number(),
+  
+  isDefaultShipping: z.boolean().optional(),
+  isDefaultBilling: z.boolean().optional(),
+  notes: z.string().optional(),
+});
+
 export const customerFormSchema = z.object({
-  // Optional fields (không bắt buộc)
+  // Mã khách hàng - tùy chọn, nếu không nhập sẽ tự động sinh KH000001
   id: z.string()
-    .regex(/^CUS\d{3,}$/, "Mã khách hàng phải có định dạng CUS001, CUS002, ...")
+    .max(50, "Mã khách hàng không được quá 50 ký tự")
     .optional()
     .or(z.literal('')),
   
@@ -30,13 +54,14 @@ export const customerFormSchema = z.object({
     .optional()
     .or(z.literal('')),
 
-  status: z.enum(['Đang giao dịch', 'Ngừng Giao Dịch'], {
+  status: z.enum(['Đang giao dịch', 'Ngừng Giao Dịch', 'active', 'inactive'], {
     message: "Vui lòng chọn trạng thái"
   }),
 
-  // Optional fields
+  // Classification
   type: z.string().optional(),
   customerGroup: z.string().optional(),
+  lifecycleStage: z.string().optional(),
   
   company: z.string()
     .max(200, "Tên công ty không được quá 200 ký tự")
@@ -55,7 +80,10 @@ export const customerFormSchema = z.object({
     .max(100, "Chức vụ không được quá 100 ký tự")
     .optional(),
   
-  // Address fields (split format)
+  // Addresses
+  addresses: z.array(addressSchema),
+
+  // Legacy flat address fields (kept for backward compatibility but optional)
   shippingAddress_street: z.string().optional(),
   shippingAddress_ward: z.string().optional(),
   shippingAddress_province: z.string().optional(),
@@ -75,6 +103,7 @@ export const customerFormSchema = z.object({
     .optional()
     .or(z.literal('')),
   
+  // Financials
   currentDebt: z.number()
     .min(0, "Công nợ không được âm")
     .optional(),
@@ -82,6 +111,48 @@ export const customerFormSchema = z.object({
   maxDebt: z.number()
     .min(0, "Hạn mức công nợ không được âm")
     .optional(),
+    
+  paymentTerms: z.string().optional(),
+  creditRating: z.string().optional(),
+  allowCredit: z.boolean().optional(),
+  defaultDiscount: z.number().min(0).max(100).optional(),
+  pricingLevel: z.string().optional(),
+  
+  // Marketing & Source
+  source: z.string().optional(),
+  campaign: z.string().optional(),
+  referredBy: z.string().optional(),
+  
+  // Social Media
+  social: z.object({
+    facebook: z.string().url("Link Facebook không hợp lệ").optional().or(z.literal('')),
+    linkedin: z.string().url("Link LinkedIn không hợp lệ").optional().or(z.literal('')),
+    website: z.string().url("Website không hợp lệ").optional().or(z.literal('')),
+  }).optional(),
+  
+  tags: z.array(z.string()).optional(),
+  images: z.array(z.string()).optional(),
+  
+  // Contacts
+  contacts: z.array(z.object({
+    id: z.string(),
+    name: z.string().min(1, "Tên liên hệ là bắt buộc"),
+    role: z.string().min(1, "Chức vụ là bắt buộc"),
+    phone: z.string().regex(phoneRegex, "Số điện thoại không hợp lệ").optional().or(z.literal('')),
+    email: z.string().regex(emailRegex, "Email không hợp lệ").optional().or(z.literal('')),
+    isPrimary: z.boolean().optional(),
+  })).optional(),
+
+  // Contract
+  contract: z.object({
+    number: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    value: z.number().optional(),
+    status: z.enum(['Active', 'Expired', 'Pending', 'Cancelled']).optional(),
+    fileUrl: z.string().optional(),
+    details: z.string().optional(),
+  }).optional(),
   
   notes: z.string()
     .max(500, "Ghi chú không được quá 500 ký tự")
@@ -106,25 +177,6 @@ export const customerFormSchema = z.object({
   totalQuantityReturned: z.number().optional(),
   lastPurchaseDate: z.string().optional(),
   failedDeliveries: z.number().optional(),
-
-  // Payment & Credit
-  paymentTerms: z.string().optional(),
-  creditRating: z.string().optional(),
-  allowCredit: z.boolean().optional(),
-  defaultDiscount: z.number().min(0).max(100).optional(),
-  pricingLevel: z.enum(['Retail', 'Wholesale', 'VIP', 'Partner']).optional(),
-
-  // Marketing
-  source: z.string().optional(),
-  campaign: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-
-  // Social Media
-  social: z.object({
-    website: z.string().optional(),
-    facebook: z.string().optional(),
-    linkedin: z.string().optional(),
-  }).optional(),
 });
 
 export type CustomerFormData = z.infer<typeof customerFormSchema>;

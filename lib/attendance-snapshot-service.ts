@@ -20,6 +20,10 @@ export type AttendanceSnapshot = {
     lateArrivals: number;
     earlyDepartures: number;
     otHours: number;
+    // Chi tiết OT theo loại ngày
+    otHoursWeekday?: number;   // Làm thêm ngày thường (sau giờ tan làm)
+    otHoursWeekend?: number;   // Làm thêm cuối tuần
+    otHoursHoliday?: number;   // Làm thêm ngày lễ
   };
   locked: boolean;
   status: 'pending' | 'locked';
@@ -43,6 +47,9 @@ const buildSnapshot = (
     lateArrivals: row.lateArrivals,
     earlyDepartures: row.earlyDepartures,
     otHours: row.otHours,
+    otHoursWeekday: row.otHoursWeekday ?? 0,
+    otHoursWeekend: row.otHoursWeekend ?? 0,
+    otHoursHoliday: row.otHoursHoliday ?? 0,
   },
   locked,
   status: locked ? 'locked' : 'pending',

@@ -1,154 +1,109 @@
-import type { BusinessId, SystemId } from '@/lib/id-types';
-import { asBusinessId, asSystemId } from '@/lib/id-types';
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { Tax, TaxType } from './types.ts';
+import type { SystemId } from '@/lib/id-types';
+import type { UseBoundStore, StoreApi } from 'zustand';
+import { data as initialData } from './data.ts';
+import type { Tax } from './types.ts';
+import { createCrudStore, type CrudState } from '../../../lib/store-factory.ts';
+import { getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
 
-interface TaxState {
-  data: Tax[];
-  add: (tax: Omit<Tax, 'systemId'>) => Tax;
-  update: (systemId: SystemId, tax: Partial<Tax>) => void;
-  remove: (systemId: SystemId) => void;
-  findById: (systemId: SystemId) => Tax | undefined;
-  findByType: (type: TaxType) => Tax[];
-  getDefault: (type: TaxType) => Tax | undefined;
-  setDefault: (systemId: SystemId) => void;
-  getActive: () => Tax[];
-}
+type TaxStore = CrudState<Tax> & {
+  setDefaultSale: (systemId: SystemId) => void;
+  setDefaultPurchase: (systemId: SystemId) => void;
+  getDefaultSale: () => Tax | undefined;
+  getDefaultPurchase: () => Tax | undefined;
+};
 
-// Sample data
-const rawTaxes = [
-  {
-    systemId: 'TAX001',
-    id: 'VAT10',
-    name: 'VAT 10%',
-    rate: 10,
-    type: 'purchase',
-    isDefault: true,
-    description: 'Thuế GTGT 10%',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    systemId: 'TAX002',
-    id: 'VAT8',
-    name: 'VAT 8%',
-    rate: 8,
-    type: 'sale',
-    isDefault: true,
-    description: 'Thuế GTGT 8%',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    systemId: 'TAX003',
-    id: 'VAT5',
-    name: 'VAT 5%',
-    rate: 5,
-    type: 'purchase',
-    isDefault: false,
-    description: 'Thuế GTGT 5%',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    systemId: 'TAX004',
-    id: 'VAT0',
-    name: 'VAT 0%',
-    rate: 0,
-    type: 'purchase',
-    isDefault: false,
-    description: 'Không áp dụng thuế',
-    createdAt: new Date().toISOString(),
-  },
-] as const;
+const baseStore = createCrudStore<Tax>(initialData, 'taxes', {
+  businessIdField: 'id',
+  persistKey: 'hrm-taxes-storage',
+  getCurrentUser: getCurrentUserSystemId,
+}) as UseBoundStore<StoreApi<TaxStore>>;
 
-const sampleTaxes: Tax[] = rawTaxes.map((tax) => ({
-  ...tax,
-  systemId: asSystemId(tax.systemId),
-  id: asBusinessId(tax.id),
+const originalAdd = baseStore.getState().add;
+
+// Set default sale - chỉ có 1 mặc định (giống setDefault của PricingPolicy)
+const setDefaultSaleAction = (systemId: SystemId) => {
+  baseStore.setState((current) => {
+    const exists = current.data.some((tax) => tax.systemId === systemId);
+    if (!exists) return current;
+
+    return {
+      ...current,
+      data: current.data.map((tax) => ({
+        ...tax,
+        isDefaultSale: tax.systemId === systemId,
+      })),
+    };
+  });
+};
+
+// Set default purchase - chỉ có 1 mặc định
+const setDefaultPurchaseAction = (systemId: SystemId) => {
+  baseStore.setState((current) => {
+    const exists = current.data.some((tax) => tax.systemId === systemId);
+    if (!exists) return current;
+
+    return {
+      ...current,
+      data: current.data.map((tax) => ({
+        ...tax,
+        isDefaultPurchase: tax.systemId === systemId,
+      })),
+    };
+  });
+};
+
+const enhancedAdd: typeof originalAdd = (item) => {
+  const newItem = originalAdd(item);
+  const storeData = baseStore.getState().data;
+  
+  const hasDefaultSale = storeData.some((tax) => tax.isDefaultSale);
+  const hasDefaultPurchase = storeData.some((tax) => tax.isDefaultPurchase);
+
+  if (item.isDefaultSale) {
+    setDefaultSaleAction(newItem.systemId);
+  } else if (!hasDefaultSale) {
+    setDefaultSaleAction(newItem.systemId);
+  }
+
+  if (item.isDefaultPurchase) {
+    setDefaultPurchaseAction(newItem.systemId);
+  } else if (!hasDefaultPurchase) {
+    setDefaultPurchaseAction(newItem.systemId);
+  }
+
+  return newItem;
+};
+
+baseStore.setState((state) => ({
+  ...state,
+  add: enhancedAdd,
+  setDefaultSale: setDefaultSaleAction,
+  setDefaultPurchase: setDefaultPurchaseAction,
+  getDefaultSale: () => baseStore.getState().data.find((tax) => tax.isDefaultSale),
+  getDefaultPurchase: () => baseStore.getState().data.find((tax) => tax.isDefaultPurchase),
 }));
 
-export const useTaxStore = create<TaxState>()(
-  persist(
-    (set, get) => ({
-      data: sampleTaxes,
+// Ensure defaults exist on initial load (migrate old data without isDefaultSale/isDefaultPurchase)
+const ensureDefaultsOnInit = () => {
+  const currentData = baseStore.getState().data;
+  if (currentData.length === 0) return;
 
-      add: (tax) => {
-        const newTax: Tax = {
-          ...tax,
-          systemId: asSystemId(`TAX${Date.now()}`),
-          createdAt: new Date().toISOString(),
-        };
+  const hasDefaultSale = currentData.some((tax) => tax.isDefaultSale);
+  const hasDefaultPurchase = currentData.some((tax) => tax.isDefaultPurchase);
 
-        // If setting as default, unset other defaults of same type
-        if (newTax.isDefault) {
-          set((state) => ({
-            data: state.data.map((t) =>
-              t.type === newTax.type ? { ...t, isDefault: false } : t
-            ),
-          }));
-        }
+  if (!hasDefaultSale || !hasDefaultPurchase) {
+    baseStore.setState((current) => ({
+      ...current,
+      data: current.data.map((tax, index) => ({
+        ...tax,
+        isDefaultSale: !hasDefaultSale && index === 0 ? true : (tax.isDefaultSale ?? false),
+        isDefaultPurchase: !hasDefaultPurchase && index === 0 ? true : (tax.isDefaultPurchase ?? false),
+      })),
+    }));
+  }
+};
 
-        set((state) => ({
-          data: [...state.data, newTax],
-        }));
+// Run migration on module load
+ensureDefaultsOnInit();
 
-        return newTax;
-      },
-
-      update: (systemId, updates) => {
-        // If setting as default, unset other defaults of same type
-        if (updates.isDefault) {
-          const tax = get().findById(systemId);
-          if (tax) {
-            set((state) => ({
-              data: state.data.map((t) =>
-                t.type === tax.type && t.systemId !== systemId
-                  ? { ...t, isDefault: false }
-                  : t
-              ),
-            }));
-          }
-        }
-
-        set((state) => ({
-          data: state.data.map((tax) =>
-            tax.systemId === systemId
-              ? { ...tax, ...updates, updatedAt: new Date().toISOString() }
-              : tax
-          ),
-        }));
-      },
-
-      remove: (systemId) => {
-        set((state) => ({
-          data: state.data.filter((tax) => tax.systemId !== systemId),
-        }));
-      },
-
-      findById: (systemId) => {
-        return get().data.find((tax) => tax.systemId === systemId);
-      },
-
-      findByType: (type) => {
-        return get().data.filter((tax) => tax.type === type);
-      },
-
-      getDefault: (type) => {
-        return get().data.find((tax) => tax.type === type && tax.isDefault);
-      },
-
-      setDefault: (systemId) => {
-        const tax = get().findById(systemId);
-        if (tax) {
-          get().update(systemId, { isDefault: true });
-        }
-      },
-
-      getActive: () => {
-        return get().data;
-      },
-    }),
-    {
-      name: 'taxes-data',
-    }
-  )
-);
+export const useTaxStore = baseStore;

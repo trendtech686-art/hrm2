@@ -9,6 +9,7 @@ interface StorageLocationStore {
   update: (systemId: SystemId, location: Partial<StorageLocation>) => void;
   remove: (systemId: SystemId) => void;
   findById: (id: BusinessId) => StorageLocation | undefined;
+  findBySystemId: (systemId: SystemId) => StorageLocation | undefined;
   getActive: () => StorageLocation[];
 }
 
@@ -18,6 +19,7 @@ const rawData = [
     id: 'KHO-A',
     name: 'Kho A',
     description: 'Kho chính',
+    isDefault: true,
     isActive: true,
     isDeleted: false,
     createdAt: new Date().toISOString(),
@@ -78,6 +80,10 @@ export const useStorageLocationStore = create<StorageLocationStore>()(
 
       findById: (id) => {
         return get().data.find((loc) => loc.id === id && !loc.isDeleted);
+      },
+
+      findBySystemId: (systemId) => {
+        return get().data.find((loc) => loc.systemId === systemId && !loc.isDeleted);
       },
 
       getActive: () => {

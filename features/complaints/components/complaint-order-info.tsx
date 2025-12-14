@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import type { Complaint } from '../types.ts';
+import { formatOrderAddress } from '../../orders/address-utils.ts';
+import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface Props {
   complaint: Complaint;
@@ -12,6 +14,7 @@ interface Props {
 
 export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, relatedOrder, employees }) => {
   const navigate = useNavigate();
+  const displayedShippingAddress = formatOrderAddress(relatedOrder?.shippingAddress) || "Chưa có";
 
   return (
     <Card>
@@ -59,7 +62,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Địa chỉ giao hàng:</span>
-            <span className="font-medium text-right">{relatedOrder?.shippingAddress || "Chưa có"}</span>
+            <span className="font-medium text-right">{displayedShippingAddress}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Người tạo đơn:</span>
@@ -82,7 +85,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
           <div className="flex justify-between">
             <span className="text-muted-foreground">Ngày bán:</span>
             <span className="font-medium">
-              {relatedOrder ? new Date(relatedOrder.orderDate).toLocaleDateString('vi-VN') : "N/A"}
+              {relatedOrder ? formatDateForDisplay(relatedOrder.orderDate) : "N/A"}
             </span>
           </div>
           <div className="flex justify-between">
@@ -94,13 +97,13 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
           <div className="flex justify-between">
             <span className="text-muted-foreground">Thời gian giao hàng:</span>
             <span className="font-medium">
-              {relatedOrder?.expectedDeliveryDate ? new Date(relatedOrder.expectedDeliveryDate).toLocaleDateString('vi-VN') : "Chưa có"}
+              {relatedOrder?.expectedDeliveryDate ? formatDateForDisplay(relatedOrder.expectedDeliveryDate) : "Chưa có"}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Thời gian xuất kho:</span>
             <span className="font-medium">
-              {relatedOrder?.packagings?.[0]?.requestDate ? new Date(relatedOrder.packagings[0].requestDate).toLocaleDateString('vi-VN') : "Chưa xuất"}
+              {relatedOrder?.packagings?.[0]?.requestDate ? formatDateForDisplay(relatedOrder.packagings[0].requestDate) : "Chưa xuất"}
             </span>
           </div>
           <div className="flex justify-between">

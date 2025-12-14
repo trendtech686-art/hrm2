@@ -50,9 +50,9 @@ function StatCard({ title, value, subtitle, icon, trend, colorClass = "text-blue
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="text-sm text-muted-foreground mb-1">{title}</div>
+            <div className="text-body-sm text-muted-foreground mb-1">{title}</div>
             <div className={cn("text-3xl font-bold", colorClass)}>{value}</div>
-            {subtitle && <div className="text-xs text-muted-foreground mt-1">{subtitle}</div>}
+            {subtitle && <div className="text-body-xs text-muted-foreground mt-1">{subtitle}</div>}
             {trend && (
               <div className="flex items-center gap-1 mt-2">
                 {trend.isPositive ? (
@@ -60,7 +60,7 @@ function StatCard({ title, value, subtitle, icon, trend, colorClass = "text-blue
                 ) : (
                   <TrendingDown className="h-3 w-3 text-red-600" />
                 )}
-                <span className={cn("text-xs font-medium", trend.isPositive ? "text-green-600" : "text-red-600")}>
+                <span className={cn("text-body-xs font-medium", trend.isPositive ? "text-green-600" : "text-red-600")}>
                   {Math.abs(trend.value).toFixed(1)}%
                 </span>
               </div>
@@ -87,7 +87,7 @@ interface ProgressBarProps {
 function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }: ProgressBarProps) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between text-body-sm">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-medium">
           {value} / {total} ({percentage.toFixed(1)}%)
@@ -182,35 +182,35 @@ export function WarrantyStatisticsPage() {
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-4 gap-4">
             <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <div className="text-sm text-blue-600 dark:text-blue-400 mb-1">Phản hồi TB</div>
+              <div className="text-body-sm text-blue-600 dark:text-blue-400 mb-1">Phản hồi TB</div>
               <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                 {formatMinutes(stats.avgTimes.responseTime)}
               </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Mục tiêu: 2h</div>
+              <div className="text-body-xs text-blue-600 dark:text-blue-400 mt-1">Mục tiêu: 2h</div>
             </div>
 
             <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-              <div className="text-sm text-green-600 dark:text-green-400 mb-1">Xử lý TB</div>
+              <div className="text-body-sm text-green-600 dark:text-green-400 mb-1">Xử lý TB</div>
               <div className="text-2xl font-bold text-green-900 dark:text-green-100">
                 {formatMinutes(stats.avgTimes.processingTime)}
               </div>
-              <div className="text-xs text-green-600 dark:text-green-400 mt-1">Mục tiêu: 24h</div>
+              <div className="text-body-xs text-green-600 dark:text-green-400 mt-1">Mục tiêu: 24h</div>
             </div>
 
             <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-              <div className="text-sm text-purple-600 dark:text-purple-400 mb-1">Trả hàng TB</div>
+              <div className="text-body-sm text-purple-600 dark:text-purple-400 mb-1">Trả hàng TB</div>
               <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                 {formatMinutes(stats.avgTimes.returnTime)}
               </div>
-              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">Mục tiêu: 48h</div>
+              <div className="text-body-xs text-purple-600 dark:text-purple-400 mt-1">Mục tiêu: 48h</div>
             </div>
 
             <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
-              <div className="text-sm text-orange-600 dark:text-orange-400 mb-1">Tổng thời gian</div>
+              <div className="text-body-sm text-orange-600 dark:text-orange-400 mb-1">Tổng thời gian</div>
               <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
                 {formatMinutes(stats.avgTimes.totalTime)}
               </div>
-              <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+              <div className="text-body-xs text-orange-600 dark:text-orange-400 mt-1">
                 Từ nhận đến trả
               </div>
             </div>
@@ -272,7 +272,7 @@ export function WarrantyStatisticsPage() {
               />
             ))}
             {stats.byBranch.length > 5 && (
-              <div className="text-sm text-muted-foreground text-center pt-2">
+              <div className="text-body-sm text-muted-foreground text-center pt-2">
                 Và {stats.byBranch.length - 5} chi nhánh khác...
               </div>
             )}
@@ -297,7 +297,7 @@ export function WarrantyStatisticsPage() {
               <div key={employee.employeeId} className="flex items-center justify-between">
                 <div className="flex items-center gap-3 flex-1">
                   <div className={cn(
-                    "flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm",
+                    "flex items-center justify-center w-8 h-8 rounded-full font-bold text-body-sm",
                     index === 0 ? "bg-yellow-100 text-yellow-700" :
                     index === 1 ? "bg-gray-100 text-gray-700" :
                     index === 2 ? "bg-orange-100 text-orange-700" :
@@ -307,7 +307,7 @@ export function WarrantyStatisticsPage() {
                   </div>
                   <div className="flex-1">
                     <div className="font-medium">{employee.employeeName}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-body-xs text-muted-foreground">
                       TB: {formatMinutes(employee.avgProcessingTime)} / phiếu
                     </div>
                   </div>
@@ -335,12 +335,12 @@ export function WarrantyStatisticsPage() {
         <CardContent>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="p-4 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground mb-1">Tháng trước</div>
+              <div className="text-body-sm text-muted-foreground mb-1">Tháng trước</div>
               <div className="text-2xl font-bold">{stats.trend.lastMonth}</div>
             </div>
 
             <div className="p-4 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground mb-1">Tháng này</div>
+              <div className="text-body-sm text-muted-foreground mb-1">Tháng này</div>
               <div className="text-2xl font-bold">{stats.trend.thisMonth}</div>
             </div>
 
@@ -348,7 +348,7 @@ export function WarrantyStatisticsPage() {
               "p-4 rounded-lg",
               stats.trend.isIncreasing ? "bg-red-50 dark:bg-red-950/20" : "bg-green-50 dark:bg-green-950/20"
             )}>
-              <div className="text-sm text-muted-foreground mb-1">Thay đổi</div>
+              <div className="text-body-sm text-muted-foreground mb-1">Thay đổi</div>
               <div className={cn(
                 "text-2xl font-bold flex items-center gap-2",
                 stats.trend.isIncreasing ? "text-red-600" : "text-green-600"

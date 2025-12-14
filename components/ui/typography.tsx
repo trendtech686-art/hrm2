@@ -8,7 +8,7 @@ const H1 = React.forwardRef<
   <h1
     ref={ref}
     className={cn(
-      "scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl",
+      "scroll-m-20 text-h1 font-extrabold tracking-tight",
       className
     )}
     {...props}
@@ -23,7 +23,7 @@ const H2 = React.forwardRef<
   <h2
     ref={ref}
     className={cn(
-      "scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0",
+      "scroll-m-20 border-b pb-2 text-h2 font-semibold tracking-tight first:mt-0",
       className
     )}
     {...props}
@@ -38,7 +38,7 @@ const H3 = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "scroll-m-20 text-2xl font-semibold tracking-tight",
+      "scroll-m-20 text-h3 font-semibold tracking-tight",
       className
     )}
     {...props}
@@ -53,7 +53,7 @@ const H4 = React.forwardRef<
   <h4
     ref={ref}
     className={cn(
-      "scroll-m-20 text-xl font-semibold tracking-tight",
+      "scroll-m-20 text-h4 font-semibold tracking-tight",
       className
     )}
     {...props}

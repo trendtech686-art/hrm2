@@ -1,6 +1,8 @@
 /**
  * Date utility functions using date-fns
  * Replaces dayjs throughout the application
+ * 
+ * Reads timezone and time format from general-settings in localStorage
  */
 
 import {
@@ -27,12 +29,78 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
-// ===== FORMAT FUNCTIONS =====
+// ===== SETTINGS HELPER =====
+
+type DateSettings = {
+  timezone: string;
+  dateFormat: string;
+  timeFormat: '24h' | '12h';
+};
+
+const DEFAULT_DATE_SETTINGS: DateSettings = {
+  timezone: 'Asia/Ho_Chi_Minh',
+  dateFormat: 'DD/MM/YYYY',
+  timeFormat: '24h',
+};
 
 /**
- * Format date as DD/MM/YYYY
+ * Get date settings from localStorage
  */
-export const formatDate = (date: Date | string | null | undefined): string => {
+export const getDateSettings = (): DateSettings => {
+  try {
+    const stored = localStorage.getItem('general-settings');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        timezone: parsed.timezone || DEFAULT_DATE_SETTINGS.timezone,
+        dateFormat: parsed.dateFormat || DEFAULT_DATE_SETTINGS.dateFormat,
+        timeFormat: parsed.timeFormat || DEFAULT_DATE_SETTINGS.timeFormat,
+      };
+    }
+  } catch (e) { /* ignore */ }
+  return DEFAULT_DATE_SETTINGS;
+};
+
+/**
+ * Get timezone offset in hours from settings
+ */
+export const getTimezoneOffset = (): number => {
+  const { timezone } = getDateSettings();
+  const offsets: Record<string, number> = {
+    'Asia/Ho_Chi_Minh': 7,
+    'Asia/Bangkok': 7,
+    'Asia/Singapore': 8,
+    'Asia/Tokyo': 9,
+  };
+  return offsets[timezone] ?? 7; // Default UTC+7
+};
+
+/**
+ * Get current date in configured timezone
+ */
+export const getCurrentDateInTimezone = (): Date => {
+  const offset = getTimezoneOffset();
+  const now = new Date();
+  // Adjust to configured timezone
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+  return new Date(utcTime + (offset * 60 * 60 * 1000));
+};
+
+/**
+ * Format local date as YYYY-MM-DD string (without timezone conversion)
+ */
+export const formatLocalDateString = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+/**
+ * Format date for display as DD/MM/YYYY (uses timezone from settings)
+ * Replacement for toLocaleDateString('vi-VN')
+ */
+export const formatDateForDisplay = (date: Date | string | null | undefined): string => {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (!isValid(d)) return '';
@@ -40,46 +108,136 @@ export const formatDate = (date: Date | string | null | undefined): string => {
 };
 
 /**
- * Format date as DD/MM/YYYY HH:mm (GMT+7)
+ * Format time for display as HH:mm or h:mm AM/PM (uses settings)
+ * Replacement for toLocaleTimeString('vi-VN')
+ */
+export const formatTimeForDisplay = (date: Date | string | null | undefined): string => {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (!isValid(d)) return '';
+  
+  const settings = getDateSettings();
+  if (settings.timeFormat === '12h') {
+    return dateFnsFormat(d, 'h:mm a');
+  }
+  return dateFnsFormat(d, 'HH:mm');
+};
+
+/**
+ * Format date and time for display (uses settings)
+ * Replacement for toLocaleString('vi-VN')
+ */
+export const formatDateTimeForDisplay = (date: Date | string | null | undefined): string => {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (!isValid(d)) return '';
+  
+  const settings = getDateSettings();
+  if (settings.timeFormat === '12h') {
+    return dateFnsFormat(d, 'dd/MM/yyyy h:mm a');
+  }
+  return dateFnsFormat(d, 'dd/MM/yyyy HH:mm');
+};
+
+/**
+ * Get current timestamp as ISO string
+ * Replacement for new Date().toISOString()
+ */
+export const getCurrentISOTimestamp = (): string => {
+  return new Date().toISOString();
+};
+
+/**
+ * Build pay period for a given month (uses local dates)
+ * Returns { monthKey, startDate, endDate }
+ */
+export const buildPayPeriodFromMonthKey = (monthKey: string): { monthKey: string; startDate: string; endDate: string } => {
+  const [year, month] = monthKey.split('-').map(Number);
+  if (!year || !month) {
+    return { monthKey, startDate: '', endDate: '' };
+  }
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0); // Last day of month
+  return {
+    monthKey,
+    startDate: formatLocalDateString(startDate),
+    endDate: formatLocalDateString(endDate),
+  };
+};
+
+// ===== FORMAT FUNCTIONS =====
+
+/**
+ * Format date as DD/MM/YYYY
+ */
+export const formatDate = (date: Date | string | null | undefined, formatStr: string = 'dd/MM/yyyy'): string => {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (!isValid(d)) return '';
+  return dateFnsFormat(d, formatStr);
+};
+
+/**
+ * Format date as DD/MM/YYYY HH:mm (uses timezone from settings)
  */
 export const formatDateTime = (date: Date | string | null | undefined): string => {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (!isValid(d)) return '';
   
-  // Convert to GMT+7
+  const offset = getTimezoneOffset();
+  const settings = getDateSettings();
+  
+  // Convert to configured timezone
   const utcTime = d.getTime();
-  const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
+  const localTime = new Date(utcTime + (offset * 60 * 60 * 1000));
   
-  const day = gmt7Time.getUTCDate().toString().padStart(2, '0');
-  const month = (gmt7Time.getUTCMonth() + 1).toString().padStart(2, '0');
-  const year = gmt7Time.getUTCFullYear();
-  const hours = gmt7Time.getUTCHours().toString().padStart(2, '0');
-  const minutes = gmt7Time.getUTCMinutes().toString().padStart(2, '0');
+  const day = localTime.getUTCDate().toString().padStart(2, '0');
+  const month = (localTime.getUTCMonth() + 1).toString().padStart(2, '0');
+  const year = localTime.getUTCFullYear();
+  let hours = localTime.getUTCHours();
+  const minutes = localTime.getUTCMinutes().toString().padStart(2, '0');
   
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
+  // Format time based on settings
+  if (settings.timeFormat === '12h') {
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+  }
+  
+  return `${day}/${month}/${year} ${hours.toString().padStart(2, '0')}:${minutes}`;
 };
 
 /**
- * Format date as DD/MM/YYYY HH:mm:ss (GMT+7)
+ * Format date as DD/MM/YYYY HH:mm:ss (uses timezone from settings)
  */
 export const formatDateTimeSeconds = (date: Date | string | null | undefined): string => {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (!isValid(d)) return '';
   
-  // Convert to GMT+7
+  const offset = getTimezoneOffset();
+  const settings = getDateSettings();
+  
+  // Convert to configured timezone
   const utcTime = d.getTime();
-  const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
+  const localTime = new Date(utcTime + (offset * 60 * 60 * 1000));
   
-  const day = gmt7Time.getUTCDate().toString().padStart(2, '0');
-  const month = (gmt7Time.getUTCMonth() + 1).toString().padStart(2, '0');
-  const year = gmt7Time.getUTCFullYear();
-  const hours = gmt7Time.getUTCHours().toString().padStart(2, '0');
-  const minutes = gmt7Time.getUTCMinutes().toString().padStart(2, '0');
-  const seconds = gmt7Time.getUTCSeconds().toString().padStart(2, '0');
+  const day = localTime.getUTCDate().toString().padStart(2, '0');
+  const month = (localTime.getUTCMonth() + 1).toString().padStart(2, '0');
+  const year = localTime.getUTCFullYear();
+  let hours = localTime.getUTCHours();
+  const minutes = localTime.getUTCMinutes().toString().padStart(2, '0');
+  const seconds = localTime.getUTCSeconds().toString().padStart(2, '0');
   
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  // Format time based on settings
+  if (settings.timeFormat === '12h') {
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} ${ampm}`;
+  }
+  
+  return `${day}/${month}/${year} ${hours.toString().padStart(2, '0')}:${minutes}:${seconds}`;
 };
 
 /**
@@ -109,10 +267,19 @@ export const formatMonthYear = (date: Date | string | null | undefined): string 
 // ===== PARSE FUNCTIONS =====
 
 /**
- * Parse date string DD/MM/YYYY to Date object
+ * Parse date string to Date object
+ * Supports: DD/MM/YYYY, YYYY-MM-DD (ISO), ISO datetime
  */
 export const parseDate = (dateString: string): Date | null => {
   if (!dateString) return null;
+  
+  // Try ISO format first (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)
+  if (dateString.includes('-') && dateString.length >= 10) {
+    const isoDate = new Date(dateString);
+    if (isValid(isoDate)) return isoDate;
+  }
+  
+  // Try DD/MM/YYYY format
   const parsed = dateFnsParse(dateString, 'dd/MM/yyyy', new Date());
   return isValid(parsed) ? parsed : null;
 };

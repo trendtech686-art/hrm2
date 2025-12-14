@@ -42,7 +42,7 @@ export const AssigneeAvatarGroup: React.FC<AssigneeAvatarGroupProps> = ({
 }) => {
   if (!assignees || assignees.length === 0) {
     return (
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1 text-body-xs text-muted-foreground">
         <Users className="h-3 w-3" />
         <span>Chưa phân công</span>
       </div>
@@ -76,10 +76,10 @@ export const AssigneeAvatarGroup: React.FC<AssigneeAvatarGroupProps> = ({
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <div className="text-sm">
+                <div className="text-body-sm">
                   <p className="font-semibold">{assignee.employeeName}</p>
                   {showRoles && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-body-xs text-muted-foreground">
                       {roleLabels[assignee.role]}
                     </p>
                   )}
@@ -107,10 +107,10 @@ export const AssigneeAvatarGroup: React.FC<AssigneeAvatarGroupProps> = ({
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <div className="text-sm">
+                <div className="text-body-sm">
                   <p className="font-semibold mb-1">Còn {remainingCount} người:</p>
                   {assignees.slice(maxVisible).map((assignee) => (
-                    <div key={assignee.systemId} className="text-xs">
+                    <div key={assignee.systemId} className="text-body-xs">
                       {assignee.employeeName}
                       {showRoles && ` (${roleLabels[assignee.role]})`}
                     </div>

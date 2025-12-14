@@ -36,14 +36,14 @@ export function ProvinceForm({ initialData, onSubmit, onCancel }: ProvinceFormPr
         <FormField control={form.control} name="id" render={({ field }) => (
           <FormItem>
             <FormLabel>Mã Tỉnh thành</FormLabel>
-            <FormControl><Input placeholder="VD: T000001" {...field} /></FormControl>
+            <FormControl><Input placeholder="VD: T000001" {...field} value={field.value ?? ''} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem>
             <FormLabel>Tên Tỉnh thành</FormLabel>
-            <FormControl><Input placeholder="VD: TP. Hồ Chí Minh" {...field} /></FormControl>
+            <FormControl><Input placeholder="VD: TP. Hồ Chí Minh" {...field} value={field.value ?? ''} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />

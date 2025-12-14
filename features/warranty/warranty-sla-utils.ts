@@ -52,7 +52,7 @@ export interface WarrantyOverdueStatus {
   responseTimeLeft: number; // minutes (negative if overdue)
   processingTimeLeft: number;
   returnTimeLeft: number;
-  overdueDuration?: string; // formatted string
+  overdueDuration?: string | undefined; // formatted string
 }
 
 /**

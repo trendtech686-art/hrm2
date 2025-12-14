@@ -3,16 +3,22 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Package } from 'lucide-react';
 import type { Product } from '../../products/types.ts';
-import type { ProductFormValues } from '../../products/form.tsx';
+import type { ProductFormValues } from '../../products/validation.ts';
 import { useProductStore } from '../../products/store.ts';
 import { useUnitStore } from '../../settings/units/store.ts';
 import { usePricingPolicyStore } from '../../settings/pricing/store.ts';
+import { useBranchStore } from '../../settings/branches/store.ts';
+import { useImageStore } from '../../products/image-store.ts';
+import { FileUploadAPI } from '../../../lib/file-upload-api.ts';
+import { LazyImage } from '../../../components/ui/lazy-image.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { Input } from '../../../components/ui/input.tsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
 import { NumberInput } from '../../../components/ui/number-input.tsx';
 import { Combobox } from '../../../components/ui/combobox.tsx';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox.tsx';
+import { isComboProduct, calculateComboStockAllBranches, calculateComboCostPrice } from '../../products/combo-utils.ts';
+import type { SystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -21,10 +27,17 @@ const formatCurrency = (value?: number) => {
 
 const SimplifiedProductForm = ({ onSubmit }: { onSubmit: (values: ProductFormValues) => void; }) => {
     const { data: products } = useProductStore();
-    const { data: units } = useUnitStore();
+    const unitData = useUnitStore(state => state.data);
     const { data: pricingPolicies } = usePricingPolicyStore();
 
-    const unitOptions = React.useMemo(() => units.map(u => ({ value: u.name, label: u.name })), [units]);
+    const activeUnits = React.useMemo(
+        () => unitData.filter(unit => {
+            const isDeleted = 'isDeleted' in unit && Boolean((unit as { isDeleted?: boolean }).isDeleted);
+            return !isDeleted && unit.isActive !== false;
+        }),
+        [unitData]
+    );
+    const unitOptions = React.useMemo(() => activeUnits.map(u => ({ value: u.name, label: u.name })), [activeUnits]);
     const defaultSellingPolicy = React.useMemo(() => pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault), [pricingPolicies]);
 
     const [formData, setFormData] = React.useState({
@@ -98,13 +111,15 @@ const SimplifiedProductForm = ({ onSubmit }: { onSubmit: (values: ProductFormVal
 };
 
 
-export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, defaultPolicyId }: { 
+export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, defaultPolicyId, branchSystemId }: { 
     onSelectProduct: (product: Product) => void;
     onAddProduct: (values: ProductFormValues) => void;
     disabled: boolean;
-    defaultPolicyId?: string;
+    defaultPolicyId?: string | undefined;
+    branchSystemId?: string | undefined;
 }) => {
     const { data: allProducts, getActive } = useProductStore();
+    const { data: branches } = useBranchStore();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
 
@@ -113,18 +128,72 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
         return getActive();
     }, [allProducts, getActive]);
 
-    // Calculate total inventory (on-hand stock)
+    const getComboStockRecord = (product: Product): Record<SystemId, number> => {
+        if (!isComboProduct(product) || !product.comboItems?.length) {
+            return {};
+        }
+        return calculateComboStockAllBranches(product.comboItems, allProducts);
+    };
+
+    // Calculate total inventory (on-hand stock) aggregated across branches
     const getTotalInventory = (product: Product): number => {
+        if (isComboProduct(product) && product.comboItems?.length) {
+            const comboStock = getComboStockRecord(product);
+            return Object.values(comboStock).reduce((sum, qty) => sum + qty, 0);
+        }
         const inventoryByBranch = product.inventoryByBranch || {};
         return Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
     };
 
-    // Calculate available stock (on-hand - committed)
+    // Calculate available stock (on-hand - committed) aggregated across branches
     const getAvailableStock = (product: Product): number => {
-        const onHand = getTotalInventory(product);
+        if (isComboProduct(product) && product.comboItems?.length) {
+            const comboStock = getComboStockRecord(product);
+            return Object.values(comboStock).reduce((sum, qty) => sum + qty, 0);
+        }
+        const inventoryByBranch = product.inventoryByBranch || {};
         const committedByBranch = product.committedByBranch || {};
-        const committed = Object.values(committedByBranch).reduce((sum, qty) => sum + qty, 0);
-        return onHand - committed;
+        return Object.entries(inventoryByBranch).reduce((sum, [branchId, stock]) => {
+            const committed = committedByBranch[branchId as SystemId] || 0;
+            return sum + Math.max(0, (stock as number) - committed);
+        }, 0);
+    };
+
+    const getBranchStockLines = (product: Product) => {
+        if (isComboProduct(product) && product.comboItems?.length) {
+            const comboStock = getComboStockRecord(product);
+            return branches
+                .map(branch => ({
+                    branchSystemId: branch.systemId,
+                    branchName: branch.name,
+                    stock: comboStock[branch.systemId] || 0,
+                    available: comboStock[branch.systemId] || 0,
+                }))
+                .filter(detail => detail.stock > 0 || detail.available > 0);
+        }
+
+        const inventoryByBranch = product.inventoryByBranch || {};
+        const committedByBranch = product.committedByBranch || {};
+        return branches
+            .map(branch => {
+                const stock = inventoryByBranch[branch.systemId] || 0;
+                const committed = committedByBranch[branch.systemId] || 0;
+                const available = Math.max(0, stock - committed);
+                return {
+                    branchSystemId: branch.systemId,
+                    branchName: branch.name,
+                    stock,
+                    available,
+                };
+            })
+            .filter(detail => detail.stock > 0 || detail.available > 0);
+    };
+
+    const getCostPrice = (product: Product): number => {
+        if (isComboProduct(product) && product.comboItems?.length) {
+            return calculateComboCostPrice(product.comboItems, allProducts);
+        }
+        return product.costPrice || 0;
     };
 
     // ✅ Convert to ComboboxOption format (no "Add new" in options anymore)
@@ -133,18 +202,34 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
             const totalStock = getTotalInventory(p);
             const availableStock = getAvailableStock(p);
             const price = defaultPolicyId ? p.prices[defaultPolicyId] : (Object.values(p.prices || {})[0] || 0);
+            const branchStocks = getBranchStockLines(p);
+            const subtitle = p.id ?? '';
+            const searchTokens: string[] = [p.name, subtitle];
+            if (p.barcode) {
+                searchTokens.push(p.barcode);
+            }
+            branchStocks.forEach(detail => {
+                searchTokens.push(detail.branchName);
+            });
+
             return {
                 value: p.systemId,
                 label: p.name,
-                subtitle: p.id,
+                subtitle,
+                acText: searchTokens
+                    .filter((token): token is string => Boolean(token))
+                    .join(' | '),
                 metadata: {
-                    price: price,
+                    price,
                     stock: totalStock,
-                    availableStock: availableStock,
+                    availableStock,
+                    branchStocks,
+                    costPrice: getCostPrice(p),
+                    unit: p.unit || 'Chiếc',
                 }
-            } as ComboboxOption;
+            } satisfies ComboboxOption;
         });
-    }, [availableProducts, defaultPolicyId]);
+    }, [availableProducts, defaultPolicyId, branches]);
 
     const handleChange = (option: ComboboxOption | null) => {
         if (option) {
@@ -158,21 +243,67 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
         setSelectedValue(null);
     };
 
-    const renderOption = (option: ComboboxOption) => {
-        // Regular product option
-        return (
-            <div className="flex items-center gap-3 w-full">
-                <div className="w-10 h-9 flex-shrink-0 bg-muted rounded flex items-center justify-center">
-                    <Package className="h-5 w-5 text-muted-foreground" />
+    // Product Thumbnail for combobox options
+    const ProductOptionThumbnail = React.memo(({ productSystemId }: { productSystemId: string }) => {
+        const product = availableProducts.find(p => p.systemId === productSystemId);
+        const permanentImages = useImageStore(state => state.permanentImages[productSystemId]);
+        const lastFetched = useImageStore(state => state.permanentMeta[productSystemId]?.lastFetched);
+        const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
+
+        const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
+        const storeGallery = permanentImages?.gallery?.[0]?.url;
+        
+        const displayImage = storeThumbnail
+            || storeGallery
+            || product?.thumbnailImage
+            || product?.galleryImages?.[0]
+            || product?.images?.[0];
+
+        React.useEffect(() => {
+            if (!lastFetched && productSystemId) {
+                FileUploadAPI.getProductFiles(productSystemId)
+                    .then(files => {
+                        const mapToServerFile = (f: any) => ({
+                            id: f.id, sessionId: '', name: f.name, originalName: f.originalName,
+                            slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
+                            status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: f.metadata
+                        });
+                        updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile));
+                        updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapToServerFile));
+                    })
+                    .catch(() => {});
+            }
+        }, [productSystemId, lastFetched, updatePermanentImages]);
+
+        if (displayImage) {
+            return (
+                <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-muted">
+                    <LazyImage src={displayImage} alt="" className="w-full h-full object-cover" />
                 </div>
+            );
+        }
+        return (
+            <div className="w-10 h-10 flex-shrink-0 bg-muted rounded flex items-center justify-center">
+                <Package className="h-5 w-5 text-muted-foreground" />
+            </div>
+        );
+    });
+
+    const renderOption = (option: ComboboxOption) => {
+        return (
+            <div className="flex items-center gap-3 w-full py-1">
+                <ProductOptionThumbnail productSystemId={option.value} />
                 <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{option.label}</p>
                     <p className="text-xs text-muted-foreground">
-                        {option.subtitle} | Tồn: {option.metadata?.stock || 0} | Có thể bán: {option.metadata?.availableStock || 0}
+                        {option.subtitle} | ĐVT: {option.metadata?.unit || 'Chiếc'}
                     </p>
                 </div>
-                <div className="text-sm font-semibold text-right flex-shrink-0">
-                    {formatCurrency(option.metadata?.price)}
+                <div className="text-right flex-shrink-0">
+                    <p className="font-semibold">{formatCurrency(option.metadata?.price)}</p>
+                    <p className="text-xs text-muted-foreground">
+                        Tồn: {option.metadata?.stock || 0} | Bán: {option.metadata?.availableStock || 0}
+                    </p>
                 </div>
             </div>
         );

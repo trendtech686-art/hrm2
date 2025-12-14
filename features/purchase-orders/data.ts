@@ -7,6 +7,14 @@ function addDays(days: number): string {
   return date.toISOString().split('T')[0];
 }
 
+const SEED_AUTHOR = asSystemId('EMP000001');
+const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({
+  createdAt,
+  updatedAt: createdAt,
+  createdBy,
+  updatedBy: createdBy,
+});
+
 export const data: Omit<PurchaseOrder, 'systemId' | 'creatorSystemId' | 'creatorName'>[] = [
   {
     id: asBusinessId('PO0001'),
@@ -42,7 +50,8 @@ export const data: Omit<PurchaseOrder, 'systemId' | 'creatorSystemId' | 'creator
     tax: 1000000,
     grandTotal: 11000000,
     payments: [],
-    notes: 'Đơn hàng mới đặt'
+    notes: 'Đơn hàng mới đặt',
+    ...buildAuditFields('2025-11-18T08:00:00Z'),
   },
   {
     id: asBusinessId('PO0002'),
@@ -80,6 +89,7 @@ export const data: Omit<PurchaseOrder, 'systemId' | 'creatorSystemId' | 'creator
     tax: 440000,
     grandTotal: 4840000,
     payments: [],
-    notes: 'Đang chờ nhà cung cấp giao hàng'
+    notes: 'Đang chờ nhà cung cấp giao hàng',
+    ...buildAuditFields('2025-11-20T08:00:00Z'),
   }
 ];

@@ -107,7 +107,7 @@ export function StorageLocationFormDialog({
                 <FormItem>
                   <FormLabel>Mã điểm lưu kho <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input {...field} disabled={!!initialData} placeholder="VD: KHO-A" className="h-9" />
+                    <Input {...field} value={field.value ?? ''} placeholder="VD: KHO-A" className="h-9" />
                   </FormControl>
                   <FormDescription>
                     Chỉ chứa chữ in hoa và số, tối đa 20 ký tự
@@ -124,7 +124,7 @@ export function StorageLocationFormDialog({
                 <FormItem>
                   <FormLabel>Tên điểm lưu kho <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="VD: Kho A" className="h-9" />
+                    <Input {...field} value={field.value ?? ''} placeholder="VD: Kho A" className="h-9" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -138,7 +138,7 @@ export function StorageLocationFormDialog({
                 <FormItem>
                   <FormLabel>Mô tả</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Mô tả chi tiết..." rows={3} />
+                    <Textarea {...field} value={field.value ?? ''} placeholder="Mô tả chi tiết..." rows={3} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

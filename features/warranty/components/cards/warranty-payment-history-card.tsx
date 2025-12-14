@@ -17,6 +17,7 @@ import type { Payment } from '../../../payments/types.ts';
 import { useWarrantySettlement } from '../../hooks/use-warranty-settlement.ts';
 import type { SettlementMethod } from '../../types.ts';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types.ts';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface WarrantyPaymentHistoryCardProps {
   warrantySystemId: string;
@@ -92,7 +93,7 @@ export function WarrantyPaymentHistoryCard({
         ? 'outline'
         : 'secondary';
     return (
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-body-xs">
         <Badge variant="outline" className="text-[10px]">
           {SETTLEMENT_TYPE_LABELS[method.type]}
         </Badge>
@@ -106,7 +107,7 @@ export function WarrantyPaymentHistoryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Lịch sử thanh toán</CardTitle>
+        <CardTitle className="text-h4">Lịch sử thanh toán</CardTitle>
       </CardHeader>
       {allTransactions.length > 0 && (
         <CardContent className="space-y-3">
@@ -131,13 +132,13 @@ export function WarrantyPaymentHistoryCard({
               <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold text-sm">
+                  <span className="font-semibold text-body-sm">
                     {isPayment ? 'Phiếu chi' : 'Phiếu thu'}: {doc.id}
                   </span>
                   {getStatusBadge(doc.status)}
                 </div>
                 
-                <p className="text-xs text-muted-foreground">
+                <p className="text-body-xs text-muted-foreground">
                   {doc.description || (isPayment ? 'Hoàn tiền bảo hành' : 'Thu tiền bảo hành')}
                 </p>
 
@@ -145,14 +146,14 @@ export function WarrantyPaymentHistoryCard({
                     <div className="space-y-1">
                       {renderMethodBadges(method)}
                       {method.notes && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-body-xs text-muted-foreground">
                           {method.notes}
                         </p>
                       )}
                     </div>
                   )}
                 
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-4 text-body-xs text-muted-foreground">
                   <span>{date}</span>
                   <span>•</span>
                   <span className={isPayment ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
@@ -177,18 +178,18 @@ export function WarrantyPaymentHistoryCard({
 
       {orphanMethods.length > 0 && (
         <CardContent className={`${allTransactions.length > 0 ? 'border-t pt-4 mt-2' : ''} space-y-2`}>
-          <p className="text-sm font-semibold">Phương thức bù trừ đã lưu</p>
+          <p className="text-body-sm font-semibold">Phương thức bù trừ đã lưu</p>
           {orphanMethods.map(method => (
             <div key={method.systemId} className="rounded-lg border p-3 space-y-2">
               {renderMethodBadges(method)}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{new Date(method.createdAt).toLocaleString('vi-VN')}</span>
+              <div className="flex items-center justify-between text-body-xs text-muted-foreground">
+                <span>{formatDateTimeForDisplay(method.createdAt)}</span>
                 <span className="font-semibold text-foreground">
                   {currencyFormatter.format(method.amount)} đ
                 </span>
               </div>
               {method.notes && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-body-xs text-muted-foreground">
                   {method.notes}
                 </p>
               )}

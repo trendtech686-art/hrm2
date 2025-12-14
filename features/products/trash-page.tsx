@@ -8,6 +8,7 @@ import { getColumns } from "./trash-columns.tsx"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
 import { Card, CardContent } from "../../components/ui/card.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
+import { Button } from "../../components/ui/button.tsx"
 import type { Product } from "./types.ts"
 import type { SystemId } from "@/lib/id-types";
 
@@ -16,7 +17,40 @@ export function ProductsTrashPage() {
   const { data, getDeleted, restore, remove } = store;
   const navigate = useNavigate();
   
-  usePageHeader();
+  const handleNavigateBack = React.useCallback(() => navigate('/products'), [navigate]);
+  const handleCreateProduct = React.useCallback(() => navigate('/products/new'), [navigate]);
+
+  const headerActions = React.useMemo(() => [
+    <Button
+      key="back"
+      variant="outline"
+      size="sm"
+      className="h-9"
+      onClick={handleNavigateBack}
+    >
+      Danh sách sản phẩm
+    </Button>,
+    <Button
+      key="create"
+      size="sm"
+      className="h-9"
+      onClick={handleCreateProduct}
+    >
+      Thêm sản phẩm
+    </Button>
+  ], [handleNavigateBack, handleCreateProduct]);
+
+  usePageHeader({
+    title: "Thùng rác sản phẩm",
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Sản phẩm', href: '/products', isCurrent: false },
+      { label: 'Thùng rác', href: '/products/trash', isCurrent: true }
+    ],
+    actions: headerActions,
+    showBackButton: true,
+    backPath: '/products'
+  });
   
   // Call getDeleted() directly - don't memoize to ensure we always get fresh data
   const deletedProducts = getDeleted();
@@ -52,10 +86,10 @@ export function ProductsTrashPage() {
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold truncate">{product.name}</h3>
-              <p className="text-sm text-muted-foreground">{product.id}</p>
+              <h3 className="text-body-sm font-medium truncate">{product.name}</h3>
+              <p className="text-body-xs text-muted-foreground">{product.id}</p>
               {product.shortDescription && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                <p className="text-body-xs text-muted-foreground mt-1 line-clamp-2">
                   {product.shortDescription}
                 </p>
               )}
@@ -73,7 +107,7 @@ export function ProductsTrashPage() {
             )}
           </div>
           
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-2 gap-2 text-body-xs">
             {product.categorySystemId && (
               <div>
                 <span className="text-muted-foreground">Danh mục:</span>
@@ -89,7 +123,7 @@ export function ProductsTrashPage() {
           </div>
 
           {product.deletedAt && (
-            <div className="text-xs text-muted-foreground">
+            <div className="text-body-xs text-muted-foreground">
               Xóa: {formatDateTime(product.deletedAt)}
             </div>
           )}

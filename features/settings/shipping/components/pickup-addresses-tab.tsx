@@ -25,7 +25,7 @@ interface PickupAddressesTabProps {
   partnerCode: string;
   account: PartnerAccount;
   onAccountUpdate: (account: PartnerAccount) => void;
-  getMappingsRef?: (ref: { getMappings: () => BranchMapping[]; getPickupAddresses: () => PickupAddress[] }) => void;
+  getMappingsRef?: ((ref: { getMappings: () => BranchMapping[]; getPickupAddresses: () => PickupAddress[] }) => void) | undefined;
 }
 
 interface PartnerWarehouse {
@@ -34,8 +34,8 @@ interface PartnerWarehouse {
   address: string;
   province: string;
   district: string;
-  ward?: string;
-  tel?: string;
+  ward?: string | undefined;
+  tel?: string | undefined;
 }
 
 interface BranchMapping {

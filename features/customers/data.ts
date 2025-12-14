@@ -25,7 +25,12 @@ export const data: Customer[] = [
     totalQuantityPurchased: 5,
     totalQuantityReturned: 0,
     lastPurchaseDate: "2025-09-20",
-    failedDeliveries: 0,
+    failedDeliveries: 3, // Sample delivery failure data
+    lastContactDate: "2025-10-18",
+    nextFollowUpDate: "2025-11-05",
+    followUpReason: "Đôn đốc ký phụ lục hợp đồng",
+    followUpAssigneeId: asSystemId("EMP000002"),
+    followUpAssigneeName: "Trần Thị Bình",
     
     // New fields
     source: "Referral",
@@ -102,6 +107,10 @@ export const data: Customer[] = [
     totalQuantityReturned: 0,
     lastPurchaseDate: "2025-10-10",
     failedDeliveries: 0,
+    lastContactDate: "2025-10-15",
+    nextFollowUpDate: "2025-12-01",
+    followUpAssigneeId: asSystemId("EMP000007"),
+    followUpAssigneeName: "Đỗ Hùng",
     
     // New fields
     source: "Website",

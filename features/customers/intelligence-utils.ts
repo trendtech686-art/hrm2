@@ -193,49 +193,52 @@ export const getSegmentLabel = (segment: CustomerSegment): string => {
 
 /**
  * Tính Customer Health Score (0-100)
+ * Dựa trên 4 yếu tố: Recency, Frequency, Monetary, Payment Behavior
  */
 export const calculateHealthScore = (customer: Customer): number => {
   let score = 0;
   
-  // 1. Recency (30 points)
+  // 1. Recency - Thời gian mua gần nhất (30 points)
   const daysSinceLastPurchase = customer.lastPurchaseDate 
     ? getDaysDiff(getCurrentDate(), new Date(customer.lastPurchaseDate))
     : Infinity;
     
-  if (daysSinceLastPurchase <= 30) score += 30;
-  else if (daysSinceLastPurchase <= 90) score += 20;
+  if (daysSinceLastPurchase <= 7) score += 30;
+  else if (daysSinceLastPurchase <= 30) score += 25;
+  else if (daysSinceLastPurchase <= 60) score += 20;
+  else if (daysSinceLastPurchase <= 90) score += 15;
   else if (daysSinceLastPurchase <= 180) score += 10;
   else if (daysSinceLastPurchase <= 365) score += 5;
   
-  // 2. Frequency (25 points)
+  // 2. Frequency - Tần suất mua (25 points)
   const totalOrders = customer.totalOrders || 0;
   if (totalOrders >= 20) score += 25;
   else if (totalOrders >= 10) score += 20;
   else if (totalOrders >= 5) score += 15;
-  else if (totalOrders >= 2) score += 10;
+  else if (totalOrders >= 3) score += 10;
   else if (totalOrders >= 1) score += 5;
   
-  // 3. Monetary (25 points)
+  // 3. Monetary - Tổng chi tiêu (30 points)
   const totalSpent = customer.totalSpent || 0;
-  if (totalSpent >= 100_000_000) score += 25;
-  else if (totalSpent >= 50_000_000) score += 20;
-  else if (totalSpent >= 20_000_000) score += 15;
-  else if (totalSpent >= 5_000_000) score += 10;
-  else if (totalSpent >= 1_000_000) score += 5;
+  if (totalSpent >= 500_000_000) score += 30;
+  else if (totalSpent >= 200_000_000) score += 25;
+  else if (totalSpent >= 100_000_000) score += 20;
+  else if (totalSpent >= 50_000_000) score += 15;
+  else if (totalSpent >= 20_000_000) score += 10;
+  else if (totalSpent >= 5_000_000) score += 5;
   
-  // 4. Engagement (10 points)
-  const hasCompleteInfo = !!(customer.email && customer.phone);
-  if (hasCompleteInfo) score += 10;
-  
-  // 5. Payment behavior (10 points)
+  // 4. Payment Behavior - Hành vi thanh toán (15 points)
+  // Dựa trên tỷ lệ nợ hiện tại so với hạn mức
   if (customer.maxDebt && customer.maxDebt > 0) {
     const debtRatio = (customer.currentDebt || 0) / customer.maxDebt;
-    if (debtRatio <= 0.3) score += 10;
-    else if (debtRatio <= 0.5) score += 7;
-    else if (debtRatio <= 0.7) score += 5;
-    else if (debtRatio <= 0.9) score += 3;
+    if (debtRatio <= 0.2) score += 15;
+    else if (debtRatio <= 0.4) score += 12;
+    else if (debtRatio <= 0.6) score += 8;
+    else if (debtRatio <= 0.8) score += 4;
+    // > 80% = 0 điểm
   } else {
-    score += 10; // No debt = good
+    // Không có hạn mức công nợ → xem như thanh toán tốt
+    score += 15;
   }
   
   return Math.min(100, score);
@@ -270,11 +273,26 @@ export const calculateChurnRisk = (customer: Customer): {
     : Infinity;
   
   const totalOrders = customer.totalOrders || 0;
-  const avgDaysBetweenOrders = totalOrders > 1 
-    ? daysSinceLastPurchase / totalOrders 
-    : 30;
   
-  // High risk: Không mua > 2x thời gian trung bình
+  // Nếu khách mới (chưa có đơn hoặc chỉ 1 đơn), dùng default 30 ngày
+  // Nếu khách cũ, tính dựa trên thời gian từ createdAt đến lastPurchaseDate / số đơn
+  let avgDaysBetweenOrders = 30; // Default
+  if (totalOrders > 1 && customer.createdAt && customer.lastPurchaseDate) {
+    const customerAge = getDaysDiff(new Date(customer.lastPurchaseDate), new Date(customer.createdAt));
+    avgDaysBetweenOrders = Math.max(7, customerAge / (totalOrders - 1)); // Tối thiểu 7 ngày
+  }
+  
+  // Khách vừa mua hàng gần đây (< 7 ngày) = low risk
+  if (daysSinceLastPurchase <= 7) {
+    return {
+      risk: 'low',
+      label: 'Nguy cơ thấp',
+      variant: 'success',
+      reason: 'Khách hàng đang hoạt động tốt'
+    };
+  }
+  
+  // High risk: Không mua > 2x thời gian trung bình hoặc > 365 ngày
   if (daysSinceLastPurchase > avgDaysBetweenOrders * 2 || daysSinceLastPurchase > 365) {
     return {
       risk: 'high',
@@ -284,7 +302,7 @@ export const calculateChurnRisk = (customer: Customer): {
     };
   }
   
-  // Medium risk: Không mua > 1.5x thời gian trung bình
+  // Medium risk: Không mua > 1.5x thời gian trung bình hoặc > 180 ngày
   if (daysSinceLastPurchase > avgDaysBetweenOrders * 1.5 || daysSinceLastPurchase > 180) {
     return {
       risk: 'medium',

@@ -64,7 +64,7 @@ export function StatisticsDashboard({ data, currentDate }: StatisticsDashboardPr
       bgColor: 'bg-emerald-50',
     },
     {
-      title: 'Tổng giờ OT',
+      title: 'Tổng giờ làm thêm',
       value: `${stats.totalOTHours}h`,
       icon: Clock,
       color: 'text-purple-600',
@@ -94,7 +94,7 @@ export function StatisticsDashboard({ data, currentDate }: StatisticsDashboardPr
         <Card key={index} className="overflow-hidden">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-body-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
               <div className={cn('p-2 rounded-md', stat.bgColor)}>
@@ -103,11 +103,11 @@ export function StatisticsDashboard({ data, currentDate }: StatisticsDashboardPr
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold truncate" title={String(stat.value)}>
+            <div className="text-h4 font-bold truncate" title={String(stat.value)}>
               {stat.value}
             </div>
             {stat.subtitle && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-body-xs text-muted-foreground mt-1">
                 {stat.subtitle}
               </p>
             )}

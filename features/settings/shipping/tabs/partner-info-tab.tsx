@@ -8,7 +8,7 @@ import { GHTKConfigForm } from '../forms/ghtk-config-form';
 interface PartnerInfoTabProps {
   partnerCode: string;
   config: ShippingConfig;
-  account?: PartnerAccount;
+  account?: PartnerAccount | undefined;
   onAccountUpdate: (account: PartnerAccount) => void;
   onSave: (config: ShippingConfig) => void;
   onClose: () => void;

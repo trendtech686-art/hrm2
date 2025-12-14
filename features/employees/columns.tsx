@@ -22,6 +22,20 @@ const formatDateDisplay = (dateString?: string) => {
     return formatDateCustom(date, "dd/MM/yyyy");
 };
 
+const formatAddress = (address: any): string => {
+  if (!address) return '';
+  if (typeof address === 'string') return address;
+  
+  const parts = [
+    address.street,
+    address.ward,
+    address.district,
+    address.province
+  ].filter(Boolean);
+  
+  return parts.join(', ');
+};
+
 
 export const getColumns = (
   onDelete: (systemId: string) => void,
@@ -34,7 +48,7 @@ export const getColumns = (
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
     ),
@@ -59,10 +73,10 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Họ và tên"
         sortKey="fullName"
-        isSorted={sorting.id === 'fullName'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
+        isSorted={sorting?.id === 'fullName'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting((s: any) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: any) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => (
@@ -139,11 +153,14 @@ export const getColumns = (
     id: "permanentAddress",
     accessorKey: "permanentAddress",
     header: "Địa chỉ thường trú",
-    cell: ({ row }) => (
-      <div className="max-w-[250px] truncate" title={row.permanentAddress}>
-        {row.permanentAddress}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const addressStr = formatAddress(row.permanentAddress);
+      return (
+        <div className="max-w-[250px] truncate" title={addressStr}>
+          {addressStr}
+        </div>
+      );
+    },
     meta: {
         displayName: "Địa chỉ thường trú",
         group: "Thông tin cá nhân"
@@ -153,11 +170,14 @@ export const getColumns = (
     id: "temporaryAddress",
     accessorKey: "temporaryAddress",
     header: "Địa chỉ tạm trú",
-    cell: ({ row }) => (
-      <div className="max-w-[250px] truncate" title={row.temporaryAddress}>
-        {row.temporaryAddress}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const addressStr = formatAddress(row.temporaryAddress);
+      return (
+        <div className="max-w-[250px] truncate" title={addressStr}>
+          {addressStr}
+        </div>
+      );
+    },
     meta: {
         displayName: "Địa chỉ tạm trú",
         group: "Thông tin cá nhân"
@@ -271,10 +291,10 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Mã NV"
         sortKey="id"
-        isSorted={sorting.id === 'id'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
+        isSorted={sorting?.id === 'id'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => <div className="font-medium">{row.id}</div>,
@@ -317,10 +337,10 @@ export const getColumns = (
        <DataTableColumnHeader 
         title="Phòng ban"
         sortKey="department"
-        isSorted={sorting.id === 'department'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
+        isSorted={sorting?.id === 'department'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting((s: any) => ({ id: 'department', desc: s.id === 'department' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: any) => ({ id: 'department', desc: s.id === 'department' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => row.department,
@@ -346,10 +366,10 @@ export const getColumns = (
        <DataTableColumnHeader 
         title="Ngày vào làm"
         sortKey="hireDate"
-        isSorted={sorting.id === 'hireDate'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
+        isSorted={sorting?.id === 'hireDate'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting((s: any) => ({ id: 'hireDate', desc: s.id === 'hireDate' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: any) => ({ id: 'hireDate', desc: s.id === 'hireDate' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => formatDate(row.hireDate),
@@ -379,7 +399,7 @@ export const getColumns = (
           return (
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500"></div>
-              <span className="text-sm">Đang làm việc</span>
+              <span className="text-body-sm">Đang làm việc</span>
             </div>
           );
         }
@@ -388,7 +408,7 @@ export const getColumns = (
           return (
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-yellow-500"></div>
-              <span className="text-sm">Tạm nghỉ</span>
+              <span className="text-body-sm">Tạm nghỉ</span>
             </div>
           );
         }
@@ -396,7 +416,7 @@ export const getColumns = (
         return (
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-            <span className="text-sm">{status}</span>
+            <span className="text-body-sm">{status}</span>
           </div>
         );
     },
@@ -432,17 +452,17 @@ export const getColumns = (
        <DataTableColumnHeader 
         title="Ngày khởi tạo"
         sortKey="createdAt"
-        isSorted={sorting.id === 'createdAt'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'createdAt'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => {
       if (!row.createdAt) return '';
       return (
         <div className="flex flex-col">
-          <span className="text-sm">{formatDateDisplay(row.createdAt)}</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-body-sm">{formatDateDisplay(row.createdAt)}</span>
+          <span className="text-body-xs text-muted-foreground">
             {formatDateCustom(new Date(row.createdAt), 'HH:mm')}
           </span>
         </div>

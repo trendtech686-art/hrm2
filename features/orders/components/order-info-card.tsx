@@ -9,14 +9,30 @@ import { Combobox } from '../../../components/ui/combobox.tsx';
 import { DatePicker } from '../../../components/ui/date-picker.tsx';
 import { Input } from '../../../components/ui/input.tsx';
 import { Separator } from '../../../components/ui/separator.tsx';
+import { useSalesChannelStore } from '../../settings/sales-channels/store.ts';
+import { usePaymentMethodStore } from '../../settings/payments/methods/store.ts';
 
 export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnlyMode = false }: { disabled: boolean; isBranchLocked?: boolean; isMetadataOnlyMode?: boolean }) {
     const { control } = useFormContext();
     const { data: employees } = useEmployeeStore();
     const { data: branches } = useBranchStore();
+  const salesChannels = useSalesChannelStore((state) => state.data);
+  const paymentMethods = usePaymentMethodStore((state) => state.data);
     
     const employeeOptions = React.useMemo(() => employees.map(e => ({ value: e.systemId, label: e.fullName })), [employees]);
     const branchOptions = React.useMemo(() => branches.map(b => ({ value: b.systemId, label: b.name })), [branches]);
+    const channelOptions = React.useMemo(() => {
+      return salesChannels
+        .filter(channel => channel.isApplied)
+        .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+    }, [salesChannels]);
+    const hasChannelOptions = channelOptions.length > 0;
+    const paymentMethodOptions = React.useMemo(() => {
+      return paymentMethods
+        .filter(method => method.isActive)
+        .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+    }, [paymentMethods]);
+    const hasPaymentMethodOptions = paymentMethodOptions.length > 0;
 
     return (
         <Card className="flex flex-col h-[385px]">
@@ -27,24 +43,58 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
                   {isBranchLocked && <p className="text-xs text-muted-foreground mt-1">🔒 Chi nhánh bị khóa sau khi duyệt đơn</p>}
                   </FormItem>
                 )}/>
-                <FormField control={control} name="salespersonId" render={({ field }) => (
+                <FormField control={control} name="salespersonSystemId" render={({ field }) => (
                   <FormItem><FormLabel>Bán bởi</FormLabel><Combobox options={employeeOptions} value={employeeOptions.find(opt => opt.value === field.value) || null} onChange={option => field.onChange(option ? option.value : '')} placeholder="Chọn nhân viên" disabled={disabled || isMetadataOnlyMode} /></FormItem>
                 )}/>
                 <FormField control={control} name="packerId" render={({ field }) => (
                   <FormItem><FormLabel>Nhân viên đóng gói</FormLabel><Combobox options={employeeOptions} value={employeeOptions.find(opt => opt.value === field.value) || null} onChange={option => field.onChange(option ? option.value : '')} placeholder="Chọn nhân viên đóng gói" disabled={disabled || isMetadataOnlyMode} /><FormMessage /></FormItem>
                 )} />
                 <FormField control={control} name="orderDate" render={({ field }) => (
-                  <FormItem><FormLabel>Ngày bán</FormLabel><FormControl><DatePicker value={field.value} onChange={field.onChange} disabled={disabled} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Ngày bán</FormLabel><FormControl><DatePicker value={field.value} onChange={field.onChange} disabled={disabled || isMetadataOnlyMode} /></FormControl></FormItem>
                 )}/>
-                <FormField control={control} name="source" render={({ field }) => (
-                  <FormItem><FormLabel>Nguồn</FormLabel><FormControl><Select onValueChange={field.onChange} value={field.value} disabled={disabled || isMetadataOnlyMode}><SelectTrigger><SelectValue placeholder="Chọn nguồn" /></SelectTrigger><SelectContent>
-                    <SelectItem value="Cửa hàng">Cửa hàng</SelectItem>
-                    <SelectItem value="Facebook">Facebook</SelectItem>
-                    <SelectItem value="Zalo">Zalo</SelectItem>
-                    <SelectItem value="Website">Website</SelectItem>
-                    <SelectItem value="Khác">Khác</SelectItem>
-                  </SelectContent></Select></FormControl></FormItem>
-                )}/>
+                <FormField control={control} name="source" render={({ field }) => {
+                  const showLegacyValue = Boolean(field.value) && !channelOptions.some(option => option.name === field.value);
+                  return (
+                    <FormItem>
+                      <FormLabel>Nguồn</FormLabel>
+                      <FormControl>
+                        {hasChannelOptions ? (
+                          <Select
+                            key={field.value || 'empty-source'}
+                            onValueChange={field.onChange}
+                            value={field.value || undefined}
+                            disabled={disabled || isMetadataOnlyMode}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn nguồn" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {showLegacyValue && (
+                                <SelectItem value={field.value!}>{field.value}</SelectItem>
+                              )}
+                              {channelOptions.map(option => (
+                                <SelectItem key={option.systemId} value={option.name}>
+                                  {option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            {...field}
+                            placeholder="Nhập nguồn bán hàng"
+                            disabled={disabled || isMetadataOnlyMode}
+                          />
+                        )}
+                      </FormControl>
+                      {!hasChannelOptions && (
+                        <p className="text-xs text-muted-foreground">
+                          Chưa có nguồn bán hàng nào được bật. Vào Cấu hình bán hàng → Nguồn bán hàng để thêm mới.
+                        </p>
+                      )}
+                    </FormItem>
+                  );
+                }}/>
                 
                 <FormField control={control} name="expectedDeliveryDate" render={({ field }) => (
                   <FormItem>
@@ -53,29 +103,54 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
                       <DatePicker 
                         value={field.value} 
                         onChange={field.onChange} 
-                        disabled={disabled}
+                        disabled={disabled || isMetadataOnlyMode}
                         placeholder="Chọn ngày hẹn giao"
                       />
                     </FormControl>
                   </FormItem>
                 )}/>
                 
-                <FormField control={control} name="expectedPaymentMethod" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Thanh toán dự kiến</FormLabel>
-                    <FormControl>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={disabled || isMetadataOnlyMode}>
-                        <SelectTrigger><SelectValue placeholder="Chọn phương thức" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Tiền mặt">Tiền mặt</SelectItem>
-                          <SelectItem value="Chuyển khoản">Chuyển khoản</SelectItem>
-                          <SelectItem value="Quẹt thẻ">Quẹt thẻ</SelectItem>
-                          <SelectItem value="COD">COD</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                  </FormItem>
-                )}/>
+                <FormField control={control} name="expectedPaymentMethod" render={({ field }) => {
+                  const showLegacyPaymentValue = Boolean(field.value) && !paymentMethodOptions.some(option => option.name === field.value);
+                  return (
+                    <FormItem>
+                      <FormLabel>Thanh toán dự kiến</FormLabel>
+                      <FormControl>
+                        {hasPaymentMethodOptions ? (
+                          <Select
+                            key={field.value || 'empty-payment'}
+                            onValueChange={field.onChange}
+                            value={field.value || undefined}
+                            disabled={disabled || isMetadataOnlyMode}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Chọn phương thức" /></SelectTrigger>
+                            <SelectContent>
+                              {showLegacyPaymentValue && (
+                                <SelectItem value={field.value!}>{field.value}</SelectItem>
+                              )}
+                              {paymentMethodOptions.map(option => (
+                                <SelectItem key={option.systemId} value={option.name}>
+                                  {option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            {...field}
+                            placeholder="Nhập hình thức thanh toán"
+                            disabled={disabled || isMetadataOnlyMode}
+                          />
+                        )}
+                      </FormControl>
+                      {!hasPaymentMethodOptions && (
+                        <p className="text-xs text-muted-foreground">
+                          Chưa có hình thức thanh toán nào được bật. Vào Cấu hình thanh toán để thêm mới.
+                        </p>
+                      )}
+                    </FormItem>
+                  );
+                }}/>
                 
                 <Separator className="my-2" />
                 

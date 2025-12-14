@@ -7,19 +7,38 @@ import { useInventoryReceiptStore } from './store.ts';
 import { usePurchaseOrderStore } from '../purchase-orders/store.ts';
 import { useSupplierStore } from '../suppliers/store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
+import { useProductStore } from '../products/store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertStockInForPrint,
+  mapStockInToPrintData, 
+  mapStockInLineItems,
+  createStoreSettings,
+} from '../../lib/print/stock-in-print-helper.ts';
+import { useBranchStore } from '../settings/branches/store.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { numberToWords } from '../../lib/print-mappers/types.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { ROUTES } from '../../lib/router.ts';
 import { formatDateCustom, parseDate } from '../../lib/date-utils.ts';
-import { asSystemId } from '@/lib/id-types';
+import { asSystemId, type SystemId } from '@/lib/id-types';
+import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { Card, CardContent } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
+import { Badge } from '../../components/ui/badge.tsx';
 import { DetailField } from '../../components/ui/detail-field.tsx';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
 
 const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
   currency: 'VND',
 }).format(Number(value) || 0);
+
+
 
 export function InventoryReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -28,6 +47,51 @@ export function InventoryReceiptDetailPage() {
   const { findById: findPurchaseOrderById } = usePurchaseOrderStore();
   const { findById: findSupplierById } = useSupplierStore();
   const { findById: findEmployeeById } = useEmployeeStore();
+  const { findById: findProductById } = useProductStore();
+  const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
+  const { employee: authEmployee } = useAuth();
+
+  // Comments state with localStorage persistence
+  type InventoryReceiptComment = CommentType<SystemId>;
+  const [comments, setComments] = React.useState<InventoryReceiptComment[]>(() => {
+    const saved = localStorage.getItem(`inventory-receipt-comments-${systemId}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  React.useEffect(() => {
+    if (systemId) {
+      localStorage.setItem(`inventory-receipt-comments-${systemId}`, JSON.stringify(comments));
+    }
+  }, [comments, systemId]);
+
+  const handleAddComment = React.useCallback((content: string, parentId?: string) => {
+    const newComment: InventoryReceiptComment = {
+      id: asSystemId(`comment-${Date.now()}`),
+      content,
+      author: {
+        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
+        name: authEmployee?.fullName || 'Hệ thống',
+      },
+      createdAt: new Date(),
+      parentId: parentId as SystemId | undefined,
+    };
+    setComments(prev => [...prev, newComment]);
+  }, [authEmployee]);
+
+  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
+    setComments(prev => prev.map(c => 
+      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
+    ));
+  }, []);
+
+  const handleDeleteComment = React.useCallback((commentId: string) => {
+    setComments(prev => prev.filter(c => c.id !== commentId));
+  }, []);
+
+  const commentCurrentUser = React.useMemo(() => ({
+    systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
+    name: authEmployee?.fullName || 'Hệ thống',
+  }), [authEmployee]);
 
   const receipt = React.useMemo(() => (systemId ? findReceiptById(asSystemId(systemId)) : undefined), [systemId, findReceiptById]);
   const purchaseOrder = React.useMemo(() => (
@@ -48,26 +112,38 @@ export function InventoryReceiptDetailPage() {
     receipt?.items.reduce((sum, item) => sum + Number(item.receivedQuantity) * Number(item.unitPrice), 0) ?? 0
   ), [receipt]);
 
+  const { findById: findBranchById } = useBranchStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { print } = usePrint(receipt?.branchSystemId);
+
   const handlePrint = React.useCallback(() => {
     if (!receipt) return;
-    toast.info('Đang gửi lệnh in', {
-      description: `Phiếu nhập ${receipt.id}`,
+
+    const branch = receipt.branchSystemId ? findBranchById(receipt.branchSystemId) : undefined;
+
+    // Use helper to prepare print data
+    const storeSettings = createStoreSettings(storeInfo);
+    const stockInForPrint = convertStockInForPrint(receipt, { 
+      branch, 
+      supplier,
+      purchaseOrder: purchaseOrder || undefined,
     });
-  }, [receipt]);
+
+    const printData = mapStockInToPrintData(stockInForPrint, storeSettings);
+    const lineItems = mapStockInLineItems(stockInForPrint.items);
+
+    // Inject extra fields
+    printData['amount_text'] = numberToWords(totalValue);
+
+    print('stock-in', {
+      data: printData,
+      lineItems: lineItems
+    });
+  }, [receipt, purchaseOrder, supplier, storeInfo, print, findBranchById, totalValue]);
 
   const headerActions = React.useMemo(() => {
     if (!receipt) return [];
     return [
-      <Button
-        key="back"
-        variant="outline"
-        size="sm"
-        className="h-9"
-        onClick={() => navigate(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Quay lại
-      </Button>,
       <Button
         key="print"
         size="sm"
@@ -78,15 +154,28 @@ export function InventoryReceiptDetailPage() {
         In phiếu
       </Button>,
     ];
-  }, [receipt, navigate, handlePrint]);
+  }, [receipt, handlePrint]);
+
+  const badge = React.useMemo(() => {
+    if (!receipt) return undefined;
+    const label = receipt.branchName || 'Chưa gắn chi nhánh';
+    return (
+      <Badge variant="outline" className="uppercase tracking-wide">
+        {label}
+      </Badge>
+    );
+  }, [receipt]);
 
   usePageHeader({
-    title: receipt ? `Chi tiết phiếu nhập ${receipt.id}` : 'Chi tiết phiếu nhập',
+    title: receipt ? `Phiếu nhập kho ${receipt.id}` : 'Chi tiết phiếu nhập',
+    subtitle: receipt?.supplierName ? `Nhà cung cấp: ${receipt.supplierName}` : undefined,
     breadcrumb: [
       { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
       { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: false },
       { label: receipt?.id || 'Chi tiết', href: '', isCurrent: true },
     ],
+    badge,
+    showBackButton: true,
     actions: headerActions,
   });
 
@@ -94,7 +183,7 @@ export function InventoryReceiptDetailPage() {
     return (
       <Card>
         <CardContent className="py-10 text-center space-y-4">
-          <p className="text-lg font-semibold">Không tìm thấy phiếu nhập kho.</p>
+          <p className="text-h3 font-semibold">Không tìm thấy phiếu nhập kho.</p>
           <Button className="h-9" onClick={() => navigate(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay lại danh sách
@@ -158,7 +247,7 @@ export function InventoryReceiptDetailPage() {
           </div>
           {receipt.notes && (
             <DetailField label="Ghi chú">
-              <span className="text-sm text-muted-foreground">{receipt.notes}</span>
+              <span className="text-body-sm text-muted-foreground">{receipt.notes}</span>
             </DetailField>
           )}
         </CardContent>
@@ -167,8 +256,8 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="p-0">
           <div className="p-6">
-            <h3 className="text-lg font-semibold">Danh sách sản phẩm</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className="text-h3 font-semibold">Danh sách sản phẩm</h3>
+            <p className="text-body-sm text-muted-foreground">
               Tổng {receipt.items.length} mặt hàng · {totalQuantity} đơn vị · {formatCurrency(totalValue)}
             </p>
           </div>
@@ -177,6 +266,7 @@ export function InventoryReceiptDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[60px] text-center">STT</TableHead>
+                  <TableHead className="w-[60px]">Ảnh</TableHead>
                   <TableHead>Mã sản phẩm</TableHead>
                   <TableHead>Tên sản phẩm</TableHead>
                   <TableHead className="text-center">SL đặt</TableHead>
@@ -186,9 +276,19 @@ export function InventoryReceiptDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {receipt.items.map((item, index) => (
+                {receipt.items.map((item, index) => {
+                  const product = findProductById(item.productSystemId);
+                  return (
                   <TableRow key={`${item.productSystemId}-${index}`}>
                     <TableCell className="text-center text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell>
+                      <ProductThumbnailCell
+                        productSystemId={item.productSystemId}
+                        product={product}
+                        productName={item.productName}
+                        onPreview={(url, title) => setPreviewImage({ url, title })}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Link
                         to={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
@@ -212,11 +312,12 @@ export function InventoryReceiptDetailPage() {
                       {formatCurrency(Number(item.receivedQuantity) * Number(item.unitPrice))}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-right font-semibold">Tổng cộng</TableCell>
+                  <TableCell colSpan={5} className="text-right font-semibold">Tổng cộng</TableCell>
                   <TableCell className="text-center font-semibold">{totalQuantity}</TableCell>
                   <TableCell />
                   <TableCell className="text-right font-semibold">{formatCurrency(totalValue)}</TableCell>
@@ -226,6 +327,36 @@ export function InventoryReceiptDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog 
+        open={!!previewImage} 
+        onOpenChange={(open) => !open && setPreviewImage(null)} 
+        images={previewImage ? [previewImage.url] : []} 
+        title={previewImage?.title}
+      />
+
+      {/* Comments */}
+      <Comments
+        entityType="inventory-receipt"
+        entityId={receipt.systemId}
+        comments={comments}
+        onAddComment={handleAddComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
+        currentUser={commentCurrentUser}
+        title="Bình luận"
+        placeholder="Thêm bình luận về phiếu nhập kho..."
+      />
+
+      {/* Activity History */}
+      <ActivityHistory
+        history={[]}
+        title="Lịch sử hoạt động"
+        emptyMessage="Chưa có lịch sử hoạt động"
+        groupByDate
+        maxHeight="400px"
+      />
     </div>
   );
 }

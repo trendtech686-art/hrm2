@@ -2,35 +2,54 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { useShipmentStore } from './store.ts';
 import { useOrderStore } from '../orders/store.ts';
 import { useCustomerStore } from '../customers/store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
-import type { Shipment } from './types.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertShipmentToDeliveryForPrint,
+  convertShipmentsToHandoverForPrint,
+  mapDeliveryToPrintData,
+  mapDeliveryLineItems,
+  mapHandoverToPrintData,
+  mapHandoverLineItems,
+  createStoreSettings,
+} from '../../lib/print/shipment-print-helper.ts';
+import type { Shipment, ShipmentView } from './types.ts';
 import { getColumns } from './columns.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
+import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table.tsx';
 import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
+import { Card, CardContent, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
-import { Truck, MoreHorizontal, Calendar, User, MapPin, Package } from 'lucide-react';
+import { Truck, MoreHorizontal, Calendar, User, MapPin, Package, Printer, FileText } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
+import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 
 export function ShipmentsPage() {
+    const { data: shipmentsData } = useShipmentStore();
     const { data: allOrders } = useOrderStore();
     const { data: allCustomers } = useCustomerStore();
     const { data: branches } = useBranchStore();
+    const { info: storeInfo } = useStoreInfoStore();
     const navigate = useNavigate();
-    
-    const headerActions = React.useMemo(() => [], []);
-    usePageHeader({ actions: headerActions });
+    const { print, printMultiple } = usePrint();
+
+    // Print dialog state
+    const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
+    const [itemsToPrint, setItemsToPrint] = React.useState<ShipmentView[]>([]);
+    const [printType, setPrintType] = React.useState<'delivery' | 'handover'>('delivery');
 
     const [branchFilter, setBranchFilter] = React.useState('all');
     const [statusFilter, setStatusFilter] = React.useState('all');
@@ -38,7 +57,7 @@ export function ShipmentsPage() {
     const [globalFilter, setGlobalFilter] = React.useState('');
     const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
-    const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'creationDate', desc: true });
+    const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [rowSelection, setRowSelection] = React.useState({});
     const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
     const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
@@ -58,65 +77,78 @@ export function ShipmentsPage() {
         return () => clearTimeout(timer);
     }, [globalFilter]);
 
-    const shipments = React.useMemo(() => {
-        const slips: Shipment[] = [];
-        allOrders.forEach(order => {
-            order.packagings.forEach(pkg => {
-                if (!pkg.deliveryMethod) return; // Only include packages that are actual shipments
-
-                const customer = allCustomers.find(c => c.systemId === order.customerSystemId);
-                const totalPaid = order.payments.reduce((sum, p) => sum + p.amount, 0);
-                const shippingAddress = customer ? [customer.shippingAddress_street, customer.shippingAddress_ward, customer.shippingAddress_province].filter(Boolean).join(', ') : '';
-
-                slips.push({
-                    systemId: pkg.systemId,
-                    trackingCode: pkg.trackingCode,
-                    packagingDate: pkg.confirmDate,
-                    recipientName: order.customerName,
-                    recipientPhone: customer?.phone || '-',
-                    shippingPartner: pkg.carrier,
-                    deliveryStatus: pkg.deliveryStatus,
-                    shippingFeeToPartner: pkg.shippingFeeToPartner,
-                    codAmount: pkg.codAmount,
-                    reconciliationStatus: pkg.reconciliationStatus,
-                    creationDate: pkg.requestDate,
-                    cancellationDate: pkg.cancelDate,
-                    cancellationReason: pkg.cancelReason,
-                    partnerStatus: pkg.partnerStatus,
-                    payer: pkg.payer,
-                    packagingId: pkg.id,
-                    orderId: order.id,
-                    orderSystemId: order.systemId,
-                    printStatus: pkg.printStatus,
-                    dispatchDate: order.dispatchedDate,
-                    totalProductQuantity: order.lineItems.reduce((sum, item) => sum + item.quantity, 0),
-                    customerDue: order.grandTotal - totalPaid,
-                    deliveredDate: pkg.deliveryStatus === 'Đã giao hàng' ? (pkg.confirmDate || pkg.requestDate) : undefined, // Placeholder
-                    province: customer?.shippingAddress_province,
-                    districtWard: customer?.shippingAddress_ward,
-                    recipientAddress: shippingAddress,
-                    recipientEmail: customer?.email || '-',
-                    deliveryMethod: pkg.deliveryMethod,
-                    dispatchEmployeeName: order.dispatchedByEmployeeName,
-                    creatorEmployeeName: pkg.requestingEmployeeName,
-                    cancelingEmployeeName: pkg.cancelingEmployeeName,
-                    branchName: order.branchName,
-                    notes: pkg.noteToShipper,
-                });
-            });
+    // Build ShipmentView from Shipment entity + Order/Customer data
+    const shipments = React.useMemo((): ShipmentView[] => {
+        return shipmentsData.map(shipment => {
+            const order = allOrders.find(o => o.systemId === shipment.orderSystemId);
+            const customer = order ? allCustomers.find(c => c.systemId === order.customerSystemId) : null;
+            const packaging = order?.packagings.find(p => p.systemId === shipment.packagingSystemId);
+            
+            const totalPaid = order?.payments.reduce((sum, p) => sum + p.amount, 0) || 0;
+            const shippingAddress = customer 
+                ? [customer.shippingAddress_street, customer.shippingAddress_ward, customer.shippingAddress_province].filter(Boolean).join(', ') 
+                : '';
+            
+            return {
+                // Shipment entity fields
+                ...shipment,
+                
+                // Denormalized from Order/Customer
+                customerName: order?.customerName || '-',
+                customerPhone: customer?.phone || '-',
+                customerAddress: shippingAddress,
+                customerEmail: customer?.email || '-',
+                branchName: order?.branchName || '-',
+                
+                // From Packaging
+                packagingDate: packaging?.confirmDate,
+                
+                // Calculated
+                totalProductQuantity: order?.lineItems.reduce((sum, item) => sum + item.quantity, 0) || 0,
+                customerDue: (order?.grandTotal || 0) - totalPaid,
+                
+                // Employee names from packaging
+                creatorEmployeeName: packaging?.requestingEmployeeName || '-',
+                dispatchEmployeeName: order?.dispatchedByEmployeeName,
+                cancelingEmployeeName: packaging?.cancelingEmployeeName,
+            };
         });
-        return slips;
-    }, [allOrders, allCustomers]);
+    }, [shipmentsData, allOrders, allCustomers]);
 
     const handlePrintDelivery = React.useCallback((shipmentIds: string[]) => {
-        console.log('In Phiếu Giao Hàng:', shipmentIds);
-        // TODO: Implement print delivery logic
-    }, []);
+        shipmentIds.forEach(id => {
+            const shipment = shipments.find(s => s.systemId === id);
+            if (!shipment) return;
+            
+            const order = allOrders.find(o => o.systemId === shipment.orderSystemId);
+            if (!order) return;
+            
+            const customer = allCustomers.find(c => c.systemId === order.customerSystemId);
+
+            // Use helper to prepare print data
+            const storeSettings = createStoreSettings(storeInfo);
+            const deliveryData = convertShipmentToDeliveryForPrint(shipment, order, { customer });
+            
+            print('delivery', {
+                data: mapDeliveryToPrintData(deliveryData, storeSettings),
+                lineItems: mapDeliveryLineItems(deliveryData.items),
+            });
+        });
+    }, [shipments, allOrders, allCustomers, storeInfo, print]);
 
     const handlePrintHandover = React.useCallback((shipmentIds: string[]) => {
-        console.log('In Phiếu Bàn Giao:', shipmentIds);
-        // TODO: Implement print handover logic
-    }, []);
+        const selectedShipments = shipments.filter(s => shipmentIds.includes(s.systemId));
+        if (selectedShipments.length === 0) return;
+
+        // Use helper to prepare print data
+        const storeSettings = createStoreSettings(storeInfo);
+        const handoverData = convertShipmentsToHandoverForPrint(selectedShipments);
+        
+        print('handover', {
+            data: mapHandoverToPrintData(handoverData, storeSettings),
+            lineItems: mapHandoverLineItems(handoverData.orders),
+        });
+    }, [shipments, storeInfo, print]);
 
     const handlePrintSingleDelivery = React.useCallback((shipmentId: string) => {
         handlePrintDelivery([shipmentId]);
@@ -125,6 +157,78 @@ export function ShipmentsPage() {
     const handlePrintSingleHandover = React.useCallback((shipmentId: string) => {
         handlePrintHandover([shipmentId]);
     }, [handlePrintHandover]);
+
+    // Bulk print handlers
+    const handleBulkPrintDelivery = React.useCallback((rows: ShipmentView[]) => {
+        setItemsToPrint(rows);
+        setPrintType('delivery');
+        setPrintDialogOpen(true);
+    }, []);
+
+    const handleBulkPrintHandover = React.useCallback((rows: ShipmentView[]) => {
+        setItemsToPrint(rows);
+        setPrintType('handover');
+        setPrintDialogOpen(true);
+    }, []);
+
+    const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+        if (itemsToPrint.length === 0) return;
+        
+        if (printType === 'delivery') {
+            const printItems = itemsToPrint.map(shipment => {
+                const order = allOrders.find(o => o.systemId === shipment.orderSystemId);
+                const customer = order ? allCustomers.find(c => c.systemId === order.customerSystemId) : null;
+                const selectedBranch = options.branchSystemId 
+                    ? branches.find(b => b.systemId === options.branchSystemId)
+                    : null;
+                const storeSettings = selectedBranch 
+                    ? createStoreSettings(selectedBranch as any)
+                    : createStoreSettings(storeInfo);
+                const deliveryData = convertShipmentToDeliveryForPrint(shipment, order!, { customer });
+                
+                return {
+                    data: mapDeliveryToPrintData(deliveryData, storeSettings),
+                    lineItems: mapDeliveryLineItems(deliveryData.items),
+                    paperSize: options.paperSize,
+                };
+            }).filter(item => item.data);
+            
+            printMultiple('delivery', printItems);
+            toast.success(`Đang in ${printItems.length} phiếu giao hàng`);
+        } else {
+            // Handover is a single document containing all selected shipments
+            const selectedBranch = options.branchSystemId 
+                ? branches.find(b => b.systemId === options.branchSystemId)
+                : null;
+            const storeSettings = selectedBranch 
+                ? createStoreSettings(selectedBranch as any)
+                : createStoreSettings(storeInfo);
+            const handoverData = convertShipmentsToHandoverForPrint(itemsToPrint);
+            
+            print('handover', {
+                data: mapHandoverToPrintData(handoverData, storeSettings),
+                lineItems: mapHandoverLineItems(handoverData.orders),
+            });
+            toast.success('Đang in phiếu bàn giao');
+        }
+        
+        setItemsToPrint([]);
+        setPrintDialogOpen(false);
+    }, [itemsToPrint, printType, allOrders, allCustomers, branches, storeInfo, print, printMultiple]);
+
+    // Bulk actions
+    const bulkActions: BulkAction<ShipmentView>[] = React.useMemo(() => [
+        {
+            label: 'In phiếu giao hàng',
+            icon: Printer,
+            onSelect: handleBulkPrintDelivery,
+        },
+        {
+            label: 'In phiếu bàn giao',
+            icon: FileText,
+            onSelect: handleBulkPrintHandover,
+        },
+    ], [handleBulkPrintDelivery, handleBulkPrintHandover]);
     
     const columns = React.useMemo(() => getColumns(handlePrintSingleDelivery, handlePrintSingleHandover, navigate), [handlePrintSingleDelivery, handlePrintSingleHandover, navigate]);
 
@@ -145,16 +249,29 @@ export function ShipmentsPage() {
     }, [columns]);
     
     const fuseInstance = React.useMemo(() => new Fuse(shipments, { 
-        keys: ['trackingCode', 'recipientName', 'recipientPhone', 'shippingPartner', 'packagingId', 'orderId', 'recipientAddress'], 
+        keys: ['trackingCode', 'customerName', 'customerPhone', 'carrier', 'id', 'orderId', 'customerAddress'], 
         threshold: 0.3,
         ignoreLocation: true
     }), [shipments]);
+
+    const shipmentStats = React.useMemo(() => {
+        return shipments.reduce((acc, shipment) => {
+            acc.total += 1;
+            const status = shipment.deliveryStatus;
+            if (status === 'Chờ lấy hàng') acc.pending += 1;
+            else if (status === 'Đang giao hàng') acc.shipping += 1;
+            else if (status === 'Đã giao hàng') acc.delivered += 1;
+            return acc;
+        }, { total: 0, pending: 0, shipping: 0, delivered: 0 });
+    }, [shipments]);
+
+    usePageHeader({});
 
     // Get unique shipping partners from data
     const shippingPartners = React.useMemo(() => {
         const partners = new Set<string>();
         shipments.forEach(s => {
-            if (s.shippingPartner) partners.add(s.shippingPartner);
+            if (s.carrier) partners.add(s.carrier);
         });
         return Array.from(partners).sort();
     }, [shipments]);
@@ -163,7 +280,7 @@ export function ShipmentsPage() {
         let data = shipments;
         if (branchFilter !== 'all') data = data.filter(s => s.branchName === branches.find(b => b.systemId === branchFilter)?.name);
         if (statusFilter !== 'all') data = data.filter(s => s.deliveryStatus === statusFilter);
-        if (partnerFilter !== 'all') data = data.filter(s => s.shippingPartner === partnerFilter);
+        if (partnerFilter !== 'all') data = data.filter(s => s.carrier === partnerFilter);
         if (debouncedGlobalFilter && debouncedGlobalFilter.trim()) {
             fuseInstance.setCollection(data);
             data = fuseInstance.search(debouncedGlobalFilter.trim()).map(r => r.item);
@@ -181,6 +298,12 @@ export function ShipmentsPage() {
             const bValue = (b as any)[sorting.id];
             if (!aValue) return 1;
             if (!bValue) return -1;
+            // Special handling for date columns
+            if (sorting.id === 'createdAt' || sorting.id === 'creationDate' || sorting.id === 'estimatedDeliveryDate') {
+              const aTime = aValue ? new Date(aValue).getTime() : 0;
+              const bTime = bValue ? new Date(bValue).getTime() : 0;
+              return sorting.desc ? bTime - aTime : aTime - bTime;
+            }
             if (aValue < bValue) return sorting.desc ? 1 : -1;
             if (aValue > bValue) return sorting.desc ? -1 : 1;
             return 0;
@@ -214,9 +337,9 @@ export function ShipmentsPage() {
     React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter, partnerFilter]);
 
     const exportConfig = { fileName: 'Danh_sach_Van_chuyen', columns };
-    const handleRowClick = (row: Shipment) => navigate('/shipments/' + row.systemId);
+    const handleRowClick = (row: ShipmentView) => navigate('/shipments/' + row.systemId);
 
-    const MobileShipmentCard = ({ shipment }: { shipment: Shipment }) => {
+    const MobileShipmentCard = ({ shipment }: { shipment: ShipmentView }) => {
         const getStatusVariant = (status?: string): 'default' | 'secondary' | 'destructive' => {
             if (!status) return 'secondary';
             const map: Record<string, 'default' | 'secondary' | 'destructive'> = {
@@ -237,11 +360,11 @@ export function ShipmentsPage() {
                 <CardContent className='p-4'>
                     <div className='flex items-center justify-between mb-2'>
                         <div className='flex items-center gap-2 flex-1 min-w-0'>
-                            <Avatar className='h-8 w-8 flex-shrink-0 bg-green-100'>
-                                <AvatarFallback className='text-xs text-green-700'><Truck className='h-4 w-4' /></AvatarFallback>
+                            <Avatar className='h-8 w-8 flex-shrink-0 bg-primary/10'>
+                                <AvatarFallback className='text-xs text-primary'><Truck className='h-4 w-4' /></AvatarFallback>
                             </Avatar>
                             <div className='flex items-center gap-1.5 min-w-0 flex-1'>
-                                <h3 className='font-semibold text-sm truncate'>{shipment.trackingCode || shipment.packagingId}</h3>
+                                <CardTitle className='font-semibold text-sm truncate'>{shipment.trackingCode || shipment.id}</CardTitle>
                                 <span className='text-xs text-muted-foreground'>•</span>
                                 <span className='text-xs text-muted-foreground font-mono'>{shipment.orderId}</span>
                             </div>
@@ -261,24 +384,24 @@ export function ShipmentsPage() {
                     </div>
                     <div className='text-xs text-muted-foreground mb-3 flex items-center'>
                         <User className='h-3 w-3 mr-1.5 flex-shrink-0' />
-                        <span className='truncate'>{shipment.recipientName}</span>
+                        <span className='truncate'>{shipment.customerName}</span>
                     </div>
                     <div className='border-t mb-3' />
                     <div className='space-y-2'>
                         <div className='flex items-center text-xs text-muted-foreground'>
                             <Calendar className='h-3 w-3 mr-1.5 flex-shrink-0' />
-                            <span>{formatDate(shipment.creationDate)}</span>
+                            <span>{formatDate(shipment.createdAt)}</span>
                         </div>
-                        {shipment.recipientAddress && (
+                        {shipment.customerAddress && (
                             <div className='flex items-center text-xs text-muted-foreground'>
                                 <MapPin className='h-3 w-3 mr-1.5 flex-shrink-0' />
-                                <span className='truncate'>{shipment.recipientAddress}</span>
+                                <span className='truncate'>{shipment.customerAddress}</span>
                             </div>
                         )}
-                        {shipment.shippingPartner && (
+                        {shipment.carrier && (
                             <div className='flex items-center text-xs text-muted-foreground'>
                                 <Package className='h-3 w-3 mr-1.5 flex-shrink-0' />
-                                <span>{shipment.shippingPartner}</span>
+                                <span>{shipment.carrier}</span>
                             </div>
                         )}
                         <div className='flex items-center justify-between text-xs pt-1'>
@@ -361,25 +484,7 @@ export function ShipmentsPage() {
                         rowSelection={rowSelection} 
                         setRowSelection={setRowSelection} 
                         allSelectedRows={allSelectedRows}
-                        bulkActionButtons={
-                            allSelectedRows.length > 0 ? (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant='outline' size='sm'>
-                                            Chọn Hành Động ({allSelectedRows.length})
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align='start'>
-                                        <DropdownMenuItem onClick={() => handlePrintDelivery(allSelectedRows.map(s => s.systemId))}>
-                                            In Phiếu Giao Hàng
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handlePrintHandover(allSelectedRows.map(s => s.systemId))}>
-                                            In Phiếu Bàn Giao
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            ) : null
-                        }
+                        bulkActions={bulkActions}
                         expanded={expanded} 
                         setExpanded={setExpanded} 
                         sorting={sorting} 
@@ -394,6 +499,15 @@ export function ShipmentsPage() {
                     />
                 </div>
             )}
+
+            {/* Print Options Dialog */}
+            <SimplePrintOptionsDialog
+                open={printDialogOpen}
+                onOpenChange={setPrintDialogOpen}
+                onConfirm={handlePrintConfirm}
+                selectedCount={itemsToPrint.length}
+                title={printType === 'delivery' ? 'In phiếu giao hàng' : 'In phiếu bàn giao'}
+            />
         </div>
     );
 }

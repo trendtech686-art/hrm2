@@ -127,17 +127,17 @@ export interface SettlementMethod {
   status: SettlementStatus;
   
   // Thông tin chi tiết theo từng loại
-  linkedOrderSystemId?: SystemId;   // Link to order (BRANDED TYPE)
-  paymentVoucherId?: SystemId;      // Cho cash/transfer (BRANDED TYPE)
-  debtTransactionId?: SystemId;     // Cho debt (BRANDED TYPE)
-  voucherCode?: string;             // Cho voucher
-  bankAccount?: string;             // Cho transfer
-  transactionCode?: string;         // Cho transfer
-  dueDate?: string;                 // Cho debt
+  linkedOrderSystemId?: SystemId | undefined;   // Link to order (BRANDED TYPE)
+  paymentVoucherId?: SystemId | undefined;      // Cho cash/transfer (BRANDED TYPE)
+  debtTransactionId?: SystemId | undefined;     // Cho debt (BRANDED TYPE)
+  voucherCode?: string | undefined;             // Cho voucher
+  bankAccount?: string | undefined;             // Cho transfer
+  transactionCode?: string | undefined;         // Cho transfer
+  dueDate?: string | undefined;                 // Cho debt
   
-  notes?: string;
+  notes?: string | undefined;
   createdAt: string;
-  completedAt?: string;
+  completedAt?: string | undefined;
 }
 
 // Thông tin bù trừ
@@ -155,20 +155,20 @@ export interface WarrantySettlement {
   unsettledProducts: UnsettledProduct[];
   
   // Cho single settlement type
-  paymentVoucherId?: SystemId;      // ID phiếu chi (BRANDED TYPE)
-  debtTransactionId?: SystemId;     // ID giao dịch công nợ (BRANDED TYPE)
-  voucherCode?: string;             // Mã voucher (nếu tạo voucher)
-  linkedOrderSystemId?: SystemId;   // Link to order (BRANDED TYPE)
+  paymentVoucherId?: SystemId | undefined;      // ID phiếu chi (BRANDED TYPE)
+  debtTransactionId?: SystemId | undefined;     // ID giao dịch công nợ (BRANDED TYPE)
+  voucherCode?: string | undefined;             // Mã voucher (nếu tạo voucher)
+  linkedOrderSystemId?: SystemId | undefined;   // Link to order (BRANDED TYPE)
   
   // Cho mixed settlement type
-  methods?: SettlementMethod[];     // Danh sách các phương thức bù trừ (khi type = 'mixed')
+  methods?: SettlementMethod[] | undefined;     // Danh sách các phương thức bù trừ (khi type = 'mixed')
   
   status: SettlementStatus;
-  settledAt?: string;
-  settledBy?: SystemId;             // BRANDED TYPE - Employee who settled
+  settledAt?: string | undefined;
+  settledBy?: SystemId | undefined;             // BRANDED TYPE - Employee who settled
   notes: string;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt?: string | undefined;
 }
 
 // ====================================
@@ -215,16 +215,16 @@ export function getNextAllowedStatuses(currentStatus: WarrantyStatus): WarrantyS
 // ====================================
 export interface WarrantyProduct {
   systemId: SystemId;             // ID hệ thống (BRANDED TYPE)
-  productSystemId?: SystemId;     // Link to Product entity (BRANDED TYPE)
-  sku?: BusinessId;               // Mã SKU sản phẩm (BRANDED TYPE - Business ID)
+  productSystemId?: SystemId | undefined;     // Link to Product entity (BRANDED TYPE)
+  sku?: BusinessId | undefined;               // Mã SKU sản phẩm (BRANDED TYPE - Business ID)
   productName: string;            // Tên sản phẩm (textbox)
-  quantity?: number;              // Số lượng (mặc định 1)
-  unitPrice?: number;             // Đơn giá (để tính thành tiền)
+  quantity?: number | undefined;              // Số lượng (mặc định 1)
+  unitPrice?: number | undefined;             // Đơn giá (để tính thành tiền)
   issueDescription: string;       // Tình trạng/Ghi chú (textbox)
   resolution: ResolutionType;     // Cách xử lý (Trả lại/Đổi mới/Trừ tiền)
-  deductionAmount?: number;       // Số tiền trừ (nếu chọn "Trừ tiền")
+  deductionAmount?: number | undefined;       // Số tiền trừ (nếu chọn "Trừ tiền")
   productImages: string[];        // Hình ảnh sản phẩm thực tế lúc nhận
-  notes?: string;                 // Ghi chú bổ sung cho sản phẩm
+  notes?: string | undefined;                 // Ghi chú bổ sung cho sản phẩm
 }
 
 // ====================================
@@ -234,22 +234,22 @@ export interface WarrantyHistory {
   systemId: SystemId;             // ID hệ thống (BRANDED TYPE)
   action: string;                 // Hành động (VD: "create", "add_product", "update_status", "upload_image")
   actionLabel: string;            // Mô tả hiển thị (VD: "Tạo phiếu", "Thêm sản phẩm #1")
-  entityType?: string;            // Loại đối tượng (VD: "product", "image", "status")
-  entityId?: SystemId;            // ID đối tượng (BRANDED TYPE)
+  entityType?: string | undefined;            // Loại đối tượng (VD: "product", "image", "status")
+  entityId?: SystemId | undefined;            // ID đối tượng (BRANDED TYPE)
   changes?: {                     // Chi tiết thay đổi (for version control)
     field: string;                // Trường thay đổi
     oldValue: any;                // Giá trị cũ
     newValue: any;                // Giá trị mới
-  }[];
+  }[] | undefined;
   performedBy: string;            // Người thực hiện (tên nhân viên)
-  performedBySystemId?: SystemId; // SystemId của nhân viên (BRANDED TYPE)
+  performedBySystemId?: SystemId | undefined; // SystemId của nhân viên (BRANDED TYPE)
   performedAt: string;            // Thời gian thực hiện (ISO datetime)
-  note?: string;                  // Ghi chú thêm (optional)
-  metadata?: Record<string, any>; // Metadata cho action (paymentSystemId, receiptSystemId, etc.)
+  note?: string | undefined;                  // Ghi chú thêm (optional)
+  metadata?: Record<string, any> | undefined; // Metadata cho action (paymentSystemId, receiptSystemId, etc.)
   
   // Link to related documents (BRANDED TYPES)
-  linkedOrderSystemId?: SystemId;   // Link to order (BRANDED TYPE)
-  linkedVoucherSystemId?: SystemId; // Link to payment voucher (BRANDED TYPE)
+  linkedOrderSystemId?: SystemId | undefined;   // Link to order (BRANDED TYPE)
+  linkedVoucherSystemId?: SystemId | undefined; // Link to payment voucher (BRANDED TYPE)
 }
 
 // ====================================
@@ -262,12 +262,12 @@ export interface WarrantyComment {
   createdBy: string;              // Người comment (tên nhân viên)
   createdBySystemId: SystemId;    // SystemId của nhân viên (BRANDED TYPE)
   createdAt: string;              // Thời gian comment (ISO datetime)
-  updatedAt?: string;             // Thời gian chỉnh sửa (nếu có)
-  attachments?: string[];         // Hình ảnh đính kèm
-  mentions?: SystemId[];          // Danh sách systemId nhân viên được tag (BRANDED TYPE)
-  parentId?: SystemId;            // ID comment cha (BRANDED TYPE)
-  isEdited?: boolean;             // Đã chỉnh sửa
-  isDeleted?: boolean;            // Đã xóa (soft delete)
+  updatedAt?: string | undefined;             // Thời gian chỉnh sửa (nếu có)
+  attachments?: string[] | undefined;         // Hình ảnh đính kèm
+  mentions?: SystemId[] | undefined;          // Danh sách systemId nhân viên được tag (BRANDED TYPE)
+  parentId?: SystemId | undefined;            // ID comment cha (BRANDED TYPE)
+  isEdited?: boolean | undefined;             // Đã chỉnh sửa
+  isDeleted?: boolean | undefined;            // Đã xóa (soft delete)
 }
 
 // ====================================
@@ -291,7 +291,7 @@ export interface WarrantyTicket {
   // ====================================
   // Thông tin khách hàng
   // ====================================
-  customerSystemId?: SystemId;    // Link to Customer entity (BRANDED TYPE)
+  customerSystemId?: SystemId | undefined;    // Link to Customer entity (BRANDED TYPE)
   customerName: string;           // Tên khách hàng
   customerPhone: string;          // Số điện thoại
   customerAddress: string;        // Địa chỉ
@@ -300,43 +300,43 @@ export interface WarrantyTicket {
   // Thông tin vận chuyển
   // ====================================
   trackingCode: string;           // Mã vận đơn (GHTK, GHN, etc.)
-  publicTrackingCode?: string;    // Mã tra cứu công khai (cho khách hàng)
-  shippingFee?: number;           // Phí cước (optional)
+  publicTrackingCode?: string | undefined;    // Mã tra cứu công khai (cho khách hàng)
+  shippingFee?: number | undefined;           // Phí cước (optional)
   
   // ====================================
   // Tham chiếu bên ngoài
   // ====================================
-  referenceUrl?: string;          // Đường dẫn (URL)
-  externalReference?: string;     // Mã tham chiếu
+  referenceUrl?: string | undefined;          // Đường dẫn (URL)
+  externalReference?: string | undefined;     // Mã tham chiếu
   
   // ====================================
   // Hình ảnh & Sản phẩm
   // ====================================
   receivedImages: string[];       // Hình ảnh đơn hàng lúc nhận (upload khi tạo phiếu)
   products: WarrantyProduct[];    // Danh sách sản phẩm bảo hành
-  processedImages?: string[];     // Hình ảnh đơn hàng đã xử lý xong (upload sau khi xử lý)
+  processedImages?: string[] | undefined;     // Hình ảnh đơn hàng đã xử lý xong (upload sau khi xử lý)
   
   // ====================================
   // Trạng thái
   // ====================================
   status: WarrantyStatus;         // Trạng thái phiếu (Mới/Chưa xử lý/Đã xử lý/Đã trả)
-  settlementStatus?: WarrantySettlementStatus; // Trạng thái thanh toán (Chưa thanh toán/Thanh toán một phần/Đã thanh toán)
-  stockDeducted?: boolean;        // Flag: Đã trừ kho khi completed (tránh trừ lại khi reopen)
+  settlementStatus?: WarrantySettlementStatus | undefined; // Trạng thái thanh toán (Chưa thanh toán/Thanh toán một phần/Đã thanh toán)
+  stockDeducted?: boolean | undefined;        // Flag: Đã trừ kho khi completed (tránh trừ lại khi reopen)
   
   // ====================================
   // Timestamps theo trạng thái
   // ====================================
-  processingStartedAt?: string;   // Thời điểm bắt đầu xử lý (new -> pending)
-  processedAt?: string;           // Thời điểm xử lý xong (pending -> processed)
-  returnedAt?: string;            // Thời điểm trả hàng (processed -> returned)
-  completedAt?: string;           // Thời điểm kết thúc phiếu (returned -> completed)
-  cancelledAt?: string;           // Thời điểm hủy (nếu có)
-  cancelReason?: string;          // Lý do hủy (khi hủy phiếu)
+  processingStartedAt?: string | undefined;   // Thời điểm bắt đầu xử lý (new -> pending)
+  processedAt?: string | undefined;           // Thời điểm xử lý xong (pending -> processed)
+  returnedAt?: string | undefined;            // Thời điểm trả hàng (processed -> returned)
+  completedAt?: string | undefined;           // Thời điểm kết thúc phiếu (returned -> completed)
+  cancelledAt?: string | undefined;           // Thời điểm hủy (nếu có)
+  cancelReason?: string | undefined;          // Lý do hủy (khi hủy phiếu)
   
   // ====================================
   // Liên kết với đơn hàng
   // ====================================
-  linkedOrderSystemId?: SystemId; // Link to order (BRANDED TYPE)
+  linkedOrderSystemId?: SystemId | undefined; // Link to order (BRANDED TYPE)
   
   // ====================================
   // DEPRECATED - No longer used after simplification
@@ -347,7 +347,7 @@ export interface WarrantyTicket {
   // ====================================
   // Ghi chú
   // ====================================
-  notes?: string;                 // Ghi chú đơn hàng
+  notes?: string | undefined;                 // Ghi chú đơn hàng
   
   // ====================================
   // Tổng hợp
@@ -355,16 +355,16 @@ export interface WarrantyTicket {
   summary: {
     totalProducts: number;        // Tổng số sản phẩm gửi bảo hành
     totalReplaced: number;        // Số lượng được đổi trả
-    totalReturned?: number;       // Số lượng trả lại khách
+    totalReturned?: number | undefined;       // Số lượng trả lại khách
     totalDeduction: number;       // Tổng tiền trừ
-    totalOutOfStock?: number;     // Số lượng hết hàng (cần bù trừ)
-    totalSettlement?: number;     // Tổng tiền cần bù trừ (Rename suggestion: totalRefund)
+    totalOutOfStock?: number | undefined;     // Số lượng hết hàng (cần bù trừ)
+    totalSettlement?: number | undefined;     // Tổng tiền cần bù trừ (Rename suggestion: totalRefund)
   };
   
   // ====================================
   // Thanh toán bù trừ (snapshot Phase 2)
   // ====================================
-  settlement?: WarrantySettlement; // Lưu lịch sử tổng hợp phương thức bù trừ
+  settlement?: WarrantySettlement | undefined; // Lưu lịch sử tổng hợp phương thức bù trừ
   
   // ====================================
   // Lịch sử thao tác
@@ -379,16 +379,16 @@ export interface WarrantyTicket {
   // ====================================
   // Quy trình xử lý (Subtasks)
   // ====================================
-  subtasks?: Subtask[];           // Danh sách công việc cần thực hiện
+  subtasks?: Subtask[] | undefined;           // Danh sách công việc cần thực hiện
   
   // ====================================
   // Audit fields
   // ====================================
   createdBy: string;              // Người tạo (tên nhân viên)
-  createdBySystemId?: SystemId;   // SystemId của người tạo (BRANDED TYPE)
+  createdBySystemId?: SystemId | undefined;   // SystemId của người tạo (BRANDED TYPE)
   createdAt: string;              // Ngày tạo (ISO datetime)
   updatedAt: string;              // Ngày cập nhật cuối (ISO datetime)
-  updatedBySystemId?: SystemId;   // SystemId của người cập nhật cuối (BRANDED TYPE)
+  updatedBySystemId?: SystemId | undefined;   // SystemId của người cập nhật cuối (BRANDED TYPE)
 }
 
 // ====================================
@@ -396,7 +396,7 @@ export interface WarrantyTicket {
 // ====================================
 export interface WarrantyFormValues {
   // ===== ID =====
-  id?: BusinessId;                // Mã phiếu bảo hành (BRANDED TYPE - Business ID)
+  id?: BusinessId | undefined;                // Mã phiếu bảo hành (BRANDED TYPE - Business ID)
   
   // ===== Section 1: Thông tin khách hàng (REUSE CustomerSelector) =====
   customer: (Customer | WarrantyCustomerInfo) | null; // CustomerSelector lưu full Customer, fallback snapshot
@@ -405,29 +405,29 @@ export interface WarrantyFormValues {
   branchSystemId: SystemId;       // Bán tại (chi nhánh) - required (BRANDED TYPE)
   employeeSystemId: SystemId;     // Làm bởi (nhân viên) - required (BRANDED TYPE)
   trackingCode: string;           // Mã vận đơn (required)
-  shippingFee?: number;           // Phí cước
-  referenceUrl?: string;          // Đường dẫn (URL)
-  externalReference?: string;     // Mã tham chiếu
+  shippingFee?: number | undefined;           // Phí cước
+  referenceUrl?: string | undefined;          // Đường dẫn (URL)
+  externalReference?: string | undefined;     // Mã tham chiếu
   
   // ===== Section 2B: Hình ảnh (50-50) =====
   receivedImages: string[];       // Hình ảnh đơn hàng lúc nhận (required)
-  processedImages?: string[];     // Hình ảnh đã xử lý (thêm sau)
+  processedImages?: string[] | undefined;     // Hình ảnh đã xử lý (thêm sau)
   
   // ===== Section 3: Thông tin sản phẩm (Warranty-specific) =====
   products: WarrantyProduct[];    // Sản phẩm bảo hành (có thể tạo ngay)
   
   // ===== Section 4: Ghi chú (REUSE OrderNotes) =====
-  notes?: string;                 // Ghi chú đơn hàng
+  notes?: string | undefined;                 // Ghi chú đơn hàng
   
   // ===== Section 5: Thanh toán (Adapted OrderSummary) =====
   status: WarrantyStatus;         // Trạng thái phiếu
   
   // ===== Bù trừ (inline trong card thanh toán) =====
-  settlementMethod?: string;      // 'cash' | 'transfer' | 'debt' | 'voucher' | 'order_deduction'
-  settlementAmount?: number;      // Số tiền bù trừ
-  settlementBankAccount?: string; // Số tài khoản (transfer)
-  settlementTransactionCode?: string; // Mã giao dịch (transfer)
-  settlementDueDate?: string;     // Ngày hẹn trả (debt)
-  settlementVoucherCode?: string; // Mã voucher (voucher)
-  linkedOrderSystemId?: SystemId; // Link to order (BRANDED TYPE)
+  settlementMethod?: string | undefined;      // 'cash' | 'transfer' | 'debt' | 'voucher' | 'order_deduction'
+  settlementAmount?: number | undefined;      // Số tiền bù trừ
+  settlementBankAccount?: string | undefined; // Số tài khoản (transfer)
+  settlementTransactionCode?: string | undefined; // Mã giao dịch (transfer)
+  settlementDueDate?: string | undefined;     // Ngày hẹn trả (debt)
+  settlementVoucherCode?: string | undefined; // Mã voucher (voucher)
+  linkedOrderSystemId?: SystemId | undefined; // Link to order (BRANDED TYPE)
 }

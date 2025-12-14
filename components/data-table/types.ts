@@ -24,6 +24,8 @@ export type ColumnDef<TData> = {
     sticky?: 'left' | 'right';
     // FIX: Added optional `group` property to allow grouping columns in the customizer.
     group?: string;
+    // FIX: Added optional `excludeFromExport` property to exclude columns from export.
+    excludeFromExport?: boolean;
   };
   size?: number;
 };

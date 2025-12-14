@@ -1,18 +1,25 @@
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerFormSchema, validateUniqueId, type CustomerFormData } from "./validation.ts";
 import type { Customer, CustomerAddress } from "./types.ts";
 import { toast } from 'sonner';
 import { useCustomerStore } from './store.ts';
+import { useEmployeeStore } from '../employees/store.ts';
+import { useShallow } from 'zustand/react/shallow';
 import { useProvinceStore } from "../settings/provinces/store.ts";
 import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
 import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
 import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
 import { usePaymentTermStore } from '../settings/customers/payment-terms-store';
 import { useCreditRatingStore } from '../settings/customers/credit-ratings-store';
-import { ImageUploadManager } from '../../components/ui/image-upload-manager.tsx';
-import { useImageUpload } from '../../hooks/use-image-upload.ts';
+import { NewDocumentsUpload } from '../../components/ui/new-documents-upload.tsx';
+import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer.tsx';
+import { FileUploadAPI, type StagingFile, type ServerFile } from '../../lib/file-upload-api.ts';
+import { TagInput } from "../../components/ui/tag-input.tsx";
+import { DatePicker } from "../../components/ui/date-picker.tsx";
+import { Checkbox } from "../../components/ui/checkbox.tsx";
+import { Plus, Trash2 } from "lucide-react";
 
 import {
   Form,
@@ -21,6 +28,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "../../components/ui/form.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { CurrencyInput } from "../../components/ui/currency-input.tsx";
@@ -39,6 +47,8 @@ import { CustomerAddresses } from './customer-addresses.tsx';
 import { Button } from "../../components/ui/button.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
+import { usePricingPolicyStore } from '../settings/pricing/store.ts';
+import { useLifecycleStageStore } from '../settings/customers/lifecycle-stages-store';
 
 export type CustomerFormValues = CustomerFormData;
 
@@ -47,19 +57,22 @@ export type CustomerFormSubmitPayload = Omit<CustomerFormValues, 'id' | 'account
   accountManagerId?: SystemId;
   createdBy?: SystemId;
   updatedBy?: SystemId;
-  addresses: CustomerAddress[];
+  // addresses is already in CustomerFormValues
 };
 
 type CustomerFormProps = {
   initialData: Customer | null;
   onSubmit: (values: CustomerFormSubmitPayload) => Promise<void> | void;
   onCancel: () => void;
+  onSuccess?: () => void;
   isEditMode?: boolean;
 };
 
-export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = false }: CustomerFormProps) {
-  const { data: customers } = useCustomerStore();
+export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEditMode = false }: CustomerFormProps) {
+  const customerIds = useCustomerStore(useShallow(state => state.data.map(c => c.id)));
   const { data: provinces, getWardsByProvinceId } = useProvinceStore();
+  const { data: employees } = useEmployeeStore();
+  const { data: customers } = useCustomerStore();
   
   // Settings stores
   const customerTypes = useCustomerTypeStore();
@@ -67,41 +80,220 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
   const customerSources = useCustomerSourceStore();
   const paymentTerms = usePaymentTermStore();
   const creditRatings = useCreditRatingStore();
+  const pricingPolicies = usePricingPolicyStore(state => state.data);
+  const lifecycleStages = useLifecycleStageStore();
 
   // Debug log
   console.log('CustomerForm - isEditMode:', isEditMode, 'initialData:', initialData?.id);
 
-  // State for multiple addresses
-  const [addresses, setAddresses] = React.useState<CustomerAddress[]>(initialData?.addresses ?? []);
+  // ============================================
+  // IMAGE UPLOAD STATE (like Employee module)
+  // ============================================
   
-  // Image upload management
-  const {
-    stagingFiles: imageStagingFiles,
-    sessionId: imageSessionId,
-    setStagingFiles: setImageStagingFiles,
-    setSessionId: setImageSessionId,
-    confirmImages,
-    hasImages,
-  } = useImageUpload({ 
-    entityType: 'customer',
-    initialImages: initialData?.images 
-  });
+  // Permanent files (existing files loaded from server)
+  const [imagePermanentFiles, setImagePermanentFiles] = React.useState<StagingFile[]>([]);
+  // Staging files (new uploads not yet confirmed)
+  const [imageStagingFiles, setImageStagingFiles] = React.useState<StagingFile[]>([]);
+  // Session ID for staging uploads
+  const [imageSessionId, setImageSessionId] = React.useState<string | null>(null);
+  // Files marked for deletion (safe delete)
+  const [imageFilesToDelete, setImageFilesToDelete] = React.useState<string[]>([]);
+  // Loading state
+  const [isLoadingImages, setIsLoadingImages] = React.useState(false);
+
+  // ============================================
+  // CONTRACT FILE UPLOAD STATE
+  // ============================================
+  
+  const [contractPermanentFiles, setContractPermanentFiles] = React.useState<StagingFile[]>([]);
+  const [contractStagingFiles, setContractStagingFiles] = React.useState<StagingFile[]>([]);
+  const [contractSessionId, setContractSessionId] = React.useState<string | null>(null);
+  const [contractFilesToDelete, setContractFilesToDelete] = React.useState<string[]>([]);
+
+  // ============================================
+  // LOAD EXISTING FILES ON EDIT
+  // ============================================
+  
+  const loadExistingFiles = React.useCallback(async (customerId: string) => {
+    if (!customerId) return;
+    
+    setIsLoadingImages(true);
+    try {
+      // Load customer images
+      const imageFiles = await FileUploadAPI.getCustomerFiles(customerId);
+      const mappedImages: StagingFile[] = imageFiles.map(file => ({
+        id: file.id,
+        sessionId: '', // No session for permanent files
+        name: file.name,
+        originalName: file.originalName,
+        slug: file.slug,
+        filename: file.filename,
+        size: file.size,
+        type: file.type,
+        url: file.url,
+        status: 'permanent' as const,
+        uploadedAt: file.uploadedAt,
+        metadata: ''
+      }));
+      setImagePermanentFiles(mappedImages);
+      
+      // Load contract files
+      const contractFiles = await FileUploadAPI.getCustomerContractFiles(customerId);
+      const mappedContracts: StagingFile[] = contractFiles.map(file => ({
+        id: file.id,
+        sessionId: '',
+        name: file.name,
+        originalName: file.originalName,
+        slug: file.slug,
+        filename: file.filename,
+        size: file.size,
+        type: file.type,
+        url: file.url,
+        status: 'permanent' as const,
+        uploadedAt: file.uploadedAt,
+        metadata: ''
+      }));
+      setContractPermanentFiles(mappedContracts);
+      
+      console.log('📁 Loaded customer files:', {
+        images: mappedImages.length,
+        contracts: mappedContracts.length
+      });
+    } catch (error) {
+      console.error('Failed to load customer files:', error);
+    } finally {
+      setIsLoadingImages(false);
+    }
+  }, []);
+
+  // Load files when editing existing customer
+  React.useEffect(() => {
+    if (isEditMode && initialData?.systemId) {
+      loadExistingFiles(initialData.systemId);
+    }
+  }, [isEditMode, initialData?.systemId, loadExistingFiles]);
+
+  // ============================================
+  // SAFE DELETE HANDLERS
+  // ============================================
+  
+  const handleMarkImageForDeletion = React.useCallback((fileId: string) => {
+    setImageFilesToDelete(prev => {
+      if (prev.includes(fileId)) {
+        return prev.filter(id => id !== fileId);
+      }
+      return [...prev, fileId];
+    });
+  }, []);
+
+  const handleMarkContractForDeletion = React.useCallback((fileId: string) => {
+    setContractFilesToDelete(prev => {
+      if (prev.includes(fileId)) {
+        return prev.filter(id => id !== fileId);
+      }
+      return [...prev, fileId];
+    });
+  }, []);
+
+  // Refresh handler
+  const handleRefreshFiles = React.useCallback(async () => {
+    if (initialData?.systemId) {
+      await loadExistingFiles(initialData.systemId);
+      setImageFilesToDelete([]);
+      setContractFilesToDelete([]);
+      toast.success('Đã tải lại danh sách file');
+    }
+  }, [initialData?.systemId, loadExistingFiles]);
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
       ...initialData,
       id: initialData?.id ?? '',
+      addresses: initialData?.addresses ?? [],
+      contacts: initialData?.contacts ?? [],
+      tags: initialData?.tags ?? [],
+      contract: initialData?.contract ?? {},
+      // Ensure other new fields have defaults if needed, though optional handles it
     },
     mode: 'onChange', // Validate on every change for realtime feedback
     reValidateMode: 'onChange',
   });
 
+  const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
+    control: form.control,
+    name: "contacts",
+  });
+
+  // ============================================
+  // AUTO-FILL DEFAULTS WHEN CREATING NEW CUSTOMER
+  // ============================================
+  React.useEffect(() => {
+    // Only apply defaults when creating new customer (not editing)
+    if (!isEditMode && !initialData) {
+      // Find default values from settings (only from active items)
+      const defaultType = customerTypes.getActive().find(t => t.isActive && t.isDefault);
+      const defaultGroup = customerGroups.getActive().find(g => g.isActive && g.isDefault);
+      const defaultSource = customerSources.getActive().find(s => s.isActive && s.isDefault);
+      const defaultStage = lifecycleStages.getActive().find(l => l.isActive && l.isDefault);
+      const defaultPaymentTerm = paymentTerms.getActive().find(p => p.isActive && p.isDefault);
+      const defaultCreditRating = creditRatings.getActive().find(c => c.isActive && c.isDefault);
+
+      // Apply defaults
+      if (defaultType) {
+        form.setValue('type', defaultType.id);
+      }
+      if (defaultGroup) {
+        form.setValue('customerGroup', defaultGroup.id);
+        // Also apply group's default credit limit
+        if (defaultGroup.defaultCreditLimit) {
+          form.setValue('maxDebt', defaultGroup.defaultCreditLimit);
+        }
+        // Apply group's default price list
+        if (defaultGroup.defaultPriceListId) {
+          form.setValue('pricingLevel', defaultGroup.defaultPriceListId);
+        }
+      }
+      if (defaultSource) {
+        form.setValue('source', defaultSource.id);
+      }
+      if (defaultStage) {
+        form.setValue('lifecycleStage', defaultStage.id);
+      }
+      if (defaultPaymentTerm) {
+        form.setValue('paymentTerms', defaultPaymentTerm.id);
+      }
+      if (defaultCreditRating) {
+        form.setValue('creditRating', defaultCreditRating.id);
+        // Also apply credit rating's max credit limit if customer doesn't have maxDebt yet
+        const currentMaxDebt = form.getValues('maxDebt');
+        if (defaultCreditRating.maxCreditLimit && (!currentMaxDebt || currentMaxDebt === 0)) {
+          form.setValue('maxDebt', defaultCreditRating.maxCreditLimit);
+        }
+      }
+
+      // Auto-fill default pricing policy (only "Bán hàng" type for customers)
+      const defaultPricingPolicy = pricingPolicies.find(p => p.isActive && p.isDefault && p.type === 'Bán hàng');
+      if (defaultPricingPolicy) {
+        form.setValue('pricingLevel', defaultPricingPolicy.id);
+      }
+
+      // Default allowCredit to true (Có)
+      form.setValue('allowCredit', true);
+
+      // Default contract status to Active (Đang hiệu lực)
+      form.setValue('contract.status', 'Active');
+
+      // Default contract startDate to today
+      form.setValue('contract.startDate', new Date().toISOString());
+    }
+  }, [isEditMode, initialData, customerTypes, customerGroups, customerSources, lifecycleStages, paymentTerms, creditRatings, pricingPolicies, form]);
+
   // Debounced unique ID validation
   React.useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === 'id' && value.id) {
-        const existingIds = customers.map(c => c.id);
+        const existingIds = customerIds;
         const normalized = value.id.trim().toUpperCase();
         const isUnique = validateUniqueId(normalized, existingIds, initialData?.id);
         
@@ -120,13 +312,43 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
     });
     
     return () => subscription.unsubscribe();
-  }, [form, customers, initialData?.id]);
+  }, [form, customerIds, initialData?.id]);
+
+  // Watch customer group changes to apply defaults
+  React.useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'customerGroup' && value.customerGroup) {
+        const group = customerGroups.getActive().find(g => g.id === value.customerGroup);
+        if (group) {
+          // Apply default credit limit if current value is 0
+          if (group.defaultCreditLimit && group.defaultCreditLimit > 0) {
+            const currentLimit = form.getValues('maxDebt');
+            if (!currentLimit || currentLimit === 0) {
+              form.setValue('maxDebt', group.defaultCreditLimit);
+              toast.info(`Đã áp dụng hạn mức tín dụng mặc định: ${(group.defaultCreditLimit / 1000000).toLocaleString('vi-VN')}tr`);
+            }
+          }
+
+          // Apply default price list
+          if (group.defaultPriceListId) {
+             // Check if price list exists and is active
+             const priceList = pricingPolicies.find(p => p.id === group.defaultPriceListId && p.isActive);
+             if (priceList) {
+               form.setValue('pricingLevel', priceList.id); // Assuming pricingLevel stores the ID
+               toast.info(`Đã áp dụng bảng giá mặc định: ${priceList.name}`);
+             }
+          }
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, customerGroups, pricingPolicies]);
 
   const handleSubmit = async (values: CustomerFormValues) => {
     try {
       // Validate unique ID
       const normalizedInputId = values.id?.trim().toUpperCase() ?? '';
-      const existingIds = customers.map(c => c.id);
+      const existingIds = customerIds;
       const isUnique = validateUniqueId(normalizedInputId, existingIds, initialData?.id);
       
       if (!isUnique) {
@@ -149,22 +371,92 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
       };
       const payload: CustomerFormSubmitPayload = {
         ...restValues,
-        id: normalizedInputId ? asBusinessId(normalizedInputId) : undefined,
-        accountManagerId: normalizeSystemId(accountManagerId),
-        createdBy: normalizeSystemId(createdBy),
-        updatedBy: normalizeSystemId(updatedBy),
-        addresses,
+        // addresses is already in restValues
       };
+      if (normalizedInputId) {
+        payload.id = asBusinessId(normalizedInputId);
+      }
+      if (accountManagerId) {
+        const normalized = normalizeSystemId(accountManagerId);
+        if (normalized) payload.accountManagerId = normalized;
+      }
+      if (createdBy) {
+        const normalized = normalizeSystemId(createdBy);
+        if (normalized) payload.createdBy = normalized;
+      }
+      if (updatedBy) {
+        const normalized = normalizeSystemId(updatedBy);
+        if (normalized) payload.updatedBy = normalized;
+      }
 
       // Call parent onSubmit first to save customer
       await onSubmit(payload);
       
-      // After customer is saved, confirm images if any
-      if (hasImages) {
-        const customerId = payload.id ? String(payload.id) : normalizedInputId;
-        if (customerId) {
-          await confirmImages(customerId, payload);
+      // Get customer ID for file operations
+      const customerId = initialData?.systemId || payload.id ? String(payload.id) : normalizedInputId;
+      
+      // ============================================
+      // DELETE MARKED FILES (Safe Delete)
+      // ============================================
+      
+      if (imageFilesToDelete.length > 0) {
+        console.log('🗑️ Deleting marked images:', imageFilesToDelete.length);
+        for (const fileId of imageFilesToDelete) {
+          try {
+            await FileUploadAPI.deleteFile(fileId);
+          } catch (error) {
+            console.error('Failed to delete image:', fileId, error);
+          }
         }
+        toast.success(`Đã xóa ${imageFilesToDelete.length} ảnh`);
+      }
+      
+      if (contractFilesToDelete.length > 0) {
+        console.log('🗑️ Deleting marked contracts:', contractFilesToDelete.length);
+        for (const fileId of contractFilesToDelete) {
+          try {
+            await FileUploadAPI.deleteFile(fileId);
+          } catch (error) {
+            console.error('Failed to delete contract:', fileId, error);
+          }
+        }
+        toast.success(`Đã xóa ${contractFilesToDelete.length} file hợp đồng`);
+      }
+
+      // ============================================
+      // CONFIRM STAGING FILES
+      // ============================================
+      
+      // Confirm new images if any
+      if (imageSessionId && imageStagingFiles.length > 0 && customerId) {
+        console.log('📤 Confirming customer images:', imageStagingFiles.length);
+        try {
+          await FileUploadAPI.confirmCustomerImages(imageSessionId, customerId, {
+            name: values.name
+          });
+          toast.success(`Đã lưu ${imageStagingFiles.length} ảnh khách hàng`);
+        } catch (error) {
+          console.error('Failed to confirm images:', error);
+          toast.error('Lỗi khi lưu ảnh');
+        }
+      }
+
+      // Confirm new contract files if any
+      if (contractSessionId && contractStagingFiles.length > 0 && customerId) {
+        console.log('📤 Confirming contract files:', contractStagingFiles.length);
+        try {
+          await FileUploadAPI.confirmCustomerContractFiles(contractSessionId, customerId, {
+            name: values.name
+          });
+          toast.success(`Đã lưu ${contractStagingFiles.length} file hợp đồng`);
+        } catch (error) {
+          console.error('Failed to confirm contracts:', error);
+          toast.error('Lỗi khi lưu file hợp đồng');
+        }
+      }
+
+      if (onSuccess) {
+        onSuccess();
       }
     } catch (error) {
       toast.error('Lỗi khi lưu thông tin', {
@@ -184,31 +476,35 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
         <Tabs defaultValue="info" className="w-full">
           <div className="w-full overflow-x-auto overflow-y-hidden mb-4 pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
             <TabsList className="inline-flex w-auto gap-1 p-1 h-auto justify-start">
-              <TabsTrigger value="info" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="info" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
                 Thông tin khách hàng
               </TabsTrigger>
-              <TabsTrigger value="images" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="images" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
                 Hình ảnh
               </TabsTrigger>
-              <TabsTrigger value="business" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="business" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
                 Thông tin doanh nghiệp
               </TabsTrigger>
-              <TabsTrigger value="addresses" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="contacts" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
+                Liên hệ
+              </TabsTrigger>
+              <TabsTrigger value="addresses" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
                 Địa chỉ
               </TabsTrigger>
-              <TabsTrigger value="payment" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="payment" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
                 Thanh toán & Giá
               </TabsTrigger>
-              {!isEditMode && (
-                <TabsTrigger value="history" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                  Lịch sử giao dịch
-                </TabsTrigger>
-              )}
+              <TabsTrigger value="classification" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
+                Phân loại & Quản lý
+              </TabsTrigger>
+              <TabsTrigger value="contract" className="flex-shrink-0 px-3 py-2 text-body-sm font-normal whitespace-nowrap">
+                Hợp đồng
+              </TabsTrigger>
             </TabsList>
           </div>
 
           <TabsContent value="info" className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Thông tin khách hàng</h3>
+            <h3 className="text-h4 font-medium mb-4">Thông tin khách hàng</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FormField 
                 name="id" 
@@ -217,7 +513,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Mã khách hàng</FormLabel>
                     <FormControl>
-                      <Input placeholder="CUS000001" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="Để trống sẽ tự động sinh mã" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -231,7 +527,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Tên khách hàng <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
-                      <Input placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -246,6 +542,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                     <FormLabel>Số điện thoại</FormLabel>
                     <FormControl>
                       <Input 
+                        className="h-9"
                         placeholder="09xxxxxxxx" 
                         {...field} 
                         value={field.value as string || ''} 
@@ -264,7 +561,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="email@example.com" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" type="email" placeholder="email@example.com" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -275,7 +572,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 name="type" 
                 control={form.control}
                 render={({ field }) => {
-                  const typeOptions = customerTypes.getActive().map(type => ({
+                  const typeOptions = customerTypes.getActive().filter(t => t.isActive).map(type => ({
                     value: type.id,
                     label: type.name,
                   }));
@@ -303,7 +600,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 name="customerGroup" 
                 control={form.control}
                 render={({ field }) => {
-                  const groupOptions = customerGroups.getActive().map(group => ({
+                  const groupOptions = customerGroups.getActive().filter(g => g.isActive).map(group => ({
                     value: group.id,
                     label: group.name,
                   }));
@@ -327,12 +624,40 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 }} 
               />
 
+              <FormField 
+                name="lifecycleStage" 
+                control={form.control}
+                render={({ field }) => {
+                  const stageOptions = lifecycleStages.getActive().filter(s => s.isActive).map(stage => ({
+                    value: stage.id,
+                    label: stage.name,
+                  }));
+                  const selectedOption = stageOptions.find(opt => opt.value === field.value) || null;
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Giai đoạn vòng đời</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={stageOptions}
+                          value={selectedOption}
+                          onChange={(opt) => field.onChange(opt?.value || '')}
+                          placeholder="Chọn giai đoạn"
+                          emptyPlaceholder="Không tìm thấy giai đoạn"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} 
+              />
+
               {/* Thêm fields mới */}
               <FormField 
                 name="source" 
                 control={form.control}
                 render={({ field }) => {
-                  const sourceOptions = customerSources.getActive().map(source => ({
+                  const sourceOptions = customerSources.getActive().filter(s => s.isActive).map(source => ({
                     value: source.id,
                     label: source.name,
                   }));
@@ -363,7 +688,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Website</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://example.com" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="https://example.com" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -377,7 +702,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Facebook</FormLabel>
                     <FormControl>
-                      <Input placeholder="fb.com/username" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="fb.com/username" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -391,7 +716,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Zalo</FormLabel>
                     <FormControl>
-                      <Input placeholder="Số Zalo" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="Số Zalo" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -405,50 +730,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Instagram</FormLabel>
                     <FormControl>
-                      <Input placeholder="@username" {...field} value={field.value as string || ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} 
-              />
-
-              {/* Công nợ */}
-              <FormField 
-                name="currentDebt" 
-                control={form.control}
-                render={({ field }) => ( 
-                  <FormItem>
-                    <FormLabel>Công nợ hiện tại</FormLabel>
-                    <FormControl>
-                      <CurrencyInput 
-                        value={field.value as number} 
-                        onChange={field.onChange} 
-                        placeholder="0" 
-                        disabled={isEditMode}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    {isEditMode && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Công nợ được tự động cập nhật khi thanh toán
-                      </p>
-                    )}
-                  </FormItem>
-                )} 
-              />
-
-              <FormField 
-                name="maxDebt" 
-                control={form.control}
-                render={({ field }) => ( 
-                  <FormItem>
-                    <FormLabel>Hạn mức công nợ</FormLabel>
-                    <FormControl>
-                      <CurrencyInput 
-                        value={field.value as number} 
-                        onChange={field.onChange} 
-                        placeholder="0" 
-                      />
+                      <Input className="h-9" placeholder="@username" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -479,29 +761,71 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
           </TabsContent>
 
           <TabsContent value="images" className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Hình ảnh khách hàng</h3>
-            <ImageUploadManager
-              value={imageStagingFiles}
-              onChange={setImageStagingFiles}
-              sessionId={imageSessionId || undefined}
-              onSessionChange={setImageSessionId}
-              maxFiles={10}
-              maxSize={5 * 1024 * 1024}
-              maxTotalSize={20 * 1024 * 1024}
-              description="Tải lên hình ảnh khách hàng (avatar, logo công ty, v.v.). Ảnh đầu tiên sẽ được dùng làm ảnh đại diện."
-            />
+            <h3 className="text-h4 font-medium mb-4">Hình ảnh khách hàng</h3>
+            
+            {/* Existing Images (Permanent) */}
+            {isEditMode && imagePermanentFiles.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-body-sm font-medium text-muted-foreground mb-2">
+                  Ảnh đã lưu ({imagePermanentFiles.length - imageFilesToDelete.length} ảnh)
+                  {imageFilesToDelete.length > 0 && (
+                    <span className="text-red-500 ml-2">
+                      - {imageFilesToDelete.length} ảnh sẽ bị xóa khi Lưu
+                    </span>
+                  )}
+                </h4>
+                <ExistingDocumentsViewer
+                  files={imagePermanentFiles}
+                  onMarkForDeletion={handleMarkImageForDeletion}
+                  markedForDeletion={imageFilesToDelete}
+                  onRefresh={handleRefreshFiles}
+                  gridTemplateClass="grid-cols-5"
+                />
+              </div>
+            )}
+
+            {/* New Image Upload (Staging) */}
+            <div>
+              {isEditMode && <h4 className="text-body-sm font-medium text-muted-foreground mb-2">Thêm ảnh mới</h4>}
+              <NewDocumentsUpload
+                accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif'] }}
+                value={imageStagingFiles}
+                onChange={setImageStagingFiles}
+                sessionId={imageSessionId ?? undefined}
+                onSessionChange={setImageSessionId}
+                maxFiles={10}
+                maxSize={5 * 1024 * 1024}
+                maxTotalSize={20 * 1024 * 1024}
+                existingFileCount={imagePermanentFiles.length - imageFilesToDelete.length}
+                gridTemplateClass="grid-cols-5"
+              />
+              <p className="text-body-xs text-muted-foreground mt-2">
+                Tải lên hình ảnh khách hàng (avatar, logo công ty, v.v.). Ảnh đầu tiên sẽ được dùng làm ảnh đại diện.
+              </p>
+            </div>
           </TabsContent>
 
           <TabsContent value="addresses" className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Quản lý địa chỉ</h3>
-            <CustomerAddresses 
-              addresses={addresses} 
-              onUpdate={setAddresses}
+            <h3 className="text-h4 font-medium mb-4">Quản lý địa chỉ</h3>
+            <FormField
+              name="addresses"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <CustomerAddresses 
+                      addresses={(field.value || []) as CustomerAddress[]} 
+                      onUpdate={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </TabsContent>
 
           <TabsContent value="business" className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Thông tin doanh nghiệp</h3>
+            <h3 className="text-h4 font-medium mb-4">Thông tin doanh nghiệp</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FormField 
                 name="company" 
@@ -510,7 +834,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Tên công ty / HKD</FormLabel>
                     <FormControl>
-                      <Input placeholder="Công ty TNHH ABC" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="Công ty TNHH ABC" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -524,7 +848,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Mã số thuế</FormLabel>
                     <FormControl>
-                      <Input placeholder="0123456789" {...field} value={field.value as string || ''} maxLength={13} />
+                      <Input className="h-9" placeholder="0123456789" {...field} value={field.value as string || ''} maxLength={13} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -538,7 +862,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Người đại diện</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="Nguyễn Văn A" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -552,7 +876,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Chức vụ</FormLabel>
                     <FormControl>
-                      <Input placeholder="Giám đốc" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="Giám đốc" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -566,7 +890,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Ngân hàng</FormLabel>
                     <FormControl>
-                      <Input placeholder="Vietcombank" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="Vietcombank" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -580,7 +904,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                   <FormItem>
                     <FormLabel>Số tài khoản</FormLabel>
                     <FormControl>
-                      <Input placeholder="1234567890" {...field} value={field.value as string || ''} />
+                      <Input className="h-9" placeholder="1234567890" {...field} value={field.value as string || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -590,13 +914,13 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
           </TabsContent>
 
           <TabsContent value="payment" className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Thanh toán & Định giá</h3>
+            <h3 className="text-h4 font-medium mb-4">Thanh toán & Định giá</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FormField 
                 name="paymentTerms" 
                 control={form.control}
                 render={({ field }) => {
-                  const termOptions = paymentTerms.getActive().map(term => ({
+                  const termOptions = paymentTerms.getActive().filter(t => t.isActive).map(term => ({
                     value: term.id,
                     label: term.name,
                   }));
@@ -624,11 +948,25 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 name="creditRating" 
                 control={form.control}
                 render={({ field }) => {
-                  const ratingOptions = creditRatings.getActive().map(rating => ({
+                  const activeRatings = creditRatings.getActive().filter(r => r.isActive);
+                  const ratingOptions = activeRatings.map(rating => ({
                     value: rating.id,
                     label: rating.name,
                   }));
                   const selectedOption = ratingOptions.find(opt => opt.value === field.value) || null;
+                  
+                  // Handler to auto-fill maxDebt when creditRating changes
+                  const handleCreditRatingChange = (opt: { value: string; label: string } | null) => {
+                    field.onChange(opt?.value || '');
+                    
+                    // Auto-fill maxDebt from selected rating's maxCreditLimit
+                    if (opt?.value) {
+                      const selectedRating = activeRatings.find(r => r.id === opt.value);
+                      if (selectedRating?.maxCreditLimit) {
+                        form.setValue('maxDebt', selectedRating.maxCreditLimit);
+                      }
+                    }
+                  };
                   
                   return (
                     <FormItem>
@@ -637,7 +975,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                         <Combobox
                           options={ratingOptions}
                           value={selectedOption}
-                          onChange={(opt) => field.onChange(opt?.value || '')}
+                          onChange={handleCreditRatingChange}
                           placeholder="Chọn xếp hạng"
                           emptyPlaceholder="Không tìm thấy"
                         />
@@ -648,6 +986,51 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 }} 
               />
 
+              {/* Công nợ */}
+              <FormField 
+                name="currentDebt" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Công nợ hiện tại</FormLabel>
+                    <FormControl>
+                      <CurrencyInput 
+                        className="h-9"
+                        value={field.value as number} 
+                        onChange={field.onChange} 
+                        placeholder="0" 
+                        disabled={isEditMode}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    {isEditMode && (
+                      <p className="text-body-xs text-muted-foreground mt-1">
+                        Công nợ được tự động cập nhật khi thanh toán
+                      </p>
+                    )}
+                  </FormItem>
+                )} 
+              />
+
+              <FormField 
+                name="maxDebt" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Hạn mức công nợ</FormLabel>
+                    <FormControl>
+                      <CurrencyInput 
+                        className="h-9"
+                        value={field.value as number} 
+                        onChange={field.onChange} 
+                        placeholder="0" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
               <FormField 
                 name="allowCredit" 
                 control={form.control}
@@ -656,7 +1039,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
                     <FormLabel>Cho phép công nợ</FormLabel>
                     <Select onValueChange={(val) => field.onChange(val === 'true')} value={field.value?.toString()}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-9">
                           <SelectValue placeholder="Chọn..." />
                         </SelectTrigger>
                       </FormControl>
@@ -673,22 +1056,49 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
               <FormField 
                 name="pricingLevel" 
                 control={form.control}
+                render={({ field }) => {
+                  const pricingOptions = pricingPolicies
+                    .filter(p => p.isActive)
+                    .map(p => ({
+                      value: p.id,
+                      label: p.name,
+                    }));
+                  const selectedOption = pricingOptions.find(opt => opt.value === field.value) || null;
+
+                  return (
+                    <FormItem>
+                      <FormLabel>Bảng giá áp dụng</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={pricingOptions}
+                          value={selectedOption}
+                          onChange={(opt) => field.onChange(opt?.value || '')}
+                          placeholder="Chọn bảng giá"
+                          emptyPlaceholder="Không tìm thấy bảng giá"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} 
+              />
+
+              <FormField 
+                name="defaultDiscount" 
+                control={form.control}
                 render={({ field }) => ( 
                   <FormItem>
-                    <FormLabel>Bảng giá áp dụng</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value as string}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn bảng giá" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Retail">Bán lẻ</SelectItem>
-                        <SelectItem value="Wholesale">Bán sỉ</SelectItem>
-                        <SelectItem value="VIP">VIP</SelectItem>
-                        <SelectItem value="Partner">Đối tác</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Chiết khấu mặc định (%)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        className="h-9" 
+                        placeholder="0" 
+                        {...field} 
+                        onChange={e => field.onChange(parseFloat(e.target.value))}
+                        value={field.value as number || ''} 
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} 
@@ -696,16 +1106,395 @@ export function CustomerForm({ initialData, onSubmit, onCancel, isEditMode = fal
             </div>
           </TabsContent>
 
-          {!isEditMode && (
-            <TabsContent value="history" className="mt-6">
-              <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                  <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                      <h3 className="text-lg font-semibold tracking-tight">Lịch sử giao dịch</h3>
-                      <p className="text-sm">Chức năng đang được phát triển.</p>
+          <TabsContent value="contacts" className="mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-h4 font-medium">Danh sách liên hệ</h3>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={() => appendContact({ id: crypto.randomUUID(), name: '', role: '', isPrimary: false })}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Thêm liên hệ
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              {contactFields.map((field, index) => (
+                <Card key={field.id} className="p-4 relative">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 text-destructive hover:text-destructive/90"
+                    onClick={() => removeContact(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-8">
+                    <FormField
+                      name={`contacts.${index}.name`}
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Họ và tên</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Nguyễn Văn A" className="h-9" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      name={`contacts.${index}.role`}
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Chức vụ / Vai trò</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Kế toán, Mua hàng..." className="h-9" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      name={`contacts.${index}.phone`}
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Số điện thoại</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="09xxxxxxxx" className="h-9" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      name={`contacts.${index}.email`}
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="email@example.com" className="h-9" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      name={`contacts.${index}.isPrimary`}
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Người liên hệ chính
+                            </FormLabel>
+                            <FormDescription>
+                              Sử dụng thông tin này làm liên hệ mặc định
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
                   </div>
+                </Card>
+              ))}
+              
+              {contactFields.length === 0 && (
+                <div className="text-center py-8 border border-dashed rounded-lg text-muted-foreground">
+                  Chưa có thông tin liên hệ nào
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="contract" className="mt-6">
+            <h3 className="text-h4 font-medium mb-4">Thông tin hợp đồng</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField 
+                name="contract.number" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Số hợp đồng</FormLabel>
+                    <FormControl>
+                      <Input className="h-9" placeholder="HD-001" {...field} value={field.value as string || ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
+              <FormField 
+                name="contract.status" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Trạng thái</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value as string}>
+                      <FormControl>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Chọn trạng thái" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Active">Đang hiệu lực</SelectItem>
+                        <SelectItem value="Pending">Chờ duyệt</SelectItem>
+                        <SelectItem value="Expired">Hết hạn</SelectItem>
+                        <SelectItem value="Cancelled">Đã hủy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
+              <FormField 
+                name="contract.startDate" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Ngày bắt đầu</FormLabel>
+                    <FormControl>
+                      <DatePicker 
+                        value={field.value ? new Date(field.value) : null}
+                        onChange={(date) => field.onChange(date ? date.toISOString() : undefined)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
+              <FormField 
+                name="contract.endDate" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Ngày kết thúc</FormLabel>
+                    <FormControl>
+                      <DatePicker 
+                        value={field.value ? new Date(field.value) : null}
+                        onChange={(date) => field.onChange(date ? date.toISOString() : undefined)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
+              <FormField 
+                name="contract.value" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Giá trị hợp đồng</FormLabel>
+                    <FormControl>
+                      <CurrencyInput 
+                        className="h-9"
+                        value={field.value as number} 
+                        onChange={field.onChange} 
+                        placeholder="0" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
+              <FormField 
+                name="contract.fileUrl" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>File hợp đồng</FormLabel>
+                    
+                    {/* Existing Contract Files (Permanent) */}
+                    {isEditMode && contractPermanentFiles.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-body-sm text-muted-foreground mb-2">
+                          File hợp đồng đã lưu ({contractPermanentFiles.length - contractFilesToDelete.length} file)
+                          {contractFilesToDelete.length > 0 && (
+                            <span className="text-red-500 ml-2">
+                              - {contractFilesToDelete.length} file sẽ bị xóa khi Lưu
+                            </span>
+                          )}
+                        </p>
+                        <ExistingDocumentsViewer
+                          files={contractPermanentFiles}
+                          onMarkForDeletion={handleMarkContractForDeletion}
+                          markedForDeletion={contractFilesToDelete}
+                          gridTemplateClass="grid-cols-3"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* New Contract Upload (Staging) */}
+                    <FormControl>
+                      <NewDocumentsUpload
+                        value={contractStagingFiles}
+                        onChange={(files) => {
+                          setContractStagingFiles(files);
+                          if (files.length > 0) {
+                            if (!field.value) field.onChange('pending-upload');
+                          } else {
+                            field.onChange('');
+                          }
+                        }}
+                        sessionId={contractSessionId ?? undefined}
+                        onSessionChange={setContractSessionId}
+                        maxFiles={5}
+                        maxSize={10 * 1024 * 1024}
+                        existingFileCount={contractPermanentFiles.length - contractFilesToDelete.length}
+                        accept={{ 
+                          'application/pdf': ['.pdf'], 
+                          'image/*': ['.png', '.jpg', '.jpeg'],
+                          'application/msword': ['.doc'],
+                          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                        }}
+                        gridTemplateClass="grid-cols-3"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
+              <div className="md:col-span-2">
+                <FormField 
+                  name="contract.details" 
+                  control={form.control}
+                  render={({ field }) => ( 
+                    <FormItem>
+                      <FormLabel>Chi tiết điều khoản</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Nội dung chi tiết..." 
+                          {...field} 
+                          value={field.value as string || ''} 
+                          rows={4}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} 
+                />
               </div>
-            </TabsContent>
-          )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="classification" className="mt-6">
+            <h3 className="text-h4 font-medium mb-4">Phân loại & Quản lý</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <FormField 
+                name="accountManagerId" 
+                control={form.control}
+                render={({ field }) => {
+                  const employeeOptions = (employees || []).map(emp => ({
+                    value: emp.systemId,
+                    label: emp.fullName,
+                  }));
+                  const selectedOption = employeeOptions.find(opt => opt.value === field.value) || null;
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Nhân viên phụ trách</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={employeeOptions}
+                          value={selectedOption}
+                          onChange={(opt) => field.onChange(opt?.value || '')}
+                          placeholder="Chọn nhân viên"
+                          emptyPlaceholder="Không tìm thấy nhân viên"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} 
+              />
+
+              <FormField 
+                name="referredBy" 
+                control={form.control}
+                render={({ field }) => {
+                  const customerOptions = (customers || [])
+                    .filter(c => c.id !== initialData?.id) // Exclude self
+                    .map(c => ({
+                      value: c.systemId,
+                      label: `${c.name} (${c.id})`,
+                    }));
+                  const selectedOption = customerOptions.find(opt => opt.value === field.value) || null;
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Người giới thiệu</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={customerOptions}
+                          value={selectedOption}
+                          onChange={(opt) => field.onChange(opt?.value || '')}
+                          placeholder="Chọn người giới thiệu"
+                          emptyPlaceholder="Không tìm thấy khách hàng"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} 
+              />
+
+              <FormField 
+                name="campaign" 
+                control={form.control}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Chiến dịch</FormLabel>
+                    <FormControl>
+                      <Input className="h-9" placeholder="Tên chiến dịch" {...field} value={field.value as string || ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
+
+              <div className="md:col-span-2 lg:col-span-3">
+                <FormField 
+                  name="tags" 
+                  control={form.control}
+                  render={({ field }) => ( 
+                    <FormItem>
+                      <FormLabel>Thẻ (Tags)</FormLabel>
+                      <FormControl>
+                        <TagInput
+                          placeholder="Nhập thẻ và nhấn Enter..."
+                          value={field.value || []}
+                          onChange={(newTags) => field.onChange(newTags)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} 
+                />
+              </div>
+            </div>
+          </TabsContent>
 
         </Tabs>
       </form>

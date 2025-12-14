@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Button } from '../../components/ui/button.tsx';
 import { Card, CardContent } from '../../components/ui/card.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
+import { Switch } from '../../components/ui/switch.tsx';
 import { MapPin, Plus, Edit, Trash2, Check, ArrowLeftRight, X, MoreHorizontal, Eye } from 'lucide-react';
 import {
   Table,
@@ -200,7 +201,7 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Danh sách địa chỉ</h3>
+        <h3 className="text-base font-medium">Danh sách địa chỉ</h3>
         <Button onClick={handleAddNew} size="sm">
           <Plus className="mr-2 h-4 w-4" />
           Thêm địa chỉ
@@ -216,101 +217,63 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
       ) : (
         <div className="rounded-md border">
           <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow className="hover:bg-muted/50">
-                <TableHead className="w-[150px]">Tên địa chỉ</TableHead>
-                <TableHead className="w-[200px]">Địa chỉ</TableHead>
-                <TableHead className="w-[120px]">Tỉnh/TP</TableHead>
-                <TableHead className="w-[120px]">Quận/Huyện</TableHead>
-                <TableHead className="w-[120px]">Phường/Xã</TableHead>
-                <TableHead className="w-[80px]">Loại</TableHead>
-                <TableHead className="w-[120px]">Liên hệ</TableHead>
-                <TableHead className="w-[110px]">SĐT</TableHead>
-                <TableHead className="w-[80px] text-center">MĐ GH</TableHead>
-                <TableHead className="w-[80px] text-center">MĐ HĐ</TableHead>
-                <TableHead className="w-[60px] text-center">Thao tác</TableHead>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tên địa chỉ</TableHead>
+                <TableHead>Địa chỉ</TableHead>
+                <TableHead>Tỉnh/TP</TableHead>
+                <TableHead>Quận/Huyện</TableHead>
+                <TableHead>Phường/Xã</TableHead>
+                <TableHead>Loại</TableHead>
+                <TableHead>Liên hệ</TableHead>
+                <TableHead>SĐT</TableHead>
+                <TableHead className="text-center">MĐ GH</TableHead>
+                <TableHead className="text-center">MĐ HĐ</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {addresses.map((address) => (
                 <TableRow 
                   key={address.id} 
-                  className={cn(
-                    "cursor-pointer transition-colors hover:bg-muted/50",
-                    (address.isDefaultShipping || address.isDefaultBilling) ? 'bg-primary/5 hover:bg-primary/10' : ''
-                  )}
+                  className="cursor-pointer"
                   onClick={() => handleEdit(address)}
                 >
+                  <TableCell className="font-medium">{address.label}</TableCell>
+                  <TableCell>{address.street}</TableCell>
+                  <TableCell>{address.province}</TableCell>
+                  <TableCell>{address.district || '—'}</TableCell>
+                  <TableCell>{address.ward || '—'}</TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-sm">{address.label}</span>
-                      {address.notes && (
-                        <span className="text-xs text-muted-foreground italic line-clamp-1">
-                          {address.notes}
-                        </span>
-                      )}
-                    </div>
+                    <Badge variant={address.inputLevel === '2-level' ? 'secondary' : 'default'}>
+                      {address.inputLevel === '2-level' ? '2 cấp' : '3 cấp'}
+                    </Badge>
                   </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{address.street}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{address.province}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{address.district || '-'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{address.ward || '-'}</span>
-                  </TableCell>
-                  <TableCell>
-                    {address.inputLevel === '2-level' ? (
-                      <Badge variant="secondary" className="text-xs">2 cấp</Badge>
-                    ) : (
-                      <Badge variant="default" className="text-xs bg-green-600">3 cấp</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{address.contactName || '-'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{address.contactPhone || '-'}</span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {address.isDefaultShipping ? (
-                      <Check className="h-4 w-4 text-green-600 inline-block" />
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {address.isDefaultBilling ? (
-                      <Check className="h-4 w-4 text-green-600 inline-block" />
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
+                  <TableCell>{address.contactName || '—'}</TableCell>
+                  <TableCell>{address.contactPhone || '—'}</TableCell>
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <Switch 
+                      checked={address.isDefaultShipping} 
+                      onCheckedChange={() => handleSetDefault(address.id, 'shipping')}
+                    />
                   </TableCell>
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <Switch 
+                      checked={address.isDefaultBilling} 
+                      onCheckedChange={() => handleSetDefault(address.id, 'billing')}
+                    />
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Mở menu</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[220px]">
+                      <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEdit(address)}>
                           Sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleSetDefault(address.id, 'shipping')}>
-                          {address.isDefaultShipping ? '✓ Mặc định giao hàng' : 'Đặt làm mặc định giao hàng'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleSetDefault(address.id, 'billing')}>
-                          {address.isDefaultBilling ? '✓ Mặc định hóa đơn' : 'Đặt làm mặc định hóa đơn'}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleConvert(address)}>

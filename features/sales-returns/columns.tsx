@@ -22,7 +22,7 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-            onCheckedChange={(value) => onToggleAll(!!value)}
+            onCheckedChange={(value) => onToggleAll?.(!!value)}
             aria-label="Select all"
           />
         </div>
@@ -55,7 +55,7 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
         accessorKey: "isReceived",
         header: "Trạng thái",
         cell: ({ row }) => (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-body-xs font-medium ${
                 row.isReceived 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-amber-100 text-amber-800'

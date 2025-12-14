@@ -5,13 +5,13 @@ export const MarkdownRenderer = ({ content }: { content: string }) => {
 
   const renderLine = (line: string, index: number) => {
     if (line.startsWith('### ')) {
-      return <h3 key={index} className="text-xl font-semibold mt-6 mb-2">{line.substring(4)}</h3>;
+      return <h3 key={index} className="text-h4 font-semibold mt-6 mb-2">{line.substring(4)}</h3>;
     }
     if (line.startsWith('## ')) {
-      return <h2 key={index} className="text-2xl font-bold mt-8 mb-3 border-b pb-2">{line.substring(3)}</h2>;
+      return <h2 key={index} className="text-h3 font-bold mt-8 mb-3 border-b pb-2">{line.substring(3)}</h2>;
     }
     if (line.startsWith('# ')) {
-      return <h1 key={index} className="text-4xl font-extrabold mt-10 mb-4">{line.substring(2)}</h1>;
+      return <h1 key={index} className="text-h2 font-extrabold mt-10 mb-4">{line.substring(2)}</h1>;
     }
     return <p key={index} className="leading-relaxed my-4">{line}</p>;
   };

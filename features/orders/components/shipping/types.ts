@@ -37,41 +37,42 @@ export interface ShippingCalculationRequest {
   // From address (pickup)
   fromProvinceId: number;
   fromDistrictId: number;
-  fromWardCode?: string;
-  fromAddress?: string;
-  fromProvince?: string;     // ✅ NEW: Province name for GHTK
-  fromDistrict?: string;     // ✅ NEW: District name for GHTK
+  fromWardCode?: string | undefined;
+  fromAddress?: string | undefined;
+  fromProvince?: string | undefined;     // ✅ NEW: Province name for GHTK
+  fromDistrict?: string | undefined;     // ✅ NEW: District name for GHTK
   
   // To address (customer)
   toProvinceId: number;
   toDistrictId: number;
-  toWardCode?: string;
-  toWard?: string;           // ✅ NEW: Ward name for 2-level address (GHTK)
+  toWardCode?: string | undefined;
+  toWard?: string | undefined;           // ✅ NEW: Ward name for 2-level address (GHTK)
   toAddress: string;
-  toProvince?: string;       // ✅ NEW: Province name for GHTK
-  toDistrict?: string;       // ✅ NEW: District name for GHTK
+  toProvince?: string | undefined;       // ✅ NEW: Province name for GHTK
+  toDistrict?: string | undefined;       // ✅ NEW: District name for GHTK
   
   // Package info
   weight: number; // grams
-  length?: number; // cm
-  width?: number; // cm
-  height?: number; // cm
+  length?: number | undefined; // cm
+  width?: number | undefined; // cm
+  height?: number | undefined; // cm
   
   // COD info
-  codAmount?: number;
-  insuranceValue?: number;
+  codAmount?: number | undefined;
+  insuranceValue?: number | undefined;
   
   // ✅ NEW: Service options for accurate fee calculation
   options?: {
     // GHTK specific
-    transport?: 'road' | 'fly';
-    tags?: number[];
-    pickWorkShift?: 1 | 2;
-    deliverWorkShift?: 1 | 2;
-    orderValue?: number;
-    pickAddressId?: string; // ✅ Added: Pick address ID for GHTK
+    transport?: 'road' | 'fly' | undefined;
+    tags?: number[] | undefined;
+    pickWorkShift?: 1 | 2 | undefined;
+    deliverWorkShift?: 1 | 2 | undefined;
+    orderValue?: number | undefined;
+    pickAddressId?: string | undefined; // ✅ Added: Pick address ID for GHTK
+    specificAddress?: string | undefined; // ✅ Added: Specific address ID for GHTK
     // Future: Add other partner-specific options here
-  };
+  } | undefined;
 }
 
 /**
@@ -84,7 +85,7 @@ export interface ShippingCalculationResult {
   accountSystemId: string;
   status: 'loading' | 'success' | 'error';
   services: ShippingService[];
-  error?: string;
+  error?: string | undefined;
 }
 
 /**
@@ -103,89 +104,83 @@ export interface SelectedShippingConfig {
   };
   
   // Pickup & Delivery
-  pickupAddressId: string;
-  deliveryAddress: {
-    name: string;
-    phone: string;
-    address: string;
-    provinceId: number;
-    districtId: number;
-    wardCode?: string;
-  };
+  pickupAddressId: string | undefined;
+  deliveryAddress: ShippingAddress | null | undefined;
   
   // Service options (partner-specific)
   options: {
     // Common options
-    insurance?: boolean;
-    cod?: number;
-    payer?: 'SHOP' | 'CUSTOMER';
-    requirement?: string;
-    note?: string;
+    insurance?: boolean | undefined;
+    cod?: number | undefined;
+    payer?: 'SHOP' | 'CUSTOMER' | undefined;
+    requirement?: string | undefined;
+    note?: string | undefined;
     
     // GHN specific
-    partialDelivery?: boolean;
-    collectFeedback?: boolean;
-    collectOnFailure?: boolean;
-    pickupMethod?: 'AT_WAREHOUSE' | 'AT_POST_OFFICE';
+    partialDelivery?: boolean | undefined;
+    collectFeedback?: boolean | undefined;
+    collectOnFailure?: boolean | undefined;
+    pickupMethod?: 'AT_WAREHOUSE' | 'AT_POST_OFFICE' | undefined;
     
     // GHTK specific
-    pickAddressId?: string; // ID địa chỉ lấy hàng (từ API list_pick_add)
-    specificAddress?: string; // ID địa chỉ chi tiết (từ API getAddressLevel4)
-    useReturnAddress?: 0 | 1; // 0: trả về địa chỉ lấy hàng, 1: trả về địa chỉ khác
-    returnName?: string;
-    returnAddress?: string;
-    returnProvince?: string;
-    returnProvinceId?: string; // ✅ ID for combobox
-    returnDistrict?: string;
-    returnDistrictId?: number; // ✅ ID for combobox
-    returnWard?: string;
-    returnWardId?: string; // ✅ ID for combobox
-    returnStreet?: string;
-    returnTel?: string;
-    returnEmail?: string;
-    transport?: 'road' | 'fly'; // Đường bộ hoặc bay
-    pickDate?: string; // YYYY-MM-DD
-    deliverDate?: string; // YYYY-MM-DD
-    pickWorkShift?: 1 | 2; // 1: sáng, 2: chiều
-    deliverWorkShift?: 1 | 2; // 1: sáng, 2: chiều
-    pickOption?: 'cod' | 'post'; // COD hay gửi tại bưu cục
-    orderValue?: number; // Giá trị hàng hoá (để khai giá)
-    totalBox?: number; // Tổng số kiện hàng
-    tags?: number[]; // Tags: 1,2,6,7,8,10,13,17,18,19,62
-    subTags?: number[]; // Sub tags cho cây cối: 1-5
-    failedDeliveryFee?: number; // ✅ Số tiền thu khi không giao được (tag 19) - Giới hạn: 10k-20tr
-    transportType?: 'road' | 'fly'; // Legacy field, use transport instead
-    ghtkTags?: number[]; // Legacy field, use tags instead
-    expectedDelivery?: string;
-    schedulePickup?: string;
-    pickupAtPostOffice?: boolean;
-    inspection?: boolean;
-    intactPackage?: boolean;
-    partialReturn?: boolean;
-    cancelFee?: boolean;
-    freshFood?: boolean;
-    highValueRequirement?: boolean;
-    fragileItem?: boolean;
-    bulkyItem?: boolean;
-    callOnIssue?: boolean;
-    noXRay?: boolean;
+    transport?: 'road' | 'fly' | undefined;
+    pickWorkShift?: 1 | 2 | undefined; // 1: sáng, 2: chiều
+    deliverWorkShift?: 1 | 2 | undefined; // 1: sáng, 2: chiều
+    pickOption?: 'cod' | 'post' | undefined; // COD hay gửi tại bưu cục
+    pickAddressId?: string | undefined; // ✅ Added: Pick address ID for GHTK
+    specificAddress?: string | undefined; // ✅ Added: Specific address ID for GHTK
+    pickDate?: string | undefined; // ✅ Added: Pick date
+    deliverDate?: string | undefined; // ✅ Added: Deliver date
+    
+    // Return address override (GHTK)
+    useReturnAddress?: 0 | 1 | undefined;
+    returnAddress?: string | undefined;
+    returnProvince?: string | undefined;
+    returnProvinceId?: number | undefined; // ✅ Added: Return province ID
+    returnDistrict?: string | undefined;
+    returnDistrictId?: number | undefined; // ✅ Added: Return district ID
+    returnWard?: string | undefined;
+    returnWardId?: string | undefined; // ✅ Added: Return ward ID (often string code)
+    returnName?: string | undefined;
+    returnTel?: string | undefined;
+
+    orderValue?: number | undefined; // Giá trị hàng hoá (để khai giá)
+    totalBox?: number | undefined; // Tổng số kiện hàng
+    tags?: number[] | undefined; // Tags: 1,2,6,7,8,10,13,17,18,19,62
+    subTags?: number[] | undefined; // Sub tags cho cây cối: 1-5
+    failedDeliveryFee?: number | undefined; // ✅ Số tiền thu khi không giao được (tag 19) - Giới hạn: 10k-20tr
+    transportType?: 'road' | 'fly' | undefined; // Legacy field, use transport instead
+    ghtkTags?: number[] | undefined; // Legacy field, use tags instead
+    expectedDelivery?: string | undefined;
+    schedulePickup?: string | undefined;
+    pickupAtPostOffice?: boolean | undefined;
+    inspection?: boolean | undefined;
+    intactPackage?: boolean | undefined;
+    partialReturn?: boolean | undefined;
+    cancelFee?: boolean | undefined;
+    freshFood?: boolean | undefined;
+    highValueRequirement?: boolean | undefined;
+    fragileItem?: boolean | undefined;
+    bulkyItem?: boolean | undefined;
+    callOnIssue?: boolean | undefined;
+    noXRay?: boolean | undefined;
     
     // VTP specific
-    deliverAtBranch?: boolean;
-    highValue?: boolean;
-    coldChain?: boolean;
-    returnOutbound?: boolean;
-    returnInbound?: boolean;
-    returnBothWays?: boolean;
-    deliverInPerson?: boolean;
-    tryBeforeBuy?: boolean;
+    deliverAtBranch?: boolean | undefined;
+    highValue?: boolean | undefined;
+    coldChain?: boolean | undefined;
+    returnOutbound?: boolean | undefined;
+    returnInbound?: boolean | undefined;
+    returnBothWays?: boolean | undefined;
+    deliverInPerson?: boolean | undefined;
+    tryBeforeBuy?: boolean | undefined;
     
     // J&T specific
     // (uses common options above)
     
     // SPX specific
-    rejectFee?: boolean;
-  };
+    rejectFee?: boolean | undefined;
+  } | undefined;
 }
 
 /**

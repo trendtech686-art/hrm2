@@ -29,17 +29,17 @@ import {
   Hash,
   TrendingUp,
   ListTodo,
+  Globe,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { ResponsiveContainer } from '../../components/mobile/responsive-container.tsx';
+import { SettingsActionButton } from '../../components/settings/SettingsActionButton.tsx';
 import { MobileSearchBar } from '../../components/mobile/mobile-search-bar.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { useSettingsPageHeader } from './use-settings-page-header.tsx';
+import { Button } from '../../components/ui/button.tsx';
 
-type SettingsCardProps = {
+type SettingsItem = {
   icon: React.ElementType;
   title: string;
   description: string;
@@ -48,56 +48,9 @@ type SettingsCardProps = {
   iconColor?: string;
 };
 
-const SettingsCard: React.FC<SettingsCardProps> = ({ 
-  icon: Icon, 
-  title, 
-  description, 
-  href, 
-  badge,
-  iconColor = 'text-primary'
-}) => {
-  const navigate = useNavigate();
-  const isMobile = !useMediaQuery("(min-width: 768px)");
-
-  const handleCardClick = () => {
-    navigate(href);
-  };
-
-  return (
-    <Card
-      onClick={handleCardClick}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick()}
-      tabIndex={0}
-      role="button"
-      className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 outline-none h-full"
-    >
-      <CardHeader className={isMobile ? 'p-3' : 'p-3.5'}>
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <div className={`rounded-md p-1 ${isMobile ? 'bg-primary/10' : 'bg-primary/5 group-hover:bg-primary/10'} transition-colors`}>
-              <Icon className={`${isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${iconColor}`} />
-            </div>
-            <CardTitle className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold group-hover:text-primary transition-colors`}>
-              {title}
-            </CardTitle>
-          </div>
-          {badge && (
-            <Badge variant={badge === 'new' ? 'destructive' : 'secondary'} className="text-[9px] h-4 px-1">
-              {badge === 'new' ? 'Mới' : 'Beta'}
-            </Badge>
-          )}
-        </div>
-        <CardDescription className={`${isMobile ? 'text-[11px]' : 'text-xs'} leading-relaxed line-clamp-2`}>
-          {description}
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
-};
-
 
 // Settings organized by logical categories
-const basicSettings = [
+const basicSettings: SettingsItem[] = [
   { 
     icon: Store, 
     title: 'Thông tin cửa hàng', 
@@ -122,13 +75,13 @@ const basicSettings = [
   { 
     icon: UserCog, 
     title: 'Cài đặt nhân viên', 
-    description: 'Quy định về giờ làm việc, nghỉ phép, lương thưởng', 
+    description: 'Quy định về giờ làm việc, nghỉ phép, lương thưởng, loại phạt', 
     href: '/settings/employees',
     iconColor: 'text-indigo-600'
   },
 ];
 
-const businessSettings = [
+const businessSettings: SettingsItem[] = [
   { 
     icon: Settings, 
     title: 'Cấu hình bán hàng', 
@@ -140,7 +93,7 @@ const businessSettings = [
     icon: UsersIcon, 
     title: 'Cài đặt khách hàng', 
     description: 'Quản lý loại khách hàng, nhóm, nguồn và xếp hạng', 
-    href: '/customers/settings',
+    href: '/settings/customers',
     iconColor: 'text-pink-600'
   },
   { 
@@ -159,7 +112,7 @@ const businessSettings = [
   },
 ];
 
-const financialSettings = [
+const financialSettings: SettingsItem[] = [
   { 
     icon: Landmark, 
     title: 'Cài đặt thanh toán', 
@@ -176,7 +129,15 @@ const financialSettings = [
   },
 ];
 
-const operationalSettings = [
+const operationalSettings: SettingsItem[] = [
+  { 
+    icon: Globe, 
+    title: 'Website phukiengiaxuong.com.vn', 
+    description: 'Đồng bộ sản phẩm, danh mục, thương hiệu với website PKGX', 
+    href: '/settings/pkgx',
+    badge: 'new' as const,
+    iconColor: 'text-rose-600'
+  },
   { 
     icon: Truck, 
     title: 'Cài đặt vận chuyển', 
@@ -232,7 +193,7 @@ const operationalSettings = [
   },
 ];
 
-const systemSettings = [
+const systemSettings: SettingsItem[] = [
   { 
     icon: Hash, 
     title: 'Quản lý ID & Prefix', 
@@ -264,193 +225,195 @@ const systemSettings = [
   },
 ];
 
+type SettingsSectionId = 'basic' | 'business' | 'financial' | 'operational' | 'system';
+
+type SettingsSection = {
+  id: SettingsSectionId;
+  label: string;
+  description: string;
+  accentClass: string;
+  items: SettingsItem[];
+};
+
+type SettingsTableItem = SettingsItem & {
+  sectionId: SettingsSectionId;
+  sectionLabel: string;
+  sectionAccent: string;
+};
+
+const settingsSections: SettingsSection[] = [
+  {
+    id: 'basic',
+    label: 'Cài đặt cơ bản',
+    description: 'Thông tin cơ bản về cửa hàng và nhân viên',
+    accentClass: 'bg-blue-600',
+    items: basicSettings,
+  },
+  {
+    id: 'business',
+    label: 'Cài đặt kinh doanh',
+    description: 'Cấu hình bán hàng, khách hàng và sản phẩm',
+    accentClass: 'bg-orange-600',
+    items: businessSettings,
+  },
+  {
+    id: 'financial',
+    label: 'Cài đặt tài chính',
+    description: 'Quản lý thanh toán và thuế',
+    accentClass: 'bg-teal-600',
+    items: financialSettings,
+  },
+  {
+    id: 'operational',
+    label: 'Cài đặt vận hành',
+    description: 'Quy trình, SLA và các tác vụ hỗ trợ',
+    accentClass: 'bg-violet-600',
+    items: operationalSettings,
+  },
+  {
+    id: 'system',
+    label: 'Cài đặt hệ thống',
+    description: 'Nhật ký, giao diện và cấu hình ID',
+    accentClass: 'bg-gray-600',
+    items: systemSettings,
+  },
+];
+
+const settingsTableData: SettingsTableItem[] = settingsSections.flatMap((section) =>
+  section.items.map((item) => ({
+    ...item,
+    sectionId: section.id,
+    sectionLabel: section.label,
+    sectionAccent: section.accentClass,
+  }))
+);
+
 export function SettingsPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const navigate = useNavigate();
+  const filteredSettings = React.useMemo(() => {
+    if (!searchQuery) return settingsTableData;
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return settingsTableData.filter((setting) =>
+      setting.title.toLowerCase().includes(lowercasedQuery) ||
+      setting.description.toLowerCase().includes(lowercasedQuery)
+    );
+  }, [searchQuery]);
   
-  usePageHeader({
+  useSettingsPageHeader({
     title: 'Cài đặt hệ thống',
     breadcrumb: [
       { label: 'Trang chủ', href: '/' },
       { label: 'Cài đặt', href: '/settings', isCurrent: true }
     ],
     actions: [
-      <Button key="import" variant="outline" size={isMobile ? "sm" : "default"}>
-        <Upload className="h-4 w-4 mr-2" />
+      <SettingsActionButton key="import" variant="outline">
+        <Upload className="h-4 w-4" />
         {!isMobile && 'Import'}
-      </Button>,
-      <Button key="export" variant="outline" size={isMobile ? "sm" : "default"}>
-        <Download className="h-4 w-4 mr-2" />
+      </SettingsActionButton>,
+      <SettingsActionButton key="export" variant="outline">
+        <Download className="h-4 w-4" />
         {!isMobile && 'Export'}
-      </Button>
+      </SettingsActionButton>
     ]
   });
 
-  const allSettings = [
-    ...basicSettings,
-    ...businessSettings,
-    ...financialSettings,
-    ...operationalSettings,
-    ...systemSettings
-  ];
-
-  const filterSettings = (settings: typeof basicSettings) => {
-    if (!searchQuery) return settings;
-    const lowercasedQuery = searchQuery.toLowerCase();
-    return settings.filter(s => 
-      s.title.toLowerCase().includes(lowercasedQuery) || 
-      s.description.toLowerCase().includes(lowercasedQuery)
-    );
-  };
-
-  const filteredBasicSettings = filterSettings(basicSettings);
-  const filteredBusinessSettings = filterSettings(businessSettings);
-  const filteredFinancialSettings = filterSettings(financialSettings);
-  const filteredOperationalSettings = filterSettings(operationalSettings);
-  const filteredSystemSettings = filterSettings(systemSettings);
-
-  const hasResults = searchQuery === '' || 
-    filteredBasicSettings.length > 0 ||
-    filteredBusinessSettings.length > 0 ||
-    filteredFinancialSettings.length > 0 ||
-    filteredOperationalSettings.length > 0 ||
-    filteredSystemSettings.length > 0;
+  const handleNavigate = React.useCallback((href: string) => {
+    navigate(href);
+  }, [navigate]);
 
   return (
-    <ResponsiveContainer maxWidth="full" padding={isMobile ? "sm" : "md"}>
-      <div className="space-y-6">
-        {/* Search Bar - Mobile Optimized */}
-        <MobileSearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder={isMobile ? "Tìm kiếm cài đặt..." : "Tìm kiếm theo tên hoặc mô tả cấu hình..."}
-        />
+    <div className="space-y-4">
+      {/* Search Bar - Mobile Optimized */}
+      <MobileSearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder={isMobile ? "Tìm kiếm cài đặt..." : "Tìm kiếm theo tên hoặc mô tả cấu hình..."}
+      />
 
-        {!hasResults && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Không tìm thấy cài đặt nào phù hợp</p>
-          </div>
-        )}
+      {/* Settings Groups */}
+      {settingsSections.map((section) => {
+          const sectionItems = section.items.filter((item) => {
+            if (!searchQuery) return true;
+            const lowercasedQuery = searchQuery.toLowerCase();
+            return (
+              item.title.toLowerCase().includes(lowercasedQuery) ||
+              item.description.toLowerCase().includes(lowercasedQuery)
+            );
+          });
 
-        {/* Basic Settings Section */}
-        {(searchQuery === '' || filteredBasicSettings.length > 0) && (
-          <section className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-1 bg-blue-600 rounded-full" />
-              <div>
-                <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
-                  Cài đặt cơ bản
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Thông tin cơ bản về cửa hàng và nhân viên
-                </p>
+          if (sectionItems.length === 0) return null;
+
+          return (
+            <div key={section.id} className="space-y-4">
+              {/* Section Header */}
+              <div className="flex items-center gap-2">
+                <div className={`h-1 w-6 rounded-full ${section.accentClass}`} />
+                <div>
+                  <h2 className="text-h5 font-semibold">{section.label}</h2>
+                  <p className="text-sm text-muted-foreground">{section.description}</p>
+                </div>
+              </div>
+
+              {/* Settings Cards Grid */}
+              <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+                {sectionItems.map((item) => {
+                  return (
+                    <Card
+                      key={item.href}
+                      className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+                      onClick={() => handleNavigate(item.href)}
+                    >
+                      <CardHeader className="p-4 pb-2 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-h6 font-semibold leading-tight group-hover:text-primary transition-colors">
+                            {item.title}
+                          </CardTitle>
+                          {item.badge && (
+                            <Badge variant={item.badge === 'new' ? 'default' : 'secondary'} className="text-xs h-5">
+                              {item.badge === 'new' ? 'Mới' : 'Beta'}
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <CardDescription className="text-xs line-clamp-2 leading-relaxed">
+                          {item.description}
+                        </CardDescription>
+                        <div className="mt-2 flex items-center text-xs text-muted-foreground group-hover:text-primary transition-colors">
+                          <span>Cấu hình</span>
+                          <ChevronRight className="ml-1 h-3 w-3" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
-            <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-              {filteredBasicSettings.map(setting => 
-                <SettingsCard key={setting.title} {...setting} />
-              )}
-            </div>
-          </section>
-        )}
+          );
+        })}
 
-        {(searchQuery === '' || filteredBusinessSettings.length > 0) && (
-          <>
-            <Separator />
-            <section className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-1 bg-orange-600 rounded-full" />
-                <div>
-                  <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
-                    Cài đặt kinh doanh
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Cấu hình bán hàng, khách hàng và sản phẩm
-                  </p>
-                </div>
-              </div>
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-                {filteredBusinessSettings.map(setting => 
-                  <SettingsCard key={setting.title} {...setting} />
-                )}
-              </div>
-            </section>
-          </>
+        {/* No Results */}
+        {filteredSettings.length === 0 && (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Settings2 className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-h4 font-semibold mb-2">Không tìm thấy cài đặt</h3>
+              <p className="text-sm text-muted-foreground text-center max-w-sm">
+                Không có cài đặt nào khớp với từ khóa "<strong>{searchQuery}</strong>". Vui lòng thử lại với từ khóa khác.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => setSearchQuery('')}
+              >
+                Xóa bộ lọc
+              </Button>
+            </CardContent>
+          </Card>
         )}
-
-        {(searchQuery === '' || filteredFinancialSettings.length > 0) && (
-          <>
-            <Separator />
-            <section className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-1 bg-teal-600 rounded-full" />
-                <div>
-                  <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
-                    Cài đặt tài chính
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Quản lý thanh toán và thuế
-                  </p>
-                </div>
-              </div>
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-                {filteredFinancialSettings.map(setting => 
-                  <SettingsCard key={setting.title} {...setting} />
-                )}
-              </div>
-            </section>
-          </>
-        )}
-
-        {(searchQuery === '' || filteredOperationalSettings.length > 0) && (
-          <>
-            <Separator />
-            <section className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-1 bg-violet-600 rounded-full" />
-                <div>
-                  <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
-                    Cài đặt vận hành
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Vận chuyển, in ấn và lịch sử hoạt động
-                  </p>
-                </div>
-              </div>
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-                {filteredOperationalSettings.map(setting => 
-                  <SettingsCard key={setting.title} {...setting} />
-                )}
-              </div>
-            </section>
-          </>
-        )}
-
-        {(searchQuery === '' || filteredSystemSettings.length > 0) && (
-          <>
-            <Separator />
-            <section className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-1 bg-gray-600 rounded-full" />
-                <div>
-                  <h2 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-foreground`}>
-                    Cài đặt hệ thống
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Nhật ký, giao diện và các thiết lập nâng cao
-                  </p>
-                </div>
-              </div>
-              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-                {filteredSystemSettings.map(setting => 
-                  <SettingsCard key={setting.title} {...setting} />
-                )}
-              </div>
-            </section>
-          </>
-        )}
-      </div>
-    </ResponsiveContainer>
+    </div>
   );
 }

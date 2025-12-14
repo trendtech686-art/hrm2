@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { useForm, type FieldValues } from 'react-hook-form';
+import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { useReceiptTypeStore } from '../settings/receipt-types/store';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
 import { useTargetGroupStore } from '../settings/target-groups/store';
@@ -19,12 +20,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ROUTES } from '@/lib/router';
 
-export type ReceiptFormValues = FieldValues & {
+export type ReceiptFormValues = {
   id?: string;
   date: string;
   amount: number;
@@ -44,6 +48,10 @@ export type ReceiptFormValues = FieldValues & {
   affectsDebt: boolean;
 };
 
+const ReceiptFormField = <TName extends FieldPath<ReceiptFormValues>>(props: ControllerProps<ReceiptFormValues, TName>) => (
+  <FormField<ReceiptFormValues, TName> {...props} />
+);
+
 interface ReceiptFormProps {
   initialData?: Receipt | null;
   onSubmit: (data: ReceiptFormValues) => void;
@@ -51,6 +59,7 @@ interface ReceiptFormProps {
 }
 
 export function ReceiptForm({ initialData, onSubmit, isEditing = false }: ReceiptFormProps) {
+  const navigate = useNavigate();
   const { data: receiptTypes } = useReceiptTypeStore();
   const { data: paymentMethods } = usePaymentMethodStore();
   const { data: targetGroups } = useTargetGroupStore();
@@ -62,52 +71,118 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
   const { data: shippingPartners } = useShippingPartnerStore();
 
   // Chỉ lấy active items
-  const activeReceiptTypes = receiptTypes.filter(rt => rt.isActive);
-  const activePaymentMethods = paymentMethods.filter(pm => pm.isActive);
-  const activeTargetGroups = targetGroups.filter(tg => tg.isActive);
-  const activeAccounts = accounts.filter(acc => acc.isActive);
+  const activeReceiptTypes = React.useMemo(
+    () => receiptTypes.filter(rt => rt.isActive),
+    [receiptTypes]
+  );
+  const activePaymentMethods = React.useMemo(
+    () => paymentMethods.filter(pm => pm.isActive),
+    [paymentMethods]
+  );
+  const activeTargetGroups = React.useMemo(
+    () => targetGroups.filter(tg => tg.isActive),
+    [targetGroups]
+  );
+  const activeAccounts = React.useMemo(
+    () => accounts.filter(acc => acc.isActive),
+    [accounts]
+  );
   const activeBranches = branches;
 
+  const missingConfigs = React.useMemo(() => {
+    const items: string[] = [];
+    if (activeReceiptTypes.length === 0) items.push('Loại phiếu thu');
+    if (activePaymentMethods.length === 0) items.push('Hình thức thanh toán');
+    if (activeTargetGroups.length === 0) items.push('Nhóm đối tượng');
+    if (activeAccounts.length === 0) items.push('Tài khoản quỹ');
+    if (activeBranches.length === 0) items.push('Chi nhánh');
+    return items;
+  }, [activeReceiptTypes.length, activePaymentMethods.length, activeTargetGroups.length, activeAccounts.length, activeBranches.length]);
+
+  const buildDefaultValues = React.useCallback(
+    (receipt?: Receipt | null): ReceiptFormValues => {
+      if (receipt) {
+        const values: ReceiptFormValues = {
+          id: receipt.id,
+          date: receipt.date,
+          amount: receipt.amount,
+          payerTypeSystemId: receipt.payerTypeSystemId,
+          payerTypeName: receipt.payerTypeName,
+          payerName: receipt.payerName,
+          description: receipt.description,
+          paymentMethodSystemId: receipt.paymentMethodSystemId,
+          paymentMethodName: receipt.paymentMethodName,
+          accountSystemId: receipt.accountSystemId,
+          paymentReceiptTypeSystemId: receipt.paymentReceiptTypeSystemId,
+          paymentReceiptTypeName: receipt.paymentReceiptTypeName,
+          branchSystemId: receipt.branchSystemId,
+          branchName: receipt.branchName,
+          status: receipt.status,
+          affectsDebt: receipt.affectsDebt,
+        };
+
+        if (receipt.payerSystemId) {
+          values.payerSystemId = receipt.payerSystemId;
+        }
+
+        return values;
+      }
+
+      const preferredTargetGroup = activeTargetGroups.find(tg => tg.id === 'KHACHHANG') ?? activeTargetGroups[0];
+      const defaultPaymentMethod = activePaymentMethods[0];
+      const defaultReceiptType = activeReceiptTypes[0];
+      const defaultBranch = activeBranches[0];
+      const defaultAccount = activeAccounts[0];
+
+      // ✅ Mặc định affectsDebt=true nếu loại người nộp là Khách hàng
+      const defaultAffectsDebt = preferredTargetGroup?.id === 'KHACHHANG';
+
+      return {
+        date: new Date().toISOString().split('T')[0],
+        amount: 0,
+        payerTypeSystemId: preferredTargetGroup?.systemId ?? '',
+        payerTypeName: preferredTargetGroup?.name ?? '',
+        payerName: '',
+        description: '',
+        paymentMethodSystemId: defaultPaymentMethod?.systemId ?? '',
+        paymentMethodName: defaultPaymentMethod?.name ?? '',
+        accountSystemId: defaultAccount?.systemId ?? '',
+        paymentReceiptTypeSystemId: defaultReceiptType?.systemId ?? '',
+        paymentReceiptTypeName: defaultReceiptType?.name ?? '',
+        branchSystemId: defaultBranch?.systemId ?? '',
+        branchName: defaultBranch?.name ?? '',
+        status: 'completed',
+        affectsDebt: defaultAffectsDebt,
+      };
+    },
+    [activeAccounts, activeBranches, activePaymentMethods, activeReceiptTypes, activeTargetGroups]
+  );
+
+  const defaultValues = React.useMemo(() => buildDefaultValues(initialData), [buildDefaultValues, initialData]);
+
   const form = useForm<ReceiptFormValues>({
-    defaultValues: initialData ? {
-      id: initialData.id,
-      date: initialData.date,
-      amount: initialData.amount,
-      payerTypeSystemId: initialData.payerTypeSystemId,
-      payerTypeName: initialData.payerTypeName,
-      payerName: initialData.payerName,
-      payerSystemId: initialData.payerSystemId,
-      description: initialData.description,
-      paymentMethodSystemId: initialData.paymentMethodSystemId,
-      paymentMethodName: initialData.paymentMethodName,
-      accountSystemId: initialData.accountSystemId,
-      paymentReceiptTypeSystemId: initialData.paymentReceiptTypeSystemId,
-      paymentReceiptTypeName: initialData.paymentReceiptTypeName,
-      branchSystemId: initialData.branchSystemId,
-      branchName: initialData.branchName,
-      createdBy: initialData.createdBy,
-      status: initialData.status,
-      affectsDebt: initialData.affectsDebt,
-    } : {
-      id: '',
-      date: new Date().toISOString().split('T')[0],
-      amount: 0,
-      payerTypeSystemId: activeTargetGroups.find(tg => tg.id === 'KHACHHANG')?.systemId || activeTargetGroups[0]?.systemId || '',
-      payerTypeName: activeTargetGroups.find(tg => tg.id === 'KHACHHANG')?.name || activeTargetGroups[0]?.name || '',
-      payerName: '',
-      description: '',
-      paymentMethodSystemId: activePaymentMethods[0]?.systemId || '',
-      paymentMethodName: activePaymentMethods[0]?.name || '',
-      accountSystemId: activeAccounts[0]?.systemId || '',
-      paymentReceiptTypeSystemId: activeReceiptTypes[0]?.systemId || '',
-      paymentReceiptTypeName: activeReceiptTypes[0]?.name || '',
-      branchSystemId: activeBranches[0]?.systemId || '',
-      branchName: activeBranches[0]?.name || '',
-      createdBy: '',
-      status: 'completed',
-      affectsDebt: false,
-    }
+    defaultValues,
   });
+
+  React.useEffect(() => {
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
+
+  if (missingConfigs.length > 0) {
+    return (
+      <Alert variant="destructive" className="space-y-3">
+        <div>
+          <AlertTitle>Thiếu cấu hình bắt buộc</AlertTitle>
+          <AlertDescription>
+            {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu thu.`}
+          </AlertDescription>
+        </div>
+        <Button type="button" variant="outline" onClick={() => navigate(ROUTES.SETTINGS.PAYMENTS)}>
+          Mở Cài đặt thanh toán
+        </Button>
+      </Alert>
+    );
+  }
 
   // Watch paymentMethodSystemId và payerTypeSystemId để filter
   const paymentMethodSystemId = form.watch('paymentMethodSystemId');
@@ -224,14 +299,19 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
       <form id="receipt-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Mã phiếu thu (Business ID) */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="id"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Mã phiếu thu</FormLabel>
                 <FormControl>
-                  <Input className="h-9" placeholder="Để trống = tự động" disabled={isEditing} {...field} />
+                  <Input
+                    className="h-9"
+                    placeholder="Để trống = tự động"
+                    disabled={isEditing}
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -239,7 +319,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           />
 
           {/* Ngày thu */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="date"
             render={({ field }) => (
@@ -281,7 +361,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           />
 
           {/* Số tiền */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="amount"
             render={({ field }) => (
@@ -302,7 +382,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           />
 
           {/* Loại phiếu thu (Link đến Receipt Type) */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="paymentReceiptTypeSystemId"
             render={({ field }) => {
@@ -328,7 +408,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           />
 
           {/* Loại người nộp (Nhóm đối tượng) */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="payerTypeSystemId"
             render={({ field }) => {
@@ -344,8 +424,13 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
                         // Tự động điền payerTypeName
                         form.setValue('payerTypeName', option?.label || '');
                         // Reset payerSystemId when changing type
-                        form.setValue('payerSystemId', '');
+                        form.setValue('payerSystemId', undefined);
                         form.setValue('payerName', '');
+                        // ✅ Tự động bật affectsDebt nếu chọn Khách hàng
+                        const selectedGroup = targetGroups.find(tg => tg.systemId === option?.value);
+                        if (selectedGroup?.id === 'KHACHHANG') {
+                          form.setValue('affectsDebt', true);
+                        }
                       }}
                       options={targetGroupOptions}
                       placeholder="Chọn nhóm đối tượng"
@@ -363,7 +448,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           {/* Tên người nộp */}
           {selectedTargetGroup?.id === 'KHAC' ? (
             // KHAC -> Manual Input
-            <FormField
+            <ReceiptFormField
               control={form.control}
               name="payerName"
               render={({ field }) => (
@@ -383,7 +468,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
             />
           ) : (
             // Other types -> VirtualizedCombobox
-            <FormField
+            <ReceiptFormField
               control={form.control}
               name="payerSystemId"
               render={({ field }) => {
@@ -395,7 +480,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
                       <VirtualizedCombobox
                         value={selectedOption}
                         onChange={(option) => {
-                          field.onChange(option?.value || '');
+                          field.onChange(option?.value ?? undefined);
                           // Tự động điền payerName
                           form.setValue('payerName', option?.label || '');
                         }}
@@ -414,7 +499,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           )}
 
           {/* Phương thức thanh toán */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="paymentMethodSystemId"
             render={({ field }) => {
@@ -444,7 +529,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           />
 
           {/* Tài khoản (Link đến CashAccount) - Lọc theo phương thức */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="accountSystemId"
             render={({ field }) => (
@@ -470,7 +555,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
           />
 
           {/* Chi nhánh */}
-          <FormField
+          <ReceiptFormField
             control={form.control}
             name="branchSystemId"
             render={({ field }) => (
@@ -497,7 +582,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
         </div>
 
         {/* Diễn giải */}
-        <FormField
+        <ReceiptFormField
           control={form.control}
           name="description"
           render={({ field }) => (
@@ -511,6 +596,29 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
                 />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Ảnh hưởng công nợ */}
+        <ReceiptFormField
+          control={form.control}
+          name="affectsDebt"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={isEditing}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>Ảnh hưởng công nợ</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Nếu bật, phiếu thu sẽ được tính vào công nợ khách hàng
+                </p>
+              </div>
             </FormItem>
           )}
         />

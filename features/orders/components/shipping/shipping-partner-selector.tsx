@@ -22,12 +22,12 @@ import type {
 
 interface ShippingPartnerSelectorProps {
   request: ShippingCalculationRequest;
-  selectedService?: ShippingService | null;
+  selectedService?: ShippingService | null | undefined;
   onServiceSelect: (service: ShippingService | null) => void;
-  onServiceUpdate?: (service: ShippingService) => void; // ✅ NEW: Callback when service fee updates
-  onTogglePreview?: () => void; // ✅ NEW: Callback to toggle API data preview
-  disabled?: boolean;
-  collapsed?: boolean;
+  onServiceUpdate?: ((service: ShippingService) => void) | undefined; // ✅ NEW: Callback when service fee updates
+  onTogglePreview?: (() => void) | undefined; // ✅ NEW: Callback to toggle API data preview
+  disabled?: boolean | undefined;
+  collapsed?: boolean | undefined;
 }
 
 export function ShippingPartnerSelector({

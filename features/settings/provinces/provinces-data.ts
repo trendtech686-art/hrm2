@@ -3,12 +3,15 @@
 // Date: 2025-10-29T19:47:51.665528
 
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export interface Province {
   systemId: SystemId;
   id: BusinessId;
   name: string;
 }
+
+const PROVINCE_AUDIT_DATE = '2024-01-15T00:00:00Z';
 
 const rawData = [
   {
@@ -187,4 +190,5 @@ export const PROVINCES_DATA: Province[] = rawData.map((item) => ({
   ...item,
   systemId: asSystemId(item.systemId),
   id: asBusinessId(item.id),
+  ...buildSeedAuditFields({ createdAt: PROVINCE_AUDIT_DATE }),
 }));

@@ -7,16 +7,22 @@ import { generateBreadcrumb, generatePageTitle } from '../lib/breadcrumb-system'
  * Page Header State Interface
  * Defines the structure of page header data
  */
+export interface PageHeaderDocLink {
+  href: string;
+  label?: string;
+}
+
 export interface PageHeaderState {
-  title?: string | React.ReactNode;
-  subtitle?: string;
-  badge?: React.ReactNode;
-  showBackButton?: boolean;
-  backPath?: string;
-  onBack?: () => void;
-  actions?: React.ReactNode[] | React.ReactNode;
-  breadcrumb?: BreadcrumbItem[];
-  context?: Record<string, any>; // For dynamic breadcrumb generation
+  title?: string | React.ReactNode | undefined;
+  subtitle?: string | undefined;
+  badge?: React.ReactNode | undefined;
+  showBackButton?: boolean | undefined;
+  backPath?: string | undefined;
+  onBack?: (() => void) | undefined;
+  actions?: React.ReactNode[] | React.ReactNode | undefined;
+  breadcrumb?: BreadcrumbItem[] | undefined;
+  context?: Record<string, any> | undefined; // For dynamic breadcrumb generation
+  docLink?: PageHeaderDocLink | undefined;
 }
 
 /**
@@ -28,7 +34,8 @@ interface PageHeaderContextValue {
   clearPageHeader: () => void;
 }
 
-const PageHeaderContext = React.createContext<PageHeaderContextValue | null>(null);
+const PageHeaderStateContext = React.createContext<PageHeaderState | null>(null);
+const PageHeaderDispatchContext = React.createContext<Omit<PageHeaderContextValue, 'pageHeader'> | null>(null);
 
 /**
  * Page Header Provider
@@ -103,32 +110,53 @@ export function PageHeaderProvider({ children }: { children: React.ReactNode }) 
     setPageHeaderState({});
   }, []);
 
-  const value = React.useMemo(
+  const dispatchValue = React.useMemo(
     () => ({
-      pageHeader,
       setPageHeader,
       clearPageHeader,
     }),
-    [pageHeader, setPageHeader, clearPageHeader]
+    [setPageHeader, clearPageHeader]
   );
 
   return (
-    <PageHeaderContext.Provider value={value}>
-      {children}
-    </PageHeaderContext.Provider>
+    <PageHeaderDispatchContext.Provider value={dispatchValue}>
+      <PageHeaderStateContext.Provider value={pageHeader}>
+        {children}
+      </PageHeaderStateContext.Provider>
+    </PageHeaderDispatchContext.Provider>
   );
 }
 
 /**
- * Hook to access page header context
- * @throws Error if used outside PageHeaderProvider
+ * Hook to access page header state (for rendering)
  */
-export function usePageHeaderContext() {
-  const context = React.useContext(PageHeaderContext);
+export function usePageHeaderState() {
+  const context = React.useContext(PageHeaderStateContext);
   if (!context) {
-    throw new Error('usePageHeaderContext must be used within PageHeaderProvider');
+    throw new Error('usePageHeaderState must be used within PageHeaderProvider');
   }
   return context;
+}
+
+/**
+ * Hook to access page header dispatch (for setting header)
+ */
+export function usePageHeaderDispatch() {
+  const context = React.useContext(PageHeaderDispatchContext);
+  if (!context) {
+    throw new Error('usePageHeaderDispatch must be used within PageHeaderProvider');
+  }
+  return context;
+}
+
+/**
+ * Legacy hook to access full context
+ * @deprecated Use usePageHeaderState or usePageHeaderDispatch instead
+ */
+export function usePageHeaderContext() {
+  const state = usePageHeaderState();
+  const dispatch = usePageHeaderDispatch();
+  return { pageHeader: state, ...dispatch };
 }
 
 /**
@@ -160,23 +188,26 @@ export function usePageHeaderContext() {
  * });
  */
 export function usePageHeader(config?: PageHeaderState) {
-  const { setPageHeader, clearPageHeader } = usePageHeaderContext();
-  const prevConfigRef = React.useRef<string>('');
+  const { setPageHeader, clearPageHeader } = usePageHeaderDispatch();
   const configRef = React.useRef(config);
   
   // Update ref without causing re-render
   configRef.current = config;
 
-  React.useEffect(() => {
-    const currentConfig = configRef.current;
+  // Create a serializable fingerprint of the config
+  const configFingerprint = React.useMemo(() => {
+    const currentConfig = config;
     
     // Helper to recursively extract text from React elements
     const extractText = (node: any): string => {
       if (!node) return '';
       if (typeof node === 'string' || typeof node === 'number') return String(node);
       if (Array.isArray(node)) return node.map(extractText).join('');
+      if (React.isValidElement(node)) {
+        return extractText((node.props as any).children);
+      }
       if (typeof node === 'object' && 'props' in node) {
-        return extractText(node.props?.children);
+        return extractText((node as any).props?.children);
       }
       return '';
     };
@@ -184,28 +215,32 @@ export function usePageHeader(config?: PageHeaderState) {
     const extractTextFromActions = (actions?: React.ReactNode | React.ReactNode[]) => {
       if (!actions) return '';
       const actionsArray = Array.isArray(actions) ? actions : [actions];
-      return actionsArray.map(extractText).join('|');
+      return actionsArray.map(node => {
+        if (!React.isValidElement(node)) return extractText(node);
+        const props = node.props as any;
+        return `${extractText(node)}|${props.disabled}|${props.hidden}|${node.key}`;
+      }).join('||');
     };
 
-    // Create a serializable fingerprint of the config
-    const configFingerprint = currentConfig ? JSON.stringify({
+    return currentConfig ? JSON.stringify({
       title: typeof currentConfig.title === 'string' ? currentConfig.title : extractText(currentConfig.title),
       subtitle: currentConfig.subtitle,
       showBackButton: currentConfig.showBackButton,
       backPath: currentConfig.backPath,
       actionsText: extractTextFromActions(currentConfig.actions),
-      breadcrumbCount: currentConfig.breadcrumb?.length,
+      breadcrumb: currentConfig.breadcrumb,
+      badgeKey: React.isValidElement(currentConfig.badge) ? currentConfig.badge.key : undefined,
       context: currentConfig.context,
+      docLink: currentConfig.docLink,
     }) : 'EMPTY';
+  }, [config]);
 
-    // Only update if fingerprint changed
-    if (configFingerprint !== prevConfigRef.current) {
-      prevConfigRef.current = configFingerprint;
-      if (currentConfig) {
-        setPageHeader(currentConfig);
-      }
+  React.useEffect(() => {
+    const currentConfig = configRef.current;
+    if (currentConfig) {
+      setPageHeader(currentConfig);
     }
-  });
+  }, [configFingerprint, setPageHeader]);
 
   return { setPageHeader, clearPageHeader };
 }

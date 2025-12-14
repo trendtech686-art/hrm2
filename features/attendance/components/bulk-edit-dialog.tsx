@@ -10,7 +10,7 @@ import { Button } from '../../../components/ui/button.tsx';
 import { TimePicker } from '../../../components/ui/time-picker.tsx';
 import { Separator } from '../../../components/ui/separator.tsx';
 import { CheckCircle2, XCircle, Clock, Calendar, Users, Edit3 } from 'lucide-react';
-import { useToast } from '../../../hooks/use-toast.ts';
+import { toast } from 'sonner';
 import type { SystemId } from '../../../lib/id-types.ts';
 
 interface BulkEditDialogProps {
@@ -49,14 +49,13 @@ const formSchema = z.object({
   }
   return true;
 }, {
-  message: "Giờ OT ra phải sau giờ OT vào",
+  message: "Giờ làm thêm ra phải sau giờ làm thêm vào",
   path: ["overtimeCheckOut"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: BulkEditDialogProps) {
-  const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -119,7 +118,7 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
         </DialogHeader>
 
         <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-muted/30">
-          <div className="space-y-2 text-sm">
+          <div className="space-y-2 text-body-sm">
             {Object.entries(groupedByEmployee).map(([systemId, info]) => (
               <div key={systemId} className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
@@ -188,14 +187,14 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
                   <FormField control={control} name="checkIn" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Giờ vào</FormLabel>
-                      <FormControl><TimePicker {...field} /></FormControl>
+                      <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={control} name="checkOut" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Giờ ra</FormLabel>
-                      <FormControl><TimePicker {...field} /></FormControl>
+                      <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -204,14 +203,14 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
                   <FormField control={control} name="overtimeCheckIn" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tăng ca (Vào)</FormLabel>
-                      <FormControl><TimePicker {...field} /></FormControl>
+                      <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={control} name="overtimeCheckOut" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tăng ca (Ra)</FormLabel>
-                      <FormControl><TimePicker {...field} /></FormControl>
+                      <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />

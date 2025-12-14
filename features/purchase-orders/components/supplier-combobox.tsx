@@ -7,10 +7,10 @@ import { QuickAddSupplierDialog } from "../../suppliers/components/quick-add-sup
 import { asSystemId, type SystemId } from "@/lib/id-types";
 
 interface SupplierComboboxProps {
-  value?: SystemId; // supplier systemId
+  value?: SystemId | undefined; // supplier systemId
   onValueChange: (supplierId: SystemId | null) => void;
-  placeholder?: string;
-  className?: string;
+  placeholder?: string | undefined;
+  className?: string | undefined;
 }
 
 const ADD_NEW_VALUE = "__ADD_NEW__";

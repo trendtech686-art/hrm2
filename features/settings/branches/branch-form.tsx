@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import type { Branch } from './types.ts';
 import { useBranchStore } from './store.ts';
@@ -23,6 +23,10 @@ import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group.t
 import { Label } from '../../../components/ui/label.tsx';
 
 export type BranchFormValues = Omit<Branch, 'systemId'>;
+
+const BranchFormField = <TName extends FieldPath<BranchFormValues>>(props: ControllerProps<BranchFormValues, TName>) => (
+  <FormField<BranchFormValues, TName> {...props} />
+);
 
 interface BranchFormProps {
   initialData: Branch | null;
@@ -60,7 +64,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
   });
 
   // Watch address fields
-  const addressLevel = form.watch('addressLevel');
+  const addressLevel = form.watch('addressLevel') ?? '3-level';
   const selectedProvinceId = form.watch('provinceId');
   const selectedDistrictId = form.watch('districtId');
 
@@ -100,24 +104,24 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
         <div className="space-y-4">
           <h3 className="text-sm font-semibold border-b pb-2">Thông tin cơ bản</h3>
           <div className="grid grid-cols-2 gap-4">
-            <FormField
+            <BranchFormField
               control={form.control}
               name="id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Mã chi nhánh *</FormLabel>
-                  <FormControl><Input {...field} placeholder="VD: HCM, HN" value={field.value as string} /></FormControl>
+                  <FormControl><Input {...field} placeholder="VD: HCM, HN" value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
+            <BranchFormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tên chi nhánh *</FormLabel>
-                  <FormControl><Input {...field} placeholder="VD: Chi nhánh Hồ Chí Minh" value={field.value as string} /></FormControl>
+                  <FormControl><Input {...field} placeholder="VD: Chi nhánh Hồ Chí Minh" value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -130,7 +134,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
           <h3 className="text-sm font-semibold border-b pb-2">Địa chỉ chi tiết</h3>
           
           {/* Address Level Radio */}
-          <FormField
+          <BranchFormField
             control={form.control}
             name="addressLevel"
             render={({ field }) => (
@@ -173,7 +177,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
           {/* Province / District / Ward in one row */}
           <div className="grid grid-cols-3 gap-4">
             {/* Province */}
-            <FormField
+            <BranchFormField
               control={form.control}
               name="provinceId"
               render={({ field }) => (
@@ -220,7 +224,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
 
             {/* District (only for 3-level) */}
             {addressLevel === '3-level' ? (
-              <FormField
+              <BranchFormField
                 control={form.control}
                 name="districtId"
                 render={({ field }) => (
@@ -275,7 +279,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
             )}
 
             {/* Ward */}
-            <FormField
+            <BranchFormField
               control={form.control}
               name="wardCode"
               render={({ field }) => (
@@ -325,13 +329,13 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
           </div>
 
           {/* Street Address */}
-          <FormField
+          <BranchFormField
             control={form.control}
             name="address"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Địa chỉ (Số nhà, tên đường) *</FormLabel>
-                <FormControl><Input {...field} value={field.value as string} placeholder="VD: 123 Đường ABC, Tòa nhà XYZ" /></FormControl>
+                <FormControl><Input {...field} value={field.value ?? ''} placeholder="VD: 123 Đường ABC, Tòa nhà XYZ" /></FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -342,18 +346,18 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
         <div className="space-y-4">
           <h3 className="text-sm font-semibold border-b pb-2">Thông tin liên hệ</h3>
           <div className="grid grid-cols-2 gap-4">
-            <FormField
+            <BranchFormField
               control={form.control}
               name="phone"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Số điện thoại *</FormLabel>
-                  <FormControl><Input {...field} value={field.value as string} placeholder="VD: 0123456789" /></FormControl>
+                  <FormControl><Input {...field} value={field.value ?? ''} placeholder="VD: 0123456789" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
+            <BranchFormField
               control={form.control}
               name="managerId"
               render={({ field }) => (
@@ -362,7 +366,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
                   <FormControl>
                     <Combobox
                       value={selectedManager}
-                      onChange={(option) => field.onChange(option ? option.value : '')}
+                      onChange={(option) => field.onChange(option ? option.value : undefined)}
                       onSearch={searchEmployees}
                       placeholder="Chọn quản lý"
                       searchPlaceholder="Tìm nhân viên..."
@@ -379,7 +383,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
         {/* Section 4: Tùy chọn */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold border-b pb-2">Tùy chọn</h3>
-          <FormField
+          <BranchFormField
             control={form.control}
             name="isDefault"
             render={({ field }) => (

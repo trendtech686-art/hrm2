@@ -6,7 +6,7 @@ const fs = require('fs-extra');
 const { v4: uuidv4 } = require('uuid');
 const sqlite3 = require('sqlite3').verbose();
 const crypto = require('crypto'); // For webhook signature verification
-const { generateSmartFilename, extractEmployeeContext, wouldConflict } = require('./filename-utils');
+const slugify = require('slugify'); // For generating complaint filenames
 const fetch = require('node-fetch'); // For GHTK API proxy
 
 // Load environment variables from parent directory
@@ -61,6 +61,10 @@ const PRODUCTS_DIR = path.join(PERMANENT_DIR, 'products');
 const CUSTOMERS_DIR = path.join(PERMANENT_DIR, 'customers');
 const WARRANTY_DIR = path.join(PERMANENT_DIR, 'warranty');
 const COMPLAINTS_DIR = path.join(PERMANENT_DIR, 'complaints');
+const TASKS_DIR = path.join(PERMANENT_DIR, 'tasks');
+const COMMENTS_DIR = path.join(PERMANENT_DIR, 'comments');
+const BRANDING_DIR = path.join(PERMANENT_DIR, 'branding');
+const PRINT_TEMPLATES_DIR = path.join(PERMANENT_DIR, 'print-templates');
 fs.ensureDirSync(UPLOAD_DIR);
 fs.ensureDirSync(STAGING_DIR);
 fs.ensureDirSync(PERMANENT_DIR);
@@ -69,6 +73,21 @@ fs.ensureDirSync(PRODUCTS_DIR);
 fs.ensureDirSync(CUSTOMERS_DIR);
 fs.ensureDirSync(WARRANTY_DIR);
 fs.ensureDirSync(COMPLAINTS_DIR);
+fs.ensureDirSync(TASKS_DIR);
+fs.ensureDirSync(COMMENTS_DIR);
+fs.ensureDirSync(BRANDING_DIR);
+fs.ensureDirSync(PRINT_TEMPLATES_DIR);
+
+const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
+
+const sendFileWithCache = (res, filePath, errorMessage = 'Lỗi khi tải file') => {
+  res.setHeader('Cache-Control', `public, max-age=${ONE_YEAR_IN_SECONDS}, immutable`);
+  res.sendFile(filePath, (err) => {
+    if (err && !res.headersSent) {
+      res.status(500).json({ success: false, message: errorMessage });
+    }
+  });
+};
 
 // Helper function để tạo đường dẫn theo ngày
 const getDateBasedPath = (date = new Date()) => {
@@ -185,7 +204,8 @@ const permanentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const { employeeId, documentType } = req.params;
     const datePath = getDateBasedPath();
-    const permanentPath = path.join(PERMANENT_DIR, datePath, 'employees', employeeId, documentType);
+    // Entity-first structure: /employees/{id}/{docType}/{date}/
+    const permanentPath = path.join(PERMANENT_DIR, 'employees', employeeId, documentType, datePath);
     
     // Tạo thư mục permanent nếu chưa có
     fs.ensureDirSync(permanentPath);
@@ -204,22 +224,113 @@ const permanentStorage = multer.diskStorage({
   }
 });
 
+const commentImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const datePath = getDateBasedPath();
+    const commentDir = path.join(COMMENTS_DIR, datePath);
+    fs.ensureDirSync(commentDir);
+    req.commentDatePath = datePath;
+    cb(null, commentDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const baseName = path.basename(file.originalname, ext);
+    const slug = slugify(`${baseName}-${Date.now()}`, { lower: true, strict: true });
+    cb(null, `${slug}${ext}`);
+  }
+});
+
+const commentImageUpload = multer({
+  storage: commentImageStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+// Print Templates Image Upload - Similar to comments, permanent storage
+const printTemplateImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const datePath = getDateBasedPath();
+    const destDir = path.join(PRINT_TEMPLATES_DIR, datePath);
+    fs.ensureDirSync(destDir);
+    req.printDatePath = datePath;
+    cb(null, destDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const baseName = path.basename(file.originalname, ext);
+    const slug = slugify(`${baseName}-${Date.now()}`, { lower: true, strict: true });
+    cb(null, `${slug}${ext}`);
+  }
+});
+
+const printTemplateImageUpload = multer({
+  storage: printTemplateImageStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+const taskEvidenceStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const { taskId } = req.params;
+    const taskDir = path.join(TASKS_DIR, taskId, 'evidence');
+    fs.ensureDirSync(taskDir);
+    cb(null, taskDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const baseName = path.basename(file.originalname, ext);
+    const slug = slugify(`${baseName}-${Date.now()}`, { lower: true, strict: true });
+    cb(null, `${slug}${ext}`);
+  }
+});
+
+const taskEvidenceUpload = multer({
+  storage: taskEvidenceStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+const complaintCommentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const { complaintId } = req.params;
+    const complaintDir = path.join(COMPLAINTS_DIR, complaintId, 'comments');
+    fs.ensureDirSync(complaintDir);
+    cb(null, complaintDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const baseName = path.basename(file.originalname, ext);
+    const slug = slugify(`${baseName}-${Date.now()}`, { lower: true, strict: true });
+    cb(null, `${slug}${ext}`);
+  }
+});
+
+const complaintCommentUpload = multer({
+  storage: complaintCommentStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
 // Validate file types và size
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
+    // Images
     'image/jpeg', 
     'image/png', 
     'image/jpg', 
     'image/webp',
     'image/gif',
-    'application/pdf'
+    // PDF
+    'application/pdf',
+    // Word Documents
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    // Excel Spreadsheets
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
   ];
   const maxSize = 10 * 1024 * 1024; // 10MB for images
   
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`Chỉ hỗ trợ file PDF, hình ảnh (PNG, JPG, WEBP, GIF) và video (MP4, MOV, AVI, WebM). File "${file.originalname}" có type: ${file.mimetype}`), false);
+    cb(new Error(`Chỉ hỗ trợ file hình ảnh (PNG, JPG, WEBP, GIF), PDF, Word (DOC, DOCX), Excel (XLS, XLSX). File "${file.originalname}" có type: ${file.mimetype}`), false);
   }
 };
 
@@ -294,24 +405,17 @@ app.use('/api/staging/upload', (err, req, res, next) => {
 });
 
 // 1. Upload file vào staging (chưa confirm) - với smart filename
-// Test endpoint for smart filename generation
-app.post('/api/test-filename', (req, res) => {
-  try {
-    const { filename } = req.body;
-    if (!filename) {
-      return res.status(400).json({ error: 'Filename is required' });
-    }
-    
-    const result = generateSmartFilename(filename);
-    res.json({
-      original: filename,
-      smart: result,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Helper: Sanitize filename - remove special characters
+const sanitizeFilename = (filename) => {
+  const ext = path.extname(filename);
+  const nameWithoutExt = path.basename(filename, ext);
+  // Remove special characters, keep alphanumeric, Vietnamese chars, dots, dashes, underscores
+  const sanitized = nameWithoutExt
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '') // Remove Windows forbidden chars
+    .replace(/[\s]+/g, '_') // Replace spaces with underscore
+    .trim();
+  return sanitized + ext;
+};
 
 // File staging upload endpoint
 app.post('/api/staging/upload', stagingUpload.array('files', 10), (req, res) => {
@@ -334,35 +438,15 @@ app.post('/api/staging/upload', stagingUpload.array('files', 10), (req, res) => 
 
     const stagingFiles = [];
 
-    // Lưu thông tin file vào database với status = 'staging' và smart filename
+    // Lưu thông tin file vào database với status = 'staging'
     const stmt = db.prepare(`
-      INSERT INTO files (id, employee_id, document_type, document_name, original_name, filename, filepath, filesize, mimetype, status, session_id, file_slug, display_name, filename_metadata)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'staging', ?, ?, ?, ?)
+      INSERT INTO files (id, employee_id, document_type, document_name, original_name, filename, filepath, filesize, mimetype, status, session_id, file_slug, display_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'staging', ?, ?, ?)
     `);
 
     files.forEach(file => {
       const fileId = uuidv4();
-      
-      // Debug: Check if file exists on disk
-      const diskPath = file.path;
-      const fileExists = fs.existsSync(diskPath);
-      
-      // Tạo smart filename (không có employee info trong staging)
-      const smartFilename = generateSmartFilename(file.originalname, {}, 0);
-      
-      // Check for duplicates in current session
-      const existingFiles = db.prepare(`
-        SELECT COUNT(*) as count FROM files 
-        WHERE session_id = ? AND file_slug LIKE ?
-      `).get(sessionId, smartFilename.slug.replace(/\.[^.]*$/, '') + '%');
-      
-      // Generate final filename with duplicate counter if needed
-      const finalSmartFilename = generateSmartFilename(
-        file.originalname, 
-        {}, 
-        existingFiles.count
-      );
-      
+      const sanitizedName = sanitizeFilename(file.originalname);
       const fileUrl = `/api/staging/files/${sessionId}/${file.filename}`;
       
       stmt.run([
@@ -370,31 +454,28 @@ app.post('/api/staging/upload', stagingUpload.array('files', 10), (req, res) => 
         '', // Employee ID để trống trong staging
         '', // Document type để trống trong staging  
         '', // Document name để trống trong staging
-        file.originalname, // Tên file gốc (tiếng Việt)
+        file.originalname, // Tên file gốc
         file.filename, // Tên file hệ thống (UUID)
         file.path,
         file.size,
         file.mimetype,
         sessionId,
-        finalSmartFilename.slug, // URL-safe slug
-        finalSmartFilename.displayName, // Tên hiển thị cho user
-        finalSmartFilename.metadata // Metadata thông minh
+        sanitizedName, // Tên file đã sanitize
+        file.originalname // Tên hiển thị = tên gốc
       ]);
 
       stagingFiles.push({
         id: fileId,
-        name: finalSmartFilename.displayName, // Hiển thị tên thông minh
-        originalName: file.originalname, // Tên gốc
-        filename: file.filename, // Tên file hệ thống (cần cho preview URL)
-        slug: finalSmartFilename.slug, // Slug URL-safe
+        name: file.originalname, // Hiển thị tên gốc
+        originalName: file.originalname,
+        filename: file.filename,
         size: file.size,
         type: file.mimetype,
         path: file.path,
         url: fileUrl,
         sessionId: sessionId,
         status: 'staging',
-        uploadedAt: new Date().toISOString(),
-        metadata: finalSmartFilename.metadata
+        uploadedAt: new Date().toISOString()
       });
     });
 
@@ -402,7 +483,7 @@ app.post('/api/staging/upload', stagingUpload.array('files', 10), (req, res) => 
     
     res.json({
       success: true,
-      message: `Đã tải lên ${files.length} file tạm thời với tên thông minh`,
+      message: `Đã tải lên ${files.length} file tạm thời`,
       files: stagingFiles,
       sessionId: sessionId
     });
@@ -416,242 +497,144 @@ app.post('/api/staging/upload', stagingUpload.array('files', 10), (req, res) => 
   }
 });
 
-// Comment Image Upload - Quick upload for comments/chat
-app.post('/api/comments/upload-image', stagingUpload.single('image'), (req, res) => {
+// Comment Image Upload - Always store under permanent /comments folder
+app.post('/api/comments/upload-image', commentImageUpload.single('image'), (req, res) => {
   try {
     const file = req.file;
-    
     if (!file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Không có file ảnh được upload' 
-      });
+      return res.status(400).json({ success: false, message: 'Không có file ảnh được upload' });
     }
 
-    // Validate image types
-    const allowedMimeTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'
-    ];
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedMimeTypes.includes(file.mimetype)) {
-      fs.removeSync(file.path); // Clean up
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WEBP)' 
-      });
+      fs.removeSync(file.path);
+      return res.status(400).json({ success: false, message: 'Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WEBP)' });
     }
 
-    // Validate file size (max 10MB for images)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      fs.removeSync(file.path); // Clean up
-      return res.status(400).json({ 
-        success: false, 
-        message: file.mimetype.startsWith('video/') 
-          ? 'Video quá lớn. Kích thước tối đa 50MB' 
-          : 'Ảnh quá lớn. Kích thước tối đa 10MB'
-      });
+      fs.removeSync(file.path);
+      return res.status(400).json({ success: false, message: 'Ảnh quá lớn. Kích thước tối đa 10MB' });
     }
 
     const fileId = uuidv4();
-    const ext = path.extname(file.originalname);
-    const dateBasedPath = getDateBasedPath();
-    
-    // Create comment images directory with date structure
-    const commentsDir = path.join(STAGING_DIR, 'comments', dateBasedPath);
-    fs.ensureDirSync(commentsDir);
-    
-    // Generate filename: comment_timestamp_uuid.ext
-    const timestamp = Date.now();
-    const newFilename = `comment_${timestamp}_${fileId.substring(0, 8)}${ext}`;
-    const newPath = path.join(commentsDir, newFilename);
-    
-    // Move file to comments directory
-    fs.moveSync(file.path, newPath);
-    
-    // Generate URL
-    const url = `/api/files/staging/comments/${dateBasedPath}/${newFilename}`;
-    
-    // Save to database for tracking
-    db.run(`
-      INSERT INTO files (
-        id, document_type, original_name, filename, filepath, 
-        filesize, mimetype, status, session_id, created_at
-      ) VALUES (?, 'comment-image', ?, ?, ?, ?, ?, 'staging', ?, datetime('now'))
-    `, [
-      fileId,
-      file.originalname,
-      newFilename,
-      newPath,
-      file.size,
-      file.mimetype,
-      'comment-' + timestamp
-    ], (err) => {
-      if (err) {
-        console.error('❌ Database save error:', err);
-        // Continue even if DB save fails, file is already uploaded
-      }
-    });
+    const datePath = req.commentDatePath;
+    const url = `/api/files/comments/${datePath}/${file.filename}`;
 
-    console.log('✅ Comment image uploaded:', {
-      fileId,
-      filename: newFilename,
-      size: (file.size / 1024).toFixed(2) + ' KB',
-      url
-    });
+    db.run(
+      `INSERT INTO files (
+        id, employee_id, document_type, document_name,
+        original_name, filename, filepath, filesize, mimetype,
+        status, session_id, uploaded_at, confirmed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'permanent', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        fileId,
+        'comments',
+        'comments',
+        'rich-text',
+        file.originalname,
+        file.filename,
+        file.path,
+        file.size,
+        file.mimetype
+      ],
+      (err) => {
+        if (err) {
+          console.error('❌ Database save error (comments):', err);
+        }
+      }
+    );
 
     res.json({
       success: true,
       message: 'Upload ảnh thành công',
       file: {
         id: fileId,
-        url: url,
-        filename: newFilename,
+        url,
+        filename: file.filename,
         originalName: file.originalname,
         size: file.size,
-        mimetype: file.mimetype
+        mimetype: file.mimetype,
+        uploadedAt: new Date().toISOString(),
       }
     });
-
   } catch (error) {
     console.error('❌ Comment image upload error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi server khi upload ảnh',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Lỗi server khi upload ảnh', error: error.message });
   }
 });
 
-// 2. Confirm staging files → permanent với smart filename (khi save form)
+// Print Template Image Upload - Always store under permanent /print-templates folder
+app.post('/api/print-templates/upload-image', printTemplateImageUpload.single('image'), (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'Không có file ảnh được upload' });
+    }
+
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      fs.removeSync(file.path);
+      return res.status(400).json({ success: false, message: 'Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WEBP)' });
+    }
+
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      fs.removeSync(file.path);
+      return res.status(400).json({ success: false, message: 'Ảnh quá lớn. Kích thước tối đa 10MB' });
+    }
+
+    const fileId = uuidv4();
+    const datePath = req.printDatePath;
+    const url = `/api/files/print-templates/${datePath}/${file.filename}`;
+
+    db.run(
+      `INSERT INTO files (
+        id, employee_id, document_type, document_name,
+        original_name, filename, filepath, filesize, mimetype,
+        status, session_id, uploaded_at, confirmed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'permanent', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        fileId,
+        'print-templates',
+        'print-templates',
+        'template-image',
+        file.originalname,
+        file.filename,
+        file.path,
+        file.size,
+        file.mimetype
+      ],
+      (err) => {
+        if (err) {
+          console.error('❌ Database save error (print-templates):', err);
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Upload ảnh thành công',
+      file: {
+        id: fileId,
+        url,
+        filename: file.filename,
+        originalName: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype,
+        uploadedAt: new Date().toISOString(),
+      }
+    });
+  } catch (error) {
+    console.error('❌ Print template image upload error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi upload ảnh', error: error.message });
+  }
+});
+
+// 2. Confirm staging files → permanent (khi save form)
 app.post('/api/staging/confirm/:sessionId/:employeeId/:documentType/:documentName', (req, res) => {
   try {
     const { sessionId, employeeId, documentType, documentName } = req.params;
-    const { employeeData } = req.body; // Thông tin employee để tạo smart filename
-    
-    // Lấy tất cả staging files của session
-    db.all('SELECT * FROM files WHERE session_id = ? AND status = "staging"', [sessionId], (err, stagingFiles) => {
-      if (err) {
-        return res.status(500).json({ success: false, error: err.message });
-      }
-
-      if (!stagingFiles || stagingFiles.length === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Không tìm thấy file tạm để confirm' 
-        });
-      }
-
-      const confirmedFiles = [];
-      let processedCount = 0;
-
-      // Extract employee context for smart naming
-      const employeeContext = extractEmployeeContext({
-        ...employeeData,
-        employeeId: employeeId,
-        department: employeeData?.department || documentType
-      });
-
-      stagingFiles.forEach((file, index) => {
-        // Tạo đường dẫn permanent mới
-        const datePath = getDateBasedPath();
-        const permanentDir = path.join(PERMANENT_DIR, datePath, 'employees', employeeId, documentType);
-        fs.ensureDirSync(permanentDir);
-        
-        // Tạo smart filename với employee context
-        // Check duplicates trong permanent directory
-        const existingFiles = db.prepare(`
-          SELECT COUNT(*) as count FROM files 
-          WHERE employee_id = ? AND document_type = ? AND status = 'permanent'
-          AND file_slug LIKE ?
-        `).get(employeeId, documentType, file.file_slug.replace(/\.[^.]*$/, '') + '%');
-        
-        const finalSmartFilename = generateSmartFilename(
-          file.original_name,
-          employeeContext,
-          existingFiles.count
-        );
-        
-        // Sử dụng slug làm filename thật
-        const slugFilename = finalSmartFilename.slug;
-        const newFilePath = path.join(permanentDir, slugFilename);
-        const newFileUrl = `/api/files/${datePath}/employees/${employeeId}/${documentType}/${slugFilename}`;
-
-        // Di chuyển file từ staging sang permanent với tên slug
-        fs.move(file.filepath, newFilePath, (moveErr) => {
-          if (moveErr) {
-            // Silent fail
-          }
-
-          // Cập nhật database: staging → permanent với smart filename
-          db.run(`
-            UPDATE files 
-            SET employee_id = ?, document_type = ?, document_name = ?, 
-                filepath = ?, filename = ?, status = 'permanent', confirmed_at = CURRENT_TIMESTAMP,
-                file_slug = ?, display_name = ?, filename_metadata = ?
-            WHERE id = ?
-          `, [
-            employeeId, 
-            documentType, 
-            decodeURIComponent(documentName), 
-            newFilePath,
-            slugFilename, // Filename thật sử dụng slug
-            finalSmartFilename.slug,
-            finalSmartFilename.displayName,
-            finalSmartFilename.metadata,
-            file.id
-          ], function(updateErr) {
-            if (updateErr) {
-              // Silent fail
-            }
-
-            confirmedFiles.push({
-              id: file.id,
-              name: finalSmartFilename.displayName, // Hiển thị tên thông minh
-              originalName: file.original_name,
-              slug: finalSmartFilename.slug,
-              size: file.filesize,
-              type: file.mimetype,
-              path: newFilePath,
-              url: newFileUrl,
-              uploadedAt: file.uploaded_at,
-              confirmedAt: new Date().toISOString(),
-              metadata: finalSmartFilename.metadata
-            });
-
-            processedCount++;
-            
-            // Khi xử lý xong tất cả files
-            if (processedCount === stagingFiles.length) {
-              // Xóa thư mục staging
-              fs.remove(path.join(STAGING_DIR, sessionId), (rmErr) => {
-                // Silent cleanup
-              });
-
-              res.json({
-                success: true,
-                message: `Đã xác nhận ${confirmedFiles.length} file với tên thông minh`,
-                files: confirmedFiles
-              });
-            }
-          });
-        });
-      });
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi xác nhận file',
-      error: error.message
-    });
-  }
-});
-
-// 2b. Confirm staging files → permanent cho Products
-app.post('/api/staging/confirm/:sessionId/products/:productId', (req, res) => {
-  try {
-    const { sessionId, productId } = req.params;
-    const { productData } = req.body; // Thông tin sản phẩm
     
     // Lấy tất cả staging files của session
     db.all('SELECT * FROM files WHERE session_id = ? AND status = "staging"', [sessionId], (err, stagingFiles) => {
@@ -670,24 +653,26 @@ app.post('/api/staging/confirm/:sessionId/products/:productId', (req, res) => {
       let processedCount = 0;
 
       stagingFiles.forEach((file, index) => {
-        // Tạo đường dẫn permanent mới cho products
+        // Tạo đường dẫn permanent mới - Entity-first structure
         const datePath = getDateBasedPath();
-        const permanentDir = path.join(PRODUCTS_DIR, productId, 'images');
+        const permanentDir = path.join(PERMANENT_DIR, 'employees', employeeId, documentType, datePath);
         fs.ensureDirSync(permanentDir);
         
-        // Sử dụng tên file gốc đơn giản cho ảnh sản phẩm
+        // Tạo filename đơn giản: timestamp_uuid_sanitizedName
         const timestamp = Date.now();
+        const uniqueId = uuidv4().split('-')[0];
         const ext = path.extname(file.original_name);
-        const baseFilename = path.basename(file.original_name, ext);
-        const slugFilename = `${baseFilename}-${timestamp}${ext}`.toLowerCase().replace(/[^a-z0-9.-]/g, '-');
+        const sanitizedName = sanitizeFilename(file.original_name);
+        const finalFilename = `${timestamp}_${uniqueId}_${path.basename(sanitizedName, ext)}${ext}`;
         
-        const newFilePath = path.join(permanentDir, slugFilename);
-        const newFileUrl = `/api/files/products/${productId}/images/${slugFilename}`;
+        const newFilePath = path.join(permanentDir, finalFilename);
+        // Entity-first URL structure
+        const newFileUrl = `/api/files/employees/${employeeId}/${documentType}/${datePath}/${finalFilename}`;
 
         // Di chuyển file từ staging sang permanent
         fs.move(file.filepath, newFilePath, (moveErr) => {
           if (moveErr) {
-            console.error('Move error:', moveErr);
+            // Silent fail
           }
 
           // Cập nhật database: staging → permanent
@@ -698,24 +683,24 @@ app.post('/api/staging/confirm/:sessionId/products/:productId', (req, res) => {
                 file_slug = ?, display_name = ?
             WHERE id = ?
           `, [
-            productId, 
-            'products', 
-            'images', 
+            employeeId, 
+            documentType, 
+            decodeURIComponent(documentName), 
             newFilePath,
-            slugFilename,
-            slugFilename,
-            file.original_name,
+            finalFilename,
+            finalFilename,
+            file.original_name, // Giữ tên gốc để hiển thị
             file.id
           ], function(updateErr) {
             if (updateErr) {
-              console.error('Update error:', updateErr);
+              // Silent fail
             }
 
             confirmedFiles.push({
               id: file.id,
-              name: file.original_name,
+              name: file.original_name, // Hiển thị tên gốc
               originalName: file.original_name,
-              slug: slugFilename,
+              filename: finalFilename,
               size: file.filesize,
               type: file.mimetype,
               path: newFilePath,
@@ -735,7 +720,7 @@ app.post('/api/staging/confirm/:sessionId/products/:productId', (req, res) => {
 
               res.json({
                 success: true,
-                message: `Đã xác nhận ${confirmedFiles.length} ảnh sản phẩm`,
+                message: `Đã xác nhận ${confirmedFiles.length} file`,
                 files: confirmedFiles
               });
             }
@@ -747,7 +732,7 @@ app.post('/api/staging/confirm/:sessionId/products/:productId', (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi xác nhận ảnh sản phẩm',
+      message: 'Lỗi khi xác nhận file',
       error: error.message
     });
   }
@@ -854,6 +839,106 @@ app.post('/api/staging/confirm/:sessionId/customers/:customerId', (req, res) => 
     res.status(500).json({
       success: false,
       message: 'Lỗi khi xác nhận ảnh khách hàng',
+      error: error.message
+    });
+  }
+});
+
+// 2c-2. Confirm staging files → permanent cho Customer Contracts
+app.post('/api/staging/confirm/:sessionId/customers/:customerId/contracts', (req, res) => {
+  try {
+    const { sessionId, customerId } = req.params;
+    const { customerData } = req.body;
+    
+    db.all('SELECT * FROM files WHERE session_id = ? AND status = "staging"', [sessionId], (err, stagingFiles) => {
+      if (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+
+      if (!stagingFiles || stagingFiles.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Không tìm thấy file tạm để confirm' 
+        });
+      }
+
+      const confirmedFiles = [];
+      let processedCount = 0;
+
+      stagingFiles.forEach((file, index) => {
+        // Tạo đường dẫn permanent cho contracts
+        const permanentDir = path.join(CUSTOMERS_DIR, customerId, 'contracts');
+        fs.ensureDirSync(permanentDir);
+        
+        const timestamp = Date.now();
+        const ext = path.extname(file.original_name);
+        const baseFilename = path.basename(file.original_name, ext);
+        const slugFilename = `${baseFilename}-${timestamp}${ext}`.toLowerCase().replace(/[^a-z0-9.-]/g, '-');
+        
+        const newFilePath = path.join(permanentDir, slugFilename);
+        const newFileUrl = `/api/files/customers/${customerId}/contracts/${slugFilename}`;
+
+        fs.move(file.filepath, newFilePath, (moveErr) => {
+          if (moveErr) {
+            console.error('Move error:', moveErr);
+          }
+
+          db.run(`
+            UPDATE files 
+            SET employee_id = ?, document_type = ?, document_name = ?, 
+                filepath = ?, filename = ?, status = 'permanent', confirmed_at = CURRENT_TIMESTAMP,
+                file_slug = ?, display_name = ?
+            WHERE id = ?
+          `, [
+            customerId, 
+            'customers', 
+            'contracts', 
+            newFilePath,
+            slugFilename,
+            slugFilename,
+            file.original_name,
+            file.id
+          ], function(updateErr) {
+            if (updateErr) {
+              console.error('Update error:', updateErr);
+            }
+
+            confirmedFiles.push({
+              id: file.id,
+              name: file.original_name,
+              originalName: file.original_name,
+              slug: slugFilename,
+              filename: slugFilename,
+              size: file.filesize,
+              type: file.mimetype,
+              path: newFilePath,
+              url: newFileUrl,
+              uploadedAt: file.uploaded_at,
+              confirmedAt: new Date().toISOString()
+            });
+
+            processedCount++;
+            
+            if (processedCount === stagingFiles.length) {
+              fs.remove(path.join(STAGING_DIR, sessionId), (rmErr) => {
+                // Silent cleanup
+              });
+
+              res.json({
+                success: true,
+                message: `Đã xác nhận ${confirmedFiles.length} file hợp đồng`,
+                files: confirmedFiles
+              });
+            }
+          });
+        });
+      });
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi xác nhận file hợp đồng',
       error: error.message
     });
   }
@@ -1161,11 +1246,7 @@ app.get('/api/staging/files/:sessionId/:filename', (req, res) => {
     });
   }
 
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(500).json({ success: false, message: 'Lỗi khi tải file tạm' });
-    }
-  });
+  sendFileWithCache(res, filePath, 'Lỗi khi tải file tạm');
 });
 
 // 5. Xóa staging files (cancel)
@@ -1280,19 +1361,27 @@ app.get('/api/files/:employeeId/:documentType?', (req, res) => {
     const files = rows.map(row => {
       let url;
       if (row.filepath) {
-        // Convert Windows path to URL: D:\hrm2\server\uploads\permanent\2025\10\23\employees\NV00000027\legal\file.png
-        // To: /api/files/2025/10/23/employees/NV00000027/legal/file.png
+        // Convert Windows path to URL
+        // New structure: D:\hrm2\server\uploads\permanent\employees\NV00000027\legal\2025\10\23\file.png
+        // To: /api/files/employees/NV00000027/legal/2025/10/23/file.png
         const normalizedPath = row.filepath.replace(/\\/g, '/');
         
-        // More flexible pattern matching
-        const permanentMatch = normalizedPath.match(/uploads\/permanent\/(.+)/) || 
-                              normalizedPath.match(/permanent\/(.+)/);
-        
-        if (permanentMatch) {
-          url = `/api/files/${permanentMatch[1]}`;
+        // Try entity-first structure first
+        const entityFirstMatch = normalizedPath.match(/uploads\/permanent\/employees\/(.+)/);
+        if (entityFirstMatch) {
+          url = `/api/files/employees/${entityFirstMatch[1]}`;
         } else {
-          // Fallback to legacy format
-          url = `/api/files/${row.employee_id}/${row.document_type}/${row.filename}`;
+          // Fallback: date-first structure (legacy)
+          // D:\...\permanent\2025\10\23\employees\NV00000027\legal\file.png
+          const permanentMatch = normalizedPath.match(/uploads\/permanent\/(.+)/) || 
+                                normalizedPath.match(/permanent\/(.+)/);
+          
+          if (permanentMatch) {
+            url = `/api/files/${permanentMatch[1]}`;
+          } else {
+            // Fallback to legacy format
+            url = `/api/files/${row.employee_id}/${row.document_type}/${row.filename}`;
+          }
         }
       } else {
         url = `/api/files/${row.employee_id}/${row.document_type}/${row.filename}`;
@@ -1317,10 +1406,10 @@ app.get('/api/files/:employeeId/:documentType?', (req, res) => {
   });
 });
 
-// 3. Serve files (download/view) - Date-based structure
-app.get('/api/files/:year/:month/:day/employees/:employeeId/:documentType/:filename', (req, res) => {
-  const { year, month, day, employeeId, documentType, filename } = req.params;
-  const filePath = path.join(PERMANENT_DIR, year, month, day, 'employees', employeeId, documentType, filename);
+// 3. Serve files (download/view) - Entity-first structure
+app.get('/api/files/employees/:employeeId/:documentType/:year/:month/:day/:filename', (req, res) => {
+  const { employeeId, documentType, year, month, day, filename } = req.params;
+  const filePath = path.join(PERMANENT_DIR, 'employees', employeeId, documentType, year, month, day, filename);
   
   // Kiểm tra file có tồn tại không
   if (!fs.existsSync(filePath)) {
@@ -1330,12 +1419,29 @@ app.get('/api/files/:year/:month/:day/employees/:employeeId/:documentType/:filen
     });
   }
 
-  // Serve file với proper headers
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(500).json({ success: false, message: 'Lỗi khi tải file' });
-    }
-  });
+  sendFileWithCache(res, filePath);
+});
+
+// 3a. Legacy route - Date-first structure (backward compatibility)
+app.get('/api/files/:year/:month/:day/employees/:employeeId/:documentType/:filename', (req, res) => {
+  const { year, month, day, employeeId, documentType, filename } = req.params;
+  
+  // Try new structure first
+  let filePath = path.join(PERMANENT_DIR, 'employees', employeeId, documentType, year, month, day, filename);
+  
+  // Fallback to old structure if not found
+  if (!fs.existsSync(filePath)) {
+    filePath = path.join(PERMANENT_DIR, year, month, day, 'employees', employeeId, documentType, filename);
+  }
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ 
+      success: false, 
+      message: 'File không tồn tại' 
+    });
+  }
+
+  sendFileWithCache(res, filePath);
 });
 
 // 3b. Serve files (legacy format - cho backward compatibility)
@@ -1351,18 +1457,14 @@ app.get('/api/files/:employeeId/:documentType/:filename', (req, res) => {
     });
   }
 
-  // Serve file với proper headers
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(500).json({ success: false, message: 'Lỗi khi tải file' });
-    }
-  });
+  sendFileWithCache(res, filePath);
 });
 
-// 3c. Serve product images
-app.get('/api/files/products/:productId/images/:filename', (req, res) => {
-  const { productId, filename } = req.params;
-  const filePath = path.join(PRODUCTS_DIR, productId, 'images', filename);
+// 3c. Serve product images (thumbnail/gallery)
+app.get('/api/files/products/:productId/:imageType/:filename', (req, res) => {
+  const { productId, imageType, filename } = req.params;
+  const folder = ['thumbnail', 'gallery', 'images'].includes(imageType) ? imageType : 'images';
+  const filePath = path.join(PRODUCTS_DIR, productId, folder, filename);
   
   // Kiểm tra file có tồn tại không
   if (!fs.existsSync(filePath)) {
@@ -1372,79 +1474,135 @@ app.get('/api/files/products/:productId/images/:filename', (req, res) => {
     });
   }
 
-  // Serve image với proper headers
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(500).json({ success: false, message: 'Lỗi khi tải ảnh' });
-    }
-  });
+  sendFileWithCache(res, filePath, 'Lỗi khi tải ảnh');
 });
 
-// 3d. Serve customer images
+// 3d. List customer files (images)
+app.get('/api/files/customers/:customerId', (req, res) => {
+  const { customerId } = req.params;
+  
+  // Query files from database where employee_id = customerId and document_type = 'customers'
+  db.all(
+    'SELECT * FROM files WHERE employee_id = ? AND document_type = ? AND status = "permanent" ORDER BY confirmed_at DESC',
+    [customerId, 'customers'],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+
+      const files = (rows || []).map(row => ({
+        id: row.id,
+        employeeId: row.employee_id,
+        documentType: row.document_type,
+        documentName: row.document_name,
+        name: row.display_name || row.original_name,
+        originalName: row.original_name,
+        slug: row.file_slug || row.filename,
+        filename: row.filename,
+        size: row.filesize,
+        type: row.mimetype,
+        url: `/api/files/customers/${customerId}/images/${row.filename}`,
+        uploadedAt: row.uploaded_at,
+        confirmedAt: row.confirmed_at
+      }));
+
+      res.json({ success: true, files });
+    }
+  );
+});
+
+// 3d-2. List customer contract files
+app.get('/api/files/customers/:customerId/contracts', (req, res) => {
+  const { customerId } = req.params;
+  
+  // Query contract files from database
+  db.all(
+    'SELECT * FROM files WHERE employee_id = ? AND document_name = ? AND status = "permanent" ORDER BY confirmed_at DESC',
+    [customerId, 'contracts'],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+
+      const files = (rows || []).map(row => ({
+        id: row.id,
+        employeeId: row.employee_id,
+        documentType: row.document_type,
+        documentName: row.document_name,
+        name: row.display_name || row.original_name,
+        originalName: row.original_name,
+        slug: row.file_slug || row.filename,
+        filename: row.filename,
+        size: row.filesize,
+        type: row.mimetype,
+        url: `/api/files/customers/${customerId}/contracts/${row.filename}`,
+        uploadedAt: row.uploaded_at,
+        confirmedAt: row.confirmed_at
+      }));
+
+      res.json({ success: true, files });
+    }
+  );
+});
+
+// 3d-3. Serve customer images
 app.get('/api/files/customers/:customerId/images/:filename', (req, res) => {
   const { customerId, filename } = req.params;
   const filePath = path.join(CUSTOMERS_DIR, customerId, 'images', filename);
-  
-  // Kiểm tra file có tồn tại không
+
   if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ 
-      success: false, 
-      message: 'Ảnh khách hàng không tồn tại' 
+    return res.status(404).json({
+      success: false,
+      message: 'Ảnh khách hàng không tồn tại'
     });
   }
 
-  // Serve image với proper headers
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(500).json({ success: false, message: 'Lỗi khi tải ảnh khách hàng' });
-    }
-  });
+  sendFileWithCache(res, filePath, 'Lỗi khi tải ảnh');
+});
+
+// 3d-4. Serve customer contract files
+app.get('/api/files/customers/:customerId/contracts/:filename', (req, res) => {
+  const { customerId, filename } = req.params;
+  const filePath = path.join(CUSTOMERS_DIR, customerId, 'contracts', filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({
+      success: false,
+      message: 'File hợp đồng không tồn tại'
+    });
+  }
+
+  sendFileWithCache(res, filePath, 'Lỗi khi tải file hợp đồng');
 });
 
 // 3e. Serve warranty images
 app.get('/api/files/warranty/:warrantyId/:imageType/:filename', (req, res) => {
   const { warrantyId, imageType, filename } = req.params;
-  const PERMANENT_DIR = path.join(__dirname, 'uploads', 'permanent');
-  const WARRANTY_DIR = path.join(PERMANENT_DIR, 'warranty');
   const filePath = path.join(WARRANTY_DIR, warrantyId, imageType, filename);
-  
-  // Kiểm tra file có tồn tại không
+
   if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ 
-      success: false, 
-      message: 'Ảnh bảo hành không tồn tại' 
+    return res.status(404).json({
+      success: false,
+      message: 'Ảnh bảo hành không tồn tại'
     });
   }
 
-  // Serve image với proper headers
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(500).json({ success: false, message: 'Lỗi khi tải ảnh bảo hành' });
-    }
-  });
+  sendFileWithCache(res, filePath, 'Lỗi khi tải ảnh');
 });
 
 // 3f. Serve complaints images
 app.get('/api/files/complaints/:complaintId/:imageType/:filename', (req, res) => {
   const { complaintId, imageType, filename } = req.params;
-  const PERMANENT_DIR = path.join(__dirname, 'uploads', 'permanent');
-  const COMPLAINTS_DIR = path.join(PERMANENT_DIR, 'complaints');
   const filePath = path.join(COMPLAINTS_DIR, complaintId, imageType, filename);
-  
-  // Kiểm tra file có tồn tại không
+
   if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ 
-      success: false, 
-      message: 'Ảnh khiếu nại không tồn tại' 
+    return res.status(404).json({
+      success: false,
+      message: 'Ảnh khiếu nại không tồn tại'
     });
   }
 
-  // Serve image với proper headers
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(500).json({ success: false, message: 'Lỗi khi tải ảnh khiếu nại' });
-    }
-  });
+  sendFileWithCache(res, filePath, 'Lỗi khi tải ảnh');
 });
 
 // 4. Xóa file
@@ -1590,22 +1748,33 @@ app.delete('/api/files/employee/:employeeId', (req, res) => {
       
       // Delete employee folders from permanent storage
       try {
+        // New entity-first structure: /permanent/employees/{employeeId}/
         const employeeDir = path.join(PERMANENT_DIR, 'employees', employeeId);
         if (fs.existsSync(employeeDir)) {
           fs.removeSync(employeeDir);
           deletedFoldersCount++;
         }
         
-        // Also check in date-based structure
-        const permanentFiles = fs.readdirSync(PERMANENT_DIR);
-        permanentFiles.forEach(dateFolder => {
-          const datePath = path.join(PERMANENT_DIR, dateFolder);
-          if (fs.statSync(datePath).isDirectory()) {
-            const employeesPath = path.join(datePath, 'employees', employeeId);
-            if (fs.existsSync(employeesPath)) {
-              fs.removeSync(employeesPath);
-              deletedFoldersCount++;
-            }
+        // Also check in legacy date-first structure for backward compatibility
+        // /permanent/{year}/{month}/{day}/employees/{employeeId}/
+        const yearFolders = fs.readdirSync(PERMANENT_DIR).filter(f => /^\d{4}$/.test(f));
+        yearFolders.forEach(year => {
+          const yearPath = path.join(PERMANENT_DIR, year);
+          if (fs.statSync(yearPath).isDirectory()) {
+            const monthFolders = fs.readdirSync(yearPath);
+            monthFolders.forEach(month => {
+              const monthPath = path.join(yearPath, month);
+              if (fs.statSync(monthPath).isDirectory()) {
+                const dayFolders = fs.readdirSync(monthPath);
+                dayFolders.forEach(day => {
+                  const employeesPath = path.join(monthPath, day, 'employees', employeeId);
+                  if (fs.existsSync(employeesPath)) {
+                    fs.removeSync(employeesPath);
+                    deletedFoldersCount++;
+                  }
+                });
+              }
+            });
           }
         });
       } catch (folderErr) {
@@ -2984,4 +3153,268 @@ process.on('SIGTERM', () => {
     }
     process.exit(0);
   });
+});
+
+// Task evidence uploads → permanent /tasks/{taskId}/evidence directory
+app.post('/api/tasks/:taskId/evidence', taskEvidenceUpload.array('files', 5), (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const files = req.files || [];
+
+    if (!files.length) {
+      return res.status(400).json({ success: false, message: 'Không có file nào được tải lên' });
+    }
+
+    const uploadedFiles = [];
+
+    files.forEach((file) => {
+      const fileId = uuidv4();
+      const url = `/api/files/tasks/${taskId}/evidence/${file.filename}`;
+
+      db.run(
+        `INSERT INTO files (
+          id, employee_id, document_type, document_name,
+          original_name, filename, filepath, filesize, mimetype,
+          status, session_id, uploaded_at, confirmed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'permanent', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [
+          fileId,
+          taskId,
+          'task',
+          'evidence',
+          file.originalname,
+          file.filename,
+          file.path,
+          file.size,
+          file.mimetype
+        ],
+        (err) => {
+          if (err) {
+            console.error('❌ Database save error (tasks):', err);
+          }
+        }
+      );
+
+      uploadedFiles.push({
+        id: fileId,
+        name: file.originalname,
+        originalName: file.originalname,
+        size: file.size,
+        type: file.mimetype,
+        url,
+        uploadedAt: new Date().toISOString(),
+      });
+    });
+
+    res.json({
+      success: true,
+      message: `Đã upload ${uploadedFiles.length} file bằng chứng`,
+      files: uploadedFiles,
+    });
+  } catch (error) {
+    console.error('❌ Task evidence upload error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi upload file', error: error.message });
+  }
+});
+
+// Complaint detail comments upload → permanent /complaints/{id}/comments
+app.post('/api/complaints/:complaintId/comments/upload', complaintCommentUpload.single('image'), (req, res) => {
+  try {
+    const { complaintId } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'Không có file được upload' });
+    }
+
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      fs.removeSync(file.path);
+      return res.status(400).json({ success: false, message: 'Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WEBP)' });
+    }
+
+    const fileId = uuidv4();
+    const url = `/api/files/complaints/${complaintId}/comments/${file.filename}`;
+
+    db.run(
+      `INSERT INTO files (
+        id, employee_id, document_type, document_name,
+        original_name, filename, filepath, filesize, mimetype,
+        status, session_id, uploaded_at, confirmed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'permanent', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        fileId,
+        complaintId,
+        'complaint',
+        'comments',
+        file.originalname,
+        file.filename,
+        file.path,
+        file.size,
+        file.mimetype
+      ],
+      (err) => {
+        if (err) {
+          console.error('❌ Database save error (complaints comments):', err);
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Đã upload ảnh bình luận khiếu nại',
+      file: {
+        id: fileId,
+        url,
+        filename: file.filename,
+        originalName: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype,
+        uploadedAt: new Date().toISOString(),
+      }
+    });
+  } catch (error) {
+    console.error('❌ Complaint comment upload error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi upload ảnh', error: error.message });
+  }
+});
+
+app.get('/api/files/comments/:year/:month/:day/:filename', (req, res) => {
+  const { year, month, day, filename } = req.params;
+  const filePath = path.join(COMMENTS_DIR, year, month, day, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy file bình luận' });
+  }
+  sendFileWithCache(res, filePath, 'Không thể tải ảnh bình luận');
+});
+
+// Serve print template images
+app.get('/api/files/print-templates/:year/:month/:day/:filename', (req, res) => {
+  const { year, month, day, filename } = req.params;
+  const filePath = path.join(PRINT_TEMPLATES_DIR, year, month, day, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy ảnh mẫu in' });
+  }
+  sendFileWithCache(res, filePath, 'Không thể tải ảnh mẫu in');
+});
+
+app.get('/api/files/tasks/:taskId/evidence/:filename', (req, res) => {
+  const { taskId, filename } = req.params;
+  const filePath = path.join(TASKS_DIR, taskId, 'evidence', filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy file bằng chứng' });
+  }
+  sendFileWithCache(res, filePath, 'Không thể tải file bằng chứng');
+});
+
+// ==================== BRANDING UPLOAD ====================
+
+// Multer storage for branding files (logo, favicon)
+const brandingStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, BRANDING_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const type = req.body.type || 'file'; // 'logo' or 'favicon'
+    // Keep simple names: logo.png, favicon.ico
+    cb(null, `${type}${ext}`);
+  }
+});
+
+const brandingUpload = multer({
+  storage: brandingStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif', 'image/x-icon', 'image/vnd.microsoft.icon'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Chỉ hỗ trợ file hình ảnh (PNG, JPG, WEBP, GIF, ICO). File "${file.originalname}" có type: ${file.mimetype}`), false);
+    }
+  }
+});
+
+// Upload logo or favicon
+app.post('/api/branding/upload', brandingUpload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Không có file được upload' });
+    }
+
+    const type = req.body.type || 'file';
+    const url = `/api/branding/${req.file.filename}`;
+
+    console.log(`✅ Branding ${type} uploaded:`, req.file.filename);
+
+    res.json({
+      success: true,
+      message: `Đã upload ${type === 'logo' ? 'logo' : 'favicon'} thành công`,
+      file: {
+        url,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        uploadedAt: new Date().toISOString(),
+      }
+    });
+  } catch (error) {
+    console.error('❌ Branding upload error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi upload', error: error.message });
+  }
+});
+
+// Serve branding files
+app.get('/api/branding/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(BRANDING_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, message: 'Không tìm thấy file branding' });
+  }
+  sendFileWithCache(res, filePath, 'Không thể tải file branding');
+});
+
+// Delete branding file
+app.delete('/api/branding/:type', (req, res) => {
+  try {
+    const { type } = req.params; // 'logo' or 'favicon'
+    
+    // Find and delete any file starting with the type
+    const files = fs.readdirSync(BRANDING_DIR);
+    const targetFile = files.find(f => f.startsWith(type));
+    
+    if (targetFile) {
+      fs.removeSync(path.join(BRANDING_DIR, targetFile));
+      console.log(`✅ Deleted branding ${type}:`, targetFile);
+    }
+
+    res.json({
+      success: true,
+      message: `Đã xóa ${type === 'logo' ? 'logo' : 'favicon'}`
+    });
+  } catch (error) {
+    console.error('❌ Branding delete error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi khi xóa file', error: error.message });
+  }
+});
+
+// Get current branding info
+app.get('/api/branding', (req, res) => {
+  try {
+    const files = fs.readdirSync(BRANDING_DIR);
+    const logoFile = files.find(f => f.startsWith('logo'));
+    const faviconFile = files.find(f => f.startsWith('favicon'));
+
+    res.json({
+      success: true,
+      branding: {
+        logoUrl: logoFile ? `/api/branding/${logoFile}` : null,
+        faviconUrl: faviconFile ? `/api/branding/${faviconFile}` : null,
+      }
+    });
+  } catch (error) {
+    console.error('❌ Branding get error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi khi lấy thông tin branding', error: error.message });
+  }
 });

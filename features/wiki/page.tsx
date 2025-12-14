@@ -44,13 +44,28 @@ export function WikiPage() {
   const { data: articles } = useWikiStore();
   const navigate = ReactRouterDOM.useNavigate();
   
+  const articleStats = React.useMemo(() => {
+    return {
+      total: articles.length,
+      categories: new Set(articles.map((a) => a.category || 'Chưa phân loại')).size,
+      tags: new Set(articles.flatMap((a) => a.tags || [])).size,
+    };
+  }, [articles]);
+
+  const headerActions = React.useMemo(() => ([
+    <Button key="add" size="sm" className="h-9 gap-2" onClick={() => navigate('/wiki/new')}>
+      <PlusCircle className="mr-2 h-4 w-4" />
+      Thêm bài viết
+    </Button>
+  ]), [navigate]);
+
   usePageHeader({
-    actions: [
-      <Button key="add" size="sm" onClick={() => navigate('/wiki/new')}>
-        <PlusCircle className="mr-2 h-4 w-4" />
-        Thêm bài viết
-      </Button>
-    ]
+    title: 'Wiki nội bộ',
+    actions: headerActions,
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Wiki', href: '/wiki', isCurrent: true },
+    ],
   });
   const [searchQuery, setSearchQuery] = React.useState('');
 
@@ -87,7 +102,7 @@ export function WikiPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button size="sm" onClick={() => navigate('/wiki/new')}>
+        <Button size="sm" className="h-9 gap-2" onClick={() => navigate('/wiki/new')}>
           <PlusCircle className="mr-2 h-4 w-4" /> Tạo bài viết mới
         </Button>
       </div>
@@ -97,7 +112,7 @@ export function WikiPage() {
             {/* FIX: Replaced `Object.entries` with `Object.keys` for iteration to resolve a TypeScript type inference issue where the array of articles was being typed as `unknown`. */}
             {Object.keys(articlesByCategory).map((category) => (
                 <section key={category}>
-                    <h2 className="text-2xl font-semibold tracking-tight mb-4">{category}</h2>
+                    <h2 className="text-h3 font-semibold tracking-tight mb-4">{category}</h2>
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {articlesByCategory[category].map((article) => (
                             <React.Fragment key={article.id}>
@@ -111,7 +126,7 @@ export function WikiPage() {
       ) : (
         <div className="flex h-64 items-center justify-center rounded-lg border border-dashed shadow-sm">
             <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                <h3 className="text-lg font-semibold tracking-tight">Không tìm thấy bài viết</h3>
+                <h3 className="text-h5 font-semibold tracking-tight">Không tìm thấy bài viết</h3>
                 <p className="text-sm">Thử tìm kiếm với từ khóa khác hoặc tạo bài viết mới.</p>
             </div>
         </div>

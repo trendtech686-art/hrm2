@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { SystemId } from '@/lib/id-types';
-import { MoreHorizontal, Pencil, Trash2, Star } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { Badge } from '../../../components/ui/badge';
+import { Switch } from '../../../components/ui/switch';
 import {
   Table,
   TableBody,
@@ -20,20 +21,43 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import type { PricingPolicy } from './types';
+import { toast } from 'sonner';
 
 interface PricingTableProps {
   data: PricingPolicy[];
+  allData: PricingPolicy[]; // All policies for finding fallback
   onEdit: (policy: PricingPolicy) => void;
   onDelete: (systemId: SystemId) => void;
   onSetDefault: (systemId: SystemId) => void;
+  onToggleActive?: (policy: PricingPolicy, isActive: boolean) => void;
 }
 
 export function PricingTable({
   data,
+  allData,
   onEdit,
   onDelete,
   onSetDefault,
+  onToggleActive,
 }: PricingTableProps) {
+  
+  const handleToggleDefault = React.useCallback((policy: PricingPolicy, checked: boolean) => {
+    if (checked) {
+      // Toggle ON: set this as default
+      onSetDefault(policy.systemId);
+    } else {
+      // Toggle OFF: find another policy of same type to set as default
+      const samePolicies = allData.filter(p => p.type === policy.type && p.systemId !== policy.systemId);
+      if (samePolicies.length > 0) {
+        // Set first available as default
+        onSetDefault(samePolicies[0].systemId);
+      } else {
+        // No other policy, cannot turn off
+        toast.error('Phải có ít nhất một chính sách giá mặc định');
+      }
+    }
+  }, [allData, onSetDefault]);
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -43,7 +67,7 @@ export function PricingTable({
             <TableHead>Tên</TableHead>
             <TableHead>Mô tả</TableHead>
             <TableHead>Loại giá</TableHead>
-            <TableHead>Chi tiết</TableHead>
+            <TableHead>Mặc định</TableHead>
             <TableHead>Trạng thái</TableHead>
             <TableHead className="text-right">Thao tác</TableHead>
           </TableRow>
@@ -72,19 +96,16 @@ export function PricingTable({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    {policy.isDefault && (
-                      <div className="flex items-center gap-1 font-semibold text-sm">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-yellow-600">MẶC ĐỊNH</span>
-                      </div>
-                    )}
-                  </div>
+                  <Switch 
+                    checked={policy.isDefault} 
+                    onCheckedChange={(checked) => handleToggleDefault(policy, checked)}
+                  />
                 </TableCell>
                 <TableCell>
-                  <Badge variant={policy.isActive ? 'default' : 'secondary'}>
-                    {policy.isActive ? 'Hoạt động' : 'Tạm ngưng'}
-                  </Badge>
+                  <Switch 
+                    checked={policy.isActive} 
+                    onCheckedChange={(checked) => onToggleActive?.(policy, checked)}
+                  />
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -98,20 +119,12 @@ export function PricingTable({
                       <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => onEdit(policy)}>
-                        <Pencil className="mr-2 h-4 w-4" />
                         Chỉnh sửa
                       </DropdownMenuItem>
-                      {!policy.isDefault && (
-                        <DropdownMenuItem onClick={() => onSetDefault(policy.systemId)}>
-                          <Star className="mr-2 h-4 w-4" />
-                          Đặt làm mặc định
-                        </DropdownMenuItem>
-                      )}
                       <DropdownMenuItem
                         onClick={() => onDelete(policy.systemId)}
                         className="text-destructive"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
                         Xóa
                       </DropdownMenuItem>
                     </DropdownMenuContent>

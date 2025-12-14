@@ -27,6 +27,9 @@ import { asSystemId, type SystemId } from '@/lib/id-types';
 
 type DropPosition = 'before' | 'inside' | 'after' | null;
 
+const getCategorySummary = (category?: ProductCategory | null) =>
+  category?.shortDescription || category?.metaDescription || undefined;
+
 interface CategoryTreeProps {
   categories: ProductCategory[];
   onEdit: (category: ProductCategory) => void;
@@ -68,6 +71,7 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
   };
 
   const childrenCount = children.length;
+  const summary = getCategorySummary(category);
 
   return (
     <>
@@ -137,9 +141,9 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
               )}
               {!category.isActive && <Badge variant="secondary">Không kích hoạt</Badge>}
             </div>
-            {category.description && (
+            {summary && (
               <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                {category.description}
+                {summary}
               </div>
             )}
           </div>
@@ -404,8 +408,8 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
             )}
             <div>
               <div className="font-medium">{activeCategory.name}</div>
-              {activeCategory.description && (
-                <div className="text-xs text-muted-foreground">{activeCategory.description}</div>
+              {getCategorySummary(activeCategory) && (
+                <div className="text-xs text-muted-foreground">{getCategorySummary(activeCategory)}</div>
               )}
             </div>
           </div>

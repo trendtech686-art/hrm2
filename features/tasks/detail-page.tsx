@@ -1,9 +1,10 @@
 import * as React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useTaskStore } from './store.ts';
+import { useEmployeeStore } from '../employees/store.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { formatDate, formatDateTime } from '@/lib/date-utils';
+import { formatDate, formatDateTime, formatDateTimeForDisplay } from '@/lib/date-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
@@ -24,6 +25,23 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import type { TaskPriority, TaskStatus } from './types.ts';
 
+// Helper functions - defined outside component to avoid hoisting issues
+const getPriorityVariant = (priority: TaskPriority): "default" | "secondary" | "warning" | "destructive" => {
+  const map = { 'Thấp': 'secondary', 'Trung bình': 'default', 'Cao': 'warning', 'Khẩn cấp': 'destructive' } as const;
+  return map[priority];
+};
+
+const getStatusVariant = (status: TaskStatus): "default" | "secondary" | "warning" | "success" | "outline" => {
+  const map = { 
+    'Chưa bắt đầu': 'outline', 
+    'Đang thực hiện': 'warning', 
+    'Đang chờ': 'secondary', 
+    'Hoàn thành': 'success', 
+    'Đã hủy': 'default' 
+  } as const;
+  return map[status];
+};
+
 export function TaskDetailPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
@@ -31,9 +49,21 @@ export function TaskDetailPage() {
   const store = useTaskStore();
   const { remove, update, approveTask, rejectTask } = store;
   const { isAdmin, employee } = useAuth();
+  const { data: allEmployees } = useEmployeeStore();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = React.useState(false);
   const [showEvidenceViewer, setShowEvidenceViewer] = React.useState(false);
+
+  // Get all employees for @mention in comments
+  const employeeMentions = React.useMemo(() => {
+    return allEmployees
+      .filter(e => !e.isDeleted)
+      .map(e => ({
+        id: e.systemId,
+        label: e.fullName,
+        avatar: e.avatarUrl,
+      }));
+  }, [allEmployees]);
 
   // Subscribe to store.data to trigger re-render on updates
   const task = React.useMemo(() => {
@@ -52,12 +82,7 @@ export function TaskDetailPage() {
   const actions = React.useMemo(() => {
     if (!task) return [];
     
-    const actionButtons = [
-      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => navigate('/tasks')}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Quay lại
-      </Button>,
-    ];
+    const actionButtons: React.ReactNode[] = [];
     
     // Admin approval buttons for pending tasks
     if (isAdmin && task.approvalStatus === 'pending' && task.completionEvidence) {
@@ -106,13 +131,29 @@ export function TaskDetailPage() {
     return actionButtons;
   }, [task?.systemId, task?.approvalStatus, task?.completionEvidence, systemId, navigate, canEdit, isAdmin]);
 
+  const statusBadge = React.useMemo(() => {
+    if (!task) return undefined;
+    return (
+      <div className="flex items-center gap-2">
+        <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
+        <Badge variant={getPriorityVariant(task.priority)}>
+          <Flag className="mr-1 h-3 w-3" />
+          {task.priority}
+        </Badge>
+      </div>
+    );
+  }, [task]);
+
   usePageHeader({
-    actions,
+    title: task ? task.title : 'Chi tiết công việc',
+    badge: statusBadge,
+    backPath: '/tasks',
     breadcrumb: task ? [
       { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Công việc', href: '/tasks', isCurrent: false },
-      { label: task.id, href: '', isCurrent: true }
-    ] : []
+      { label: 'Quản lý công việc', href: '/tasks', isCurrent: false },
+      { label: task.title, href: `/tasks/${task.systemId}`, isCurrent: true }
+    ] : undefined,
+    actions,
   });
 
   const handleDelete = () => {
@@ -134,22 +175,6 @@ export function TaskDetailPage() {
       </div>
     );
   }
-
-  const getPriorityVariant = (priority: TaskPriority): "default" | "secondary" | "warning" | "destructive" => {
-    const map = { 'Thấp': 'secondary', 'Trung bình': 'default', 'Cao': 'warning', 'Khẩn cấp': 'destructive' } as const;
-    return map[priority];
-  };
-
-  const getStatusVariant = (status: TaskStatus): "default" | "secondary" | "warning" | "success" | "outline" => {
-    const map = { 
-      'Chưa bắt đầu': 'outline', 
-      'Đang thực hiện': 'warning', 
-      'Đang chờ': 'secondary', 
-      'Hoàn thành': 'success', 
-      'Đã hủy': 'default' 
-    } as const;
-    return map[status];
-  };
 
   const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
 
@@ -192,8 +217,8 @@ export function TaskDetailPage() {
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-semibold text-muted-foreground">{task.id}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-h3 font-semibold text-muted-foreground">{task.id}</span>
                 <Badge variant={getPriorityVariant(task.priority)}>
                   <Flag className="mr-1 h-3 w-3" />
                   {task.priority}
@@ -201,6 +226,11 @@ export function TaskDetailPage() {
                 <Badge variant={getStatusVariant(task.status)}>
                   {task.status}
                 </Badge>
+                {task.type && (
+                  <Badge variant="outline">
+                    {task.type}
+                  </Badge>
+                )}
                 {task.requiresEvidence && (
                   <Badge variant="outline" className="border-blue-500 text-blue-600">
                     <CheckCircle className="mr-1 h-3 w-3" />
@@ -208,7 +238,7 @@ export function TaskDetailPage() {
                   </Badge>
                 )}
               </div>
-              <CardTitle className="text-xl">{task.title}</CardTitle>
+              <CardTitle className="text-h4">{task.title}</CardTitle>
             </div>
           </div>
         </CardHeader>
@@ -216,8 +246,8 @@ export function TaskDetailPage() {
           {/* Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Tiến độ</span>
-              <span className="text-sm text-muted-foreground">{task.progress}%</span>
+              <span className="text-body-sm font-medium">Tiến độ</span>
+              <span className="text-body-sm text-muted-foreground">{task.progress}%</span>
             </div>
             <Progress value={task.progress} className="h-3" />
           </div>
@@ -237,17 +267,17 @@ export function TaskDetailPage() {
             <>
               <Separator />
               <div className="space-y-3">
-                <h3 className="font-semibold text-sm">SLA Tracking</h3>
+                <h3 className="font-semibold text-body-sm">SLA Tracking</h3>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">Thời gian phản hồi</p>
+                    <p className="text-body-xs text-muted-foreground mb-1.5">Thời gian phản hồi</p>
                     <SlaTimer
                       startTime={task.startDate}
                       targetMinutes={slaSettings[task.priority!].responseTime}
                     />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">Thời gian hoàn thành</p>
+                    <p className="text-body-xs text-muted-foreground mb-1.5">Thời gian hoàn thành</p>
                     <SlaTimer
                       startTime={task.startDate}
                       targetMinutes={slaSettings[task.priority!].completeTime * 60}
@@ -263,7 +293,7 @@ export function TaskDetailPage() {
           {/* Description */}
           <div>
             <h3 className="font-semibold mb-2">Mô tả công việc</h3>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+            <p className="text-body-sm text-muted-foreground whitespace-pre-wrap">
               {task.description || 'Không có mô tả'}
             </p>
           </div>
@@ -278,7 +308,7 @@ export function TaskDetailPage() {
                   <AlertCircle className="h-5 w-5 mt-0.5 text-destructive" />
                   <div className="flex-1">
                     <h3 className="font-semibold text-destructive mb-1">Yêu cầu làm lại</h3>
-                    <p className="text-sm text-muted-foreground">{task.rejectionReason}</p>
+                    <p className="text-body-sm text-muted-foreground">{task.rejectionReason}</p>
                   </div>
                 </div>
               </div>
@@ -293,15 +323,15 @@ export function TaskDetailPage() {
               <div className="flex items-start gap-3">
                 <User className="h-5 w-5 mt-0.5 text-muted-foreground" />
                 <div>
-                  <div className="text-sm font-medium">Người thực hiện</div>
-                  <div className="text-sm text-muted-foreground">{task.assigneeName || 'Chưa giao'}</div>
+                  <div className="text-body-sm font-medium">Người thực hiện</div>
+                  <div className="text-body-sm text-muted-foreground">{task.assigneeName || 'Chưa giao'}</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <User className="h-5 w-5 mt-0.5 text-muted-foreground" />
                 <div>
-                  <div className="text-sm font-medium">Người giao việc</div>
-                  <div className="text-sm text-muted-foreground">{task.assignerName}</div>
+                  <div className="text-body-sm font-medium">Người giao việc</div>
+                  <div className="text-body-sm text-muted-foreground">{task.assignerName}</div>
                 </div>
               </div>
             </div>
@@ -310,17 +340,17 @@ export function TaskDetailPage() {
               <div className="flex items-start gap-3">
                 <Calendar className="h-5 w-5 mt-0.5 text-muted-foreground" />
                 <div>
-                  <div className="text-sm font-medium">Ngày bắt đầu</div>
-                  <div className="text-sm text-muted-foreground">{formatDate(task.startDate)}</div>
+                  <div className="text-body-sm font-medium">Ngày bắt đầu</div>
+                  <div className="text-body-sm text-muted-foreground">{formatDate(task.startDate)}</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Clock className={`h-5 w-5 mt-0.5 ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`} />
                 <div>
-                  <div className={`text-sm font-medium ${isOverdue ? 'text-destructive' : ''}`}>
+                  <div className={`text-body-sm font-medium ${isOverdue ? 'text-destructive' : ''}`}>
                     Deadline {isOverdue && '(Quá hạn)'}
                   </div>
-                  <div className={`text-sm ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                  <div className={`text-body-sm ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                     {formatDate(task.dueDate)}
                   </div>
                 </div>
@@ -329,8 +359,8 @@ export function TaskDetailPage() {
                 <div className="flex items-start gap-3">
                   <Calendar className="h-5 w-5 mt-0.5 text-green-600" />
                   <div>
-                    <div className="text-sm font-medium text-green-600">Ngày hoàn thành</div>
-                    <div className="text-sm text-muted-foreground">{formatDate(task.completedDate)}</div>
+                    <div className="text-body-sm font-medium text-green-600">Ngày hoàn thành</div>
+                    <div className="text-body-sm text-muted-foreground">{formatDate(task.completedDate)}</div>
                   </div>
                 </div>
               )}
@@ -344,21 +374,21 @@ export function TaskDetailPage() {
               <div className="grid grid-cols-2 gap-4">
                 {task.estimatedHours && (
                   <div>
-                    <div className="text-sm font-medium">Giờ ước tính</div>
-                    <div className="text-2xl font-bold">{task.estimatedHours}h</div>
+                    <div className="text-body-sm font-medium">Giờ ước tính</div>
+                    <div className="text-h3 font-bold">{task.estimatedHours}h</div>
                   </div>
                 )}
                 {task.actualHours && (
                   <div>
-                    <div className="text-sm font-medium">Giờ thực tế</div>
-                    <div className="text-2xl font-bold">
+                    <div className="text-body-sm font-medium">Giờ thực tế</div>
+                    <div className="text-h3 font-bold">
                       {(() => {
                         const totalHours = task.actualHours;
                         const hours = Math.floor(totalHours);
                         const minutes = Math.floor((totalHours % 1) * 60);
                         const seconds = Math.floor((((totalHours % 1) * 60) % 1) * 60);
                         
-                        const parts = [];
+                        const parts: string[] = [];
                         if (hours > 0) parts.push(`${hours} giờ`);
                         if (minutes > 0) parts.push(`${minutes} phút`);
                         if (seconds > 0) parts.push(`${seconds} giây`);
@@ -526,6 +556,7 @@ export function TaskDetailPage() {
                 comments: updatedComments
               });
             }}
+            mentions={employeeMentions}
           />
         </CardContent>
       </Card>
@@ -536,17 +567,17 @@ export function TaskDetailPage() {
       {/* Metadata Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Thông tin hệ thống</CardTitle>
+          <CardTitle className="text-h4 font-semibold">Thông tin hệ thống</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-body-sm">
             <div>
               <span className="text-muted-foreground">Tạo bởi:</span>
               <span className="ml-2 font-medium">{task.createdBy}</span>
             </div>
             <div>
               <span className="text-muted-foreground">Tạo lúc:</span>
-              <span className="ml-2 font-medium">{new Date(task.createdAt).toLocaleString('vi-VN')}</span>
+              <span className="ml-2 font-medium">{formatDateTimeForDisplay(task.createdAt)}</span>
             </div>
             <div>
               <span className="text-muted-foreground">Cập nhật bởi:</span>
@@ -554,11 +585,11 @@ export function TaskDetailPage() {
             </div>
             <div>
               <span className="text-muted-foreground">Cập nhật lúc:</span>
-              <span className="ml-2 font-medium">{new Date(task.updatedAt).toLocaleString('vi-VN')}</span>
+              <span className="ml-2 font-medium">{formatDateTimeForDisplay(task.updatedAt)}</span>
             </div>
             <div>
               <span className="text-muted-foreground">System ID:</span>
-              <span className="ml-2 font-mono text-xs">{task.systemId}</span>
+              <span className="ml-2 font-mono text-body-xs">{task.systemId}</span>
             </div>
           </div>
         </CardContent>

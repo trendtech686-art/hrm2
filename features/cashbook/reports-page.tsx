@@ -1,5 +1,7 @@
 import * as React from 'react';
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../lib/router.ts';
 import { startOfMonth, endOfMonth, isAfter, isBefore, isWithinInterval, isSameDay, differenceInMilliseconds, parse as dateParse } from 'date-fns';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useReceiptStore } from '../receipts/store.ts';
@@ -14,6 +16,7 @@ import { DataTableDateFilter } from '../../components/data-table/data-table-date
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, CreditCard, Users, FileText } from 'lucide-react';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { Button } from '../../components/ui/button.tsx';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
@@ -28,8 +31,8 @@ const COLORS = {
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
 export function CashbookReportsPage() {
-  usePageHeader();
-  
+  const navigate = useNavigate();
+
   const { data: receipts } = useReceiptStore();
   const { data: payments } = usePaymentStore();
   const vouchers = React.useMemo(() => [
@@ -186,6 +189,52 @@ export function CashbookReportsPage() {
       .sort((a, b) => b.receipts - a.receipts)
       .slice(0, 10);
   }, [filteredVouchers]);
+
+  const headerActions = React.useMemo(() => [
+    <Button
+      key="cashbook"
+      variant="outline"
+      size="sm"
+      className="h-9 gap-2"
+      onClick={() => navigate(ROUTES.FINANCE.CASHBOOK)}
+    >
+      <FileText className="mr-2 h-4 w-4" />
+      Sổ quỹ
+    </Button>,
+    <Button
+      key="receipt"
+      size="sm"
+      className="h-9 gap-2"
+      onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}
+    >
+      <DollarSign className="mr-2 h-4 w-4" />
+      Lập phiếu thu
+    </Button>,
+    <Button
+      key="payment"
+      variant="outline"
+      size="sm"
+      className="h-9 gap-2"
+      onClick={() => navigate(ROUTES.FINANCE.PAYMENT_NEW)}
+    >
+      <CreditCard className="mr-2 h-4 w-4" />
+      Lập phiếu chi
+    </Button>
+  ], [navigate]);
+
+  const breadcrumb = React.useMemo(() => ([
+    { label: 'Trang chủ', href: ROUTES.ROOT },
+    { label: 'Sổ quỹ', href: ROUTES.FINANCE.CASHBOOK },
+    { label: 'Báo cáo thu chi', href: ROUTES.FINANCE.CASHBOOK_REPORTS },
+  ]), []);
+
+  usePageHeader({
+    title: 'Báo cáo thu chi',
+    showBackButton: true,
+    backPath: ROUTES.FINANCE.CASHBOOK,
+    breadcrumb,
+    actions: headerActions,
+  });
   
   return (
     <div className="space-y-4 flex flex-col h-full">

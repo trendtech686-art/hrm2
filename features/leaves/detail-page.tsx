@@ -3,12 +3,15 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { useLeaveStore } from './store.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { asSystemId } from '@/lib/id-types';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
-import { ArrowLeft, Edit } from 'lucide-react';
+import { Edit } from 'lucide-react';
 import { DetailField } from '../../components/ui/detail-field.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
+import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import type { LeaveStatus } from './types.ts';
 
 const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = {
@@ -21,38 +24,99 @@ export function LeaveDetailPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
   const { findById } = useLeaveStore();
+  const { employee: authEmployee } = useAuth();
   const request = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
 
-  usePageHeader();
+  // Comments state with localStorage persistence
+  type LeaveComment = CommentType<SystemId>;
+  const [comments, setComments] = React.useState<LeaveComment[]>(() => {
+    const saved = localStorage.getItem(`leave-comments-${systemId}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  React.useEffect(() => {
+    if (systemId) {
+      localStorage.setItem(`leave-comments-${systemId}`, JSON.stringify(comments));
+    }
+  }, [comments, systemId]);
+
+  const handleAddComment = React.useCallback((content: string, parentId?: string) => {
+    const newComment: LeaveComment = {
+      id: asSystemId(`comment-${Date.now()}`),
+      content,
+      author: {
+        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
+        name: authEmployee?.fullName || 'Hệ thống',
+      },
+      createdAt: new Date(),
+      parentId: parentId as SystemId | undefined,
+    };
+    setComments(prev => [...prev, newComment]);
+  }, [authEmployee]);
+
+  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
+    setComments(prev => prev.map(c => 
+      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
+    ));
+  }, []);
+
+  const handleDeleteComment = React.useCallback((commentId: string) => {
+    setComments(prev => prev.filter(c => c.id !== commentId));
+  }, []);
+
+  const commentCurrentUser = React.useMemo(() => ({
+    systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
+    name: authEmployee?.fullName || 'Hệ thống',
+  }), [authEmployee]);
+
+  const headerActions = React.useMemo(() => {
+    if (!request) return [];
+    return [
+      <Button
+        key="edit"
+        size="sm"
+        className="h-9"
+        onClick={() => navigate('/leaves')}
+      >
+        <Edit className="mr-2 h-4 w-4" />
+        Sửa đơn
+      </Button>
+    ];
+  }, [request, navigate]);
+
+  const statusBadge = React.useMemo(() => {
+    if (!request) return undefined;
+    return <Badge variant={statusVariants[request.status]}>{request.status}</Badge>;
+  }, [request]);
+
+  usePageHeader({
+    title: request ? `Đơn nghỉ phép ${request.id}` : 'Chi tiết đơn nghỉ phép',
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Nghỉ phép', href: '/leaves', isCurrent: false },
+      { label: request?.id || 'Chi tiết', href: '', isCurrent: true }
+    ],
+    badge: statusBadge,
+    actions: headerActions,
+  });
 
   if (!request) {
     return (
         <div className="text-center p-8">
-            <h2 className="text-2xl font-bold">Không tìm thấy đơn nghỉ phép</h2>
-            <Button onClick={() => navigate('/leaves')} className="mt-4"><ArrowLeft className="mr-2 h-4 w-4" />Quay về danh sách</Button>
+            <h2 className="text-h3 font-bold">Không tìm thấy đơn nghỉ phép</h2>
+            <Button onClick={() => navigate('/leaves')} className="mt-4">Quay về danh sách</Button>
         </div>
     );
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-2xl">Đơn nghỉ phép #{request.id}</CardTitle>
-            <CardDescription className="mt-1">
-              Nhân viên: {request.employeeName} ({request.employeeId})
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate('/leaves')}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại
-            </Button>
-            <Button onClick={() => navigate('/leaves')}>
-              <Edit className="mr-2 h-4 w-4" /> Sửa
-            </Button>
-          </div>
-        </div>
+        <CardTitle className="text-h4">Thông tin đơn</CardTitle>
+        <CardDescription>
+          Thời gian nghỉ: {formatDate(request.startDate)} - {formatDate(request.endDate)}
+        </CardDescription>
       </CardHeader>
       <CardContent>
           <dl>
@@ -67,5 +131,28 @@ export function LeaveDetailPage() {
           </dl>
       </CardContent>
     </Card>
+
+    {/* Comments */}
+    <Comments
+      entityType="leave"
+      entityId={request.systemId}
+      comments={comments}
+      onAddComment={handleAddComment}
+      onUpdateComment={handleUpdateComment}
+      onDeleteComment={handleDeleteComment}
+      currentUser={commentCurrentUser}
+      title="Bình luận"
+      placeholder="Thêm bình luận về đơn nghỉ phép..."
+    />
+
+    {/* Activity History */}
+    <ActivityHistory
+      history={request.activityHistory || []}
+      title="Lịch sử hoạt động"
+      emptyMessage="Chưa có lịch sử hoạt động"
+      groupByDate
+      maxHeight="400px"
+    />
+    </>
   );
 }

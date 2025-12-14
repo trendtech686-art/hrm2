@@ -7,7 +7,7 @@ import {
   Workflow, ShieldAlert, BadgeCent, CalendarCheck, Library, MessageCircle, Bell,
   AreaChart, Settings, GitPullRequest, FileClock, Search, ReceiptText, CreditCard,
   Inbox, Home, Warehouse, Wallet, Undo2, PanelLeftClose, PanelLeftOpen, User, Heart,
-  ListTodo, ClipboardCheck, CheckSquare,
+  ListTodo, ClipboardCheck, CheckSquare, ArrowLeftRight, CircleDollarSign, Tags, FolderTree,
 } from 'lucide-react';
 import { cn } from '../../lib/utils.ts';
 import { Input } from '../ui/input.tsx';
@@ -67,6 +67,8 @@ const menuGroups: MenuGroup[] = [
     links: [
         { href: '/customers', label: 'Quản lý Khách hàng', icon: Briefcase },
         { href: '/products', label: 'Quản lý Sản phẩm', icon: Package },
+        { href: '/brands', label: 'Thương hiệu', icon: Tags },
+        { href: '/categories', label: 'Danh mục sản phẩm', icon: FolderTree },
         { href: '/orders', label: 'Quản lý Đơn hàng', icon: ShoppingCart },
         { href: '/returns', label: 'Quản lý Trả hàng', icon: Undo2 },
         { href: '/packaging', label: 'Quản lý Đóng gói', icon: Inbox, roles: ['Admin', 'Manager', 'Warehouse'] },
@@ -86,7 +88,9 @@ const menuGroups: MenuGroup[] = [
   {
     title: 'Quản lý Kho',
     links: [
+        { href: '/stock-transfers', label: 'Chuyển kho', icon: ArrowLeftRight, roles: ['Admin', 'Warehouse'] },
         { href: '/inventory-checks', label: 'Kiểm kê định kỳ', icon: ClipboardCheck, roles: ['Admin', 'Warehouse'] },
+        { href: '/cost-adjustments', label: 'Điều chỉnh giá vốn', icon: CircleDollarSign, roles: ['Admin', 'Warehouse'] },
     ]
   },
   {
@@ -118,6 +122,8 @@ const menuGroups: MenuGroup[] = [
     links: [
       { href: '/reports/sales', label: 'Báo cáo bán hàng', icon: AreaChart },
       { href: '/reports/inventory', label: 'Báo cáo tồn kho', icon: Warehouse },
+      { href: '/reports/customer-sla', label: 'Báo cáo khách hàng', icon: Bell },
+      { href: '/reports/product-sla', label: 'Báo cáo tồn kho', icon: Target },
     ]
   },
   {

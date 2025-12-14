@@ -55,6 +55,11 @@ type ImageUploadManagerProps = {
    * Description text to show above upload area
    */
   description?: string;
+
+  /**
+   * Number of already saved files counted toward maxFiles
+   */
+  existingFileCount?: number;
 };
 
 /**
@@ -96,6 +101,7 @@ export function ImageUploadManager({
   disabled = false,
   className,
   description = "Tải lên hình ảnh. Ảnh đầu tiên sẽ được dùng làm ảnh đại diện.",
+  existingFileCount = 0,
 }: ImageUploadManagerProps) {
   return (
     <div className={className}>
@@ -108,10 +114,11 @@ export function ImageUploadManager({
           maxSize={maxSize}
           maxFiles={maxFiles}
           maxTotalSize={maxTotalSize}
+          existingFileCount={existingFileCount}
           value={value}
-          onChange={onChange}
+          onChange={onChange ?? (() => {})}
           sessionId={sessionId}
-          onSessionChange={onSessionChange}
+          onSessionChange={onSessionChange ?? (() => {})}
           disabled={disabled}
         />
       </div>

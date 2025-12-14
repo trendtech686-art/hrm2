@@ -18,20 +18,20 @@ export interface RecurrencePattern {
   interval: number; // Every X days/weeks/months/years
   
   // For weekly: which days of week
-  daysOfWeek?: DayOfWeek[];
+  daysOfWeek?: DayOfWeek[] | undefined;
   
   // For monthly
-  monthlyType?: MonthlyRecurrenceType;
-  dayOfMonth?: number; // 1-31
-  weekOfMonth?: number; // 1-4 or -1 for last week
-  dayOfWeekInMonth?: DayOfWeek;
+  monthlyType?: MonthlyRecurrenceType | undefined;
+  dayOfMonth?: number | undefined; // 1-31
+  weekOfMonth?: number | undefined; // 1-4 or -1 for last week
+  dayOfWeekInMonth?: DayOfWeek | undefined;
   
   // For yearly
-  monthOfYear?: number; // 1-12
+  monthOfYear?: number | undefined; // 1-12
   
   // End condition
-  endDate?: string; // ISO date string
-  occurrences?: number; // Stop after X occurrences
+  endDate?: string | undefined; // ISO date string
+  occurrences?: number | undefined; // Stop after X occurrences
 }
 
 export interface RecurringTask {
@@ -42,7 +42,7 @@ export interface RecurringTask {
   title: string;
   description: string;
   priority: TaskPriority;
-  estimatedHours?: number;
+  estimatedHours?: number | undefined;
   
   // Assignees
   assignees: TaskAssignee[];
@@ -50,7 +50,7 @@ export interface RecurringTask {
   assignerName: string;
   
   // Subtasks template
-  subtasks?: Array<{ title: string; completed: boolean }>;
+  subtasks?: Array<{ title: string; completed: boolean }> | undefined;
   
   // Recurrence settings
   recurrencePattern: RecurrencePattern;
@@ -66,8 +66,8 @@ export interface RecurringTask {
   
   // Tracking
   createdTaskIds: string[]; // SystemIds of tasks created from this recurring task
-  lastCreatedDate?: string; // Last time a task was created
-  nextOccurrenceDate?: string; // Next scheduled task date
+  lastCreatedDate?: string | undefined; // Last time a task was created
+  nextOccurrenceDate?: string | undefined; // Next scheduled task date
   occurrenceCount: number; // How many tasks created so far
   
   // Metadata
@@ -76,7 +76,7 @@ export interface RecurringTask {
   updatedAt: string;
   
   // Template reference (optional)
-  templateId?: string;
+  templateId?: string | undefined;
 }
 
 export interface RecurrenceSchedule {

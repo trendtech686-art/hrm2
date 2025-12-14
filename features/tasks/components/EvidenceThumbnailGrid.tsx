@@ -5,12 +5,13 @@ import { Card, CardContent } from '../../../components/ui/card.tsx';
 import { Image, Eye, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils.ts';
 import type { CompletionEvidence, ApprovalStatus } from '../types.ts';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface EvidenceThumbnailGridProps {
   evidence: CompletionEvidence;
-  approvalStatus?: ApprovalStatus;
-  onViewFullEvidence?: () => void;
-  compact?: boolean;
+  approvalStatus?: ApprovalStatus | undefined;
+  onViewFullEvidence?: (() => void) | undefined;
+  compact?: boolean | undefined;
 }
 
 export function EvidenceThumbnailGrid({ 
@@ -62,8 +63,8 @@ export function EvidenceThumbnailGrid({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Image className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Bằng chứng hoàn thành</span>
-              <Badge variant="outline" className="text-xs">
+              <span className="text-body-sm font-medium">Bằng chứng hoàn thành</span>
+              <Badge variant="outline" className="text-body-xs">
                 {evidence.images.length} ảnh
               </Badge>
             </div>
@@ -101,24 +102,24 @@ export function EvidenceThumbnailGrid({
                 onClick={onViewFullEvidence}
               >
                 <div className="text-center">
-                  <p className="text-lg font-bold">+{remainingCount}</p>
-                  <p className="text-xs text-muted-foreground">ảnh</p>
+                  <p className="text-h4 font-bold">+{remainingCount}</p>
+                  <p className="text-body-xs text-muted-foreground">ảnh</p>
                 </div>
               </div>
             )}
           </div>
 
           {/* Metadata */}
-          <div className="text-xs text-muted-foreground space-y-1">
+          <div className="text-body-xs text-muted-foreground space-y-1">
             <p>
               <span className="font-medium">Người gửi:</span> {evidence.submittedByName}
             </p>
             <p>
               <span className="font-medium">Thời gian:</span>{' '}
-              {new Date(evidence.submittedAt).toLocaleString('vi-VN')}
+              {formatDateTimeForDisplay(evidence.submittedAt)}
             </p>
             {evidence.note && (
-              <p className="mt-2 p-2 bg-muted/50 rounded text-sm">
+              <p className="mt-2 p-2 bg-muted/50 rounded text-body-sm">
                 <span className="font-medium">Ghi chú:</span>{' '}
                 <span className="whitespace-pre-wrap">{evidence.note}</span>
               </p>

@@ -8,6 +8,7 @@ import { useTaskStore } from './store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { formatDateForDisplay } from '@/lib/date-utils';
 import {
   Card,
   CardContent,
@@ -191,8 +192,8 @@ export function TasksDashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-h2 font-bold">Dashboard</h1>
+          <p className="text-body-sm text-muted-foreground">
             Phân tích và báo cáo công việc
           </p>
         </div>
@@ -304,7 +305,7 @@ export function TasksDashboardPage() {
             <div className="space-y-3">
               {workloadByAssignee.slice(0, 5).map(person => (
                 <div key={person.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-body-sm">
                     <span className="font-medium">{person.name}</span>
                     <span className="text-muted-foreground">
                       {person.total} công việc
@@ -392,14 +393,14 @@ function MetricCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle className="text-body-sm font-medium">{title}</CardTitle>
         <div className={cn('p-2 rounded-lg', iconColors[color])}>
           <Icon className="h-4 w-4" />
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className={cn('text-xs', trendColors[trend])}>{description}</p>
+        <div className="text-h3 font-bold">{value}</div>
+        <p className={cn('text-body-xs', trendColors[trend])}>{description}</p>
       </CardContent>
     </Card>
   );
@@ -428,7 +429,7 @@ function StatusBar({ label, value, total, color }: StatusBarProps) {
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between text-body-sm">
         <span>{label}</span>
         <span className="font-medium">
           {value} ({percentage.toFixed(0)}%)
@@ -457,17 +458,17 @@ function RecentTasksTable({ tasks }: { tasks: Task[] }) {
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium truncate">{task.id}</span>
-              <Badge variant="outline" className="text-xs">
+              <span className="text-body-sm font-medium truncate">{task.id}</span>
+              <Badge variant="outline" className="text-body-xs">
                 {task.status}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground truncate">{task.title}</p>
+            <p className="text-body-sm text-muted-foreground truncate">{task.title}</p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-body-xs text-muted-foreground">
             <span>{task.assigneeName || 'Chưa gán'}</span>
             {task.dueDate && (
-              <span>• {new Date(task.dueDate).toLocaleDateString('vi-VN')}</span>
+              <span>• {formatDateForDisplay(task.dueDate)}</span>
             )}
           </div>
         </div>

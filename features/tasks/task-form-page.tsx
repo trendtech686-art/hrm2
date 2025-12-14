@@ -18,7 +18,7 @@ import { Badge } from '../../components/ui/badge.tsx';
 import { VirtualizedCombobox } from '../../components/ui/virtualized-combobox.tsx';
 import { ArrowLeft, Save, FileText, Plus, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { loadTaskTemplates } from '../../features/settings/tasks/tasks-settings-page.tsx';
+import { loadTaskTemplates, loadTaskTypes } from '../../features/settings/tasks/tasks-settings-page.tsx';
 import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
 
 export function TaskFormPage() {
@@ -46,6 +46,7 @@ export function TaskFormPage() {
     id: task?.id || '',
     title: task?.title || '',
     description: task?.description || '',
+    type: task?.type || '',
     assigneeId: task?.assigneeId || '',
     assigneeName: task?.assigneeName || '',
     priority: task?.priority || 'Trung bình' as TaskPriority,
@@ -61,6 +62,7 @@ export function TaskFormPage() {
         id: task.id || '',
         title: task.title || '',
         description: task.description || '',
+        type: task.type || '',
         assigneeId: task.assigneeId || '',
         assigneeName: task.assigneeName || '',
         priority: task.priority || 'Trung bình' as TaskPriority,
@@ -73,6 +75,7 @@ export function TaskFormPage() {
 
   const [showTemplates, setShowTemplates] = React.useState(false);
   const templates = React.useMemo(() => loadTaskTemplates(), []);
+  const taskTypes = React.useMemo(() => loadTaskTypes(), []);
 
   const handleCancel = React.useCallback(() => {
     navigate('/tasks');
@@ -102,17 +105,19 @@ export function TaskFormPage() {
   ], [handleCancel, isEdit]);
 
   usePageHeader({
-    actions: headerActions,
+    title: isEdit ? 'Chỉnh sửa công việc' : 'Tạo công việc mới',
+    backPath: '/tasks',
     breadcrumb: isEdit ? [
       { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Giao việc nội bộ', href: '/tasks', isCurrent: false },
+      { label: 'Quản lý công việc', href: '/tasks', isCurrent: false },
       { label: task?.title || task?.id || 'Chi tiết', href: `/tasks/${systemId}`, isCurrent: false },
       { label: 'Chỉnh sửa', href: '', isCurrent: true }
     ] : [
       { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Giao việc nội bộ', href: '/tasks', isCurrent: false },
+      { label: 'Quản lý công việc', href: '/tasks', isCurrent: false },
       { label: 'Thêm mới', href: '', isCurrent: true }
-    ]
+    ],
+    actions: headerActions,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -200,7 +205,7 @@ export function TaskFormPage() {
         <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <CardTitle className="text-h4 font-semibold flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-600" />
                 Sử dụng mẫu có sẵn
               </CardTitle>
@@ -228,8 +233,8 @@ export function TaskFormPage() {
                     onClick={() => handleApplyTemplate(template.id)}
                   >
                     <div className="flex flex-col gap-1 w-full">
-                      <span className="font-medium text-sm">{template.name}</span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="font-medium text-body-sm">{template.name}</span>
+                      <span className="text-body-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {template.estimatedHours}h
                       </span>
@@ -245,7 +250,7 @@ export function TaskFormPage() {
       {/* Section 1: Thông tin cơ bản */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Thông tin cơ bản</CardTitle>
+          <CardTitle className="text-h4 font-semibold">Thông tin cơ bản</CardTitle>
         </CardHeader>
         <CardContent>
           <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
@@ -260,7 +265,7 @@ export function TaskFormPage() {
                   onChange={(e) => setFormData({ ...formData, id: e.target.value.toUpperCase() })}
                   placeholder="Để trống = tự động (CVNB-000001, CVNB-000002...)"
                 />
-                <p className="text-xs text-muted-foreground mt-1.5">
+                <p className="text-body-xs text-muted-foreground mt-1.5">
                   Bỏ trống để hệ thống tự động tạo mã theo thứ tự
                 </p>
               </div>
@@ -298,7 +303,7 @@ export function TaskFormPage() {
       {/* Section 2: Phân công & Thời gian */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Phân công & Thời gian</CardTitle>
+          <CardTitle className="text-h4 font-semibold">Phân công & Thời gian</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -357,6 +362,23 @@ export function TaskFormPage() {
               </Select>
             </div>
 
+            {/* Task Type */}
+            {taskTypes.length > 0 && (
+              <div>
+                <Label htmlFor="type">Loại công việc</Label>
+                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
+                  <SelectTrigger id="type" className="h-9">
+                    <SelectValue placeholder="Chọn loại công việc" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {taskTypes.map(t => (
+                      <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Start Date and Time */}
             <div>
               <Label htmlFor="startDate">Ngày bắt đầu *</Label>
@@ -389,8 +411,8 @@ export function TaskFormPage() {
             <div className="mt-4 p-3 border rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium">Giờ ước tính:</span>
-                <span className="text-sm font-bold text-blue-600">
+                <span className="text-body-sm font-medium">Giờ ước tính:</span>
+                <span className="text-body-sm font-bold text-blue-600">
                   {(() => {
                     const start = new Date(formData.startDate);
                     const end = new Date(formData.dueDate);
@@ -408,7 +430,7 @@ export function TaskFormPage() {
       {/* Section 3: Cài đặt nâng cao */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Cài đặt nâng cao</CardTitle>
+          <CardTitle className="text-h4 font-semibold">Cài đặt nâng cao</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -425,11 +447,11 @@ export function TaskFormPage() {
               <div className="flex-1">
                 <Label 
                   htmlFor="requiresEvidence" 
-                  className="text-sm font-medium cursor-pointer"
+                  className="text-body-sm font-medium cursor-pointer"
                 >
                   Yêu cầu bằng chứng hoàn thành
                 </Label>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-body-xs text-muted-foreground mt-1">
                   Khi bật, người thực hiện phải upload hình ảnh (tối đa 5 ảnh) và ghi chú (tối thiểu 10 ký tự) khi hoàn thành. Admin sẽ phê duyệt hoặc yêu cầu làm lại.
                 </p>
               </div>

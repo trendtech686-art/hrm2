@@ -169,7 +169,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
           <Select
             value={value || ''}
             onValueChange={handleChange}
-            disabled={disabled}
+            disabled={disabled ?? false}
           >
             <SelectTrigger className={cn(localError && 'border-red-500')}>
               <SelectValue placeholder={field.placeholder || 'Chọn...'} />
@@ -226,7 +226,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
                   handleChange([...selectedValues, val]);
                 }
               }}
-              disabled={disabled}
+              disabled={disabled ?? false}
             >
               <SelectTrigger className={cn(localError && 'border-red-500')}>
                 <SelectValue placeholder={field.placeholder || 'Chọn thêm...'} />

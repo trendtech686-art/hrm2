@@ -62,7 +62,7 @@ export const useCashbookStore = create<CashbookState>()(
         return {
           accounts: state.accounts.map(acc => ({
             ...acc,
-            isDefault: acc.type === targetAccount.type ? acc.systemId === systemId : acc.isDefault
+            isDefault: (acc.type === targetAccount.type ? acc.systemId === systemId : acc.isDefault) ?? false
           }))
         };
       })

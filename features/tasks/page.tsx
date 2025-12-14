@@ -9,6 +9,7 @@ import { useAuth } from "../../contexts/auth-context.tsx";
 import { useEmployeeStore } from "../employees/store.ts";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { PageFilters } from "../../components/layout/page-filters.tsx"
+import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
 import { Button } from "../../components/ui/button.tsx"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx"
 import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Repeat, Settings } from "lucide-react"
@@ -49,7 +50,7 @@ export function TasksPage() {
   // View mode: list or kanban
   const [viewMode, setViewMode] = React.useState<'list' | 'kanban'>('list');
 
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'dueDate', desc: false });
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<"all" | TaskStatus>('all');
   const [priorityFilter, setPriorityFilter] = React.useState<"all" | TaskPriority>('all');
@@ -190,6 +191,12 @@ export function TasksPage() {
         const bVal = (b as any)[sorting.id];
         if (!aVal) return 1;
         if (!bVal) return -1;
+        // Special handling for date columns
+        if (sorting.id === 'createdAt' || sorting.id === 'dueDate') {
+          const aTime = aVal ? new Date(aVal).getTime() : 0;
+          const bTime = bVal ? new Date(bVal).getTime() : 0;
+          return sorting.desc ? bTime - aTime : aTime - bTime;
+        }
         if (aVal < bVal) return sorting.desc ? 1 : -1;
         if (aVal > bVal) return sorting.desc ? -1 : 1;
         return 0;
@@ -305,6 +312,23 @@ export function TasksPage() {
     return actionButtons;
   }, [viewMode, navigate, isAdmin]);
 
+  const taskStats = React.useMemo(() => {
+    return tasks.reduce(
+      (acc, task) => {
+        acc.total += 1;
+        if (task.status === 'Đang thực hiện') acc.inProgress += 1;
+        if (task.status === 'Đang chờ') acc.waiting += 1;
+        if (task.status === 'Hoàn thành') acc.completed += 1;
+        const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+        if (dueDate && !isNaN(dueDate.getTime()) && dueDate < new Date() && task.status !== 'Hoàn thành') {
+          acc.overdue += 1;
+        }
+        return acc;
+      },
+      { total: 0, inProgress: 0, waiting: 0, completed: 0, overdue: 0 }
+    );
+  }, [tasks]);
+
   const bulkActions = [
     {
       label: "Đánh dấu Đang thực hiện",
@@ -354,6 +378,7 @@ export function TasksPage() {
 
   // Set page header with actions and breadcrumb
   usePageHeader({ 
+    title: 'Quản lý công việc',
     actions,
     breadcrumb: [
       { label: 'Trang chủ', href: '/', isCurrent: false },
@@ -385,50 +410,59 @@ export function TasksPage() {
       </div>
       
       {viewMode === 'list' && (
-        <PageFilters
-          searchValue={globalFilter}
-          onSearchChange={setGlobalFilter}
-          searchPlaceholder="Tìm kiếm công việc..."
-        >
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                    <SelectItem value="Chưa bắt đầu">Chưa bắt đầu</SelectItem>
-                    <SelectItem value="Đang thực hiện">Đang thực hiện</SelectItem>
-                    <SelectItem value="Đang chờ">Đang chờ</SelectItem>
-                    <SelectItem value="Hoàn thành">Hoàn thành</SelectItem>
-                    <SelectItem value="Đã hủy">Đã hủy</SelectItem>
-                </SelectContent>
+        <>
+          {/* PageToolbar - Desktop only */}
+          {!isMobile && (
+            <PageToolbar
+              rightActions={
+                <DataTableColumnCustomizer
+                  columns={columns}
+                  columnVisibility={columnVisibility}
+                  setColumnVisibility={setColumnVisibility}
+                  columnOrder={columnOrder}
+                  setColumnOrder={setColumnOrder}
+                  pinnedColumns={pinnedColumns}
+                  setPinnedColumns={setPinnedColumns}
+                />
+              }
+            />
+          )}
+
+          <PageFilters
+            searchValue={globalFilter}
+            onSearchChange={setGlobalFilter}
+            searchPlaceholder="Tìm kiếm công việc..."
+          >
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="Chưa bắt đầu">Chưa bắt đầu</SelectItem>
+                <SelectItem value="Đang thực hiện">Đang thực hiện</SelectItem>
+                <SelectItem value="Đang chờ">Đang chờ</SelectItem>
+                <SelectItem value="Hoàn thành">Hoàn thành</SelectItem>
+                <SelectItem value="Đã hủy">Đã hủy</SelectItem>
+              </SelectContent>
             </Select>
-        <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
-            <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Độ ưu tiên" /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Tất cả độ ưu tiên</SelectItem>
-                    <SelectItem value="Thấp">Thấp</SelectItem>
-                    <SelectItem value="Trung bình">Trung bình</SelectItem>
-                    <SelectItem value="Cao">Cao</SelectItem>
-                    <SelectItem value="Khẩn cấp">Khẩn cấp</SelectItem>
-                </SelectContent>
+            <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
+              <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Độ ưu tiên" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả độ ưu tiên</SelectItem>
+                <SelectItem value="Thấp">Thấp</SelectItem>
+                <SelectItem value="Trung bình">Trung bình</SelectItem>
+                <SelectItem value="Cao">Cao</SelectItem>
+                <SelectItem value="Khẩn cấp">Khẩn cấp</SelectItem>
+              </SelectContent>
             </Select>
-        <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Người thực hiện" /></SelectTrigger>
-            <SelectContent>
+            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+              <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Người thực hiện" /></SelectTrigger>
+              <SelectContent>
                 <SelectItem value="all">Tất cả</SelectItem>
                 {employees.map(e => <SelectItem key={e.systemId} value={e.systemId}>{e.fullName}</SelectItem>)}
-            </SelectContent>
-        </Select>
-        <div className="flex-grow" />
-        <DataTableColumnCustomizer
-          columns={columns}
-          columnVisibility={columnVisibility}
-          setColumnVisibility={setColumnVisibility}
-          columnOrder={columnOrder}
-          setColumnOrder={setColumnOrder}
-          pinnedColumns={pinnedColumns}
-          setPinnedColumns={setPinnedColumns}
-        />
-      </PageFilters>
+              </SelectContent>
+            </Select>
+          </PageFilters>
+        </>
       )}
 
         {/* Kanban View */}
@@ -477,7 +511,7 @@ export function TasksPage() {
 
       {isMobile && mobileLoadedCount < filteredData.length && (
         <div className="flex justify-center py-4">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body-sm text-muted-foreground">
             Hiển thị {mobileLoadedCount} / {filteredData.length} • Cuộn xuống để xem thêm
           </span>
         </div>

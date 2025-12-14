@@ -56,7 +56,7 @@ import { TicketInfoCard } from './components/detail/ticket-info-card.tsx';
 import { CustomerInfoCard } from './components/detail/customer-info-card.tsx';
 import { WarrantyWorkflowCard } from './components/detail/workflow-card.tsx';
 import { WarrantyImageGalleryCard } from './components/detail/image-gallery-card.tsx';
-import { getWorkflowTemplate } from '../settings/templates/workflow-templates-page.tsx';
+import { getWorkflowTemplate } from '../settings/printer/workflow-templates-page.tsx';
 import {
   WarrantyCancelDialog,
   WarrantyReopenFromCancelledDialog,
@@ -79,6 +79,15 @@ import { useOrderStore } from '../orders/store.ts';
 import { usePaymentStore } from '../payments/store.ts';
 import { asSystemId } from '@/lib/id-types.ts';
 import { useReceiptStore } from '../receipts/store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertWarrantyForPrint,
+  mapWarrantyToPrintData, 
+  mapWarrantyLineItems, 
+  createStoreSettings 
+} from '../../lib/print/warranty-print-helper.ts';
+import { useBranchStore } from '../settings/branches/store.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
 
 const RESPONSE_TEMPLATES = [
   {
@@ -227,6 +236,27 @@ export function WarrantyDetailPage() {
   const responseTemplates = React.useMemo(() => RESPONSE_TEMPLATES, []);
   const isReturned = ticket?.status === 'returned';
 
+  const { findById: findBranchById } = useBranchStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { print } = usePrint(ticket?.branchSystemId);
+
+  const handlePrint = React.useCallback(() => {
+    if (!ticket) return;
+
+    const branch = ticket.branchSystemId ? findBranchById(ticket.branchSystemId) : undefined;
+    const storeSettings = createStoreSettings(storeInfo);
+    
+    const warrantyForPrint = convertWarrantyForPrint(ticket, {
+      branch,
+      linkedOrderId: linkedOrder?.id,
+    });
+
+    print('warranty', {
+      data: mapWarrantyToPrintData(warrantyForPrint, storeSettings),
+      lineItems: mapWarrantyLineItems(warrantyForPrint.items),
+    });
+  }, [ticket, linkedOrder, storeInfo, print, findBranchById]);
+
   const handleImagePreview = React.useCallback((images: string[], index: number) => {
     setPreviewImages(images);
     setPreviewIndex(index);
@@ -235,7 +265,7 @@ export function WarrantyDetailPage() {
 
   // Page header actions - Calculate directly for reactivity
   const actions = React.useMemo(() => {
-    const actionButtons = [];
+    const actionButtons: React.ReactElement[] = [];
 
     // Print button (LEFT SIDE)
     actionButtons.push(
@@ -245,7 +275,7 @@ export function WarrantyDetailPage() {
         size="sm"
         variant="outline"
         className="h-9"
-        onClick={() => window.print()}
+        onClick={handlePrint}
       >
         <Printer className="h-4 w-4 mr-2" />
         In
@@ -428,7 +458,7 @@ export function WarrantyDetailPage() {
   
   // SLA Timer & Time Tracking Metrics component
   const slaMetrics = ticket && !isReturned && timeMetrics && slaStatus ? (
-    <div className="flex items-center gap-4 text-sm mt-2">
+    <div className="flex items-center gap-4 text-body-sm mt-2">
       {/* SLA Status */}
       <div className="flex items-center gap-1.5">
         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -482,9 +512,12 @@ export function WarrantyDetailPage() {
     ...actions.filter(a => a.key !== 'print' && a.key !== 'get-link'),
   ], [actions, ticket, addHistory, currentUser.name]);
   
+  const headerTitle = ticket ? `Phiếu bảo hành ${ticket.id}` : 'Chi tiết phiếu bảo hành';
+
   usePageHeader({
-    // Title auto-generated from breadcrumb-system.ts
+    title: headerTitle,
     badge: statusBadge,
+    backPath: '/warranty',
     actions: allActions,
     breadcrumb: [
       { label: 'Trang chủ', href: '/', isCurrent: false },
@@ -514,7 +547,7 @@ export function WarrantyDetailPage() {
                     <h3 className="font-semibold text-orange-900 dark:text-orange-100 mb-1">
                       Phiếu chưa đầy đủ thông tin
                     </h3>
-                    <p className="text-sm text-orange-800 dark:text-orange-200">
+                    <p className="text-body-sm text-orange-800 dark:text-orange-200">
                       Vui lòng cập nhật <strong>Danh sách sản phẩm bảo hành</strong> để chuyển sang trạng thái "Chưa xử lý" và tiếp tục xử lý phiếu.
                     </p>
                   </div>
@@ -592,7 +625,7 @@ export function WarrantyDetailPage() {
             {/* ===== ROW 3: Products Table (with integrated summary) ===== */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base font-semibold">Danh sách sản phẩm bảo hành</CardTitle>
+                <CardTitle className="text-h4">Danh sách sản phẩm bảo hành</CardTitle>
               </CardHeader>
               <CardContent>
                 <WarrantyProductsDetailTable products={ticket.products} ticket={ticket} />
@@ -602,13 +635,13 @@ export function WarrantyDetailPage() {
             {/* ===== ROW 4: Notes ===== */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base font-semibold">Ghi chú</CardTitle>
+                <CardTitle className="text-h4">Ghi chú</CardTitle>
               </CardHeader>
               <CardContent>
                 {ticket.notes ? (
-                  <p className="text-sm whitespace-pre-wrap">{ticket.notes}</p>
+                  <p className="text-body-sm whitespace-pre-wrap">{ticket.notes}</p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Không có ghi chú</p>
+                  <p className="text-body-sm text-muted-foreground">Không có ghi chú</p>
                 )}
               </CardContent>
             </Card>
@@ -690,7 +723,7 @@ export function WarrantyDetailPage() {
               <Card key={template.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-base">{template.name}</CardTitle>
+                    <CardTitle className="text-h4">{template.name}</CardTitle>
                     <Button
                       size="sm"
                       variant="outline"
@@ -712,7 +745,7 @@ export function WarrantyDetailPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
+                  <div className="text-body-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
                     {template.content}
                   </div>
                 </CardContent>

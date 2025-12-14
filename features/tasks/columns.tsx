@@ -7,15 +7,19 @@ import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
 import { Progress } from "../../components/ui/progress.tsx"
 import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { MoreHorizontal } from "lucide-react";
 
 const priorityVariants: Record<TaskPriority, "default" | "secondary" | "warning" | "destructive"> = {
-    "Thấp": "secondary",
-    "Trung bình": "default",
-    "Cao": "warning",
-    "Khẩn cấp": "destructive",
+  "Thấp": "secondary",
+  "Trung bình": "default",
+  "Cao": "warning",
+  "Khẩn cấp": "destructive",
+  low: "secondary",
+  medium: "default",
+  high: "warning",
+  urgent: "destructive",
 };
 
 const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "success" | "outline"> = {
@@ -23,6 +27,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
   "Đang thực hiện": "warning",
   "Đang chờ": "secondary",
   "Chờ duyệt": "secondary",
+  "Chờ xử lý": "outline",
   "Hoàn thành": "success",
   "Đã hủy": "default",
 };export const getColumns = (
@@ -37,7 +42,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
       <Checkbox
         checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-        onCheckedChange={(value) => onToggleAll(!!value)}
+        onCheckedChange={(value) => onToggleAll?.(!!value)}
       />
     ),
     cell: ({ isSelected, onToggleSelect }) => (
@@ -95,7 +100,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
     cell: ({ row }) => (
       <div className="flex items-center gap-2 min-w-[120px]">
         <Progress value={row.progress} className="h-2 flex-1" />
-        <span className="text-sm text-muted-foreground min-w-[40px] text-right">{row.progress}%</span>
+        <span className="text-body-sm text-muted-foreground min-w-[40px] text-right">{row.progress}%</span>
       </div>
     ),
     meta: { displayName: "Tiến độ hoàn thành" },
@@ -170,8 +175,8 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => navigate(`/tasks/${row.systemId}`)}>Xem chi tiết</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate(`/tasks/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.systemId)}>
                   Xóa
                 </DropdownMenuItem>

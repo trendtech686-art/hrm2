@@ -2,7 +2,7 @@ import * as React from "react";
 import { formatDateCustom } from '../../lib/date-utils.ts';
 import type { Payment } from './types.ts';
 import type { SystemId } from '../../lib/id-types.ts';
-import { Card, CardContent } from "../../components/ui/card.tsx";
+import { Card, CardContent, CardTitle } from "../../components/ui/card.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { TouchButton } from "../../components/mobile/touch-button.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
@@ -51,9 +51,9 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm truncate">{payment.id}</h3>
+                            <CardTitle className="font-semibold text-sm truncate">{payment.id}</CardTitle>
                             <span className="text-xs text-muted-foreground">•</span>
-                            <span className="text-sm font-medium text-red-600">{formatCurrency(payment.amount)} ₫</span>
+                            <span className="text-sm font-medium text-destructive">{formatCurrency(payment.amount)} ₫</span>
                         </div>
                     </div>
                     {payment.status !== 'cancelled' && (

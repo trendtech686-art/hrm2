@@ -3,9 +3,9 @@ import { PlusCircle, Gift } from 'lucide-react';
 import { Button } from '../../../components/ui/button.tsx';
 
 interface ProductTableBottomToolbarProps {
-    onAddService?: () => void;
-    onApplyPromotion?: () => void;
-    disabled?: boolean;
+    onAddService?: (() => void) | undefined;
+    onApplyPromotion?: (() => void) | undefined;
+    disabled?: boolean | undefined;
 }
 
 export function ProductTableBottomToolbar({ onAddService, onApplyPromotion, disabled }: ProductTableBottomToolbarProps) {

@@ -80,6 +80,8 @@ export const ROUTES = {
     PRODUCT_NEW: '/products/new',
     PRODUCT_EDIT: '/products/:systemId/edit', 
     PRODUCT_VIEW: '/products/:systemId',
+    BRANDS: '/brands',
+    CATEGORIES: '/categories',
     ORDERS: '/orders',
     ORDER_NEW: '/orders/new',
     ORDER_EDIT: '/orders/:systemId/edit',
@@ -128,10 +130,17 @@ export const ROUTES = {
   INVENTORY: {
     STOCK_LOCATIONS: '/stock-locations',
     STOCK_HISTORY: '/stock-history',
+    STOCK_TRANSFERS: '/stock-transfers',
+    STOCK_TRANSFER_NEW: '/stock-transfers/new',
+    STOCK_TRANSFER_EDIT: '/stock-transfers/:systemId/edit',
+    STOCK_TRANSFER_VIEW: '/stock-transfers/:systemId',
     INVENTORY_CHECKS: '/inventory-checks',
     INVENTORY_CHECK_NEW: '/inventory-checks/new',
     INVENTORY_CHECK_EDIT: '/inventory-checks/:systemId/edit',
     INVENTORY_CHECK_VIEW: '/inventory-checks/:systemId',
+    COST_ADJUSTMENTS: '/cost-adjustments',
+    COST_ADJUSTMENT_NEW: '/cost-adjustments/new',
+    COST_ADJUSTMENT_VIEW: '/cost-adjustments/:systemId',
   },
   
   // Internal Operations
@@ -174,6 +183,8 @@ export const ROUTES = {
   REPORTS: {
     SALES: '/reports/sales',
     INVENTORY: '/reports/inventory',
+    CUSTOMER_SLA: '/reports/customer-sla',
+    PRODUCT_SLA: '/reports/product-sla',
   },
   
   // Settings

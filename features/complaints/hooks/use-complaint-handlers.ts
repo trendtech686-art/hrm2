@@ -14,7 +14,7 @@ interface UseComplaintHandlersProps {
   complaint: Complaint | null;
   currentUser: { systemId: SystemId; name: string };
   permissions: ComplaintPermissions;
-  assignComplaint: (systemId: SystemId, userId: SystemId) => void;
+  assignComplaint: (systemId: SystemId, userId: SystemId, userName?: string) => void;
   updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
 }
 
@@ -39,7 +39,7 @@ export function useComplaintHandlers({
     
     // ⚠️ NOTE: assignComplaint (from store) already creates timeline action
     // So we don't need to create another one here
-    assignComplaint(complaint.systemId, asSystemId(userId));
+    assignComplaint(complaint.systemId, asSystemId(userId), userName);
     complaintNotifications.onAssign();
   }, [complaint, permissions, assignComplaint]);
 

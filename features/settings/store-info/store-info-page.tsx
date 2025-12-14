@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { PlusCircle, MoreHorizontal, Edit, Trash2, ShieldCheck, Phone, MapPin, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
 import { useAuth } from '../../../contexts/auth-context.tsx';
 import { useBranchStore } from '../branches/store.ts';
 import { useEmployeeStore } from '../../employees/store.ts';
@@ -13,6 +14,7 @@ import { BranchForm, type BranchFormValues } from '../branches/branch-form.tsx';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../../components/ui/card.tsx';
 import { Button } from '../../../components/ui/button.tsx';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
 import { Badge } from '../../../components/ui/badge.tsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
@@ -21,7 +23,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '../../../components/ui/input.tsx';
 import { Textarea } from '../../../components/ui/textarea.tsx';
 import { Separator } from '../../../components/ui/separator.tsx';
-import { useToast } from '../../../hooks/use-toast.ts';
+import { toast } from 'sonner';
 import { getDefaultStoreInfo, useStoreInfoStore, type StoreGeneralInfo, type StoreGeneralInfoInput } from './store-info-store.ts';
 import type { SystemId } from '../../../lib/id-types.ts';
 
@@ -73,7 +75,6 @@ export function StoreInfoPage() {
     const setDefaultBranch = branchStore.setDefault;
     const { data: employees } = useEmployeeStore();
     const { employee: authEmployee } = useAuth();
-    const { toast } = useToast();
     const { info, updateInfo, reset: resetStoreInfo } = useStoreInfoStore();
     
     const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -100,7 +101,7 @@ export function StoreInfoPage() {
 
     const lastUpdatedLabel = React.useMemo(() => {
         if (!info.updatedAt) return 'Chưa có lần cập nhật';
-        return new Date(info.updatedAt).toLocaleString('vi-VN');
+        return formatDateTimeForDisplay(new Date(info.updatedAt));
     }, [info.updatedAt]);
 
     const handleAddNew = () => {
@@ -108,20 +109,20 @@ export function StoreInfoPage() {
         setIsFormOpen(true);
     };
 
-    usePageHeader({
+    useSettingsPageHeader({
         title: 'Thông tin cửa hàng',
         subtitle: 'Quản lý thông tin chi nhánh cửa hàng',
         breadcrumb: [
-            { label: 'Trang chủ', href: '/' },
-            { label: 'Cài đặt', href: '/settings' },
-            { label: 'Thông tin cửa hàng', href: '/settings/store-info', isCurrent: true }
+            { label: 'Trang chủ', href: '/', isCurrent: false },
+            { label: 'Cài đặt', href: '/settings', isCurrent: false },
+            { label: 'Thông tin cửa hàng', href: '/settings/store-info', isCurrent: true },
         ],
         actions: [
-            <Button key="add" onClick={handleAddNew} className="h-9">
-                <PlusCircle className="mr-2 h-4 w-4" />
+            <SettingsActionButton key="add" onClick={handleAddNew}>
+                <PlusCircle className="h-4 w-4" />
                 Thêm chi nhánh
-            </Button>
-        ]
+            </SettingsActionButton>
+        ],
     });
 
     const handleGeneralInfoSubmit = form.handleSubmit((values) => {
@@ -130,8 +131,7 @@ export function StoreInfoPage() {
             updatedBySystemId: currentUserSystemId,
             updatedByName: currentUserName,
         });
-        toast({
-            title: 'Đã lưu thông tin chung',
+        toast.success('Đã lưu thông tin chung', {
             description: 'Các thông tin pháp nhân và liên hệ đã được cập nhật.',
         });
     });
@@ -140,8 +140,7 @@ export function StoreInfoPage() {
         resetStoreInfo();
         const defaults = getDefaultStoreInfo();
         form.reset(mapInfoToFormValues(defaults));
-        toast({
-            title: 'Đã khôi phục dữ liệu mặc định',
+        toast.info('Đã khôi phục dữ liệu mặc định', {
             description: 'Vui lòng kiểm tra và lưu lại nếu cần chỉnh sửa.',
         });
     };
@@ -201,7 +200,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Tên pháp nhân</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="CÔNG TY TNHH ABC" {...field} />
+                                                    <Input placeholder="CÔNG TY TNHH ABC" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -214,7 +213,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Tên thương hiệu</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Thương hiệu nội bộ" {...field} />
+                                                    <Input placeholder="Thương hiệu nội bộ" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -227,7 +226,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Mã số thuế</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="0102030405" {...field} />
+                                                    <Input placeholder="0102030405" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -240,7 +239,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Số đăng ký kinh doanh</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="0123456789" {...field} />
+                                                    <Input placeholder="0123456789" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -264,7 +263,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Người đại diện pháp luật</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Nguyễn Văn A" {...field} />
+                                                    <Input placeholder="Nguyễn Văn A" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -277,7 +276,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Chức danh</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Giám đốc" {...field} />
+                                                    <Input placeholder="Giám đốc" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -290,7 +289,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Hotline</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="0900 000 000" {...field} />
+                                                    <Input placeholder="0900 000 000" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -303,7 +302,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Email liên hệ</FormLabel>
                                                 <FormControl>
-                                                    <Input type="email" placeholder="contact@yourbrand.vn" {...field} />
+                                                    <Input type="email" placeholder="contact@yourbrand.vn" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -316,7 +315,7 @@ export function StoreInfoPage() {
                                             <FormItem className="md:col-span-2">
                                                 <FormLabel>Website</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="https://yourbrand.vn" {...field} />
+                                                    <Input placeholder="https://yourbrand.vn" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -340,7 +339,7 @@ export function StoreInfoPage() {
                                             <FormItem className="md:col-span-2">
                                                 <FormLabel>Địa chỉ</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Số 1 Trần Duy Hưng" {...field} />
+                                                    <Input placeholder="Số 1 Trần Duy Hưng" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -353,7 +352,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Phường/Xã</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Phường Trung Hòa" {...field} />
+                                                    <Input placeholder="Phường Trung Hòa" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -366,7 +365,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Quận/Huyện</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Quận Cầu Giấy" {...field} />
+                                                    <Input placeholder="Quận Cầu Giấy" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -379,7 +378,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Tỉnh/Thành phố</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Hà Nội" {...field} />
+                                                    <Input placeholder="Hà Nội" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -403,7 +402,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Chủ tài khoản</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Công ty TNHH ABC" {...field} />
+                                                    <Input placeholder="Công ty TNHH ABC" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -416,7 +415,7 @@ export function StoreInfoPage() {
                                             <FormItem>
                                                 <FormLabel>Số tài khoản</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="0123456789" {...field} />
+                                                    <Input placeholder="0123456789" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -429,7 +428,7 @@ export function StoreInfoPage() {
                                             <FormItem className="md:col-span-2">
                                                 <FormLabel>Ngân hàng</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)" {...field} />
+                                                    <Input placeholder="Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)" {...field} value={field.value ?? ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -452,7 +451,7 @@ export function StoreInfoPage() {
                                         <FormItem>
                                             <FormLabel>Nội dung ghi chú</FormLabel>
                                             <FormControl>
-                                                <Textarea rows={4} placeholder="Ví dụ: dùng MST này cho hóa đơn điện tử." {...field} />
+                                                <Textarea rows={4} placeholder="Ví dụ: dùng MST này cho hóa đơn điện tử." {...field} value={field.value ?? ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

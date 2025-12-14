@@ -32,7 +32,7 @@ export function EmployeesVirtualizedPage() {
   const [departmentFilter, setDepartmentFilter] = React.useState<string>('all')
   const [branchFilter, setBranchFilter] = React.useState<string>('all')
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'fullName', desc: false })
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true })
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({})
   const [columnOrder, setColumnOrder] = React.useState<string[]>([])
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([])

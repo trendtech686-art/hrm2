@@ -372,6 +372,17 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     usesStoreFactory: true,
   },
   
+  'stock-transfers': {
+    entityType: 'stock-transfers',
+    prefix: ENTITY_PREFIXES['stock-transfers'], // 'PCK'
+    systemIdPrefix: 'TRANSFER',
+    digitCount: 6,
+    displayName: 'Phiếu chuyển kho',
+    category: 'inventory',
+    usesStoreFactory: true,
+    notes: 'systemId: TRANSFER000001, Business ID: PCK000001',
+  },
+  
   'stock-history': {
     entityType: 'stock-history',
     prefix: ENTITY_PREFIXES['stock-history'], // 'LS'
@@ -570,6 +581,16 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     displayName: 'Cài đặt giá',
     category: 'settings',
     usesStoreFactory: false,
+  },
+
+  'taxes': {
+    entityType: 'taxes',
+    prefix: ENTITY_PREFIXES['taxes'], // 'TAX'
+    systemIdPrefix: 'TAX',
+    digitCount: 6,
+    displayName: 'Thuế',
+    category: 'settings',
+    usesStoreFactory: true,
   },
   
   // ========================================
@@ -778,6 +799,26 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     displayName: 'Xếp hạng tín dụng',
     category: 'settings',
     usesStoreFactory: false,
+  },
+  'lifecycle-stages': {
+    entityType: 'lifecycle-stages',
+    prefix: ENTITY_PREFIXES['lifecycle-stages'], // 'GDL'
+    systemIdPrefix: 'LIFECYCLE',
+    digitCount: 6,
+    displayName: 'Giai đoạn vòng đời khách hàng',
+    category: 'sales',
+    validation: { allowCustomId: true },
+    usesStoreFactory: true,
+  },
+  'sla-settings': {
+    entityType: 'sla-settings',
+    prefix: ENTITY_PREFIXES['sla-settings'], // 'SLA'
+    systemIdPrefix: 'SLACFG',
+    digitCount: 6,
+    displayName: 'Cài đặt SLA khách hàng',
+    category: 'sales',
+    validation: { allowCustomId: true },
+    usesStoreFactory: true,
   },
   
   // Employee Settings

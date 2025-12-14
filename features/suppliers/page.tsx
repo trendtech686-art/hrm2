@@ -3,7 +3,8 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { useSupplierStore } from "./store.ts"
 import { getColumns } from "./columns.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx"
+import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
+import { PageFilters } from "../../components/layout/page-filters.tsx"
 import {
   Card,
   CardContent,
@@ -26,14 +27,13 @@ import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
 import { SupplierCard } from "./supplier-card.tsx";
 import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
-import { useToast } from "../../hooks/use-toast.ts";
+import { toast } from 'sonner';
 import { asSystemId, type SystemId } from "@/lib/id-types";
 
 export function SuppliersPage() {
   const { data: suppliersRaw, remove, restore, getActive, getDeleted, updateStatus, bulkDelete } = useSupplierStore();
   const navigate = ReactRouterDOM.useNavigate();
   const { isMobile } = useBreakpoint();
-  const { toast } = useToast();
   
   // ✅ Memoize suppliers để tránh unstable reference
   const suppliers = React.useMemo(() => suppliersRaw, [suppliersRaw]);
@@ -53,26 +53,37 @@ export function SuppliersPage() {
       key="trash"
       variant="outline"
       size="sm"
+      className="h-9 gap-2"
       onClick={() => navigate('/suppliers/trash')}
     >
       <Trash2 className="mr-2 h-4 w-4" />
       Thùng rác ({deletedCount})
     </Button>,
-    <Button key="add" size="sm" onClick={() => navigate('/suppliers/new')}>
+    <Button
+      key="add"
+      size="sm"
+      className="h-9 gap-2"
+      onClick={() => navigate('/suppliers/new')}
+    >
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm nhà cung cấp
     </Button>
   ], [navigate, deletedCount]);
   
   usePageHeader({
-    actions: headerActions
+    title: 'Nhà cung cấp',
+    actions: headerActions,
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Nhà cung cấp', href: '/suppliers', isCurrent: true },
+    ],
   });
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null)
   
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'name', desc: false });
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
@@ -108,12 +119,9 @@ export function SuppliersPage() {
     const supplier = suppliers.find(s => s.systemId === systemId);
     restore(systemId);
     if (supplier) {
-      toast({
-        title: 'Đã khôi phục',
-        description: `Đã khôi phục nhà cung cấp "${supplier.name}"`,
-      });
+      toast.success(`Đã khôi phục nhà cung cấp "${supplier.name}"`);
     }
-  }, [restore, suppliers, toast]);
+  }, [restore, suppliers]);
 
   const handleEdit = React.useCallback((supplier: Supplier) => {
     navigate(`/suppliers/${supplier.systemId}/edit`);
@@ -150,10 +158,7 @@ export function SuppliersPage() {
       const supplier = suppliers.find(s => s.systemId === idToDelete);
       remove(idToDelete);
       if (supplier) {
-        toast({
-          title: 'Đã xóa',
-          description: `Đã chuyển nhà cung cấp "${supplier.name}" vào thùng rác`,
-        });
+        toast.success(`Đã chuyển nhà cung cấp "${supplier.name}" vào thùng rác`);
       }
     }
     setIsAlertOpen(false)
@@ -177,6 +182,18 @@ export function SuppliersPage() {
       sorted.sort((a, b) => {
         const aValue = (a as any)[sorting.id];
         const bValue = (b as any)[sorting.id];
+        // Special handling for date columns
+        if (sorting.id === 'createdAt') {
+          const aTime = aValue ? new Date(aValue).getTime() : 0;
+          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
+          if (aTime === bTime) {
+            const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
+            const bNum = parseInt(b.systemId.replace(/\D/g, '')) || 0;
+            return sorting.desc ? bNum - aNum : aNum - bNum;
+          }
+          return sorting.desc ? bTime - aTime : aTime - bTime;
+        }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
         if (aValue > bValue) return sorting.desc ? -1 : 1;
         return 0;
@@ -204,39 +221,29 @@ export function SuppliersPage() {
   const handleBulkStatusChange = (status: Supplier['status']) => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) {
-      toast({
-        title: 'Chưa chọn nhà cung cấp',
+      toast.error('Chưa chọn nhà cung cấp', {
         description: 'Vui lòng chọn ít nhất một nhà cung cấp',
-        variant: 'destructive',
       });
       return;
     }
     const systemIds = selectedIds.map(asSystemId);
     updateStatus(systemIds, status);
     setRowSelection({});
-    toast({
-      title: 'Thành công',
-      description: `Đã cập nhật trạng thái ${selectedIds.length} nhà cung cấp`,
-    });
+    toast.success(`Đã cập nhật trạng thái ${selectedIds.length} nhà cung cấp`);
   };
 
   const handleBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) {
-      toast({
-        title: 'Chưa chọn nhà cung cấp',
+      toast.error('Chưa chọn nhà cung cấp', {
         description: 'Vui lòng chọn ít nhất một nhà cung cấp',
-        variant: 'destructive',
       });
       return;
     }
     const systemIds = selectedIds.map(asSystemId);
     bulkDelete(systemIds);
     setRowSelection({});
-    toast({
-      title: 'Đã xóa',
-      description: `Đã chuyển ${selectedIds.length} nhà cung cấp vào thùng rác`,
-    });
+    toast.success(`Đã chuyển ${selectedIds.length} nhà cung cấp vào thùng rác`);
   };
 
   // ✅ Mobile infinite scroll - Reset khi filter thay đổi
@@ -293,22 +300,29 @@ export function SuppliersPage() {
 
   return (
     <div className="space-y-4">
-      <DataTableToolbar
-        search={globalFilter}
+      {/* PageToolbar - Desktop only */}
+      {!isMobile && (
+        <PageToolbar
+          rightActions={
+            <DataTableColumnCustomizer
+              columns={columns}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              pinnedColumns={pinnedColumns}
+              setPinnedColumns={setPinnedColumns}
+            />
+          }
+        />
+      )}
+
+      {/* PageFilters */}
+      <PageFilters
+        searchValue={globalFilter}
         onSearchChange={setGlobalFilter}
         searchPlaceholder="Tìm kiếm nhà cung cấp..."
-        numResults={filteredData.length}
-      >
-        <DataTableColumnCustomizer
-          columns={columns}
-          columnVisibility={columnVisibility}
-          setColumnVisibility={setColumnVisibility}
-          columnOrder={columnOrder}
-          setColumnOrder={setColumnOrder}
-          pinnedColumns={pinnedColumns}
-          setPinnedColumns={setPinnedColumns}
-        />
-      </DataTableToolbar>
+      />
 
       <ResponsiveDataTable
         columns={columns}
@@ -347,13 +361,13 @@ export function SuppliersPage() {
       {isMobile && mobileLoadedCount < sortedData.length && (
         <div className="text-center py-4">
           <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-          <p className="text-sm text-muted-foreground mt-2">Đang tải thêm...</p>
+          <p className="text-body-sm text-muted-foreground mt-2">Đang tải thêm...</p>
         </div>
       )}
       
       {isMobile && mobileLoadedCount >= sortedData.length && sortedData.length > 20 && (
         <div className="text-center py-4">
-          <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {sortedData.length} kết quả</p>
+          <p className="text-body-sm text-muted-foreground">Đã hiển thị tất cả {sortedData.length} kết quả</p>
         </div>
       )}
 

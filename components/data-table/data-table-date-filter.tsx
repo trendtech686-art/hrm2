@@ -20,7 +20,7 @@ const presets = [
     { key: 'last_month', label: 'Tháng trước', getRange: () => [getStartOfMonth(subtractMonths(getCurrentDate(), 1)), getEndOfMonth(subtractMonths(getCurrentDate(), 1))] },
 ]
 
-function DateFilterContent({ value, onChange }: { value?: [string | undefined, string | undefined], onChange: (value: [string | undefined, string | undefined] | undefined) => void }) {
+function DateFilterContent({ value, onChange }: { value?: [string | undefined, string | undefined] | undefined; onChange: (value: [string | undefined, string | undefined] | undefined) => void }) {
     // const { setOpen } = React.useContext(DropdownMenuContext);
     const [initialFrom, initialTo] = value ?? [undefined, undefined];
     
@@ -70,11 +70,11 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
 
     const handlePresetClick = (preset: typeof presets[0]) => {
         const [newFrom, newTo] = preset.getRange();
-        setFrom(newFrom);
-        setTo(newTo);
+        setFrom(newFrom ?? undefined);
+        setTo(newTo ?? undefined);
         setActivePreset(preset.key);
         setShowCustom(false);
-        setCalendarMonth(newFrom);
+        if (newFrom) setCalendarMonth(newFrom);
     };
 
     const handleCustomClick = () => {
@@ -82,7 +82,7 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
         setActivePreset(null);
     }
 
-    const handleDateSelect = (range: { from?: Date; to?: Date } | undefined) => {
+    const handleDateSelect = (range: { from?: Date | undefined; to?: Date | undefined } | undefined) => {
         setActivePreset(null);
         if (!range) {
             setFrom(undefined);
@@ -240,9 +240,9 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
 }
 
 interface DataTableDateFilterProps {
-  value?: [string | undefined, string | undefined];
-  onChange: (value: [string | undefined, string | undefined] | undefined) => void;
-  title?: string;
+    value?: [string | undefined, string | undefined] | undefined;
+    onChange: (value: [string | undefined, string | undefined] | undefined) => void;
+    title?: string | undefined;
 }
 
 export function DataTableDateFilter({

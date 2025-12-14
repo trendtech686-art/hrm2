@@ -1,6 +1,8 @@
 import * as React from "react";
 import { useProductStore } from "../../products/store.ts";
 import { Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { ProductThumbnailCell } from "../../../components/shared/read-only-products-table.tsx";
+import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog.tsx";
 import {
   Dialog,
   DialogContent,
@@ -53,10 +55,19 @@ export function BulkProductSelectorDialog({
     }
   }, [open]);
 
-  // Get available products - Show ALL products, don't exclude any
+  // Get available products - Filter out combo products (can't import combos)
   const availableProducts = React.useMemo(() => {
-    return getActive();
+    return getActive().filter(p => p.type !== 'combo');
   }, [products, getActive]);
+
+  // Preview state
+  const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+    open: false, image: '', title: ''
+  });
+
+  const handlePreview = React.useCallback((image: string, title: string) => {
+    setPreviewState({ open: true, image, title });
+  }, []);
 
   // Filter products by search
   const filteredProducts = React.useMemo(() => {
@@ -192,9 +203,14 @@ export function BulkProductSelectorDialog({
                       onClick={(e) => e.stopPropagation()}
                     />
 
-                    {/* Product Image Placeholder */}
-                    <div className="w-12 h-12 flex-shrink-0 bg-muted rounded flex items-center justify-center">
-                      <Package className="h-6 w-6 text-muted-foreground" />
+                    {/* Product Image */}
+                    <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <ProductThumbnailCell
+                        productSystemId={product.systemId}
+                        product={product}
+                        productName={product.name}
+                        onPreview={handlePreview}
+                      />
                     </div>
 
                     {/* Product Details */}
@@ -266,6 +282,14 @@ export function BulkProductSelectorDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog 
+        open={previewState.open} 
+        onOpenChange={(open) => setPreviewState(prev => ({ ...prev, open }))} 
+        images={[previewState.image]} 
+        title={previewState.title}
+      />
     </Dialog>
   );
 }

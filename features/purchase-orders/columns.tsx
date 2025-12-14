@@ -38,7 +38,7 @@ export const getColumns = (
        <div className="flex items-center justify-center">
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
       </div>
@@ -62,7 +62,7 @@ export const getColumns = (
     id: "id",
     accessorKey: "id",
     header: "Mã đơn nhập hàng",
-    cell: ({ row }) => <div className="font-medium text-primary hover:underline"><Link to={`/purchase-orders/${row.systemId}`}>{row.id}</Link></div>,
+    cell: ({ row }) => <div className="text-body-sm font-medium text-primary hover:underline"><Link to={`/purchase-orders/${row.systemId}`}>{row.id}</Link></div>,
     meta: { displayName: "Mã đơn nhập hàng" },
     size: 150,
   },
@@ -98,7 +98,7 @@ export const getColumns = (
     id: "deliveryDate",
     accessorKey: "deliveryDate",
     header: "Ngày giao",
-    cell: ({ row }) => formatDateCustom(parseDate(row.deliveryDate), 'dd/MM/yyyy'),
+    cell: ({ row }) => formatDateCustom(parseDate(row.deliveryDate ?? ""), 'dd/MM/yyyy'),
     meta: { displayName: "Ngày giao" },
   },
   {
@@ -153,7 +153,7 @@ export const getColumns = (
         }, 0);
         total = itemsTotal + (row.shippingFee || 0) + (row.tax || 0);
       }
-      return <span className="font-semibold">{formatCurrency(total)}</span>;
+      return <span className="text-body-sm font-semibold">{formatCurrency(total)}</span>;
     },
     meta: { displayName: "Tổng tiền" },
   },

@@ -24,7 +24,7 @@ interface BranchMapping {
 
 interface GHTKConfigFormProps {
   config: ShippingConfig;
-  account?: PartnerAccount;
+  account?: PartnerAccount | undefined;
   onAccountUpdate: (account: PartnerAccount) => void;
   onSave: (config: ShippingConfig) => void;
   onClose: () => void;

@@ -53,7 +53,7 @@ _Ngày: 19/11/2025 · Reviewer: GitHub Copilot_
 - ✅ 24/11: `features/receipts/form-page.tsx`, `features/payments/form-page.tsx` và `features/purchase-orders/form-page.tsx` bỏ hoàn toàn fallback `employees[0]`, mặc định lấy buyer/createdBy từ `auth-context` nên audit phiếu thu/chi/đơn mua bám đúng nhân viên đăng nhập.
 - ✅ 24/11: `features/inventory-checks/form-page.tsx` hiển thị nhân viên kiểm từ `useAuth`, lưu `createdBy`/`balance` theo `auth-context` và loại bỏ hoàn toàn `contexts/user-context` khỏi flow tạo phiếu kiểm.
 - ✅ 24/11: `components/layout/header.tsx`, `features/auth/login-page.tsx` và `features/settings/store-info/store-info-page.tsx` ngừng phụ thuộc `UserContext`, toàn bộ thao tác đăng nhập/đăng xuất và cập nhật thông tin cửa hàng đều lấy người dùng thật từ `auth-context`.
-- ✅ 24/11: Các dialog hoàn tiền bảo hành (`features/warranty/components/create-payment-voucher-dialog.tsx`, `features/warranty/components/dialogs/warranty-payment-voucher-dialog.tsx`) ghi `createdBy` theo nhân viên đăng nhập, không còn tìm `useCurrentUser` thủ công.
+- ✅ 24/11: Dialog hoàn tiền bảo hành (`features/warranty/components/dialogs/warranty-payment-voucher-dialog.tsx`) ghi `createdBy` theo nhân viên đăng nhập, không còn tìm `useCurrentUser` thủ công.
 - `features/employees/page.tsx` vi phạm guideline `Button & Input Height`: toàn bộ Button/Select chủ đạo đều thiếu `className="h-9"`, dẫn tới toolbar/filter khác kích thước với shadcn chuẩn.
 - Cùng trang EmployeesPage còn đặt page header title = `"Nhân viên"` thay vì `"Danh sách nhân viên"` như rule ở guide, nên breadcrumb/title không nhất quán giữa các trang danh sách.
 

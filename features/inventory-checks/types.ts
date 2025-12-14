@@ -4,6 +4,7 @@
  */
 
 import { SystemId, BusinessId } from '../../lib/id-types.ts';
+import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
 
 export type InventoryCheckStatus = 'draft' | 'balanced' | 'cancelled';
 
@@ -42,4 +43,5 @@ export interface InventoryCheck {
   cancelledReason?: string;   // Lý do hủy
   note?: string;
   items: InventoryCheckItem[];
+  activityHistory?: HistoryEntry[];  // Lịch sử hoạt động
 }

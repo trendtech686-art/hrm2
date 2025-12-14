@@ -1,8 +1,9 @@
 import * as React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useInventoryCheckStore } from './store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { useProductStore } from '../products/store.ts';
+import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -14,10 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../../components/ui/badge.tsx';
 import { BulkProductSelectorDialog } from '../../components/shared/bulk-product-selector-dialog.tsx';
 import { ProductSearchCombobox } from '../../components/shared/product-search-combobox.tsx';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
-import { Package, Trash2, AlertCircle } from 'lucide-react';
+import { Package, Trash2, AlertCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card.tsx';
+import type { Subtask } from '../../components/shared/subtask-list.tsx';
 import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from './types.ts';
 import type { Product } from '../products/types.ts';
 
@@ -37,9 +42,17 @@ export function InventoryCheckFormPage() {
   
   const { add, update, findById, balanceCheck } = useInventoryCheckStore();
   const { data: branches } = useBranchStore();
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts, findById: findProductById } = useProductStore();
+  const { findById: findProductTypeById } = useProductTypeStore();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
+  
+  const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
+
+  const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
+    const productType = findProductTypeById(productTypeSystemId as any);
+    return productType?.name || 'Hàng hóa';
+  }, [findProductTypeById]);
   
   // Get current user name
   const [currentUserName, setCurrentUserName] = React.useState(() =>
@@ -67,6 +80,7 @@ export function InventoryCheckFormPage() {
   const [tagInput, setTagInput] = React.useState('');
   const [items, setItems] = React.useState<InventoryCheckItem[]>([]);
   const [activeTab, setActiveTab] = React.useState('all');
+  const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
   
   // Dialog states
   const [showProductSelector, setShowProductSelector] = React.useState(false);
@@ -457,7 +471,7 @@ export function InventoryCheckFormPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-body-sm">
                 <span className="font-medium">Tiến độ kiểm hàng</span>
                 <span className="font-bold text-primary">{stats.progress}%</span>
               </div>
@@ -467,7 +481,7 @@ export function InventoryCheckFormPage() {
                   style={{ width: `${stats.progress}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="flex justify-between text-body-xs text-muted-foreground">
                 <span>Đã kiểm: {stats.checked}/{items.length} sản phẩm</span>
                 <span>Khớp: {stats.matched} • Lệch: {stats.different}</span>
               </div>
@@ -477,9 +491,9 @@ export function InventoryCheckFormPage() {
       )}
 
       {/* Info Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
         {/* Thông tin phiếu */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle>Thông tin phiếu</CardTitle>
           </CardHeader>
@@ -535,7 +549,7 @@ export function InventoryCheckFormPage() {
         </Card>
 
         {/* Thông tin bổ sung */}
-        <Card>
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Thông tin bổ sung</CardTitle>
           </CardHeader>
@@ -573,6 +587,15 @@ export function InventoryCheckFormPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Quy trình xử lý */}
+        <div className="lg:col-span-3">
+          <InventoryCheckWorkflowCard
+            subtasks={subtasks}
+            onSubtasksChange={setSubtasks}
+            readonly={true}
+          />
+        </div>
       </div>
 
       {/* Products Table */}
@@ -606,7 +629,7 @@ export function InventoryCheckFormPage() {
 
           {/* Edit mode message */}
           {isEditMode && (
-            <div className="bg-muted/50 border rounded-lg p-4 text-sm text-muted-foreground">
+            <div className="bg-muted/50 border rounded-lg p-4 text-body-sm text-muted-foreground">
               Ở chế độ sửa, bạn chỉ có thể chỉnh sửa <strong>Ghi chú</strong> và <strong>Tags</strong>. Không thể thay đổi sản phẩm hoặc số lượng.
             </div>
           )}
@@ -615,7 +638,7 @@ export function InventoryCheckFormPage() {
             <div className="text-center py-12 text-muted-foreground border rounded-lg">
               <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>Chưa có sản phẩm nào</p>
-              <p className="text-sm mt-1">Tìm kiếm hoặc chọn sản phẩm để thêm</p>
+              <p className="text-body-sm mt-1">Tìm kiếm hoặc chọn sản phẩm để thêm</p>
             </div>
           ) : (
             <>
@@ -624,7 +647,7 @@ export function InventoryCheckFormPage() {
                 <div className="flex gap-2 mb-4 border-b">
                   <button
                     onClick={() => setActiveTab('all')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'all' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -634,7 +657,7 @@ export function InventoryCheckFormPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('unchecked')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'unchecked' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -644,7 +667,7 @@ export function InventoryCheckFormPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('matched')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'matched' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -654,7 +677,7 @@ export function InventoryCheckFormPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('different')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'different' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -671,16 +694,16 @@ export function InventoryCheckFormPage() {
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr className="border-b">
-                        <th className="px-3 py-2 text-left text-sm font-medium">STT</th>
-                        <th className="px-3 py-2 text-left text-sm font-medium">Mã SP</th>
-                        <th className="px-3 py-2 text-left text-sm font-medium">Tên sản phẩm</th>
-                        <th className="px-3 py-2 text-left text-sm font-medium">Đơn vị</th>
-                        <th className="px-3 py-2 text-right text-sm font-medium">Tồn hệ thống</th>
-                        <th className="px-3 py-2 text-right text-sm font-medium">Tồn thực tế</th>
-                        <th className="px-3 py-2 text-right text-sm font-medium">Lệch</th>
-                        <th className="px-3 py-2 text-left text-sm font-medium">Lý do</th>
-                        <th className="px-3 py-2 text-left text-sm font-medium">Ghi chú</th>
-                        <th className="px-3 py-2 text-center text-sm font-medium">Xóa</th>
+                        <th className="px-3 py-2 text-left text-body-sm font-medium">STT</th>
+                        <th className="px-3 py-2 text-left text-body-sm font-medium w-16">Ảnh</th>
+                        <th className="px-3 py-2 text-left text-body-sm font-medium">Sản phẩm</th>
+                        <th className="px-3 py-2 text-left text-body-sm font-medium">Đơn vị</th>
+                        <th className="px-3 py-2 text-right text-body-sm font-medium">Tồn hệ thống</th>
+                        <th className="px-3 py-2 text-right text-body-sm font-medium">Tồn thực tế</th>
+                        <th className="px-3 py-2 text-right text-body-sm font-medium">Lệch</th>
+                        <th className="px-3 py-2 text-left text-body-sm font-medium">Lý do</th>
+                        <th className="px-3 py-2 text-left text-body-sm font-medium">Ghi chú</th>
+                        <th className="px-3 py-2 text-center text-body-sm font-medium">Xóa</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -695,23 +718,32 @@ export function InventoryCheckFormPage() {
                           const originalIndex = items.findIndex(i => i.productSystemId === item.productSystemId);
                           const isNegative = item.difference < 0;
                           const isPositive = item.difference > 0;
+                          const product = findProductById(item.productSystemId);
+                          const productTypeName = product?.productTypeSystemId ? getProductTypeName(product.productTypeSystemId) : 'Hàng hóa';
                           
                           return (
                             <tr key={item.productSystemId} className="border-b hover:bg-muted/30">
-                              <td className="px-3 py-2 text-sm">{originalIndex + 1}</td>
+                              <td className="px-3 py-2 text-body-sm">{originalIndex + 1}</td>
                               <td className="px-3 py-2">
-                                <button
-                                  onClick={() => navigate(`/products/${item.productSystemId}`)}
-                                  className="text-blue-600 hover:underline dark:text-blue-400 font-medium text-sm"
-                                >
-                                  {item.productId}
-                                </button>
+                                <ProductThumbnailCell
+                                  productSystemId={item.productSystemId}
+                                  productName={item.productName}
+                                  onPreview={(url: string, title: string) => setPreviewImage({ url, title })}
+                                />
                               </td>
                               <td className="px-3 py-2">
-                                <div className="font-medium text-sm">{item.productName}</div>
+                                <div>
+                                  <button
+                                    onClick={() => navigate(`/products/${item.productSystemId}`)}
+                                    className="text-blue-600 hover:underline dark:text-blue-400 font-medium text-body-sm text-left"
+                                  >
+                                    {item.productName}
+                                  </button>
+                                  <div className="text-body-xs text-muted-foreground">{productTypeName} - {item.productId}</div>
+                                </div>
                               </td>
-                              <td className="px-3 py-2 text-sm">{item.unit}</td>
-                              <td className="px-3 py-2 text-sm text-right font-medium">{item.systemQuantity}</td>
+                              <td className="px-3 py-2 text-body-sm">{item.unit}</td>
+                              <td className="px-3 py-2 text-body-sm text-right font-medium">{item.systemQuantity}</td>
                               <td className="px-3 py-2">
                                 <Input
                                   type="number"
@@ -722,7 +754,7 @@ export function InventoryCheckFormPage() {
                                   disabled={isEditMode}
                                 />
                               </td>
-                              <td className={`px-3 py-2 text-sm text-right font-semibold ${
+                              <td className={`px-3 py-2 text-body-sm text-right font-semibold ${
                                 isNegative ? 'text-red-600' : isPositive ? 'text-orange-600' : 'text-green-600'
                               }`}>
                                 {item.difference > 0 ? '+' : ''}{item.difference}
@@ -732,7 +764,7 @@ export function InventoryCheckFormPage() {
                                   <select
                                     value={item.reason || 'other'}
                                     onChange={(e) => handleUpdateReason(originalIndex, e.target.value as DifferenceReason)}
-                                    className={`w-full h-9 px-2 text-sm border rounded-md ${isEditMode ? 'bg-muted' : 'bg-background'}`}
+                                    className={`w-full h-9 px-2 text-body-sm border rounded-md ${isEditMode ? 'bg-muted' : 'bg-background'}`}
                                     disabled={isEditMode}
                                   >
                                     {DIFFERENCE_REASONS.map(r => (
@@ -746,7 +778,7 @@ export function InventoryCheckFormPage() {
                                   placeholder="Ghi chú..."
                                   value={item.note || ''}
                                   onChange={(e) => handleUpdateItemNote(originalIndex, e.target.value)}
-                                  className="h-9 text-sm"
+                                  className="h-9 text-body-sm"
                                 />
                               </td>
                               <td className="px-3 py-2 text-center">
@@ -809,6 +841,16 @@ export function InventoryCheckFormPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Preview Dialog */}
+      {previewImage && (
+        <ImagePreviewDialog
+          images={[previewImage.url]}
+          open={!!previewImage}
+          onOpenChange={(open) => !open && setPreviewImage(null)}
+          title={previewImage.title}
+        />
+      )}
     </div>
   );
 }

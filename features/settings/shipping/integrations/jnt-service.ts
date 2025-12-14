@@ -23,7 +23,7 @@ export type JNTShippingFeeResponse = {
     vat: number; // VAT (VNĐ)
     totalFee: number; // Tổng phí (VNĐ)
     currency: string; // VND
-  };
+  } | undefined;
 };
 
 export type JNTCreateOrderResponse = {
@@ -34,8 +34,8 @@ export type JNTCreateOrderResponse = {
     billCode: string; // Mã vận đơn
     sortingCode: string; // Mã phân loại
     createTime: string; // Thời gian tạo
-    deliveryTime?: string; // Thời gian giao dự kiến
-  };
+    deliveryTime?: string | undefined; // Thời gian giao dự kiến
+  } | undefined;
 };
 
 export type JNTOrderStatusResponse = {
@@ -65,46 +65,46 @@ export type JNTOrderStatusResponse = {
       scanTime: string;
       location: string;
       remark: string;
-    }>;
-  };
+    }> | undefined;
+  } | undefined;
 };
 
 export type JNTCalculateFeeParams = {
   // Test mode flag
-  testMode?: boolean;
+  testMode?: boolean | undefined;
   
   // Sender info
   senderCity: string; // Tỉnh/TP gửi
   senderDistrict: string; // Quận/Huyện gửi
-  senderWard?: string; // Phường/Xã gửi
+  senderWard?: string | undefined; // Phường/Xã gửi
   
   // Receiver info
   receiverCity: string; // Tỉnh/TP nhận
   receiverDistrict: string; // Quận/Huyện nhận
-  receiverWard?: string; // Phường/Xã nhận
+  receiverWard?: string | undefined; // Phường/Xã nhận
   
   // Package info
   weight: number; // Khối lượng (kg)
-  length?: number; // Dài (cm)
-  width?: number; // Rộng (cm)
-  height?: number; // Cao (cm)
+  length?: number | undefined; // Dài (cm)
+  width?: number | undefined; // Rộng (cm)
+  height?: number | undefined; // Cao (cm)
   
   // Service type
-  serviceType?: string; // EZ: Economy, ES: Express
+  serviceType?: string | undefined; // EZ: Economy, ES: Express
   
   // Value
-  goodsValue?: number; // Giá trị hàng hóa (VNĐ)
-  codAmount?: number; // Tiền CoD (VNĐ)
+  goodsValue?: number | undefined; // Giá trị hàng hóa (VNĐ)
+  codAmount?: number | undefined; // Tiền CoD (VNĐ)
 };
 
 export type JNTCreateOrderParams = {
   // Test mode flag
-  testMode?: boolean;
+  testMode?: boolean | undefined;
   
   // Order info
   orderId: string; // Mã đơn hàng của shop (unique)
-  serviceType?: string; // EZ: Economy, ES: Express (default: EZ)
-  paymentType?: 'PP_PM' | 'CC_CASH'; // PP_PM: Người gửi trả, CC_CASH: CoD
+  serviceType?: string | undefined; // EZ: Economy, ES: Express (default: EZ)
+  paymentType?: 'PP_PM' | 'CC_CASH' | undefined; // PP_PM: Người gửi trả, CC_CASH: CoD
   
   // Sender info (Người gửi)
   senderName: string;
@@ -112,8 +112,8 @@ export type JNTCreateOrderParams = {
   senderAddress: string;
   senderCity: string; // Tỉnh/TP
   senderDistrict: string; // Quận/Huyện
-  senderWard?: string; // Phường/Xã
-  senderPostcode?: string; // Mã bưu điện
+  senderWard?: string | undefined; // Phường/Xã
+  senderPostcode?: string | undefined; // Mã bưu điện
   
   // Receiver info (Người nhận)
   receiverName: string;
@@ -121,34 +121,34 @@ export type JNTCreateOrderParams = {
   receiverAddress: string;
   receiverCity: string; // Tỉnh/TP (required)
   receiverDistrict: string; // Quận/Huyện (required)
-  receiverWard?: string; // Phường/Xã
-  receiverPostcode?: string; // Mã bưu điện
-  receiverEmail?: string;
+  receiverWard?: string | undefined; // Phường/Xã
+  receiverPostcode?: string | undefined; // Mã bưu điện
+  receiverEmail?: string | undefined;
   
   // Package info
   goodsName: string; // Tên hàng hóa
-  goodsDesc?: string; // Mô tả
+  goodsDesc?: string | undefined; // Mô tả
   weight: number; // Khối lượng (kg)
   quantity: number; // Số lượng kiện
-  length?: number; // Dài (cm)
-  width?: number; // Rộng (cm)
-  height?: number; // Cao (cm)
+  length?: number | undefined; // Dài (cm)
+  width?: number | undefined; // Rộng (cm)
+  height?: number | undefined; // Cao (cm)
   
   // Value
-  goodsValue?: number; // Giá trị hàng hóa (VNĐ)
+  goodsValue?: number | undefined; // Giá trị hàng hóa (VNĐ)
   codAmount: number; // Tiền CoD (VNĐ)
   
   // Additional
-  note?: string; // Ghi chú
-  deliveryType?: 'HOME' | 'OFFICE'; // Loại địa chỉ giao hàng
+  note?: string | undefined; // Ghi chú
+  deliveryType?: 'HOME' | 'OFFICE' | undefined; // Loại địa chỉ giao hàng
   
   // Items list (optional for better tracking)
   items?: Array<{
     itemName: string;
     itemQuantity: number;
-    itemPrice?: number;
-    itemWeight?: number;
-  }>;
+    itemPrice?: number | undefined;
+    itemWeight?: number | undefined;
+  }> | undefined;
 };
 
 /**
@@ -156,11 +156,11 @@ export type JNTCreateOrderParams = {
  */
 export class JNTService {
   private apiKey: string;
-  private apiSecret?: string;
-  private customerCode?: string; // Mã khách hàng
+  private apiSecret?: string | undefined;
+  private customerCode?: string | undefined; // Mã khách hàng
   private testMode: boolean;
 
-  constructor(apiKey: string, apiSecret?: string, customerCode?: string, testMode: boolean = false) {
+  constructor(apiKey: string, apiSecret?: string | undefined, customerCode?: string | undefined, testMode: boolean = false) {
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
     this.customerCode = customerCode;

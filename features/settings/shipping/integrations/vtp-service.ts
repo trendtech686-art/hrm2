@@ -173,8 +173,8 @@ export type VTPCreateOrderParams = {
  */
 export class VTPService {
   private apiToken: string;
-  private username?: string; // Account username
-  private password?: string; // Account password
+  private username: string | undefined; // Account username
+  private password: string | undefined; // Account password
 
   constructor(apiToken: string, username?: string, password?: string) {
     this.apiToken = apiToken;

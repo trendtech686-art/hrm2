@@ -1,13 +1,17 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs.tsx';
+import { TabsContent } from '../../../components/ui/tabs.tsx';
 import { Label } from '../../../components/ui/label.tsx';
 import { Input } from '../../../components/ui/input.tsx';
+import { SettingsFormGrid } from '../../../components/settings/forms/SettingsFormGrid.tsx';
+import { SettingsFormSection } from '../../../components/settings/forms/SettingsFormSection.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { Switch } from '../../../components/ui/switch.tsx';
 import { Textarea } from '../../../components/ui/textarea.tsx';
 import { TailwindColorPicker } from '../../../components/ui/tailwind-color-picker.tsx';
 import { cn } from '../../../lib/utils.ts';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -17,16 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../../components/ui/dialog.tsx';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../components/ui/alert-dialog.tsx';
 import { 
   Select,
   SelectContent,
@@ -45,16 +39,21 @@ import {
 import { 
   AlertCircle,
   Bell,
-  Clock,
-  Link as LinkIcon,
-  MessageSquare,
+  MoreHorizontal,
   Plus,
   Save,
-  Trash2,
 } from 'lucide-react';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
-import { ResponsiveContainer } from '../../../components/mobile/responsive-container.tsx';
-import { useMediaQuery } from '../../../lib/use-media-query.ts';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu.tsx';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
+import { createSettingsConfigStore } from '../settings-config-store.ts';
+import { useTabActionRegistry } from '../use-tab-action-registry.ts';
 
 // ============================================
 // INTERFACES
@@ -187,34 +186,72 @@ const defaultTemplates: ResponseTemplate[] = [
   },
 ];
 
+const WARRANTY_SLA_PRIORITY_CONFIGS: Array<{
+  key: keyof SLASettings;
+  label: string;
+  description: string;
+  indicatorClass: string;
+}> = [
+  {
+    key: 'low',
+    label: 'Ưu tiên thấp',
+    description: 'Các yêu cầu bảo hành cơ bản, không ảnh hưởng đến trải nghiệm khách hàng.',
+    indicatorClass: 'bg-green-500',
+  },
+  {
+    key: 'medium',
+    label: 'Ưu tiên trung bình',
+    description: 'Cần xử lý trong vòng 2-3 ngày làm việc.',
+    indicatorClass: 'bg-yellow-500',
+  },
+  {
+    key: 'high',
+    label: 'Ưu tiên cao',
+    description: 'Sản phẩm lỗi gây gián đoạn sử dụng, cần phản hồi trong ngày.',
+    indicatorClass: 'bg-orange-500',
+  },
+  {
+    key: 'urgent',
+    label: 'Ưu tiên khẩn cấp',
+    description: 'Sự cố nghiêm trọng, yêu cầu phản hồi trong vòng 1 giờ.',
+    indicatorClass: 'bg-red-500',
+  },
+];
+
 // ============================================
-// STORAGE HELPERS
+// SETTINGS STORE
 // ============================================
 
-const STORAGE_KEYS = {
-  SLA: 'warranty-sla-settings',
-  TEMPLATES: 'warranty-templates',
-  NOTIFICATIONS: 'warranty-notification-settings',
-  PUBLIC_TRACKING: 'warranty-public-tracking-settings',
-  CARD_COLORS: 'warranty-card-colors',
+type WarrantySettingsState = {
+  sla: SLASettings;
+  templates: ResponseTemplate[];
+  notifications: NotificationSettings;
+  publicTracking: PublicTrackingSettings;
+  cardColors: CardColorSettings;
 };
 
-// Export function to load card colors from other components
-export function loadCardColorSettings(): CardColorSettings {
-  return loadSettings(STORAGE_KEYS.CARD_COLORS, defaultCardColors);
-}
-
-function loadSettings<T>(key: string, defaultValue: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  } catch {
-    return defaultValue;
+const clone = <T,>(value: T): T => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
   }
-}
+  return JSON.parse(JSON.stringify(value));
+};
 
-function saveSettings<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
+const createDefaultWarrantySettings = (): WarrantySettingsState => ({
+  sla: clone(defaultSLA),
+  templates: clone(defaultTemplates),
+  notifications: clone(defaultNotifications),
+  publicTracking: clone(defaultPublicTracking),
+  cardColors: clone(defaultCardColors),
+});
+
+const useWarrantySettingsStore = createSettingsConfigStore<WarrantySettingsState>({
+  storageKey: 'settings-warranty',
+  getDefaultState: createDefaultWarrantySettings,
+});
+
+export function loadCardColorSettings(): CardColorSettings {
+  return clone(useWarrantySettingsStore.getState().data.cardColors);
 }
 
 // ============================================
@@ -222,17 +259,26 @@ function saveSettings<T>(key: string, value: T): void {
 // ============================================
 
 export function WarrantySettingsPage() {
-  const isMobile = !useMediaQuery("(min-width: 768px)");
+  const [activeTab, setActiveTab] = React.useState('sla');
+  const { headerActions, registerActions } = useTabActionRegistry(activeTab);
+
+  const storedSla = useWarrantySettingsStore((state) => state.data.sla);
+  const registerSlaActions = React.useMemo(() => registerActions('sla'), [registerActions]);
+  const registerTemplateActions = React.useMemo(() => registerActions('templates'), [registerActions]);
+  const registerNotificationActions = React.useMemo(() => registerActions('notifications'), [registerActions]);
+  const registerPublicTrackingActions = React.useMemo(() => registerActions('public-tracking'), [registerActions]);
+  const registerCardColorActions = React.useMemo(() => registerActions('card-colors'), [registerActions]);
+  const storedTemplates = useWarrantySettingsStore((state) => state.data.templates);
+  const storedNotifications = useWarrantySettingsStore((state) => state.data.notifications);
+  const storedPublicTracking = useWarrantySettingsStore((state) => state.data.publicTracking);
+  const storedCardColors = useWarrantySettingsStore((state) => state.data.cardColors);
+  const setStoreSection = useWarrantySettingsStore((state) => state.setSection);
 
   // SLA State
-  const [sla, setSLA] = React.useState<SLASettings>(() => 
-    loadSettings(STORAGE_KEYS.SLA, defaultSLA)
-  );
+  const [sla, setSLA] = React.useState<SLASettings>(storedSla);
 
   // Templates State
-  const [templates, setTemplates] = React.useState<ResponseTemplate[]>(() => 
-    loadSettings(STORAGE_KEYS.TEMPLATES, defaultTemplates)
-  );
+  const [templates, setTemplates] = React.useState<ResponseTemplate[]>(storedTemplates);
   const [editingTemplate, setEditingTemplate] = React.useState<ResponseTemplate | null>(null);
   const [isAddingTemplate, setIsAddingTemplate] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -240,29 +286,37 @@ export function WarrantySettingsPage() {
   const [showEditDialog, setShowEditDialog] = React.useState(false);
 
   // Notifications State
-  const [notifications, setNotifications] = React.useState<NotificationSettings>(() => 
-    loadSettings(STORAGE_KEYS.NOTIFICATIONS, defaultNotifications)
-  );
+  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications);
 
   // Public Tracking State
-  const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(() => 
-    loadSettings(STORAGE_KEYS.PUBLIC_TRACKING, defaultPublicTracking)
-  );
+  const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(storedPublicTracking);
 
   // Card Colors State
-  const [cardColors, setCardColors] = React.useState<CardColorSettings>(() => 
-    loadSettings(STORAGE_KEYS.CARD_COLORS, defaultCardColors)
-  );
+  const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors);
 
-  usePageHeader({
+  React.useEffect(() => {
+    setSLA(storedSla);
+  }, [storedSla]);
+
+  React.useEffect(() => {
+    setTemplates(storedTemplates);
+  }, [storedTemplates]);
+
+  React.useEffect(() => {
+    setNotifications(storedNotifications);
+  }, [storedNotifications]);
+
+  React.useEffect(() => {
+    setPublicTracking(storedPublicTracking);
+  }, [storedPublicTracking]);
+
+  React.useEffect(() => {
+    setCardColors(storedCardColors);
+  }, [storedCardColors]);
+
+  useSettingsPageHeader({
     title: 'Cài đặt bảo hành',
-    subtitle: 'Cấu hình SLA, mẫu phản hồi, thông báo và liên kết công khai',
-    breadcrumb: [
-      { label: 'Trang chủ', href: '/' },
-      { label: 'Cài đặt', href: '/settings' },
-      { label: 'Bảo hành', href: '/settings/warranty', isCurrent: true }
-    ],
-    actions: [], // Clear any previous actions
+    actions: headerActions,
   });
 
   // ============================================
@@ -298,16 +352,17 @@ export function WarrantySettingsPage() {
       }
     }
 
-    saveSettings(STORAGE_KEYS.SLA, sla);
-    toast.success('✅ Đã lưu cài đặt SLA', {
+    setStoreSection('sla', sla);
+    toast.success('Đã lưu cài đặt SLA', {
       description: 'Thời gian phản hồi và giải quyết đã được cập nhật.',
     });
   };
 
   const handleResetSLA = () => {
-    setSLA(defaultSLA);
-    saveSettings(STORAGE_KEYS.SLA, defaultSLA);
-    toast.success('✅ Đã đặt lại mặc định', {
+    const defaults = clone(defaultSLA);
+    setSLA(defaults);
+    setStoreSection('sla', defaults);
+    toast.info('Đã đặt lại mặc định', {
       description: 'Cài đặt SLA đã được khôi phục về giá trị mặc định.',
     });
   };
@@ -333,14 +388,14 @@ export function WarrantySettingsPage() {
 
     // Validation
     if (!editingTemplate.name.trim()) {
-      toast.error('❌ Lỗi validation', {
+      toast.error('Lỗi validation', {
         description: 'Vui lòng nhập tên mẫu.',
       });
       return;
     }
 
     if (!editingTemplate.content.trim()) {
-      toast.error('❌ Lỗi validation', {
+      toast.error('Lỗi validation', {
         description: 'Vui lòng nhập nội dung mẫu.',
       });
       return;
@@ -357,9 +412,9 @@ export function WarrantySettingsPage() {
     }
 
     setTemplates(updatedTemplates);
-    saveSettings(STORAGE_KEYS.TEMPLATES, updatedTemplates);
+    setStoreSection('templates', updatedTemplates);
     
-    toast.success(isAddingTemplate ? '✅ Đã thêm mẫu' : '✅ Đã cập nhật mẫu', {
+    toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu', {
       description: `Mẫu "${editingTemplate.name}" đã được lưu.`,
     });
 
@@ -379,9 +434,9 @@ export function WarrantySettingsPage() {
     const template = templates.find(t => t.id === templateToDelete);
     const updatedTemplates = templates.filter(t => t.id !== templateToDelete);
     setTemplates(updatedTemplates);
-    saveSettings(STORAGE_KEYS.TEMPLATES, updatedTemplates);
+    setStoreSection('templates', updatedTemplates);
     
-    toast.success('✅ Đã xóa mẫu', {
+    toast.success('Đã xóa mẫu', {
       description: `Mẫu "${template?.name}" đã được xóa.`,
     });
     
@@ -407,8 +462,8 @@ export function WarrantySettingsPage() {
   };
 
   const handleSaveNotifications = () => {
-    saveSettings(STORAGE_KEYS.NOTIFICATIONS, notifications);
-    toast.success('✅ Đã lưu cài đặt thông báo', {
+    setStoreSection('notifications', notifications);
+    toast.success('Đã lưu cài đặt thông báo', {
       description: 'Các tùy chọn thông báo đã được cập nhật.',
     });
   };
@@ -425,15 +480,15 @@ export function WarrantySettingsPage() {
   };
 
   const handleSavePublicTracking = () => {
-    saveSettings(STORAGE_KEYS.PUBLIC_TRACKING, publicTracking);
+    setStoreSection('publicTracking', publicTracking);
     
     // Show different message based on enabled state
     if (publicTracking.enabled) {
-      toast.success('✅ Đã bật tracking công khai', {
+      toast.success('Đã bật tracking công khai', {
         description: 'Khách hàng giờ có thể theo dõi tiến độ bảo hành qua link công khai.',
       });
     } else {
-      toast.success('✅ Đã tắt tracking công khai', {
+      toast.success('Đã tắt tracking công khai', {
         description: 'Tính năng tracking công khai đã được vô hiệu hóa.',
       });
     }
@@ -459,16 +514,17 @@ export function WarrantySettingsPage() {
   };
 
   const handleSaveCardColors = () => {
-    saveSettings(STORAGE_KEYS.CARD_COLORS, cardColors);
-    toast.success('✅ Đã lưu màu card', {
+    setStoreSection('cardColors', cardColors);
+    toast.success('Đã lưu màu card', {
       description: 'Cài đặt màu sắc card bảo hành đã được cập nhật. Refresh trang để xem thay đổi.',
     });
   };
 
   const handleResetCardColors = () => {
-    setCardColors(defaultCardColors);
-    saveSettings(STORAGE_KEYS.CARD_COLORS, defaultCardColors);
-    toast.success('✅ Đã đặt lại mặc định', {
+    const defaults = clone(defaultCardColors);
+    setCardColors(defaults);
+    setStoreSection('cardColors', defaults);
+    toast.info('Đã đặt lại mặc định', {
       description: 'Màu card đã được khôi phục về giá trị mặc định.',
     });
   };
@@ -477,36 +533,90 @@ export function WarrantySettingsPage() {
   // RENDER
   // ============================================
 
+    React.useEffect(() => {
+      if (activeTab !== 'sla') {
+        return;
+      }
+
+      registerSlaActions([
+        <SettingsActionButton key="save" onClick={handleSaveSLA}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerSlaActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'templates') {
+        return;
+      }
+
+      registerTemplateActions([
+        <SettingsActionButton key="add" onClick={handleAddTemplate}>
+          <Plus className="h-4 w-4" /> Thêm mẫu
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerTemplateActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'notifications') {
+        return;
+      }
+
+      registerNotificationActions([
+        <SettingsActionButton key="save" onClick={handleSaveNotifications}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerNotificationActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'public-tracking') {
+        return;
+      }
+
+      registerPublicTrackingActions([
+        <SettingsActionButton key="save" onClick={handleSavePublicTracking}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerPublicTrackingActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'card-colors') {
+        return;
+      }
+
+      registerCardColorActions([
+        <SettingsActionButton key="save" onClick={handleSaveCardColors}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerCardColorActions]);
+
+  const tabs = React.useMemo(
+    () => [
+      { value: 'sla', label: 'SLA' },
+      { value: 'templates', label: 'Mẫu biểu' },
+      { value: 'notifications', label: 'Thông báo' },
+      { value: 'public-tracking', label: 'Tracking' },
+      { value: 'card-colors', label: 'Màu card' },
+    ],
+    [],
+  );
+
   return (
-    <ResponsiveContainer maxWidth="full" padding={isMobile ? "sm" : "md"}>
-      <Tabs defaultValue="sla" className="space-y-6">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3' : 'grid-cols-5'}`}>
-          <TabsTrigger value="sla" className={isMobile ? 'text-xs' : ''}>
-            <Clock className="h-4 w-4 mr-2" />
-            {!isMobile && 'SLA'}
-          </TabsTrigger>
-          <TabsTrigger value="templates" className={isMobile ? 'text-xs' : ''}>
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {!isMobile && 'Mẫu phản hồi'}
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className={isMobile ? 'text-xs' : ''}>
-            <Bell className="h-4 w-4 mr-2" />
-            {!isMobile && 'Thông báo'}
-          </TabsTrigger>
-          <TabsTrigger value="public-tracking" className={isMobile ? 'text-xs' : ''}>
-            <LinkIcon className="h-4 w-4 mr-2" />
-            {!isMobile && 'Tracking'}
-          </TabsTrigger>
-          <TabsTrigger value="card-colors" className={isMobile ? 'text-xs' : ''}>
-            <Plus className="h-4 w-4 mr-2" />
-            {!isMobile && 'Màu card'}
-          </TabsTrigger>
-        </TabsList>
+      <div className="space-y-6">
+        <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
 
         {/* ============================================ */}
         {/* TAB 1: SLA SETTINGS */}
         {/* ============================================ */}
-        <TabsContent value="sla" className="space-y-4">
+        <TabsContent value="sla" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Cài đặt SLA (Service Level Agreement)</CardTitle>
@@ -515,136 +625,42 @@ export function WarrantySettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Low Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500" />
-                  <h3 className="font-semibold">Ưu tiên thấp</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="low-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="low-response"
-                      type="number"
-                      value={sla.low.responseTime}
-                      onChange={(e) => handleSLAChange('low', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="low-resolve">Thời gian xử lý tối đa (giờ)</Label>
-                    <Input
-                      id="low-resolve"
-                      type="number"
-                      value={sla.low.resolveTime}
-                      onChange={(e) => handleSLAChange('low', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Medium Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                  <h3 className="font-semibold">Ưu tiên trung bình</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="medium-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="medium-response"
-                      type="number"
-                      value={sla.medium.responseTime}
-                      onChange={(e) => handleSLAChange('medium', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="medium-resolve">Thời gian xử lý tối đa (giờ)</Label>
-                    <Input
-                      id="medium-resolve"
-                      type="number"
-                      value={sla.medium.resolveTime}
-                      onChange={(e) => handleSLAChange('medium', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* High Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-orange-500" />
-                  <h3 className="font-semibold">Ưu tiên cao</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="high-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="high-response"
-                      type="number"
-                      value={sla.high.responseTime}
-                      onChange={(e) => handleSLAChange('high', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="high-resolve">Thời gian xử lý tối đa (giờ)</Label>
-                    <Input
-                      id="high-resolve"
-                      type="number"
-                      value={sla.high.resolveTime}
-                      onChange={(e) => handleSLAChange('high', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Urgent Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-500" />
-                  <h3 className="font-semibold">Ưu tiên khẩn cấp</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="urgent-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="urgent-response"
-                      type="number"
-                      value={sla.urgent.responseTime}
-                      onChange={(e) => handleSLAChange('urgent', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="urgent-resolve">Thời gian xử lý tối đa (giờ)</Label>
-                    <Input
-                      id="urgent-resolve"
-                      type="number"
-                      value={sla.urgent.resolveTime}
-                      onChange={(e) => handleSLAChange('urgent', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <Button onClick={handleSaveSLA}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-                <Button variant="outline" onClick={handleResetSLA}>
-                  Đặt lại mặc định
-                </Button>
-              </div>
+              {WARRANTY_SLA_PRIORITY_CONFIGS.map(({ key, label, description, indicatorClass }) => (
+                <SettingsFormSection
+                  key={key}
+                  title={label}
+                  description={description}
+                  badge={(
+                    <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
+                      <span className={cn('h-2 w-2 rounded-full', indicatorClass)} />
+                      SLA
+                    </span>
+                  )}
+                >
+                  <SettingsFormGrid>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${key}-response`}>Thời gian phản hồi tối đa (phút)</Label>
+                      <Input
+                        id={`${key}-response`}
+                        type="number"
+                        min="0"
+                        value={sla[key].responseTime}
+                        onChange={(e) => handleSLAChange(key, 'responseTime', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${key}-resolve`}>Thời gian xử lý tối đa (giờ)</Label>
+                      <Input
+                        id={`${key}-resolve`}
+                        type="number"
+                        min="0"
+                        value={sla[key].resolveTime}
+                        onChange={(e) => handleSLAChange(key, 'resolveTime', e.target.value)}
+                      />
+                    </div>
+                  </SettingsFormGrid>
+                </SettingsFormSection>
+              ))}
             </CardContent>
           </Card>
 
@@ -712,21 +728,13 @@ export function WarrantySettingsPage() {
         {/* ============================================ */}
         {/* TAB 2: RESPONSE TEMPLATES */}
         {/* ============================================ */}
-        <TabsContent value="templates" className="space-y-4">
+        <TabsContent value="templates" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Mẫu phản hồi</CardTitle>
-                  <CardDescription>
-                    Tạo và quản lý các mẫu phản hồi nhanh cho bảo hành
-                  </CardDescription>
-                </div>
-                <Button onClick={handleAddTemplate} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Thêm mẫu
-                </Button>
-              </div>
+              <CardTitle>Mẫu phản hồi</CardTitle>
+              <CardDescription>
+                Tạo và quản lý các mẫu phản hồi nhanh cho bảo hành
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {templates.length === 0 ? (
@@ -757,26 +765,29 @@ export function WarrantySettingsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
                                 setEditingTemplate(template);
                                 setIsAddingTemplate(false);
                                 setShowEditDialog(true);
-                              }}
-                            >
-                              Sửa
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteTemplate(template.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+                              }}>
+                                Sửa
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteTemplate(template.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -790,7 +801,7 @@ export function WarrantySettingsPage() {
         {/* ============================================ */}
         {/* TAB 3: NOTIFICATIONS */}
         {/* ============================================ */}
-        <TabsContent value="notifications" className="space-y-4">
+        <TabsContent value="notifications" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Cài đặt thông báo</CardTitle>
@@ -799,14 +810,13 @@ export function WarrantySettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Email Notifications */}
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Thông báo Email
-                </h3>
-                
-                <div className="space-y-3 pl-6">
+              <SettingsFormSection
+                title="Thông báo Email"
+                description="Gửi cập nhật đến khách hàng và đội bảo hành cho từng giai đoạn."
+                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
+                contentClassName="space-y-3"
+              >
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="email-create" className="cursor-pointer">
                       Khi bảo hành mới được tạo
@@ -873,57 +883,41 @@ export function WarrantySettingsPage() {
                     />
                   </div>
                 </div>
-              </div>
+              </SettingsFormSection>
 
-              {/* SMS Notifications */}
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  Thông báo SMS
-                </h3>
-                
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="sms-overdue" className="cursor-pointer">
-                      Cảnh báo quá hạn SLA
-                    </Label>
-                    <Switch
-                      id="sms-overdue"
-                      checked={notifications.smsOnOverdue}
-                      onCheckedChange={() => handleNotificationChange('smsOnOverdue')}
-                    />
-                  </div>
+              <SettingsFormSection
+                title="Thông báo SMS"
+                description="Chỉ bật cho các sự kiện cần phản hồi tức thì để tránh spam."
+                badge={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
+              >
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sms-overdue" className="cursor-pointer">
+                    Cảnh báo quá hạn SLA
+                  </Label>
+                  <Switch
+                    id="sms-overdue"
+                    checked={notifications.smsOnOverdue}
+                    onCheckedChange={() => handleNotificationChange('smsOnOverdue')}
+                  />
                 </div>
-              </div>
+              </SettingsFormSection>
 
-              {/* In-App Notifications */}
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Thông báo trong ứng dụng
-                </h3>
-                
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="inapp" className="cursor-pointer">
-                      Bật thông báo in-app (bell icon)
-                    </Label>
-                    <Switch
-                      id="inapp"
-                      checked={notifications.inAppNotifications}
-                      onCheckedChange={() => handleNotificationChange('inAppNotifications')}
-                    />
-                  </div>
+              <SettingsFormSection
+                title="Thông báo trong ứng dụng"
+                description="Hiển thị trong bell icon của hệ thống HRM."
+                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
+              >
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="inapp" className="cursor-pointer">
+                    Bật thông báo in-app (bell icon)
+                  </Label>
+                  <Switch
+                    id="inapp"
+                    checked={notifications.inAppNotifications}
+                    onCheckedChange={() => handleNotificationChange('inAppNotifications')}
+                  />
                 </div>
-              </div>
-
-              {/* Save Button */}
-              <div className="pt-4">
-                <Button onClick={handleSaveNotifications}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-              </div>
+              </SettingsFormSection>
             </CardContent>
           </Card>
         </TabsContent>
@@ -931,7 +925,7 @@ export function WarrantySettingsPage() {
         {/* ============================================ */}
         {/* TAB 4: PUBLIC TRACKING */}
         {/* ============================================ */}
-        <TabsContent value="public-tracking" className="space-y-4">
+        <TabsContent value="public-tracking" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Liên kết theo dõi công khai</CardTitle>
@@ -940,75 +934,80 @@ export function WarrantySettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label htmlFor="tracking-enabled" className="cursor-pointer">
-                      Bật tính năng tracking công khai
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Tạo link công khai để khách hàng theo dõi bảo hành
-                    </p>
+              <SettingsFormSection
+                title="Cấu hình truy cập công khai"
+                description="Kiểm soát dữ liệu nào được chia sẻ cho khách hàng qua link bảo hành."
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="tracking-enabled" className="cursor-pointer">
+                        Bật tính năng tracking công khai
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Tạo link công khai để khách hàng tự theo dõi tiến độ
+                      </p>
+                    </div>
+                    <Switch
+                      id="tracking-enabled"
+                      checked={publicTracking.enabled}
+                      onCheckedChange={() => handlePublicTrackingChange('enabled')}
+                    />
                   </div>
-                  <Switch
-                    id="tracking-enabled"
-                    checked={publicTracking.enabled}
-                    onCheckedChange={() => handlePublicTrackingChange('enabled')}
-                  />
+
+                  {publicTracking.enabled && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="allow-comments" className="cursor-pointer">
+                            Cho phép khách hàng comment
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Thu thập thêm bằng chứng trực tiếp từ khách hàng
+                          </p>
+                        </div>
+                        <Switch
+                          id="allow-comments"
+                          checked={publicTracking.allowCustomerComments}
+                          onCheckedChange={() => handlePublicTrackingChange('allowCustomerComments')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-employee" className="cursor-pointer">
+                            Hiển thị tên nhân viên xử lý
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Tăng tính minh bạch và trách nhiệm
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-employee"
+                          checked={publicTracking.showEmployeeName}
+                          onCheckedChange={() => handlePublicTrackingChange('showEmployeeName')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-timeline" className="cursor-pointer">
+                            Hiển thị timeline xử lý
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Cho phép khách hàng xem toàn bộ lịch sử thao tác
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-timeline"
+                          checked={publicTracking.showTimeline}
+                          onCheckedChange={() => handlePublicTrackingChange('showTimeline')}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                {publicTracking.enabled && (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label htmlFor="allow-comments" className="cursor-pointer">
-                          Cho phép khách hàng comment
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Khách hàng có thể thêm bình luận vào yêu cầu bảo hành
-                        </p>
-                      </div>
-                      <Switch
-                        id="allow-comments"
-                        checked={publicTracking.allowCustomerComments}
-                        onCheckedChange={() => handlePublicTrackingChange('allowCustomerComments')}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label htmlFor="show-employee" className="cursor-pointer">
-                          Hiển thị tên nhân viên xử lý
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Khách hàng có thể xem tên nhân viên được phân công
-                        </p>
-                      </div>
-                      <Switch
-                        id="show-employee"
-                        checked={publicTracking.showEmployeeName}
-                        onCheckedChange={() => handlePublicTrackingChange('showEmployeeName')}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label htmlFor="show-timeline" className="cursor-pointer">
-                          Hiển thị timeline xử lý
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Khách hàng có thể xem lịch sử xử lý chi tiết
-                        </p>
-                      </div>
-                      <Switch
-                        id="show-timeline"
-                        checked={publicTracking.showTimeline}
-                        onCheckedChange={() => handlePublicTrackingChange('showTimeline')}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+              </SettingsFormSection>
 
               {/* Example */}
               {publicTracking.enabled && (
@@ -1022,14 +1021,6 @@ export function WarrantySettingsPage() {
                   </p>
                 </div>
               )}
-
-              {/* Save Button */}
-              <div className="pt-4">
-                <Button onClick={handleSavePublicTracking}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1037,7 +1028,7 @@ export function WarrantySettingsPage() {
         {/* ============================================ */}
         {/* TAB 5: CARD COLORS */}
         {/* ============================================ */}
-        <TabsContent value="card-colors" className="space-y-4">
+        <TabsContent value="card-colors" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Màu sắc card bảo hành (Kanban View)</CardTitle>
@@ -1046,57 +1037,61 @@ export function WarrantySettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Toggle Controls */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="enable-overdue">Màu quá hạn SLA</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Override tất cả màu khác khi phiếu quá hạn (ưu tiên cao nhất)
-                    </p>
+              <SettingsFormSection
+                title="Kiểu màu hiển thị"
+                description="Ưu tiên: quá hạn → trạng thái → màu mặc định."
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="enable-overdue">Màu quá hạn SLA</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Override tất cả màu khác khi phiếu quá hạn
+                      </p>
+                    </div>
+                    <Switch
+                      id="enable-overdue"
+                      checked={cardColors.enableOverdueColor}
+                      onCheckedChange={() => handleCardColorToggle('enableOverdueColor')}
+                    />
                   </div>
-                  <Switch
-                    id="enable-overdue"
-                    checked={cardColors.enableOverdueColor}
-                    onCheckedChange={() => handleCardColorToggle('enableOverdueColor')}
-                  />
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="enable-status">Màu theo trạng thái</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Hiển thị màu theo trạng thái xử lý
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="enable-status">Màu theo trạng thái</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Hiển thị màu dựa trên tiến trình xử lý
+                      </p>
+                    </div>
+                    <Switch
+                      id="enable-status"
+                      checked={cardColors.enableStatusColors}
+                      onCheckedChange={() => handleCardColorToggle('enableStatusColors')}
+                    />
                   </div>
-                  <Switch
-                    id="enable-status"
-                    checked={cardColors.enableStatusColors}
-                    onCheckedChange={() => handleCardColorToggle('enableStatusColors')}
-                  />
                 </div>
-              </div>
+              </SettingsFormSection>
 
-              {/* Overdue Color */}
               {cardColors.enableOverdueColor && (
-                <div className="space-y-3 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20">
-                  <h3 className="font-semibold text-red-600 dark:text-red-400">
-                    Màu quá hạn SLA
-                  </h3>
+                <SettingsFormSection
+                  title="Màu quá hạn SLA"
+                  description="Áp dụng ngay khi phiếu vượt SLA, bỏ qua các thiết lập khác."
+                  className="bg-red-50/50 dark:bg-red-950/20"
+                >
                   <TailwindColorPicker
                     value={cardColors.overdueColor}
                     onChange={(value) => handleCardColorChange('overdueColor', '', value)}
                     label="Màu nền và viền"
                     placeholder="Ví dụ: bg-red-50 border-red-400"
                   />
-                </div>
+                </SettingsFormSection>
               )}
 
-              {/* Status Colors */}
               {cardColors.enableStatusColors && (
-                <div className="space-y-3 p-4 border rounded-lg">
-                  <h3 className="font-semibold">Màu theo trạng thái</h3>
-                  
+                <SettingsFormSection
+                  title="Màu theo trạng thái"
+                  description="Sử dụng dải màu trực quan để phân biệt tiến độ bảo hành."
+                >
                   <div className="space-y-4">
                     <TailwindColorPicker
                       value={cardColors.statusColors.new}
@@ -1126,7 +1121,7 @@ export function WarrantySettingsPage() {
                       placeholder="Ví dụ: bg-gray-50 border-gray-200"
                     />
                   </div>
-                </div>
+                </SettingsFormSection>
               )}
 
               {/* Info Box */}
@@ -1140,21 +1135,10 @@ export function WarrantySettingsPage() {
                   <li>Màu mặc định (nếu tắt tất cả)</li>
                 </ol>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <Button onClick={handleSaveCardColors}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-                <Button variant="outline" onClick={handleResetCardColors}>
-                  Đặt lại mặc định
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+        </SettingsVerticalTabs>
 
       {/* Edit/Add Template Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
@@ -1233,31 +1217,17 @@ export function WarrantySettingsPage() {
       </Dialog>
 
       {/* Delete Template Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa mẫu phản hồi</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa mẫu phản hồi này? Hành động này không thể hoàn tác.
-              {templateToDelete && (
-                <div className="mt-2 p-2 bg-muted rounded text-sm font-medium">
-                  Mẫu: {templates.find(t => t.id === templateToDelete)?.name}
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDeleteTemplate}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Xóa mẫu
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Xác nhận xóa mẫu phản hồi"
+        description={`Bạn có chắc chắn muốn xóa mẫu "${templates.find(t => t.id === templateToDelete)?.name || ''}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa mẫu"
+        cancelText="Hủy"
+        variant="destructive"
+        onConfirm={confirmDeleteTemplate}
+      />
 
-    </ResponsiveContainer>
+    </div>
   );
 }

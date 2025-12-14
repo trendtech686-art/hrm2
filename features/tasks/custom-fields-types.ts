@@ -1,4 +1,5 @@
 import type { SystemId } from '../../lib/id-types';
+import { formatDateForDisplay } from '@/lib/date-utils';
 
 export type CustomFieldType = 
   | 'text'       // Short text input
@@ -24,37 +25,37 @@ export interface CustomFieldDefinition {
   systemId: SystemId;
   id: string; // FIELD-XXX
   name: string;
-  description?: string;
+  description?: string | undefined;
   type: CustomFieldType;
   
   // For select/multiselect types
-  options?: CustomFieldOption[];
+  options?: CustomFieldOption[] | undefined;
   
   // Validation
-  required?: boolean;
+  required?: boolean | undefined;
   defaultValue?: any;
   
   // For number/currency/percentage
-  min?: number;
-  max?: number;
-  step?: number; // Step increment for number inputs
+  min?: number | undefined;
+  max?: number | undefined;
+  step?: number | undefined; // Step increment for number inputs
   
   // For text/textarea
-  maxLength?: number;
-  pattern?: string; // Regex pattern
+  maxLength?: number | undefined;
+  pattern?: string | undefined; // Regex pattern
   
   // Display
-  placeholder?: string;
-  helpText?: string;
+  placeholder?: string | undefined;
+  helpText?: string | undefined;
   
   // Categorization
-  category?: string; // Group fields by category
+  category?: string | undefined; // Group fields by category
   order: number; // Display order
   
   // Visibility & Access
   isActive: boolean;
-  visibleToRoles?: string[]; // Empty = visible to all
-  editableByRoles?: string[]; // Empty = editable by all
+  visibleToRoles?: string[] | undefined; // Empty = visible to all
+  editableByRoles?: string[] | undefined; // Empty = editable by all
   
   // Metadata
   createdBy: string;
@@ -279,7 +280,7 @@ export function formatFieldValue(field: CustomFieldDefinition, value: any): stri
         .join(', ');
 
     case 'date':
-      return new Date(value).toLocaleDateString('vi-VN');
+      return formatDateForDisplay(value);
 
     default:
       return String(value);

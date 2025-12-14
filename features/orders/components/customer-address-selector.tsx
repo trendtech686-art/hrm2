@@ -7,6 +7,7 @@ import { Card, CardContent } from '../../../components/ui/card.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog.tsx';
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group.tsx';
+import { Switch } from '../../../components/ui/switch.tsx';
 import { useCustomerStore } from '../../customers/store.ts';
 import { Badge } from '../../../components/ui/badge.tsx';
 import { AddressBidirectionalConverter } from '../../customers/components/address-bidirectional-converter.tsx';
@@ -353,58 +354,52 @@ export function CustomerAddressSelector({
         <>
             {/* Shipping Address Card */}
             {!hideCards && (
-                <>
-                    <Card>
-                        <CardContent className="pt-4">
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                    <div className="mb-2">
-                                        <span className="font-semibold text-sm">ĐỊA CHỈ GIAO HÀNG</span>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {displayedShippingAddr ? formatAddress(displayedShippingAddr) : 'Chưa có địa chỉ giao hàng'}
-                                    </p>
-                                </div>
-                                {!disabled && (
-                                    <Button 
-                                        variant="link" 
-                                        className="p-0 h-auto text-primary" 
-                                        type="button" 
-                                        onClick={handleOpenShippingDialog}
-                                    >
-                                        Thay đổi
-                                    </Button>
-                                )}
+                <div className="space-y-2">
+                    <div className="border rounded-md p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Địa chỉ giao hàng</span>
+                                <p className="text-sm truncate mt-0.5">
+                                    {displayedShippingAddr ? formatAddress(displayedShippingAddr) : 'Chưa có địa chỉ'}
+                                </p>
                             </div>
-                        </CardContent>
-                    </Card>
+                            {!disabled && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-primary" 
+                                    type="button" 
+                                    onClick={handleOpenShippingDialog}
+                                >
+                                    Thay đổi
+                                </Button>
+                            )}
+                        </div>
+                    </div>
 
                     {/* Billing Address Card */}
-                    <Card>
-                        <CardContent className="pt-4">
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                    <div className="mb-2">
-                                        <span className="font-semibold text-sm">ĐỊA CHỈ NHẬN HÓA ĐƠN</span>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {displayedBillingAddr ? formatAddress(displayedBillingAddr) : 'Chưa có địa chỉ nhận hóa đơn'}
-                                    </p>
-                                </div>
-                                {!disabled && (
-                                    <Button 
-                                        variant="link" 
-                                        className="p-0 h-auto text-primary" 
-                                        type="button" 
-                                        onClick={handleOpenBillingDialog}
-                                    >
-                                        Thay đổi
-                                    </Button>
-                                )}
+                    <div className="border rounded-md p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Địa chỉ nhận hóa đơn</span>
+                                <p className="text-sm truncate mt-0.5">
+                                    {displayedBillingAddr ? formatAddress(displayedBillingAddr) : 'Chưa có địa chỉ'}
+                                </p>
                             </div>
-                        </CardContent>
-                    </Card>
-                </>
+                            {!disabled && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-primary" 
+                                    type="button" 
+                                    onClick={handleOpenBillingDialog}
+                                >
+                                    Thay đổi
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -417,65 +412,94 @@ export function CustomerAddressSelector({
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                        <RadioGroup value={selectedAddressId} onValueChange={handleSelectAddress}>
-                            {addresses.map((address) => (
-                                <div key={`address-${address.id}`} className="flex items-start space-x-2 p-3 border rounded-lg hover:bg-muted/50">
-                                    <RadioGroupItem value={address.id} id={`addr-radio-${address.id}`} className="mt-1" />
-                                    <label htmlFor={`addr-radio-${address.id}`} className="flex-1 cursor-pointer">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="font-medium">{formatAddress(address)}</span>
-                                            {(address.isDefaultShipping || address.isDefaultBilling) && (
-                                                <Badge variant="default" className="text-xs bg-green-600">
-                                                    Mặc định
+                        <div className="border rounded-lg">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b bg-muted/50">
+                                        <th className="h-10 px-3 text-left text-xs font-medium text-muted-foreground w-10"></th>
+                                        <th className="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Địa chỉ</th>
+                                        <th className="h-10 px-3 text-center text-xs font-medium text-muted-foreground w-24">Giao hàng</th>
+                                        <th className="h-10 px-3 text-center text-xs font-medium text-muted-foreground w-24">Hóa đơn</th>
+                                        <th className="h-10 px-3 text-center text-xs font-medium text-muted-foreground w-20">Cấp</th>
+                                        <th className="h-10 px-3 text-right text-xs font-medium text-muted-foreground w-12"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {addresses.map((address) => (
+                                        <tr 
+                                            key={`address-${address.id}`} 
+                                            className={`border-b last:border-0 hover:bg-muted/50 cursor-pointer ${selectedAddressId === address.id ? 'bg-muted/50' : ''}`}
+                                            onClick={() => handleSelectAddress(address.id)}
+                                        >
+                                            <td className="p-3">
+                                                <RadioGroup value={selectedAddressId} onValueChange={handleSelectAddress}>
+                                                    <RadioGroupItem value={address.id} id={`addr-radio-${address.id}`} />
+                                                </RadioGroup>
+                                            </td>
+                                            <td className="p-3">
+                                                <label htmlFor={`addr-radio-${address.id}`} className="font-medium text-sm cursor-pointer">
+                                                    {formatAddress(address)}
+                                                </label>
+                                            </td>
+                                            <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex justify-center">
+                                                    <Switch
+                                                        checked={address.isDefaultShipping}
+                                                        onCheckedChange={() => handleSetDefault(address.id, 'shipping')}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex justify-center">
+                                                    <Switch
+                                                        checked={address.isDefaultBilling}
+                                                        onCheckedChange={() => handleSetDefault(address.id, 'billing')}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <Badge 
+                                                    variant={address.inputLevel === '3-level' ? 'secondary' : 'outline'} 
+                                                    className="text-xs"
+                                                >
+                                                    {address.inputLevel === '3-level' ? '3 cấp' : '2 cấp'}
                                                 </Badge>
-                                            )}
-                                            <Badge 
-                                                variant={address.inputLevel === '3-level' ? 'secondary' : 'outline'} 
-                                                className="text-xs"
-                                            >
-                                                {address.inputLevel === '3-level' ? '3 cấp' : '2 cấp'}
-                                            </Badge>
-                                        </div>
-                                    </label>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 w-8 p-0"
-                                                onClick={(e) => e.preventDefault()}
-                                            >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                                <span className="sr-only">Mở menu</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-[220px]">
-                                            <DropdownMenuItem onClick={() => handleEditAddress(address)}>
-                                                Sửa
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleSetDefault(address.id, 'shipping')}>
-                                                {address.isDefaultShipping ? '✓ Mặc định giao hàng' : 'Đặt làm mặc định giao hàng'}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleSetDefault(address.id, 'billing')}>
-                                                {address.isDefaultBilling ? '✓ Mặc định hóa đơn' : 'Đặt làm mặc định hóa đơn'}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => handleConvertAddress(address)}>
-                                                {address.inputLevel === '3-level' ? 'Chuyển sang 2 cấp' : 'Chuyển sang 3 cấp'}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem 
-                                                onClick={() => handleDeleteAddress(address.id)}
-                                                className="text-destructive focus:text-destructive"
-                                            >
-                                                Xóa
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                            ))}
-                        </RadioGroup>
+                                            </td>
+                                            <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                        >
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                            <span className="sr-only">Mở menu</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-[180px]">
+                                                        <DropdownMenuItem onClick={() => handleEditAddress(address)}>
+                                                            Sửa
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleConvertAddress(address)}>
+                                                            {address.inputLevel === '3-level' ? 'Chuyển sang 2 cấp' : 'Chuyển sang 3 cấp'}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem 
+                                                            onClick={() => handleDeleteAddress(address.id)}
+                                                            className="text-destructive focus:text-destructive"
+                                                        >
+                                                            Xóa
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
                         <Button
                             type="button"

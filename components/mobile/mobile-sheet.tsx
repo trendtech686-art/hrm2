@@ -45,7 +45,7 @@ export function MobileSheet({
   className,
 }: MobileSheetProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet {...(open !== undefined ? { open } : {})} {...(onOpenChange ? { onOpenChange } : {})}>
       {trigger && <SheetTrigger asChild>{trigger}</SheetTrigger>}
       
       <SheetContent

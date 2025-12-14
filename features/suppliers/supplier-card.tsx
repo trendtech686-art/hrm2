@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/badge.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { MoreHorizontal, Phone, Mail, MapPin, User, Building2, CreditCard, RotateCcw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import { formatDateForDisplay } from '@/lib/date-utils';
 import type { SystemId } from '@/lib/id-types';
 
 interface SupplierCardProps {
@@ -34,10 +35,10 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <CardTitle className="text-base truncate">{supplier.name}</CardTitle>
+              <CardTitle className="text-h3 truncate">{supplier.name}</CardTitle>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-muted-foreground font-mono">{supplier.id}</span>
+              <span className="text-body-sm text-muted-foreground font-mono">{supplier.id}</span>
               <Badge variant={statusVariant as any}>{supplier.status}</Badge>
               {isDeleted && <Badge variant="destructive">Đã xóa</Badge>}
             </div>
@@ -100,19 +101,19 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
         {/* Contact Info */}
         <div className="space-y-2">
           {supplier.phone && (
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-body-sm">
               <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span className="truncate">{supplier.phone}</span>
             </div>
           )}
           {supplier.email && (
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-body-sm">
               <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span className="truncate">{supplier.email}</span>
             </div>
           )}
           {supplier.address && (
-            <div className="flex items-start gap-2 text-sm">
+            <div className="flex items-start gap-2 text-body-sm">
               <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               <span className="line-clamp-2">{supplier.address}</span>
             </div>
@@ -122,13 +123,13 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
         {/* Additional Info */}
         <div className="grid grid-cols-2 gap-2 pt-2 border-t">
           {supplier.taxCode && (
-            <div className="text-sm">
+            <div className="text-body-sm">
               <span className="text-muted-foreground">MST:</span>
               <div className="font-medium">{supplier.taxCode}</div>
             </div>
           )}
           {supplier.accountManager && (
-            <div className="text-sm">
+            <div className="text-body-sm">
               <span className="text-muted-foreground flex items-center gap-1">
                 <User className="h-3 w-3" /> Phụ trách:
               </span>
@@ -141,7 +142,7 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
         {(supplier.currentDebt !== undefined || supplier.bankAccount) && (
           <div className="grid grid-cols-2 gap-2 pt-2 border-t">
             {supplier.currentDebt !== undefined && (
-              <div className="text-sm">
+              <div className="text-body-sm">
                 <span className="text-muted-foreground">Công nợ:</span>
                 <div className={`font-medium ${supplier.currentDebt > 0 ? 'text-orange-600' : 'text-green-600'}`}>
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(supplier.currentDebt)}
@@ -149,13 +150,13 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
               </div>
             )}
             {supplier.bankAccount && (
-              <div className="text-sm">
+              <div className="text-body-sm">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <CreditCard className="h-3 w-3" /> TK:
                 </span>
-                <div className="font-medium font-mono text-xs">{supplier.bankAccount}</div>
+                <div className="font-medium font-mono text-body-xs">{supplier.bankAccount}</div>
                 {supplier.bankName && (
-                  <div className="text-xs text-muted-foreground truncate">{supplier.bankName}</div>
+                  <div className="text-body-xs text-muted-foreground truncate">{supplier.bankName}</div>
                 )}
               </div>
             )}
@@ -164,7 +165,7 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
 
         {/* Contact Person */}
         {supplier.contactPerson && (
-          <div className="text-sm pt-2 border-t">
+          <div className="text-body-sm pt-2 border-t">
             <span className="text-muted-foreground flex items-center gap-1">
               <User className="h-3 w-3" /> Người liên hệ:
             </span>
@@ -174,18 +175,18 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
 
         {/* Notes */}
         {supplier.notes && (
-          <div className="text-sm pt-2 border-t">
+          <div className="text-body-sm pt-2 border-t">
             <span className="text-muted-foreground">Ghi chú:</span>
-            <div className="text-xs text-muted-foreground line-clamp-2 mt-1">{supplier.notes}</div>
+            <div className="text-body-xs text-muted-foreground line-clamp-2 mt-1">{supplier.notes}</div>
           </div>
         )}
 
         {/* Audit Info */}
         {supplier.createdAt && (
-          <div className="text-xs text-muted-foreground pt-2 border-t">
-            Tạo: {new Date(supplier.createdAt).toLocaleDateString('vi-VN')}
+          <div className="text-body-xs text-muted-foreground pt-2 border-t">
+            Tạo: {formatDateForDisplay(supplier.createdAt)}
             {supplier.updatedAt && supplier.updatedAt !== supplier.createdAt && (
-              <> • Cập nhật: {new Date(supplier.updatedAt).toLocaleDateString('vi-VN')}</>
+              <> • Cập nhật: {formatDateForDisplay(supplier.updatedAt)}</>
             )}
           </div>
         )}

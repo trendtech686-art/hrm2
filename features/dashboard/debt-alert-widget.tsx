@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Badge } from "../../components/ui/badge.tsx";
 import { AlertTriangle, Phone, MessageSquare, DollarSign, ShoppingBag, ChevronRight } from "lucide-react";
 import { useCustomerStore } from "../customers/store.ts";
+import { useCustomersWithComputedDebt } from "../customers/hooks/use-computed-debt.ts";
 import { calculateDebtTrackingInfo, formatDebtDate } from "../customers/debt-tracking-utils.ts";
 import { useMediaQuery } from "../../lib/use-media-query.ts";
 import type { Customer } from "../customers/types.ts";
@@ -107,26 +108,28 @@ const CustomerDebtCard = ({ customer, onClick }: CustomerDebtCardProps) => {
 export function DebtAlertWidget() {
   const navigate = useNavigate();
   const isMobile = !useMediaQuery("(min-width: 768px)");
-  const { getOverdueDebtCustomers, getDueSoonCustomers } = useCustomerStore();
+  const customers = useCustomerStore((state) => state.data);
   
-  const overdueCustomers = React.useMemo(() => getOverdueDebtCustomers(), [getOverdueDebtCustomers]);
-  const dueSoonCustomers = React.useMemo(() => getDueSoonCustomers(), [getDueSoonCustomers]);
+  // Use computed debt from orders/receipts instead of static currentDebt field
+  const customersWithDebt = useCustomersWithComputedDebt(customers);
   
-  // Combine and sort by severity
+  // Filter active customers with debt issues
   const allDebtCustomers = React.useMemo(() => {
-    const combined = [...overdueCustomers, ...dueSoonCustomers];
-    // Remove duplicates
-    const unique = combined.filter((customer, index, self) => 
-      index === self.findIndex(c => c.systemId === customer.systemId)
-    );
+    const activeCustomers = customersWithDebt.filter(c => !c.isDeleted);
+    
+    // Filter customers with overdue or due soon debt
+    const debtCustomers = activeCustomers.filter(c => {
+      const info = calculateDebtTrackingInfo(c);
+      return info.maxDaysOverdue > 0 || (c.currentDebt && c.currentDebt > 0 && info.debtStatus);
+    });
     
     // Sort by days overdue (descending)
-    return unique.sort((a, b) => {
+    return debtCustomers.sort((a, b) => {
       const infoA = calculateDebtTrackingInfo(a);
       const infoB = calculateDebtTrackingInfo(b);
       return infoB.maxDaysOverdue - infoA.maxDaysOverdue;
     });
-  }, [overdueCustomers, dueSoonCustomers]);
+  }, [customersWithDebt]);
   
   // Don't show widget if no debt issues
   if (allDebtCustomers.length === 0) {
@@ -145,12 +148,12 @@ export function DebtAlertWidget() {
   const totalDebt = allDebtCustomers.reduce((sum, c) => sum + (c.currentDebt || 0), 0);
   
   return (
-    <Card className={`${overdueCustomers.length > 0 ? 'border-destructive/50 bg-destructive/5' : 'border-yellow-500/50 bg-yellow-50'}`}>
+    <Card className={`${criticalCount > 0 ? 'border-destructive/50 bg-destructive/5' : 'border-yellow-500/50 bg-yellow-50'}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className={`${isMobile ? 'text-base' : 'text-lg'} flex items-center gap-2`}>
-              <AlertTriangle className={`h-5 w-5 ${overdueCustomers.length > 0 ? 'text-destructive' : 'text-yellow-600'}`} />
+            <CardTitle className={`${isMobile ? 'text-h5' : 'text-h4'} flex items-center gap-2`}>
+              <AlertTriangle className={`h-5 w-5 ${criticalCount > 0 ? 'text-destructive' : 'text-yellow-600'}`} />
               Cảnh báo công nợ khách hàng
             </CardTitle>
             <div className="flex items-center gap-4 mt-2 text-sm">

@@ -52,7 +52,7 @@ const supplierFormSchema = z.object({
 });
 
 type SupplierFormData = z.infer<typeof supplierFormSchema>;
-export type SupplierFormValues = Omit<Supplier, 'systemId' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'isDeleted' | 'createdBy' | 'updatedBy'>;
+export type SupplierFormValues = SupplierFormData;
 
 type SupplierFormProps = {
   initialData: Supplier | null
@@ -99,10 +99,10 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
 
   return (
     <Form {...form}>
-      <form id="supplier-form" onSubmit={form.handleSubmit((data) => onSubmit(data as SupplierFormValues))} className="space-y-6">
+      <form id="supplier-form" onSubmit={form.handleSubmit((data) => onSubmit(data))} className="space-y-6">
         {/* Thông tin cơ bản */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Thông tin cơ bản</h3>
+          <h3 className="text-h3 font-semibold">Thông tin cơ bản</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="id" render={({ field }) => (
                 <FormItem><FormLabel>Mã nhà cung cấp *</FormLabel><FormControl><Input placeholder="VD: NCC000001" {...field} disabled={!!initialData} /></FormControl><FormMessage /></FormItem>
@@ -119,7 +119,7 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Đang giao dịch</FormLabel>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-body-sm text-muted-foreground">
                       {field.value === "Đang Giao Dịch" ? "Đang hoạt động" : "Tạm ngừng"}
                     </div>
                   </div>
@@ -138,7 +138,7 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
 
         {/* Thông tin liên hệ */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Thông tin liên hệ</h3>
+          <h3 className="text-h3 font-semibold">Thông tin liên hệ</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem><FormLabel>Số điện thoại *</FormLabel><FormControl><Input placeholder="09xxxxxxxx" {...field} /></FormControl><FormMessage /></FormItem>
@@ -162,7 +162,7 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
 
         {/* Thông tin quản lý */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Thông tin quản lý</h3>
+          <h3 className="text-h3 font-semibold">Thông tin quản lý</h3>
           <FormField control={form.control} name="accountManager" render={({ field }) => (
               <FormItem>
               <FormLabel>Người phụ trách *</FormLabel>
@@ -188,7 +188,7 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
 
         {/* Thông tin ngân hàng */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Thông tin ngân hàng</h3>
+          <h3 className="text-h3 font-semibold">Thông tin ngân hàng</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="bankName" render={({ field }) => (
                 <FormItem><FormLabel>Tên ngân hàng</FormLabel><FormControl><Input placeholder="VD: Vietcombank" {...field} /></FormControl><FormMessage /></FormItem>
@@ -201,13 +201,13 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
 
         {/* Công nợ */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Công nợ</h3>
+          <h3 className="text-h3 font-semibold">Công nợ</h3>
           <FormField control={form.control} name="currentDebt" render={({ field }) => (
             <FormItem>
               <FormLabel>Công nợ đầu kỳ</FormLabel>
               <FormControl><CurrencyInput value={field.value as number} onChange={field.onChange} disabled={!!initialData} /></FormControl>
               <FormMessage />
-              {initialData && <p className="text-sm text-muted-foreground">Công nợ chỉ được thiết lập khi tạo mới nhà cung cấp</p>}
+              {initialData && <p className="text-body-sm text-muted-foreground">Công nợ chỉ được thiết lập khi tạo mới nhà cung cấp</p>}
             </FormItem>
           )} />
         </div>

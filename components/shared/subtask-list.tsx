@@ -3,14 +3,6 @@ import { Button } from '../ui/button.tsx';
 import { Checkbox } from '../ui/checkbox.tsx';
 import { Input } from '../ui/input.tsx';
 import { Avatar, AvatarFallback } from '../ui/avatar.tsx';
-import { Badge } from '../ui/badge.tsx';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select.tsx';
 import {
   Plus,
   GripVertical,
@@ -51,30 +43,27 @@ export type Subtask<T = any> = {
   completed: boolean;
   order: number;
   createdAt: Date;
-  completedAt?: Date;
-  assigneeId?: string;
-  assigneeName?: string;
-  parentId?: string; // For nested subtasks (1 level)
-  metadata?: T; // Additional fields for specific use cases
-  triggerStatus?: string; // Khi hoàn thành bước này, tự động chuyển status (VD: "resolved", "investigating")
+  completedAt?: Date | undefined;
+  assigneeId?: string | undefined;
+  assigneeName?: string | undefined;
+  parentId?: string | undefined; // For nested subtasks (1 level)
+  metadata?: T | undefined; // Additional fields for specific use cases
 };
 
 export interface SubtaskListProps<T = any> {
   subtasks: Subtask<T>[];
-  onAdd?: (title: string, parentId?: string) => void;
+  onAdd?: (title: string, parentId?: string | undefined) => void;
   onUpdate?: (id: string, updates: Partial<Subtask<T>>) => void;
   onDelete?: (id: string) => void;
   onReorder?: (reorderedSubtasks: Subtask<T>[]) => void;
   onToggleComplete?: (id: string, completed: boolean) => void;
-  onAllCompleted?: () => void; // Callback khi tất cả subtasks được hoàn thành
-  allowNested?: boolean; // Enable nested subtasks (1 level)
-  showAssignee?: boolean; // Show assignee column
-  showProgress?: boolean; // Show progress indicator
-  readonly?: boolean; // Disable editing
-  compact?: boolean; // Compact mode for mobile
-  emptyMessage?: string;
-  showStatusSelector?: boolean; // Show status selector for each subtask (settings mode)
-  statusOptions?: Array<{ value: string; label: string }>; // Available status options
+  onAllCompleted?: (() => void) | undefined; // Callback khi tất cả subtasks được hoàn thành
+  allowNested?: boolean | undefined; // Enable nested subtasks (1 level)
+  showAssignee?: boolean | undefined; // Show assignee column
+  showProgress?: boolean | undefined; // Show progress indicator
+  readonly?: boolean | undefined; // Disable editing
+  compact?: boolean | undefined; // Compact mode for mobile
+  emptyMessage?: string | undefined;
 }
 
 // ============================================================================
@@ -83,16 +72,14 @@ export interface SubtaskListProps<T = any> {
 
 interface SortableSubtaskProps<T> {
   subtask: Subtask<T>;
-  isNested?: boolean;
-  onToggleComplete?: (id: string, completed: boolean) => void;
-  onUpdate?: (id: string, updates: Partial<Subtask<T>>) => void;
-  onDelete?: (id: string) => void;
-  onAddNested?: (parentId: string) => void;
-  showAssignee?: boolean;
-  readonly?: boolean;
-  compact?: boolean;
-  showStatusSelector?: boolean;
-  statusOptions?: Array<{ value: string; label: string }>;
+  isNested?: boolean | undefined;
+  onToggleComplete?: ((id: string, completed: boolean) => void) | undefined;
+  onUpdate?: ((id: string, updates: Partial<Subtask<T>>) => void) | undefined;
+  onDelete?: ((id: string) => void) | undefined;
+  onAddNested?: ((parentId: string) => void) | undefined;
+  showAssignee?: boolean | undefined;
+  readonly?: boolean | undefined;
+  compact?: boolean | undefined;
 }
 
 function SortableSubtask<T>({
@@ -105,8 +92,6 @@ function SortableSubtask<T>({
   showAssignee,
   readonly,
   compact,
-  showStatusSelector,
-  statusOptions,
 }: SortableSubtaskProps<T>) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editValue, setEditValue] = React.useState(subtask.title);
@@ -118,7 +103,7 @@ function SortableSubtask<T>({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: subtask.id, disabled: readonly });
+  } = useSortable({ id: subtask.id, disabled: readonly ?? false });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -191,7 +176,7 @@ function SortableSubtask<T>({
           return; // Let the text onClick handle it
         }
         // Stop propagation for other clicks in this area
-        if (isEditing || showStatusSelector) {
+        if (isEditing) {
           e.stopPropagation();
         }
       }}>
@@ -241,36 +226,6 @@ function SortableSubtask<T>({
               >
                 {subtask.title}
               </p>
-              {/* Show status badge in detail mode (not settings) */}
-              {!showStatusSelector && subtask.triggerStatus && statusOptions && statusOptions.length > 0 && (
-                <Badge variant="outline" className="text-xs">
-                  → {statusOptions.find(opt => opt.value === subtask.triggerStatus)?.label || subtask.triggerStatus}
-                </Badge>
-              )}
-              {/* Status Selector (Settings Mode) */}
-              {showStatusSelector && statusOptions && statusOptions.length > 0 && (
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">→</span>
-                  <Select
-                    value={subtask.triggerStatus || 'none'}
-                    onValueChange={(value) => {
-                      onUpdate?.(subtask.id, { triggerStatus: value === 'none' ? undefined : value });
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-[180px]">
-                      <SelectValue placeholder="Không chuyển TT" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Không chuyển</SelectItem>
-                      {statusOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               {/* Copy Button */}
               <Button
                 size="sm"
@@ -360,8 +315,6 @@ export function SubtaskList<T = any>({
   readonly = false,
   compact = false,
   emptyMessage = 'Chưa có subtask nào',
-  showStatusSelector = false,
-  statusOptions = [],
 }: SubtaskListProps<T>) {
   const [newSubtaskTitle, setNewSubtaskTitle] = React.useState('');
   const [isAdding, setIsAdding] = React.useState(false);
@@ -482,8 +435,6 @@ export function SubtaskList<T = any>({
                     showAssignee={showAssignee}
                     readonly={readonly}
                     compact={compact}
-                    showStatusSelector={showStatusSelector}
-                    statusOptions={statusOptions}
                   />
 
                   {/* Nested Subtasks */}
@@ -499,8 +450,6 @@ export function SubtaskList<T = any>({
                         showAssignee={showAssignee}
                         readonly={readonly}
                         compact={compact}
-                        showStatusSelector={showStatusSelector}
-                        statusOptions={statusOptions}
                       />
                     ))}
                 </div>

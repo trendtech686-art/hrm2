@@ -11,7 +11,7 @@ import { X } from "lucide-react";
 import type { SystemId } from "@/lib/id-types";
 
 interface SupplierSelectionCardProps {
-  value?: SystemId;
+  value?: SystemId | undefined;
   onChange: (supplierId: SystemId | null) => void;
 }
 

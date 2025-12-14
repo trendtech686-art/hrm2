@@ -35,14 +35,14 @@ export function WardForm({ initialData, onSubmit, onCancel }: WardFormProps) {
         <FormField control={form.control} name="id" render={({ field }) => (
           <FormItem>
             <FormLabel>Mã Phường/Xã</FormLabel>
-            <FormControl><Input placeholder="VD: 00001" {...field} /></FormControl>
+            <FormControl><Input placeholder="VD: 00001" {...field} value={field.value ?? ''} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem>
             <FormLabel>Tên Phường/Xã</FormLabel>
-            <FormControl><Input placeholder="VD: Phường Phúc Xá" {...field} /></FormControl>
+            <FormControl><Input placeholder="VD: Phường Phúc Xá" {...field} value={field.value ?? ''} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />

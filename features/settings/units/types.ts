@@ -5,4 +5,10 @@ export type Unit = {
   id: BusinessId;
   name: string;
   description?: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

@@ -4,6 +4,10 @@ export type Department = {
   systemId: SystemId;
   id: BusinessId;
   name: string;
-  managerId?: SystemId; // systemId of the employee who is the manager
+  managerId?: SystemId | undefined; // systemId of the employee who is the manager
   jobTitleIds: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 }

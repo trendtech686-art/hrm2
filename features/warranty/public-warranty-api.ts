@@ -48,7 +48,7 @@ export interface PublicWarrantyTicket extends Pick<
     settledAmount: number;
     remainingAmount: number;
     methods: PublicSettlementMethod[];
-  };
+  } | undefined;
 }
 
 export interface PublicWarrantyPayment extends Pick<Payment, 'systemId' | 'id' | 'amount' | 'createdAt' | 'paymentMethodName' | 'linkedOrderSystemId' | 'description' | 'status'> {}

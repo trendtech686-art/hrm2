@@ -1,5 +1,6 @@
 import type { Branch } from './types.ts';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: Branch[] = [
   {
@@ -10,6 +11,7 @@ export const data: Branch[] = [
     phone: '02833334444',
     managerId: asSystemId('EMP000001'), // Nguyễn Văn An
     isDefault: true,
+    ...buildSeedAuditFields({ createdAt: '2024-01-01T08:00:00Z' }),
   },
   {
     systemId: asSystemId('BRANCH000002'),
@@ -19,5 +21,6 @@ export const data: Branch[] = [
     phone: '02488889999',
     managerId: asSystemId('EMP000002'), // Trần Thị Bình
     isDefault: false,
+    ...buildSeedAuditFields({ createdAt: '2024-01-02T08:00:00Z' }),
   },
 ];

@@ -33,12 +33,11 @@ export const employeeFormSchema = z.object({
     message: "Vui lòng chọn giới tính"
   }),
   
-  dateOfBirth: z.string()
-    .min(1, "Vui lòng chọn ngày sinh")
-    .refine((date) => {
-      const birthDate = new Date(date);
+  dob: z.date({
+    message: "Vui lòng chọn ngày sinh",
+  }).refine((date) => {
       const today = new Date();
-      const age = today.getFullYear() - birthDate.getFullYear();
+      const age = today.getFullYear() - date.getFullYear();
       return age >= 18 && age <= 65;
     }, "Nhân viên phải từ 18-65 tuổi"),
   
@@ -48,25 +47,35 @@ export const employeeFormSchema = z.object({
   workEmail: z.string()
     .regex(emailRegex, "Email không hợp lệ"),
   
-  branchId: z.string()
+  branchSystemId: z.string()
     .min(1, "Vui lòng chọn chi nhánh"),
   
-  department: z.string()
-    .min(1, "Vui lòng chọn phòng ban"),
+  department: z.enum(["Kỹ thuật", "Nhân sự", "Kinh doanh", "Marketing"], {
+    message: "Vui lòng chọn phòng ban"
+  }).optional(),
   
   jobTitle: z.string()
     .min(1, "Vui lòng chọn chức danh"),
   
-  hireDate: z.string()
-    .min(1, "Vui lòng chọn ngày vào làm"),
+  hireDate: z.date({
+    message: "Vui lòng chọn ngày vào làm",
+  }),
   
   employmentStatus: z.enum(['Đang làm việc', 'Nghỉ việc', 'Tạm nghỉ'], {
     message: "Vui lòng chọn trạng thái"
   }),
   
-  contractType: z.enum(['Thử việc', 'Chính thức', 'Hợp đồng', 'Thời vụ'], {
+  employeeType: z.enum(["Chính thức", "Thử việc", "Thực tập sinh", "Bán thời gian"], {
+    message: "Vui lòng chọn loại nhân viên"
+  }).optional(),
+
+  contractType: z.enum(["Không xác định", "Thử việc", "1 năm", "2 năm", "3 năm", "Vô thời hạn"], {
     message: "Vui lòng chọn loại hợp đồng"
-  }),
+  }).optional(),
+
+  contractNumber: z.string().optional(),
+  contractStartDate: z.date().optional(),
+  contractEndDate: z.date().optional(),
 
   // Optional fields
   personalEmail: z.string()
@@ -105,14 +114,31 @@ export const employeeFormSchema = z.object({
     .optional()
     .or(z.literal('')),
   
-  basicSalary: z.number()
+  baseSalary: z.number()
     .min(0, "Lương cơ bản không được âm")
     .optional(),
-  
-  allowances: z.number()
-    .min(0, "Phụ cấp không được âm")
+
+  socialInsuranceSalary: z.number()
+    .min(0, "Lương đóng BHXH không được âm")
     .optional(),
   
+  positionAllowance: z.number()
+    .min(0, "Phụ cấp chức vụ không được âm")
+    .optional(),
+
+  mealAllowance: z.number()
+    .min(0, "Phụ cấp ăn trưa không được âm")
+    .optional(),
+
+  otherAllowances: z.number()
+    .min(0, "Phụ cấp khác không được âm")
+    .optional(),
+  
+  leaveTaken: z.number()
+    .min(0, "Số ngày phép đã nghỉ không được âm")
+    .optional()
+    .default(0),
+
   annualLeaveBalance: z.number()
     .min(0, "Số ngày phép không được âm")
     .max(365, "Số ngày phép không hợp lệ")
@@ -126,6 +152,41 @@ export const employeeFormSchema = z.object({
   managerId: z.string().optional(),
   avatar: z.string().optional(),
   notes: z.string().optional(),
+  
+  // systemId for self-reference check
+  systemId: z.string().optional(),
+})
+// Cross-field validations
+.refine((data) => {
+  // contractEndDate must be after contractStartDate
+  if (data.contractStartDate && data.contractEndDate) {
+    return data.contractEndDate > data.contractStartDate;
+  }
+  return true;
+}, { 
+  message: "Ngày kết thúc HĐ phải sau ngày bắt đầu HĐ",
+  path: ["contractEndDate"]
+})
+.refine((data) => {
+  // socialInsuranceSalary should not exceed baseSalary (warning level, allow but warn)
+  // For strict validation, uncomment return false
+  if (data.baseSalary && data.socialInsuranceSalary) {
+    return data.socialInsuranceSalary <= data.baseSalary;
+  }
+  return true;
+}, {
+  message: "Lương đóng BHXH không nên lớn hơn lương cơ bản",
+  path: ["socialInsuranceSalary"]
+})
+.refine((data) => {
+  // managerId cannot be the same as employee's own systemId
+  if (data.managerId && data.systemId && data.managerId === data.systemId) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Không thể tự làm quản lý của chính mình",
+  path: ["managerId"]
 });
 
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;

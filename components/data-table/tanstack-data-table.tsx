@@ -15,7 +15,15 @@ import {
   VisibilityState,
   RowSelectionState,
 } from '@tanstack/react-table';
-import { ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import {
+  ArrowUp,
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronsUpDown,
+} from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -102,7 +110,7 @@ export function TanStackDataTable<TData, TValue>({
               placeholder={searchPlaceholder}
               value={globalFilter ?? ''}
               onChange={e => setGlobalFilter(e.target.value)}
-              className="w-full"
+              className="h-9 w-full"
             />
           </div>
         )}
@@ -216,34 +224,42 @@ export function TanStackDataTable<TData, TValue>({
           <Button
             variant="outline"
             size="sm"
+            className="h-9 gap-2"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
           >
-            ⏮️ Đầu
+            <ChevronsLeft className="h-4 w-4" />
+            Đầu
           </Button>
           <Button
             variant="outline"
             size="sm"
+            className="h-9 gap-2"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            ⬅️ Trước
+            <ChevronLeft className="h-4 w-4" />
+            Trước
           </Button>
           <Button
             variant="outline"
             size="sm"
+            className="h-9 gap-2"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
-            Sau ➡️
+            Sau
+            <ChevronRight className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
+            className="h-9 gap-2"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
           >
-            Cuối ⏭️
+            Cuối
+            <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
       </div>

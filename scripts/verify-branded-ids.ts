@@ -17,8 +17,10 @@ const includeDirs = ['features', 'server'];
 const skipDirNames = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.turbo', 'coverage']);
 const tsDataRegex = /(?:^|[-_.])data\.(ts|tsx)$/i;
 const jsonDataRegex = /\.json$/i;
+const metadataFields = ['createdAt', 'createdBy'];
 const args = new Set(process.argv.slice(2));
 const skipJson = args.has('--skip-json');
+const checkMetadata = args.has('--check-metadata');
 
 const brandRules = [
   {
@@ -42,6 +44,9 @@ async function main() {
   for (const filePath of files) {
     if (!skipJson && filePath.endsWith('.json')) {
       issues.push(...(await findJsonViolations(filePath)));
+      if (checkMetadata) {
+        issues.push(...findMetadataHints(filePath, await readFile(filePath, 'utf-8')));
+      }
       continue;
     }
 
@@ -50,6 +55,10 @@ async function main() {
     }
 
     issues.push(...(await findTsViolations(filePath)));
+    if (checkMetadata) {
+      const content = await readFile(filePath, 'utf-8');
+      issues.push(...findMetadataHints(filePath, content));
+    }
   }
 
   if (issues.length > 0) {
@@ -177,6 +186,27 @@ async function findJsonViolations(filePath: string): Promise<Violation[]> {
     }
   }
 
+  return issues;
+}
+
+function findMetadataHints(filePath: string, content: string): Violation[] {
+  const issues: Violation[] = [];
+  const usesAuditHelper = /\bbuildSeedAuditFields\s*\(/.test(content);
+  if (usesAuditHelper) {
+    return issues;
+  }
+  for (const field of metadataFields) {
+    if (!new RegExp(`\\b${field}\\b`).test(content)) {
+      issues.push({
+        file: filePath,
+        line: 1,
+        column: 1,
+        property: field,
+        sample: '(metadata check)',
+        message: `Thiếu trường bắt buộc "${field}" trong seed data. Hãy bổ sung để đồng bộ audit trail.`,
+      });
+    }
+  }
   return issues;
 }
 

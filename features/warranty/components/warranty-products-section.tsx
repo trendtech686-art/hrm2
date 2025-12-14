@@ -372,7 +372,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
   return (
     <Card className="flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-base font-semibold">Danh sách sản phẩm bảo hành</CardTitle>
+        <CardTitle className="text-h4">Danh sách sản phẩm bảo hành</CardTitle>
 
         {/* Toolbar */}
         <div className="flex items-center gap-2">
@@ -383,7 +383,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
               onCheckedChange={setEnableSplitLine}
               disabled={disabled}
             />
-            <Label htmlFor="split-line" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="split-line" className="text-body-sm font-normal cursor-pointer">
               Tách dòng
             </Label>
           </div>
@@ -428,8 +428,8 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
         {fields.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg">
             <PackageOpen className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground">Chưa có sản phẩm nào</p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-body-sm text-muted-foreground">Chưa có sản phẩm nào</p>
+            <p className="text-body-xs text-muted-foreground mt-1">
               Sử dụng ô tìm kiếm bên trên để thêm sản phẩm
             </p>
           </div>
@@ -473,7 +473,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
                               href={`/products/${product.systemId}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline"
+                              className="text-body-xs text-primary hover:underline"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {product.id}
@@ -793,7 +793,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
                               {...field}
                               placeholder="Mô tả tình trạng..."
                               disabled={disabled}
-                              className="w-full text-sm"
+                              className="w-full text-body-sm"
                             />
                           )}
                         />
@@ -843,20 +843,20 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
           <div className="py-4">
             <div className="space-y-6">
               <div className="space-y-3">
-                <Label className="text-sm font-medium">Chiết khấu mặc định theo:</Label>
+                <Label className="text-body-sm font-medium">Chiết khấu mặc định theo:</Label>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">Giá trị</span>
+                  <span className="text-body-sm text-muted-foreground">Giá trị</span>
                   <Switch
                     id="discount-type"
                     checked={discountDefaultType === 'percent'}
                     onCheckedChange={(checked) => setDiscountDefaultType(checked ? 'percent' : 'value')}
                   />
-                  <span className="text-sm text-muted-foreground">%</span>
+                  <span className="text-body-sm text-muted-foreground">%</span>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <Label className="text-sm font-medium">Thứ tự hiển thị hàng hóa:</Label>
+                <Label className="text-body-sm font-medium">Thứ tự hiển thị hàng hóa:</Label>
                 <RadioGroup
                   value={productInsertPosition}
                   onValueChange={(value: 'top' | 'bottom') => setProductInsertPosition(value)}

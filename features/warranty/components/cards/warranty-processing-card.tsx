@@ -9,6 +9,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
 import { WarrantyPaymentVoucherDialog, WarrantyReceiptVoucherDialog } from '../dialogs/index.ts';
 import { useAuth } from '../../../../contexts/auth-context.tsx';
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import type { WarrantyTicket } from '../../types.ts';
 import { useWarrantyTransactionGroups } from '../../hooks/use-warranty-transaction-groups.ts';
 import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement.ts';
@@ -20,10 +21,10 @@ interface WarrantyProcessingCardProps {
   warrantyId: string;
   warrantySystemId: string;
   customer: WarrantyCustomerInfo;
-  linkedOrderSystemId?: string;
-  branchSystemId?: string;
-  branchName?: string;
-  ticket?: WarrantyTicket; // Add ticket to get cancelReason
+  linkedOrderSystemId?: string | undefined;
+  branchSystemId?: string | undefined;
+  branchName?: string | undefined;
+  ticket?: WarrantyTicket | undefined; // Add ticket to get cancelReason
   settlement: WarrantySettlementState;
   orders: Order[];
 }
@@ -62,13 +63,7 @@ export function WarrantyProcessingCard({
 
   // Get current user name and current time
   const currentUserName = user?.name || 'Người dùng';
-  const currentTime = new Date().toLocaleString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const currentTime = formatDateTimeForDisplay(new Date());
 
   const transactionGroups = useWarrantyTransactionGroups({
     ticket,

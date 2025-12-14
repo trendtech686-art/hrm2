@@ -8,8 +8,8 @@ import { useRouteMeta } from '../../hooks/use-route-meta';
 import { useEmployeeStore } from './store.ts';
 import { useDocumentStore } from './document-store.ts';
 import { EmployeeForm, type EmployeeFormSubmitPayload } from './employee-form.tsx';
-import type { UploadedFile } from '../../components/ui/file-upload.tsx';
 import { FileUploadAPI } from '../../lib/file-upload-api.ts';
+import type { UploadedFile } from '../../lib/file-upload-api.ts';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import {
   Card,
@@ -22,19 +22,22 @@ import { Button } from '../../components/ui/button.tsx';
 import type { Employee } from './types.ts';
 import { toast } from 'sonner';
 import { useEmployeeCompStore } from './employee-comp-store.ts';
+import { useShallow } from 'zustand/react/shallow';
 
 export function EmployeeFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const navigate = useNavigate();
   const routeMeta = useRouteMeta();
-  const { findById, add, update } = useEmployeeStore();
+  const { findById, persistence } = useEmployeeStore();
   const { updateDocumentFiles, clearStagingDocuments } = useDocumentStore();
-  const { assignComponents, removeProfile } = useEmployeeCompStore((state) => ({
-    assignComponents: state.assignComponents,
-    removeProfile: state.removeProfile,
-  }));
+  const { assignComponents, removeProfile } = useEmployeeCompStore(
+    useShallow((state) => ({
+      assignComponents: state.assignComponents,
+      removeProfile: state.removeProfile,
+    }))
+  );
 
-  const employee = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
+  const employee = React.useMemo(() => (systemId ? (findById(asSystemId(systemId)) ?? null) : null), [systemId, findById]);
 
   // Handle cancel navigation
   const handleCancel = React.useCallback(() => {
@@ -53,13 +56,18 @@ export function EmployeeFormPage() {
   ], [handleCancel]);
 
   usePageHeader({ 
+    title: employee ? `Chỉnh sửa ${employee.fullName}` : 'Thêm nhân viên mới',
     actions,
     breadcrumb: employee ? [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Nhân viên', href: '/employees', isCurrent: false },
       { label: employee.fullName, href: `/employees/${systemId}`, isCurrent: false },
       { label: 'Chỉnh sửa', href: '', isCurrent: true }
-    ] : routeMeta?.breadcrumb as any
+    ] : [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Nhân viên', href: '/employees', isCurrent: false },
+      { label: 'Thêm mới', href: '', isCurrent: true }
+    ]
   });
 
   // Handle form submission with staging document confirmation
@@ -72,7 +80,7 @@ export function EmployeeFormPage() {
       
       if (employee) {
         // Update existing employee
-        update(employee.systemId, { ...employee, ...employeeData } as Employee);
+        await persistence.update(employee.systemId, { ...employee, ...employeeData } as Employee);
         targetEmployeeSystemId = employee.systemId;
         
         toast.success("Cập nhật thành công", {
@@ -85,7 +93,7 @@ export function EmployeeFormPage() {
           currentEmployeesCount: useEmployeeStore.getState().data.length
         });
         
-        const newEmployee = add(employeeData as Omit<Employee, 'systemId'>);
+        const newEmployee = await persistence.create(employeeData as Omit<Employee, 'systemId'>);
         targetEmployeeSystemId = newEmployee.systemId;
         
         console.log('✅ New employee created:', {

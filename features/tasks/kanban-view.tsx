@@ -20,6 +20,8 @@ const taskStatusColumns: TaskStatus[] = [
   'Chưa bắt đầu',
   'Đang thực hiện',
   'Đang chờ',
+  'Chờ duyệt',
+  'Chờ xử lý',
   'Hoàn thành',
   'Đã hủy'
 ];
@@ -29,6 +31,7 @@ const statusIcons: Record<TaskStatus, React.ElementType> = {
   'Đang thực hiện': Play,
   'Đang chờ': Pause,
   'Chờ duyệt': FileCheck,
+  'Chờ xử lý': AlertCircle,
   'Hoàn thành': CheckCircle2,
   'Đã hủy': XCircle,
 };
@@ -38,6 +41,10 @@ const priorityVariants: Record<TaskPriority, "default" | "secondary" | "warning"
   "Trung bình": "default",
   "Cao": "warning",
   "Khẩn cấp": "destructive",
+  low: "secondary",
+  medium: "default",
+  high: "warning",
+  urgent: "destructive",
 };
 
 /**
@@ -73,6 +80,10 @@ function DraggableTaskCard({
     "Trung bình": "default",
     "Cao": "warning",
     "Khẩn cấp": "destructive",
+    low: "secondary",
+    medium: "default",
+    high: "warning",
+    urgent: "destructive",
   };
 
   // Load card color settings
@@ -349,6 +360,7 @@ export function TaskKanbanView({
       'Đang thực hiện': [],
       'Đang chờ': [],
       'Chờ duyệt': [],
+      'Chờ xử lý': [],
       'Hoàn thành': [],
       'Đã hủy': [],
     };

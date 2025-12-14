@@ -17,13 +17,13 @@ export type GHTKShippingFeeResponse = {
     fee: number; // Phí vận chuyển (VNĐ)
     insurance_fee: number; // Phí khai giá (VNĐ)
     delivery: boolean; // Hỗ trợ giao hàng
-    delivery_type?: string;
+    delivery_type?: string | undefined;
     extFees?: Array<{
       display: string;
       title: string;
       amount: number;
       type: string;
-    }>;
+    }> | undefined;
   };
 };
 
@@ -40,14 +40,14 @@ export type GHTKCreateOrderResponse = {
     estimated_pick_time: string;
     estimated_deliver_time: string;
     status_id: number;
-  };
+  } | undefined;
   error?: {
     code: string;
-    partner_id?: string;
-    ghtk_label?: string;
-    created?: string;
-    status?: number;
-  };
+    partner_id?: string | undefined;
+    ghtk_label?: string | undefined;
+    created?: string | undefined;
+    status?: number | undefined;
+  } | undefined;
 };
 
 export type GHTKOrderStatusResponse = {
@@ -73,7 +73,7 @@ export type GHTKOrderStatusResponse = {
     weight: number;
     pick_money: number;
     is_freeship: number;
-  };
+  } | undefined;
 };
 
 export type GHTKCreateOrderParams = {
@@ -81,14 +81,14 @@ export type GHTKCreateOrderParams = {
   orderId: string; // Mã đơn hàng của shop
   
   // Điểm lấy hàng
-  pickAddressId?: string; // ID kho lấy hàng từ GHTK (nếu có - ưu tiên dùng)
-  pickName?: string; // ⚠️ REQUIRED - Tên người gửi (cần cả khi có pickAddressId)
-  pickAddress?: string; // ⚠️ REQUIRED - Địa chỉ lấy hàng (cần cả khi có pickAddressId!)
-  pickTel?: string; // ⚠️ REQUIRED - SĐT người gửi (cần cả khi có pickAddressId)
-  pickProvince?: string; // Chỉ cần khi KHÔNG có pickAddressId
-  pickDistrict?: string; // Chỉ cần khi KHÔNG có pickAddressId
-  pickWard?: string; // Chỉ cần khi KHÔNG có pickAddressId
-  pickStreet?: string; // Chỉ cần khi KHÔNG có pickAddressId
+  pickAddressId?: string | undefined; // ID kho lấy hàng từ GHTK (nếu có - ưu tiên dùng)
+  pickName?: string | undefined; // ⚠️ REQUIRED - Tên người gửi (cần cả khi có pickAddressId)
+  pickAddress?: string | undefined; // ⚠️ REQUIRED - Địa chỉ lấy hàng (cần cả khi có pickAddressId!)
+  pickTel?: string | undefined; // ⚠️ REQUIRED - SĐT người gửi (cần cả khi có pickAddressId)
+  pickProvince?: string | undefined; // Chỉ cần khi KHÔNG có pickAddressId
+  pickDistrict?: string | undefined; // Chỉ cần khi KHÔNG có pickAddressId
+  pickWard?: string | undefined; // Chỉ cần khi KHÔNG có pickAddressId
+  pickStreet?: string | undefined; // Chỉ cần khi KHÔNG có pickAddressId
   
   // Điểm giao hàng
   customerName: string;
@@ -96,60 +96,60 @@ export type GHTKCreateOrderParams = {
   customerProvince: string;
   customerDistrict: string;
   customerWard: string;
-  customerStreet?: string;
+  customerStreet?: string | undefined;
   customerTel: string;
-  customerHamlet?: string; // Thôn/ấp (nếu không có street)
+  customerHamlet?: string | undefined; // Thôn/ấp (nếu không có street)
   
   // Thông tin hàng hóa
   products: Array<{
     name: string;
     weight: number; // KG
     quantity: number;
-    price?: number;
-    productCode?: string;
-    height?: number; // cm
-    width?: number; // cm
-    length?: number; // cm
+    price?: number | undefined;
+    productCode?: string | undefined;
+    height?: number | undefined; // cm
+    width?: number | undefined; // cm
+    length?: number | undefined; // cm
   }>;
   
   // Thông tin thanh toán
   pickMoney: number; // Tiền CoD
   value: number; // Giá trị khai giá
-  isFreeship?: number | boolean; // Shop trả ship hay không (0/1 or false/true)
-  failedDeliveryFee?: number; // ✅ Số tiền thu khi không giao được (tag 19) - Sẽ map sang not_delivered_fee
+  isFreeship?: number | boolean | undefined; // Shop trả ship hay không (0/1 or false/true)
+  failedDeliveryFee?: number | undefined; // ✅ Số tiền thu khi không giao được (tag 19) - Sẽ map sang not_delivered_fee
   
   // Thông tin bổ sung
-  note?: string;
-  transport?: 'road' | 'fly'; // Đường bộ hoặc bay
-  tags?: number[]; // Nhãn đơn hàng
-  weightOption?: 'gram' | 'kilogram'; // Đơn vị khối lượng
-  totalWeight?: number; // Tổng khối lượng (theo weightOption)
-  totalBox?: number; // ✅ Tổng số kiện hàng
+  note?: string | undefined;
+  transport?: 'road' | 'fly' | undefined; // Đường bộ hoặc bay
+  tags?: number[] | undefined; // Nhãn đơn hàng
+  weightOption?: 'gram' | 'kilogram' | undefined; // Đơn vị khối lượng
+  totalWeight?: number | undefined; // Tổng khối lượng (theo weightOption)
+  totalBox?: number | undefined; // ✅ Tổng số kiện hàng
   
   // Ngày giờ
-  pickDate?: string; // YYYY/MM/DD (format: YYYY-MM-DD)
-  deliverDate?: string; // YYYY/MM/DD
-  pickWorkShift?: 1 | 2; // 1=sáng, 2=chiều
-  deliverWorkShift?: 1 | 2; // 1=sáng, 2=chiều
+  pickDate?: string | undefined; // YYYY/MM/DD (format: YYYY-MM-DD)
+  deliverDate?: string | undefined; // YYYY/MM/DD
+  pickWorkShift?: 1 | 2 | undefined; // 1=sáng, 2=chiều
+  deliverWorkShift?: 1 | 2 | undefined; // 1=sáng, 2=chiều
 };
 
 export type GHTKCalculateFeeParams = {
   // Điểm lấy hàng
   pickProvince: string;
   pickDistrict: string;
-  pickWard?: string;
+  pickWard?: string | undefined;
   
   // Điểm giao hàng
   province: string;
   district: string;
-  ward?: string;
-  address?: string;
+  ward?: string | undefined;
+  address?: string | undefined;
   
   // Thông tin hàng hóa
   weight: number; // KG (not gram!) - GHTK API uses KG
-  value?: number; // Giá trị khai giá (VNĐ)
-  transport?: 'road' | 'fly';
-  tags?: number[];
+  value?: number | undefined; // Giá trị khai giá (VNĐ)
+  transport?: 'road' | 'fly' | undefined;
+  tags?: number[] | undefined;
 };
 
 /**

@@ -174,7 +174,7 @@ export type ShopeeGetLogisticsInfoParams = {
 export class SPXService {
   private partnerId: number;
   private partnerKey: string;
-  private merchantId?: string;
+  private merchantId: string | undefined;
   private testMode: boolean;
 
   constructor(
@@ -195,6 +195,7 @@ export class SPXService {
 
     if (typeof merchantIdOrTestMode === 'boolean') {
       this.testMode = merchantIdOrTestMode;
+      this.merchantId = undefined;
     } else {
       this.merchantId = merchantIdOrTestMode;
       this.testMode = testMode;

@@ -8,11 +8,13 @@ import { ResponsiveDataTable } from '../../components/data-table/responsive-data
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
+import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { Input } from '../../components/ui/input.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, Printer, XCircle, Scale } from 'lucide-react';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
@@ -27,17 +29,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog.tsx';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { useBranchStore } from '../settings/branches/store.ts';
+import { 
+  convertInventoryCheckForPrint,
+  mapInventoryCheckToPrintData,
+  mapInventoryCheckLineItems,
+  createStoreSettings,
+} from '../../lib/print/inventory-check-print-helper.ts';
 
 type ConfirmState =
-  | { type: 'delete'; item: InventoryCheck }
+  | { type: 'cancel'; item: InventoryCheck }
   | { type: 'balance'; item: InventoryCheck }
-  | { type: 'bulk-delete'; items: InventoryCheck[] }
+  | { type: 'bulk-cancel'; items: InventoryCheck[] }
+  | { type: 'bulk-balance'; items: InventoryCheck[] }
   | null;
 
 export function InventoryChecksPage() {
   const navigate = useNavigate();
   const { isMobile } = useBreakpoint();
-  const { data, remove, balanceCheck } = useInventoryCheckStore();
+  const { data, balanceCheck, cancelCheck } = useInventoryCheckStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { findById: findBranchById, data: branches } = useBranchStore();
+  const { print, printMultiple } = usePrint();
+
+  // Print dialog state
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
+  const [pendingPrintItems, setPendingPrintItems] = React.useState<InventoryCheck[]>([]);
 
   // States
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -57,21 +76,44 @@ export function InventoryChecksPage() {
     navigate(ROUTES.INVENTORY.INVENTORY_CHECK_EDIT.replace(':systemId', item.systemId));
   }, [navigate]);
 
-  const requestDelete = React.useCallback((item: InventoryCheck) => {
-    setConfirmState({ type: 'delete', item });
+  const requestCancel = React.useCallback((item: InventoryCheck) => {
+    if (item.status !== 'draft') {
+      toast.info('Chỉ có thể hủy phiếu đang ở trạng thái Nháp');
+      return;
+    }
+    setConfirmState({ type: 'cancel', item });
   }, []);
-
   const requestBalance = React.useCallback((item: InventoryCheck) => {
     setConfirmState({ type: 'balance', item });
   }, []);
+
+  const handlePrint = React.useCallback((item: InventoryCheck) => {
+    // Use helper to prepare print data
+    const branch = findBranchById(item.branchSystemId);
+    const storeSettings = branch 
+      ? {
+          name: branch.name,
+          address: branch.address || '',
+          phone: branch.phone || '',
+          email: '',
+          province: branch.province || '',
+        }
+      : createStoreSettings(storeInfo);
+    const checkData = convertInventoryCheckForPrint(item, { branch });
+    
+    print('inventory-check', {
+      data: mapInventoryCheckToPrintData(checkData, storeSettings),
+      lineItems: mapInventoryCheckLineItems(checkData.items),
+    });
+  }, [findBranchById, storeInfo, print]);
 
   const handleConfirmAction = React.useCallback(async () => {
     if (!confirmState) return;
     setIsConfirmLoading(true);
     try {
-      if (confirmState.type === 'delete' && confirmState.item) {
-        remove(asSystemId(confirmState.item.systemId));
-        toast.success(`Đã xóa phiếu ${confirmState.item.id}`);
+      if (confirmState.type === 'cancel' && confirmState.item) {
+        cancelCheck(asSystemId(confirmState.item.systemId), 'Hủy từ danh sách');
+        toast.success(`Đã hủy phiếu ${confirmState.item.id}`);
       }
 
       if (confirmState.type === 'balance' && confirmState.item) {
@@ -79,10 +121,40 @@ export function InventoryChecksPage() {
         toast.success(`Đã cân bằng phiếu ${confirmState.item.id}`);
       }
 
-      if (confirmState.type === 'bulk-delete' && confirmState.items) {
-        confirmState.items.forEach(row => remove(asSystemId(row.systemId)));
+      if (confirmState.type === 'bulk-cancel' && confirmState.items) {
+        let successCount = 0;
+        confirmState.items.forEach(item => {
+          if (item.status === 'draft') {
+            cancelCheck(asSystemId(item.systemId), 'Hủy hàng loạt');
+            successCount++;
+          }
+        });
         setRowSelection({});
-        toast.success(`Đã xóa ${confirmState.items.length} phiếu kiểm hàng`);
+        if (successCount > 0) {
+          toast.success(`Đã hủy ${successCount} phiếu kiểm hàng`);
+        } else {
+          toast.info('Không có phiếu nào được hủy', {
+            description: 'Chỉ có thể hủy các phiếu đang ở trạng thái Nháp'
+          });
+        }
+      }
+
+      if (confirmState.type === 'bulk-balance' && confirmState.items) {
+        let successCount = 0;
+        for (const item of confirmState.items) {
+          if (item.status === 'draft') {
+            await balanceCheck(asSystemId(item.systemId));
+            successCount++;
+          }
+        }
+        setRowSelection({});
+        if (successCount > 0) {
+          toast.success(`Đã cân bằng ${successCount} phiếu kiểm hàng`);
+        } else {
+          toast.info('Không có phiếu nào được cân bằng', {
+            description: 'Chỉ có thể cân bằng các phiếu đang ở trạng thái Nháp'
+          });
+        }
       }
     } catch (error) {
       toast.error('Không thể hoàn tất hành động, vui lòng thử lại');
@@ -90,12 +162,12 @@ export function InventoryChecksPage() {
       setIsConfirmLoading(false);
       setConfirmState(null);
     }
-  }, [balanceCheck, confirmState, remove, setRowSelection]);
+  }, [balanceCheck, cancelCheck, confirmState, setRowSelection]);
 
   // Columns
   const columns = React.useMemo(() => 
-    getColumns(handleEdit, requestDelete, requestBalance, navigate),
-    [handleEdit, navigate, requestDelete, requestBalance]
+    getColumns(handleEdit, requestCancel, requestBalance, navigate, handlePrint),
+    [handleEdit, navigate, requestCancel, requestBalance, handlePrint]
   );
 
   // Default column visibility - 15 columns for sticky scrollbar
@@ -145,7 +217,12 @@ export function InventoryChecksPage() {
       result = [...result].sort((a, b) => {
         const aValue = (a as any)[sorting.id];
         const bValue = (b as any)[sorting.id];
-        
+        // Special handling for date columns
+        if (sorting.id === 'createdAt' || sorting.id === 'checkDate') {
+          const aTime = aValue ? new Date(aValue).getTime() : 0;
+          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          return sorting.desc ? bTime - aTime : aTime - bTime;
+        }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
         if (aValue > bValue) return sorting.desc ? -1 : 1;
         return 0;
@@ -192,63 +269,111 @@ export function InventoryChecksPage() {
     [rowSelection, filteredData]
   );
 
-  const handleBulkDelete = React.useCallback(() => {
+  // Bulk print - open dialog
+  const handleBulkPrint = React.useCallback(() => {
     if (allSelectedRows.length === 0) return;
-    setConfirmState({ type: 'bulk-delete', items: allSelectedRows });
+    setPendingPrintItems(allSelectedRows);
+    setIsPrintDialogOpen(true);
   }, [allSelectedRows]);
 
-  // Header actions
-  const actions = React.useMemo(() => {
-    const acts = [
-      <DataTableExportDialog 
-        key="export"
-        allData={data}
-        filteredData={filteredData}
-        pageData={paginatedData}
-        config={{
-          fileName: 'danh-sach-kiem-hang',
-          columns: columns || []
-        }}
-      >
-        <Button variant="outline" className="h-9 gap-1">
-          <Download className="h-4 w-4" />
-          Xuất file
-        </Button>
-      </DataTableExportDialog>,
-      <Button key="add" className="h-9" onClick={() => navigate(ROUTES.INVENTORY.INVENTORY_CHECK_NEW)}>
-        <Plus className="mr-2 h-4 w-4" />
-        Tạo phiếu kiểm hàng
-      </Button>
-    ];
+  // Handle print confirm from dialog
+  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+    const { branchSystemId, paperSize } = options;
     
-    // Only add column customizer if columns are loaded
-    if (columns && columns.length > 0) {
-      acts.splice(1, 0,
-        <DataTableColumnCustomizer 
-          key="columns"
-          columns={columns}
-          columnVisibility={columnVisibility}
-          setColumnVisibility={setColumnVisibility}
-          columnOrder={columnOrder}
-          setColumnOrder={setColumnOrder}
-          pinnedColumns={pinnedColumns}
-          setPinnedColumns={setPinnedColumns}
-        />
-      );
+    const printOptionsList = pendingPrintItems.map(item => {
+      const branch = branchSystemId 
+        ? findBranchById(branchSystemId)
+        : findBranchById(item.branchSystemId);
+      const storeSettings = branch 
+        ? {
+            name: branch.name,
+            address: branch.address || '',
+            phone: branch.phone || '',
+            email: '',
+            province: branch.province || '',
+          }
+        : createStoreSettings(storeInfo);
+      const checkData = convertInventoryCheckForPrint(item, { branch });
+      
+      return {
+        data: mapInventoryCheckToPrintData(checkData, storeSettings),
+        lineItems: mapInventoryCheckLineItems(checkData.items),
+        paperSize,
+      };
+    });
+    
+    printMultiple('inventory-check', printOptionsList);
+    
+    toast.success('Đã gửi lệnh in', {
+      description: pendingPrintItems.map(i => i.id).join(', ')
+    });
+    setRowSelection({});
+    setPendingPrintItems([]);
+  }, [pendingPrintItems, findBranchById, storeInfo, printMultiple]);
+
+  // Bulk cancel
+  const handleBulkCancel = React.useCallback(() => {
+    if (allSelectedRows.length === 0) return;
+    const draftItems = allSelectedRows.filter(item => item.status === 'draft');
+    if (draftItems.length === 0) {
+      toast.info('Không có phiếu nào có thể hủy', {
+        description: 'Chỉ có thể hủy các phiếu đang ở trạng thái Nháp'
+      });
+      return;
     }
-    
-    return acts;
-  }, [data, filteredData, paginatedData, columns, columnVisibility, columnOrder, pinnedColumns, navigate]);
+    setConfirmState({ type: 'bulk-cancel', items: draftItems });
+  }, [allSelectedRows]);
+
+  // Bulk balance
+  const handleBulkBalance = React.useCallback(() => {
+    if (allSelectedRows.length === 0) return;
+    const draftItems = allSelectedRows.filter(item => item.status === 'draft');
+    if (draftItems.length === 0) {
+      toast.info('Không có phiếu nào có thể cân bằng', {
+        description: 'Chỉ có thể cân bằng các phiếu đang ở trạng thái Nháp'
+      });
+      return;
+    }
+    setConfirmState({ type: 'bulk-balance', items: draftItems });
+  }, [allSelectedRows]);
+
+  // Bulk actions
+  const bulkActions = React.useMemo(() => [
+    {
+      label: 'In phiếu kiểm',
+      icon: Printer,
+      onSelect: handleBulkPrint,
+    },
+    {
+      label: 'Cân bằng',
+      icon: Scale,
+      onSelect: handleBulkBalance,
+    },
+    {
+      label: 'Hủy phiếu',
+      icon: XCircle,
+      onSelect: handleBulkCancel,
+      variant: 'destructive' as const,
+    },
+  ], [handleBulkPrint, handleBulkBalance, handleBulkCancel]);
+
+  // Header actions - Chỉ giữ action chính
+  const headerActions = React.useMemo(() => [
+    <Button key="add" className="h-9" onClick={() => navigate(ROUTES.INVENTORY.INVENTORY_CHECK_NEW)}>
+      <Plus className="mr-2 h-4 w-4" />
+      Tạo phiếu kiểm hàng
+    </Button>
+  ], [navigate]);
 
   const confirmDialogCopy = React.useMemo(() => {
     if (!confirmState) return null;
 
     switch (confirmState.type) {
-      case 'delete':
+      case 'cancel':
         return {
-          title: 'Xóa phiếu kiểm hàng',
-          description: `Bạn có chắc muốn xóa phiếu ${confirmState.item?.id}? Hành động này không thể hoàn tác.`,
-          confirmLabel: 'Xóa phiếu',
+          title: 'Hủy phiếu kiểm hàng',
+          description: `Bạn có chắc muốn hủy phiếu ${confirmState.item?.id}? Phiếu sẽ chuyển sang trạng thái Đã hủy.`,
+          confirmLabel: 'Hủy phiếu',
         };
       case 'balance':
         return {
@@ -256,11 +381,17 @@ export function InventoryChecksPage() {
           description: `Sau khi cân bằng, tồn kho hệ thống sẽ cập nhật theo số thực tế của phiếu ${confirmState.item?.id}. Tiếp tục?`,
           confirmLabel: 'Cân bằng ngay',
         };
-      case 'bulk-delete':
+      case 'bulk-cancel':
         return {
-          title: 'Xóa nhiều phiếu kiểm hàng',
-          description: `Bạn sắp xóa ${confirmState.items?.length ?? 0} phiếu kiểm hàng đã chọn.`,
-          confirmLabel: `Xóa ${confirmState.items?.length ?? 0} phiếu`,
+          title: 'Hủy nhiều phiếu kiểm hàng',
+          description: `Bạn sắp hủy ${confirmState.items?.length ?? 0} phiếu kiểm hàng đã chọn. Chỉ các phiếu đang ở trạng thái Nháp mới được hủy.`,
+          confirmLabel: `Hủy ${confirmState.items?.length ?? 0} phiếu`,
+        };
+      case 'bulk-balance':
+        return {
+          title: 'Cân bằng nhiều phiếu kiểm hàng',
+          description: `Bạn sắp cân bằng ${confirmState.items?.length ?? 0} phiếu kiểm hàng. Tồn kho hệ thống sẽ được cập nhật theo số thực tế.`,
+          confirmLabel: `Cân bằng ${confirmState.items?.length ?? 0} phiếu`,
         };
       default:
         return null;
@@ -273,11 +404,46 @@ export function InventoryChecksPage() {
       { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
       { label: 'Kiểm hàng', href: ROUTES.INVENTORY.INVENTORY_CHECKS, isCurrent: true }
     ],
-    actions,
+    actions: headerActions,
   });
 
   return (
     <div className="space-y-4">
+      {/* Toolbar - Export và Column Customizer */}
+      {!isMobile && (
+        <PageToolbar
+          leftActions={
+            <DataTableExportDialog 
+              allData={data}
+              filteredData={filteredData}
+              pageData={paginatedData}
+              config={{
+                fileName: 'danh-sach-kiem-hang',
+                columns: columns || []
+              }}
+            >
+              <Button variant="outline" size="sm" className="h-9 gap-1">
+                <Download className="h-4 w-4" />
+                Xuất file
+              </Button>
+            </DataTableExportDialog>
+          }
+          rightActions={
+            columns && columns.length > 0 ? (
+              <DataTableColumnCustomizer 
+                columns={columns}
+                columnVisibility={columnVisibility}
+                setColumnVisibility={setColumnVisibility}
+                columnOrder={columnOrder}
+                setColumnOrder={setColumnOrder}
+                pinnedColumns={pinnedColumns}
+                setPinnedColumns={setPinnedColumns}
+              />
+            ) : null
+          }
+        />
+      )}
+
       {/* Search & Filters */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center">
         <Input 
@@ -316,7 +482,8 @@ export function InventoryChecksPage() {
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         allSelectedRows={allSelectedRows}
-        onBulkDelete={handleBulkDelete}
+        bulkActions={bulkActions}
+        showBulkDeleteButton={false}
         sorting={sorting}
         setSorting={setSorting}
         columnVisibility={columnVisibility}
@@ -334,14 +501,14 @@ export function InventoryChecksPage() {
         <div className="py-6 text-center">
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-sm">Đang tải thêm...</span>
+            <span className="text-body-sm">Đang tải thêm...</span>
           </div>
         </div>
       )}
       
       {isMobile && mobileLoadedCount >= filteredData.length && filteredData.length > 20 && (
         <div className="py-6 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body-sm text-muted-foreground">
             Đã hiển thị tất cả {filteredData.length} kết quả
           </p>
         </div>
@@ -373,6 +540,15 @@ export function InventoryChecksPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Print Options Dialog */}
+      <SimplePrintOptionsDialog
+        open={isPrintDialogOpen}
+        onOpenChange={setIsPrintDialogOpen}
+        onConfirm={handlePrintConfirm}
+        selectedCount={pendingPrintItems.length}
+        title="In phiếu kiểm hàng"
+      />
     </div>
   );
 }

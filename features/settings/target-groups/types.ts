@@ -5,4 +5,9 @@ export type TargetGroup = {
   id: BusinessId;
   name: string;
   isActive?: boolean;
+  isDefault?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

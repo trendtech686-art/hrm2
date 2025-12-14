@@ -5,14 +5,16 @@ import { ReceiptForm, type ReceiptFormValues } from './receipt-form';
 import { useCashbookStore } from '../cashbook/store';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useRouteMeta } from '@/hooks/use-route-meta';
-import { ROUTES } from '@/lib/router';
-import { asBusinessId, asSystemId } from '@/lib/id-types';
+import { ROUTES, generatePath } from '@/lib/router';
+import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+
+type ReceiptUpsertPayload = Omit<ReceiptInput, 'createdAt'>;
 
 export function ReceiptFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
@@ -47,32 +49,81 @@ export function ReceiptFormPage() {
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" className="h-9" onClick={() => navigate(ROUTES.FINANCE.RECEIPTS)}>
+    <Button
+      key="cancel"
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-9"
+      onClick={() => navigate(ROUTES.FINANCE.RECEIPTS)}
+    >
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" type="submit" form="receipt-form" className="h-9">
+    <Button
+      key="save"
+      type="submit"
+      form="receipt-form"
+      size="sm"
+      className="h-9"
+    >
       Lưu
     </Button>
   ], [navigate]);
+
+  const headerTitle = isEditing
+    ? `Chỉnh sửa phiếu thu ${receipt?.id ?? ''}`.trim()
+    : 'Thêm phiếu thu mới';
+
+  const fallbackBreadcrumb = React.useMemo(() => (
+    receipt ? [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Phiếu thu', href: ROUTES.FINANCE.RECEIPTS, isCurrent: false },
+      { label: 'Chỉnh sửa', href: generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }), isCurrent: true }
+    ] : [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Phiếu thu', href: ROUTES.FINANCE.RECEIPTS, isCurrent: false },
+      { label: 'Thêm mới', href: ROUTES.FINANCE.RECEIPT_NEW, isCurrent: true }
+    ]
+  ), [receipt]);
   
   usePageHeader({
-    title: isEditing ? `Chỉnh sửa Phiếu Thu ${receipt?.id || ''}` : 'Thêm mới Phiếu Thu',
+    title: headerTitle,
     actions: headerActions,
-    breadcrumb: routeMeta?.breadcrumb as any
+    breadcrumb: (routeMeta?.breadcrumb as any) ?? fallbackBreadcrumb,
+    showBackButton: true,
+    backPath: ROUTES.FINANCE.RECEIPTS
   });
 
-  const normalizeValues = (values: ReceiptFormValues, createdBy: string): ReceiptInput => ({
-    ...values,
-    id: values.id ? asBusinessId(values.id) : undefined,
-    payerTypeSystemId: asSystemId(values.payerTypeSystemId),
-    payerSystemId: values.payerSystemId ? asSystemId(values.payerSystemId) : undefined,
-    paymentMethodSystemId: asSystemId(values.paymentMethodSystemId),
-    accountSystemId: asSystemId(values.accountSystemId),
-    paymentReceiptTypeSystemId: asSystemId(values.paymentReceiptTypeSystemId),
-    branchSystemId: asSystemId(values.branchSystemId),
-    createdBy: asSystemId(createdBy),
-  } as ReceiptInput);
+  const normalizeValues = (values: ReceiptFormValues, createdBy: SystemId): ReceiptUpsertPayload => {
+    const {
+      id,
+      payerTypeSystemId,
+      payerSystemId,
+      paymentMethodSystemId,
+      accountSystemId,
+      paymentReceiptTypeSystemId,
+      branchSystemId,
+      ...rest
+    } = values;
+
+    const base: ReceiptUpsertPayload = {
+      ...rest,
+      payerTypeSystemId: asSystemId(payerTypeSystemId),
+      payerSystemId: payerSystemId ? asSystemId(payerSystemId) : undefined,
+      paymentMethodSystemId: asSystemId(paymentMethodSystemId),
+      accountSystemId: asSystemId(accountSystemId),
+      paymentReceiptTypeSystemId: asSystemId(paymentReceiptTypeSystemId),
+      branchSystemId: asSystemId(branchSystemId),
+      createdBy,
+    };
+
+    if (id) {
+      base.id = asBusinessId(id);
+    }
+
+    return base;
+  };
 
   const handleFormSubmit = (values: ReceiptFormValues) => {
     try {
@@ -102,7 +153,7 @@ export function ReceiptFormPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <ReceiptForm initialData={receipt} onSubmit={handleFormSubmit} isEditing={isEditing} />
+        <ReceiptForm initialData={receipt ?? null} onSubmit={handleFormSubmit} isEditing={isEditing} />
       </CardContent>
     </Card>
   );

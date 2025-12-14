@@ -9,6 +9,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Progress } from '../../components/ui/progress';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Comments } from '../../components/Comments.tsx';
+import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 
 // Lazy load ImagePreviewDialog để giảm bundle size
 const ImagePreviewDialog = React.lazy(() => 
@@ -25,6 +26,7 @@ import { useEmployeeStore } from '../employees/store';
 import { usePaymentStore } from '../payments/store';
 import { useReceiptStore } from '../receipts/store';
 import { asSystemId } from '@/lib/id-types';
+import { formatOrderAddress } from '../orders/address-utils.ts';
 import { 
   complaintStatusLabels, 
   complaintStatusColors,
@@ -150,7 +152,7 @@ export function PublicComplaintTrackingPage() {
       performedAt: new Date(),
       note: contentText,
       images: attachments,
-      metadata: mentions.length > 0 ? { mentions } : undefined,
+      metadata: mentions.length > 0 ? { mentions } : {},
     };
     
     updateComplaint(complaint.systemId, {
@@ -290,7 +292,7 @@ export function PublicComplaintTrackingPage() {
                     <h2 className="text-2xl font-bold tracking-tight">{complaintStatusLabels[complaint.status]}</h2>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Khiếu nại #{complaint.id} • Tạo lúc {new Date(complaint.createdAt).toLocaleString('vi-VN')}
+                    Khiếu nại #{complaint.id} • Tạo lúc {formatDateTimeForDisplay(complaint.createdAt)}
                   </p>
                 </div>
                 <StatusBadge status={complaint.status} statusMap={COMPLAINT_STATUS_MAP} />
@@ -395,7 +397,7 @@ export function PublicComplaintTrackingPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Địa chỉ giao hàng:</span>
-                <span className="font-medium text-right">{relatedOrder?.shippingAddress || 'Chưa có'}</span>
+                <span className="font-medium text-right">{formatOrderAddress(relatedOrder?.shippingAddress) || 'Chưa có'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Người tạo đơn:</span>
@@ -404,7 +406,7 @@ export function PublicComplaintTrackingPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ngày bán:</span>
                 <span className="font-medium">
-                  {relatedOrder ? new Date(relatedOrder.orderDate).toLocaleDateString('vi-VN') : 'N/A'}
+                  {relatedOrder ? formatDateForDisplay(relatedOrder.orderDate) : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -416,13 +418,13 @@ export function PublicComplaintTrackingPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Thời gian giao hàng:</span>
                 <span className="font-medium">
-                  {relatedOrder?.expectedDeliveryDate ? new Date(relatedOrder.expectedDeliveryDate).toLocaleDateString('vi-VN') : 'Chưa có'}
+                  {relatedOrder?.expectedDeliveryDate ? formatDateForDisplay(relatedOrder.expectedDeliveryDate) : 'Chưa có'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Thời gian xuất kho:</span>
                 <span className="font-medium">
-                  {relatedOrder?.packagings?.[0]?.requestDate ? new Date(relatedOrder.packagings[0].requestDate).toLocaleDateString('vi-VN') : 'Chưa xuất'}
+                  {relatedOrder?.packagings?.[0]?.requestDate ? formatDateForDisplay(relatedOrder.packagings[0].requestDate) : 'Chưa xuất'}
                 </span>
               </div>
             </div>
@@ -465,7 +467,7 @@ export function PublicComplaintTrackingPage() {
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-medium">{getActionLabel(action.actionType)}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(action.performedAt).toLocaleString('vi-VN')}
+                            {formatDateTimeForDisplay(action.performedAt)}
                             {shouldShowEmployeeName() && action.performedBy && ` • ${action.performedBy}`}
                           </p>
                         </div>

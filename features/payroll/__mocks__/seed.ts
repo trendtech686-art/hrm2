@@ -181,15 +181,48 @@ export const seedPayrollDemoData = (options: PayrollSeedOptions = {}): PayrollSe
   const payPeriod = buildPayPeriod(monthKey);
   const payrollDate = buildPayrollDate(monthKey, payrollWindow.payday);
 
-  const computation = payrollEngine.runBatch(
-    selectedEmployees.map((employee) => ({
-      employeeSystemId: employee.systemId,
-      monthKey,
-      templateSystemId: template.systemId,
-    }))
-  );
+  // Get salary components and convert to PayrollComponent format
+  const salaryComponents = settingsStore.getSalaryComponents();
+  const templateComponentIds = template.componentSystemIds;
+  const filteredComponents = templateComponentIds.length > 0
+    ? salaryComponents.filter(c => templateComponentIds.includes(c.systemId))
+    : salaryComponents;
+  
+  const payrollComponents = filteredComponents.map((c, idx) => ({
+    systemId: c.systemId,
+    id: c.id,
+    name: c.name,
+    code: c.id,
+    category: 'earning' as const,
+    calculationType: c.type,
+    amount: c.amount,
+    formula: c.formula,
+    taxable: c.taxable,
+    partOfSocialInsurance: c.partOfSocialInsurance,
+    applicableDepartmentSystemIds: c.applicableDepartmentSystemIds,
+    isDefault: true,
+    sortOrder: idx,
+    createdAt: c.createdAt ?? new Date().toISOString(),
+    updatedAt: c.updatedAt ?? new Date().toISOString(),
+  }));
 
-  if (!computation.results.length) {
+  // Build employee inputs
+  const employeeInputs = selectedEmployees.map((employee) => ({
+    employeeSystemId: employee.systemId,
+    employeeId: employee.id,
+    employeeName: employee.fullName,
+    departmentSystemId: employee.departmentId,
+    baseSalary: employee.baseSalary ?? 0,
+  }));
+
+  const computation = payrollEngine.calculate({
+    periodMonthKey: monthKey,
+    employees: employeeInputs,
+    components: payrollComponents,
+    penaltyMode: 'all-unpaid',
+  });
+
+  if (!computation.payslips.length) {
     throw new Error('Payroll engine không tạo được kết quả nào.');
   }
 
@@ -202,13 +235,13 @@ export const seedPayrollDemoData = (options: PayrollSeedOptions = {}): PayrollSe
       referenceAttendanceMonthKeys: [monthKey],
       notes: 'Seed payroll demo phục vụ Phase 3',
     },
-    computation.results.map<GeneratedPayslipPayload>((result) => ({
-      employeeSystemId: result.employeeSystemId,
-      employeeId: result.employeeId,
-      departmentSystemId: undefined,
+    computation.payslips.map<GeneratedPayslipPayload>((payslip) => ({
+      employeeSystemId: payslip.employeeSystemId,
+      employeeId: payslip.employeeId,
+      departmentSystemId: payslip.departmentSystemId,
       periodMonthKey: monthKey,
-      components: result.components,
-      totals: result.totals,
+      components: payslip.components,
+      totals: payslip.totals,
       attendanceSnapshotSystemId: undefined,
     }))
   );
@@ -235,7 +268,7 @@ export const seedPayrollDemoData = (options: PayrollSeedOptions = {}): PayrollSe
     monthKey,
     employeesSeeded: selectedEmployees.length,
     batchSystemId: batch.systemId,
-    payslipCount: computation.results.length,
+    payslipCount: computation.payslips.length,
     lockedMonth: Boolean(attendanceStore.lockedMonths[monthKey]),
     templateSystemId: template.systemId,
     status,

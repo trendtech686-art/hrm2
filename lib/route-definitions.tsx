@@ -29,7 +29,7 @@ import { OrganizationChartPage } from '../features/settings/departments/organiza
 import { PayrollListPage } from '../features/payroll/list-page.tsx';
 import { PayrollRunPage } from '../features/payroll/run-page.tsx';
 import { PayrollDetailPage } from '../features/payroll/detail-page.tsx';
-import { PayrollTemplatePage } from '../features/payroll/template-page.tsx';
+import { PayrollTemplatePage } from '../features/payroll/template-page-redirect.tsx';
 
 // Sales Core - ALL direct imports
 import { CustomersPage } from '../features/customers/page';
@@ -41,6 +41,8 @@ import { ProductsPage } from '../features/products/page';
 import { ProductFormPage } from '../features/products/form-page';
 import { ProductDetailPage } from '../features/products/detail-page';
 import { ProductsTrashPage } from '../features/products/trash-page';
+import { BrandsPage } from '../features/brands/page';
+import { ProductCategoriesPage } from '../features/categories/page';
 import { OrdersPage } from '../features/orders/page';
 import { OrderFormPage } from '../features/orders/order-form-page';
 import { OrderDetailPage } from '../features/orders/order-detail-page';
@@ -81,6 +83,16 @@ import { InventoryChecksPage } from '../features/inventory-checks/page';
 import { InventoryCheckFormPage } from '../features/inventory-checks/form-page';
 import { InventoryCheckDetailPage } from '../features/inventory-checks/detail-page';
 
+// Stock Transfers
+import { StockTransfersPage } from '../features/stock-transfers/page';
+import { StockTransferFormPage } from '../features/stock-transfers/form-page';
+import { StockTransferEditPage } from '../features/stock-transfers/edit-page';
+import { StockTransferDetailPage } from '../features/stock-transfers/detail-page';
+
+// Cost Adjustments
+import { CostAdjustmentListPage } from '../features/cost-adjustments/page';
+import { CostAdjustmentFormPage } from '../features/cost-adjustments/form-page';
+import { CostAdjustmentDetailPage } from '../features/cost-adjustments/detail-page';
 
 // Finance Core - ALL direct imports
 import { CashbookPage } from '../features/cashbook/page';
@@ -124,6 +136,8 @@ import { WikiFormPage } from '../features/wiki/form-page';
 import { WikiDetailPage } from '../features/wiki/detail-page';
 import { SalesReportPage } from '../features/reports/sales-report/page';
 import { InventoryReportPage } from '../features/reports/inventory-report/page';
+import { CustomerSlaReportPage } from '../features/reports/customer-sla-report/page';
+import { ProductSlaReportPage } from '../features/reports/product-sla-report/page';
 import { SettingsPage } from '../features/settings/page';
 import { AppearancePage } from '../features/settings/appearance/appearance-page';
 import { StoreInfoPage } from '../features/settings/store-info/store-info-page';
@@ -134,7 +148,7 @@ import { EmployeeRolesPage } from '../features/settings/employees/employee-roles
 import { PricingSettingsPage } from '../features/settings/pricing/page';
 import { PaymentSettingsPage } from '../features/settings/payment-settings-page';
 import { InventorySettingsPage } from '../features/settings/inventory/page';
-import { PrintTemplatesPage } from '../features/settings/templates/print-templates-page';
+import { PrintTemplatesPage } from '../features/settings/printer/print-templates-page';
 import { ImportExportLogsPage } from '../features/settings/system/import-export-logs-page';
 import { SystemLogsPage } from '../features/settings/system/system-logs-page';
 import { OtherSettingsPage } from '../features/settings/other-page';
@@ -142,10 +156,11 @@ import { StockLocationsPage } from '../features/stock-locations/page';
 import { ShippingPartnersPage } from '../features/settings/shipping/page';
 import { ShippingPartnerDetailPage } from '../features/settings/shipping/partner-detail-page';
 import { SalesConfigPage } from '../features/settings/sales/sales-config-page';
-import { WorkflowTemplatesPage } from '../features/settings/templates/workflow-templates-page.tsx';
+import { WorkflowTemplatesPage } from '../features/settings/printer/workflow-templates-page.tsx';
 import { ComplaintsSettingsPage } from '../features/settings/complaints/complaints-settings-page.tsx';
 import { TasksSettingsPage } from '../features/settings/tasks/tasks-settings-page.tsx';
 import { WarrantySettingsPage } from '../features/settings/warranty/warranty-settings-page.tsx';
+import { PkgxSettingsPage } from '../features/settings/pkgx/pkgx-settings-page.tsx';
 import { IDCounterSettingsPage } from '../features/settings/system/id-counter-settings-page'; // [DONE] NEW: ID Management
 import { ImportExportHistoryPage } from '../features/shared/import-export-history-page';
 import { PlaceholderPage } from '../components/layout/placeholder-page';
@@ -215,7 +230,7 @@ export const routeDefinitions: AppRoute[] = [
     path: ROUTES.HRM.EMPLOYEES,
     element: EmployeesPage,
     meta: {
-      breadcrumb: ['Nhân Viên'],
+      breadcrumb: ['Nhân viên'],
       preload: true  // ← Preload this important page
     }
   },
@@ -223,21 +238,21 @@ export const routeDefinitions: AppRoute[] = [
     path: '/employees/test',
     element: EmployeesPageTanStackTest,
     meta: {
-      breadcrumb: ['Nhân Viên', 'TanStack Test']
+      breadcrumb: ['Nhân viên', 'TanStack Test']
     }
   },
   {
     path: '/employees/virtualized',
     element: EmployeesVirtualizedPage,
     meta: {
-      breadcrumb: ['Nhân Viên', 'Virtual Scrolling Demo']
+      breadcrumb: ['Nhân viên', 'Virtual Scrolling Demo']
     }
   },
   {
     path: '/employees/trash',
     element: EmployeesTrashPage,
     meta: {
-      breadcrumb: ['Nhân Viên', 'Thùng rác']
+      breadcrumb: ['Nhân viên', 'Thùng rác']
     }
   },
   {
@@ -245,7 +260,7 @@ export const routeDefinitions: AppRoute[] = [
     element: EmployeeFormPage,
     meta: {
       breadcrumb: [
-        { label: 'Nhân Viên', href: ROUTES.HRM.EMPLOYEES },
+        { label: 'Nhân viên', href: ROUTES.HRM.EMPLOYEES },
         'Thêm mới'
       ]
     }
@@ -255,7 +270,7 @@ export const routeDefinitions: AppRoute[] = [
     element: EmployeeFormPage,
     meta: {
       breadcrumb: [
-        { label: 'Nhân Viên', href: ROUTES.HRM.EMPLOYEES },
+        { label: 'Nhân viên', href: ROUTES.HRM.EMPLOYEES },
         'Chỉnh sửa'
       ]
     }
@@ -265,7 +280,7 @@ export const routeDefinitions: AppRoute[] = [
     element: EmployeeDetailPage,
     meta: {
       breadcrumb: [
-        { label: 'Nhân Viên', href: ROUTES.HRM.EMPLOYEES },
+        { label: 'Nhân viên', href: ROUTES.HRM.EMPLOYEES },
         'Chi tiết'
       ]
     }
@@ -357,6 +372,8 @@ export const routeDefinitions: AppRoute[] = [
     path: ROUTES.PAYROLL.TEMPLATES,
     element: PayrollTemplatePage,
     meta: {
+      title: 'Mẫu bảng lương',
+      description: 'Quản lý bộ thành phần chuẩn để tái sử dụng',
       breadcrumb: [
         { label: 'Trang chủ', href: ROUTES.DASHBOARD },
         { label: 'Bảng lương', href: ROUTES.PAYROLL.LIST },
@@ -415,6 +432,26 @@ export const routeDefinitions: AppRoute[] = [
     }
   },
   
+  // Brands Routes
+  {
+    path: ROUTES.SALES.BRANDS,
+    element: BrandsPage,
+    meta: {
+      breadcrumb: ['Thương hiệu'],
+      preload: true
+    }
+  },
+  
+  // Categories Routes
+  {
+    path: ROUTES.SALES.CATEGORIES,
+    element: ProductCategoriesPage,
+    meta: {
+      breadcrumb: ['Danh mục sản phẩm'],
+      preload: true
+    }
+  },
+  
   // Customers Routes
   {
     path: ROUTES.SALES.CUSTOMERS,
@@ -425,7 +462,7 @@ export const routeDefinitions: AppRoute[] = [
     }
   },
   {
-    path: '/customers/settings',
+    path: '/settings/customers',
     element: CustomerSettingsPage,
     meta: {
       breadcrumb: [
@@ -810,6 +847,86 @@ export const routeDefinitions: AppRoute[] = [
       ]
     }
   },
+  
+  // Stock Transfers Routes
+  {
+    path: ROUTES.INVENTORY.STOCK_TRANSFERS,
+    element: StockTransfersPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        'Chuyển kho'
+      ]
+    }
+  },
+  {
+    path: ROUTES.INVENTORY.STOCK_TRANSFER_NEW,
+    element: StockTransferFormPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Chuyển kho', href: ROUTES.INVENTORY.STOCK_TRANSFERS },
+        'Tạo phiếu'
+      ]
+    }
+  },
+  {
+    path: ROUTES.INVENTORY.STOCK_TRANSFER_VIEW,
+    element: StockTransferDetailPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Chuyển kho', href: ROUTES.INVENTORY.STOCK_TRANSFERS },
+        'Chi tiết'
+      ]
+    }
+  },
+  {
+    path: ROUTES.INVENTORY.STOCK_TRANSFER_EDIT,
+    element: StockTransferEditPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Chuyển kho', href: ROUTES.INVENTORY.STOCK_TRANSFERS },
+        'Chỉnh sửa'
+      ]
+    }
+  },
+  
+  // Cost Adjustments Routes
+  {
+    path: '/cost-adjustments',
+    element: CostAdjustmentListPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        'Điều chỉnh giá vốn'
+      ]
+    }
+  },
+  {
+    path: '/cost-adjustments/new',
+    element: CostAdjustmentFormPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Điều chỉnh giá vốn', href: '/cost-adjustments' },
+        'Tạo phiếu'
+      ]
+    }
+  },
+  {
+    path: '/cost-adjustments/:systemId',
+    element: CostAdjustmentDetailPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Điều chỉnh giá vốn', href: '/cost-adjustments' },
+        'Chi tiết'
+      ]
+    }
+  },
+  
   // Finance Routes - Cashbook
   {
     path: ROUTES.FINANCE.CASHBOOK,
@@ -1354,13 +1471,6 @@ export const routeDefinitions: AppRoute[] = [
     }
   },
   {
-    path: ROUTES.SETTINGS.PRINT_TEMPLATES,
-    element: PlaceholderPage,
-    meta: {
-      breadcrumb: ['Cài đặt', 'Mẫu in']
-    }
-  },
-  {
     path: ROUTES.SETTINGS.OTHER,
     element: PlaceholderPage,
     meta: {
@@ -1386,6 +1496,13 @@ export const routeDefinitions: AppRoute[] = [
     element: ComplaintsSettingsPage,
     meta: {
       breadcrumb: ['Cài đặt', 'Khiếu nại']
+    }
+  },
+  {
+    path: '/settings/pkgx',
+    element: PkgxSettingsPage,
+    meta: {
+      breadcrumb: ['Cài đặt', 'Tích hợp PKGX']
     }
   },
   {
@@ -1423,6 +1540,20 @@ export const routeDefinitions: AppRoute[] = [
     element: InventoryReportPage,
     meta: {
       breadcrumb: ['Báo cáo', 'Kho hàng']
+    }
+  },
+  {
+    path: ROUTES.REPORTS.CUSTOMER_SLA,
+    element: CustomerSlaReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Cảnh báo khách hàng']
+    }
+  },
+  {
+    path: ROUTES.REPORTS.PRODUCT_SLA,
+    element: ProductSlaReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Cảnh báo tồn kho']
     }
   },
   

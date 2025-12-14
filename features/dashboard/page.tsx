@@ -16,6 +16,7 @@ import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
 import { DebtAlertWidget } from './debt-alert-widget.tsx';
 import type { OrderMainStatus } from '../orders/types.ts';
+import { Button } from '../../components/ui/button.tsx';
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
 const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
@@ -30,9 +31,35 @@ export function DashboardPage() {
     const { data: customers } = useCustomerStore();
     const { data: employees } = useEmployeeStore();
     const navigate = useNavigate();
+
+    const headerActions = React.useMemo(() => [
+        <Button
+            key="reports"
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => navigate('/reports')}
+        >
+            Xem báo cáo
+        </Button>,
+        <Button
+            key="new-order"
+            size="sm"
+            className="h-9"
+            onClick={() => navigate('/orders/new')}
+        >
+            Tạo đơn hàng
+        </Button>,
+    ], [navigate]);
     
     usePageHeader({
-        title: 'Dashboard',
+        title: 'Tổng quan hoạt động',
+        breadcrumb: [
+            { label: 'Trang chủ', href: '/', isCurrent: false },
+            { label: 'Dashboard', href: '/dashboard', isCurrent: true },
+        ],
+        showBackButton: false,
+        actions: headerActions,
     });
 
     const stats = React.useMemo(() => {
@@ -100,7 +127,8 @@ export function DashboardPage() {
 
     const departmentData = React.useMemo(() => {
         const deptCount = employees.reduce((acc, emp) => {
-            acc[emp.department] = (acc[emp.department] || 0) + 1;
+            const dept = emp.department ?? 'Chưa phân loại';
+            acc[dept] = (acc[dept] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
         
@@ -133,11 +161,11 @@ export function DashboardPage() {
                 onClick={link ? () => navigate(link) : undefined}
             >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium`}>{title}</CardTitle>
+                    <CardTitle className={`${isMobile ? 'text-h6' : 'text-h5'} font-medium`}>{title}</CardTitle>
                     <Icon className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} ${variant === 'destructive' ? 'text-destructive' : variant === 'warning' ? 'text-yellow-600' : 'text-muted-foreground'} group-hover:text-primary transition-colors`} />
                 </CardHeader>
                 <CardContent>
-                    <div className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold ${variant === 'destructive' ? 'text-destructive' : variant === 'warning' ? 'text-yellow-700' : ''}`}>{value}</div>
+                    <div className={`${isMobile ? 'text-h4' : 'text-h3'} font-bold ${variant === 'destructive' ? 'text-destructive' : variant === 'warning' ? 'text-yellow-700' : ''}`}>{value}</div>
                     {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
                     {link && <ChevronRight className="h-4 w-4 text-muted-foreground mt-2 group-hover:translate-x-1 transition-transform" />}
                 </CardContent>
@@ -183,7 +211,7 @@ export function DashboardPage() {
                 {(stats.contractsExpiring30 > 0 || stats.contractsExpiring60 > 0 || stats.contractsExpiring90 > 0) && (
                     <Card className="border-yellow-500/50 bg-yellow-50">
                         <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
+                            <CardTitle className="text-h5 flex items-center gap-2">
                                 <AlertCircle className="h-5 w-5 text-yellow-600" />
                                 Cảnh báo hợp đồng sắp hết hạn
                             </CardTitle>
@@ -234,7 +262,7 @@ export function DashboardPage() {
                         description="Triệu VNĐ"
                         data={revenueChartData}
                         lines={[
-                            { dataKey: 'revenue', name: 'Doanh thu', color: 'hsl(var(--primary))' },
+                            { dataKey: 'revenue', name: 'Doanh thu', color: 'var(--primary)' },
                         ]}
                         height={250}
                     />
@@ -242,7 +270,7 @@ export function DashboardPage() {
                         title="Đơn hàng 7 ngày qua"
                         data={revenueChartData}
                         bars={[
-                            { dataKey: 'orders', name: 'Số đơn', color: 'hsl(var(--chart-1))' },
+                            { dataKey: 'orders', name: 'Số đơn', color: 'var(--chart-1)' },
                         ]}
                         height={250}
                     />
@@ -264,7 +292,7 @@ export function DashboardPage() {
                 {/* Recent Orders - Responsive Layout */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className={isMobile ? 'text-base' : 'text-lg'}>Đơn hàng gần đây</CardTitle>
+                        <CardTitle className={isMobile ? 'text-h4' : 'text-h3'}>Đơn hàng gần đây</CardTitle>
                         <TouchButton 
                             variant="ghost" 
                             size="sm"

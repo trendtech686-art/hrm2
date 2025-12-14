@@ -2,7 +2,7 @@
  * Bảng sản phẩm cho trang chi tiết
  * 
  * Hiển thị đầy đủ:
- * STT | Tên SP | Số lượng | Đơn giá | Hình ảnh | Kết quả | Ghi chú | Thành tiền
+ * STT | Tên SP | Loại SP | Số lượng | Đơn giá | Hình ảnh | Kết quả | Ghi chú | Thành tiền
  * 
  * Mobile-first: Hiển thị dạng card trên mobile, table trên desktop
  */
@@ -18,6 +18,8 @@ import { cn } from '../../../lib/utils';
 import { RESOLUTION_LABELS, SETTLEMENT_TYPE_LABELS } from '../types.ts';
 import type { WarrantyProduct, WarrantyTicket } from '../types.ts';
 import { useProductStore } from '../../products/store.ts';
+import { useProductTypeStore } from '../../settings/inventory/product-type-store.ts';
+import type { SystemId } from '../../../lib/id-types.ts';
 
 interface WarrantyProductsDetailTableProps {
   products: WarrantyProduct[];
@@ -27,6 +29,7 @@ interface WarrantyProductsDetailTableProps {
 export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProductsDetailTableProps) {
   const navigate = useNavigate();
   const { data: allProducts } = useProductStore();
+  const { findById: findProductTypeById } = useProductTypeStore();
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
   const [showPreview, setShowPreview] = React.useState(false);
@@ -37,6 +40,11 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
     allProducts.forEach(p => map.set(p.id, p));
     return map;
   }, [allProducts]);
+
+  const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
+    const productType = findProductTypeById(productTypeSystemId);
+    return productType?.name || 'Hàng hóa';
+  }, [findProductTypeById]);
 
   // Calculate refund info for out-of-stock items
   const refundInfo = React.useMemo(() => {
@@ -76,11 +84,11 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
           <div className="space-y-3">
             {/* Header: STT + Tên sản phẩm */}
             <div className="flex gap-2">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-body-xs font-semibold">
                 {index + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm leading-snug">{product.productName}</p>
+                <p className="font-semibold text-body-sm leading-snug">{product.productName}</p>
                 {product.sku ? (
                   <button
                     onClick={() => {
@@ -89,13 +97,13 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                         navigate(`/products/${productDetail.systemId}`);
                       }
                     }}
-                    className="text-xs font-mono text-primary hover:underline hover:text-primary/80 transition-colors block mt-0.5"
+                    className="text-body-xs font-mono text-primary hover:underline hover:text-primary/80 transition-colors block mt-0.5"
                   >
                     {product.sku}
                   </button>
                 ) : null}
               </div>
-              <Badge className={cn(getResolutionBadge(product.resolution), "text-xs px-2 py-0.5 h-fit")}>
+              <Badge className={cn(getResolutionBadge(product.resolution), "text-body-xs px-2 py-0.5 h-fit")}>
                 {RESOLUTION_LABELS[product.resolution]}
               </Badge>
             </div>
@@ -105,12 +113,12 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
             {/* Số lượng và Đơn giá */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
-                <p className="font-semibold text-sm">{product.quantity || 1}</p>
+                <p className="text-body-xs text-muted-foreground mb-0.5">Số lượng</p>
+                <p className="font-semibold text-body-sm">{product.quantity || 1}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-0.5">Đơn giá</p>
-                <p className="font-semibold text-sm font-mono">
+                <p className="text-body-xs text-muted-foreground mb-0.5">Đơn giá</p>
+                <p className="font-semibold text-body-sm font-mono">
                   {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
                 </p>
               </div>
@@ -121,7 +129,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
               <>
                 <Separator />
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Hình ảnh</p>
+                  <p className="text-body-xs text-muted-foreground mb-1.5">Hình ảnh</p>
                   <div className="flex gap-1.5 flex-wrap">
                     {product.productImages.filter((url): url is string => !!url && typeof url === 'string').slice(0, 3).map((url, imgIdx) => (
                       <div 
@@ -148,7 +156,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                       </div>
                     ))}
                     {product.productImages.filter((url): url is string => !!url && typeof url === 'string').length > 3 && (
-                      <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground flex-shrink-0">
+                      <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center text-body-xs font-medium text-muted-foreground flex-shrink-0">
                         +{product.productImages.filter((url): url is string => !!url && typeof url === 'string').length - 3}
                       </div>
                     )}
@@ -164,12 +172,12 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                 <Separator />
                 <div className="space-y-1">
                   {product.issueDescription && String(product.issueDescription).trim() && (
-                    <p className="text-xs text-orange-600 font-medium leading-snug">
+                    <p className="text-body-xs text-orange-600 font-medium leading-snug">
                       <span className="text-muted-foreground">Vấn đề:</span> {product.issueDescription}
                     </p>
                   )}
                   {product.notes && String(product.notes).trim() && (
-                    <p className="text-xs text-muted-foreground leading-snug">
+                    <p className="text-body-xs text-muted-foreground leading-snug">
                       {product.notes}
                     </p>
                   )}
@@ -180,8 +188,8 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
             {/* Tổng tiền */}
             <Separator />
             <div className="flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">Thành tiền:</span>
-              <span className="font-bold text-sm">
+              <span className="text-body-xs text-muted-foreground">Thành tiền:</span>
+              <span className="font-bold text-body-sm">
                 {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
               </span>
             </div>
@@ -189,8 +197,8 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
             {/* Bù trừ */}
             {product.resolution === 'out_of_stock' && (
               <div className="flex justify-between items-center bg-red-50 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
-                <span className="text-xs font-medium text-red-700">Bù trừ:</span>
-                <span className="font-bold text-sm text-red-600">
+                <span className="text-body-xs font-medium text-red-700">Bù trừ:</span>
+                <span className="font-bold text-body-sm text-red-600">
                   {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
                 </span>
               </div>
@@ -198,8 +206,8 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
 
             {product.resolution === 'deduct' && product.deductionAmount && (
               <div className="flex justify-between items-center bg-orange-50 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
-                <span className="text-xs font-medium text-orange-700">Trừ tiền:</span>
-                <span className="font-bold text-sm text-orange-600">
+                <span className="text-body-xs font-medium text-orange-700">Trừ tiền:</span>
+                <span className="font-bold text-body-sm text-orange-600">
                   {new Intl.NumberFormat('vi-VN').format(product.deductionAmount)} đ
                 </span>
               </div>
@@ -215,7 +223,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
       {/* Mobile View - Card Layout */}
       <div className="block lg:hidden space-y-3">
         {products.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8 text-sm">
+          <div className="text-center text-muted-foreground py-8 text-body-sm">
             Chưa có sản phẩm nào
           </div>
         ) : (
@@ -230,60 +238,69 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 text-center text-sm">STT</TableHead>
-              <TableHead className="min-w-[200px] text-sm">Tên sản phẩm</TableHead>
-              <TableHead className="w-20 text-center text-sm">SL</TableHead>
-              <TableHead className="w-32 text-right text-sm">Đơn giá</TableHead>
-              <TableHead className="w-32 text-sm">Hình ảnh</TableHead>
-              <TableHead className="w-32 text-sm">Kết quả</TableHead>
-              <TableHead className="min-w-[150px] text-sm">Ghi chú</TableHead>
-              <TableHead className="w-32 text-right text-sm">Thành tiền</TableHead>
-              <TableHead className="w-32 text-right text-sm">Bù trừ</TableHead>
+              <TableHead className="w-12 text-center text-body-sm">STT</TableHead>
+              <TableHead className="min-w-[200px] text-body-sm">Tên sản phẩm</TableHead>
+              <TableHead className="w-20 text-center text-body-sm">SL</TableHead>
+              <TableHead className="w-32 text-right text-body-sm">Đơn giá</TableHead>
+              <TableHead className="w-32 text-body-sm">Hình ảnh</TableHead>
+              <TableHead className="w-32 text-body-sm">Kết quả</TableHead>
+              <TableHead className="min-w-[150px] text-body-sm">Ghi chú</TableHead>
+              <TableHead className="w-32 text-right text-body-sm">Thành tiền</TableHead>
+              <TableHead className="w-32 text-right text-body-sm">Bù trừ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
           {products.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-muted-foreground py-6 sm:py-8 text-xs sm:text-sm">
+              <TableCell colSpan={9} className="text-center text-muted-foreground py-6 sm:py-8 text-body-xs sm:text-body-sm">
                 Chưa có sản phẩm nào
               </TableCell>
             </TableRow>
           ) : (
-            products.map((product, index) => (
+            products.map((product, index) => {
+              const productDetail = allProducts.find(p => p.id === product.sku);
+              const productTypeName = productDetail?.productTypeSystemId 
+                ? getProductTypeName(productDetail.productTypeSystemId)
+                : 'Hàng hóa';
+              
+              return (
               <TableRow key={product.systemId}>
                 {/* STT */}
-                <TableCell className="text-center font-medium text-xs sm:text-sm">{index + 1}</TableCell>
+                <TableCell className="text-center font-medium text-body-xs sm:text-body-sm">{index + 1}</TableCell>
 
-                {/* Tên sản phẩm + Mã SKU */}
+                {/* Tên sản phẩm + Loại SP + Mã SKU */}
                 <TableCell>
                   <div className="space-y-0.5 sm:space-y-1">
-                    <p className="font-medium text-xs sm:text-sm leading-snug">{product.productName}</p>
-                    {product.sku ? (
-                      <button
-                        onClick={() => {
-                          // ✅ Find product by SKU to get systemId
-                          const productDetail = allProducts.find(p => p.id === product.sku);
-                          if (productDetail) {
-                            navigate(`/products/${productDetail.systemId}`);
-                          }
-                        }}
-                        className="text-[10px] sm:text-xs font-mono text-primary hover:underline hover:text-primary/80 transition-colors block"
-                      >
-                        {product.sku}
-                      </button>
-                    ) : (
-                      <span className="text-[10px] sm:text-xs text-muted-foreground">—</span>
-                    )}
+                    <p className="font-medium text-body-xs sm:text-body-sm leading-snug">{product.productName}</p>
+                    <div className="flex items-center gap-1 text-[10px] sm:text-body-xs text-muted-foreground">
+                      <span>{productTypeName}</span>
+                      <span>-</span>
+                      {product.sku ? (
+                        <button
+                          onClick={() => {
+                            const productDetail = allProducts.find(p => p.id === product.sku);
+                            if (productDetail) {
+                              navigate(`/products/${productDetail.systemId}`);
+                            }
+                          }}
+                          className="font-mono text-primary hover:underline hover:text-primary/80 transition-colors"
+                        >
+                          {product.sku}
+                        </button>
+                      ) : (
+                        <span>—</span>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
 
                 {/* Số lượng */}
-                <TableCell className="text-center text-xs sm:text-sm font-medium">
+                <TableCell className="text-center text-body-xs sm:text-body-sm font-medium">
                   {product.quantity || 1}
                 </TableCell>
 
                 {/* Đơn giá */}
-                <TableCell className="text-right font-mono text-xs sm:text-sm">
+                <TableCell className="text-right font-mono text-body-xs sm:text-body-sm">
                   {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
                 </TableCell>
 
@@ -328,11 +345,11 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
 
                 {/* Kết quả */}
                 <TableCell>
-                  <Badge className={cn(getResolutionBadge(product.resolution), "text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5")}>
+                  <Badge className={cn(getResolutionBadge(product.resolution), "text-[10px] sm:text-body-xs px-1.5 sm:px-2 py-0.5")}>
                     {RESOLUTION_LABELS[product.resolution]}
                   </Badge>
                   {product.resolution === 'deduct' && product.deductionAmount && (
-                    <p className="text-[10px] sm:text-xs text-red-600 mt-1 font-medium">
+                    <p className="text-[10px] sm:text-body-xs text-red-600 mt-1 font-medium">
                       Trừ: {new Intl.NumberFormat('vi-VN').format(product.deductionAmount)} đ
                     </p>
                   )}
@@ -343,41 +360,41 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                   <div className="space-y-0.5 sm:space-y-1">
                     {/* Vấn đề */}
                     {product.issueDescription && String(product.issueDescription).trim() && (
-                      <p className="text-[10px] sm:text-xs text-orange-600 font-medium leading-snug">
+                      <p className="text-[10px] sm:text-body-xs text-orange-600 font-medium leading-snug">
                         Vấn đề: {product.issueDescription}
                       </p>
                     )}
                     {/* Ghi chú xử lý */}
                     {product.notes && String(product.notes).trim() && (
-                      <p className="text-[10px] sm:text-xs text-muted-foreground leading-snug">
+                      <p className="text-[10px] sm:text-body-xs text-muted-foreground leading-snug">
                         {product.notes}
                       </p>
                     )}
                     {/* Empty state */}
                     {(!product.issueDescription || !String(product.issueDescription).trim()) && 
                      (!product.notes || !String(product.notes).trim()) && (
-                      <span className="text-[10px] sm:text-xs text-muted-foreground">—</span>
+                      <span className="text-[10px] sm:text-body-xs text-muted-foreground">—</span>
                     )}
                   </div>
                 </TableCell>
 
                 {/* Thành tiền */}
-                <TableCell className="text-right font-mono text-xs sm:text-sm font-medium">
+                <TableCell className="text-right font-mono text-body-xs sm:text-body-sm font-medium">
                   {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
                 </TableCell>
 
                 {/* Bù trừ - Only show for out_of_stock */}
-                <TableCell className="text-right font-mono text-xs sm:text-sm font-medium">
+                <TableCell className="text-right font-mono text-body-xs sm:text-body-sm font-medium">
                   {product.resolution === 'out_of_stock' ? (
                     <span className="text-red-600">
                       {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
                     </span>
                   ) : (
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">—</span>
+                    <span className="text-[10px] sm:text-body-xs text-muted-foreground">—</span>
                   )}
                 </TableCell>
               </TableRow>
-            ))
+            )})
           )}
         </TableBody>
       </Table>

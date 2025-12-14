@@ -5,12 +5,13 @@ import { useReceiptTypeStore } from "../settings/receipt-types/store";
 import { useCashbookStore } from "../cashbook/store";
 import { useBranchStore } from "../settings/branches/store";
 import { useCustomerStore } from "../customers/store";
+import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import type { Receipt } from "./types";
 import { usePageHeader } from "@/contexts/page-header-context";
-import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
+import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Printer } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
@@ -29,6 +30,13 @@ import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns
 import { getColumns } from "./columns";
 import { MobileReceiptCard } from "./card";
 import { asSystemId } from '@/lib/id-types';
+import { usePrint } from "@/lib/use-print";
+import { 
+  convertReceiptForPrint,
+  mapReceiptToPrintData,
+  createStoreSettings,
+} from "@/lib/print/receipt-print-helper";
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "@/components/shared/simple-print-options-dialog";
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
@@ -49,22 +57,34 @@ export function ReceiptsPage() {
     const { data: branches } = useBranchStore();
     const { data: receiptTypes } = useReceiptTypeStore();
     const { data: customers } = useCustomerStore();
+    const { info: storeInfo } = useStoreInfoStore();
+    const { print, printMultiple } = usePrint();
+
+    // Print dialog state
+    const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
+    const [itemsToPrint, setItemsToPrint] = React.useState<Receipt[]>([]);
     
     // ✅ Header Actions
     const headerActions = React.useMemo(() => [
-        <Button key="add" className="h-9 bg-black text-white hover:bg-black/90" onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}>
+        <Button
+            key="add"
+            size="sm"
+            className="h-9"
+            onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}
+        >
             <Plus className="mr-2 h-4 w-4" />
             Tạo phiếu thu
         </Button>
     ], [navigate]);
     
     usePageHeader({
-        title: 'Danh sách Phiếu thu',
+        title: 'Danh sách phiếu thu',
         breadcrumb: [
             { label: 'Trang chủ', href: '/', isCurrent: false },
-            { label: 'Phiếu thu', href: '/receipts', isCurrent: true }
+            { label: 'Phiếu thu', href: ROUTES.FINANCE.RECEIPTS, isCurrent: true }
         ],
-        actions: headerActions
+        actions: headerActions,
+        showBackButton: false
     });
 
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -72,7 +92,7 @@ export function ReceiptsPage() {
     const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
     const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
 
-    const [sorting, setSorting] = React.useState({ id: 'date', desc: true });
+    const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
     const [globalFilter, setGlobalFilter] = React.useState('');
     const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
@@ -123,7 +143,21 @@ export function ReceiptsPage() {
         navigate(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }));
     }, [navigate]);
 
-    const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate), [accounts, handleCancel, navigate]);
+    // Single print handler for dropdown action
+    const handleSinglePrint = React.useCallback((receipt: Receipt) => {
+        const branch = branches.find(b => b.systemId === receipt.branchSystemId);
+        const storeSettings = branch 
+            ? createStoreSettings(branch)
+            : createStoreSettings(storeInfo);
+        const receiptData = convertReceiptForPrint(receipt, {});
+        
+        print('receipt', {
+            data: mapReceiptToPrintData(receiptData, storeSettings),
+            lineItems: [],
+        });
+    }, [branches, storeInfo, print]);
+
+    const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate, handleSinglePrint), [accounts, handleCancel, navigate, handleSinglePrint]);
     
     // ✅ Export config
     const exportConfig = {
@@ -281,6 +315,12 @@ export function ReceiptsPage() {
         sorted.sort((a, b) => {
           const aValue = (a as any)[sorting.id];
           const bValue = (b as any)[sorting.id];
+          // Special handling for date columns - parse as Date for proper comparison
+          if (sorting.id === 'createdAt' || sorting.id === 'date') {
+            const aTime = aValue ? new Date(aValue).getTime() : 0;
+            const bTime = bValue ? new Date(bValue).getTime() : 0;
+            return sorting.desc ? bTime - aTime : aTime - bTime;
+          }
           if (aValue < bValue) return sorting.desc ? 1 : -1;
           if (aValue > bValue) return sorting.desc ? -1 : 1;
           return 0;
@@ -292,6 +332,46 @@ export function ReceiptsPage() {
     const allSelectedRows = React.useMemo(() => 
       receipts.filter(v => rowSelection[v.systemId]),
     [receipts, rowSelection]);
+
+    // Bulk print handlers
+    const handleBulkPrint = React.useCallback((rows: Receipt[]) => {
+        setItemsToPrint(rows);
+        setPrintDialogOpen(true);
+    }, []);
+
+    const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+        if (itemsToPrint.length === 0) return;
+        
+        const printItems = itemsToPrint.map(receipt => {
+            const selectedBranch = options.branchSystemId 
+                ? branches.find(b => b.systemId === options.branchSystemId)
+                : branches.find(b => b.systemId === receipt.branchSystemId);
+            const storeSettings = selectedBranch 
+                ? createStoreSettings(selectedBranch)
+                : createStoreSettings(storeInfo);
+            const receiptData = convertReceiptForPrint(receipt, {});
+            
+            return {
+                data: mapReceiptToPrintData(receiptData, storeSettings),
+                lineItems: [],
+                paperSize: options.paperSize,
+            };
+        });
+
+        printMultiple('receipt', printItems);
+        toast.success(`Đang in ${itemsToPrint.length} phiếu thu`);
+        setItemsToPrint([]);
+        setPrintDialogOpen(false);
+    }, [itemsToPrint, branches, storeInfo, printMultiple]);
+
+    // Bulk actions
+    const bulkActions: BulkAction<Receipt>[] = React.useMemo(() => [
+        {
+            label: 'In phiếu',
+            icon: Printer,
+            onSelect: handleBulkPrint,
+        },
+    ], [handleBulkPrint]);
 
     // ✅ Mobile infinite scroll
     React.useEffect(() => {
@@ -457,6 +537,7 @@ export function ReceiptsPage() {
                         sorting={sorting}
                     setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
                     allSelectedRows={allSelectedRows}
+                    bulkActions={bulkActions}
                     expanded={{}}
                     setExpanded={() => {}}
                     columnVisibility={columnVisibility}
@@ -509,6 +590,15 @@ export function ReceiptsPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Print Options Dialog */}
+            <SimplePrintOptionsDialog
+                open={printDialogOpen}
+                onOpenChange={setPrintDialogOpen}
+                onConfirm={handlePrintConfirm}
+                selectedCount={itemsToPrint.length}
+                title="In phiếu thu"
+            />
         </div>
     );
 }

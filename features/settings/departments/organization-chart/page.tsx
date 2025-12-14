@@ -16,8 +16,9 @@ import ReactFlow, {
 import { useNavigate } from 'react-router-dom';
 import { Mouse, GripVertical, Download } from 'lucide-react';
 import { Button } from '../../../../components/ui/button.tsx';
+import { SettingsActionButton } from '../../../../components/settings/SettingsActionButton.tsx';
 import { Kbd } from '../../../../components/ui/kbd.tsx';
-import { usePageHeader } from '../../../../contexts/page-header-context';
+import { useSettingsPageHeader } from '../../use-settings-page-header.tsx';
 import { CustomEmployeeNode } from './components/chart-node';
 import { ChartSearch } from './components/chart-search';
 import { ChartControls } from './components/chart-controls';
@@ -349,16 +350,15 @@ function OrgChartFlow() {
 }
 
 export function OrganizationChartPage() {
-  const { setPageHeader } = usePageHeader();
   const [isExporting, setIsExporting] = React.useState(false);
 
-  const handleExportFromHeader = async (type: 'png' | 'svg' | 'pdf' | 'json') => {
+  const handleExportFromHeader = React.useCallback(async (type: 'png' | 'svg' | 'pdf' | 'json') => {
     setIsExporting(true);
     const loadingToast = toast.loading(`Đang xuất ${type.toUpperCase()}...`);
 
     try {
       let result;
-      
+
       switch (type) {
         case 'png':
           result = await exportAsPNG();
@@ -369,8 +369,7 @@ export function OrganizationChartPage() {
         case 'pdf':
           result = await exportAsPDF();
           break;
-        case 'json':
-          const instance = (window as any).__reactFlowInstance;
+        case 'json': {
           const exportData = {
             metadata: {
               exportDate: new Date().toISOString(),
@@ -379,6 +378,9 @@ export function OrganizationChartPage() {
           };
           result = exportAsJSON(exportData);
           break;
+        }
+        default:
+          result = { success: false };
       }
 
       if (result.success) {
@@ -392,45 +394,42 @@ export function OrganizationChartPage() {
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [setIsExporting]);
 
-  React.useEffect(() => {
-    const exportAction = (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isExporting}>
-            <Download className="mr-2 h-4 w-4" />
-            Xuất file
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleExportFromHeader('png')}>
-            Xuất PNG
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleExportFromHeader('svg')}>
-            Xuất SVG
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleExportFromHeader('pdf')}>
-            Xuất PDF
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => handleExportFromHeader('json')}>
-            Xuất dữ liệu (JSON)
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
+  const exportAction = React.useMemo(() => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SettingsActionButton variant="outline" disabled={isExporting}>
+          <Download className="h-4 w-4" />
+          Xuất file
+        </SettingsActionButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => handleExportFromHeader('png')}>
+          Xuất PNG
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExportFromHeader('svg')}>
+          Xuất SVG
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExportFromHeader('pdf')}>
+          Xuất PDF
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleExportFromHeader('json')}>
+          Xuất dữ liệu (JSON)
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ), [handleExportFromHeader, isExporting]);
 
-    setPageHeader({
-      title: 'Sơ đồ tổ chức',
-      breadcrumb: [
-        { label: 'Trang chủ', href: '/' },
-        { label: 'Phòng ban', href: '/departments' },
-        { label: 'Sơ đồ tổ chức', href: '/departments/organization-chart' }
-      ],
-      actions: [exportAction]
-    });
-  }, [setPageHeader, isExporting]);
+  useSettingsPageHeader({
+    title: 'Sơ đồ tổ chức',
+    breadcrumb: [
+      { label: 'Phòng ban', href: '/departments', isCurrent: false },
+      { label: 'Sơ đồ tổ chức', href: '/organization-chart', isCurrent: true }
+    ],
+    actions: [exportAction]
+  });
 
   return (
     <ReactFlowProvider>

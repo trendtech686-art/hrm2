@@ -6,16 +6,17 @@ import { DataTableColumnHeader } from '../../components/data-table/data-table-co
 import { Badge } from '../../components/ui/badge.tsx';
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { Button } from '../../components/ui/button.tsx';
-import { MoreHorizontal, Pencil, Trash2, Check, X } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import { MoreHorizontal, Pencil, XCircle, Printer } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
 
 const formatDate = (d?: string) => (d ? formatDateCustom(new Date(d), 'dd/MM/yyyy HH:mm') : '');
 
 export const getColumns = (
   onEdit: (item: InventoryCheck) => void,
-  onDelete: (item: InventoryCheck) => void,
+  onCancel: (item: InventoryCheck) => void,
   onBalance: (item: InventoryCheck) => void,
   navigate: (path: string) => void,
+  onPrint?: (item: InventoryCheck) => void,
 ) : ColumnDef<InventoryCheck>[] => [
   // 1 - Select
   {
@@ -23,7 +24,7 @@ export const getColumns = (
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
       <Checkbox
         checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? 'indeterminate' : false}
-        onCheckedChange={(v) => onToggleAll(!!v)}
+        onCheckedChange={(v) => onToggleAll?.(!!v)}
       />
     ),
     cell: ({ onToggleSelect, isSelected }) => (
@@ -41,9 +42,9 @@ export const getColumns = (
       <DataTableColumnHeader
         title="Mã"
         sortKey="id"
-        isSorted={sorting.id === 'id'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'id'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => (
@@ -174,20 +175,28 @@ export const getColumns = (
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/inventory-checks/${row.systemId}`)}>
-              Xem chi tiết
+            <DropdownMenuItem onClick={() => onPrint?.(row)}>
+              <Printer className="mr-2 h-4 w-4" />
+              In phiếu kiểm
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit(row)}>
-              <Pencil className="mr-2 h-4 w-4" />Sửa
+              <Pencil className="mr-2 h-4 w-4" />
+              Sửa
             </DropdownMenuItem>
             {row.status === 'draft' && (
               <DropdownMenuItem onClick={() => onBalance(row)}>
-                <Check className="mr-2 h-4 w-4" />Cân bằng
+                Cân bằng
               </DropdownMenuItem>
             )}
-              <DropdownMenuItem className="text-destructive" onClick={() => onDelete(row)}>
-              <Trash2 className="mr-2 h-4 w-4" />Xóa
-            </DropdownMenuItem>
+            {row.status === 'draft' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive" onClick={() => onCancel(row)}>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Hủy phiếu
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -72,6 +72,8 @@ Trên `PayrollDetailPage`:
 
 ## 6. Checklist QA bắt buộc
 
+> Khi đối chiếu dữ liệu payroll (batch, payslip, chứng từ liên quan), luôn kiểm tra prefix trong [`docs/ID-GOVERNANCE.md`](./ID-GOVERNANCE.md) để đảm bảo SystemId/BusinessId nhập tay đúng chuẩn.
+
 ### 6.1 Dữ liệu & Dual ID
 - [ ] Tất cả truy vấn batch/payslip dùng `systemId` (không dùng business `id`).
 - [ ] `departmentSystemId`, `employeeSystemId` luôn hiện diện trong dữ liệu xuất.

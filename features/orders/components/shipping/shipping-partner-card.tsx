@@ -14,9 +14,9 @@ interface ShippingPartnerCardProps {
   partnerCode: string;
   partnerName: string;
   services: ShippingService[];
-  selectedServiceId?: string;
+  selectedServiceId?: string | undefined;
   onServiceSelect: (service: ShippingService) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }
 
 // Partner logos/colors

@@ -20,9 +20,13 @@ export type InventoryReceipt = {
   receivedDate: string; // YYYY-MM-DD HH:mm
   receiverSystemId: SystemId;
   receiverName: string; // Employee who received the goods
-  branchSystemId?: SystemId;
-  branchName?: string;
-  warehouseName?: string;
-  notes?: string;
+  branchSystemId?: SystemId | undefined;
+  branchName?: string | undefined;
+  warehouseName?: string | undefined;
+  notes?: string | undefined;
   items: InventoryReceiptLineItem[];
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

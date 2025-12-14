@@ -29,6 +29,7 @@ import {
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 
 export interface HistoryEntry {
   id: string;
@@ -60,15 +61,16 @@ export interface HistoryEntry {
   user: {
     systemId: string;
     name: string;
-    avatar?: string;
+    avatar?: string | undefined;
   };
   description: string;
+  content?: React.ReactNode;
   metadata?: {
     oldValue?: any;
     newValue?: any;
-    field?: string;
+    field?: string | undefined;
     [key: string]: any;
-  };
+  } | undefined;
 }
 
 interface ActivityHistoryProps {
@@ -118,7 +120,7 @@ export function ActivityHistory({
   title = 'Lịch sử thao tác',
   emptyMessage = 'Chưa có lịch sử nào',
   className,
-  showFilters = false,
+  showFilters = true,
   filterableActions,
   filterableUsers,
   showUser = true,
@@ -165,7 +167,7 @@ export function ActivityHistory({
     const groups = new Map<string, HistoryEntry[]>();
     
     filteredHistory.forEach(entry => {
-      const date = new Date(entry.timestamp).toLocaleDateString('vi-VN');
+      const date = formatDateForDisplay(entry.timestamp);
       const group = groups.get(date) || [];
       group.push(entry);
       groups.set(date, group);
@@ -221,7 +223,7 @@ export function ActivityHistory({
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-1">
           {/* Description */}
-          <div className="text-sm">{entry.description}</div>
+          <div className="text-sm">{entry.content ?? entry.description}</div>
 
           {/* Metadata - Note (e.g. reopen reason) */}
           {showMetadata && entry.metadata?.note && (
@@ -274,7 +276,7 @@ export function ActivityHistory({
                 </span>
                 {showDate && (
                   <span className="text-[10px]">
-                    ({new Date(entry.timestamp).toLocaleString('vi-VN')})
+                    ({formatDateTimeForDisplay(entry.timestamp)})
                   </span>
                 )}
               </>
@@ -289,7 +291,7 @@ export function ActivityHistory({
     <Card className={className}>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-h5 flex items-center gap-2">
             <History className="h-4 w-4" />
             {title}
           </CardTitle>

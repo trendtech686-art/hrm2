@@ -40,19 +40,28 @@ export function PaymentFormPage() {
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" className="h-9" onClick={() => navigate(ROUTES.FINANCE.PAYMENTS)}>
+    <Button key="cancel" type="button" variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.PAYMENTS)}>
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" type="submit" form="payment-form" className="h-9">
+    <Button key="save" type="submit" form="payment-form" size="sm" className="h-9">
       Lưu
     </Button>
   ], [navigate]);
   
+  const fallbackBreadcrumb = React.useMemo(() => ([
+    { label: 'Trang chủ', href: '/', isCurrent: false },
+    { label: 'Phiếu chi', href: ROUTES.FINANCE.PAYMENTS, isCurrent: false },
+    { label: isEditing ? 'Chỉnh sửa' : 'Thêm mới', href: ROUTES.FINANCE.PAYMENTS, isCurrent: true }
+  ]), [isEditing]);
+
   usePageHeader({
     title: isEditing ? `Chỉnh sửa Phiếu Chi ${payment?.id || ''}` : 'Thêm mới Phiếu Chi',
+    subtitle: isEditing ? 'Cập nhật thông tin chi phí, tài khoản nguồn và đối tượng nhận tiền' : 'Tạo phiếu chi mới và ghi nhận dòng tiền ra',
     actions: headerActions,
-    breadcrumb: routeMeta?.breadcrumb as any
+    breadcrumb: (routeMeta?.breadcrumb as any) ?? fallbackBreadcrumb,
+    showBackButton: true,
+    backPath: ROUTES.FINANCE.PAYMENTS
   });
 
   const handleFormSubmit = (values: PaymentFormValues) => {
@@ -83,7 +92,7 @@ export function PaymentFormPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <PaymentForm initialData={payment} onSubmit={handleFormSubmit} isEditing={isEditing} />
+        <PaymentForm initialData={payment ?? null} onSubmit={handleFormSubmit} isEditing={isEditing} />
       </CardContent>
     </Card>
   );

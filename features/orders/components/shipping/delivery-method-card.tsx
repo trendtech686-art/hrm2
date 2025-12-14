@@ -33,24 +33,24 @@ interface DeliveryMethodCardProps {
   onMethodChange: (method: DeliveryMethod) => void;
   
   // For shipping-partner tab
-  shippingRequest?: ShippingCalculationRequest;
-  customerAddress?: ShippingAddress | null;
-  packageInfo?: PackageInfo;
-  selectedService?: ShippingService | null;
-  onServiceSelect?: (service: ShippingService | null) => void;
-  onPackageInfoChange?: (info: Partial<PackageInfo>) => void;
-  onServiceConfigChange?: (config: Partial<SelectedShippingConfig['options']>) => void;
-  onChangeDeliveryAddress?: () => void; // NEW: Callback to open address dialog
-  onNoteChange?: (note: string) => void; // ✅ NEW: Callback for shipping note
-  grandTotal?: number; // ✅ Order grand total for auto-filling orderValue
+  shippingRequest?: ShippingCalculationRequest | null | undefined;
+  customerAddress?: ShippingAddress | null | undefined;
+  packageInfo?: PackageInfo | undefined;
+  selectedService?: ShippingService | null | undefined;
+  onServiceSelect?: ((service: ShippingService | null) => void) | undefined;
+  onPackageInfoChange?: ((info: Partial<PackageInfo>) => void) | undefined;
+  onServiceConfigChange?: ((config: Partial<SelectedShippingConfig['options']>) => void) | undefined;
+  onChangeDeliveryAddress?: (() => void) | undefined; // NEW: Callback to open address dialog
+  onNoteChange?: ((note: string) => void) | undefined; // ✅ NEW: Callback for shipping note
+  grandTotal?: number | undefined; // ✅ Order grand total for auto-filling orderValue
   
   // ✅ NEW: Props for API preview
   previewData?: any; // Data that will be sent to API
   
   // ✅ NEW: Hide tabs and only show shipping-partner content
-  hideTabs?: boolean;
+  hideTabs?: boolean | undefined;
   
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }
 
 export function DeliveryMethodCard({

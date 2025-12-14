@@ -47,6 +47,11 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       ticketId: ticket?.id 
     });
     
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập');
+      return;
+    }
+
     if (!ticket || !cancelReason.trim()) {
       toast.error('Vui lòng nhập lý do hủy phiếu');
       return;

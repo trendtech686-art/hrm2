@@ -1,5 +1,6 @@
 import { asSystemId, asBusinessId } from '../../../lib/id-types';
 import type { CreditRating } from './types';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const defaultCreditRatings: CreditRating[] = [
   {
@@ -11,8 +12,7 @@ export const defaultCreditRatings: CreditRating[] = [
     maxCreditLimit: 1000000000, // 1 tỷ
     color: '#4CAF50',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+      ...buildSeedAuditFields({ createdAt: '2024-01-13T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CRATING00000002'),
@@ -23,8 +23,7 @@ export const defaultCreditRatings: CreditRating[] = [
     maxCreditLimit: 500000000, // 500 triệu
     color: '#8BC34A',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+      ...buildSeedAuditFields({ createdAt: '2024-01-14T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CRATING00000003'),
@@ -35,8 +34,7 @@ export const defaultCreditRatings: CreditRating[] = [
     maxCreditLimit: 200000000, // 200 triệu
     color: '#CDDC39',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+      ...buildSeedAuditFields({ createdAt: '2024-01-15T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CRATING00000004'),
@@ -47,8 +45,7 @@ export const defaultCreditRatings: CreditRating[] = [
     maxCreditLimit: 50000000, // 50 triệu
     color: '#FF9800',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+      ...buildSeedAuditFields({ createdAt: '2024-01-16T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CRATING00000005'),
@@ -59,8 +56,7 @@ export const defaultCreditRatings: CreditRating[] = [
     maxCreditLimit: 10000000, // 10 triệu
     color: '#FF5722',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+      ...buildSeedAuditFields({ createdAt: '2024-01-17T08:00:00Z' }),
   },
   {
     systemId: asSystemId('CRATING00000006'),
@@ -71,7 +67,6 @@ export const defaultCreditRatings: CreditRating[] = [
     maxCreditLimit: 0,
     color: '#F44336',
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+      ...buildSeedAuditFields({ createdAt: '2024-01-18T08:00:00Z' }),
   },
 ];

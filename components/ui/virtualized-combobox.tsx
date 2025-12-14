@@ -10,8 +10,9 @@ import { Popover, PopoverContent, PopoverTrigger } from './popover.tsx';
 export type ComboboxOption = {
   value: string;
   label: string;
-  subtitle?: string; // For additional info like ID, phone
-  metadata?: any; // Optional metadata for custom rendering
+  subtitle?: string | undefined; // For additional info like ID, phone
+  acText?: string | undefined; // Accent-stripped text for resilient search
+  metadata?: any | undefined; // Optional metadata for custom rendering
 };
 
 type VirtualizedComboboxProps = {
@@ -81,11 +82,16 @@ export function VirtualizedCombobox({
     const query = searchQuery.toLowerCase();
     if (!query) return options;
     
-    return options.filter(option => 
-      option.label.toLowerCase().includes(query) ||
-      option.value.toLowerCase().includes(query) ||
-      option.subtitle?.toLowerCase().includes(query)
-    );
+    return options.filter(option => {
+      const subtitleMatch = option.subtitle?.toLowerCase().includes(query);
+      const acTextMatch = option.acText?.toLowerCase().includes(query);
+      return (
+        option.label.toLowerCase().includes(query) ||
+        option.value.toLowerCase().includes(query) ||
+        subtitleMatch ||
+        acTextMatch
+      );
+    });
   }, [options, searchQuery, onSearchChange]);
 
   // Show results: if minSearchLength > 0, check debounced search

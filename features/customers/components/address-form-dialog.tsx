@@ -19,7 +19,9 @@ import {
   DialogTitle,
 } from '../../../components/ui/dialog';
 import { VirtualizedCombobox } from '../../../components/ui/virtualized-combobox';
+import { toast } from 'sonner';
 import { useProvinceStore } from '../../settings/provinces/store';
+import { autoFillDistrict } from '../../settings/provinces/ward-district-mapping.ts';
 import type { CustomerAddress } from '../types';
 
 interface AddressFormDialogProps {
@@ -41,9 +43,14 @@ export function AddressFormDialog({
   title,
   description,
 }: AddressFormDialogProps) {
-  const { data: provinces, getDistrictsByProvinceId, getWardsByProvinceId } = useProvinceStore();
+  const {
+    data: provinces,
+    getDistrictsByProvinceId,
+    getWards2LevelByProvinceId,
+    getWards3LevelByDistrictId,
+  } = useProvinceStore();
 
-  const [addressLevel, setAddressLevel] = React.useState<'2-level' | '3-level'>('3-level');
+  const [addressLevel, setAddressLevel] = React.useState<'2-level' | '3-level'>('2-level');
   const [formData, setFormData] = React.useState({
     label: '',
     street: '',
@@ -59,16 +66,17 @@ export function AddressFormDialog({
     notes: '',
     isDefaultShipping: false,
     isDefaultBilling: false,
-    inputLevel: '3-level' as '2-level' | '3-level',
+    inputLevel: '2-level' as '2-level' | '3-level',
   });
 
   // Reset form when dialog opens/closes or editingAddress changes
   React.useEffect(() => {
     if (isOpen) {
+      console.log('[AddressFormDialog] Opening with editingAddress:', editingAddress);
       if (editingAddress) {
-        const level = editingAddress.inputLevel || '3-level';
+        const level = editingAddress.inputLevel || '2-level';
         setAddressLevel(level);
-        setFormData({
+        const newFormData = {
           label: editingAddress.label || '',
           street: editingAddress.street || '',
           province: editingAddress.province || '',
@@ -84,9 +92,11 @@ export function AddressFormDialog({
           isDefaultShipping: editingAddress.isDefaultShipping || false,
           isDefaultBilling: editingAddress.isDefaultBilling || false,
           inputLevel: level,
-        });
+        };
+        console.log('[AddressFormDialog] Setting formData:', newFormData);
+        setFormData(newFormData);
       } else {
-        setAddressLevel('3-level');
+        setAddressLevel('2-level');
         setFormData({
           label: '',
           street: '',
@@ -102,36 +112,110 @@ export function AddressFormDialog({
           notes: '',
           isDefaultShipping: false,
           isDefaultBilling: false,
-          inputLevel: '3-level',
+          inputLevel: '2-level',
         });
       }
     }
   }, [isOpen, editingAddress]);
 
   // Get available districts and wards based on selection
-  const selectedProvince = React.useMemo(
-    () => provinces.find((p) => p.name === formData.province),
-    [provinces, formData.province]
-  );
+  // IMPORTANT: Lookup province by BOTH name and provinceId for compatibility
+  const selectedProvince = React.useMemo(() => {
+    console.log('[AddressFormDialog] Looking for province:', { 
+      provinceName: formData.province, 
+      provinceId: formData.provinceId,
+      availableProvinces: provinces.slice(0, 5).map(p => ({ id: p.id, name: p.name }))
+    });
+    
+    // First try by name
+    let found = provinces.find((p) => p.name === formData.province);
+    if (found) {
+      console.log('[AddressFormDialog] Found province by name:', found);
+      return found;
+    }
+    
+    // Then try by provinceId
+    if (formData.provinceId) {
+      found = provinces.find((p) => p.id === formData.provinceId);
+      if (found) {
+        console.log('[AddressFormDialog] Found province by id:', found);
+        return found;
+      }
+    }
+    
+    // Try normalized name match
+    const normalizedInput = formData.province?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    if (normalizedInput) {
+      found = provinces.find((p) => {
+        const normalizedName = p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+        return normalizedName === normalizedInput || 
+               normalizedName.includes(normalizedInput) || 
+               normalizedInput.includes(normalizedName);
+      });
+      if (found) {
+        console.log('[AddressFormDialog] Found province by normalized match:', found);
+        return found;
+      }
+    }
+    
+    console.log('[AddressFormDialog] Province NOT FOUND');
+    return null;
+  }, [provinces, formData.province, formData.provinceId]);
 
   const availableDistricts = React.useMemo(() => {
     if (!selectedProvince) return [];
-    return getDistrictsByProvinceId(selectedProvince.id);
-  }, [selectedProvince, getDistrictsByProvinceId]);
+    const districtsFromProvince = getDistrictsByProvinceId(selectedProvince.id);
+    
+    // If we have a districtId but it's not in the available list,
+    // the district might belong to a different province mapping (e.g. 3-level data)
+    // In this case, add it manually to the options
+    if (formData.districtId && formData.district) {
+      const hasDistrict = districtsFromProvince.some(d => d.id === formData.districtId);
+      if (!hasDistrict) {
+        // Get district by ID directly
+        const store = useProvinceStore.getState();
+        const districtById = store.getDistrictById(formData.districtId);
+        if (districtById) {
+          return [districtById, ...districtsFromProvince];
+        }
+        // If still not found, create a virtual entry for display
+        return [{
+          systemId: `D${formData.districtId}` as any,
+          id: formData.districtId,
+          name: formData.district,
+          provinceId: selectedProvince.id as any,
+        }, ...districtsFromProvince];
+      }
+    }
+    
+    return districtsFromProvince;
+  }, [selectedProvince, getDistrictsByProvinceId, formData.districtId, formData.district]);
+
+  // For 3-level: If we have districtId but it's not in availableDistricts,
+  // it might be from wards-3level-data with different provinceId mapping
+  // In this case, try to get district directly by ID
+  const selectedDistrict = React.useMemo(() => {
+    if (!formData.districtId || formData.districtId === 0) return null;
+    
+    // First try from available districts
+    const fromAvailable = availableDistricts.find(d => d.id === formData.districtId);
+    if (fromAvailable) return fromAvailable;
+    
+    // Try direct lookup by ID (for cross-province cases)
+    const store = useProvinceStore.getState();
+    return store.getDistrictById(formData.districtId) || null;
+  }, [formData.districtId, availableDistricts]);
 
   const availableWards = React.useMemo(() => {
-    if (!selectedProvince) return [];
-    
     if (addressLevel === '2-level') {
-      // For 2-level: Get all wards in province
-      return getWardsByProvinceId(selectedProvince.id);
-    } else {
-      // For 3-level: Get wards in selected district
-      if (!formData.districtId) return [];
-      const wards = getWardsByProvinceId(selectedProvince.id);
-      return wards.filter((w) => w.districtId === formData.districtId);
+      if (!selectedProvince) return [];
+      return getWards2LevelByProvinceId(selectedProvince.id);
     }
-  }, [selectedProvince, formData.districtId, addressLevel, getWardsByProvinceId]);
+    
+    // For 3-level, use districtId directly (not requiring selectedProvince)
+    if (!formData.districtId) return [];
+    return getWards3LevelByDistrictId(formData.districtId);
+  }, [selectedProvince, formData.districtId, addressLevel, getWards2LevelByProvinceId, getWards3LevelByDistrictId]);
 
   // Prepare options for comboboxes
   const provinceOptions = React.useMemo(
@@ -143,37 +227,128 @@ export function AddressFormDialog({
     [provinces]
   );
 
-  const districtOptions = React.useMemo(
-    () =>
-      availableDistricts.map((d) => ({
-        label: d.name,
-        value: d.name,
-      })),
-    [availableDistricts]
-  );
+  const districtOptions = React.useMemo(() => {
+    const options = availableDistricts.map((d) => ({
+      label: d.name,
+      value: d.name,
+    }));
+    
+    // If we have a selected district that's not in available list, add it
+    if (selectedDistrict && !availableDistricts.find(d => d.id === selectedDistrict.id)) {
+      options.unshift({
+        label: selectedDistrict.name,
+        value: selectedDistrict.name,
+      });
+    }
+    
+    // If formData has district name but not in options, add it for display
+    if (formData.district && !options.some(o => o.value === formData.district)) {
+      options.unshift({
+        label: formData.district,
+        value: formData.district,
+      });
+    }
+    
+    return options;
+  }, [availableDistricts, selectedDistrict, formData.district]);
 
-  const wardOptions = React.useMemo(
-    () =>
-      availableWards.map((w) => ({
-        label: w.name,
-        value: w.name,
-      })),
-    [availableWards]
-  );
+  // Selected ward for display
+  const selectedWard = React.useMemo(() => {
+    if (!formData.wardId) return null;
+    
+    // First try from available wards
+    const fromAvailable = availableWards.find(w => w.id === formData.wardId);
+    if (fromAvailable) return fromAvailable;
+    
+    // Try direct lookup by ID
+    const store = useProvinceStore.getState();
+    return store.getWardById(formData.wardId) || null;
+  }, [formData.wardId, availableWards]);
+
+  const wardOptions = React.useMemo(() => {
+    const options = availableWards.map((w) => ({
+      label: w.name,
+      value: w.name,
+    }));
+    
+    // If we have a selected ward that's not in available list, add it
+    if (selectedWard && !availableWards.find(w => w.id === selectedWard.id)) {
+      options.unshift({
+        label: selectedWard.name,
+        value: selectedWard.name,
+      });
+    }
+    
+    return options;
+  }, [availableWards, selectedWard]);
+
+  const showValidationError = (message: string) => {
+    toast.error('Thiếu thông tin', { description: message });
+  };
 
   const handleSave = () => {
-    if (!formData.label || !formData.street || !formData.province) {
-      alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+    const label = formData.label.trim();
+    const street = formData.street.trim();
+
+    if (!label) {
+      showValidationError('Vui lòng nhập tên địa chỉ.');
       return;
     }
 
+    if (!street) {
+      showValidationError('Vui lòng nhập địa chỉ chi tiết.');
+      return;
+    }
+
+    if (!formData.province || !formData.provinceId) {
+      showValidationError('Vui lòng chọn tỉnh/thành phố.');
+      return;
+    }
+
+    if (addressLevel === '3-level') {
+      if (!formData.district || !formData.districtId) {
+        showValidationError('Vui lòng chọn quận/huyện trước khi lưu địa chỉ 3 cấp.');
+        return;
+      }
+      if (!formData.ward || !formData.wardId) {
+        showValidationError('Vui lòng chọn phường/xã cho địa chỉ 3 cấp.');
+        return;
+      }
+    } else {
+      if (!formData.ward || !formData.wardId) {
+        showValidationError('Vui lòng chọn phường/xã cho địa chỉ 2 cấp.');
+        return;
+      }
+    }
+
+    let districtName = formData.district;
+    let districtId = formData.districtId;
+    let autoFilled = false;
+
+    if (addressLevel === '2-level') {
+      try {
+        const mapping = autoFillDistrict({
+          provinceId: formData.provinceId,
+          provinceName: formData.province,
+          wardId: formData.wardId,
+          wardName: formData.ward,
+        });
+        districtName = mapping.districtName;
+        districtId = mapping.districtId;
+        autoFilled = true;
+      } catch (error) {
+        showValidationError('Không tìm thấy quận/huyện tương ứng với phường/xã đã chọn.');
+        return;
+      }
+    }
+
     const addressData: Omit<CustomerAddress, 'id'> = {
-      label: formData.label,
-      street: formData.street,
+      label,
+      street,
       province: formData.province,
       provinceId: formData.provinceId,
-      district: formData.district,
-      districtId: formData.districtId,
+      district: districtName,
+      districtId,
       ward: formData.ward,
       wardId: formData.wardId,
       contactName: formData.contactName,
@@ -182,7 +357,7 @@ export function AddressFormDialog({
       isDefaultShipping: formData.isDefaultShipping,
       isDefaultBilling: formData.isDefaultBilling,
       inputLevel: formData.inputLevel,
-      autoFilled: false,
+      autoFilled,
     };
 
     onSave(addressData);
@@ -209,12 +384,14 @@ export function AddressFormDialog({
               value={addressLevel}
               onValueChange={(value: '2-level' | '3-level') => {
                 setAddressLevel(value);
-                setFormData({
-                  ...formData,
+                setFormData((prev) => ({
+                  ...prev,
                   inputLevel: value,
-                  ward: '', // Reset ward when changing level
-                  district: value === '2-level' ? '' : formData.district, // Clear district for 2-level
-                });
+                  ward: '',
+                  wardId: '',
+                  district: value === '2-level' ? '' : prev.district,
+                  districtId: value === '2-level' ? 0 : prev.districtId,
+                }));
               }}
               className="flex gap-2"
             >
@@ -242,6 +419,7 @@ export function AddressFormDialog({
                 Tên địa chỉ *
               </Label>
               <Input
+                className="h-9"
                 id="label"
                 placeholder="VD: Văn phòng chính, Nhà máy..."
                 value={formData.label}
@@ -254,6 +432,7 @@ export function AddressFormDialog({
                 Địa chỉ *
               </Label>
               <Input
+                className="h-9"
                 id="street"
                 placeholder="Số nhà, tên đường..."
                 value={formData.street}
@@ -274,14 +453,15 @@ export function AddressFormDialog({
                   value={provinceOptions.find((opt) => opt.value === formData.province) || null}
                   onChange={(option) => {
                     const selectedProv = provinces.find((p) => p.name === option?.value);
-                    setFormData({
-                      ...formData,
+                    setFormData((prev) => ({
+                      ...prev,
                       province: option ? option.value : '',
                       provinceId: selectedProv?.id || '',
-                      ward: '', // Reset ward when province changes
-                      wardId: '',
                       district: '',
-                    });
+                      districtId: 0,
+                      ward: '',
+                      wardId: '',
+                    }));
                   }}
                   placeholder="Chọn tỉnh/TP"
                   searchPlaceholder="Tìm tỉnh..."
@@ -301,13 +481,13 @@ export function AddressFormDialog({
                     value={districtOptions.find((opt) => opt.value === formData.district) || null}
                     onChange={(option) => {
                       const selectedDist = availableDistricts.find((d) => d.name === option?.value);
-                      setFormData({
-                        ...formData,
+                      setFormData((prev) => ({
+                        ...prev,
                         district: option ? option.value : '',
                         districtId: selectedDist?.id || 0,
-                        ward: '', // Reset ward when district changes
+                        ward: '',
                         wardId: '',
-                      });
+                      }));
                     }}
                     placeholder={selectedProvince ? 'Chọn quận/huyện' : 'Chọn tỉnh trước'}
                     searchPlaceholder="Tìm quận/huyện..."
@@ -327,12 +507,15 @@ export function AddressFormDialog({
                   value={wardOptions.find((opt) => opt.value === formData.ward) || null}
                   onChange={(option) => {
                     const selectedWard = availableWards.find((w) => w.name === option?.value);
-                    setFormData({
-                      ...formData,
+                    setFormData((prev) => ({
+                      ...prev,
                       ward: option ? option.value : '',
                       wardId: selectedWard?.id || '',
-                      districtId: selectedWard?.districtId || formData.districtId || 0,
-                    });
+                      districtId:
+                        addressLevel === '3-level'
+                          ? selectedWard?.districtId || prev.districtId || 0
+                          : prev.districtId,
+                    }));
                   }}
                   placeholder={
                     addressLevel === '3-level' && !formData.districtId
@@ -356,6 +539,7 @@ export function AddressFormDialog({
                 Người liên hệ
               </Label>
               <Input
+                className="h-9"
                 id="contactName"
                 placeholder="Tên người liên hệ"
                 value={formData.contactName}
@@ -367,6 +551,7 @@ export function AddressFormDialog({
                 Số điện thoại
               </Label>
               <Input
+                className="h-9"
                 id="contactPhone"
                 placeholder="Số điện thoại liên hệ"
                 value={formData.contactPhone}
@@ -380,6 +565,7 @@ export function AddressFormDialog({
               Ghi chú
             </Label>
             <Input
+              className="h-9"
               id="notes"
               placeholder="Ghi chú thêm về địa chỉ này..."
               value={formData.notes}
@@ -390,8 +576,8 @@ export function AddressFormDialog({
           {/* ✅ Hide default switches when hideDefaultSwitches=true */}
           {!hideDefaultSwitches && (
             <div className="space-y-3 border-t pt-3">
-              <div className="flex items-center justify-between space-x-2 p-3 border rounded-lg border-blue-500 bg-blue-50/30">
-                <Label htmlFor="isDefaultShipping" className="font-normal text-sm flex-1 cursor-pointer text-blue-700">
+              <div className="flex items-center justify-between space-x-2 p-3 border rounded-lg">
+                <Label htmlFor="isDefaultShipping" className="font-normal text-sm flex-1 cursor-pointer">
                   Đặt làm mặc định giao hàng
                 </Label>
                 <Switch
@@ -401,8 +587,8 @@ export function AddressFormDialog({
                 />
               </div>
 
-              <div className="flex items-center justify-between space-x-2 p-3 border rounded-lg border-green-500 bg-green-50/30">
-                <Label htmlFor="isDefaultBilling" className="font-normal text-sm flex-1 cursor-pointer text-green-700">
+              <div className="flex items-center justify-between space-x-2 p-3 border rounded-lg">
+                <Label htmlFor="isDefaultBilling" className="font-normal text-sm flex-1 cursor-pointer">
                   Đặt làm mặc định hóa đơn
                 </Label>
                 <Switch

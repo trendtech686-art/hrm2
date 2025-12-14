@@ -10,14 +10,19 @@ import { Textarea } from '../../../components/ui/textarea.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { TimePicker } from '../../../components/ui/time-picker.tsx';
 import { CheckCircle2, XCircle, Clock, Calendar } from 'lucide-react';
-import { useToast } from '../../../hooks/use-toast.ts';
+import { toast } from 'sonner';
 import type { SystemId } from '../../../lib/id-types.ts';
+import { useLeaveStore } from '../../leaves/store.ts';
+import { formatDate } from '../../../lib/date-utils.ts';
+import { Badge } from '../../../components/ui/badge.tsx';
+import type { LeaveRequest } from '../../leaves/types.ts';
 
 interface AttendanceEditDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     recordData: { employeeSystemId: SystemId; day: number; record: DailyRecord } | null;
     onSave: (updatedRecord: DailyRecord) => void;
+    monthDate: Date;
 }
 
 // Validation schema
@@ -52,20 +57,50 @@ const formSchema = z.object({
     }
     return true;
 }, {
-    message: "Giờ OT ra phải sau giờ OT vào",
+    message: "Giờ làm thêm ra phải sau giờ làm thêm vào",
     path: ["overtimeCheckOut"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave }: AttendanceEditDialogProps) {
-    const { toast } = useToast();
+const isDateWithinRange = (target: Date, start: Date, end: Date) => {
+    const normalizedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const normalizedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const normalizedTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+    return normalizedTarget >= normalizedStart && normalizedTarget <= normalizedEnd;
+};
+
+export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave, monthDate }: AttendanceEditDialogProps) {
+    const leaveStore = useLeaveStore();
+    const leaveRequests = leaveStore?.data ?? [];
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
     });
     const { handleSubmit, control, reset, watch, formState: { errors } } = form;
 
     const status = watch('status');
+
+    const targetDate = React.useMemo(() => {
+        if (!recordData) return null;
+        return new Date(monthDate.getFullYear(), monthDate.getMonth(), recordData.day);
+    }, [recordData, monthDate]);
+
+    const overlappingLeaves = React.useMemo(() => {
+        if (!recordData || !targetDate) return [] as LeaveRequest[];
+        return leaveRequests.filter((leave) => {
+            if (leave.employeeSystemId !== recordData.employeeSystemId) return false;
+            if (leave.status !== 'Đã duyệt') return false;
+            const start = new Date(leave.startDate);
+            const end = new Date(leave.endDate);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+                return false;
+            }
+            return isDateWithinRange(targetDate, start, end);
+        });
+    }, [leaveRequests, recordData, targetDate]);
+
+    const hasApprovedLeave = overlappingLeaves.length > 0;
+    const formattedTargetDate = targetDate ? formatDate(targetDate) : '';
 
     React.useEffect(() => {
         if (isOpen && recordData) {
@@ -76,10 +111,21 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave 
     const onSubmit = (data: FormValues) => {
         // Additional validation warnings
         if ((data.status === 'present' || data.status === 'half-day') && (!data.checkIn || !data.checkOut)) {
-            toast({
-                title: "Cảnh báo",
-                description: "Nên điền đầy đủ giờ vào/ra cho ngày làm việc",
-                variant: "destructive",
+            toast.error('Cảnh báo', {
+                description: 'Nên điền đầy đủ giờ vào/ra cho ngày làm việc',
+            });
+        }
+
+        if (data.status === 'leave' && !hasApprovedLeave) {
+            toast.error('Không tìm thấy đơn nghỉ', {
+                description: 'Vui lòng tạo hoặc duyệt đơn nghỉ phép trước khi đánh dấu nghỉ.',
+            });
+            return;
+        }
+
+        if (data.status !== 'leave' && hasApprovedLeave) {
+            toast.error('Ngày này đã có đơn nghỉ', {
+                description: 'Bạn đang ghi đè dữ liệu nghỉ phép đã duyệt.',
             });
         }
         
@@ -152,20 +198,44 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave 
                                 </FormItem>
                             )}
                         />
+                        {targetDate && (
+                            <div className="rounded-md border p-3 text-body-xs space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium">Ngày {formattedTargetDate}</span>
+                                    {hasApprovedLeave ? (
+                                        <Badge variant="secondary" className="text-emerald-600">Có {overlappingLeaves.length} đơn đã duyệt</Badge>
+                                    ) : (
+                                        <Badge variant="destructive">Chưa có đơn nghỉ</Badge>
+                                    )}
+                                </div>
+                                {hasApprovedLeave ? (
+                                    <ul className="space-y-1">
+                                        {overlappingLeaves.map((leave) => (
+                                            <li key={leave.systemId} className="flex flex-col rounded bg-muted/60 px-2 py-1">
+                                                <span className="text-body-sm font-medium">{leave.leaveTypeName}</span>
+                                                <span className="text-muted-foreground text-body-xs">{formatDate(leave.startDate)} → {formatDate(leave.endDate)} · {leave.id}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-muted-foreground">Đánh dấu nghỉ sẽ bị chặn khi chưa có đơn được duyệt.</p>
+                                )}
+                            </div>
+                        )}
                         {(status === 'present' || status === 'half-day') && (
                              <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField control={control} name="checkIn" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Giờ vào</FormLabel>
-                                            <FormControl><TimePicker {...field} /></FormControl>
+                                            <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                     <FormField control={control} name="checkOut" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Giờ ra</FormLabel>
-                                            <FormControl><TimePicker {...field} /></FormControl>
+                                            <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -174,14 +244,14 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave 
                                      <FormField control={control} name="overtimeCheckIn" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Tăng ca (Vào)</FormLabel>
-                                            <FormControl><TimePicker {...field} /></FormControl>
+                                            <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                      <FormField control={control} name="overtimeCheckOut" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Tăng ca (Ra)</FormLabel>
-                                            <FormControl><TimePicker {...field} /></FormControl>
+                                            <FormControl><TimePicker {...field} value={field.value ?? ""} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />

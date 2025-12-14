@@ -24,20 +24,42 @@ type WikiFormValues = {
 export function WikiFormPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
+  const location = ReactRouterDOM.useLocation();
   const { findById, add, update, data: articles } = useWikiStore();
   const { data: employees } = useEmployeeStore();
   
   const article = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
-  
+  const isEdit = Boolean(article);
+
+  const headerActions = React.useMemo(() => ([
+    <Button
+      key="cancel"
+      variant="outline"
+      className="h-9 gap-2"
+      onClick={() => navigate(article ? `/wiki/${article.systemId}` : '/wiki')}
+    >
+      Hủy
+    </Button>,
+    <Button key="save" type="submit" form="wiki-form" className="h-9 gap-2">
+      Lưu
+    </Button>
+  ]), [article, navigate]);
+
   usePageHeader({
-    actions: [
-      <Button key="cancel" variant="outline" onClick={() => navigate(article ? `/wiki/${article.systemId}` : '/wiki')}>
-        Hủy
-      </Button>,
-      <Button key="save" type="submit" form="wiki-form">
-        Lưu
-      </Button>
-    ]
+    title: isEdit ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới',
+    backPath: isEdit ? `/wiki/${article?.systemId ?? ''}` : '/wiki',
+    breadcrumb: [
+      { label: 'Wiki', href: '/wiki', isCurrent: !isEdit },
+      ...(isEdit
+        ? [
+            { label: article?.title ?? 'Bài viết', href: `/wiki/${article?.systemId ?? ''}`, isCurrent: false },
+            { label: 'Chỉnh sửa', href: location.pathname, isCurrent: true },
+          ]
+        : [
+            { label: 'Tạo mới', href: '/wiki/new', isCurrent: true },
+          ]),
+    ],
+    actions: headerActions,
   });
 
   const existingCategories = React.useMemo(() => [...new Set(articles.map(a => a.category))], [articles]);

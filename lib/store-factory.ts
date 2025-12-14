@@ -12,8 +12,12 @@ import {
 import { getPrefix } from './smart-prefix';
 import { ID_CONFIG, type SystemId, type BusinessId, createSystemId, createBusinessId as brandBusinessId } from './id-config';
 
+const SYSTEM_FALLBACK_ID: SystemId = createSystemId('SYS000000');
+
+const asSystemIdFallback = (): SystemId => SYSTEM_FALLBACK_ID;
+
 // Item with SystemId (branded type)
-type ItemWithSystemId = { systemId: SystemId; [key: string]: any };
+export type ItemWithSystemId = { systemId: SystemId; [key: string]: any };
 
 // ✅ Counter state for ID generation
 export type CounterState = {
@@ -26,11 +30,11 @@ export type CrudState<T extends ItemWithSystemId> = {
   _counters: CounterState; // ✅ Persisted counters
   add: (item: Omit<T, 'systemId'>) => T;
   addMultiple: (items: Omit<T, 'systemId'>[]) => void;
-  update: (systemId: SystemId, item: T) => void; // ✅ Branded type
+  update: (systemId: SystemId, item: Partial<T>) => void; // ✅ Accept partial updates
   remove: (systemId: SystemId) => void; // ✅ Branded type
   hardDelete: (systemId: SystemId) => void; // ✅ Branded type
   restore: (systemId: SystemId) => void; // ✅ Branded type
-  findById: (systemId: SystemId) => T | undefined; // ✅ Branded type
+  findById: (systemId: SystemId | string) => T | undefined; // ✅ Branded type
   getActive: () => T[];
   getDeleted: () => T[];
 };
@@ -52,14 +56,47 @@ export const createCrudStore = <T extends ItemWithSystemId>(
   const persistKey = options?.persistKey;
   const getCurrentUser = options?.getCurrentUser;
 
+  const normalizedInitialData = initialData.map((item, index) => {
+    const cloned = { ...item } as any;
+    if (!cloned.systemId) {
+      throw new Error(
+        `[store-factory:${entityType}] Dữ liệu seed tại index ${index} thiếu systemId. Hãy dùng createSystemId/asSystemId để khai báo rõ ràng.`
+      );
+    }
+
+    if (businessIdField && !(businessIdField in cloned)) {
+      throw new Error(
+        `[store-factory:${entityType}] Dữ liệu seed tại index ${index} thiếu trường ${String(
+          businessIdField
+        )}.`
+      );
+    }
+
+    const fallbackTimestamp = new Date().toISOString();
+    cloned.createdAt = cloned.createdAt || fallbackTimestamp;
+    cloned.updatedAt = cloned.updatedAt || cloned.createdAt;
+    cloned.createdBy = cloned.createdBy || asSystemIdFallback();
+    cloned.updatedBy = cloned.updatedBy || cloned.createdBy;
+    if (cloned.isDeleted === undefined) {
+      cloned.isDeleted = false;
+    }
+    if (cloned.isDeleted && cloned.deletedAt === undefined) {
+      cloned.deletedAt = cloned.updatedAt;
+    }
+    if (!cloned.isDeleted && cloned.deletedAt === undefined) {
+      cloned.deletedAt = null;
+    }
+    return cloned as T;
+  });
+
   const storeConfig = (set: any, get: any) => ({
-    data: initialData,
+    data: normalizedInitialData,
     // ✅ Persist counters in state (will be saved to localStorage)
-    _counters: {
-      systemId: getMaxSystemIdCounter(initialData, systemIdPrefix),
-      businessId: options?.businessIdField 
-        ? getMaxBusinessIdCounter(initialData as any[], businessPrefix)
-        : 0
+      _counters: {
+        systemId: getMaxSystemIdCounter(normalizedInitialData, systemIdPrefix),
+        businessId: options?.businessIdField 
+          ? getMaxBusinessIdCounter(normalizedInitialData as any[], businessPrefix)
+          : 0
     },
     add: (item: Omit<T, 'systemId'>): T => {
         // ✅ Get counters from state (persisted)
@@ -171,7 +208,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
               }
             };
         }),
-    update: (systemId: string, updatedItem: T) => {
+    update: (systemId: SystemId, updatedItem: Partial<T>) => {
       // Validate unique business ID (case-insensitive, skip self)
       if (businessIdField in updatedItem) {
         const businessId = (updatedItem as any)[businessIdField];
@@ -194,7 +231,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         ),
       }));
     },
-    remove: (systemId: string) => {
+    remove: (systemId: SystemId) => {
       // Soft delete - mark as deleted
       const now = new Date().toISOString();
       set((state: any) => ({
@@ -205,12 +242,12 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         ),
       }));
     },
-    hardDelete: (systemId: string) =>
+    hardDelete: (systemId: SystemId) =>
       // Permanent delete - remove from array
       set((state: any) => ({
         data: state.data.filter((item: T) => item.systemId !== systemId),
       })),
-    restore: (systemId: string) => {
+    restore: (systemId: SystemId) => {
       // Restore soft-deleted item
       set((state: any) => ({
         data: state.data.map((item: T) =>
@@ -222,12 +259,12 @@ export const createCrudStore = <T extends ItemWithSystemId>(
     },
     getActive: () => get().data.filter((item: any) => !item.isDeleted),
     getDeleted: () => get().data.filter((item: any) => item.isDeleted),
-    findById: (id: string) => get().data.find((item: T) => item.systemId === id || (item as any).id === id),
+    findById: (id: SystemId | string) => get().data.find((item: T) => item.systemId === id || (item as any).id === id),
   });
 
   // Return with or without persistence
   if (persistKey) {
-    return create<CrudState<T>>()(
+    const persistedStore = create<CrudState<T>>()( 
       persist(
         storeConfig,
         {
@@ -241,7 +278,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
                 _counters: {
                   systemId: getMaxSystemIdCounter(initialData, systemIdPrefix),
                   businessId: options?.businessIdField 
-                    ? getMaxBusinessIdCounter(initialData as any[], businessPrefix)
+                    ? getMaxBusinessIdCounter(normalizedInitialData as any[], businessPrefix)
                     : 0
                 }
               };
@@ -270,6 +307,22 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         }
       )
     );
+
+    if (typeof window !== 'undefined') {
+      const syncFlagKey = `__crudStoreSync__${persistKey}`;
+      const globalWindow = window as typeof window & Record<string, boolean>;
+      if (!globalWindow[syncFlagKey]) {
+        globalWindow[syncFlagKey] = true;
+        const syncFromStorage = (event: StorageEvent) => {
+          if (event.key === persistKey) {
+            (persistedStore as any).persist?.rehydrate?.();
+          }
+        };
+        window.addEventListener('storage', syncFromStorage);
+      }
+    }
+
+    return persistedStore;
   }
 
   return create<CrudState<T>>(storeConfig);

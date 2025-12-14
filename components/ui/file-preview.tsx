@@ -3,7 +3,7 @@ import { Download, Eye, X } from 'lucide-react';
 import { Button } from './button.tsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './dialog.tsx';
 import { Badge } from './badge.tsx';
-import type { UploadedFile } from './file-upload.tsx';
+import type { UploadedFile } from '../../lib/file-upload-api.ts';
 
 type FilePreviewProps = {
   file: UploadedFile;

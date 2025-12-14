@@ -4,6 +4,7 @@
  */
 
 import type { Order } from './types.ts';
+import { formatOrderAddress } from './address-utils.ts';
 
 export interface OrderSearchResult {
   value: string;      // systemId
@@ -13,9 +14,9 @@ export interface OrderSearchResult {
 
 export interface OrderSearchParams {
   query: string;
-  limit?: number;
-  branchSystemId?: string;  // Filter by branch
-  status?: string;          // Filter by status
+  limit?: number | undefined;
+  branchSystemId?: string | undefined;  // Filter by branch
+  status?: string | undefined;          // Filter by status
 }
 
 /**
@@ -55,11 +56,14 @@ export async function searchOrders(
   }
   
   // Search by ID, customer name, or shipping address
-  const results = filtered.filter(order => 
-    order.id.toLowerCase().includes(queryLower) ||
-    order.customerName.toLowerCase().includes(queryLower) ||
-    order.shippingAddress?.toLowerCase().includes(queryLower)
-  );
+  const results = filtered.filter(order => {
+    const shippingAddressText = formatOrderAddress(order.shippingAddress);
+    return (
+      order.id.toLowerCase().includes(queryLower) ||
+      order.customerName.toLowerCase().includes(queryLower) ||
+      (shippingAddressText && shippingAddressText.toLowerCase().includes(queryLower))
+    );
+  });
   
   // Sort by relevance (exact match first, then partial)
   results.sort((a, b) => {

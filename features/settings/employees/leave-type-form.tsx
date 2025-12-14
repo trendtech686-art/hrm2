@@ -11,7 +11,7 @@ import { NumberInput } from "../../../components/ui/number-input.tsx";
 export type LeaveTypeFormValues = Omit<LeaveType, 'systemId' | 'id' | 'applicableGender' | 'applicableDepartmentSystemIds' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>;
 
 type LeaveTypeFormProps = {
-  initialData?: LeaveTypeFormValues;
+  initialData?: LeaveTypeFormValues | undefined;
   onSubmit: (values: LeaveTypeFormValues) => void;
   onCancel: () => void;
 };
@@ -32,14 +32,14 @@ export function LeaveTypeForm({ initialData, onSubmit, onCancel }: LeaveTypeForm
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem>
             <FormLabel>Tên loại phép</FormLabel>
-            <FormControl><Input placeholder="VD: Nghỉ kết hôn" {...field} value={field.value as string} /></FormControl>
+            <FormControl><Input placeholder="VD: Nghỉ kết hôn" {...field} value={field.value ?? ''} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField control={form.control} name="numberOfDays" render={({ field }) => (
           <FormItem>
             <FormLabel>Số ngày nghỉ</FormLabel>
-            <FormControl><NumberInput {...field} value={field.value as number} onChange={field.onChange} /></FormControl>
+            <FormControl><NumberInput {...field} value={field.value ?? 0} onChange={field.onChange} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -48,7 +48,7 @@ export function LeaveTypeForm({ initialData, onSubmit, onCancel }: LeaveTypeForm
             <div className="space-y-0.5">
               <FormLabel>Được hưởng lương</FormLabel>
             </div>
-            <FormControl><Switch checked={field.value as boolean} onCheckedChange={field.onChange} /></FormControl>
+            <FormControl><Switch checked={field.value ?? false} onCheckedChange={field.onChange} /></FormControl>
           </FormItem>
         )} />
         <FormField control={form.control} name="requiresAttachment" render={({ field }) => (
@@ -56,7 +56,7 @@ export function LeaveTypeForm({ initialData, onSubmit, onCancel }: LeaveTypeForm
             <div className="space-y-0.5">
               <FormLabel>Yêu cầu tài liệu đính kèm</FormLabel>
             </div>
-            <FormControl><Switch checked={field.value as boolean} onCheckedChange={field.onChange} /></FormControl>
+            <FormControl><Switch checked={field.value ?? false} onCheckedChange={field.onChange} /></FormControl>
           </FormItem>
         )} />
         <DialogFooter className="pt-4">

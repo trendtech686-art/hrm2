@@ -8,9 +8,13 @@ export type PaymentType = {
   systemId: SystemId;
   id: BusinessId; // Mã loại
   name: string; // Tên loại
-  description?: string;
+  description?: string | undefined;
   isBusinessResult: boolean; // Hạch toán kết quả kinh doanh
   createdAt: string; // YYYY-MM-DD
   isActive: boolean; // Trạng thái hoạt động
-  color?: string; // Màu sắc
+  isDefault?: boolean; // Mặc định
+  color?: string | undefined; // Màu sắc
+  createdBy?: SystemId;
+  updatedAt?: string;
+  updatedBy?: SystemId;
 };

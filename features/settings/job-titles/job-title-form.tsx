@@ -43,7 +43,7 @@ export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormPr
             <FormItem>
               <FormLabel>Mã chức vụ</FormLabel>
               <FormControl>
-                <Input placeholder="VD: NV, TP" {...field} />
+                <Input placeholder="VD: NV, TP" {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -56,7 +56,7 @@ export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormPr
             <FormItem>
               <FormLabel>Tên chức vụ</FormLabel>
               <FormControl>
-                <Input placeholder="VD: Trưởng phòng" {...field} />
+                <Input placeholder="VD: Trưởng phòng" {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -69,7 +69,7 @@ export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormPr
             <FormItem>
               <FormLabel>Mô tả</FormLabel>
               <FormControl>
-                <Textarea placeholder="Mô tả vai trò, trách nhiệm của chức vụ..." {...field} />
+                <Textarea placeholder="Mô tả vai trò, trách nhiệm của chức vụ..." {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>

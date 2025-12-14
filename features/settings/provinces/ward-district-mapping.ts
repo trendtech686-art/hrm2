@@ -10,7 +10,7 @@
  * - Tự động điền: "Quận Ba Đình" (10101)
  */
 
-import { asBusinessId, type BusinessId } from '@/lib/id-types';
+import { asBusinessId, type BusinessId, type SystemId } from '@/lib/id-types';
 
 export type WardDistrictMapping = {
   wardId: string;        // "10101001"
@@ -19,6 +19,10 @@ export type WardDistrictMapping = {
   districtName: string;  // "Quận Ba Đình"
   provinceId: BusinessId;    // "01"
   provinceName: string;  // "Thành phố Hà Nội"
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };
 
 export type WardDistrictDataInput = Omit<WardDistrictMapping, 'provinceId'> & {
@@ -105,6 +109,10 @@ export function loadWardDistrictMapping(data?: ReadonlyArray<WardDistrictDataInp
       districtName: item.districtName,
       provinceId,
       provinceName: item.provinceName,
+      ...(item.createdAt ? { createdAt: item.createdAt } : {}),
+      ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+      ...(item.createdBy ? { createdBy: item.createdBy } : {}),
+      ...(item.updatedBy ? { updatedBy: item.updatedBy } : {}),
     };
 
     wardDistrictMap.set(normalized.wardId, normalized);

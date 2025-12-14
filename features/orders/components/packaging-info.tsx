@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import type { Order, Packaging, PackagingStatus, OrderDeliveryStatus } from '../types.ts';
@@ -6,11 +6,20 @@ import { Button } from '../../../components/ui/button.tsx';
 import { DetailField } from '../../../components/ui/detail-field.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
 import { cn } from '../../../lib/utils.ts';
-import { Truck, PackageSearch, PackageCheck, Ban, Edit, Printer, ChevronRight, ChevronDown, Copy, Check, Info, AlertCircle } from 'lucide-react';
+import { Truck, PackageSearch, PackageCheck, Ban, Edit, Printer, ChevronRight, ChevronDown, Copy, Check, Info, AlertCircle, Tag, FileText } from 'lucide-react';
 import { Separator } from '../../../components/ui/separator.tsx';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip.tsx';
 import { Badge } from '../../../components/ui/badge.tsx';
 import { getGHTKStatusVariant, getGHTKStatusText } from '../../../lib/ghtk-constants.ts';
+import { useEmployeeStore } from '../../employees/store.ts';
+import { useShipmentStore } from '../../shipments/store.ts';
+import { useBranchStore } from '../../settings/branches/store.ts';
+import { useCustomerStore } from '../../customers/store.ts';
+import { usePrint } from '@/lib/use-print';
+import { mapPackingToPrintData, mapPackingLineItems } from '@/lib/print-mappers/packing.mapper';
+import { mapShippingLabelToPrintData } from '@/lib/print-mappers/shipping-label.mapper';
+import { mapDeliveryToPrintData, mapDeliveryLineItems } from '@/lib/print-mappers/delivery.mapper';
+import type { SystemId } from '@/lib/id-types';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
     return new Intl.NumberFormat('vi-VN').format(value);
@@ -42,7 +51,7 @@ interface PackagingInfoProps {
     onCompleteDelivery: () => void;
     onFailDelivery: () => void;
     onCancelDelivery: () => void;
-    onCancelGHTKShipment?: () => void; // NEW: Cancel GHTK shipment
+    onCancelGHTKShipment?: (() => void) | undefined; // NEW: Cancel GHTK shipment
 }
 
 export function PackagingInfo({
@@ -63,6 +72,41 @@ export function PackagingInfo({
     const isCancelled = packaging.deliveryStatus === 'Đã hủy' || packaging.status === 'Hủy đóng gói';
     const [isExpanded, setIsExpanded] = React.useState(!isCancelled);
     const [isCopied, setIsCopied] = React.useState(false);
+    const { findById: findEmployeeById } = useEmployeeStore();
+    const { findByPackagingSystemId, findByTrackingCode } = useShipmentStore();
+    const { findById: findBranchById } = useBranchStore();
+    const { findById: findCustomerById } = useCustomerStore();
+    
+    // Print functionality
+    const branch = findBranchById(order.branchSystemId);
+    const customer = findCustomerById(order.customerSystemId);
+    const { print } = usePrint(order.branchSystemId);
+    
+    // Find shipment by trackingCode first (more reliable), fallback to packagingSystemId
+    const shipment = React.useMemo(() => {
+        if (packaging.trackingCode) {
+            const byTrackingCode = findByTrackingCode(packaging.trackingCode);
+            if (byTrackingCode) return byTrackingCode;
+        }
+        return findByPackagingSystemId(packaging.systemId);
+    }, [packaging.systemId, packaging.trackingCode, findByPackagingSystemId, findByTrackingCode]);
+
+    const renderEmployeeLink = React.useCallback((employeeId?: SystemId, employeeName?: string) => {
+        const resolvedName = employeeName || (employeeId ? findEmployeeById(employeeId)?.fullName : undefined);
+        if (!employeeId && !resolvedName) {
+            return '---';
+        }
+
+        if (!employeeId) {
+            return resolvedName;
+        }
+
+        return (
+            <Link to={`/employees/${employeeId}`} className="text-primary hover:underline">
+                {resolvedName || employeeId}
+            </Link>
+        );
+    }, [findEmployeeById]);
 
     const displayStatusText = React.useMemo(() => {
         // ✅ If delivery is cancelled, always show "Đã hủy"
@@ -115,6 +159,155 @@ export function PackagingInfo({
         }
     };
 
+    // === PRINT HANDLERS ===
+    const storeSettings = React.useMemo(() => ({
+        name: branch?.name || '',
+        address: branch?.address || '',
+        phone: branch?.phone || '',
+        province: branch?.province || '',
+    }), [branch]);
+
+    // Helper to safely get address fields
+    const getShippingAddressField = React.useCallback(<T extends keyof import('../types').OrderAddress>(
+        field: T
+    ): import('../types').OrderAddress[T] | undefined => {
+        if (typeof order.shippingAddress === 'string') return undefined;
+        return order.shippingAddress?.[field];
+    }, [order.shippingAddress]);
+
+    const getFormattedShippingAddress = React.useCallback(() => {
+        if (typeof order.shippingAddress === 'string') return order.shippingAddress;
+        return order.shippingAddress?.formattedAddress || order.shippingAddress?.street || '';
+    }, [order.shippingAddress]);
+
+    const handlePrintPacking = React.useCallback(() => {
+        const packingData = {
+            code: packaging.id,
+            createdAt: packaging.requestDate,
+            packedAt: packaging.confirmDate,
+            createdBy: packaging.requestingEmployeeName,
+            orderCode: order.id,
+            fulfillmentStatus: packaging.status,
+            assignedEmployee: packaging.assignedEmployeeName,
+            location: {
+                name: branch?.name,
+                address: branch?.address,
+                province: branch?.province,
+                phone: branch?.phone,
+            },
+            customerName: customer?.name || order.customerName || '',
+            customerCode: customer?.id,
+            customerPhone: customer?.phone || getShippingAddressField('phone'),
+            customerAddress: customer?.addresses?.[0]?.street,
+            shippingAddress: getFormattedShippingAddress(),
+            shippingProvince: getShippingAddressField('province'),
+            shippingDistrict: getShippingAddressField('district'),
+            shippingWard: getShippingAddressField('ward'),
+            items: order.lineItems.map(item => ({
+                variantCode: item.productId,
+                productName: item.productName,
+                quantity: item.quantity,
+                price: item.unitPrice,
+                amount: item.quantity * item.unitPrice,
+                note: item.note,
+            })),
+            totalQuantity: order.lineItems.reduce((sum, item) => sum + item.quantity, 0),
+            total: order.grandTotal,
+            codAmount: packaging.codAmount,
+            note: packaging.notes,
+            orderNote: order.notes,
+        };
+        const printData = mapPackingToPrintData(packingData, storeSettings);
+        const lineItems = mapPackingLineItems(packingData.items);
+        print('packing', { data: printData, lineItems });
+    }, [packaging, order, branch, customer, storeSettings, print, getShippingAddressField, getFormattedShippingAddress]);
+
+    const handlePrintShippingLabel = React.useCallback(() => {
+        const labelData = {
+            orderCode: order.id,
+            createdAt: packaging.requestDate,
+            createdBy: packaging.requestingEmployeeName,
+            status: packaging.status,
+            location: {
+                name: branch?.name,
+                address: branch?.address,
+                phone: branch?.phone,
+                province: branch?.province,
+            },
+            customerName: getShippingAddressField('contactName') || customer?.name || order.customerName || '',
+            customerPhone: getShippingAddressField('phone') || customer?.phone,
+            shippingAddress: getFormattedShippingAddress(),
+            city: getShippingAddressField('province'),
+            district: getShippingAddressField('district'),
+            receiverName: getShippingAddressField('contactName') || customer?.name || order.customerName || '',
+            receiverPhone: getShippingAddressField('phone') || customer?.phone,
+            trackingCode: packaging.trackingCode,
+            carrierName: packaging.carrier,
+            serviceName: packaging.service,
+            totalItems: order.lineItems.reduce((sum, item) => sum + item.quantity, 0),
+            total: order.grandTotal,
+            deliveryFee: packaging.shippingFeeToPartner || order.shippingFee,
+            codAmount: packaging.codAmount || order.codAmount,
+            totalAmount: order.grandTotal,
+            packingWeight: packaging.weight ? packaging.weight / 1000 : undefined, // Convert grams to kg
+            note: packaging.noteToShipper,
+        };
+        const printData = mapShippingLabelToPrintData(labelData, storeSettings);
+        print('shipping-label', { data: printData });
+    }, [packaging, order, branch, customer, storeSettings, print, getShippingAddressField, getFormattedShippingAddress]);
+
+    const handlePrintDelivery = React.useCallback(() => {
+        const deliveryData = {
+            code: packaging.trackingCode || packaging.id,
+            orderCode: order.id,
+            createdAt: packaging.requestDate,
+            createdBy: packaging.requestingEmployeeName,
+            shipperName: packaging.assignedEmployeeName,
+            deliveryStatus: packaging.deliveryStatus || packaging.status,
+            location: {
+                name: branch?.name,
+                address: branch?.address,
+                phone: branch?.phone,
+                province: branch?.province,
+            },
+            trackingCode: packaging.trackingCode,
+            carrierName: packaging.carrier || (packaging.deliveryMethod === 'Dịch vụ giao hàng' ? 'Tự giao hàng' : ''),
+            // Thông tin khách hàng
+            customerName: customer?.name || order.customerName || '',
+            customerCode: customer?.id,
+            customerPhone: customer?.phone,
+            customerEmail: customer?.email,
+            // Thông tin người nhận
+            receiverName: getShippingAddressField('contactName') || customer?.name || order.customerName || '',
+            receiverPhone: getShippingAddressField('phone') || customer?.phone || '',
+            shippingAddress: getFormattedShippingAddress(),
+            city: getShippingAddressField('province'),
+            district: getShippingAddressField('district'),
+            ward: getShippingAddressField('ward'),
+            // Danh sách sản phẩm
+            items: order.lineItems.map(item => ({
+                variantCode: item.productId,
+                productName: item.productName,
+                variantName: '',
+                unit: 'Cái',
+                quantity: item.quantity,
+                price: item.unitPrice,
+                amount: item.quantity * item.unitPrice,
+                note: item.note,
+            })),
+            // Tổng giá trị
+            totalQuantity: order.lineItems.reduce((sum, item) => sum + item.quantity, 0),
+            subtotal: order.subtotal,
+            deliveryFee: order.shippingFee,
+            codAmount: packaging.codAmount || order.codAmount,
+            totalAmount: order.grandTotal,
+            note: packaging.noteToShipper || order.notes,
+        };
+        const printData = mapDeliveryToPrintData(deliveryData, storeSettings);
+        const lineItems = mapDeliveryLineItems(deliveryData.items);
+        print('delivery', { data: printData, lineItems });
+    }, [packaging, order, branch, customer, storeSettings, print, getShippingAddressField, getFormattedShippingAddress]);
+
     const renderActionButtons = () => {
         if (!isActionable) return null;
         
@@ -166,18 +359,6 @@ export function PackagingInfo({
                     >
                         Hủy đóng gói
                     </Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="outline">
-                                Giao hàng <ChevronDown className="ml-2 h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onSelect={onOpenShipmentDialog}>Đẩy qua hãng vận chuyển</DropdownMenuItem>
-                            <DropdownMenuItem disabled>Tự gọi shipper</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={onInStorePickup}>Khách nhận tại cửa hàng</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                     <Button size="sm" onClick={onDispatch}>Xác nhận Xuất kho</Button>
                 </div>
             );
@@ -293,10 +474,22 @@ export function PackagingInfo({
                 </div>
                 <div className="flex items-center gap-1">
                     {renderActionButtons()}
-                    {/* ✅ Print button next to toggle */}
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Printer className="h-4 w-4" />
-                    </Button>
+                    {/* ✅ Print button - In phiếu giao hàng */}
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8"
+                                    onClick={handlePrintDelivery}
+                                >
+                                    <Printer className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>In phiếu giao hàng</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsExpanded(!isExpanded)}>
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </Button>
@@ -308,9 +501,58 @@ export function PackagingInfo({
                 <div className="p-4 space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 text-sm gap-x-6 gap-y-1">
                         <DetailField label="Mã đóng gói" className="py-1 border-0">
-                            <Link to={`/packaging/${packaging.systemId}`} className="font-mono text-primary hover:underline">{packaging.id}</Link>
+                            <div className="flex items-center gap-1">
+                                <Link to={`/packaging/${packaging.systemId}`} className="font-mono text-primary hover:underline">{packaging.id}</Link>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6" 
+                                                onClick={handlePrintPacking}
+                                            >
+                                                <Printer className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>In phiếu đóng gói</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
                         </DetailField>
-                        <DetailField label="Mã vận đơn" value={packaging.trackingCode} className="py-1 border-0" />
+                        <DetailField 
+                            label="Mã vận đơn" 
+                            className="py-1 border-0"
+                        >
+                            {packaging.trackingCode ? (
+                                <div className="flex items-center gap-1">
+                                    {shipment ? (
+                                        <Link to={`/shipments/${shipment.systemId}`} className="font-mono text-primary hover:underline">
+                                            {packaging.trackingCode}
+                                        </Link>
+                                    ) : (
+                                        <span className="font-mono">{packaging.trackingCode}</span>
+                                    )}
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-6 w-6" 
+                                                    onClick={handlePrintShippingLabel}
+                                                >
+                                                    <Printer className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>In nhãn giao hàng</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            ) : (
+                                <span className="text-muted-foreground">---</span>
+                            )}
+                        </DetailField>
                         
                         {packaging.deliveryMethod === 'Dịch vụ giao hàng' ? (
                             <>
@@ -330,9 +572,11 @@ export function PackagingInfo({
                             </>
                         ) : (
                             <>
-                                <DetailField label="NV được gán" value={packaging.assignedEmployeeName} className="py-1 border-0" />
-                                <DetailField label="Người YC" value={packaging.requestingEmployeeName} className="py-1 border-0" />
-                                {packaging.status !== 'Chờ đóng gói' && <DetailField label="Người xác nhận" value={packaging.confirmingEmployeeName} className="py-1 border-0" />}
+                                <DetailField label="NV được gán" value={renderEmployeeLink(packaging.assignedEmployeeId, packaging.assignedEmployeeName)} className="py-1 border-0" />
+                                <DetailField label="Người YC" value={renderEmployeeLink(packaging.requestingEmployeeId, packaging.requestingEmployeeName)} className="py-1 border-0" />
+                                {packaging.status !== 'Chờ đóng gói' && (
+                                    <DetailField label="Người xác nhận" value={renderEmployeeLink(packaging.confirmingEmployeeId, packaging.confirmingEmployeeName)} className="py-1 border-0" />
+                                )}
                                 <DetailField label="Hình thức giao" value={packaging.deliveryMethod} className="py-1 border-0" />
                             </>
                         )}

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
+import { CommentEditor } from './ui/comment-editor';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { MessageSquare, Reply, Edit2, Trash2, Send, FileText } from 'lucide-react';
@@ -15,17 +16,19 @@ export interface Comment<AuthorId extends string = string, CommentId extends str
   author: {
     systemId: AuthorId;
     name: string;
-    avatar?: string;
+    avatar?: string | undefined;
   };
-  createdAt: Date;
-  updatedAt?: Date;
-  parentId?: CommentId; // For replies
-  attachments?: {
-    id: string;
-    name: string;
-    url: string;
-    type: string;
-  }[];
+  createdAt: Date | string;
+  updatedAt?: Date | string | undefined;
+  parentId?: CommentId | undefined; // For replies
+  attachments?: (
+    {
+      id: string;
+      name: string;
+      url: string;
+      type: string;
+    }[] | string[]
+  ) | undefined;
 }
 
 interface CommentsProps<
@@ -36,7 +39,7 @@ interface CommentsProps<
   entityType: string;
   entityId: EntityId;
   comments: Comment<AuthorId, CommentId>[];
-  onAddComment?: (content: string, parentId?: CommentId) => void;
+  onAddComment?: (content: string, parentIdOrAttachments?: CommentId | string[], parentId?: CommentId) => void;
   onUpdateComment?: (commentId: CommentId, content: string) => void;
   onDeleteComment?: (commentId: CommentId) => void;
   readOnly?: boolean;
@@ -44,12 +47,14 @@ interface CommentsProps<
     systemId: AuthorId;
     name: string;
     avatar?: string;
-  };
+  } | undefined;
   title?: string;
   placeholder?: string;
   className?: string;
   // Local storage for draft comments
   enableDraftSaving?: boolean;
+  // Mentionable users for @tag functionality
+  mentions?: Array<{ id: string; label: string; avatar?: string }>;
 }
 
 /**
@@ -96,8 +101,10 @@ export function Comments<
   placeholder = 'Nhập bình luận...',
   className,
   enableDraftSaving = true,
+  mentions = [],
 }: CommentsProps<EntityId, AuthorId, CommentId>) {
   const [newComment, setNewComment] = React.useState('');
+  const [newCommentText, setNewCommentText] = React.useState(''); // Plain text version
   const [editingId, setEditingId] = React.useState<CommentId | null>(null);
   const [editContent, setEditContent] = React.useState('');
   const [replyingTo, setReplyingTo] = React.useState<CommentId | null>(null);
@@ -143,10 +150,11 @@ export function Comments<
   }, [comments]);
 
   const handleAddComment = () => {
-    if (!newComment.trim() || !onAddComment) return;
+    if (!newCommentText.trim() || !onAddComment) return;
     
-    onAddComment(newComment.trim());
+    onAddComment(newComment.trim(), undefined, undefined); // Send HTML content
     setNewComment('');
+    setNewCommentText('');
     if (enableDraftSaving) {
       localStorage.removeItem(draftKey);
     }
@@ -155,7 +163,7 @@ export function Comments<
   const handleAddReply = (parentId: CommentId) => {
     if (!replyContent.trim() || !onAddComment) return;
     
-    onAddComment(replyContent.trim(), parentId);
+    onAddComment(replyContent.trim(), undefined, parentId);
     setReplyContent('');
     setReplyingTo(null);
   };
@@ -201,6 +209,8 @@ export function Comments<
     const isReplying = replyingTo === comment.id;
     const isOwn = currentUser?.systemId === comment.author.systemId;
     const children = commentTree.childrenMap.get(comment.id) || [];
+    const createdAtDate = new Date(comment.createdAt);
+    const updatedAtDate = comment.updatedAt ? new Date(comment.updatedAt) : null;
 
     return (
       <div key={comment.id} className={cn("space-y-2", depth > 0 && "ml-12")}>
@@ -216,12 +226,12 @@ export function Comments<
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-sm">{comment.author.name}</span>
               <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(comment.createdAt), {
+                {formatDistanceToNow(createdAtDate, {
                   addSuffix: true,
                   locale: vi,
                 })}
               </span>
-              {comment.updatedAt && comment.updatedAt > comment.createdAt && (
+              {updatedAtDate && updatedAtDate.getTime() > createdAtDate.getTime() && (
                 <Badge variant="outline" className="text-xs">Đã chỉnh sửa</Badge>
               )}
             </div>
@@ -256,9 +266,10 @@ export function Comments<
               </div>
             ) : (
               <>
-                <div className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md">
-                  {comment.content}
-                </div>
+                <div 
+                  className="text-sm bg-muted/30 p-3 rounded-md prose prose-sm max-w-none [&_.mention]:text-primary [&_.mention]:font-medium"
+                  dangerouslySetInnerHTML={{ __html: comment.content }}
+                />
 
                 {/* Attachments */}
                 {comment.attachments && comment.attachments.length > 0 && (
@@ -278,7 +289,7 @@ export function Comments<
                   </div>
                 )}
 
-                {/* Actions */}
+                {/* Actions - Only reply allowed, no edit/delete to preserve data */}
                 {!readOnly && (
                   <div className="flex items-center gap-2 text-xs">
                     {onAddComment && (
@@ -290,30 +301,6 @@ export function Comments<
                       >
                         <Reply className="h-3 w-3 mr-1" />
                         Trả lời
-                      </Button>
-                    )}
-
-                    {isOwn && onUpdateComment && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => startEdit(comment)}
-                        className="h-7 px-2"
-                      >
-                        <Edit2 className="h-3 w-3 mr-1" />
-                        Sửa
-                      </Button>
-                    )}
-
-                    {isOwn && onDeleteComment && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteComment(comment.id)}
-                        className="h-7 px-2 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Xóa
                       </Button>
                     )}
                   </div>
@@ -368,7 +355,7 @@ export function Comments<
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-h5 flex items-center gap-2">
           <MessageSquare className="h-4 w-4" />
           {title}
           <Badge variant="secondary" className="ml-auto">
@@ -381,21 +368,18 @@ export function Comments<
         {/* Add new comment */}
         {!readOnly && onAddComment && (
           <div className="space-y-2">
-            <Textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (newComment.trim()) {
-                    handleAddComment();
-                  }
-                }
+            <CommentEditor
+              content={newComment}
+              onChange={(html, text) => {
+                setNewComment(html);
+                setNewCommentText(text);
               }}
               placeholder={placeholder}
-              className="min-h-[100px]"
+              mentions={mentions}
+              onSubmit={handleAddComment}
+              minHeight="80px"
             />
-            <Button onClick={handleAddComment} disabled={!newComment.trim()}>
+            <Button onClick={handleAddComment} disabled={!newCommentText.trim()}>
               <Send className="h-4 w-4 mr-2" />
               Gửi bình luận
             </Button>

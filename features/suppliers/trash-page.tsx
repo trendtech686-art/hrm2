@@ -6,14 +6,27 @@ import { useSupplierStore } from "./store.ts"
 import { getColumns } from "./trash-columns.tsx"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
 import { Card, CardContent } from "../../components/ui/card.tsx"
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import type { Supplier } from "./types.ts"
 import type { SystemId } from "@/lib/id-types";
+import { ROUTES } from "../../lib/router.ts";
+import type { BreadcrumbItem } from "../../lib/breadcrumb-system.ts";
 
 export function SuppliersTrashPage() {
   const { data, getDeleted, restore, remove } = useSupplierStore();
   const navigate = useNavigate();
   
-  usePageHeader();
+  const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => ([
+    { label: 'Trang chủ', href: ROUTES.ROOT },
+    { label: 'Nhà cung cấp', href: ROUTES.PROCUREMENT.SUPPLIERS },
+    { label: 'Thùng rác', href: `${ROUTES.PROCUREMENT.SUPPLIERS}/trash`, isCurrent: true },
+  ]), []);
+
+  usePageHeader({
+    title: 'Thùng rác nhà cung cấp',
+    backPath: ROUTES.PROCUREMENT.SUPPLIERS,
+    breadcrumb,
+  });
   
   const deletedSuppliers = React.useMemo(() => getDeleted(), [data]);
 
@@ -54,7 +67,7 @@ export function SuppliersTrashPage() {
           </div>
           {supplier.deletedAt && (
             <div className="text-xs text-muted-foreground">
-              Xóa: {new Date(supplier.deletedAt).toLocaleString('vi-VN')}
+              Xóa: {formatDateTimeForDisplay(supplier.deletedAt)}
             </div>
           )}
         </div>
@@ -71,7 +84,7 @@ export function SuppliersTrashPage() {
       }}
       title="Thùng rác nhà cung cấp"
       entityName="nhà cung cấp"
-      backUrl="/suppliers"
+      backUrl={ROUTES.PROCUREMENT.SUPPLIERS}
       columns={columns}
       renderMobileCard={renderMobileCard}
       getItemDisplayName={(supplier) => supplier.name}

@@ -10,13 +10,13 @@ interface DataTableActionsProps<TData> {
   exportConfig?: {
     fileName: string;
     columns: ColumnDef<TData>[];
-  };
+  } | undefined;
   importConfig?: {
     importer: (data: Omit<TData, 'id'>[]) => void;
     fileName: string;
     existingData?: TData[];
     getUniqueKey?: (item: any) => string;
-  };
+  } | undefined;
   columnCustomizerProps?: {
     columns: ColumnDef<TData>[];
     columnVisibility: Record<string, boolean>;
@@ -25,7 +25,7 @@ interface DataTableActionsProps<TData> {
     setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
     pinnedColumns: string[];
     setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>;
-  };
+  } | undefined;
   allData: TData[];
   filteredData: TData[];
   pageData: TData[];

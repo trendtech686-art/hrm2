@@ -17,7 +17,7 @@ const initialLogs: LogEntry[] = [
     {
         systemId: 'LOG00000002',
         id: 'LOG002',
-        timestamp: subtractDays(getCurrentDate(), 7).toISOString(),
+        timestamp: (subtractDays(getCurrentDate(), 7) ?? getCurrentDate()).toISOString(),
         entityType: 'PurchaseOrder',
         entityId: 'PO00000003',
         userId: 'NV00000006',
@@ -33,7 +33,7 @@ const initialLogs: LogEntry[] = [
     {
         systemId: 'LOG00000001',
         id: 'LOG001',
-        timestamp: subtractDays(getCurrentDate(), 3).toISOString(),
+        timestamp: (subtractDays(getCurrentDate(), 3) ?? getCurrentDate()).toISOString(),
         entityType: 'PurchaseOrder',
         entityId: 'PO00000003',
         userId: 'NV00000006',

@@ -146,7 +146,7 @@ export function AddressConversionDialog({
               </Alert>
             ) : (
               <RadioGroup
-                value={selectedSuggestion?.ward.id}
+                value={selectedSuggestion?.ward.id ?? ""}
                 onValueChange={(value) => {
                   const suggestion = suggestions.find(s => s.ward.id === value);
                   setSelectedSuggestion(suggestion || null);

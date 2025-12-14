@@ -27,13 +27,13 @@ export function UnitForm({ initialData, onSubmit }: UnitFormProps) {
     <Form {...form}>
       <form id="unit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
         <FormField control={form.control} name="id" render={({ field }) => (
-          <FormItem><FormLabel>Mã đơn vị tính</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Mã đơn vị tính</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="name" render={({ field }) => (
-          <FormItem><FormLabel>Tên đơn vị tính</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Tên đơn vị tính</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="description" render={({ field }) => (
-          <FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
         )} />
       </form>
     </Form>

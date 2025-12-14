@@ -1,7 +1,7 @@
 import * as React from "react";
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
 import type { Receipt } from './types';
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TouchButton } from "@/components/mobile/touch-button";
@@ -52,9 +52,9 @@ export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick 
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm truncate">{receipt.id}</h3>
+                            <CardTitle className="font-semibold text-sm truncate">{receipt.id}</CardTitle>
                             <span className="text-xs text-muted-foreground">•</span>
-                            <span className="text-sm font-medium text-green-600">{formatCurrency(receipt.amount)} ₫</span>
+                            <span className="text-sm font-medium text-emerald-600">{formatCurrency(receipt.amount)} ₫</span>
                         </div>
                     </div>
                     {receipt.status !== 'cancelled' && (

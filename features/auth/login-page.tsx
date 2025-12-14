@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
 import { useEmployeeStore } from '../employees/store.ts';
+import { verifyPassword, checkRateLimit, sanitizeInput } from '../../lib/security-utils.ts';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -42,22 +43,44 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Rate limiting check
+    const rateLimitKey = `login:${sanitizeInput(email)}`;
+    const rateLimit = checkRateLimit(rateLimitKey, 5, 60000); // 5 attempts per minute
+    
+    if (!rateLimit.allowed) {
+      const waitSeconds = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
+      toast.error(`Quá nhiều lần thử. Vui lòng đợi ${waitSeconds} giây.`);
+      return;
+    }
+    
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      // Tìm employee với email và password khớp
+    try {
+      // Sanitize input
+      const sanitizedEmail = sanitizeInput(email);
+      
+      // Find employee by email first
       const employee = employees.find(
-        emp => emp.workEmail === email && emp.password === password
+        emp => emp.workEmail?.toLowerCase() === sanitizedEmail.toLowerCase()
       );
       
-      if (employee) {
+      if (!employee || !employee.password) {
+        toast.error('Email hoặc mật khẩu không đúng');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Verify password (supports both hashed and plain text for migration)
+      const isPasswordValid = await verifyPassword(password, employee.password);
+      
+      if (isPasswordValid) {
         // Xác định role (có thể dựa vào employee.role hoặc logic khác)
         const role = employee.role === 'Admin' ? 'admin' : 'user';
         
         // Login with employee data
         login({
-          email: employee.workEmail || email,
+          email: employee.workEmail || sanitizedEmail,
           name: employee.fullName,
           role: role,
           employeeId: employee.systemId
@@ -68,9 +91,12 @@ export function LoginPage() {
       } else {
         toast.error('Email hoặc mật khẩu không đúng');
       }
-      
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   if (availableEmployees.length === 0) {
@@ -92,7 +118,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Đăng nhập</CardTitle>
+          <CardTitle className="text-h3">Đăng nhập</CardTitle>
           <CardDescription>
             Chọn loại tài khoản để tự động điền thông tin đăng nhập
           </CardDescription>

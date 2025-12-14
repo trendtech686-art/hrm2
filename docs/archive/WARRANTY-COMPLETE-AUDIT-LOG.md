@@ -4,6 +4,8 @@
 
 **User Request**: "Lịch sử thao tác - cần ghi lại hết toàn bộ các thao tác trong đơn bảo hành"
 
+> **Ghi chú 19/11/2025:** Helper `features/warranty/utils/audit-logger.ts` đã được gỡ khỏi bundle chính (legacy reference chỉ lưu tại tài liệu này để đối chiếu khi cần rebuild flow audit).
+
 Hệ thống cần log đầy đủ mọi thao tác:
 - ✅ Tạo/sửa phiếu
 - ✅ Thêm/sửa/xóa sản phẩm

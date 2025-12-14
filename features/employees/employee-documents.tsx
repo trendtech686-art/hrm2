@@ -7,6 +7,8 @@ import { Button } from '../../components/ui/button.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import { Input } from '../../components/ui/input.tsx';
 import { ProgressiveImage } from '../../components/ui/progressive-image.tsx';
+import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog.tsx';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { 
   Download, 
   Eye, 
@@ -17,7 +19,8 @@ import {
   FolderOpen,
   Search,
   Copy,
-  Archive
+  Archive,
+  X
 } from 'lucide-react';
 import type { EmployeeDocument, ServerFile } from './document-store.ts';
 import JSZip from 'jszip';
@@ -55,6 +58,10 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  
+  // Preview modal state - React-based instead of DOM manipulation (fixes memory leak)
+  const [previewFile, setPreviewFile] = React.useState<ServerFile | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
   
   // Check if data is already cached
   const isCached = loadedEmployees.has(employeeSystemId);
@@ -117,7 +124,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       refreshDocuments(employeeSystemId)
         .catch((err) => {
           console.error('Failed to load documents:', err);
-          setError('Kh�ng th? t?i t�i li?u. Vui l�ng ki?m tra k?t n?i server.');
+          setError('Không thể tải tài liệu. Vui lòng kiểm tra kết nối server.');
         })
         .finally(() => setIsLoading(false));
     }
@@ -144,7 +151,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      alert('Kh�ng th? t?i file. Vui l�ng th? l?i.');
+      alert('Không thể tải file. Vui lòng thử lại.');
     }
   };
 
@@ -191,70 +198,19 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       console.log('Downloaded all files as ZIP');
     } catch (error) {
       console.error('Failed to create ZIP:', error);
-      alert('Kh�ng th? t?i xu?ng t?t c? files. Vui l�ng th? l?i.');
+      alert('Không thể tải xuống tất cả files. Vui lòng thử lại.');
     }
   };
 
   const handlePreview = (file: ServerFile) => {
-    const previewUrl = getFileUrl(file.url);
-
-    // Create modal overlay for image preview
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.9);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      cursor: pointer;
-    `;
-    
-    const img = document.createElement('img');
-    img.src = previewUrl;
-    img.style.cssText = `
-      max-width: 90%;
-      max-height: 90%;
-      object-fit: contain;
-      border-radius: 8px;
-    `;
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.style.cssText = `
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: white;
-      border: none;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      font-size: 24px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    `;
-    
-    overlay.appendChild(img);
-    overlay.appendChild(closeBtn);
-    document.body.appendChild(overlay);
-    
-    // Close on click
-    overlay.addEventListener('click', () => {
-      document.body.removeChild(overlay);
-    });
-    
-    // Prevent closing when clicking image
-    img.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
+    // Use React state instead of DOM manipulation to prevent memory leaks
+    setPreviewFile(file);
+    setIsPreviewOpen(true);
+  };
+  
+  const handleClosePreview = () => {
+    setIsPreviewOpen(false);
+    setPreviewFile(null);
   };
 
   if (isLoading && !isCached) {
@@ -278,7 +234,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h3 className="text-lg font-medium mb-2">Không thể tải tài liệu</h3>
+            <h3 className="text-h5 font-medium mb-2">Không thể tải tài liệu</h3>
             <p className="text-sm text-muted-foreground mb-4">{error}</p>
             <Button 
               variant="outline" 
@@ -302,7 +258,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       <Card>
         <CardContent className="p-8 text-center">
           <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Chưa có tài liệu</h3>
+          <h3 className="text-h5 font-medium mb-2">Chưa có tài liệu</h3>
           <p className="text-muted-foreground">
             Nhân viên này chưa có tài liệu nào được upload.
           </p>
@@ -316,7 +272,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       {/* Search Box */}
       {/* Header with Search */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
+        <h3 className="text-h4 font-semibold flex items-center gap-2">
           <FolderOpen className="h-5 w-5" />
           Tài liệu nhân viên
         </h3>
@@ -351,7 +307,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           {Object.keys(documentsByName['legal']).length > 0 && (
             <Card className="border-l-4 border-l-blue-500">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base text-primary">1. Tài liệu pháp lý</CardTitle>
+                <CardTitle className="text-h6 text-primary">1. Tài liệu pháp lý</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -421,7 +377,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           {Object.keys(documentsByName['work-process']).length > 0 && (
             <Card className="border-l-4 border-l-green-500">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
+                <CardTitle className="text-h6 text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -491,7 +447,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           {Object.keys(documentsByName['termination']).length > 0 && (
             <Card className="border-l-4 border-l-red-500">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
+                <CardTitle className="text-h6 text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -558,6 +514,42 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           )}
         </div>
       )}
+      
+      {/* Image Preview Modal - React-based to prevent memory leaks */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent 
+          className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden bg-black/95 border-0"
+          onClick={handleClosePreview}
+        >
+          <VisuallyHidden>
+            <DialogTitle>
+              {previewFile?.originalName || previewFile?.name || 'Xem trước ảnh'}
+            </DialogTitle>
+          </VisuallyHidden>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 z-10 bg-white hover:bg-gray-100 rounded-full w-10 h-10 shadow-lg"
+            onClick={handleClosePreview}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+          
+          {previewFile && (
+            <div 
+              className="flex items-center justify-center w-full h-full min-h-[50vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={getFileUrl(previewFile.url)}
+                alt={previewFile.originalName || previewFile.name}
+                className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

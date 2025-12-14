@@ -1,7 +1,13 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import { LEAVE_TYPE_NAMES, type LeaveRequest, type LeaveTypeName } from './types.ts';
+import type { LeaveRequest } from './types.ts';
 
-export const leaveTypes: LeaveTypeName[] = [...LEAVE_TYPE_NAMES];
+const SEED_AUTHOR = asSystemId('EMP000001');
+const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({
+  createdAt,
+  updatedAt: createdAt,
+  createdBy,
+  updatedBy: createdBy,
+});
 
 export const data = [
   {
@@ -17,6 +23,7 @@ export const data = [
     reason: 'Giải quyết việc gia đình',
     status: 'Đã duyệt',
     requestDate: '2025-11-15',
+    ...buildAuditFields('2025-11-15T08:00:00Z'),
   },
   {
     systemId: asSystemId('LEAVE000002'),
@@ -31,6 +38,7 @@ export const data = [
     reason: 'Bị cảm, có giấy bác sĩ.',
     status: 'Chờ duyệt',
     requestDate: '2025-11-17',
+    ...buildAuditFields('2025-11-17T08:00:00Z'),
   },
   {
     systemId: asSystemId('LEAVE000003'),
@@ -45,6 +53,7 @@ export const data = [
     reason: 'Nghỉ lễ cuối năm về quê.',
     status: 'Chờ duyệt',
     requestDate: '2025-11-10',
+    ...buildAuditFields('2025-11-10T08:00:00Z'),
   },
   {
     systemId: asSystemId('LEAVE000004'),
@@ -59,5 +68,6 @@ export const data = [
     reason: 'Bận việc đột xuất không báo trước.',
     status: 'Đã từ chối',
     requestDate: '2025-10-16',
+    ...buildAuditFields('2025-10-16T08:00:00Z'),
   },
 ] satisfies LeaveRequest[];

@@ -4,12 +4,12 @@ import { cn } from "../../lib/utils";
 import { TouchButton } from "./touch-button";
 
 interface EmptyStateProps {
-  icon?: LucideIcon;
+  icon?: LucideIcon | undefined;
   title: string;
-  description?: string;
-  action?: React.ReactNode;
-  className?: string;
-  size?: "sm" | "md" | "lg";
+  description?: string | undefined;
+  action?: React.ReactNode | undefined;
+  className?: string | undefined;
+  size?: "sm" | "md" | "lg" | undefined;
 }
 
 /**

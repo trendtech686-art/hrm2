@@ -26,7 +26,7 @@ export interface WarrantyTransactionGroup {
   id: string;
   transactions: WarrantyTransaction[];
   allCancelled: boolean;
-  cancelReason?: string;
+  cancelReason?: string | undefined;
   createdAt: string;
   performedBy: string;
   summary: WarrantyTransactionGroupSummary;

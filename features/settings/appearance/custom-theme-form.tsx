@@ -172,6 +172,33 @@ export function CustomThemeForm({ config, onConfigChange, fontSize, onFontSizeCh
                             <ToggleGroupItem value="lg" className="w-full">Lớn</ToggleGroupItem>
                         </ToggleGroup>
                      </div>
+
+                     <div className="space-y-4 pt-4 border-t">
+                        <Label>Cỡ chữ tiêu đề (Headings)</Label>
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                            {[1, 2, 3, 4, 5, 6].map((level) => {
+                                const key = `--font-size-h${level}` as keyof CustomThemeConfig;
+                                const valStr = config[key] || '1rem';
+                                const valNum = parseFloat(valStr);
+                                
+                                return (
+                                    <div key={level} className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-xs text-muted-foreground">Heading {level} (H{level})</Label>
+                                            <span className="text-xs font-mono text-muted-foreground">{valStr}</span>
+                                        </div>
+                                        <Slider 
+                                            value={[valNum]} 
+                                            min={0.5} 
+                                            max={4} 
+                                            step={0.125}
+                                            onValueChange={(v) => handleConfigValueChange(key, `${v[0]}rem`)}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                     </div>
                 </AccordionContent>
             </AccordionItem>
 

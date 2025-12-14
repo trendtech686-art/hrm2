@@ -4,8 +4,9 @@ export interface StorageLocation {
   systemId: SystemId;
   id: BusinessId; // User-facing code
   name: string;
-  description?: string;
-  branchId?: SystemId; // Link to Branch if location belongs to a specific branch
+  description?: string | undefined;
+  branchId?: SystemId | undefined; // Link to Branch if location belongs to a specific branch
+  isDefault?: boolean | undefined;
   isActive: boolean;
   isDeleted: boolean;
   createdAt: string;

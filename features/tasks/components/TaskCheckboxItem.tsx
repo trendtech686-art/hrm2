@@ -79,13 +79,13 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
 
             {/* Description */}
             {task.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+              <p className="text-body-sm text-muted-foreground line-clamp-2 mb-2">
                 {task.description}
               </p>
             )}
 
             {/* Meta info */}
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 text-body-sm text-muted-foreground">
               {/* Due date */}
               <div className={cn(
                 "flex items-center gap-1",
@@ -162,7 +162,7 @@ export function TaskCheckboxItem({ task, onComplete, onViewDetails }: TaskCheckb
 
             {/* Rejection reason */}
             {isRejected && task.rejectionReason && (
-              <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-sm">
+              <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-body-sm">
                 <strong className="text-orange-800">Lý do từ chối:</strong>
                 <p className="text-orange-700 mt-1">{task.rejectionReason}</p>
               </div>

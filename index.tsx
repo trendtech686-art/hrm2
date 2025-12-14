@@ -3,12 +3,14 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import 'reactflow/dist/style.css'; // ← ReactFlow styles
 
+import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from './lib/router-provider.tsx';
 import { ThemeProvider } from './components/theme-provider.tsx';
 import { BreakpointProvider } from './contexts/breakpoint-context.tsx';
 import { AuthProvider } from './contexts/auth-context.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
 import { ghtkSyncService } from './lib/ghtk-sync-service.ts';
+import { queryClient } from './lib/query-client.ts';
 
 // Main app component
 function App() {
@@ -29,12 +31,14 @@ function App() {
 // Render app
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(
-  <ThemeProvider>
-    <BreakpointProvider>
-      <AuthProvider>
-        <App />
-        <Toaster />
-      </AuthProvider>
-    </BreakpointProvider>
-  </ThemeProvider>
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
+      <BreakpointProvider>
+        <AuthProvider>
+          <App />
+          <Toaster />
+        </AuthProvider>
+      </BreakpointProvider>
+    </ThemeProvider>
+  </QueryClientProvider>
 );

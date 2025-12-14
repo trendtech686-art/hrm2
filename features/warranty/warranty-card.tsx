@@ -107,13 +107,15 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
     borderClass += " border-l-red-500";
   } else if (cardColors.enableStatusColors) {
     cardColorClass = cardColors.statusColors[ticket.status] || "";
-    const statusBorderColors = {
-      new: "border-l-blue-500",
+    const statusBorderColors: Record<string, string> = {
+      incomplete: "border-l-orange-500",
       pending: "border-l-yellow-500",
       processed: "border-l-green-500",
       returned: "border-l-gray-500",
+      completed: "border-l-blue-500",
+      cancelled: "border-l-red-500",
     };
-    borderClass += " " + statusBorderColors[ticket.status];
+    borderClass += " " + (statusBorderColors[ticket.status] || "border-l-gray-200");
   }
 
   return (
@@ -131,17 +133,17 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn(
-              "font-semibold text-primary text-sm font-mono",
+              "font-semibold text-primary text-body-sm font-mono",
               ticket.status === 'cancelled' && "line-through" // Strike through cancelled ID
             )}>
               {ticket.id}
             </span>
-            <Badge className={WARRANTY_STATUS_COLORS[ticket.status] + " text-xs"}>
+            <Badge className={WARRANTY_STATUS_COLORS[ticket.status] + " text-body-xs"}>
               {WARRANTY_STATUS_LABELS[ticket.status]}
             </Badge>
           </div>
           {isOverdue && (
-            <Badge variant="outline" className="text-xs bg-red-100 text-red-800 whitespace-nowrap">
+            <Badge variant="outline" className="text-body-xs bg-red-100 text-red-800 whitespace-nowrap">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Quá hạn
             </Badge>
@@ -150,7 +152,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
 
         {/* Customer Name */}
         <div className={cn(
-          "flex items-center text-sm font-medium mb-2",
+          "flex items-center text-body-sm font-medium mb-2",
           ticket.status === 'cancelled' && "line-through" // Strike through cancelled customer name
         )}>
           <User className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
@@ -163,7 +165,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
         {/* Info Grid */}
         <div className="space-y-1.5">
           {/* Row 1: Phone + Tracking */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-body-xs text-muted-foreground">
             {ticket.customerPhone && (
               <div className="flex items-center">
                 <Phone className="h-3 w-3 mr-1" />
@@ -177,7 +179,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
           </div>
 
           {/* Row 2: Products Summary inline */}
-          <div className="flex items-center text-xs gap-1.5 flex-wrap">
+          <div className="flex items-center text-body-xs gap-1.5 flex-wrap">
             <div className="flex items-center text-muted-foreground">
               <Package className="h-3 w-3 mr-1" />
               <span className="font-semibold">{summary?.totalProducts || ticket.products?.length || 0}</span>
@@ -218,13 +220,13 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
           />
 
           {/* Row 3: Created + Updated */}
-          <div className="flex items-center justify-between text-xs pt-1.5 border-t">
+          <div className="flex items-center justify-between text-body-xs pt-1.5 border-t">
             <span className="text-muted-foreground">Tạo {formatDateTime(ticket.createdAt)}</span>
             <span className="text-muted-foreground">CN {formatDateTime(ticket.updatedAt)}</span>
           </div>
 
           {/* Row 4: Returned + Created By */}
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-body-xs">
             {ticket.status === 'completed' && ticket.completedAt ? (
               <span className="text-blue-700 font-medium">✓ Kết thúc {formatDateTime(ticket.completedAt)}</span>
             ) : ticket.returnedAt ? (

@@ -5,7 +5,8 @@ import { ROUTES } from '../../lib/router';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils.ts'
 import { useEmployeeStore } from "./store.ts"
 import { useBranchStore } from "../settings/branches/store.ts";
-import { asSystemId } from '@/lib/id-types';
+import { useDefaultPageSize } from "../settings/global-settings-store.ts";
+import { asSystemId, type SystemId } from '@/lib/id-types';
 import { getColumns } from "./columns.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx"
@@ -28,10 +29,13 @@ import {
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog.tsx"
 import { Button } from "../../components/ui/button.tsx"
-import { PlusCircle, Phone, Mail, Building2, Calendar, MoreHorizontal, Trash2 } from "lucide-react"
+import { PlusCircle, Phone, Mail, Building2, Calendar, MoreHorizontal, Trash2, Upload, Download } from "lucide-react"
 import type { Employee } from "./types.ts"
 import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx";
 import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog.tsx";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { employeeImportExportConfig } from "../../lib/import-export/configs/employee.config.ts";
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
@@ -126,9 +130,16 @@ export function EmployeesPage() {
   const [idToDelete, setIdToDelete] = React.useState<string | null>(null)
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false)
   
+  // V2 Import/Export Dialog states
+  const [isImportV2Open, setIsImportV2Open] = React.useState(false)
+  const [isExportV2Open, setIsExportV2Open] = React.useState(false)
+  
   // Table state
+  // ✅ Use global default page size from settings
+  const defaultPageSize = useDefaultPageSize();
+  
   // FIX: Cast `setSorting` to the correct type to allow functional updates and prevent stale state issues when sorting columns.
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'fullName', desc: false });
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [branchFilter, setBranchFilter] = React.useState('all');
@@ -136,7 +147,7 @@ export function EmployeesPage() {
   const [departmentFilter, setDepartmentFilter] = React.useState<Set<string>>(new Set());
   const [jobTitleFilter, setJobTitleFilter] = React.useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize });
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   
   // Debounce search input for better performance
@@ -328,6 +339,12 @@ export function EmployeesPage() {
         const bValue = (b as any)[sorting.id];
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
+        // Special handling for date columns
+        if (sorting.id === 'createdAt' || sorting.id === 'hireDate') {
+          const aTime = aValue ? new Date(aValue).getTime() : 0;
+          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          return sorting.desc ? bTime - aTime : aTime - bTime;
+        }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
         if (aValue > bValue) return sorting.desc ? -1 : 1;
         return 0;
@@ -393,6 +410,67 @@ export function EmployeesPage() {
     getUniqueKey: (item: any) => item.id || item.nationalId || item.workEmail
   }
 
+  // V2 Import handler with upsert support
+  const handleImportV2 = React.useCallback(async (
+    data: Partial<Employee>[],
+    mode: 'insert-only' | 'update-only' | 'upsert',
+    branchId?: string
+  ) => {
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      try {
+        // Find existing by business ID (id field like NV000001)
+        const existingEmployee = item.id 
+          ? activeEmployees.find(e => e.id === item.id)
+          : null;
+
+        if (existingEmployee) {
+          if (mode === 'insert-only') {
+            skipped++;
+            continue;
+          }
+          // Update existing
+          update(existingEmployee.systemId, { ...existingEmployee, ...item } as Employee);
+          updated++;
+        } else {
+          if (mode === 'update-only') {
+            errors.push({ row: i + 2, message: `Không tìm thấy nhân viên với mã ${item.id}` });
+            failed++;
+            continue;
+          }
+          // Insert new - remove systemId if present
+          const { systemId, ...newEmployeeData } = item as any;
+          addMultiple([newEmployeeData as Omit<Employee, 'systemId'>]);
+          inserted++;
+        }
+      } catch (error) {
+        errors.push({ row: i + 2, message: String(error) });
+        failed++;
+      }
+    }
+
+    return {
+      success: inserted + updated,
+      failed,
+      inserted,
+      updated,
+      skipped,
+      errors,
+    };
+  }, [activeEmployees, update, addMultiple]);
+
+  // Current user for logging (mock - replace with actual auth)
+  const currentUser = React.useMemo(() => ({
+    name: 'Admin',
+    systemId: 'USR000001' as SystemId,
+  }), []);
+
   const bulkActions = [
     {
       label: "Chuyển vào thùng rác",
@@ -456,12 +534,12 @@ export function EmployeesPage() {
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <Avatar className="h-9 w-10 flex-shrink-0">
                 <AvatarImage src={employee.avatarUrl} alt={employee.fullName} />
-                <AvatarFallback className="text-xs">{getInitials(employee.fullName)}</AvatarFallback>
+                <AvatarFallback className="text-body-xs">{getInitials(employee.fullName)}</AvatarFallback>
               </Avatar>
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <h3 className="font-semibold text-sm truncate">{employee.fullName}</h3>
-                <span className="text-xs text-muted-foreground">•</span>
-                <span className="text-xs text-muted-foreground font-mono">{employee.id}</span>
+                <h3 className="font-semibold text-body-medium truncate">{employee.fullName}</h3>
+                <span className="text-body-xs text-muted-foreground">•</span>
+                <span className="text-body-xs text-muted-foreground font-mono">{employee.id}</span>
               </div>
             </div>
             <DropdownMenu>
@@ -487,7 +565,7 @@ export function EmployeesPage() {
           </div>
 
           {/* Job Title + Department */}
-          <div className="text-xs text-muted-foreground mb-3 flex items-center">
+          <div className="text-body-xs text-muted-foreground mb-3 flex items-center">
             <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
             <span className="truncate">{employee.jobTitle} • {employee.department}</span>
           </div>
@@ -498,26 +576,58 @@ export function EmployeesPage() {
           {/* Contact Info */}
           <div className="space-y-2">
             {employee.workEmail && (
-              <div className="flex items-center text-xs text-muted-foreground">
+              <div className="flex items-center text-body-xs text-muted-foreground">
                 <Mail className="h-3 w-3 mr-1.5 flex-shrink-0" />
                 <span className="truncate">{employee.workEmail}</span>
               </div>
             )}
             {employee.phone && (
-              <div className="flex items-center text-xs text-muted-foreground">
+              <div className="flex items-center text-body-xs text-muted-foreground">
                 <Phone className="h-3 w-3 mr-1.5 flex-shrink-0" />
                 <span>{employee.phone}</span>
               </div>
             )}
-            <div className="flex items-center justify-between text-xs pt-1">
+            <div className="flex items-center justify-between text-body-xs pt-1">
               <div className="flex items-center text-muted-foreground">
                 <Calendar className="h-3 w-3 mr-1.5" />
                 <span>{formatDate(employee.hireDate)}</span>
               </div>
-              <Badge variant={getStatusVariant(employee.employmentStatus)} className="text-xs">
+              <Badge variant={getStatusVariant(employee.employmentStatus)} className="text-body-xs">
                 {employee.employmentStatus}
               </Badge>
             </div>
+          </div>
+          
+          {/* Quick Actions */}
+          <div className="flex gap-2 mt-3 pt-3 border-t">
+            {employee.phone && (
+              <TouchButton 
+                variant="outline" 
+                size="sm" 
+                className="flex-1 h-8 text-body-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.href = `tel:${employee.phone}`;
+                }}
+              >
+                <Phone className="h-3 w-3 mr-1.5" />
+                Gọi
+              </TouchButton>
+            )}
+            {employee.workEmail && (
+              <TouchButton 
+                variant="outline" 
+                size="sm" 
+                className="flex-1 h-8 text-body-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.href = `mailto:${employee.workEmail}`;
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1.5" />
+                Email
+              </TouchButton>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -531,30 +641,28 @@ export function EmployeesPage() {
         <PageToolbar
           leftActions={
             <>
-              <DataTableImportDialog config={importConfig} />
-              <DataTableExportDialog 
-                allData={employees} 
-                filteredData={sortedData} 
-                pageData={paginatedData} 
-                config={exportConfig} 
-              />
+              {/* V2 Import/Export with preview & logging */}
+              <Button variant="outline" size="sm" className="h-9" onClick={() => setIsImportV2Open(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Nhập Excel
+              </Button>
+              <Button variant="outline" size="sm" className="h-9" onClick={() => setIsExportV2Open(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
             </>
           }
           rightActions={
-            <>
-              <Button variant="ghost" size="sm" className="h-9" onClick={resetColumnLayout}>
-                Đặt lại cột
-              </Button>
-              <DataTableColumnCustomizer
-                columns={columns}
-                columnVisibility={columnVisibility}
-                setColumnVisibility={setColumnVisibility}
-                columnOrder={columnOrder}
-                setColumnOrder={setColumnOrder}
-                pinnedColumns={pinnedColumns}
-                setPinnedColumns={setPinnedColumns}
-              />
-            </>
+            <DataTableColumnCustomizer
+              columns={columns}
+              columnVisibility={columnVisibility}
+              setColumnVisibility={setColumnVisibility}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+              pinnedColumns={pinnedColumns}
+              setPinnedColumns={setPinnedColumns}
+              onResetToDefault={resetColumnLayout}
+            />
           }
         />
       )}
@@ -669,6 +777,38 @@ export function EmployeesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* V2 Import Dialog with Preview */}
+      <GenericImportDialogV2<Employee>
+        open={isImportV2Open}
+        onOpenChange={setIsImportV2Open}
+        config={employeeImportExportConfig}
+        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+        requireBranch={true}
+        defaultBranchId={branches[0]?.systemId}
+        existingData={activeEmployees}
+        onImport={handleImportV2}
+        currentUser={currentUser}
+      />
+
+      {/* V2 Export Dialog with Column Selection */}
+      <GenericExportDialogV2<Employee>
+        open={isExportV2Open}
+        onOpenChange={setIsExportV2Open}
+        config={employeeImportExportConfig}
+        allData={activeEmployees}
+        filteredData={sortedData}
+        currentPageData={paginatedData}
+        selectedData={allSelectedRows}
+        appliedFilters={{
+          branch: branchFilter !== 'all' ? branchFilter : undefined,
+          department: departmentFilter.size > 0 ? Array.from(departmentFilter) : undefined,
+          jobTitle: jobTitleFilter.size > 0 ? Array.from(jobTitleFilter) : undefined,
+          status: statusFilter.size > 0 ? Array.from(statusFilter) : undefined,
+          search: debouncedGlobalFilter || undefined,
+        }}
+        currentUser={currentUser}
+      />
     </div>
   )
 }

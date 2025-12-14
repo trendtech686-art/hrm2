@@ -1029,7 +1029,7 @@ taxes, units, vouchers, warranty, wiki
 
 ---
 
-## � TypeScript Compile Errors (16 errors) ✅
+## TypeScript Compile Errors (16 errors) ✅
 
 ### Overview
 
@@ -1229,7 +1229,7 @@ const employee = React.useMemo(
 
 ---
 
-## �📋 Pattern Nhận Diện Bugs
+## 📋 Pattern Nhận Diện Bugs
 
 ### Import Bugs Pattern
 

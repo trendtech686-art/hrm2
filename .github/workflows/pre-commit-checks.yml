@@ -28,3 +28,23 @@ jobs:
 
       - name: TypeScript check
         run: npx tsc --noEmit --pretty false --incremental false
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*pre-commit-checks* `${{ job.status }}` for `${{ github.ref_name }}` (<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>)"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

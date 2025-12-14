@@ -1,27 +1,26 @@
-﻿
-import * as React from "react";
+﻿import * as React from "react";
 import { flushSync } from 'react-dom';
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { employeeFormSchema, validateUniqueId } from "./validation.ts";
-import type { Employee } from "./types.ts";
+import type { Employee, EmployeeAddress } from "./types.ts";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { SystemId, BusinessId } from '@/lib/id-types';
-import { Upload, PlusCircle, Search, Eye, EyeOff, RefreshCw, Copy } from "lucide-react";
+import { Upload, Search, Eye, EyeOff, RefreshCw, Copy } from "lucide-react";
 import { toast } from 'sonner';
 import { useJobTitleStore } from '../settings/job-titles/store.ts';
 import { useEmployeeStore } from './store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
-// FIX: Changed import from useAdministrativeUnitStore to useProvinceStore.
 import { useProvinceStore } from "../settings/provinces/store.ts";
 import { useDocumentStore } from './document-store.ts';
-import { FileUploadStaging } from '../../components/ui/file-upload-staging.tsx';
+import { useShallow } from 'zustand/react/shallow';
 import { NewDocumentsUpload } from '../../components/ui/new-documents-upload.tsx';
 import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer.tsx';
 import { FileUploadAPI } from '../../lib/file-upload-api.ts';
-import type { StagingFile } from '../../lib/file-upload-api.ts';
-import type { UploadedFile } from '../../components/ui/file-upload.tsx';
+import type { StagingFile, UploadedFile } from '../../lib/file-upload-api.ts';
+import { AddressFormDialog } from '../customers/components/address-form-dialog.tsx';
+import type { CustomerAddress } from '../customers/types.ts';
 
 import {
   Form,
@@ -41,7 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select.tsx";
-import { VirtualizedCombobox, type ComboboxOption } from "../../components/ui/virtualized-combobox.tsx";
 import { DatePicker } from "../../components/ui/date-picker.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion.tsx";
@@ -52,19 +50,34 @@ import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group.tsx"
 import { useEmployeeSettingsStore } from "../settings/employees/employee-settings-store.ts";
 import { useEmployeeCompStore, type EmployeePayrollProfileInput } from "./employee-comp-store.ts";
 // Helper type for local form state for addresses
-type AddressParts = { province: string, ward: string, street: string };
+type AddressParts = {
+  label: string;
+  street: string;
+  province: string;
+  provinceId: string;
+  district: string;
+  districtId: number;
+  ward: string;
+  wardId: string;
+  contactName: string;
+  contactPhone: string;
+  notes: string;
+  inputLevel: '2-level' | '3-level';
+};
 
-export type EmployeeFormValues = Omit<Employee, 'systemId' | 'dob' | 'nationalIdIssueDate' | 'hireDate' | 'terminationDate'> & {
-  dob?: Date;
-  nationalIdIssueDate?: Date;
-  hireDate?: Date;
-  terminationDate?: Date;
-  payrollWorkShiftSystemId?: SystemId;
-  payrollSalaryComponentSystemIds?: SystemId[];
-  payrollPaymentMethod?: 'bank_transfer' | 'cash';
-  payrollPayoutAccountNumber?: string;
-  payrollPayoutBankName?: string;
-  payrollPayoutBankBranch?: string;
+export type EmployeeFormValues = Omit<Employee, 'systemId' | 'dob' | 'nationalIdIssueDate' | 'hireDate' | 'terminationDate' | 'contractStartDate' | 'contractEndDate'> & {
+  dob?: Date | undefined;
+  nationalIdIssueDate?: Date | undefined;
+  hireDate?: Date | undefined;
+  terminationDate?: Date | undefined;
+  contractStartDate?: Date | undefined;
+  contractEndDate?: Date | undefined;
+  payrollWorkShiftSystemId?: SystemId | undefined;
+  payrollSalaryComponentSystemIds?: SystemId[] | undefined;
+  payrollPaymentMethod?: 'bank_transfer' | 'cash' | undefined;
+  payrollPayoutAccountNumber?: string | undefined;
+  payrollPayoutBankName?: string | undefined;
+  payrollPayoutBankBranch?: string | undefined;
 };
 
 export type EmployeeFormSubmitPayload = Partial<Employee> & {
@@ -81,15 +94,56 @@ type EmployeeFormProps = {
 
 
 
-const parseAddress = (fullAddress?: string): AddressParts => {
-    if (!fullAddress) return { street: '', ward: '', province: '' };
-    const parts = fullAddress.split(',').map(p => p.trim());
+/**
+ * Parse EmployeeAddress thành AddressParts cho form
+ * - Giữ nguyên tất cả metadata (provinceId, districtId, wardId, inputLevel)
+ * - Không mất data khi chuyển đổi 2-cấp ↔ 3-cấp
+ */
+const parseAddress = (addr: EmployeeAddress | null | undefined): AddressParts => {
+  if (!addr) {
     return {
-        street: parts[0] || '',
-        ward: parts[1] || '',
-        province: parts[2] || '',
+      label: '',
+      street: '',
+      province: '',
+      provinceId: '',
+      district: '',
+      districtId: 0,
+      ward: '',
+      wardId: '',
+      contactName: '',
+      contactPhone: '',
+      notes: '',
+      inputLevel: '2-level',
     };
+  }
+
+  // ✅ Giữ nguyên structured data
+  return {
+    label: '',
+    street: addr.street,
+    province: addr.province,
+    provinceId: addr.provinceId,
+    district: addr.district,
+    districtId: addr.districtId,
+    ward: addr.ward,
+    wardId: addr.wardId,
+    contactName: '',
+    contactPhone: '',
+    notes: '',
+    inputLevel: addr.inputLevel,
+  };
 };
+
+const toEmployeeAddress = (parts: AddressParts): EmployeeAddress => ({
+  street: parts.street,
+  province: parts.province,
+  provinceId: parts.provinceId,
+  district: parts.district,
+  districtId: parts.districtId,
+  ward: parts.ward,
+  wardId: parts.wardId,
+  inputLevel: parts.inputLevel,
+});
 
 const legalDocuments = [
   "Sơ yếu lý lịch",
@@ -136,28 +190,55 @@ const areArraysEqualIgnoringOrder = (first: SystemId[] = [], second: SystemId[] 
   return first.every((value) => reference.has(value));
 };
 
+const removeUndefined = (obj: any) => {
+  const newObj = { ...obj };
+  Object.keys(newObj).forEach(key => {
+    if (newObj[key] === undefined) {
+      delete newObj[key];
+    }
+  });
+  return newObj;
+};
 
 export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = false }: EmployeeFormProps) {
   const [documentSearch, setDocumentSearch] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [password, setPassword] = React.useState(initialData?.password || '');
   const [confirmPassword, setConfirmPassword] = React.useState(initialData?.password || '');
+  const [permanentAddress, setPermanentAddress] = React.useState<AddressParts>(parseAddress(initialData?.permanentAddress));
+  const [temporaryAddress, setTemporaryAddress] = React.useState<AddressParts>(parseAddress(initialData?.temporaryAddress));
+  const [isAddressDialogOpen, setIsAddressDialogOpen] = React.useState(false);
+  const [addressDialogTarget, setAddressDialogTarget] = React.useState<'permanent' | 'temporary'>('permanent');
+  const [addressDialogEditingAddress, setAddressDialogEditingAddress] = React.useState<CustomerAddress | null>(null);
   
   const { data: jobTitles } = useJobTitleStore();
   const { data: employees } = useEmployeeStore();
   const { data: branches } = useBranchStore();
-  // FIX: Destructure 'data' as 'provinces' from useProvinceStore.
-  const { data: provinces, getWardsByProvinceId } = useProvinceStore();
-  const { workShifts, salaryComponents } = useEmployeeSettingsStore((state) => ({
-    workShifts: state.settings.workShifts,
-    salaryComponents: state.getSalaryComponents(),
-  }));
+  const { data: provinces, wards } = useProvinceStore(
+    useShallow((state) => ({
+      data: state.data,
+      wards: state.wards,
+    }))
+  );
+  // FIX: Use useShallow to prevent infinite loops caused by new object references
+  const { workShifts, salaryComponents } = useEmployeeSettingsStore(
+    useShallow((state) => ({
+      workShifts: state.settings.workShifts,
+      salaryComponents: state.getSalaryComponents(),
+    }))
+  );
   const getPayrollProfile = useEmployeeCompStore((state) => state.getPayrollProfile);
   const { 
     updateStagingDocument,
     getDocuments,
     refreshDocuments
-  } = useDocumentStore();
+  } = useDocumentStore(
+    useShallow((state) => ({
+      updateStagingDocument: state.updateStagingDocument,
+      getDocuments: state.getDocuments,
+      refreshDocuments: state.refreshDocuments,
+    }))
+  );
 
   const payrollProfile = React.useMemo(
     () => (initialData?.systemId ? getPayrollProfile(initialData.systemId) : null),
@@ -193,15 +274,17 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
 
   const hadCustomPayrollProfile = payrollProfile?.usesDefaultComponents === false;
 
-  const form = useForm<EmployeeFormValues>({
+  const form = useForm<EmployeeFormValues, any, EmployeeFormValues>({
     // resolver: zodResolver(employeeFormSchema), // TODO: Fix type mismatch
     defaultValues: {
       ...(initialData ?? {}),
-      id: initialData?.id ?? '',
-      dob: parseDate(initialData?.dob),
-      nationalIdIssueDate: parseDate(initialData?.nationalIdIssueDate),
-      hireDate: parseDate(initialData?.hireDate),
-      terminationDate: parseDate(initialData?.terminationDate),
+      id: initialData?.id ?? asBusinessId(''),
+      dob: parseDate(initialData?.dob ?? '') ?? undefined,
+      nationalIdIssueDate: parseDate(initialData?.nationalIdIssueDate ?? '') ?? undefined,
+      hireDate: parseDate(initialData?.hireDate ?? '') ?? undefined,
+      terminationDate: parseDate(initialData?.terminationDate ?? '') ?? undefined,
+      contractStartDate: parseDate(initialData?.contractStartDate ?? '') ?? undefined,
+      contractEndDate: parseDate(initialData?.contractEndDate ?? '') ?? undefined,
       ...payrollDefaultValues,
     },
     mode: 'onChange', // Validate on every change for realtime feedback
@@ -272,9 +355,158 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
     toast.success('Đã khôi phục thành phần lương mặc định từ cài đặt');
   }, [defaultSalaryComponentSystemIds, form]);
 
-  // Local state for structured addresses
-  const [permanentAddress, setPermanentAddress] = React.useState<AddressParts>(parseAddress(initialData?.permanentAddress));
-  const [temporaryAddress, setTemporaryAddress] = React.useState<AddressParts>(parseAddress(initialData?.temporaryAddress));
+  const findProvinceIdByName = React.useCallback(
+    (provinceName: string) => {
+      if (!provinceName) return '';
+      
+      // First try exact match
+      let found = provinces.find((p) => p.name === provinceName);
+      if (found) return found.id;
+      
+      // Try normalized match
+      const normalizedInput = provinceName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+      found = provinces.find((p) => {
+        const normalizedName = p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+        return normalizedName === normalizedInput || 
+               normalizedName.includes(normalizedInput) || 
+               normalizedInput.includes(normalizedName);
+      });
+      if (found) return found.id;
+      
+      // Try common alias patterns
+      // "Thành phố Hồ Chí Minh" -> "TP HCM"
+      // "Thành phố Hà Nội" -> "Hà Nội"
+      const aliasMap: Record<string, string[]> = {
+        'TP HCM': ['thanh pho ho chi minh', 'tp ho chi minh', 'ho chi minh', 'hcm', 'tphcm', 'sai gon'],
+        'Hà Nội': ['thanh pho ha noi', 'tp ha noi', 'ha noi', 'hanoi'],
+        'Đà Nẵng': ['thanh pho da nang', 'tp da nang', 'da nang', 'danang'],
+        'Hải Phòng': ['thanh pho hai phong', 'tp hai phong', 'hai phong', 'haiphong'],
+        'Cần Thơ': ['thanh pho can tho', 'tp can tho', 'can tho', 'cantho'],
+      };
+      
+      for (const [standardName, aliases] of Object.entries(aliasMap)) {
+        if (aliases.some(a => normalizedInput.includes(a) || a.includes(normalizedInput))) {
+          found = provinces.find(p => p.name === standardName);
+          if (found) return found.id;
+        }
+      }
+      
+      return '';
+    },
+    [provinces]
+  );
+
+  const findWardRecord = React.useCallback(
+    (provinceName: string, wardName: string) => {
+      // First try exact match
+      let found = wards.find((ward) => ward.name === wardName && ward.provinceName === provinceName);
+      if (found) return found;
+      
+      // Try with normalized province name matching
+      const normalizedProvince = provinceName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+      found = wards.find((ward) => {
+        if (ward.name !== wardName) return false;
+        const wardProvince = (ward.provinceName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+        return wardProvince === normalizedProvince ||
+               wardProvince.includes(normalizedProvince) ||
+               normalizedProvince.includes(wardProvince);
+      });
+      
+      return found;
+    },
+    [wards]
+  );
+
+  const buildEditingAddressPayload = React.useCallback(
+    (source: AddressParts | null, target: 'permanent' | 'temporary'): CustomerAddress | null => {
+      console.log('[buildEditingAddressPayload] source:', source, 'target:', target);
+      
+      if (!source || (!source.street && !source.province && !source.ward)) {
+        console.log('[buildEditingAddressPayload] No source data, returning null');
+        return null;
+      }
+
+      const wardRecord = source.ward ? findWardRecord(source.province, source.ward) : undefined;
+      console.log('[buildEditingAddressPayload] wardRecord:', wardRecord);
+      
+      const resolvedProvinceId = source.provinceId || findProvinceIdByName(source.province);
+      console.log('[buildEditingAddressPayload] resolvedProvinceId:', resolvedProvinceId, 'from provinceId:', source.provinceId, 'or from name:', source.province);
+
+      const result = {
+        id: '',
+        label: source.label || (target === 'permanent' ? 'Địa chỉ thường trú' : 'Địa chỉ tạm trú'),
+        street: source.street,
+        province: source.province,
+        provinceId: resolvedProvinceId,
+        district: source.district || wardRecord?.districtName || '',
+        districtId: source.districtId || wardRecord?.districtId || 0,
+        ward: source.ward,
+        wardId: source.wardId || wardRecord?.id || '',
+        contactName: source.contactName || '',
+        contactPhone: source.contactPhone || '',
+        notes: source.notes || '',
+        isDefaultShipping: false,
+        isDefaultBilling: false,
+        inputLevel: source.inputLevel || '2-level',
+        autoFilled: source.inputLevel === '2-level',
+      };
+      
+      console.log('[buildEditingAddressPayload] result:', result);
+      return result;
+    },
+    [findProvinceIdByName, findWardRecord]
+  );
+
+  const openAddressDialog = React.useCallback(
+    (target: 'permanent' | 'temporary') => {
+      setAddressDialogTarget(target);
+      const source = target === 'permanent' ? permanentAddress : temporaryAddress;
+      setAddressDialogEditingAddress(buildEditingAddressPayload(source, target));
+      setIsAddressDialogOpen(true);
+    },
+    [buildEditingAddressPayload, permanentAddress, temporaryAddress]
+  );
+
+  const handleAddressDialogSave = React.useCallback(
+    (addressData: Omit<CustomerAddress, 'id'>) => {
+      const nextParts: AddressParts = {
+        label: addressData.label,
+        street: addressData.street,
+        ward: addressData.ward || '',
+        wardId: addressData.wardId || '',
+        province: addressData.province,
+        provinceId: addressData.provinceId || '',
+        district: addressData.district || '',
+        districtId: addressData.districtId || 0,
+        contactName: addressData.contactName || '',
+        contactPhone: addressData.contactPhone || '',
+        notes: addressData.notes || '',
+        inputLevel: addressData.inputLevel,
+      };
+
+      const formattedFullAddress = [addressData.street, addressData.ward || addressData.district, addressData.province]
+        .filter(Boolean)
+        .join(', ');
+
+      if (addressDialogTarget === 'permanent') {
+        setPermanentAddress(nextParts);
+        form.setValue('permanentAddress', toEmployeeAddress(nextParts), { shouldDirty: true });
+        toast.success('Đã áp dụng địa chỉ cho phần Thường trú');
+      } else {
+        setTemporaryAddress(nextParts);
+        form.setValue('temporaryAddress', toEmployeeAddress(nextParts), { shouldDirty: true });
+        toast.success('Đã áp dụng địa chỉ cho phần Tạm trú');
+      }
+    },
+    [addressDialogTarget, form]
+  );
+
+  const handleAddressDialogOpenChange = React.useCallback((open: boolean) => {
+    setIsAddressDialogOpen(open);
+    if (!open) {
+      setAddressDialogEditingAddress(null);
+    }
+  }, []);
 
   const watchedId = form.watch('id');
 
@@ -633,8 +865,33 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
           nationalIdIssueDate: formatDate(employeeCoreValues.nationalIdIssueDate),
           hireDate: formatDate(employeeCoreValues.hireDate),
           terminationDate: formatDate(employeeCoreValues.terminationDate),
-          permanentAddress: [permanentAddress.street, permanentAddress.ward, permanentAddress.province].filter(Boolean).join(', '),
-          temporaryAddress: [temporaryAddress.street, temporaryAddress.ward, temporaryAddress.province].filter(Boolean).join(', '),
+          contractStartDate: formatDate(employeeCoreValues.contractStartDate),
+          contractEndDate: formatDate(employeeCoreValues.contractEndDate),
+          // ✅ Convert AddressParts → EmployeeAddress (structured data)
+          permanentAddress: permanentAddress.street || permanentAddress.province
+            ? {
+                street: permanentAddress.street,
+                province: permanentAddress.province,
+                provinceId: permanentAddress.provinceId,
+                district: permanentAddress.district,
+                districtId: permanentAddress.districtId,
+                ward: permanentAddress.ward,
+                wardId: permanentAddress.wardId,
+                inputLevel: permanentAddress.inputLevel,
+              }
+            : null,
+          temporaryAddress: temporaryAddress.street || temporaryAddress.province
+            ? {
+                street: temporaryAddress.street,
+                province: temporaryAddress.province,
+                provinceId: temporaryAddress.provinceId,
+                district: temporaryAddress.district,
+                districtId: temporaryAddress.districtId,
+                ward: temporaryAddress.ward,
+                wardId: temporaryAddress.wardId,
+                inputLevel: temporaryAddress.inputLevel,
+              }
+            : null,
           _documentFiles: uploadedDocumentFiles,
           _payrollProfile: normalizedPayrollProfile,
       };
@@ -644,13 +901,22 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
         return asSystemId(value as string);
       };
 
-      const payload: EmployeeFormSubmitPayload = {
-        ...formattedValues,
+      const { id: _id, ...valuesWithoutId } = formattedValues;
+
+      const payload: EmployeeFormSubmitPayload = removeUndefined({
+        ...valuesWithoutId,
+        ...(normalizedBusinessId ? { id: normalizedBusinessId } : {}),
         branchSystemId: normalizeSystemId(formattedValues.branchSystemId),
         managerId: normalizeSystemId(formattedValues.managerId),
         createdBy: normalizeSystemId(formattedValues.createdBy),
         updatedBy: normalizeSystemId(formattedValues.updatedBy),
-      };
+        ...(formattedValues.dob ? { dob: formattedValues.dob } : {}),
+        ...(formattedValues.nationalIdIssueDate ? { nationalIdIssueDate: formattedValues.nationalIdIssueDate } : {}),
+        ...(formattedValues.hireDate ? { hireDate: formattedValues.hireDate } : {}),
+        ...(formattedValues.terminationDate ? { terminationDate: formattedValues.terminationDate } : {}),
+        ...(formattedValues.contractStartDate ? { contractStartDate: formattedValues.contractStartDate } : {}),
+        ...(formattedValues.contractEndDate ? { contractEndDate: formattedValues.contractEndDate } : {}),
+      });
 
       // Step 4: Submit form với documents
       await onSubmit(payload);
@@ -670,26 +936,13 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
   const isSearching = documentSearch.trim().length > 0;
   const showNoResultsMessage = isSearching && !hasSearchResults;
 
-  // Convert to Combobox options
-  const provinceOptions: ComboboxOption[] = React.useMemo(() => 
-    provinces.map(p => ({ value: p.name, label: p.name })), 
-    [provinces]
-  );
+  const dialogTitle = `${addressDialogEditingAddress ? 'Chỉnh sửa' : 'Thêm'} ${
+    addressDialogTarget === 'permanent' ? 'địa chỉ thường trú' : 'địa chỉ tạm trú'
+  }`;
 
-  // Wards for dependent dropdowns
-  const permanentProvince = React.useMemo(() => provinces.find(p => p.name === permanentAddress.province), [provinces, permanentAddress.province]);
-  const permanentWards = React.useMemo(() => permanentProvince ? getWardsByProvinceId(permanentProvince.id) : [], [permanentProvince, getWardsByProvinceId]);
-  const permanentWardOptions: ComboboxOption[] = React.useMemo(() =>
-    permanentWards.map(w => ({ value: w.name, label: w.name })),
-    [permanentWards]
-  );
-  
-  const temporaryProvince = React.useMemo(() => provinces.find(p => p.name === temporaryAddress.province), [provinces, temporaryAddress.province]);
-  const temporaryWards = React.useMemo(() => temporaryProvince ? getWardsByProvinceId(temporaryProvince.id) : [], [temporaryProvince, getWardsByProvinceId]);
-  const temporaryWardOptions: ComboboxOption[] = React.useMemo(() =>
-    temporaryWards.map(w => ({ value: w.name, label: w.name })),
-    [temporaryWards]
-  );
+  const dialogDescription = addressDialogEditingAddress
+    ? 'Cập nhật thông tin địa chỉ chuẩn 2 hoặc 3 cấp. Hệ thống tự áp dụng sau khi lưu.'
+    : 'Chọn địa chỉ 2 hoặc 3 cấp chuẩn quốc gia. Hệ thống sẽ tự áp dụng cho nhân viên sau khi lưu.';
 
   return (
     <Form {...form}>
@@ -700,6 +953,9 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
               <TabsTrigger value="personal" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Thông tin cá nhân
               </TabsTrigger>
+              <TabsTrigger value="addresses" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+                Địa chỉ
+              </TabsTrigger>
               <TabsTrigger value="employment" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Thông tin công việc
               </TabsTrigger>
@@ -709,12 +965,16 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
               <TabsTrigger value="documents" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Tài liệu
               </TabsTrigger>
-              <TabsTrigger value="kpi" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                KPI
-              </TabsTrigger>
-              <TabsTrigger value="penalties" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Phạt
-              </TabsTrigger>
+              {!isEditMode && (
+                <TabsTrigger value="kpi" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+                  KPI
+                </TabsTrigger>
+              )}
+              {!isEditMode && (
+                <TabsTrigger value="penalties" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+                  Phạt
+                </TabsTrigger>
+              )}
               <TabsTrigger value="payroll" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Lương & chấm công
               </TabsTrigger>
@@ -722,7 +982,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
           </div>
 
           <TabsContent value="personal" className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Thông tin cá nhân</h3>
+            <h3 className="text-h5 font-medium mb-4">Thông tin cá nhân</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FormField 
                 name="fullName" 
@@ -792,74 +1052,6 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
               {/* FIX: Explicitly cast `field.value` to `any` to resolve type incompatibility with the Select component. */}
               <FormField name="maritalStatus" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tình trạng hôn nhân</FormLabel><Select onValueChange={field.onChange} value={field.value as any}><FormControl><SelectTrigger><SelectValue placeholder="Chọn tình trạng" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Độc thân">Độc thân</SelectItem><SelectItem value="Đã kết hôn">Đã kết hôn</SelectItem><SelectItem value="Khác">Khác</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
               
-              <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-md font-medium border-b pb-2 mb-4">Địa chỉ thường trú</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-sm">Tỉnh/Thành phố</label>
-                      <VirtualizedCombobox
-                        options={provinceOptions}
-                        value={permanentAddress.province ? { value: permanentAddress.province, label: permanentAddress.province } : null}
-                        onChange={(option) => setPermanentAddress(s => ({ ...s, province: option?.value || '', ward: '' }))}
-                        placeholder="Chọn tỉnh/thành"
-                        searchPlaceholder="Tìm kiếm tỉnh/thành..."
-                        emptyPlaceholder="Không tìm thấy tỉnh/thành phố"
-                        estimatedItemHeight={36}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm">Phường/Xã</label>
-                      <VirtualizedCombobox
-                        options={permanentWardOptions}
-                        value={permanentAddress.ward ? { value: permanentAddress.ward, label: permanentAddress.ward } : null}
-                        onChange={(option) => setPermanentAddress(s => ({ ...s, ward: option?.value || '' }))}
-                        placeholder={permanentProvince ? "Chọn phường/xã" : "Chọn tỉnh/thành trước"}
-                        searchPlaceholder="Tìm kiếm phường/xã..."
-                        emptyPlaceholder="Không tìm thấy phường/xã"
-                        disabled={!permanentProvince}
-                        estimatedItemHeight={36}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm">Số nhà, đường</label>
-                      <Input value={permanentAddress.street} onChange={e => setPermanentAddress(s => ({...s, street: e.target.value}))} />
-                    </div>
-                  </div>
-              </div>
-              <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-md font-medium border-b pb-2 mb-4">Địa chỉ tạm trú</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-sm">Tỉnh/Thành phố</label>
-                      <VirtualizedCombobox
-                        options={provinceOptions}
-                        value={temporaryAddress.province ? { value: temporaryAddress.province, label: temporaryAddress.province } : null}
-                        onChange={(option) => setTemporaryAddress(s => ({ ...s, province: option?.value || '', ward: '' }))}
-                        placeholder="Chọn tỉnh/thành"
-                        searchPlaceholder="Tìm kiếm tỉnh/thành..."
-                        emptyPlaceholder="Không tìm thấy tỉnh/thành phố"
-                        estimatedItemHeight={36}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm">Phường/Xã</label>
-                      <VirtualizedCombobox
-                        options={temporaryWardOptions}
-                        value={temporaryAddress.ward ? { value: temporaryAddress.ward, label: temporaryAddress.ward } : null}
-                        onChange={(option) => setTemporaryAddress(s => ({ ...s, ward: option?.value || '' }))}
-                        placeholder={temporaryProvince ? "Chọn phường/xã" : "Chọn tỉnh/thành trước"}
-                        searchPlaceholder="Tìm kiếm phường/xã..."
-                        emptyPlaceholder="Không tìm thấy phường/xã"
-                        disabled={!temporaryProvince}
-                        estimatedItemHeight={36}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm">Số nhà, đường</label>
-                      <Input value={temporaryAddress.street} onChange={e => setTemporaryAddress(s => ({...s, street: e.target.value}))} />
-                    </div>
-                  </div>
-              </div>
               
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
               <FormField name="nationalId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số CCCD/Passport</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -874,7 +1066,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
               <FormField name="socialInsuranceNumber" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số sổ BHXH</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
               
               <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-md font-medium border-b pb-2 mb-4">Thông tin liên hệ khẩn cấp</h4>
+                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Thông tin liên hệ khẩn cấp</h4>
               </div>
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
               <FormField name="emergencyContactName" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Họ và tên người thân</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -882,7 +1074,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
               <FormField name="emergencyContactPhone" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số điện thoại người thân</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
               
               <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-md font-medium border-b pb-2 mb-4">Thông tin ngân hàng</h4>
+                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Thông tin ngân hàng</h4>
               </div>
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
               <FormField name="bankAccountNumber" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số tài khoản</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -893,8 +1085,128 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
             </div>
           </TabsContent>
 
+          <TabsContent value="addresses" className="mt-6">
+            <div className="mb-6">
+              <h3 className="text-h5 font-medium mb-2">Địa chỉ nhân viên</h3>
+              <p className="text-sm text-muted-foreground">
+                Tách riêng phần địa chỉ để dễ so sánh giữa nơi thường trú và tạm trú, tương tự trải nghiệm quản lý khách hàng.
+              </p>
+            </div>
+            <div className="space-y-6">
+              <section className="border rounded-lg p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-h6 font-medium">Địa chỉ thường trú</h4>
+                    <p className="text-sm text-muted-foreground">Thông tin trên sổ hộ khẩu hoặc cư trú lâu dài.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => openAddressDialog('permanent')}>
+                    Chỉnh sửa địa chỉ
+                  </Button>
+                </div>
+                {permanentAddress.street || permanentAddress.ward || permanentAddress.province ? (
+                  <dl className="grid gap-2 text-sm">
+                    {permanentAddress.province && (
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">Tỉnh/Thành phố</span>
+                        <span className="font-medium">{permanentAddress.province}</span>
+                      </div>
+                    )}
+                    {permanentAddress.inputLevel === '3-level' ? (
+                      <>
+                        {permanentAddress.district && (
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground">Quận/Huyện</span>
+                            <span className="font-medium">{permanentAddress.district}</span>
+                          </div>
+                        )}
+                        {permanentAddress.ward && (
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground">Phường/Xã</span>
+                            <span className="font-medium">{permanentAddress.ward}</span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      permanentAddress.ward && (
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground">Phường/Xã</span>
+                          <span className="font-medium">{permanentAddress.ward}</span>
+                        </div>
+                      )
+                    )}
+                    {permanentAddress.street && (
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">Số nhà, đường</span>
+                        <span className="font-medium">{permanentAddress.street}</span>
+                      </div>
+                    )}
+                  </dl>
+                ) : (
+                  <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                    Chưa có địa chỉ. Nhấn "Chỉnh sửa địa chỉ" để nhập nhanh bằng form chuẩn 2 cấp / 3 cấp.
+                  </div>
+                )}
+              </section>
+
+              <section className="border rounded-lg p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-h6 font-medium">Địa chỉ tạm trú</h4>
+                    <p className="text-sm text-muted-foreground">Nơi nhân viên đang sinh sống hiện tại (có thể khác thường trú).</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => openAddressDialog('temporary')}>
+                    Chỉnh sửa địa chỉ
+                  </Button>
+                </div>
+                {temporaryAddress.street || temporaryAddress.ward || temporaryAddress.province ? (
+                  <dl className="grid gap-2 text-sm">
+                    {temporaryAddress.province && (
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">Tỉnh/Thành phố</span>
+                        <span className="font-medium">{temporaryAddress.province}</span>
+                      </div>
+                    )}
+                    {temporaryAddress.inputLevel === '3-level' ? (
+                      <>
+                        {temporaryAddress.district && (
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground">Quận/Huyện</span>
+                            <span className="font-medium">{temporaryAddress.district}</span>
+                          </div>
+                        )}
+                        {temporaryAddress.ward && (
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground">Phường/Xã</span>
+                            <span className="font-medium">{temporaryAddress.ward}</span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      temporaryAddress.ward && (
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground">Phường/Xã</span>
+                          <span className="font-medium">{temporaryAddress.ward}</span>
+                        </div>
+                      )
+                    )}
+                    {temporaryAddress.street && (
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">Số nhà, đường</span>
+                        <span className="font-medium">{temporaryAddress.street}</span>
+                      </div>
+                    )}
+                  </dl>
+                ) : (
+                  <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                    Chưa có địa chỉ. Nhấn "Chỉnh sửa địa chỉ" để nhập nhanh bằng form chuẩn 2 cấp / 3 cấp.
+                  </div>
+                )}
+              </section>
+            </div>
+          </TabsContent>
+
           <TabsContent value="employment" className="mt-6">
-             <h3 className="text-lg font-medium mb-4">Thông tin công việc, Lương & Nghỉ phép</h3>
+             <h3 className="text-h5 font-medium mb-4">Thông tin công việc, Lương & Nghỉ phép</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* ID field - User can input custom ID or leave blank for auto-generation */}
                 <FormField name="id" control={form.control} render={({ field }) => ( 
@@ -930,8 +1242,16 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 {/* FIX: Explicitly pass value prop to DatePicker to avoid type conflicts. */}
                 <FormField name="terminationDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày nghỉ việc</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
                 
+                {/* FIX: Explicitly cast `field.value` to `any` to resolve type incompatibility with the Select component. */}
+                <FormField name="contractType" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Loại hợp đồng</FormLabel><Select onValueChange={field.onChange} value={field.value as any}><FormControl><SelectTrigger><SelectValue placeholder="Chọn loại hợp đồng" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Không xác định">Không xác định</SelectItem><SelectItem value="Thử việc">Thử việc</SelectItem><SelectItem value="1 năm">1 năm</SelectItem><SelectItem value="2 năm">2 năm</SelectItem><SelectItem value="3 năm">3 năm</SelectItem><SelectItem value="Vô thời hạn">Vô thời hạn</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="contractNumber" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số hợp đồng</FormLabel><FormControl><Input placeholder="Số hợp đồng" {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem> )} />
+                {/* FIX: Explicitly pass value prop to DatePicker to avoid type conflicts. */}
+                <FormField name="contractStartDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày bắt đầu HĐ</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
+                {/* FIX: Explicitly pass value prop to DatePicker to avoid type conflicts. */}
+                <FormField name="contractEndDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày kết thúc HĐ</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
+                
                 <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-md font-medium border-b pb-2 mb-4">Lương & Phụ cấp</h4>
+                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Lương & Phụ cấp</h4>
                 </div>
                  <FormField name="baseSalary" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Lương cơ bản</FormLabel><FormControl><CurrencyInput value={field.value as number} onChange={field.onChange} placeholder="0" /></FormControl><FormMessage /></FormItem> )} />
                  <FormField name="socialInsuranceSalary" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Lương đóng BHXH</FormLabel><FormControl><CurrencyInput value={field.value as number} onChange={field.onChange} placeholder="0" /></FormControl><FormMessage /></FormItem> )} />
@@ -940,7 +1260,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
                  <FormField name="otherAllowances" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Phụ cấp khác</FormLabel><FormControl><CurrencyInput value={field.value as number} onChange={field.onChange} placeholder="0" /></FormControl><FormMessage /></FormItem> )} />
 
                 <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-md font-medium border-b pb-2 mb-4">Nghỉ phép</h4>
+                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Nghỉ phép</h4>
                 </div>
                 {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
                 <FormField name="leaveTaken" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số phép đã sử dụng</FormLabel><FormControl><Input type="number" min="0" {...field} value={field.value as any} onChange={e => field.onChange(Math.max(0, parseInt(e.target.value, 10) || 0))} /></FormControl><FormMessage /></FormItem> )} />
@@ -948,7 +1268,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
           </TabsContent>
           
           <TabsContent value="account" className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Thông tin đăng nhập</h3>
+            <h3 className="text-h5 font-medium mb-4">Thông tin đăng nhập</h3>
             
             <Card className="mb-6">
               <CardContent className="pt-6 space-y-4">
@@ -1056,7 +1376,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
           
           <TabsContent value="documents" className="mt-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-                <h3 className="text-lg font-medium">Tài liệu & Hồ sơ nhân viên</h3>
+                <h3 className="text-h5 font-medium">Tài liệu & Hồ sơ nhân viên</h3>
                 <div className="relative w-full sm:max-w-xs">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -1074,7 +1394,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 {(!isSearching || filteredLegalDocuments.length > 0) && (
                     <Card>
                         <CardHeader className="pb-4">
-                            <CardTitle className="text-base text-primary">1. Tài liệu pháp lý</CardTitle>
+                            <CardTitle className="text-h6 text-primary">1. Tài liệu pháp lý</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1137,7 +1457,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 {(!isSearching || filteredWorkProcessDocuments.length > 0 || filteredMultiFileDocuments.length > 0) && (
                     <Card>
                         <CardHeader className="pb-4">
-                            <CardTitle className="text-base text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
+                            <CardTitle className="text-h6 text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1251,7 +1571,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
                 {(!isSearching || filteredTerminationDocuments.length > 0) && (
                     <Card>
                         <CardHeader className="pb-4">
-                            <CardTitle className="text-base text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
+                            <CardTitle className="text-h6 text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1316,154 +1636,162 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
             )}
           </TabsContent>
 
-          <TabsContent value="kpi" className="mt-6">
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                    <h3 className="text-lg font-semibold tracking-tight">Quản lý KPI</h3>
-                    <p className="text-sm">Chức năng đang được phát triển.</p>
-                </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="penalties" className="mt-6">
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                    <h3 className="text-lg font-semibold tracking-tight">Quản lý Phiếu phạt</h3>
-                    <p className="text-sm">Chức năng đang được phát triển.</p>
-                </div>
-            </div>
-          </TabsContent>
+          {!isEditMode && (
+            <TabsContent value="kpi" className="mt-6">
+              <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
+                  <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
+                      <h3 className="text-h5 font-semibold tracking-tight">Quản lý KPI</h3>
+                      <p className="text-sm">Chức năng đang được phát triển.</p>
+                  </div>
+              </div>
+            </TabsContent>
+          )}
+          {!isEditMode && (
+            <TabsContent value="penalties" className="mt-6">
+              <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
+                  <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
+                      <h3 className="text-h5 font-semibold tracking-tight">Quản lý Phiếu phạt</h3>
+                      <p className="text-sm">Chức năng đang được phát triển.</p>
+                  </div>
+              </div>
+            </TabsContent>
+          )}
           <TabsContent value="payroll" className="mt-6 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Thiết lập ca làm việc</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  name="payrollWorkShiftSystemId"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ca làm việc mặc định</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(value ? asSystemId(value) : undefined)}
-                        value={field.value ?? undefined}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Chọn ca áp dụng" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {workShifts.length === 0 && (
-                            <SelectItem value="__empty" disabled>
-                              Chưa có ca làm việc trong cài đặt
-                            </SelectItem>
-                          )}
-                          {workShifts.map((shift) => (
-                            <SelectItem key={shift.systemId} value={shift.systemId}>
-                              {shift.name} ({shift.startTime} - {shift.endTime})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Bỏ trống để dùng lịch mặc định trong phần Cài đặt &gt; Nhân viên.
-                        </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">Ghi chú</p>
-                  <p>
-                    Ca mặc định giúp đồng bộ chấm công và tính công chuẩn. Bạn vẫn có thể đổi ca cho từng ngày
-                    trực tiếp tại module Chấm công.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Thành phần lương</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Chọn các khoản thu nhập/phụ cấp sẽ gắn với nhân viên này. Danh sách được lấy trực tiếp từ phần Cài đặt
-                  &gt; Thành phần lương.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  name="payrollSalaryComponentSystemIds"
-                  control={form.control}
-                  rules={{
-                    validate: (value) => (value?.length ?? 0) > 0 || 'Cần ít nhất 1 thành phần lương',
-                  }}
-                  render={({ field }) => {
-                    const selectedValues = new Set<SystemId>(field.value ?? []);
-                    return (
+            {!isEditMode && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-h6">Thiết lập ca làm việc</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    name="payrollWorkShiftSystemId"
+                    control={form.control}
+                    render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="sr-only">Thành phần lương</FormLabel>
-                        <div className="space-y-3">
-                          {salaryComponents.length === 0 && (
-                            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                              Chưa có thành phần lương nào. Vào phần Cài đặt để tạo mới.
-                            </div>
-                          )}
-                          {salaryComponents.map((component) => {
-                            const checked = selectedValues.has(component.systemId);
-                            return (
-                              <label
-                                key={component.systemId}
-                                className="flex items-start justify-between gap-4 rounded-lg border p-3"
-                              >
-                                <div>
-                                  <p className="font-medium text-foreground">{component.name}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {component.type === 'fixed'
-                                      ? formatCurrencyDisplay(component.amount)
-                                      : component.formula || 'Tự nhập công thức'}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {component.taxable ? 'Tính thuế TNCN' : 'Không tính thuế'} ·{' '}
-                                    {component.partOfSocialInsurance ? 'Tính BHXH' : 'Không tính BHXH'}
-                                  </p>
-                                </div>
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(isChecked) => {
-                                    const next = new Set(selectedValues);
-                                    if (isChecked) {
-                                      next.add(component.systemId);
-                                    } else {
-                                      next.delete(component.systemId);
-                                    }
-                                    field.onChange(Array.from(next));
-                                  }}
-                                  className="mt-1"
-                                />
-                              </label>
-                            );
-                          })}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-2">
-                          <span>
-                            Đang chọn {selectedValues.size}/{salaryComponents.length} thành phần
-                          </span>
-                          <Button type="button" variant="outline" size="sm" onClick={handleResetPayrollComponents}>
-                            Dùng cấu hình mặc định
-                          </Button>
-                        </div>
+                        <FormLabel>Ca làm việc mặc định</FormLabel>
+                        <Select
+                          onValueChange={(value) => field.onChange(value ? asSystemId(value) : undefined)}
+                          value={field.value ?? undefined}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn ca áp dụng" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {workShifts.length === 0 && (
+                              <SelectItem value="__empty" disabled>
+                                Chưa có ca làm việc trong cài đặt
+                              </SelectItem>
+                            )}
+                            {workShifts.map((shift) => (
+                              <SelectItem key={shift.systemId} value={shift.systemId}>
+                                {shift.name} ({shift.startTime} - {shift.endTime})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Bỏ trống để dùng lịch mặc định trong phần Cài đặt &gt; Nhân viên.
+                          </p>
                         <FormMessage />
                       </FormItem>
-                    );
-                  }}
-                />
-              </CardContent>
-            </Card>
+                    )}
+                  />
+                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">Ghi chú</p>
+                    <p>
+                      Ca mặc định giúp đồng bộ chấm công và tính công chuẩn. Bạn vẫn có thể đổi ca cho từng ngày
+                      trực tiếp tại module Chấm công.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!isEditMode && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-h6">Thành phần lương</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Chọn các khoản thu nhập/phụ cấp sẽ gắn với nhân viên này. Danh sách được lấy trực tiếp từ phần Cài đặt
+                    &gt; Thành phần lương.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    name="payrollSalaryComponentSystemIds"
+                    control={form.control}
+                    rules={{
+                      validate: (value) => (value?.length ?? 0) > 0 || 'Cần ít nhất 1 thành phần lương',
+                    }}
+                    render={({ field }) => {
+                      const selectedValues = new Set<SystemId>(field.value ?? []);
+                      return (
+                        <FormItem>
+                          <FormLabel className="sr-only">Thành phần lương</FormLabel>
+                          <div className="space-y-3">
+                            {salaryComponents.length === 0 && (
+                              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                                Chưa có thành phần lương nào. Vào phần Cài đặt để tạo mới.
+                              </div>
+                            )}
+                            {salaryComponents.map((component) => {
+                              const checked = selectedValues.has(component.systemId);
+                              return (
+                                <label
+                                  key={component.systemId}
+                                  className="flex items-start justify-between gap-4 rounded-lg border p-3"
+                                >
+                                  <div>
+                                    <p className="font-medium text-foreground">{component.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {component.type === 'fixed'
+                                        ? formatCurrencyDisplay(component.amount)
+                                        : component.formula || 'Tự nhập công thức'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {component.taxable ? 'Tính thuế TNCN' : 'Không tính thuế'} ·{' '}
+                                      {component.partOfSocialInsurance ? 'Tính BHXH' : 'Không tính BHXH'}
+                                    </p>
+                                  </div>
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(isChecked) => {
+                                      const next = new Set(selectedValues);
+                                      if (isChecked) {
+                                        next.add(component.systemId);
+                                      } else {
+                                        next.delete(component.systemId);
+                                      }
+                                      field.onChange(Array.from(next));
+                                    }}
+                                    className="mt-1"
+                                  />
+                                </label>
+                              );
+                            })}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-2">
+                            <span>
+                              Đang chọn {selectedValues.size}/{salaryComponents.length} thành phần
+                            </span>
+                            <Button type="button" variant="outline" size="sm" onClick={handleResetPayrollComponents}>
+                              Dùng cấu hình mặc định
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Trả lương & tài khoản</CardTitle>
+                <CardTitle className="text-h6">Trả lương & tài khoản</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -1556,6 +1884,15 @@ export function EmployeeForm({ initialData, onSubmit, onCancel, isEditMode = fal
 
         </Tabs>
       </form>
+      <AddressFormDialog
+        isOpen={isAddressDialogOpen}
+        onOpenChange={handleAddressDialogOpenChange}
+        onSave={handleAddressDialogSave}
+        editingAddress={addressDialogEditingAddress}
+        hideDefaultSwitches
+        title={dialogTitle}
+        description={dialogDescription}
+      />
     </Form>
   );
 }

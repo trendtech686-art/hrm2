@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { data as initialDataOmit } from './data.ts';
 import type { PurchaseOrder, PurchaseOrderPayment, PurchaseOrderStatus, DeliveryStatus, PaymentStatus, PurchaseOrderReturnStatus, PurchaseOrderRefundStatus } from './types.ts';
+import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store.ts';
 import { useInventoryReceiptStore, syncInventoryReceiptsWithPurchaseOrders } from '../inventory-receipts/store.ts';
@@ -8,7 +9,6 @@ import { usePaymentStore } from '../payments/store.ts';
 import type { Payment } from '../payments/types.ts';
 import { useReceiptStore } from '../receipts/store.ts';
 import type { Receipt } from '../receipts/types.ts';
-import { useAuditLogStore } from '../audit-log/store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
 import { usePurchaseReturnStore } from '../purchase-returns/store.ts';
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
@@ -48,6 +48,27 @@ runInventoryReceiptBackfill();
 
 (useProductStore as typeof useProductStore & { subscribe?: (listener: () => void) => () => void }).subscribe?.(() => {
   runInventoryReceiptBackfill();
+});
+
+// Helper functions for ActivityHistory
+const getCurrentUserInfo = () => {
+  const employees = useEmployeeStore.getState().data;
+  // Fallback to system user
+  return { systemId: 'SYSTEM', name: 'Hệ thống' };
+};
+
+const createHistoryEntry = (
+  action: HistoryEntry['action'],
+  description: string,
+  user: { systemId: string; name: string },
+  metadata?: HistoryEntry['metadata']
+): HistoryEntry => ({
+  id: crypto.randomUUID(),
+  action,
+  timestamp: new Date(),
+  user: { systemId: user.systemId, name: user.name },
+  description,
+  metadata,
 });
 
 const augmentedMethods = {
@@ -221,19 +242,17 @@ const augmentedMethods = {
           ? useEmployeeStore.getState().data.find(e => e.systemId === latestReceipt.receiverSystemId)
           : useEmployeeStore.getState().data.find(e => e.fullName === receiptReceiverName);
 
-        useAuditLogStore.getState().addLog({
-            entityType: 'PurchaseOrder',
-            entityId: updatedPO.systemId,
-            userId: user?.systemId || 'SYSTEM',
-            userName: receiptReceiverName,
-            action: 'UPDATE',
-            changes: [{
-                field: 'deliveryStatus',
-                oldValue: po.deliveryStatus,
-                newValue: newDeliveryStatus,
-                description: `Cập nhật trạng thái giao hàng thành "${newDeliveryStatus}" thông qua phiếu nhập kho ${latestReceipt.id}.`
-            }]
-        });
+        // Add to activityHistory
+        const historyEntry = createHistoryEntry(
+          'status_changed',
+          `Cập nhật trạng thái giao hàng thành "${newDeliveryStatus}" thông qua phiếu nhập kho ${latestReceipt.id}.`,
+          { systemId: user?.systemId || 'SYSTEM', name: receiptReceiverName },
+          { oldValue: po.deliveryStatus, newValue: newDeliveryStatus, field: 'deliveryStatus' }
+        );
+        newData[poIndex] = {
+          ...updatedPO,
+          activityHistory: [...(updatedPO.activityHistory || []), historyEntry],
+        };
 
         return { data: newData };
       }
@@ -265,19 +284,14 @@ const augmentedMethods = {
         
         if (returnId && creatorName) {
             const user = useEmployeeStore.getState().data.find(e => e.fullName === creatorName);
-            useAuditLogStore.getState().addLog({
-                entityType: 'PurchaseOrder',
-                entityId: updatedPO.systemId,
-                userId: user?.systemId || 'SYSTEM',
-                userName: creatorName,
-                action: 'UPDATE',
-                changes: [{
-                    field: 'returnStatus',
-                    oldValue: po.returnStatus || 'Chưa hoàn trả',
-                    newValue: newReturnStatus,
-                    description: `tạo phiếu hoàn trả ${returnId}, cập nhật trạng thái hoàn trả đơn hàng.`
-                }]
-            });
+            // Add to activityHistory
+            const historyEntry = createHistoryEntry(
+              'status_changed',
+              `Tạo phiếu hoàn trả ${returnId}, cập nhật trạng thái hoàn trả đơn hàng.`,
+              { systemId: user?.systemId || 'SYSTEM', name: creatorName },
+              { oldValue: po.returnStatus || 'Chưa hoàn trả', newValue: newReturnStatus, field: 'returnStatus' }
+            );
+            updatedPO.activityHistory = [...(updatedPO.activityHistory || []), historyEntry];
         }
         
         const newData = [...state.data];
@@ -341,21 +355,18 @@ const augmentedMethods = {
     const po = state.data[poIndex];
     if (po.status === 'Kết thúc' || po.status === 'Đã hủy') return state;
 
-    const updatedPO = { ...po, status: 'Kết thúc' as PurchaseOrderStatus };
-    
-    useAuditLogStore.getState().addLog({
-        entityType: 'PurchaseOrder',
-        entityId: systemId,
-        userId,
-        userName,
-        action: 'UPDATE',
-        changes: [{
-            field: 'status',
-            oldValue: po.status,
-            newValue: 'Kết thúc',
-            description: `đã kết thúc đơn hàng.`
-        }]
-    });
+    // Add to activityHistory
+    const historyEntry = createHistoryEntry(
+      'ended',
+      `Đã kết thúc đơn hàng.`,
+      { systemId: userId, name: userName },
+      { oldValue: po.status, newValue: 'Kết thúc', field: 'status' }
+    );
+    const updatedPO = { 
+      ...po, 
+      status: 'Kết thúc' as PurchaseOrderStatus,
+      activityHistory: [...(po.activityHistory || []), historyEntry],
+    };
     
     const newData = [...state.data];
     newData[poIndex] = updatedPO;
@@ -413,11 +424,18 @@ const augmentedMethods = {
         }
     }
     
-    const updatedPO = { ...po, status: 'Đã hủy' as const };
-    useAuditLogStore.getState().addLog({
-        entityType: 'PurchaseOrder', entityId: systemId, userId, userName, action: 'UPDATE',
-        changes: [{ field: 'status', oldValue: po.status, newValue: 'Đã hủy', description: `đã hủy đơn hàng.` }]
-    });
+    // Add to activityHistory
+    const historyEntry = createHistoryEntry(
+      'cancelled',
+      `Đã hủy đơn hàng.`,
+      { systemId: userId, name: userName },
+      { oldValue: po.status, newValue: 'Đã hủy', field: 'status' }
+    );
+    const updatedPO = { 
+      ...po, 
+      status: 'Đã hủy' as const,
+      activityHistory: [...(po.activityHistory || []), historyEntry],
+    };
     
     return { data: state.data.map(item => item.systemId === systemId ? updatedPO : item) };
   }),

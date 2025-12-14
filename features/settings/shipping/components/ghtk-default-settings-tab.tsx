@@ -13,7 +13,7 @@ import { Info } from 'lucide-react';
 import { GHTKDefaultSettings } from '@/lib/types/shipping-config';
 
 interface GHTKDefaultSettingsTabProps {
-  initialSettings?: GHTKDefaultSettings;
+  initialSettings?: GHTKDefaultSettings | undefined;
 }
 
 export interface GHTKDefaultSettingsTabRef {

@@ -1,5 +1,6 @@
 import { asSystemId, asBusinessId } from '../../../lib/id-types';
 import type { PaymentTerm } from './types';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const defaultPaymentTerms: PaymentTerm[] = [
   {
@@ -10,8 +11,7 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     days: 0,
     isDefault: true,
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+     ...buildSeedAuditFields({ createdAt: '2024-01-19T08:00:00Z' }),
   },
   {
     systemId: asSystemId('PTERM00000002'),
@@ -21,8 +21,7 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     days: 7,
     isDefault: false,
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+     ...buildSeedAuditFields({ createdAt: '2024-01-20T08:00:00Z' }),
   },
   {
     systemId: asSystemId('PTERM00000003'),
@@ -32,8 +31,7 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     days: 15,
     isDefault: false,
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+     ...buildSeedAuditFields({ createdAt: '2024-01-21T08:00:00Z' }),
   },
   {
     systemId: asSystemId('PTERM00000004'),
@@ -43,8 +41,7 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     days: 30,
     isDefault: false,
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+     ...buildSeedAuditFields({ createdAt: '2024-01-22T08:00:00Z' }),
   },
   {
     systemId: asSystemId('PTERM00000005'),
@@ -54,8 +51,7 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     days: 60,
     isDefault: false,
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+     ...buildSeedAuditFields({ createdAt: '2024-01-23T08:00:00Z' }),
   },
   {
     systemId: asSystemId('PTERM00000006'),
@@ -65,7 +61,6 @@ export const defaultPaymentTerms: PaymentTerm[] = [
     days: 90,
     isDefault: false,
     isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+     ...buildSeedAuditFields({ createdAt: '2024-01-24T08:00:00Z' }),
   },
 ];

@@ -1,7 +1,15 @@
 import type { StockHistoryEntry } from './types.ts';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 
-export const data = [
+const SEED_AUTHOR = asSystemId('EMP000001');
+const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({
+  createdAt,
+  updatedAt: createdAt,
+  createdBy,
+  updatedBy: createdBy,
+});
+
+const rawData = [
   // PROD000001 - Laptop Dell Inspiron 15 (Khởi tạo: CN000001=50, CN000002=30)
   {
     systemId: asSystemId('SH000001'),
@@ -571,4 +579,9 @@ export const data = [
     branchSystemId: asSystemId('CN000001'),
     branch: 'Chi nhánh Trung tâm',
   },
-] satisfies StockHistoryEntry[];
+] satisfies Omit<StockHistoryEntry, 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>[];
+
+export const data: StockHistoryEntry[] = rawData.map(entry => ({
+  ...entry,
+  ...buildAuditFields(entry.date),
+}));

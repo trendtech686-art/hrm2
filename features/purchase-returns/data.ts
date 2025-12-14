@@ -12,6 +12,14 @@ function addDays(days: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
+const SEED_AUTHOR = asSystemId('EMP000001');
+const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({
+  createdAt,
+  updatedAt: createdAt,
+  createdBy,
+  updatedBy: createdBy,
+});
+
 export const data: PurchaseReturn[] = [
   {
     systemId: asSystemId('PRETURN000001'),
@@ -39,7 +47,8 @@ export const data: PurchaseReturn[] = [
     totalReturnValue: 5000000,
     refundAmount: 5000000,
     refundMethod: 'Chuyển khoản',
-    accountSystemId: asSystemId('ACCOUNT000002')
+    accountSystemId: asSystemId('ACCOUNT000002'),
+    ...buildAuditFields('2025-11-21T08:00:00Z')
   },
   {
     systemId: asSystemId('PRETURN000002'),
@@ -67,6 +76,7 @@ export const data: PurchaseReturn[] = [
     totalReturnValue: 200000,
     refundAmount: 200000,
     refundMethod: 'Tiền mặt',
-    accountSystemId: asSystemId('ACCOUNT000001')
+    accountSystemId: asSystemId('ACCOUNT000001'),
+    ...buildAuditFields('2025-11-22T08:00:00Z')
   }
 ];

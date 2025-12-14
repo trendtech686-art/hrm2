@@ -10,6 +10,7 @@ export type ReturnLineItem = {
   returnQuantity: number;
   unitPrice: number;
   totalValue: number;
+  note?: string; // Ghi chú cho từng sản phẩm
 };
 
 export type SalesReturnPayment = {
@@ -28,10 +29,10 @@ export type SalesReturn = {
   branchSystemId: SystemId; // ✅ Branch systemId only
   branchName: string;
   returnDate: string; // YYYY-MM-DD HH:mm
-  reason?: string;
-  note?: string;       // ✅ Short note field
-  notes?: string;      // ✅ Detailed notes
-  reference?: string;  // ✅ External reference code
+  reason?: string | undefined;
+  note?: string | undefined;       // ✅ Short note field
+  notes?: string | undefined;      // ✅ Detailed notes
+  reference?: string | undefined;  // ✅ External reference code
 
   // Items being returned by the customer
   items: ReturnLineItem[];
@@ -40,17 +41,17 @@ export type SalesReturn = {
 
   // New items the customer is taking (exchange)
   exchangeItems: LocalLineItem[];
-  exchangeOrderSystemId?: SystemId; // Link to the new order created for exchange items
+  exchangeOrderSystemId?: SystemId | undefined; // Link to the new order created for exchange items
   subtotalNew: number;
   shippingFeeNew: number;
-  discountNew?: number;
-  discountNewType?: 'percentage' | 'fixed';
+  discountNew?: number | undefined;
+  discountNewType?: 'percentage' | 'fixed' | undefined;
   grandTotalNew: number;
   
   // Shipping info for exchange order
-  deliveryMethod?: string;
-  shippingPartnerId?: string;
-  shippingServiceId?: string;
+  deliveryMethod?: string | undefined;
+  shippingPartnerId?: string | undefined;
+  shippingServiceId?: string | undefined;
   shippingAddress?: any;
   packageInfo?: any;
   configuration?: any;
@@ -59,21 +60,25 @@ export type SalesReturn = {
   finalAmount: number; // Positive if customer pays, negative if company refunds
 
   // For refunds from company to customer (deprecated - use refunds array)
-  refundMethod?: string;
-  refundAmount?: number;
-  accountSystemId?: SystemId;
+  refundMethod?: string | undefined;
+  refundAmount?: number | undefined;
+  accountSystemId?: SystemId | undefined;
   
   // ✅ NEW: Multiple refund methods support
-  refunds?: SalesReturnPayment[];
+  refunds?: SalesReturnPayment[] | undefined;
   
   // For payments from customer to company
-  payments?: SalesReturnPayment[];
+  payments?: SalesReturnPayment[] | undefined;
 
   // Link to vouchers if any are created
-  paymentVoucherSystemId?: SystemId; // For single refund (deprecated)
-  paymentVoucherSystemIds?: SystemId[]; // ✅ NEW: For multiple refunds
-  receiptVoucherSystemIds?: SystemId[]; // For multiple customer payments
+  paymentVoucherSystemId?: SystemId | undefined; // For single refund (deprecated)
+  paymentVoucherSystemIds?: SystemId[] | undefined; // ✅ NEW: For multiple refunds
+  receiptVoucherSystemIds?: SystemId[] | undefined; // For multiple customer payments
 
   creatorSystemId: SystemId; // ✅ Creator employee systemId
   creatorName: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

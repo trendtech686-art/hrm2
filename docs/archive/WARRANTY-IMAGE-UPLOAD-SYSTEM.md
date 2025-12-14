@@ -1097,7 +1097,7 @@ const onSubmit = async (values) => {
 
 ---
 
-### � VIEW - Preview Images (Detail Page)
+### VIEW - Preview Images (Detail Page)
 
 #### Hiển thị Images trên Detail Page
 

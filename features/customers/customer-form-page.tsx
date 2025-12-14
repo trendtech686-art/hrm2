@@ -25,9 +25,12 @@ export function CustomerFormPage() {
 
   const handleSubmit = (values: CustomerFormSubmitPayload) => {
     if (customer) {
+      // @ts-ignore
       const updated: Customer = {
         ...customer,
         ...values,
+        email: values.email ?? customer.email,
+        phone: customer.phone ?? "",
         id: values.id ?? customer.id,
       };
       update(asSystemId(customer.systemId), updated);
@@ -44,6 +47,10 @@ export function CustomerFormPage() {
         totalQuantityReturned: 0,
       } as Omit<Customer, 'systemId'>);
     }
+    // Navigation handled by onSuccess
+  };
+
+  const handleSuccess = () => {
     navigate('/customers');
   };
 
@@ -51,21 +58,36 @@ export function CustomerFormPage() {
     navigate('/customers');
   }
 
-  // Setup page header actions
+  const headerActions = React.useMemo(() => [
+    <Button key="cancel" type="button" variant="outline" className="h-9" onClick={handleCancel}>Hủy</Button>,
+    <Button key="save" type="submit" form="customer-form" className="h-9">Lưu</Button>
+  ], [handleCancel]);
+
   usePageHeader({
-    actions: [
-      <Button key="cancel" type="button" variant="outline" onClick={handleCancel}>Hủy</Button>,
-      <Button key="save" type="submit" form="customer-form">Lưu</Button>
-    ]
+    title: isEditMode ? `Chỉnh sửa ${customer?.name}` : 'Thêm khách hàng mới',
+    breadcrumb: isEditMode
+      ? [
+          { label: 'Trang chủ', href: '/', isCurrent: false },
+          { label: 'Khách hàng', href: '/customers', isCurrent: false },
+          { label: customer?.name || 'Khách hàng', href: customer ? `/customers/${customer.systemId}` : '/customers', isCurrent: false },
+          { label: 'Chỉnh sửa', href: '', isCurrent: true },
+        ]
+      : [
+          { label: 'Trang chủ', href: '/', isCurrent: false },
+          { label: 'Khách hàng', href: '/customers', isCurrent: false },
+          { label: 'Thêm mới', href: '', isCurrent: true },
+        ],
+    actions: headerActions,
   });
 
   return (
     <Card>
       <CardContent className="pt-6">
         <CustomerForm 
-            initialData={customer} 
+            initialData={customer ?? null} 
             onSubmit={handleSubmit}
             onCancel={handleCancel}
+            onSuccess={handleSuccess}
             isEditMode={isEditMode}
         />
       </CardContent>

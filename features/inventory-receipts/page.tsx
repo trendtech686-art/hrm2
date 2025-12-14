@@ -19,7 +19,16 @@ import type { ColumnDef } from "../../components/data-table/types.ts";
 import type { InventoryReceipt } from "./types.ts";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { useBranchStore } from "../settings/branches/store.ts";
+import { useStoreInfoStore } from "../settings/store-info/store-info-store.ts";
+import { usePrint } from "../../lib/use-print.ts";
+import { 
+  convertStockInForPrint,
+  mapStockInToPrintData,
+  mapStockInLineItems,
+  createStoreSettings,
+} from "../../lib/print/stock-in-print-helper.ts";
 import { toast } from "sonner";
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
 
 const getColumns = (
   handlers: {
@@ -32,7 +41,7 @@ const getColumns = (
       <div className="flex items-center justify-center">
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
       </div>
@@ -108,7 +117,7 @@ const getColumns = (
     accessorKey: 'notes',
     header: 'Ghi chú',
     cell: ({ row }) => (
-      <span className="text-xs max-w-xs line-clamp-2">
+      <span className="text-body-xs max-w-xs line-clamp-2">
         {row.notes || '-'}
       </span>
     ),
@@ -131,7 +140,7 @@ const getColumns = (
       const firstProduct = row.items[0]?.productName || '';
       const remaining = row.items.length - 1;
       return (
-        <span className="text-xs">
+        <span className="text-body-xs">
           {firstProduct}
           {remaining > 0 && ` +${remaining}`}
         </span>
@@ -184,10 +193,32 @@ const getColumns = (
 export function InventoryReceiptsPage() {
   const { data: receipts } = useInventoryReceiptStore();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
-  const { data: suppliers } = useSupplierStore();
-  const { data: branches } = useBranchStore();
+  const { data: suppliers, findById: findSupplierById } = useSupplierStore();
+  const { data: branches, findById: findBranchById } = useBranchStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { print, printMultiple } = usePrint();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
+
+  const headerActions = React.useMemo(() => [
+    <Button
+      key="purchase-orders"
+      variant="outline"
+      size="sm"
+      className="h-9"
+      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDERS)}
+    >
+      Đơn mua hàng
+    </Button>,
+    <Button
+      key="create"
+      size="sm"
+      className="h-9"
+      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}
+    >
+      Tạo phiếu nhập
+    </Button>,
+  ], [navigate]);
   
   usePageHeader({
     title: 'Danh sách phiếu nhập kho',
@@ -195,7 +226,8 @@ export function InventoryReceiptsPage() {
       { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
       { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: true }
     ],
-    actions: []
+    showBackButton: false,
+    actions: headerActions
   });
 
   // Không cần combine nữa, chỉ dùng receipts
@@ -206,7 +238,7 @@ export function InventoryReceiptsPage() {
   }, [receipts]);
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'receivedDate', desc: true });
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [supplierFilter, setSupplierFilter] = React.useState('all');
@@ -243,10 +275,22 @@ export function InventoryReceiptsPage() {
   }, [globalFilter]);
 
   const handlePrintReceipt = React.useCallback((receipt: InventoryReceipt) => {
+    // Use helper to prepare print data
+    const branch = findBranchById(receipt.branchSystemId);
+    const supplier = findSupplierById(receipt.supplierSystemId);
+    const storeSettings = branch 
+      ? createStoreSettings(branch)
+      : createStoreSettings(storeInfo);
+    const receiptData = convertStockInForPrint(receipt, { branch, supplier });
+    
+    print('stock-in', {
+      data: mapStockInToPrintData(receiptData, storeSettings),
+      lineItems: mapStockInLineItems(receiptData.items),
+    });
     toast.info('Đang gửi lệnh in', {
       description: `Phiếu ${receipt.id} - ${receipt.supplierName}`
     });
-  }, []);
+  }, [findBranchById, findSupplierById, storeInfo, print]);
 
   const columns = React.useMemo(() => getColumns({ onPrint: handlePrintReceipt }), [handlePrintReceipt]);
   
@@ -340,6 +384,12 @@ export function InventoryReceiptsPage() {
       sorted.sort((a, b) => {
         const aVal = (a as any)[sorting.id];
         const bVal = (b as any)[sorting.id];
+        // Special handling for date columns
+        if (sorting.id === 'createdAt' || sorting.id === 'receivedDate') {
+          const aTime = aVal ? new Date(aVal).getTime() : 0;
+          const bTime = bVal ? new Date(bVal).getTime() : 0;
+          return sorting.desc ? bTime - aTime : aTime - bTime;
+        }
         if (aVal === bVal) return 0;
         if (aVal < bVal) return sorting.desc ? 1 : -1;
         if (aVal > bVal) return sorting.desc ? -1 : 1;
@@ -364,14 +414,49 @@ export function InventoryReceiptsPage() {
     return sortedData.filter(r => rowSelection[r.systemId]);
   }, [sortedData, rowSelection]);
 
-  // Bulk actions handlers
+  // Print dialog state
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
+  const [pendingPrintReceipts, setPendingPrintReceipts] = React.useState<InventoryReceipt[]>([]);
+
+  // Open print options dialog
   const handleBulkPrint = React.useCallback(() => {
     if (selectedRows.length === 0) return;
+    setPendingPrintReceipts(selectedRows);
+    setIsPrintDialogOpen(true);
+  }, [selectedRows]);
+
+  // Xử lý khi xác nhận tùy chọn in từ dialog
+  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+    const { branchSystemId, paperSize } = options;
+    
+    // Chuẩn bị danh sách options cho printMultiple
+    const printOptionsList = pendingPrintReceipts.map(receipt => {
+      // Ưu tiên dùng chi nhánh user chọn, nếu không thì dùng chi nhánh của phiếu
+      const branch = branchSystemId 
+        ? findBranchById(branchSystemId)
+        : findBranchById(receipt.branchSystemId);
+      const supplier = findSupplierById(receipt.supplierSystemId);
+      const storeSettings = branch 
+        ? createStoreSettings(branch)
+        : createStoreSettings(storeInfo);
+      const receiptData = convertStockInForPrint(receipt, { branch, supplier });
+      
+      return {
+        data: mapStockInToPrintData(receiptData, storeSettings),
+        lineItems: mapStockInLineItems(receiptData.items),
+        paperSize,
+      };
+    });
+    
+    // In tất cả trong 1 lần (1 popup) bằng printMultiple
+    printMultiple('stock-in', printOptionsList);
+    
     toast.success('Đã gửi lệnh in cho phiếu nhập', {
-      description: selectedRows.map(r => r.id).join(', ')
+      description: pendingPrintReceipts.map(r => r.id).join(', ')
     });
     setRowSelection({});
-  }, [selectedRows]);
+    setPendingPrintReceipts([]);
+  }, [pendingPrintReceipts, findBranchById, findSupplierById, storeInfo, printMultiple]);
 
   const bulkActions = [
     {
@@ -433,8 +518,8 @@ export function InventoryReceiptsPage() {
                 <Package className="h-6 w-6" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-base mb-1">{receipt.id}</div>
-                <div className="text-sm text-muted-foreground space-y-1">
+                <div className="font-semibold text-body-sm mb-1">{receipt.id}</div>
+                <div className="text-body-sm text-muted-foreground space-y-1">
                   <div className="flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" />
                     <span>{formatDate(receipt.receivedDate)}</span>
@@ -459,7 +544,7 @@ export function InventoryReceiptsPage() {
               </div>
             </div>
             <div className="text-right">
-              <div className="font-semibold text-base">
+              <div className="font-semibold text-body-sm">
                 {totalQuantity} SP
               </div>
             </div>
@@ -474,20 +559,20 @@ export function InventoryReceiptsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Tổng phiếu nhập</p>
-            <p className="text-xl font-semibold text-green-600">{receiptStats.totalReceipts}</p>
+            <p className="text-body-sm text-muted-foreground">Tổng phiếu nhập</p>
+            <p className="text-h3 font-semibold text-green-600">{receiptStats.totalReceipts}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Tổng số lượng nhập</p>
-            <p className="text-xl font-semibold text-blue-600">{receiptStats.totalQuantity} SP</p>
+            <p className="text-body-sm text-muted-foreground">Tổng số lượng nhập</p>
+            <p className="text-h3 font-semibold text-blue-600">{receiptStats.totalQuantity} SP</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Đang hiển thị</p>
-            <p className="text-xl font-semibold">{filteredData.length} / {receipts.length}</p>
+            <p className="text-body-sm text-muted-foreground">Đang hiển thị</p>
+            <p className="text-h3 font-semibold">{filteredData.length} / {receipts.length}</p>
           </CardContent>
         </Card>
       </div>
@@ -549,10 +634,10 @@ export function InventoryReceiptsPage() {
               {mobileLoadedCount < sortedData.length ? (
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  <span className="text-sm">Đang tải thêm...</span>
+                  <span className="text-body-sm">Đang tải thêm...</span>
                 </div>
               ) : sortedData.length > 20 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-body-sm text-muted-foreground">
                   Đã hiển thị tất cả {sortedData.length} phiếu
                 </p>
               ) : null}
@@ -586,6 +671,15 @@ export function InventoryReceiptsPage() {
           onRowClick={handleRowClick}
         />
       )}
+
+      {/* Print Options Dialog */}
+      <SimplePrintOptionsDialog
+        open={isPrintDialogOpen}
+        onOpenChange={setIsPrintDialogOpen}
+        onConfirm={handlePrintConfirm}
+        selectedCount={pendingPrintReceipts.length}
+        title="In phiếu nhập kho"
+      />
     </div>
   );
 }

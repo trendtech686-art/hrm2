@@ -9,11 +9,11 @@ export interface DataTableToolbarProps<TData> {
   search: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder: string;
-  dateFilter?: [string | undefined, string | undefined];
-  onDateFilterChange?: (value: [string | undefined, string | undefined] | undefined) => void;
-  dateFilterTitle?: string;
-  numResults?: number;
-  children?: React.ReactNode;
+  dateFilter?: [string | undefined, string | undefined] | undefined;
+  onDateFilterChange?: ((value: [string | undefined, string | undefined] | undefined) => void) | undefined;
+  dateFilterTitle?: string | undefined;
+  numResults?: number | undefined;
+  children?: React.ReactNode | undefined;
 }
 
 export function DataTableToolbar<TData>({

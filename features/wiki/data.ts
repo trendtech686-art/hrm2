@@ -1,5 +1,6 @@
 import type { WikiArticle } from './types.ts';
 import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: WikiArticle[] = [
   {
@@ -24,9 +25,13 @@ export const data: WikiArticle[] = [
     `,
     category: 'Quy định & Chính sách',
     tags: ['nghỉ phép', 'chính sách', 'nhân sự'],
-    createdAt: '2025-01-15',
-    updatedAt: '2025-02-01',
     author: 'Phạm Thị Dung',
+    ...buildSeedAuditFields({
+      createdAt: '2025-01-15T08:00:00Z',
+      updatedAt: '2025-02-01T08:00:00Z',
+      createdBy: asSystemId('EMP000010'),
+      updatedBy: asSystemId('EMP000010'),
+    }),
   },
   {
     systemId: asSystemId('WIKI000002'),
@@ -51,9 +56,13 @@ export const data: WikiArticle[] = [
     `,
     category: 'Hướng dẫn & Quy trình',
     tags: ['crm', 'kinh doanh', 'hướng dẫn'],
-    createdAt: '2025-03-10',
-    updatedAt: '2025-05-20',
     author: 'Trần Thị Bình',
+    ...buildSeedAuditFields({
+      createdAt: '2025-03-10T08:00:00Z',
+      updatedAt: '2025-05-20T08:00:00Z',
+      createdBy: asSystemId('EMP000012'),
+      updatedBy: asSystemId('EMP000012'),
+    }),
   },
     {
     systemId: asSystemId('WIKI000003'),
@@ -77,8 +86,12 @@ export const data: WikiArticle[] = [
     `,
     category: 'Quy định & Chính sách',
     tags: ['remote', 'work from home', 'chính sách'],
-    createdAt: '2025-06-01',
-    updatedAt: '2025-06-05',
     author: 'Phạm Thị Dung',
+    ...buildSeedAuditFields({
+      createdAt: '2025-06-01T08:00:00Z',
+      updatedAt: '2025-06-05T08:00:00Z',
+      createdBy: asSystemId('EMP000010'),
+      updatedBy: asSystemId('EMP000014'),
+    }),
   },
 ];

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,6 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Upload, X, CheckCircle2 } from 'lucide-react';
 import type { Task } from '../types';
 import { cn } from '@/lib/utils';
+import { FileUploadAPI, type UploadedAsset } from '@/lib/file-upload-api.ts';
+import { loadEvidenceSettings } from '@/features/settings/tasks/tasks-settings-page.tsx';
 
 interface CompletionDialogProps {
   task: Task;
@@ -15,70 +17,63 @@ interface CompletionDialogProps {
   onSubmit: (taskId: string, evidence: { images: string[]; note: string }) => Promise<void>;
 }
 
-interface ImageFile {
-  id: string;
-  file: File;
-  preview: string;
-  size: number;
-}
+type EvidenceFile = UploadedAsset;
 
 export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDialogProps) {
   const [note, setNote] = useState('');
-  const [images, setImages] = useState<ImageFile[]>([]);
+  const [images, setImages] = useState<EvidenceFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load evidence settings from settings page
+  const evidenceSettings = useMemo(() => loadEvidenceSettings(), []);
+  const maxImages = evidenceSettings.maxImages;
+  const minNoteLength = evidenceSettings.minNoteLength;
+  const maxSizeMB = evidenceSettings.imageMaxSizeMB;
+  const requireNote = evidenceSettings.requireNoteWithImages;
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     setError(null);
     
-    if (images.length + files.length > 5) {
-      setError('Chỉ được upload tối đa 5 ảnh');
+    if (images.length + files.length > maxImages) {
+      setError(`Chỉ được upload tối đa ${maxImages} ảnh`);
+      return;
+    }
+
+    // Check file size
+    const oversizedFiles = files.filter(f => f.size > maxSizeMB * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      setError(`Mỗi ảnh không được vượt quá ${maxSizeMB}MB`);
       return;
     }
 
     setIsUploading(true);
     try {
-      const newImages: ImageFile[] = files.map(file => ({
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        file,
-        preview: URL.createObjectURL(file),
-        size: file.size,
-      }));
-      
-      setImages(prev => [...prev, ...newImages]);
+      const uploaded = await FileUploadAPI.uploadTaskEvidence(task.systemId, files);
+      setImages(prev => [...prev, ...uploaded]);
     } catch (err) {
-      setError('Có lỗi khi xử lý ảnh. Vui lòng thử lại.');
+      setError(err instanceof Error ? err.message : 'Có lỗi khi upload ảnh. Vui lòng thử lại.');
       console.error(err);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleRemoveImage = (imageId: string) => {
-    setImages(prev => {
-      const updated = prev.filter(img => img.id !== imageId);
-      // Revoke object URL to prevent memory leak
-      const removed = prev.find(img => img.id === imageId);
-      if (removed) {
-        URL.revokeObjectURL(removed.preview);
-      }
-      return updated;
-    });
-  };
-
-  // Convert images to base64 or data URLs for storage
-  const convertImagesToDataUrls = async (): Promise<string[]> => {
-    const promises = images.map(img => {
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(img.file);
-      });
-    });
-    return Promise.all(promises);
+  const handleRemoveImage = async (imageId: string) => {
+    const target = images.find(img => img.id === imageId);
+    if (!target) return;
+    setIsUploading(true);
+    try {
+      await FileUploadAPI.deleteFile(target.id);
+      setImages(prev => prev.filter(img => img.id !== imageId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể xóa file. Vui lòng thử lại.');
+      console.error(err);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -90,24 +85,20 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
       return;
     }
 
-    if (note.trim().length < 10) {
-      setError('Ghi chú phải có ít nhất 10 ký tự');
+    if (requireNote && note.trim().length < minNoteLength) {
+      setError(`Ghi chú phải có ít nhất ${minNoteLength} ký tự`);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Convert images to data URLs
-      const imageDataUrls = await convertImagesToDataUrls();
-      
       await onSubmit(task.systemId, {
-        images: imageDataUrls,
+        images: images.map(img => img.url),
         note: note.trim(),
       });
       
       // Reset form
       setNote('');
-      images.forEach(img => URL.revokeObjectURL(img.preview));
       setImages([]);
       onClose();
     } catch (err) {
@@ -122,7 +113,6 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
     if (!isSubmitting) {
       setNote('');
       setError(null);
-      images.forEach(img => URL.revokeObjectURL(img.preview));
       setImages([]);
       onClose();
     }
@@ -143,7 +133,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
           <div className="p-3 bg-muted rounded-lg">
             <h4 className="font-medium mb-1">{task.title}</h4>
             {task.description && (
-              <p className="text-sm text-muted-foreground">{task.description}</p>
+              <p className="text-body-sm text-muted-foreground">{task.description}</p>
             )}
           </div>
 
@@ -151,8 +141,8 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
           <div className="space-y-2">
             <Label>
               Ảnh bằng chứng <span className="text-red-500">*</span>
-              <span className="text-xs text-muted-foreground ml-2">
-                (Tối thiểu 1 ảnh, tối đa 5 ảnh)
+              <span className="text-body-xs text-muted-foreground ml-2">
+                (Tối thiểu 1 ảnh, tối đa {maxImages} ảnh, mỗi ảnh tối đa {maxSizeMB}MB)
               </span>
             </Label>
             
@@ -162,7 +152,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
                 {images.map((image) => (
                   <div key={image.id} className="relative group">
                     <img
-                      src={image.preview}
+                      src={image.url}
                       alt="Evidence"
                       className="w-full h-32 object-cover rounded-lg border"
                     />
@@ -175,7 +165,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
                     >
                       <X className="h-4 w-4" />
                     </Button>
-                    <div className="absolute bottom-1 right-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
+                    <div className="absolute bottom-1 right-1 bg-black/50 text-white text-body-xs px-1.5 py-0.5 rounded">
                       {(image.size / 1024).toFixed(0)} KB
                     </div>
                   </div>
@@ -184,7 +174,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
             )}
 
             {/* Upload button */}
-            {images.length < 5 && (
+            {images.length < maxImages && (
               <div>
                 <input
                   type="file"
@@ -212,7 +202,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
                       ) : (
                         <>
                           <Upload className="mr-2 h-4 w-4" />
-                          Chọn ảnh ({images.length}/5)
+                          Chọn ảnh ({images.length}/{maxImages})
                         </>
                       )}
                     </span>
@@ -225,10 +215,12 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
           {/* Note */}
           <div className="space-y-2">
             <Label htmlFor="completion-note">
-              Mô tả công việc đã hoàn thành <span className="text-red-500">*</span>
-              <span className="text-xs text-muted-foreground ml-2">
-                (Tối thiểu 10 ký tự)
-              </span>
+              Mô tả công việc đã hoàn thành {requireNote && <span className="text-red-500">*</span>}
+              {minNoteLength > 0 && (
+                <span className="text-body-xs text-muted-foreground ml-2">
+                  (Tối thiểu {minNoteLength} ký tự)
+                </span>
+              )}
             </Label>
             <Textarea
               id="completion-note"
@@ -238,14 +230,16 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
               rows={5}
               disabled={isSubmitting}
               className={cn(
-                note.length > 0 && note.length < 10 && "border-red-500"
+                requireNote && note.length > 0 && note.length < minNoteLength && "border-red-500"
               )}
             />
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-body-xs text-muted-foreground">
               <span>
-                {note.length < 10 
-                  ? `Còn ${10 - note.length} ký tự nữa`
-                  : '✓ Đủ ký tự'}
+                {requireNote && minNoteLength > 0 && (
+                  note.length < minNoteLength 
+                    ? `Còn ${minNoteLength - note.length} ký tự nữa`
+                    : '✓ Đủ ký tự'
+                )}
               </span>
               <span>{note.length} ký tự</span>
             </div>
@@ -282,7 +276,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
               isSubmitting || 
               isUploading || 
               images.length === 0 || 
-              note.trim().length < 10
+              (requireNote && note.trim().length < minNoteLength)
             }
           >
             {isSubmitting ? (

@@ -122,6 +122,14 @@
             sans: ["var(--font-sans)", "Inter", "sans-serif"],
             serif: ["var(--font-serif)", "Source Serif 4", "serif"],
             mono: ["var(--font-mono)", "Geist Mono", "monospace"],
+          },
+          fontSize: {
+            h1: 'var(--font-size-h1)',
+            h2: 'var(--font-size-h2)',
+            h3: 'var(--font-size-h3)',
+            h4: 'var(--font-size-h4)',
+            h5: 'var(--font-size-h5)',
+            h6: 'var(--font-size-h6)',
           }
         },
       },
@@ -152,35 +160,28 @@
         --radius: 0.5rem;
         --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
         
-        /* Chart colors */
-        --chart-1: oklch(0.6 0.118 254.704); /* Blue */
-        --chart-2: oklch(0.55 0.13 142.1);   /* Green */
-        --chart-3: oklch(0.7 0.15 84.6);     /* Amber */
-        --chart-4: oklch(0.65 0.2 12.5);     /* Rose */
-        --chart-5: oklch(0.65 0.15 282.5);   /* Purple */
+        --chart-1: oklch(0.6 0.118 254.704);
+        --chart-2: oklch(0.55 0.13 142.1);
+        --chart-3: oklch(0.7 0.15 84.6);
+        --chart-4: oklch(0.65 0.2 12.5);
+        --chart-5: oklch(0.65 0.15 282.5);
 
         --font-sans: "Inter";
         --font-serif: "Source Serif 4";
         --font-mono: "Geist Mono";
+
+        --font-size-h1: 2.5rem;
+        --font-size-h2: 2rem;
+        --font-size-h3: 1.75rem;
+        --font-size-h4: 1.5rem;
+        --font-size-h5: 1.25rem;
+        --font-size-h6: 1rem;
         
-        /* Mobile-first design tokens */
-        --touch-target: 44px;          /* Minimum touch target size */
-        --touch-target-lg: 48px;       /* Large touch target size */
-        --mobile-header-height: 56px;  /* Mobile header height */
-        --mobile-footer-height: 64px;  /* Mobile footer/tab bar height */
-        --mobile-padding: 1rem;        /* Standard mobile padding */
-        --mobile-padding-sm: 0.75rem;  /* Small mobile padding */
-        --mobile-padding-lg: 1.5rem;   /* Large mobile padding */
+        --touch-target: 44px;
+        --touch-target-lg: 48px;
+        --mobile-header-height: 56px;
+        --mobile-footer-height: 64px;
         
-        /* Mobile typography scale */
-        --mobile-text-xs: 0.75rem;     /* 12px */
-        --mobile-text-sm: 0.875rem;    /* 14px */
-        --mobile-text-base: 1rem;      /* 16px - base for mobile */
-        --mobile-text-lg: 1.125rem;    /* 18px */
-        --mobile-text-xl: 1.25rem;     /* 20px */
-        --mobile-text-2xl: 1.5rem;     /* 24px */
-        
-        /* Mobile safe areas */
         --safe-area-top: env(safe-area-inset-top, 0px);
         --safe-area-bottom: env(safe-area-inset-bottom, 0px);
         --safe-area-left: env(safe-area-inset-left, 0px);
@@ -208,7 +209,6 @@
         --input: oklch(0.27 0.007 264.5);
         --ring: oklch(0.98 0 0);
         
-        /* Dark mode chart colors */
         --chart-1: oklch(0.7 0.118 254.704);
         --chart-2: oklch(0.65 0.13 142.1);
         --chart-3: oklch(0.8 0.15 84.6);
@@ -216,282 +216,73 @@
         --chart-5: oklch(0.75 0.15 282.5);
       }
       
-      /* Theme Presets */
-      .theme-slate {
-        --primary: oklch(0.205 0 0);
-        --primary-foreground: oklch(0.985 0 0);
-        --ring: oklch(0.708 0 0);
-      }
-      
-      .theme-blue {
-        --primary: oklch(0.6 0.118 254.704);
-        --primary-foreground: oklch(0.985 0 0);
-        --ring: oklch(0.6 0.118 254.704);
-      }
-      
-      .theme-green {
-        --primary: oklch(0.55 0.13 142.1);
-        --primary-foreground: oklch(0.985 0 0);
-        --ring: oklch(0.55 0.13 142.1);
-      }
-      
-      .theme-amber {
-        --primary: oklch(0.7 0.15 84.6);
-        --primary-foreground: oklch(0.2 0 84.6);
-        --ring: oklch(0.7 0.15 84.6);
-      }
-      
-      .theme-rose {
-        --primary: oklch(0.65 0.2 12.5);
-        --primary-foreground: oklch(0.985 0 0);
-        --ring: oklch(0.65 0.2 12.5);
-      }
-      
-      .theme-purple {
-        --primary: oklch(0.65 0.15 282.5);
-        --primary-foreground: oklch(0.985 0 0);
-        --ring: oklch(0.65 0.15 282.5);
-      }
-      
-      .theme-orange {
-        --primary: oklch(0.7 0.16 57.9);
-        --primary-foreground: oklch(0.2 0 57.9);
-        --ring: oklch(0.7 0.16 57.9);
-      }
-      
-      .theme-teal {
-        --primary: oklch(0.6 0.08 184.7);
-        --primary-foreground: oklch(0.985 0 0);
-        --ring: oklch(0.6 0.08 184.7);
-      }
-    }
-    
-    @layer base {
-      html, body, #root {
-        height: 100%;
-      }
+      html, body, #root { height: 100%; }
       body {
         background-color: var(--background);
         color: var(--foreground);
         font-family: var(--font-sans), Inter, sans-serif;
-        transition: background-color 0.2s, color 0.2s;
+        overflow-x: hidden;
       }
+
+      h1 { font-size: var(--font-size-h1); }
+      h2 { font-size: var(--font-size-h2); }
+      h3 { font-size: var(--font-size-h3); }
+      h4 { font-size: var(--font-size-h4); }
+      h5 { font-size: var(--font-size-h5); }
+      h6 { font-size: var(--font-size-h6); }
       
-      html.font-size-sm {
-        font-size: 14px;
-      }
-      html.font-size-base {
-        font-size: 16px;
-      }
-      html.font-size-lg {
-        font-size: 18px;
-      }
+      html.font-size-sm { font-size: 14px; }
+      html.font-size-base { font-size: 16px; }
+      html.font-size-lg { font-size: 18px; }
     }
 
     @layer utilities {
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none;
+      /* Shadcn/ui animations */
+      @keyframes enter { from { opacity: var(--tw-enter-opacity, 1); transform: scale(var(--tw-enter-scale, 1)); } }
+      @keyframes exit { to { opacity: var(--tw-exit-opacity, 1); transform: scale(var(--tw-exit-scale, 1)); } }
+      
+      .animate-in {
+        animation: enter 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        --tw-enter-opacity: initial;
+        --tw-enter-scale: initial;
       }
-      .hide-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+      .animate-out {
+        animation: exit 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        --tw-exit-opacity: initial;
+        --tw-exit-scale: initial;
       }
       
-      /* Mobile-first utilities */
-      .safe-area-padding {
-        padding-top: var(--safe-area-top);
-        padding-bottom: var(--safe-area-bottom);
-        padding-left: var(--safe-area-left);
-        padding-right: var(--safe-area-right);
-      }
+      /* Fade */
+      .fade-in { --tw-enter-opacity: 0; }
+      .fade-in-0 { --tw-enter-opacity: 0; }
+      .fade-out { --tw-exit-opacity: 0; }
+      .fade-out-0 { --tw-exit-opacity: 0; }
       
-      .mobile-container {
-        padding-left: 1rem;
-        padding-right: 1rem;
-        margin-left: auto;
-        margin-right: auto;
-        max-width: 640px;
-      }
+      /* Zoom */
+      .zoom-in-95 { --tw-enter-scale: 0.95; }
+      .zoom-out-95 { --tw-exit-scale: 0.95; }
       
-      .tablet-container {
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
-        margin-left: auto;
-        margin-right: auto;
-        max-width: 1024px;
-      }
+      /* Slide */
+      .slide-in-from-top-2 { --tw-enter-translate-y: -0.5rem; }
+      .slide-in-from-bottom-2 { --tw-enter-translate-y: 0.5rem; }
+      .slide-in-from-left-2 { --tw-enter-translate-x: -0.5rem; }
+      .slide-in-from-right-2 { --tw-enter-translate-x: 0.5rem; }
+      .slide-out-to-top-2 { --tw-exit-translate-y: -0.5rem; }
+      .slide-out-to-bottom-2 { --tw-exit-translate-y: 0.5rem; }
+      .slide-out-to-left-2 { --tw-exit-translate-x: -0.5rem; }
+      .slide-out-to-right-2 { --tw-exit-translate-x: 0.5rem; }
       
-      .desktop-container {
-        padding-left: 2rem;
-        padding-right: 2rem;
-        margin-left: auto;
-        margin-right: auto;
-        max-width: 1280px;
-      }
+      /* Scrollbar */
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       
-      /* Touch target utilities */
-      .touch-target {
-        min-height: var(--touch-target);
-        min-width: var(--touch-target);
-      }
+      .scrollbar-thin { scrollbar-width: thin; }
+      .scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+      .scrollbar-thin::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 3px; }
+      .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
       
-      .touch-target-lg {
-        min-height: var(--touch-target-lg);
-        min-width: var(--touch-target-lg);
-      }
-      
-      /* Mobile typography */
-      .mobile-h1 { 
-        font-size: 1.5rem; 
-        font-weight: 700; 
-        line-height: 1.25; 
-      }
-      .mobile-h2 { 
-        font-size: 1.25rem; 
-        font-weight: 600; 
-        line-height: 1.25; 
-      }
-      .mobile-h3 { 
-        font-size: 1.125rem; 
-        font-weight: 500; 
-        line-height: 1.375; 
-      }
-      .mobile-body { 
-        font-size: 1rem; 
-        line-height: 1.625; 
-      }
-      .mobile-caption { 
-        font-size: 0.875rem; 
-        color: var(--muted-foreground); 
-      }
-      
-      /* Mobile spacing */
-      .mobile-section { 
-        padding-top: 1.5rem; 
-        padding-bottom: 1.5rem; 
-        padding-left: 1rem; 
-        padding-right: 1rem; 
-      }
-      .mobile-card { 
-        padding: 1rem; 
-        border-radius: 0.5rem; 
-      }
-      .mobile-button-group > * + * { 
-        margin-top: 0.75rem; 
-      }
-      
-      /* Responsive text sizing */
-      .responsive-text-xs { font-size: 0.75rem; }
-      .responsive-text-sm { font-size: 0.875rem; }
-      .responsive-text-base { font-size: 1rem; }
-      .responsive-text-lg { font-size: 1.125rem; }
-      .responsive-text-xl { font-size: 1.25rem; }
-      
-      @media (min-width: 640px) {
-        .responsive-text-xs { font-size: 0.875rem; }
-        .responsive-text-sm { font-size: 1rem; }
-        .responsive-text-base { font-size: 1.125rem; }
-        .responsive-text-lg { font-size: 1.25rem; }
-        .responsive-text-xl { font-size: 1.5rem; }
-      }
-      
-      /* Hide scrollbars */
-      .scrollbar-hide {
-        -ms-overflow-style: none;  /* Internet Explorer 10+ */
-        scrollbar-width: none;     /* Firefox */
-      }
-      .scrollbar-hide::-webkit-scrollbar {
-        display: none;             /* Safari and Chrome */
-      }
-      
-      /* Custom scrollbars */
-      .scrollbar-thin {
-        scrollbar-width: thin;
-      }
-      
-      .scrollbar-thin::-webkit-scrollbar {
-        height: 6px;
-        width: 6px;
-      }
-      
-      .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
-        background-color: rgb(209 213 219);
-        border-radius: 3px;
-      }
-      
-      .scrollbar-track-gray-100::-webkit-scrollbar-track {
-        background-color: rgb(243 244 246);
-        border-radius: 3px;
-      }
-      
-      .dark .scrollbar-thumb-gray-600::-webkit-scrollbar-thumb {
-        background-color: rgb(75 85 99);
-        border-radius: 3px;
-      }
-      
-      .dark .scrollbar-track-gray-800::-webkit-scrollbar-track {
-        background-color: rgb(31 41 55);
-        border-radius: 3px;
-      }
-      
-      /* Mobile-optimized horizontal tabs */
-      @media (max-width: 640px) {
-        .mobile-tabs-container {
-          margin-left: -1rem;
-          margin-right: -1rem;
-          padding-left: 1rem;
-          padding-right: 1rem;
-        }
-        
-        .mobile-tab-trigger {
-          flex: 0 0 auto !important;
-          white-space: nowrap !important;
-          min-width: max-content !important;
-          text-align: center !important;
-        }
-      }
-      
-      /* Smooth scrolling for tabs */
-      .tabs-scroll-container {
-        scroll-behavior: smooth;
-        -webkit-overflow-scrolling: touch;
-      }
-      
-      /* Force horizontal layout for tabs */
-      [role="tablist"] {
-        flex-wrap: nowrap !important;
-        overflow-x: visible !important;
-      }
-      
-      [role="tab"] {
-        flex-shrink: 0 !important;
-        white-space: nowrap !important;
-      }
-      
-      /* Override default tabs styles for mobile */
-      @media (max-width: 640px) {
-        [role="tablist"] {
-          width: max-content !important;
-          min-width: 100% !important;
-          justify-content: flex-start !important;
-        }
-        
-        [role="tab"] {
-          flex: 0 0 auto !important;
-          min-width: max-content !important;
-        }
-      }
-      
-      /* Prevent horizontal scroll on body */
-      body {
-        overflow-x: hidden;
-      }
-      
-      /* TipTap Editor Styles */
-      .tiptap {
-        outline: none;
-      }
-      
+      /* TipTap Editor */
+      .tiptap { outline: none; }
       .tiptap p.is-editor-empty:first-child::before {
         color: var(--muted-foreground);
         content: attr(data-placeholder);
@@ -499,113 +290,42 @@
         height: 0;
         pointer-events: none;
       }
-      
-      /* Mention tag in content - Primary color */
       .tiptap .mention {
-        background-color: hsl(var(--primary) / 0.1);
-        color: hsl(var(--primary));
+        background-color: oklch(from var(--primary) l c h / 0.1);
+        color: var(--primary);
         padding: 0.125rem 0.375rem;
         border-radius: calc(var(--radius) - 2px);
         font-weight: 500;
-        text-decoration: none;
-        white-space: nowrap;
       }
-      
-      .tiptap img {
-        max-width: 100%;
-        height: auto;
-        border-radius: var(--radius);
-        margin: 0.5rem 0;
-      }
-      
-      .tiptap strong {
-        font-weight: 600;
-      }
-      
-      .tiptap em {
-        font-style: italic;
-      }
-      
-      .tiptap ul,
-      .tiptap ol {
-        padding: 0 1rem;
-        margin: 0.5rem 0;
-      }
-      
-      .tiptap blockquote {
-        padding-left: 1rem;
-        border-left: 2px solid hsl(var(--border));
-      }
-      
+      .tiptap img { max-width: 100%; height: auto; border-radius: var(--radius); margin: 0.5rem 0; }
+      .tiptap strong { font-weight: 600; }
+      .tiptap em { font-style: italic; }
+      .tiptap ul, .tiptap ol { padding: 0 1rem; margin: 0.5rem 0; }
+      .tiptap blockquote { padding-left: 1rem; border-left: 2px solid var(--border); }
       .tiptap code {
-        background-color: hsl(var(--muted));
+        background-color: var(--muted);
         padding: 0.125rem 0.25rem;
         border-radius: calc(var(--radius) - 4px);
         font-size: 0.875em;
         font-family: var(--font-mono);
       }
       
-      /* Mention dropdown - Shadcn style */
-      .tippy-box[data-theme~='mention'] {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-      }
+      /* Tippy/Mention dropdown */
+      .tippy-box[data-theme~='mention'] { background-color: transparent !important; border: none !important; padding: 0 !important; box-shadow: none !important; }
+      .tippy-box[data-theme~='mention'] .tippy-content { padding: 0 !important; }
       
-      .tippy-box[data-theme~='mention'] .tippy-content {
-        padding: 0 !important;
-      }
-      
-      /* Mention combobox improvements */
-      .mention-item {
-        cursor: pointer;
-        user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-      }
-      
-      .mention-item:active {
-        transform: scale(0.98);
-      }
-      
-      /* Smooth scrollbar for mention list */
-      [data-scroll-container] {
-        scrollbar-width: thin;
-        scrollbar-color: hsl(var(--border)) transparent;
-        scroll-behavior: smooth;
-      }
-      
-      [data-scroll-container]::-webkit-scrollbar {
-        width: 6px;
-      }
-      
-      [data-scroll-container]::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      
-      [data-scroll-container]::-webkit-scrollbar-thumb {
-        background-color: hsl(var(--border));
-        border-radius: 3px;
-      }
-      
-      [data-scroll-container]::-webkit-scrollbar-thumb:hover {
-        background-color: hsl(var(--muted-foreground));
-      }
-      
-      /* Kbd styling for keyboard hints */
+      /* Kbd */
       kbd {
         display: inline-block;
         padding: 2px 6px;
         font-family: var(--font-mono), monospace;
         font-size: 0.75rem;
         line-height: 1;
-        color: hsl(var(--foreground));
-        background-color: hsl(var(--background));
-        border: 1px solid hsl(var(--border));
+        color: var(--foreground);
+        background-color: var(--background);
+        border: 1px solid var(--border);
         border-radius: calc(var(--radius) - 4px);
-        box-shadow: 0 1px 0 hsl(var(--border));
+        box-shadow: 0 1px 0 var(--border);
       }
     }
   </style>
@@ -647,6 +367,65 @@
 }
 </script>
 <link rel="stylesheet" href="/index.css">
+<script>
+  // Apply saved theme BEFORE React loads to prevent flash
+  (function() {
+    try {
+      var stored = localStorage.getItem('hrm-appearance-storage');
+      if (stored) {
+        var data = JSON.parse(stored);
+        var state = data.state;
+        if (state) {
+          var root = document.documentElement;
+          
+          // Apply color mode
+          if (state.colorMode) {
+            root.classList.add(state.colorMode);
+          }
+          
+          // Apply font size
+          if (state.fontSize) {
+            root.classList.remove('font-size-sm', 'font-size-base', 'font-size-lg');
+            root.classList.add('font-size-' + state.fontSize);
+          }
+          
+          // Apply custom theme config CSS variables
+          if (state.customThemeConfig) {
+            var config = state.customThemeConfig;
+            var cssVars = [
+              '--background', '--foreground', '--card', '--card-foreground',
+              '--popover', '--popover-foreground', '--primary', '--primary-foreground',
+              '--secondary', '--secondary-foreground', '--muted', '--muted-foreground',
+              '--accent', '--accent-foreground', '--destructive', '--destructive-foreground',
+              '--border', '--input', '--ring',
+              '--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5',
+              '--sidebar', '--sidebar-foreground', '--sidebar-primary', '--sidebar-primary-foreground',
+              '--sidebar-accent', '--sidebar-accent-foreground', '--sidebar-border', '--sidebar-ring',
+              '--radius', '--font-sans', '--font-serif', '--font-mono',
+              '--font-size-h1', '--font-size-h2', '--font-size-h3', '--font-size-h4', '--font-size-h5', '--font-size-h6'
+            ];
+            
+            cssVars.forEach(function(varName) {
+              if (config[varName]) {
+                root.style.setProperty(varName, config[varName]);
+              }
+            });
+            
+            // Compose and apply shadow
+            var shadow = (config['--shadow-x'] || '0px') + ' ' + 
+                        (config['--shadow-y'] || '1px') + ' ' + 
+                        (config['--shadow-blur'] || '2px') + ' ' + 
+                        (config['--shadow-spread'] || '0px') + ' ' + 
+                        (config['--shadow-color'] || 'hsl(0 0% 0% / 0.05)');
+            root.style.setProperty('--shadow', shadow);
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  })();
+</script>
 </head>
 <body class="bg-background text-foreground">
   <div id="root"></div>

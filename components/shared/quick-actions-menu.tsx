@@ -142,7 +142,7 @@ export function QuickActionsMenu<T = any>({
       const action = findActionByShortcut(actions, e);
       if (action) {
         e.preventDefault();
-        action.onAction(item, e);
+        action.onAction?.(item, e);
       }
     };
 
@@ -156,7 +156,7 @@ export function QuickActionsMenu<T = any>({
         return (
           <React.Fragment key={action.id}>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={action.disabled}>
+              <DropdownMenuSubTrigger disabled={action.disabled ?? false}>
                 {action.icon}
                 <span className="ml-2">{action.label}</span>
               </DropdownMenuSubTrigger>
@@ -177,7 +177,7 @@ export function QuickActionsMenu<T = any>({
         <React.Fragment key={action.id}>
           <MenuItemComponent
             {...itemProps}
-            disabled={action.disabled}
+            disabled={action.disabled ?? false}
             className={action.variant === 'destructive' ? 'text-destructive focus:text-destructive' : ''}
           >
             {action.icon}
@@ -450,7 +450,7 @@ export function useKeyboardShortcuts<T>(
       const action = findActionByShortcut(actions, e);
       if (action) {
         e.preventDefault();
-        action.onAction(item, e);
+        action.onAction?.(item, e);
       }
     };
 

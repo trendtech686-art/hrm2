@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import type { BusinessId, SystemId } from '@/lib/id-types';
 import {
   Table,
@@ -11,18 +11,45 @@ import {
 } from '../../../components/ui/table';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
+import { Switch } from '../../../components/ui/switch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
 
-interface SettingsTableProps<T extends { systemId: SystemId; id: BusinessId; name: string; description?: string }> {
+interface SettingsTableProps<T extends { 
+  systemId: SystemId; 
+  id: BusinessId; 
+  name: string; 
+  description?: string | undefined;
+  isDefault?: boolean | undefined;
+  isActive?: boolean | undefined;
+}> {
   data: T[];
   onEdit: (item: T) => void;
   onDelete: (systemId: SystemId) => void;
+  onToggleDefault?: (item: T) => void;
+  onToggleActive?: (item: T) => void;
   renderExtraColumns?: (item: T) => React.ReactNode;
 }
 
-export function SettingsTable<T extends { systemId: SystemId; id: BusinessId; name: string; description?: string }>({
+export function SettingsTable<T extends { 
+  systemId: SystemId; 
+  id: BusinessId; 
+  name: string; 
+  description?: string | undefined;
+  isDefault?: boolean | undefined;
+  isActive?: boolean | undefined;
+}>({
   data,
   onEdit,
   onDelete,
+  onToggleDefault,
+  onToggleActive,
   renderExtraColumns,
 }: SettingsTableProps<T>) {
   if (data.length === 0) {
@@ -38,9 +65,10 @@ export function SettingsTable<T extends { systemId: SystemId; id: BusinessId; na
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[120px]">Mã</TableHead>
             <TableHead>Tên</TableHead>
             <TableHead>Mô tả</TableHead>
+            {onToggleDefault && <TableHead className="w-[100px]">Mặc định</TableHead>}
+            {onToggleActive && <TableHead className="w-[100px]">Hoạt động</TableHead>}
             {renderExtraColumns && <TableHead>Thông tin</TableHead>}
             <TableHead className="w-[100px] text-right">Thao tác</TableHead>
           </TableRow>
@@ -48,33 +76,57 @@ export function SettingsTable<T extends { systemId: SystemId; id: BusinessId; na
         <TableBody>
           {data.map((item) => (
             <TableRow key={item.systemId}>
-              <TableCell className="font-medium">{item.id}</TableCell>
-              <TableCell className="font-semibold">{item.name}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {item.description || '-'}
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{item.name}</span>
+                  {item.isDefault && !onToggleDefault && <Badge variant="outline">Mặc định</Badge>}
+                </div>
               </TableCell>
+              <TableCell className="text-muted-foreground">
+                {item.description || '—'}
+              </TableCell>
+              {onToggleDefault && (
+                <TableCell>
+                  <Switch
+                    checked={item.isDefault ?? false}
+                    onCheckedChange={() => onToggleDefault(item)}
+                    aria-label="Đặt làm mặc định"
+                  />
+                </TableCell>
+              )}
+              {onToggleActive && (
+                <TableCell>
+                  <Switch
+                    checked={item.isActive !== false}
+                    onCheckedChange={() => onToggleActive(item)}
+                    aria-label="Bật/tắt hoạt động"
+                  />
+                </TableCell>
+              )}
               {renderExtraColumns && (
                 <TableCell>{renderExtraColumns(item)}</TableCell>
               )}
               <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onEdit(item)}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => onDelete(item.systemId)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onEdit(item)}>
+                      Sửa
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-destructive"
+                      onClick={() => onDelete(item.systemId)}
+                    >
+                      Xóa
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
           ))}

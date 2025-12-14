@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
 import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { Badge } from "../../components/ui/badge.tsx"
+import { formatDateForDisplay } from '@/lib/date-utils';
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import type { SystemId } from '@/lib/id-types';
 
@@ -26,7 +27,7 @@ export const getColumns = (
        <div className="flex items-center justify-center">
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
       </div>
@@ -157,7 +158,7 @@ export const getColumns = (
     header: "Ngày tạo",
     cell: ({ row }) => {
       if (!row.createdAt) return "-";
-      return new Date(row.createdAt).toLocaleDateString('vi-VN');
+      return formatDateForDisplay(row.createdAt);
     },
     meta: { displayName: "Ngày tạo" },
   },
@@ -167,7 +168,7 @@ export const getColumns = (
     header: "Cập nhật",
     cell: ({ row }) => {
       if (!row.updatedAt) return "-";
-      return new Date(row.updatedAt).toLocaleDateString('vi-VN');
+      return formatDateForDisplay(row.updatedAt);
     },
     meta: { displayName: "Cập nhật" },
   },

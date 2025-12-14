@@ -1,5 +1,4 @@
 import * as React from "react";
-import * as ReactRouterDOM from "react-router-dom";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isValidDate, getDaysDiff } from '@/lib/date-utils';
 import type { Customer } from './types.ts'
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils.ts';
@@ -10,7 +9,8 @@ import {
   calculateRFMScores,
   getCustomerSegment,
   getSegmentLabel,
-  getSegmentBadgeVariant
+  getSegmentBadgeVariant,
+  calculateChurnRisk
 } from './intelligence-utils.ts';
 import { 
   calculateDebtTrackingInfo, 
@@ -24,23 +24,31 @@ import { Progress } from "../../components/ui/progress.tsx"
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { MoreHorizontal, RotateCcw, AlertTriangle, Phone, Mail, ShoppingBag } from "lucide-react";
+import { MoreHorizontal, RotateCcw, AlertTriangle } from "lucide-react";
+import type { CustomerSlaIndex } from './sla/types';
+import { SLA_TYPE_BADGES } from './sla/constants';
+import { formatDaysRemaining, getAlertBadgeVariant } from '../reports/customer-sla-report/sla-utils';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '';
     return new Intl.NumberFormat('vi-VN').format(value);
 };
 
+type ColumnOptions = {
+  slaIndex?: CustomerSlaIndex | null;
+};
+
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onRestore: (systemId: string) => void,
-  navigate: (path: string) => void
+  navigate: (path: string) => void,
+  options?: ColumnOptions,
 ): ColumnDef<Customer>[] => [
   {
     id: "select",
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
     ),
@@ -65,9 +73,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Mã KH"
         sortKey="id"
-        isSorted={sorting.id === 'id'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'id'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => <div className="font-medium">{row.id}</div>,
@@ -83,9 +91,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Tên khách hàng"
         sortKey="name"
-        isSorted={sorting.id === 'name'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'name'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => row.name,
@@ -112,10 +120,28 @@ export const getColumns = (
     },
   },
   {
+    id: "company",
+    accessorKey: "company",
+    header: "Công ty",
+    cell: ({ row }) => row.company || '—',
+    meta: { displayName: "Công ty" },
+  },
+  {
+    id: "type",
+    accessorKey: "type",
+    header: "Loại KH",
+    cell: ({ row }) => {
+      if (!row.type) return '—';
+      const variant = row.type === 'Cá nhân' ? 'secondary' : 'default';
+      return <Badge variant={variant}>{row.type}</Badge>;
+    },
+    meta: { displayName: "Loại khách hàng" },
+  },
+  {
     id: "accountManagerName",
     accessorKey: "accountManagerName",
     header: "NV phụ trách",
-    cell: ({ row }) => row.accountManagerName,
+    cell: ({ row }) => row.accountManagerName || '—',
     meta: { displayName: "NV phụ trách" },
   },
   {
@@ -158,7 +184,7 @@ export const getColumns = (
             {info.maxDaysOverdue > 0 && ` (${info.maxDaysOverdue} ngày)`}
           </Badge>
           {info.oldestDebtDueDate && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-body-xs text-muted-foreground">
               Hạn: {formatDebtDate(info.oldestDebtDueDate)}
             </span>
           )}
@@ -180,6 +206,42 @@ export const getColumns = (
       displayName: "Trạng thái",
     },
   },
+    {
+    id: "slaStatus",
+    header: "SLA",
+    cell: ({ row }) => {
+      const entry = options?.slaIndex?.entries[row.systemId];
+      if (!entry || !entry.alerts.length) {
+        return <Badge variant="outline" className="text-body-xs text-muted-foreground">Ổn định</Badge>;
+      }
+
+      const alerts = entry.alerts.slice(0, 2);
+      return (
+        <div className="space-y-1">
+          {alerts.map((alert) => {
+            const badgeMeta = SLA_TYPE_BADGES[alert.slaType];
+            return (
+              <div key={`${alert.slaType}-${alert.targetDate}`} className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[11px]">
+                  {badgeMeta?.label || alert.slaName}
+                </Badge>
+                <Badge variant={getAlertBadgeVariant(alert.alertLevel)} className="text-[11px]">
+                  {formatDaysRemaining(alert.daysRemaining)}
+                </Badge>
+              </div>
+            );
+          })}
+          {entry.alerts.length > 2 && (
+            <span className="text-[11px] text-muted-foreground">+{entry.alerts.length - 2} cảnh báo khác</span>
+          )}
+        </div>
+      );
+    },
+    meta: {
+      displayName: "SLA",
+    },
+    size: 220,
+    },
   {
     id: "lifecycleStage",
     header: "Giai đoạn",
@@ -203,8 +265,8 @@ export const getColumns = (
             <div className="w-16">
               <Progress value={score} className="h-2" />
             </div>
-            <span className="text-sm font-medium">{score}</span>
-            <Badge variant={variant} className="text-xs">{label}</Badge>
+            <span className="text-body-sm font-medium">{score}</span>
+            <Badge variant={variant} className="text-body-xs">{label}</Badge>
           </div>
         );
     },
@@ -212,6 +274,47 @@ export const getColumns = (
       displayName: "Điểm sức khỏe KH",
     },
     size: 200,
+  },
+  {
+    id: "churnRisk",
+    header: "Rủi ro rời bỏ",
+    cell: ({ row }) => {
+        const churn = calculateChurnRisk(row);
+        return <Badge variant={churn.variant}>{churn.label}</Badge>;
+    },
+    meta: {
+      displayName: "Rủi ro rời bỏ",
+    },
+    size: 120,
+  },
+  {
+    id: "segment",
+    header: "Phân khúc",
+    cell: ({ row }) => {
+        // Sử dụng rfmScores đã lưu sẵn hoặc tính đơn giản nếu chưa có
+        if (row.segment) {
+          const segment = row.segment as import('./intelligence-utils').CustomerSegment;
+          return (
+            <Badge variant={getSegmentBadgeVariant(segment)} className="text-body-xs">
+              {getSegmentLabel(segment)}
+            </Badge>
+          );
+        }
+        // Fallback: hiển thị dựa trên rfmScores nếu có
+        if (row.rfmScores) {
+          const segment = getCustomerSegment(row.rfmScores);
+          return (
+            <Badge variant={getSegmentBadgeVariant(segment)} className="text-body-xs">
+              {getSegmentLabel(segment)}
+            </Badge>
+          );
+        }
+        return <span className="text-body-xs text-muted-foreground">—</span>;
+    },
+    meta: {
+      displayName: "Phân khúc RFM",
+    },
+    size: 120,
   },
   {
     id: "taxCode",
@@ -258,21 +361,26 @@ export const getColumns = (
       
       // Color coding based on recency
       let colorClass = 'text-foreground';
-      if (days > 180) colorClass = 'text-destructive font-semibold';
+      if (days > 180) colorClass = 'text-destructive';
       else if (days > 90) colorClass = 'text-orange-600';
       else if (days > 30) colorClass = 'text-yellow-600';
       else colorClass = 'text-green-600';
       
-      return <span className={colorClass}>{days} ngày trước</span>;
+      return (
+        <div className="flex flex-col">
+          <span className={colorClass}>{formatDate(row.lastPurchaseDate)}</span>
+          <span className="text-body-xs text-muted-foreground">{days} ngày trước</span>
+        </div>
+      );
     },
-    meta: { displayName: "Số ngày từ lần mua cuối" },
+    meta: { displayName: "Mua lần cuối" },
   },
   {
     id: "debtRatio",
     header: "Công nợ/Hạn mức",
     cell: ({ row }) => {
       if (!row.maxDebt || row.maxDebt === 0) {
-        return <span className="text-muted-foreground text-xs">Chưa cấp hạn mức</span>;
+        return <span className="text-muted-foreground text-body-xs">Chưa cấp hạn mức</span>;
       }
       
       const currentDebt = row.currentDebt || 0;
@@ -287,8 +395,8 @@ export const getColumns = (
       return (
         <div className="flex items-center gap-2 min-w-[180px]">
           <Progress value={ratio} className={`w-20 h-2 ${variant === 'destructive' ? 'bg-red-100' : variant === 'warning' ? 'bg-yellow-100' : 'bg-green-100'}`} />
-          <span className="text-xs font-medium tabular-nums">{ratio.toFixed(0)}%</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-body-xs font-medium tabular-nums">{ratio.toFixed(0)}%</span>
+          <span className="text-body-xs text-muted-foreground">
             {formatCurrency(currentDebt)}/{formatCurrency(row.maxDebt)}
           </span>
         </div>
@@ -315,73 +423,28 @@ export const getColumns = (
         );
       }
       
-      // ✅ Show quick actions + dropdown for active items
+      // ✅ Show dropdown menu only
       return (
-        <div className="flex items-center gap-1">
-          {/* Quick Actions */}
-          {row.phone && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.location.href = `tel:${row.phone}`;
-              }}
-              title="Gọi điện"
-            >
-              <Phone className="h-4 w-4" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Mở menu</span>
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          {row.email && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.location.href = `mailto:${row.email}`;
-              }}
-              title="Gửi email"
-            >
-              <Mail className="h-4 w-4" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/orders?customer=${row.systemId}`);
-            }}
-            title="Xem đơn hàng"
-          >
-            <ShoppingBag className="h-4 w-4" />
-          </Button>
-          
-          {/* More Actions Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Mở menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => navigate(`/customers/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.systemId)}>
-                Chuyển vào thùng rác
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => navigate(`/customers/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.systemId)}>
+              Chuyển vào thùng rác
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     },
     meta: {
       displayName: "Hành động",
       sticky: "right",
     },
-    size: 120,
+    size: 80,
   },
 ];

@@ -1,13 +1,17 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs.tsx';
+import { TabsContent } from '../../../components/ui/tabs.tsx';
 import { Label } from '../../../components/ui/label.tsx';
 import { Input } from '../../../components/ui/input.tsx';
+import { SettingsFormGrid } from '../../../components/settings/forms/SettingsFormGrid.tsx';
+import { SettingsFormSection } from '../../../components/settings/forms/SettingsFormSection.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { Switch } from '../../../components/ui/switch.tsx';
 import { Textarea } from '../../../components/ui/textarea.tsx';
 import { TailwindColorPicker } from '../../../components/ui/tailwind-color-picker.tsx';
 import { cn } from '../../../lib/utils.ts';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
 import { 
   Select,
   SelectContent,
@@ -27,17 +31,30 @@ import {
   AlertCircle,
   Bell,
   Clock,
-  Link as LinkIcon,
-  MessageSquare,
+  MoreHorizontal,
   Plus,
-  RotateCcw,
   Save,
-  Trash2,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../../components/ui/dialog.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu.tsx';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog.tsx';
 import { toast } from 'sonner';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
-import { ResponsiveContainer } from '../../../components/mobile/responsive-container.tsx';
-import { useMediaQuery } from '../../../lib/use-media-query.ts';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
+import { createSettingsConfigStore } from '../settings-config-store.ts';
+import { useTabActionRegistry } from '../use-tab-action-registry.ts';
 
 // ============================================
 // INTERFACES
@@ -175,6 +192,38 @@ const defaultComplaintTypes: ComplaintType[] = [
   { id: '5', name: 'Khác', description: 'Các loại khiếu nại khác', order: 5, isActive: true },
 ];
 
+const SLA_PRIORITY_CONFIGS: Array<{
+  key: keyof SLASettings;
+  label: string;
+  description: string;
+  indicatorClass: string;
+}> = [
+  {
+    key: 'low',
+    label: 'Ưu tiên thấp',
+    description: 'Ví dụ: các lỗi nhỏ hoặc yêu cầu tham khảo thông tin',
+    indicatorClass: 'bg-green-500',
+  },
+  {
+    key: 'medium',
+    label: 'Ưu tiên trung bình',
+    description: 'Ảnh hưởng vừa phải tới khách hàng, cần theo dõi trong ngày',
+    indicatorClass: 'bg-yellow-500',
+  },
+  {
+    key: 'high',
+    label: 'Ưu tiên cao',
+    description: 'Các vấn đề ảnh hưởng trực tiếp đến trải nghiệm khách hàng',
+    indicatorClass: 'bg-orange-500',
+  },
+  {
+    key: 'urgent',
+    label: 'Ưu tiên khẩn cấp',
+    description: 'Khiếu nại nghiêm trọng cần phản hồi ngay (ví dụ sự cố truyền thông)',
+    indicatorClass: 'bg-red-500',
+  },
+];
+
 
 const defaultTemplates: ResponseTemplate[] = [
   {
@@ -201,18 +250,40 @@ const defaultTemplates: ResponseTemplate[] = [
 ];
 
 // ============================================
-// STORAGE HELPERS
+// SETTINGS STORE
 // ============================================
 
-const STORAGE_KEYS = {
-  SLA: 'complaints-sla-settings',
-  TEMPLATES: 'complaints-templates',
-  NOTIFICATIONS: 'complaints-notification-settings',
-  PUBLIC_TRACKING: 'complaints-public-tracking-settings',
-  REMINDERS: 'complaints-reminder-settings',
-  CARD_COLORS: 'complaints-card-colors',
-  COMPLAINT_TYPES: 'complaints-types',
+type ComplaintsSettingsState = {
+  sla: SLASettings;
+  templates: ResponseTemplate[];
+  notifications: NotificationSettings;
+  publicTracking: PublicTrackingSettings;
+  reminders: ReminderSettings;
+  cardColors: CardColorSettings;
+  complaintTypes: ComplaintType[];
 };
+
+const clone = <T,>(value: T): T => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value));
+};
+
+const createDefaultComplaintsSettings = (): ComplaintsSettingsState => ({
+  sla: clone(defaultSLA),
+  templates: clone(defaultTemplates),
+  notifications: clone(defaultNotifications),
+  publicTracking: clone(defaultPublicTracking),
+  reminders: clone(defaultReminders),
+  cardColors: clone(defaultCardColors),
+  complaintTypes: clone(defaultComplaintTypes),
+});
+
+const useComplaintsSettingsStore = createSettingsConfigStore<ComplaintsSettingsState>({
+  storageKey: 'settings-complaints',
+  getDefaultState: createDefaultComplaintsSettings,
+});
 
 // Validation helper for Tailwind classes
 function validateTailwindClasses(value: string): boolean {
@@ -223,77 +294,105 @@ function validateTailwindClasses(value: string): boolean {
   return tailwindPattern.test(value.trim());
 }
 
-function loadSettings<T>(key: string, defaultValue: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-}
-
-function saveSettings<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
 // Export function to load card colors from other components
 export function loadCardColorSettings(): CardColorSettings {
-  return loadSettings(STORAGE_KEYS.CARD_COLORS, defaultCardColors);
+  return clone(useComplaintsSettingsStore.getState().data.cardColors);
 }
+
+// Export function to load complaint types from other components
+export function loadComplaintTypes(): ComplaintType[] {
+  return clone(useComplaintsSettingsStore.getState().data.complaintTypes);
+}
+
+// Export the ComplaintType interface for use in other components
+export type { ComplaintType };
 
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
 export function ComplaintsSettingsPage() {
-  const isMobile = !useMediaQuery("(min-width: 768px)");
+  const [activeTab, setActiveTab] = React.useState('sla');
+  const { headerActions, registerActions } = useTabActionRegistry(activeTab);
+  const registerSlaActions = React.useMemo(() => registerActions('sla'), [registerActions]);
+  const registerComplaintTypeActions = React.useMemo(() => registerActions('complaint-types'), [registerActions]);
+  const registerCardColorActions = React.useMemo(() => registerActions('card-colors'), [registerActions]);
+  const registerTemplateActions = React.useMemo(() => registerActions('templates'), [registerActions]);
+  const registerNotificationActions = React.useMemo(() => registerActions('notifications'), [registerActions]);
+  const registerPublicTrackingActions = React.useMemo(() => registerActions('public-tracking'), [registerActions]);
+
+  const storedSla = useComplaintsSettingsStore((state) => state.data.sla);
+  const storedTemplates = useComplaintsSettingsStore((state) => state.data.templates);
+  const storedNotifications = useComplaintsSettingsStore((state) => state.data.notifications);
+  const storedPublicTracking = useComplaintsSettingsStore((state) => state.data.publicTracking);
+  const storedReminders = useComplaintsSettingsStore((state) => state.data.reminders);
+  const storedCardColors = useComplaintsSettingsStore((state) => state.data.cardColors);
+  const storedComplaintTypes = useComplaintsSettingsStore((state) => state.data.complaintTypes);
+  const setStoreSection = useComplaintsSettingsStore((state) => state.setSection);
 
   // SLA State
-  const [sla, setSLA] = React.useState<SLASettings>(() => 
-    loadSettings(STORAGE_KEYS.SLA, defaultSLA)
-  );
+  const [sla, setSLA] = React.useState<SLASettings>(storedSla);
 
   // Templates State
-  const [templates, setTemplates] = React.useState<ResponseTemplate[]>(() => 
-    loadSettings(STORAGE_KEYS.TEMPLATES, defaultTemplates)
-  );
+  const [templates, setTemplates] = React.useState<ResponseTemplate[]>(storedTemplates);
   const [editingTemplate, setEditingTemplate] = React.useState<ResponseTemplate | null>(null);
   const [isAddingTemplate, setIsAddingTemplate] = React.useState(false);
 
   // Notifications State
-  const [notifications, setNotifications] = React.useState<NotificationSettings>(() => 
-    loadSettings(STORAGE_KEYS.NOTIFICATIONS, defaultNotifications)
-  );
+  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications);
 
   // Public Tracking State
-  const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(() => 
-    loadSettings(STORAGE_KEYS.PUBLIC_TRACKING, defaultPublicTracking)
-  );
+  const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(storedPublicTracking);
 
   // Reminders State
-  const [reminders, setReminders] = React.useState<ReminderSettings>(() => 
-    loadSettings(STORAGE_KEYS.REMINDERS, defaultReminders)
-  );
+  const [reminders, setReminders] = React.useState<ReminderSettings>(storedReminders);
 
   // Card Colors State
-  const [cardColors, setCardColors] = React.useState<CardColorSettings>(() => 
-    loadSettings(STORAGE_KEYS.CARD_COLORS, defaultCardColors)
-  );
+  const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors);
 
   // Complaint Types State
-  const [complaintTypes, setComplaintTypes] = React.useState<ComplaintType[]>(() => 
-    loadSettings(STORAGE_KEYS.COMPLAINT_TYPES, defaultComplaintTypes)
-  );
+  const [complaintTypes, setComplaintTypes] = React.useState<ComplaintType[]>(storedComplaintTypes);
   const [editingType, setEditingType] = React.useState<ComplaintType | null>(null);
   const [isAddingType, setIsAddingType] = React.useState(false);
+  const [typeDialogOpen, setTypeDialogOpen] = React.useState(false);
+  const [deleteTypeId, setDeleteTypeId] = React.useState<string | null>(null);
 
-  usePageHeader({
+  // Template Dialog State
+  const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false);
+  const [deleteTemplateId, setDeleteTemplateId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setSLA(storedSla);
+  }, [storedSla]);
+
+  React.useEffect(() => {
+    setTemplates(storedTemplates);
+  }, [storedTemplates]);
+
+  React.useEffect(() => {
+    setNotifications(storedNotifications);
+  }, [storedNotifications]);
+
+  React.useEffect(() => {
+    setPublicTracking(storedPublicTracking);
+  }, [storedPublicTracking]);
+
+  React.useEffect(() => {
+    setReminders(storedReminders);
+  }, [storedReminders]);
+
+  React.useEffect(() => {
+    setCardColors(storedCardColors);
+  }, [storedCardColors]);
+
+  React.useEffect(() => {
+    setComplaintTypes(storedComplaintTypes);
+  }, [storedComplaintTypes]);
+
+  useSettingsPageHeader({
     title: 'Cài đặt khiếu nại',
-    breadcrumb: [
-      { label: 'Trang chủ', href: '/' },
-      { label: 'Cài đặt', href: '/settings' },
-      { label: 'Khiếu nại', href: '/settings/complaints', isCurrent: true }
-    ],
+    subtitle: 'Thiết lập SLA, tự động hóa và template phản hồi khiếu nại',
+    actions: headerActions,
   });
 
   // ============================================
@@ -347,15 +446,17 @@ export function ComplaintsSettingsPage() {
       return;
     }
 
-    saveSettings(STORAGE_KEYS.SLA, sla);
-    toast.success('✅ Đã lưu cài đặt SLA', {
+    setStoreSection('sla', sla);
+    toast.success('Đã lưu cài đặt SLA', {
       description: 'Thời gian phản hồi và giải quyết đã được cập nhật thành công.',
     });
   };
 
   const handleResetSLA = () => {
-    setSLA(defaultSLA);
-    toast.info('ℹ️ Đã khôi phục cài đặt mặc định', {
+    const nextDefaults = clone(defaultSLA);
+    setSLA(nextDefaults);
+    setStoreSection('sla', nextDefaults);
+    toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt SLA đã được reset về giá trị mặc định của hệ thống.',
     });
   };
@@ -373,6 +474,13 @@ export function ComplaintsSettingsPage() {
       order: templates.length + 1,
     });
     setIsAddingTemplate(true);
+    setTemplateDialogOpen(true);
+  };
+
+  const handleEditTemplate = (template: ResponseTemplate) => {
+    setEditingTemplate({ ...template });
+    setIsAddingTemplate(false);
+    setTemplateDialogOpen(true);
   };
 
   const handleSaveTemplate = () => {
@@ -396,30 +504,34 @@ export function ComplaintsSettingsPage() {
     }
 
     setTemplates(updatedTemplates);
-    saveSettings(STORAGE_KEYS.TEMPLATES, updatedTemplates);
+    setStoreSection('templates', updatedTemplates);
     
-    toast.success(isAddingTemplate ? '✅ Đã thêm mẫu' : '✅ Đã cập nhật mẫu', {
+    toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu', {
       description: `Mẫu "${editingTemplate.name}" đã được lưu thành công.`,
     });
 
     setEditingTemplate(null);
     setIsAddingTemplate(false);
+    setTemplateDialogOpen(false);
   };
 
-  const handleDeleteTemplate = (id: string) => {
-    const updatedTemplates = templates.filter(t => t.id !== id);
+  const handleConfirmDeleteTemplate = () => {
+    if (!deleteTemplateId) return;
+    const updatedTemplates = templates.filter(t => t.id !== deleteTemplateId);
     setTemplates(updatedTemplates);
-    saveSettings(STORAGE_KEYS.TEMPLATES, updatedTemplates);
+    setStoreSection('templates', updatedTemplates);
     
-    toast.success('✅ Đã xóa mẫu', {
+    toast.success('Đã xóa mẫu', {
       description: 'Mẫu phản hồi đã được xóa thành công.',
     });
+    setDeleteTemplateId(null);
   };
 
   const handleResetTemplates = () => {
-    setTemplates(defaultTemplates);
-    saveSettings(STORAGE_KEYS.TEMPLATES, defaultTemplates);
-    toast.info('ℹ️ Đã khôi phục mẫu mặc định', {
+    const defaults = clone(defaultTemplates);
+    setTemplates(defaults);
+    setStoreSection('templates', defaults);
+    toast.info('Đã khôi phục mẫu mặc định', {
       description: 'Tất cả mẫu phản hồi đã được reset về giá trị mặc định của hệ thống.',
     });
   };
@@ -427,6 +539,7 @@ export function ComplaintsSettingsPage() {
   const handleCancelEdit = () => {
     setEditingTemplate(null);
     setIsAddingTemplate(false);
+    setTemplateDialogOpen(false);
   };
 
   // ============================================
@@ -441,15 +554,17 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSaveNotifications = () => {
-    saveSettings(STORAGE_KEYS.NOTIFICATIONS, notifications);
-    toast.success('✅ Đã lưu cài đặt thông báo', {
+    setStoreSection('notifications', notifications);
+    toast.success('Đã lưu cài đặt thông báo', {
       description: 'Các tùy chọn thông báo đã được cập nhật thành công.',
     });
   };
 
   const handleResetNotifications = () => {
-    setNotifications(defaultNotifications);
-    toast.info('ℹ️ Đã khôi phục cài đặt mặc định', {
+    const defaults = clone(defaultNotifications);
+    setNotifications(defaults);
+    setStoreSection('notifications', defaults);
+    toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt thông báo đã được reset về giá trị mặc định của hệ thống.',
     });
   };
@@ -466,15 +581,17 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSavePublicTracking = () => {
-    saveSettings(STORAGE_KEYS.PUBLIC_TRACKING, publicTracking);
-    toast.success('✅ Đã lưu cài đặt tracking công khai', {
+    setStoreSection('publicTracking', publicTracking);
+    toast.success('Đã lưu cài đặt tracking công khai', {
       description: 'Các tùy chọn liên kết công khai đã được cập nhật thành công.',
     });
   };
 
   const handleResetPublicTracking = () => {
-    setPublicTracking(defaultPublicTracking);
-    toast.info('ℹ️ Đã khôi phục cài đặt mặc định', {
+    const defaults = clone(defaultPublicTracking);
+    setPublicTracking(defaults);
+    setStoreSection('publicTracking', defaults);
+    toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt tracking công khai đã được reset về giá trị mặc định của hệ thống.',
     });
   };
@@ -491,15 +608,17 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSaveReminders = () => {
-    saveSettings(STORAGE_KEYS.REMINDERS, reminders);
-    toast.success('✅ Đã lưu cài đặt nhắc nhở', {
+    setStoreSection('reminders', reminders);
+    toast.success('Đã lưu cài đặt nhắc nhở', {
       description: 'Các tùy chọn nhắc nhở khiếu nại đã được cập nhật thành công.',
     });
   };
 
   const handleResetReminders = () => {
-    setReminders(defaultReminders);
-    toast.info('ℹ️ Đã khôi phục cài đặt mặc định', {
+    const defaults = clone(defaultReminders);
+    setReminders(defaults);
+    setStoreSection('reminders', defaults);
+    toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt nhắc nhở đã được reset về giá trị mặc định của hệ thống.',
     });
   };
@@ -597,15 +716,17 @@ export function ComplaintsSettingsPage() {
       return;
     }
 
-    saveSettings(STORAGE_KEYS.CARD_COLORS, cardColors);
-    toast.success('✅ Đã lưu cài đặt màu card', {
+    setStoreSection('cardColors', cardColors);
+    toast.success('Đã lưu cài đặt màu card', {
       description: 'Màu sắc hiển thị card đã được cập nhật thành công.',
     });
   };
 
   const handleResetCardColors = () => {
-    setCardColors(defaultCardColors);
-    toast.info('ℹ️ Đã khôi phục cài đặt mặc định', {
+    const defaults = clone(defaultCardColors);
+    setCardColors(defaults);
+    setStoreSection('cardColors', defaults);
+    toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Màu card đã được reset về giá trị mặc định của hệ thống.',
     });
   };
@@ -624,11 +745,13 @@ export function ComplaintsSettingsPage() {
     };
     setEditingType(newType);
     setIsAddingType(true);
+    setTypeDialogOpen(true);
   };
 
   const handleEditType = (type: ComplaintType) => {
     setEditingType({ ...type });
     setIsAddingType(false);
+    setTypeDialogOpen(true);
   };
 
   const handleSaveType = () => {
@@ -639,83 +762,149 @@ export function ComplaintsSettingsPage() {
       return;
     }
 
-    if (isAddingType) {
-      setComplaintTypes([...complaintTypes, editingType]);
-      toast.success('✅ Đã thêm loại khiếu nại mới');
-    } else {
-      setComplaintTypes(complaintTypes.map(t => t.id === editingType.id ? editingType : t));
-      toast.success('✅ Đã cập nhật loại khiếu nại');
-    }
+    const nextTypes = isAddingType
+      ? [...complaintTypes, editingType]
+      : complaintTypes.map(t => (t.id === editingType.id ? editingType : t));
 
-    saveSettings(STORAGE_KEYS.COMPLAINT_TYPES, isAddingType 
-      ? [...complaintTypes, editingType] 
-      : complaintTypes.map(t => t.id === editingType.id ? editingType : t)
-    );
+    setComplaintTypes(nextTypes);
+    setStoreSection('complaintTypes', nextTypes);
+    toast.success(isAddingType ? 'Đã thêm loại khiếu nại mới' : 'Đã cập nhật loại khiếu nại');
 
     setEditingType(null);
     setIsAddingType(false);
+    setTypeDialogOpen(false);
   };
 
-  const handleDeleteType = (id: string) => {
-    const updated = complaintTypes.filter(t => t.id !== id);
+  const handleConfirmDeleteType = () => {
+    if (!deleteTypeId) return;
+    const updated = complaintTypes.filter(t => t.id !== deleteTypeId);
     setComplaintTypes(updated);
-    saveSettings(STORAGE_KEYS.COMPLAINT_TYPES, updated);
-    toast.success('✅ Đã xóa loại khiếu nại');
+    setStoreSection('complaintTypes', updated);
+    toast.success('Đã xóa loại khiếu nại');
+    setDeleteTypeId(null);
   };
 
   const handleToggleTypeActive = (id: string) => {
-    const updated = complaintTypes.map(t => 
+    const updated = complaintTypes.map(t =>
       t.id === id ? { ...t, isActive: !t.isActive } : t
     );
     setComplaintTypes(updated);
-    saveSettings(STORAGE_KEYS.COMPLAINT_TYPES, updated);
-    toast.success('✅ Đã cập nhật trạng thái');
+    setStoreSection('complaintTypes', updated);
+    toast.success('Đã cập nhật trạng thái');
   };
 
   const handleResetTypes = () => {
-    setComplaintTypes(defaultComplaintTypes);
-    saveSettings(STORAGE_KEYS.COMPLAINT_TYPES, defaultComplaintTypes);
-    toast.info('ℹ️ Đã khôi phục cài đặt mặc định');
+    const defaults = clone(defaultComplaintTypes);
+    setComplaintTypes(defaults);
+    setStoreSection('complaintTypes', defaults);
+    toast.info('Đã khôi phục cài đặt mặc định');
   };
 
   // ============================================
   // RENDER
   // ============================================
 
+    React.useEffect(() => {
+      if (activeTab !== 'sla') {
+        return;
+      }
+
+      registerSlaActions([
+        <SettingsActionButton key="save" onClick={handleSaveSLA}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerSlaActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'complaint-types') {
+        return;
+      }
+
+      registerComplaintTypeActions([
+        <SettingsActionButton key="add" onClick={handleAddType}>
+          <Plus className="h-4 w-4" /> Thêm loại mới
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerComplaintTypeActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'card-colors') {
+        return;
+      }
+
+      registerCardColorActions([
+        <SettingsActionButton key="save" onClick={handleSaveCardColors}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerCardColorActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'templates') {
+        return;
+      }
+
+      registerTemplateActions([
+        <SettingsActionButton key="add" onClick={handleAddTemplate}>
+          <Plus className="h-4 w-4" /> Thêm mẫu
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerTemplateActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'notifications') {
+        return;
+      }
+
+      registerNotificationActions([
+        <SettingsActionButton key="save" onClick={() => {
+          handleSaveNotifications();
+          handleSaveReminders();
+        }}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerNotificationActions]);
+
+    React.useEffect(() => {
+      if (activeTab !== 'public-tracking') {
+        return;
+      }
+
+      registerPublicTrackingActions([
+        <SettingsActionButton key="save" onClick={handleSavePublicTracking}>
+          <Save className="h-4 w-4" /> Lưu cài đặt
+        </SettingsActionButton>,
+      ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, registerPublicTrackingActions]);
+
+  const tabs = React.useMemo(
+    () => [
+      { value: 'sla', label: 'SLA' },
+      { value: 'complaint-types', label: 'Loại KN' },
+      { value: 'card-colors', label: 'Màu card' },
+      { value: 'templates', label: 'Mẫu phản hồi' },
+      { value: 'notifications', label: 'Thông báo' },
+      { value: 'public-tracking', label: 'Tracking' },
+    ],
+    [],
+  );
+
   return (
-    <ResponsiveContainer maxWidth="full" padding={isMobile ? "sm" : "md"}>
-      <Tabs defaultValue="sla" className="space-y-6">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3' : 'grid-cols-7'}`}>
-          <TabsTrigger value="sla" className={isMobile ? 'text-xs' : ''}>
-            <Clock className="h-4 w-4 mr-2" />
-            {!isMobile && 'SLA'}
-          </TabsTrigger>
-          <TabsTrigger value="complaint-types" className={isMobile ? 'text-xs' : ''}>
-            <AlertCircle className="h-4 w-4 mr-2" />
-            {!isMobile && 'Loại KN'}
-          </TabsTrigger>
-          <TabsTrigger value="card-colors" className={isMobile ? 'text-xs' : ''}>
-            <AlertCircle className="h-4 w-4 mr-2" />
-            {!isMobile && 'Màu card'}
-          </TabsTrigger>
-          <TabsTrigger value="templates" className={isMobile ? 'text-xs' : ''}>
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {!isMobile && 'Mẫu phản hồi'}
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className={isMobile ? 'text-xs' : ''}>
-            <Bell className="h-4 w-4 mr-2" />
-            {!isMobile && 'Thông báo'}
-          </TabsTrigger>
-          <TabsTrigger value="public-tracking" className={isMobile ? 'text-xs' : ''}>
-            <LinkIcon className="h-4 w-4 mr-2" />
-            {!isMobile && 'Tracking'}
-          </TabsTrigger>
-        </TabsList>
+      <div className="space-y-6">
+        <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
 
         {/* ============================================ */}
         {/* TAB 1: SLA SETTINGS */}
         {/* ============================================ */}
-        <TabsContent value="sla" className="space-y-4">
+        <TabsContent value="sla" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Cài đặt SLA (Service Level Agreement)</CardTitle>
@@ -724,137 +913,42 @@ export function ComplaintsSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Low Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500" />
-                  <h3 className="font-semibold">Ưu tiên thấp</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="low-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="low-response"
-                      type="number"
-                      value={sla.low.responseTime}
-                      onChange={(e) => handleSLAChange('low', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="low-resolve">Thời gian giải quyết tối đa (giờ)</Label>
-                    <Input
-                      id="low-resolve"
-                      type="number"
-                      value={sla.low.resolveTime}
-                      onChange={(e) => handleSLAChange('low', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Medium Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                  <h3 className="font-semibold">Ưu tiên trung bình</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="medium-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="medium-response"
-                      type="number"
-                      value={sla.medium.responseTime}
-                      onChange={(e) => handleSLAChange('medium', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="medium-resolve">Thời gian giải quyết tối đa (giờ)</Label>
-                    <Input
-                      id="medium-resolve"
-                      type="number"
-                      value={sla.medium.resolveTime}
-                      onChange={(e) => handleSLAChange('medium', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* High Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-orange-500" />
-                  <h3 className="font-semibold">Ưu tiên cao</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="high-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="high-response"
-                      type="number"
-                      value={sla.high.responseTime}
-                      onChange={(e) => handleSLAChange('high', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="high-resolve">Thời gian giải quyết tối đa (giờ)</Label>
-                    <Input
-                      id="high-resolve"
-                      type="number"
-                      value={sla.high.resolveTime}
-                      onChange={(e) => handleSLAChange('high', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Urgent Priority */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-500" />
-                  <h3 className="font-semibold">Ưu tiên khẩn cấp</h3>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="urgent-response">Thời gian phản hồi tối đa (phút)</Label>
-                    <Input
-                      id="urgent-response"
-                      type="number"
-                      value={sla.urgent.responseTime}
-                      onChange={(e) => handleSLAChange('urgent', 'responseTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="urgent-resolve">Thời gian giải quyết tối đa (giờ)</Label>
-                    <Input
-                      id="urgent-resolve"
-                      type="number"
-                      value={sla.urgent.resolveTime}
-                      onChange={(e) => handleSLAChange('urgent', 'resolveTime', e.target.value)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-4">
-                <Button onClick={handleSaveSLA}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-                <Button variant="outline" onClick={handleResetSLA}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Khôi phục mặc định
-                </Button>
-              </div>
+              {SLA_PRIORITY_CONFIGS.map(({ key, label, description, indicatorClass }) => (
+                <SettingsFormSection
+                  key={key}
+                  title={label}
+                  description={description}
+                  badge={(
+                    <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
+                      <span className={cn('h-2 w-2 rounded-full', indicatorClass)} />
+                      SLA
+                    </span>
+                  )}
+                >
+                  <SettingsFormGrid>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${key}-response`}>Thời gian phản hồi tối đa (phút)</Label>
+                      <Input
+                        id={`${key}-response`}
+                        type="number"
+                        min="0"
+                        value={sla[key].responseTime}
+                        onChange={(e) => handleSLAChange(key, 'responseTime', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${key}-resolve`}>Thời gian giải quyết tối đa (giờ)</Label>
+                      <Input
+                        id={`${key}-resolve`}
+                        type="number"
+                        min="0"
+                        value={sla[key].resolveTime}
+                        onChange={(e) => handleSLAChange(key, 'resolveTime', e.target.value)}
+                      />
+                    </div>
+                  </SettingsFormGrid>
+                </SettingsFormSection>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
@@ -862,7 +956,7 @@ export function ComplaintsSettingsPage() {
         {/* ============================================ */}
         {/* TAB 2: COMPLAINT TYPES */}
         {/* ============================================ */}
-        <TabsContent value="complaint-types" className="space-y-4">
+        <TabsContent value="complaint-types" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Loại khiếu nại</CardTitle>
@@ -871,17 +965,6 @@ export function ComplaintsSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button onClick={handleAddType} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Thêm loại mới
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleResetTypes}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Khôi phục mặc định
-                </Button>
-              </div>
 
               {/* Types Table */}
               <div className="border rounded-lg">
@@ -892,7 +975,7 @@ export function ComplaintsSettingsPage() {
                       <TableHead>Tên loại</TableHead>
                       <TableHead>Mô tả</TableHead>
                       <TableHead className="w-[100px]">Trạng thái</TableHead>
-                      <TableHead className="w-[120px]">Thao tác</TableHead>
+                      <TableHead className="w-[80px] text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -916,23 +999,26 @@ export function ComplaintsSettingsPage() {
                               onCheckedChange={() => handleToggleTypeActive(type.id)}
                             />
                           </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditType(type)}
-                              >
-                                Sửa
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteType(type.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditType(type)}>
+                                  Sửa
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => setDeleteTypeId(type.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  Xóa
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))
@@ -940,74 +1026,98 @@ export function ComplaintsSettingsPage() {
                   </TableBody>
                 </Table>
               </div>
-
-              {/* Edit Form */}
-              {editingType && (
-                <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold">
-                      {isAddingType ? 'Thêm loại khiếu nại mới' : 'Chỉnh sửa loại khiếu nại'}
-                    </h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingType(null);
-                        setIsAddingType(false);
-                      }}
-                    >
-                      Hủy
-                    </Button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="type-name">Tên loại khiếu nại *</Label>
-                      <Input
-                        id="type-name"
-                        value={editingType.name}
-                        onChange={(e) => setEditingType({ ...editingType, name: e.target.value })}
-                        placeholder="VD: Sản phẩm lỗi"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="type-description">Mô tả</Label>
-                      <Textarea
-                        id="type-description"
-                        value={editingType.description}
-                        onChange={(e) => setEditingType({ ...editingType, description: e.target.value })}
-                        placeholder="VD: Sản phẩm có lỗi kỹ thuật hoặc hỏng hóc"
-                        rows={3}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="type-active"
-                        checked={editingType.isActive}
-                        onCheckedChange={(checked) => setEditingType({ ...editingType, isActive: checked })}
-                      />
-                      <Label htmlFor="type-active" className="cursor-pointer">
-                        Kích hoạt
-                      </Label>
-                    </div>
-                  </div>
-
-                  <Button onClick={handleSaveType}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {isAddingType ? 'Thêm loại' : 'Lưu thay đổi'}
-                  </Button>
-                </div>
-              )}
             </CardContent>
           </Card>
+
+          {/* Edit/Add Type Dialog */}
+          <Dialog open={typeDialogOpen} onOpenChange={(open) => {
+            setTypeDialogOpen(open);
+            if (!open) {
+              setEditingType(null);
+              setIsAddingType(false);
+            }
+          }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {isAddingType ? 'Thêm loại khiếu nại mới' : 'Chỉnh sửa loại khiếu nại'}
+                </DialogTitle>
+                <DialogDescription>
+                  {isAddingType 
+                    ? 'Điền thông tin để tạo loại khiếu nại mới' 
+                    : 'Cập nhật thông tin loại khiếu nại'}
+                </DialogDescription>
+              </DialogHeader>
+              
+              {editingType && (
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="type-name">Tên loại khiếu nại *</Label>
+                    <Input
+                      id="type-name"
+                      value={editingType.name}
+                      onChange={(e) => setEditingType({ ...editingType, name: e.target.value })}
+                      placeholder="VD: Sản phẩm lỗi"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="type-description">Mô tả</Label>
+                    <Textarea
+                      id="type-description"
+                      value={editingType.description}
+                      onChange={(e) => setEditingType({ ...editingType, description: e.target.value })}
+                      placeholder="VD: Sản phẩm có lỗi kỹ thuật hoặc hỏng hóc"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="type-active"
+                      checked={editingType.isActive}
+                      onCheckedChange={(checked) => setEditingType({ ...editingType, isActive: checked })}
+                    />
+                    <Label htmlFor="type-active" className="cursor-pointer">
+                      Kích hoạt
+                    </Label>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setTypeDialogOpen(false);
+                  setEditingType(null);
+                  setIsAddingType(false);
+                }}>
+                  Hủy
+                </Button>
+                <Button onClick={handleSaveType}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isAddingType ? 'Thêm loại' : 'Lưu thay đổi'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Type Confirm Dialog */}
+          <ConfirmDialog
+            open={!!deleteTypeId}
+            onOpenChange={(open) => !open && setDeleteTypeId(null)}
+            title="Xóa loại khiếu nại"
+            description="Bạn có chắc chắn muốn xóa loại khiếu nại này? Hành động này không thể hoàn tác."
+            confirmText="Xóa"
+            cancelText="Hủy"
+            variant="destructive"
+            onConfirm={handleConfirmDeleteType}
+          />
         </TabsContent>
 
         {/* ============================================ */}
         {/* TAB 3: CARD COLORS */}
         {/* ============================================ */}
-        <TabsContent value="card-colors" className="space-y-4">
+        <TabsContent value="card-colors" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Màu sắc card khiếu nại</CardTitle>
@@ -1016,76 +1126,84 @@ export function ComplaintsSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Help Text */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-900 font-medium mb-2">💡 Hướng dẫn nhập màu Tailwind CSS:</p>
-                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                  <li>Định dạng: <code className="bg-blue-100 px-1 rounded">bg-[màu]-[độ đậm]</code> hoặc <code className="bg-blue-100 px-1 rounded">border-[màu]-[độ đậm]</code></li>
+              <SettingsFormSection
+                title="Hướng dẫn nhập màu Tailwind"
+                description="Áp dụng đồng nhất giữa màu nền (bg-*) và viền (border-*) để card trông hài hòa."
+                className="bg-blue-50/80 border-blue-200"
+                contentClassName="space-y-3"
+              >
+                <p className="text-sm text-blue-900 font-medium">💡 Gợi ý:</p>
+                <ul className="list-inside list-disc text-sm text-blue-800 space-y-1">
+                  <li>Sử dụng định dạng <code className="bg-blue-100 px-1 rounded">bg-[màu]-[độ đậm]</code> và <code className="bg-blue-100 px-1 rounded">border-[màu]-[độ đậm]</code>.</li>
                   <li>Ví dụ: <code className="bg-blue-100 px-1 rounded">bg-red-50 border-red-400</code></li>
-                  <li>Màu: red, blue, green, yellow, amber, slate, gray...</li>
-                  <li>Độ đậm: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900</li>
+                  <li>Dãy màu hợp lệ: red, blue, green, yellow, amber, slate, gray,...</li>
+                  <li>Độ đậm phổ biến: 50 → 900</li>
                 </ul>
-              </div>
+              </SettingsFormSection>
 
-              {/* Enable/Disable Options */}
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h3 className="font-semibold">Bật/Tắt hiển thị màu</h3>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="enable-overdue">Màu quá hạn</Label>
-                    <p className="text-sm text-muted-foreground">Hiển thị màu đỏ cho khiếu nại quá hạn (ưu tiên cao nhất)</p>
+              <SettingsFormSection
+                title="Bật/Tắt hiển thị màu"
+                description="Tùy chọn ưu tiên hiển thị: quá hạn → độ ưu tiên → trạng thái."
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="enable-overdue">Màu quá hạn</Label>
+                      <p className="text-sm text-muted-foreground">Nhấn mạnh các khiếu nại vượt SLA.</p>
+                    </div>
+                    <Switch
+                      id="enable-overdue"
+                      checked={cardColors.enableOverdueColor}
+                      onCheckedChange={() => handleCardColorToggle('enableOverdueColor')}
+                    />
                   </div>
-                  <Switch
-                    id="enable-overdue"
-                    checked={cardColors.enableOverdueColor}
-                    onCheckedChange={() => handleCardColorToggle('enableOverdueColor')}
-                  />
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="enable-priority">Màu theo độ ưu tiên</Label>
-                    <p className="text-sm text-muted-foreground">Hiển thị màu theo mức độ ưu tiên (thấp/trung/cao/khẩn cấp)</p>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="enable-priority">Màu theo độ ưu tiên</Label>
+                      <p className="text-sm text-muted-foreground">Thể hiện mức độ ảnh hưởng của khiếu nại.</p>
+                    </div>
+                    <Switch
+                      id="enable-priority"
+                      checked={cardColors.enablePriorityColors}
+                      onCheckedChange={() => handleCardColorToggle('enablePriorityColors')}
+                    />
                   </div>
-                  <Switch
-                    id="enable-priority"
-                    checked={cardColors.enablePriorityColors}
-                    onCheckedChange={() => handleCardColorToggle('enablePriorityColors')}
-                  />
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="enable-status">Màu theo trạng thái</Label>
-                    <p className="text-sm text-muted-foreground">Hiển thị màu theo trạng thái xử lý (ưu tiên thấp nhất)</p>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="enable-status">Màu theo trạng thái</Label>
+                      <p className="text-sm text-muted-foreground">Phân loại theo tiến trình xử lý.</p>
+                    </div>
+                    <Switch
+                      id="enable-status"
+                      checked={cardColors.enableStatusColors}
+                      onCheckedChange={() => handleCardColorToggle('enableStatusColors')}
+                    />
                   </div>
-                  <Switch
-                    id="enable-status"
-                    checked={cardColors.enableStatusColors}
-                    onCheckedChange={() => handleCardColorToggle('enableStatusColors')}
-                  />
                 </div>
-              </div>
+              </SettingsFormSection>
 
-              {/* Overdue Color */}
               {cardColors.enableOverdueColor && (
-                <div className="space-y-3 p-4 border rounded-lg">
-                  <h3 className="font-semibold text-red-600">Màu quá hạn SLA</h3>
+                <SettingsFormSection
+                  title="Màu quá hạn SLA"
+                  description="Áp dụng cho các khiếu nại vượt SLA, hiển thị trước các màu khác."
+                  className="border border-destructive/30"
+                >
                   <TailwindColorPicker
                     value={cardColors.overdueColor}
                     onChange={handleOverdueColorChange}
                     label="Màu nền và viền"
                     placeholder="Ví dụ: bg-red-50 border-red-400"
                   />
-                </div>
+                </SettingsFormSection>
               )}
 
-              {/* Priority Colors */}
               {cardColors.enablePriorityColors && (
-                <div className="space-y-3 p-4 border rounded-lg">
-                  <h3 className="font-semibold">Màu theo độ ưu tiên</h3>
-                  
+                <SettingsFormSection
+                  title="Màu theo độ ưu tiên"
+                  description="Sử dụng dải màu ấm từ thấp → khẩn cấp để dễ phân biệt."
+                >
                   <div className="space-y-4">
                     <TailwindColorPicker
                       value={cardColors.priorityColors.low}
@@ -1115,14 +1233,14 @@ export function ComplaintsSettingsPage() {
                       placeholder="Ví dụ: bg-red-100 border-red-300"
                     />
                   </div>
-                </div>
+                </SettingsFormSection>
               )}
 
-              {/* Status Colors */}
               {cardColors.enableStatusColors && (
-                <div className="space-y-3 p-4 border rounded-lg">
-                  <h3 className="font-semibold">Màu theo trạng thái</h3>
-                  
+                <SettingsFormSection
+                  title="Màu theo trạng thái"
+                  description="Dùng tông màu lạnh để thể hiện tiến trình xử lý."
+                >
                   <div className="space-y-4">
                     <TailwindColorPicker
                       value={cardColors.statusColors.pending}
@@ -1152,20 +1270,8 @@ export function ComplaintsSettingsPage() {
                       placeholder="Ví dụ: bg-gray-50 border-gray-200"
                     />
                   </div>
-                </div>
+                </SettingsFormSection>
               )}
-
-              {/* Save Button */}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleResetCardColors}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Khôi phục mặc định
-                </Button>
-                <Button onClick={handleSaveCardColors}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1173,27 +1279,13 @@ export function ComplaintsSettingsPage() {
         {/* ============================================ */}
         {/* TAB 3: RESPONSE TEMPLATES */}
         {/* ============================================ */}
-        <TabsContent value="templates" className="space-y-4">
+        <TabsContent value="templates" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Mẫu phản hồi</CardTitle>
-                  <CardDescription>
-                    Tạo và quản lý các mẫu phản hồi nhanh cho khiếu nại
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleResetTemplates} size="sm">
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Khôi phục mặc định
-                  </Button>
-                  <Button onClick={handleAddTemplate} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Thêm mẫu
-                  </Button>
-                </div>
-              </div>
+              <CardTitle>Mẫu phản hồi</CardTitle>
+              <CardDescription>
+                Tạo và quản lý các mẫu phản hồi nhanh cho khiếu nại
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {templates.length === 0 ? (
@@ -1206,7 +1298,7 @@ export function ComplaintsSettingsPage() {
                     <TableRow>
                       <TableHead>Tên mẫu</TableHead>
                       <TableHead>Danh mục</TableHead>
-                      <TableHead className="text-right">Thao tác</TableHead>
+                      <TableHead className="w-[80px] text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1223,41 +1315,58 @@ export function ComplaintsSettingsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingTemplate(template);
-                                setIsAddingTemplate(false);
-                              }}
-                            >
-                              Sửa
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteTemplate(template.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditTemplate(template)}>
+                                Sửa
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => setDeleteTemplateId(template.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
 
-              {/* Edit/Add Template Dialog */}
+          {/* Edit/Add Template Dialog */}
+          <Dialog open={templateDialogOpen} onOpenChange={(open) => {
+            setTemplateDialogOpen(open);
+            if (!open) {
+              setEditingTemplate(null);
+              setIsAddingTemplate(false);
+            }
+          }}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>
+                  {isAddingTemplate ? 'Thêm mẫu phản hồi mới' : 'Chỉnh sửa mẫu phản hồi'}
+                </DialogTitle>
+                <DialogDescription>
+                  {isAddingTemplate 
+                    ? 'Điền thông tin để tạo mẫu phản hồi mới' 
+                    : 'Cập nhật thông tin mẫu phản hồi'}
+                </DialogDescription>
+              </DialogHeader>
+              
               {editingTemplate && (
-                <div className="mt-6 p-4 border rounded-lg space-y-4 bg-muted/50">
-                  <h3 className="font-semibold">
-                    {isAddingTemplate ? 'Thêm mẫu mới' : 'Chỉnh sửa mẫu'}
-                  </h3>
-                  
+                <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="template-name">Tên mẫu</Label>
+                    <Label htmlFor="template-name">Tên mẫu *</Label>
                     <Input
                       id="template-name"
                       value={editingTemplate.name}
@@ -1289,7 +1398,7 @@ export function ComplaintsSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="template-content">Nội dung mẫu</Label>
+                    <Label htmlFor="template-content">Nội dung mẫu *</Label>
                     <Textarea
                       id="template-content"
                       value={editingTemplate.content}
@@ -1298,26 +1407,38 @@ export function ComplaintsSettingsPage() {
                       rows={8}
                     />
                   </div>
-
-                  <div className="flex gap-2">
-                    <Button onClick={handleSaveTemplate}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Lưu
-                    </Button>
-                    <Button variant="outline" onClick={handleCancelEdit}>
-                      Hủy
-                    </Button>
-                  </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCancelEdit}>
+                  Hủy
+                </Button>
+                <Button onClick={handleSaveTemplate}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isAddingTemplate ? 'Thêm mẫu' : 'Lưu thay đổi'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Template Confirm Dialog */}
+          <ConfirmDialog
+            open={!!deleteTemplateId}
+            onOpenChange={(open) => !open && setDeleteTemplateId(null)}
+            title="Xóa mẫu phản hồi"
+            description="Bạn có chắc chắn muốn xóa mẫu phản hồi này? Hành động này không thể hoàn tác."
+            confirmText="Xóa"
+            cancelText="Hủy"
+            variant="destructive"
+            onConfirm={handleConfirmDeleteTemplate}
+          />
         </TabsContent>
 
         {/* ============================================ */}
         {/* TAB 3: NOTIFICATIONS */}
         {/* ============================================ */}
-        <TabsContent value="notifications" className="space-y-4">
+        <TabsContent value="notifications" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Cài đặt thông báo</CardTitle>
@@ -1326,14 +1447,13 @@ export function ComplaintsSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Email Notifications */}
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Thông báo Email
-                </h3>
-                
-                <div className="space-y-3 pl-6">
+              <SettingsFormSection
+                title="Thông báo Email"
+                description="Gửi mail tới nhân viên phụ trách và người tạo khiếu nại."
+                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
+                contentClassName="space-y-3"
+              >
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="email-create" className="cursor-pointer">
                       Khi khiếu nại mới được tạo
@@ -1389,62 +1509,48 @@ export function ComplaintsSettingsPage() {
                     />
                   </div>
                 </div>
-              </div>
+              </SettingsFormSection>
 
-              {/* SMS Notifications */}
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  Thông báo SMS
-                </h3>
-                
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="sms-overdue" className="cursor-pointer">
-                      Cảnh báo quá hạn SLA
-                    </Label>
-                    <Switch
-                      id="sms-overdue"
-                      checked={notifications.smsOnOverdue}
-                      onCheckedChange={() => handleNotificationChange('smsOnOverdue')}
-                    />
-                  </div>
+              <SettingsFormSection
+                title="Thông báo SMS"
+                description="Dùng cho các cảnh báo quan trọng, tránh gửi quá nhiều."
+                badge={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
+              >
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sms-overdue" className="cursor-pointer">
+                    Cảnh báo quá hạn SLA
+                  </Label>
+                  <Switch
+                    id="sms-overdue"
+                    checked={notifications.smsOnOverdue}
+                    onCheckedChange={() => handleNotificationChange('smsOnOverdue')}
+                  />
                 </div>
-              </div>
+              </SettingsFormSection>
 
-              {/* In-App Notifications */}
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Thông báo trong ứng dụng
-                </h3>
-                
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="inapp" className="cursor-pointer">
-                      Bật thông báo in-app (bell icon)
-                    </Label>
-                    <Switch
-                      id="inapp"
-                      checked={notifications.inAppNotifications}
-                      onCheckedChange={() => handleNotificationChange('inAppNotifications')}
-                    />
-                  </div>
+              <SettingsFormSection
+                title="Thông báo trong ứng dụng"
+                description="Hiển thị tại biểu tượng chuông của HRM giúp đội xử lý không bỏ sót."
+                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
+              >
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="inapp" className="cursor-pointer">
+                    Bật thông báo in-app (bell icon)
+                  </Label>
+                  <Switch
+                    id="inapp"
+                    checked={notifications.inAppNotifications}
+                    onCheckedChange={() => handleNotificationChange('inAppNotifications')}
+                  />
                 </div>
-              </div>
+              </SettingsFormSection>
 
-              {/* Reminder Settings */}
-              <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Nhắc nhở tự động
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Hệ thống sẽ tự động gửi thông báo nhắc nhở nếu khiếu nại không có hành động sau một khoảng thời gian
-                </p>
-                
-                <div className="space-y-4 pl-6">
-                  {/* Enable/Disable */}
+              <SettingsFormSection
+                title="Nhắc nhở tự động"
+                description="Gửi cảnh báo nếu ticket không được cập nhật trong thời gian quy định."
+                badge={<Clock className="h-4 w-4 text-muted-foreground" />}
+              >
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <Label htmlFor="reminders-enabled" className="cursor-pointer">
@@ -1462,83 +1568,55 @@ export function ComplaintsSettingsPage() {
                   </div>
 
                   {reminders.enabled && (
-                    <div className="space-y-4 pl-4">
-                      {/* First Reminder */}
-                      <div className="flex items-center gap-4">
-                        <Label htmlFor="first-reminder" className="text-sm w-40">
-                          Nhắc nhở lần 1 (giờ):
-                        </Label>
-                        <Input
-                          id="first-reminder"
-                          type="number"
-                          min="1"
-                          value={reminders.firstReminderHours}
-                          onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)}
-                          className="w-24"
-                        />
-                        <span className="text-xs text-muted-foreground">Mặc định: 4 giờ</span>
-                      </div>
-
-                      {/* Second Reminder */}
-                      <div className="flex items-center gap-4">
-                        <Label htmlFor="second-reminder" className="text-sm w-40">
-                          Nhắc nhở lần 2 (giờ):
-                        </Label>
-                        <Input
-                          id="second-reminder"
-                          type="number"
-                          min="1"
-                          value={reminders.secondReminderHours}
-                          onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)}
-                          className="w-24"
-                        />
-                        <span className="text-xs text-muted-foreground">Mặc định: 8 giờ</span>
-                      </div>
-
-                      {/* Escalation */}
-                      <div className="flex items-center gap-4">
-                        <Label htmlFor="escalation" className="text-sm w-40 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3 text-destructive" />
-                          Báo động leo thang (giờ):
-                        </Label>
-                        <Input
-                          id="escalation"
-                          type="number"
-                          min="1"
-                          value={reminders.escalationHours}
-                          onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)}
-                          className="w-24"
-                        />
-                        <span className="text-xs text-muted-foreground">Mặc định: 24 giờ</span>
-                      </div>
+                    <div className="space-y-4">
+                      <SettingsFormGrid columns={3} className="items-start">
+                        <div className="space-y-2">
+                          <Label htmlFor="first-reminder">Nhắc nhở lần 1 (giờ)</Label>
+                          <Input
+                            id="first-reminder"
+                            type="number"
+                            min="1"
+                            value={reminders.firstReminderHours}
+                            onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)}
+                          />
+                          <p className="text-xs text-muted-foreground">Mặc định: 4 giờ</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="second-reminder">Nhắc nhở lần 2 (giờ)</Label>
+                          <Input
+                            id="second-reminder"
+                            type="number"
+                            min="1"
+                            value={reminders.secondReminderHours}
+                            onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)}
+                          />
+                          <p className="text-xs text-muted-foreground">Mặc định: 8 giờ</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="escalation" className="flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 text-destructive" />
+                            Báo động leo thang (giờ)
+                          </Label>
+                          <Input
+                            id="escalation"
+                            type="number"
+                            min="1"
+                            value={reminders.escalationHours}
+                            onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)}
+                          />
+                          <p className="text-xs text-muted-foreground">Mặc định: 24 giờ</p>
+                        </div>
+                      </SettingsFormGrid>
 
                       <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded">
-                        <p>• Hệ thống chỉ gửi nhắc nhở cho khiếu nại ở trạng thái Pending hoặc Investigating</p>
-                        <p>• Thời gian tính từ lúc tạo khiếu nại hoặc hành động cuối cùng</p>
-                        <p>• Thông báo sẽ gửi cho nhân viên được phân công và người tạo khiếu nại</p>
+                        <p>• Áp dụng cho trạng thái Pending/Investigating.</p>
+                        <p>• Thời gian tính từ hành động gần nhất.</p>
+                        <p>• Gửi cho người phụ trách và người tạo ticket.</p>
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Save Button */}
-              <div className="flex gap-2 pt-4">
-                <Button onClick={() => {
-                  handleSaveNotifications();
-                  handleSaveReminders();
-                }}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-                <Button variant="outline" onClick={() => {
-                  handleResetNotifications();
-                  handleResetReminders();
-                }}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Khôi phục mặc định
-                </Button>
-              </div>
+              </SettingsFormSection>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1546,7 +1624,7 @@ export function ComplaintsSettingsPage() {
         {/* ============================================ */}
         {/* TAB 4: PUBLIC TRACKING */}
         {/* ============================================ */}
-        <TabsContent value="public-tracking" className="space-y-4">
+        <TabsContent value="public-tracking" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Liên kết theo dõi công khai</CardTitle>
@@ -1555,75 +1633,80 @@ export function ComplaintsSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label htmlFor="tracking-enabled" className="cursor-pointer">
-                      Bật tính năng tracking công khai
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Tạo link công khai để khách hàng theo dõi khiếu nại
-                    </p>
+              <SettingsFormSection
+                title="Cấu hình truy cập công khai"
+                description="Kiểm soát thông tin nào được chia sẻ cho khách hàng qua đường link."
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="tracking-enabled" className="cursor-pointer">
+                        Bật tính năng tracking công khai
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Tạo link để khách hàng tự tra cứu tiến độ
+                      </p>
+                    </div>
+                    <Switch
+                      id="tracking-enabled"
+                      checked={publicTracking.enabled}
+                      onCheckedChange={() => handlePublicTrackingChange('enabled')}
+                    />
                   </div>
-                  <Switch
-                    id="tracking-enabled"
-                    checked={publicTracking.enabled}
-                    onCheckedChange={() => handlePublicTrackingChange('enabled')}
-                  />
+
+                  {publicTracking.enabled && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="allow-comments" className="cursor-pointer">
+                            Cho phép khách hàng comment
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Thu thập thêm dữ liệu và bằng chứng trực tiếp từ khách hàng
+                          </p>
+                        </div>
+                        <Switch
+                          id="allow-comments"
+                          checked={publicTracking.allowCustomerComments}
+                          onCheckedChange={() => handlePublicTrackingChange('allowCustomerComments')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-employee" className="cursor-pointer">
+                            Hiển thị tên nhân viên xử lý
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Tăng tính minh bạch với khách hàng
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-employee"
+                          checked={publicTracking.showEmployeeName}
+                          onCheckedChange={() => handlePublicTrackingChange('showEmployeeName')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-timeline" className="cursor-pointer">
+                            Hiển thị timeline xử lý
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Cho phép khách hàng xem toàn bộ lịch sử hành động
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-timeline"
+                          checked={publicTracking.showTimeline}
+                          onCheckedChange={() => handlePublicTrackingChange('showTimeline')}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                {publicTracking.enabled && (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label htmlFor="allow-comments" className="cursor-pointer">
-                          Cho phép khách hàng comment
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Khách hàng có thể thêm bình luận vào khiếu nại
-                        </p>
-                      </div>
-                      <Switch
-                        id="allow-comments"
-                        checked={publicTracking.allowCustomerComments}
-                        onCheckedChange={() => handlePublicTrackingChange('allowCustomerComments')}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label htmlFor="show-employee" className="cursor-pointer">
-                          Hiển thị tên nhân viên xử lý
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Khách hàng có thể xem tên nhân viên được phân công
-                        </p>
-                      </div>
-                      <Switch
-                        id="show-employee"
-                        checked={publicTracking.showEmployeeName}
-                        onCheckedChange={() => handlePublicTrackingChange('showEmployeeName')}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <Label htmlFor="show-timeline" className="cursor-pointer">
-                          Hiển thị timeline xử lý
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Khách hàng có thể xem lịch sử xử lý chi tiết
-                        </p>
-                      </div>
-                      <Switch
-                        id="show-timeline"
-                        checked={publicTracking.showTimeline}
-                        onCheckedChange={() => handlePublicTrackingChange('showTimeline')}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+              </SettingsFormSection>
 
               {/* Example */}
               {publicTracking.enabled && (
@@ -1637,22 +1720,10 @@ export function ComplaintsSettingsPage() {
                   </p>
                 </div>
               )}
-
-              {/* Save Button */}
-              <div className="flex gap-2 pt-4">
-                <Button onClick={handleSavePublicTracking}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Lưu cài đặt
-                </Button>
-                <Button variant="outline" onClick={handleResetPublicTracking}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Khôi phục mặc định
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
-    </ResponsiveContainer>
+        </SettingsVerticalTabs>
+      </div>
   );
 }

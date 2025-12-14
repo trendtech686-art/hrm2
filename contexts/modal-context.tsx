@@ -4,8 +4,8 @@ type ModalType = 'dialog' | 'dropdown' | 'popover' | 'sheet' | 'drawer' | 'selec
 
 interface ModalMetadata {
   type: ModalType;
-  zIndex?: number;
-  className?: string;
+  zIndex?: number | undefined;
+  className?: string | undefined;
 }
 
 interface ModalContextType {

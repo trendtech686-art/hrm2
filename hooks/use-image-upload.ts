@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { toast } from 'sonner';
-import { FileUploadAPI, type StagingFile } from '../lib/file-upload-api';
+import { FileUploadAPI, type StagingFile, type ServerFile } from '../lib/file-upload-api';
 
-type EntityType = 'customer' | 'product' | 'supplier' | 'employee';
+type EntityType = 'customer' | 'product' | 'supplier' | 'employee' | 'customer-contract';
 
 type UseImageUploadOptions = {
   /**
-   * Loại entity: 'customer' | 'product' | 'supplier' | 'employee'
+   * Loại entity: 'customer' | 'product' | 'supplier' | 'employee' | 'customer-contract'
    */
   entityType: EntityType;
   
@@ -41,7 +41,7 @@ type UseImageUploadReturn = {
    * Confirm images từ staging → permanent
    * Gọi sau khi save entity thành công
    */
-  confirmImages: (entityId: string, entityData?: Record<string, any>) => Promise<void>;
+  confirmImages: (entityId: string, entityData?: Record<string, any>) => Promise<ServerFile[] | null>;
   
   /**
    * Check xem có images cần confirm không
@@ -103,11 +103,11 @@ export function useImageUpload(options: UseImageUploadOptions): UseImageUploadRe
   const confirmImages = React.useCallback(
     async (entityId: string, entityData?: Record<string, any>) => {
       if (!sessionId || stagingFiles.length === 0) {
-        return;
+        return null;
       }
       
       try {
-        let response;
+        let response: ServerFile[] = [];
         
         switch (entityType) {
           case 'customer':
@@ -117,11 +117,23 @@ export function useImageUpload(options: UseImageUploadOptions): UseImageUploadRe
               entityData
             );
             break;
-            
-          case 'product':
-            response = await FileUploadAPI.confirmProductImages(
+
+          case 'customer-contract':
+            response = await FileUploadAPI.confirmStagingFiles(
               sessionId,
               entityId,
+              'contracts',
+              'contract-file',
+              entityData
+            );
+            break;
+            
+          case 'product':
+            response = await FileUploadAPI.confirmStagingFiles(
+              sessionId,
+              entityId,
+              'products',
+              'gallery',
               entityData
             );
             break;
@@ -131,8 +143,14 @@ export function useImageUpload(options: UseImageUploadOptions): UseImageUploadRe
             throw new Error('Supplier images not implemented yet');
             
           case 'employee':
-            // TODO: Implement when needed
-            throw new Error('Employee images not implemented yet');
+            response = await FileUploadAPI.confirmStagingFiles(
+              sessionId,
+              entityId,
+              'employees',
+              'avatar',
+              entityData
+            );
+            break;
             
           default:
             throw new Error(`Unknown entity type: ${entityType}`);
@@ -148,6 +166,7 @@ export function useImageUpload(options: UseImageUploadOptions): UseImageUploadRe
         setStagingFiles([]);
         setSessionId(null);
         
+        return response;
       } catch (error) {
         console.error('[useImageUpload] Failed to confirm images:', error);
         

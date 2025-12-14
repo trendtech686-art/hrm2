@@ -12,6 +12,14 @@ function daysAgo(days: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
+const SEED_AUTHOR = asSystemId('EMP000001');
+const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({
+  createdAt,
+  updatedAt: createdAt,
+  createdBy,
+  updatedBy: createdBy,
+});
+
 export const data = [
   {
     systemId: asSystemId('INVRECEIPT000001'),
@@ -37,6 +45,7 @@ export const data = [
         unitPrice: 5_000_000,
       },
     ],
+    ...buildAuditFields('2025-11-19T08:00:00Z'),
   },
   {
     systemId: asSystemId('INVRECEIPT000002'),
@@ -62,5 +71,6 @@ export const data = [
         unitPrice: 1_500_000,
       },
     ],
+    ...buildAuditFields('2025-11-21T08:00:00Z'),
   },
 ] satisfies InventoryReceipt[];

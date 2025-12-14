@@ -1,18 +1,25 @@
 import * as React from "react";
+import { Plus, MoreHorizontal } from "lucide-react";
 import { useTargetGroupStore } from "./store.ts";
 import type { TargetGroup } from "./types.ts";
 import { TargetGroupForm, type TargetGroupFormValues } from "./form.tsx";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { Button } from "../../../components/ui/button.tsx";
-import { MoreHorizontal, Pencil, Trash2, PowerOff, Power } from "lucide-react";
+import { Switch } from "../../../components/ui/switch.tsx";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
-import { Badge } from "../../../components/ui/badge.tsx";
 import { toast } from "sonner";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import type { RegisterTabActions } from "../use-tab-action-registry.ts";
 
-export function TargetGroupsPageContent() {
+type TargetGroupsPageContentProps = {
+  isActive: boolean;
+  onRegisterActions: RegisterTabActions;
+};
+
+export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetGroupsPageContentProps) {
   const { data, add, update, hardDelete } = useTargetGroupStore();
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -20,15 +27,42 @@ export function TargetGroupsPageContent() {
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
-  const handleEdit = (item: TargetGroup) => { setEditingItem(item); setIsFormOpen(true); };
+  const handleAddNew = React.useCallback(() => {
+    setEditingItem(null);
+    setIsFormOpen(true);
+  }, []);
+
+  const handleEdit = React.useCallback((item: TargetGroup) => { setEditingItem(item); setIsFormOpen(true); }, []);
   const handleDeleteRequest = (systemId: SystemId) => { 
     setIdToDelete(systemId);
     setIsAlertOpen(true);
   };
   
-  const handleToggleStatus = (item: TargetGroup) => {
-    update(item.systemId, { ...item, isActive: !item.isActive });
-    toast.success(item.isActive ? "Đã ngừng hoạt động" : "Đã kích hoạt");
+  const handleToggleDefault = (item: TargetGroup, isDefault: boolean) => {
+    if (isDefault) {
+      // Tắt mặc định của tất cả các nhóm khác
+      data.forEach(d => {
+        if (d.systemId !== item.systemId && d.isDefault) {
+          update(d.systemId, { ...d, isDefault: false });
+        }
+      });
+      update(item.systemId, { ...item, isDefault: true });
+      toast.success(`Đã đặt "${item.name}" làm mặc định`);
+    } else {
+      const other = data.find(d => d.systemId !== item.systemId && d.isActive !== false);
+      if (other) {
+        update(item.systemId, { ...item, isDefault: false });
+        update(other.systemId, { ...other, isDefault: true });
+        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
+      } else {
+        toast.error("Phải có ít nhất một nhóm đối tượng mặc định");
+      }
+    }
+  };
+
+  const handleToggleStatus = (item: TargetGroup, isActive: boolean) => {
+    update(item.systemId, { ...item, isActive });
+    toast.success(isActive ? "Đã kích hoạt" : "Đã ngừng hoạt động");
   };
   
   const confirmDelete = () => {
@@ -43,7 +77,7 @@ export function TargetGroupsPageContent() {
   const handleFormSubmit = (values: TargetGroupFormValues) => {
     try {
       const name = values.name.trim();
-      const normalizedId = values.id.trim().toUpperCase();
+      const normalizedId = values.id?.trim().toUpperCase();
       if (editingItem) {
         const payload: TargetGroup = {
           ...editingItem,
@@ -68,6 +102,18 @@ export function TargetGroupsPageContent() {
     }
   };
 
+  React.useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    onRegisterActions([
+      <SettingsActionButton key="add-target-group" onClick={handleAddNew}>
+        <Plus className="mr-2 h-4 w-4" /> Thêm nhóm đối tượng
+      </SettingsActionButton>,
+    ]);
+  }, [handleAddNew, isActive, onRegisterActions]);
+
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
@@ -76,6 +122,7 @@ export function TargetGroupsPageContent() {
             <TableRow>
               <TableHead>Mã nhóm</TableHead>
               <TableHead>Tên nhóm</TableHead>
+              <TableHead>Mặc định</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead className="text-right">Thao tác</TableHead>
             </TableRow>
@@ -83,7 +130,7 @@ export function TargetGroupsPageContent() {
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   Chưa có dữ liệu
                 </TableCell>
               </TableRow>
@@ -93,9 +140,16 @@ export function TargetGroupsPageContent() {
                   <TableCell className="font-medium">{item.id}</TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
-                    <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                      {item.isActive ? 'Hoạt động' : 'Ngừng'}
-                    </Badge>
+                    <Switch 
+                      checked={item.isDefault ?? false} 
+                      onCheckedChange={(checked) => handleToggleDefault(item, checked)} 
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Switch 
+                      checked={item.isActive ?? true} 
+                      onCheckedChange={(checked) => handleToggleStatus(item, checked)} 
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -109,27 +163,12 @@ export function TargetGroupsPageContent() {
                         <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleEdit(item)}>
-                          <Pencil className="mr-2 h-4 w-4" />
                           Chỉnh sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
-                          {item.isActive ? (
-                            <>
-                              <PowerOff className="mr-2 h-4 w-4" />
-                              Ngừng hoạt động
-                            </>
-                          ) : (
-                            <>
-                              <Power className="mr-2 h-4 w-4" />
-                              Kích hoạt
-                            </>
-                          )}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDeleteRequest(item.systemId)}
                           className="text-destructive"
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
                           Xóa
                         </DropdownMenuItem>
                       </DropdownMenuContent>

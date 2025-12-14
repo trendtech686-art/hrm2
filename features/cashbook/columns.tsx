@@ -52,7 +52,7 @@ export const getColumns = (
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
         <Checkbox
             checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-            onCheckedChange={(value) => onToggleAll(!!value)}
+            onCheckedChange={(value) => onToggleAll?.(!!value)}
             aria-label="Select all"
         />
     ),
@@ -94,9 +94,9 @@ export const getColumns = (
       <DataTableColumnHeader
         title="Mã phiếu"
         sortKey="id"
-        isSorted={sorting.id === 'id'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'id'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -116,9 +116,9 @@ export const getColumns = (
       <DataTableColumnHeader
         title="Ngày"
         sortKey="date"
-        isSorted={sorting.id === 'date'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'date'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => row?.date ? formatDateDisplay(row.date) : 'N/A',
@@ -134,9 +134,9 @@ export const getColumns = (
       <DataTableColumnHeader
         title="Số tiền"
         sortKey="amount"
-        isSorted={sorting.id === 'amount'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'amount'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -275,9 +275,9 @@ export const getColumns = (
       <DataTableColumnHeader
         title="Ngày tạo"
         sortKey="createdAt"
-        isSorted={sorting.id === 'createdAt'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'createdAt'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => row?.createdAt ? formatDateTimeDisplay(row.createdAt) : 'N/A',
@@ -316,19 +316,9 @@ export const getColumns = (
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(generatePath(viewRoute, { systemId: transaction.systemId }));
-                  }}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Xem chi tiết
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
                     navigate(generatePath(editRoute, { systemId: transaction.systemId }));
                   }}
                 >
-                  <Pencil className="mr-2 h-4 w-4" />
                   Chỉnh sửa
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -339,7 +329,6 @@ export const getColumns = (
                     onCancel(transaction.systemId);
                   }}
                 >
-                  <XCircle className="mr-2 h-4 w-4" />
                   Hủy phiếu
                 </DropdownMenuItem>
               </DropdownMenuContent>

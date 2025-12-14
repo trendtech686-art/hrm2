@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils.ts"
 import { Button } from "./button.tsx"
 
 type CarouselContextProps = {
-  carouselRef: React.RefObject<HTMLDivElement>;
+  carouselRef: React.RefObject<HTMLDivElement | null>;
   scrollPrev: () => void;
   scrollNext: () => void;
   canScrollPrev: boolean;

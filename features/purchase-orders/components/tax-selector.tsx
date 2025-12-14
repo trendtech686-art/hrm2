@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { useTaxStore } from '../../settings/taxes/store.ts';
-import { useTaxSettingsStore } from '../../settings/tax-settings-store.ts';
 import {
   Select,
   SelectContent,
@@ -16,25 +15,20 @@ interface TaxSelectorProps {
 }
 
 export function TaxSelector({ value, onChange, type }: TaxSelectorProps) {
-  const { data: taxes, getDefault } = useTaxStore();
-  const { defaultSaleTaxId, defaultPurchaseTaxId } = useTaxSettingsStore();
+  const { data: taxes, getDefaultSale, getDefaultPurchase } = useTaxStore();
   
-  // Show all taxes, not filtered by type
+  // Show all taxes
   const availableTaxes = React.useMemo(() => taxes, [taxes]);
 
   // Get default if no value
   React.useEffect(() => {
     if (!value) {
-      // Use default from settings based on type
-      const defaultTaxId = type === 'sale' ? defaultSaleTaxId : defaultPurchaseTaxId;
-      if (defaultTaxId) {
-        const defaultTax = taxes.find((t) => t.systemId === defaultTaxId);
-        if (defaultTax) {
-          onChange(defaultTax.systemId, defaultTax.rate);
-        }
+      const defaultTax = type === 'sale' ? getDefaultSale() : getDefaultPurchase();
+      if (defaultTax) {
+        onChange(defaultTax.systemId, defaultTax.rate);
       }
     }
-  }, [value, type, defaultSaleTaxId, defaultPurchaseTaxId, taxes, onChange]);
+  }, [value, type, getDefaultSale, getDefaultPurchase, onChange]);
 
   const handleChange = (taxId: string) => {
     const tax = taxes.find((t) => t.systemId === taxId);

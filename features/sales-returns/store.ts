@@ -1,6 +1,6 @@
 ﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { createCrudStore } from '../../lib/store-factory.ts';
-import type { SalesReturn } from './types.ts';
+import type { SalesReturn, ReturnLineItem } from './types.ts';
 import { data as initialData } from './data.ts';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
@@ -11,16 +11,43 @@ import { useOrderStore } from '../orders/store.ts';
 import { useProductStore } from '../products/store.ts';
 import { useStockHistoryStore } from '../stock-history/store.ts';
 import { useCustomerStore } from '../customers/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
-import { useReceiptTypeStore } from '../settings/receipt-types/store.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
+import { createPaymentDocument, createReceiptDocument } from '../finance/document-helpers.ts';
 import { useShippingPartnerStore } from '../settings/shipping/store.ts';
-import { useTargetGroupStore } from '../settings/target-groups/store.ts';
-import type { Payment } from '../payments/types.ts';
-import type { Receipt } from '../receipts/types.ts';
 import { asBusinessId, asSystemId, type SystemId } from '../../lib/id-types.ts';
+import { isComboProduct } from '../products/combo-utils.ts';
+import { generateSystemId, getMaxSystemIdCounter } from '../../lib/id-utils.ts';
+
+/**
+ * ✅ Helper: Expand combo return items to child products
+ * When a combo is returned, we need to add stock back to child products
+ */
+const getReturnStockItems = (returnItems: ReturnLineItem[]) => {
+    const { findById } = useProductStore.getState();
+    const expandedItems: { productSystemId: SystemId; productName: string; quantity: number }[] = [];
+    
+    returnItems.forEach(item => {
+        const product = findById(item.productSystemId);
+        if (product && isComboProduct(product) && product.comboItems) {
+            // Combo → expand to child products
+            product.comboItems.forEach(comboItem => {
+                const childProduct = findById(comboItem.productSystemId);
+                expandedItems.push({
+                    productSystemId: comboItem.productSystemId,
+                    productName: childProduct?.name || 'SP không xác định',
+                    quantity: comboItem.quantity * item.returnQuantity
+                });
+            });
+        } else {
+            // Regular product
+            expandedItems.push({
+                productSystemId: asSystemId(item.productSystemId),
+                productName: item.productName,
+                quantity: item.returnQuantity
+            });
+        }
+    });
+    return expandedItems;
+};
 
 const baseStore = createCrudStore<SalesReturn>(initialData, 'sales-returns', {
   persistKey: 'hrm-sales-returns' // ✅ Enable localStorage persistence
@@ -103,24 +130,19 @@ const augmentedMethods = {
     const { update: updateOrder, findById: findOrderById, add: addOrder } = useOrderStore.getState();
     const { updateInventory } = useProductStore.getState();
     const { addEntry: addStockHistory } = useStockHistoryStore.getState();
-    const { updateDebt } = useCustomerStore.getState();
-    const { add: addPayment } = usePaymentStore.getState();
-    const { add: addReceipt } = useReceiptStore.getState();
-    const { data: paymentTypes } = usePaymentTypeStore.getState();
-    const { data: receiptTypes } = useReceiptTypeStore.getState();
-    const { accounts } = useCashbookStore.getState();
-    const { data: targetGroups } = useTargetGroupStore.getState();
-    const customerGroupBusinessId = asBusinessId('KHACHHANG');
-    const customerTargetGroup = targetGroups.find(group => group.id === customerGroupBusinessId);
-    const customerTypeSystemId = customerTargetGroup?.systemId ?? targetGroups[0]?.systemId ?? asSystemId('TARGETGROUP000000');
-    const customerTypeName = customerTargetGroup?.name ?? targetGroups[0]?.name ?? 'Khách hàng';
-    
+    const { updateDebt, incrementReturnStats } = useCustomerStore.getState();
     const order = findOrderById(newItemData.orderSystemId);
     if (!order) return { newReturn: null, newOrderSystemId: null };
 
     // ✅ IMPORTANT: Create the return FIRST to get IDs for exchange order
     const newReturn = originalAdd(newItemData);
     if (!newReturn) return { newReturn: null, newOrderSystemId: null };
+
+    // ✅ Update customer return stats
+    const totalReturnQty = newItemData.items.reduce((sum, item) => sum + item.returnQuantity, 0);
+    if (totalReturnQty > 0) {
+        incrementReturnStats(newItemData.customerSystemId, totalReturnQty);
+    }
 
     let newOrderSystemId: SystemId | undefined;
 
@@ -151,6 +173,17 @@ const augmentedMethods = {
         const packagings: any[] = [];
         const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
         
+        // ✅ Helper to get next packaging systemId
+        const PACKAGING_SYSTEM_ID_PREFIX = 'PACKAGE';
+        const allOrders = useOrderStore.getState().data;
+        const allPackagings = allOrders.flatMap(o => o.packagings || []);
+        const maxPackagingCounter = getMaxSystemIdCounter(allPackagings, PACKAGING_SYSTEM_ID_PREFIX);
+        let packagingCounter = maxPackagingCounter;
+        const getNextPackagingSystemId = () => {
+            packagingCounter++;
+            return asSystemId(generateSystemId('packaging', packagingCounter));
+        };
+        
         // Check if using shipping partner or pickup
       const isPickup = newItemData.deliveryMethod === 'pickup';
       const isShippingPartner = newItemData.shippingPartnerId && newItemData.shippingServiceId;
@@ -160,7 +193,7 @@ const augmentedMethods = {
             finalMainStatus = 'Đang giao dịch';
             finalDeliveryStatus = 'Chờ đóng gói';
             packagings.push({
-                systemId: `PKG_NEW_${Date.now()}`,
+                systemId: getNextPackagingSystemId(), // ✅ Use proper format PACKAGE000001
                 id: '',
                 requestDate: now,
           requestingEmployeeId: creatorSystemId,
@@ -180,7 +213,7 @@ const augmentedMethods = {
             const service = partner?.services.find(s => s.id === newItemData.shippingServiceId);
             
             packagings.push({
-                systemId: `PKG_NEW_${Date.now()}`,
+                systemId: getNextPackagingSystemId(), // ✅ Use proper format PACKAGE000001
                 id: '',
                 requestDate: now,
                 confirmDate: now,
@@ -222,6 +255,7 @@ const augmentedMethods = {
             grandTotal: newItemData.finalAmount > 0 ? newItemData.finalAmount : newItemData.grandTotalNew,
             // ✅ Store return value info for display
             linkedSalesReturnId: newReturn.id, // ✅ Fixed: Use newReturn.id (business ID)
+            linkedSalesReturnSystemId: newReturn.systemId, // ✅ Add systemId for linking
             linkedSalesReturnValue: newItemData.totalReturnValue, // Value of returned items
             payments: exchangeOrderPayments, // ✅ Set payments based on sales return scenario
             notes: `Đơn hàng đổi từ phiếu trả ${newReturn.id} của đơn hàng ${order.id}`, // ✅ Fixed: Use newReturn.id
@@ -274,115 +308,116 @@ const augmentedMethods = {
     // Handle Financials AFTER creating the return
     const finalAmount = newItemData.finalAmount;
 
-    if (finalAmount < 0 && newItemData.refunds && newItemData.refunds.length > 0) { // Company needs to refund the customer
-        const refundCategory = paymentTypes.find(pt => pt.name === 'Hoàn tiền khách hàng');
+    if (finalAmount < 0 && newItemData.refunds && newItemData.refunds.length > 0) {
       const createdVoucherIds: SystemId[] = [];
-        
-        // ✅ Create multiple payment vouchers for each refund method
+
       newItemData.refunds.forEach(refund => {
-        const account = accounts.find(acc => acc.systemId === refund.accountSystemId);
-            if (refundCategory && account && refund.amount > 0) {
-                const newPayment: Omit<Payment, 'systemId'> = {
-                    id: asBusinessId(''), // Let payment store generate PC ID
-                    date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-                    amount: refund.amount,
-            recipientTypeSystemId: customerTypeSystemId,
-            recipientTypeName: customerTypeName,
-                    recipientName: newItemData.customerName,
-                    recipientSystemId: newItemData.customerSystemId,
-                    description: `Hoàn tiền đổi/trả hàng từ đơn ${order.id} (Phiếu: ${newReturn.id}) qua ${refund.method}`, // ✅ Display IDs - OK
-            paymentMethodSystemId: asSystemId(refund.method === 'Tiền mặt' ? 'PAYMENT_METHOD_CASH' : 'PAYMENT_METHOD_BANK'),
-            paymentMethodName: refund.method,
-            accountSystemId: account.systemId, // ✅ accountSystemId
-                    paymentReceiptTypeSystemId: refundCategory.systemId,
-                    paymentReceiptTypeName: refundCategory.name,
-                    branchSystemId: newReturn.branchSystemId,
-                    branchName: newReturn.branchName,
-            createdBy: creatorSystemId,
-                    createdAt: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-                    status: 'completed',
-                    category: 'complaint_refund',
-                    originalDocumentId: newReturn.id, // Link to sales return business ID
-                    customerSystemId: newItemData.customerSystemId,
-                    customerName: newItemData.customerName,
-                    affectsDebt: false,
-                };
-                const createdPayment = addPayment(newPayment);
-                if(createdPayment) {
-            createdVoucherIds.push(asSystemId(createdPayment.systemId));
-                }
-            }
-        });
-        
-        if (createdVoucherIds.length > 0) {
-            // Update the newReturn with voucher IDs
-        baseStore.getState().update(newReturn.systemId, {
-                ...newReturn,
-                paymentVoucherSystemIds: createdVoucherIds,
-            });
+        if (!refund.amount || refund.amount <= 0) {
+          return;
         }
-    } else if (finalAmount > 0 && newItemData.payments && newItemData.payments.length > 0) { // Customer paid immediately
-        const receiptCategory = receiptTypes.find(rt => rt.name === 'Thanh toán cho đơn hàng');
+
+        const { document, error } = createPaymentDocument({
+          amount: refund.amount,
+          description: `Hoàn tiền đổi/trả hàng từ đơn ${order.id} (Phiếu: ${newReturn.id}) qua ${refund.method}`,
+          recipientName: newItemData.customerName,
+          recipientSystemId: newItemData.customerSystemId,
+          customerSystemId: newItemData.customerSystemId,
+          customerName: newItemData.customerName,
+          paymentMethodName: refund.method,
+          accountSystemId: refund.accountSystemId,
+          paymentTypeName: 'Hoàn tiền khách hàng',
+          branchSystemId: newReturn.branchSystemId,
+          branchName: newReturn.branchName,
+          createdBy: creatorSystemId,
+          originalDocumentId: newReturn.id,
+          linkedSalesReturnSystemId: newReturn.systemId,
+          linkedOrderSystemId: newReturn.orderSystemId,
+          category: 'complaint_refund',
+          affectsDebt: true, // ✅ Hoàn tiền khách hàng ảnh hưởng công nợ (giảm công nợ)
+        });
+
+        if (error) {
+          console.error('[Sales Return] Failed to create payment voucher:', error);
+          toast.error(`Không thể tạo phiếu chi hoàn tiền: ${error}`);
+          return;
+        }
+
+        if (document) {
+          createdVoucherIds.push(asSystemId(document.systemId));
+        }
+      });
+
+      if (createdVoucherIds.length > 0) {
+        baseStore.getState().update(newReturn.systemId, {
+          ...newReturn,
+          paymentVoucherSystemIds: createdVoucherIds,
+        });
+      }
+    } else if (finalAmount > 0 && newItemData.payments && newItemData.payments.length > 0) {
       const createdVoucherIds: SystemId[] = [];
+
       newItemData.payments.forEach(payment => {
-         const account = accounts.find(acc => acc.systemId === payment.accountSystemId);
-             if (receiptCategory && account && payment.amount > 0) {
-                const newReceipt: Omit<Receipt, 'systemId'> = {
-                    id: asBusinessId(''), // Let receipt store generate PT ID
-                    date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-                    amount: payment.amount,
-            payerTypeSystemId: customerTypeSystemId,
-            payerTypeName: customerTypeName,
-                    payerName: newReturn.customerName,
-                    payerSystemId: newItemData.customerSystemId,
-                    description: `Thu tiền chênh lệch đổi hàng từ đơn ${order.id} (Phiếu: ${newReturn.id})`, // ✅ Display IDs - OK
-            paymentMethodSystemId: asSystemId(payment.method === 'Tiền mặt' ? 'PAYMENT_METHOD_CASH' : 'PAYMENT_METHOD_BANK'),
-            paymentMethodName: payment.method,
-                    accountSystemId: account.systemId, // ✅ accountSystemId
-                    paymentReceiptTypeSystemId: receiptCategory.systemId,
-                    paymentReceiptTypeName: receiptCategory.name,
-                    branchSystemId: newReturn.branchSystemId,
-                    branchName: newReturn.branchName,
-            createdBy: creatorSystemId,
-                    createdAt: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-                    status: 'completed',
-                    category: 'sale',
-                    originalDocumentId: newReturn.id, // Link to sales return business ID
-                    customerSystemId: newItemData.customerSystemId,
-                    customerName: newItemData.customerName,
-                    affectsDebt: false,
-                };
-                const createdReceipt = addReceipt(newReceipt);
-                if (createdReceipt) {
-            createdVoucherIds.push(asSystemId(createdReceipt.systemId));
-                }
-            }
-        });
-        
-        if (createdVoucherIds.length > 0) {
-            // Update the newReturn with voucher IDs
-        baseStore.getState().update(newReturn.systemId, {
-                ...newReturn,
-                receiptVoucherSystemIds: createdVoucherIds,
-            });
+        if (!payment.amount || payment.amount <= 0) {
+          return;
         }
+
+        const { document, error } = createReceiptDocument({
+          amount: payment.amount,
+          description: `Thu tiền chênh lệch đổi hàng từ đơn ${order.id} (Phiếu: ${newReturn.id})`,
+          customerName: newReturn.customerName,
+          customerSystemId: newItemData.customerSystemId,
+          paymentMethodName: payment.method,
+          accountSystemId: payment.accountSystemId,
+          receiptTypeName: 'Thanh toán cho đơn hàng',
+          branchSystemId: newReturn.branchSystemId,
+          branchName: newReturn.branchName,
+          createdBy: creatorSystemId,
+          originalDocumentId: newReturn.id,
+          linkedSalesReturnSystemId: newReturn.systemId,
+          linkedOrderSystemId: newReturn.orderSystemId,
+          category: 'sale',
+          affectsDebt: false,
+        });
+
+        if (error) {
+          console.error('[Sales Return] Failed to create receipt voucher:', error);
+          toast.error(`Không thể tạo phiếu thu đổi hàng: ${error}`);
+          return;
+        }
+
+        if (document) {
+          createdVoucherIds.push(asSystemId(document.systemId));
+        }
+      });
+
+      if (createdVoucherIds.length > 0) {
+        baseStore.getState().update(newReturn.systemId, {
+          ...newReturn,
+          receiptVoucherSystemIds: createdVoucherIds,
+        });
+      }
     }
 
     // ✅ Update inventory for returned items ONLY if isReceived = true
+    // ✅ For combo products, add stock to child products instead
     if (newReturn.isReceived) {
         console.log('✅ [Sales Return] Updating inventory - items received');
-        newReturn.items.forEach(lineItem => {
-          if (lineItem.returnQuantity > 0) {
-            const product = useProductStore.getState().findById(lineItem.productSystemId);
+        
+        // Expand combo items to child products
+        const stockItems = getReturnStockItems(newReturn.items);
+        
+        stockItems.forEach(item => {
+          if (item.quantity > 0) {
+            const product = useProductStore.getState().findById(item.productSystemId);
             const oldStock = product?.inventoryByBranch[newReturn.branchSystemId] || 0;
-            updateInventory(lineItem.productSystemId, newReturn.branchSystemId, lineItem.returnQuantity); // Add stock back
+            updateInventory(item.productSystemId, newReturn.branchSystemId, item.quantity); // Add stock back
             addStockHistory({
-              productId: lineItem.productSystemId,
+              productId: item.productSystemId,
               date: getCurrentDate().toISOString(),
               employeeName: newReturn.creatorName,
               action: 'Nhập hàng từ khách trả',
-              quantityChange: lineItem.returnQuantity,
-              newStockLevel: oldStock + lineItem.returnQuantity,
+              quantityChange: item.quantity,
+              newStockLevel: oldStock + item.quantity,
               documentId: newReturn.id, // ✅ Use business ID for document reference
               branchSystemId: newReturn.branchSystemId,
               branch: newReturn.branchName,
@@ -406,6 +441,7 @@ const augmentedMethods = {
   /**
    * ✅ Confirm receipt of returned items and update inventory
    * Use this when isReceived was false initially and items are now received
+   * ✅ For combo products, add stock to child products instead
    */
   confirmReceipt: (returnSystemId: SystemId) => {
     const salesReturn = baseStore.getState().findById(returnSystemId);
@@ -422,19 +458,22 @@ const augmentedMethods = {
     const { updateInventory } = useProductStore.getState();
     const { addEntry: addStockHistory } = useStockHistoryStore.getState();
     
-    // Update inventory for all returned items
-    salesReturn.items.forEach(lineItem => {
-      if (lineItem.returnQuantity > 0) {
-        const product = useProductStore.getState().findById(lineItem.productSystemId);
+    // ✅ Expand combo items to child products
+    const stockItems = getReturnStockItems(salesReturn.items);
+    
+    // Update inventory for all returned items (including expanded combo children)
+    stockItems.forEach(item => {
+      if (item.quantity > 0) {
+        const product = useProductStore.getState().findById(item.productSystemId);
         const oldStock = product?.inventoryByBranch[salesReturn.branchSystemId] || 0;
-        updateInventory(lineItem.productSystemId, salesReturn.branchSystemId, lineItem.returnQuantity);
+        updateInventory(item.productSystemId, salesReturn.branchSystemId, item.quantity);
         addStockHistory({
-          productId: lineItem.productSystemId,
+          productId: item.productSystemId,
           date: getCurrentDate().toISOString(),
           employeeName: salesReturn.creatorName,
           action: 'Nhập hàng từ khách trả (xác nhận)',
-          quantityChange: lineItem.returnQuantity,
-          newStockLevel: oldStock + lineItem.returnQuantity,
+          quantityChange: item.quantity,
+          newStockLevel: oldStock + item.quantity,
           documentId: salesReturn.id,
           branchSystemId: salesReturn.branchSystemId,
           branch: salesReturn.branchName,

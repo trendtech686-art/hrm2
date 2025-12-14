@@ -4,12 +4,12 @@ import { cn } from "../../lib/utils.ts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card.tsx'
 
 const COLORS = [
-  'hsl(var(--primary))',
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+  'var(--primary)',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ]
 
 type BaseChartProps = {

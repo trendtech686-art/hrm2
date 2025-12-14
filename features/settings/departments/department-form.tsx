@@ -40,7 +40,7 @@ export function DepartmentForm({ initialData, onSubmit }: DepartmentFormProps) {
             <FormItem>
               <FormLabel>Mã phòng ban</FormLabel>
               <FormControl>
-                <Input placeholder="VD: KD, KT" {...field} />
+                <Input placeholder="VD: KD, KT" {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -53,7 +53,7 @@ export function DepartmentForm({ initialData, onSubmit }: DepartmentFormProps) {
             <FormItem>
               <FormLabel>Tên phòng ban</FormLabel>
               <FormControl>
-                <Input placeholder="Nhập tên phòng ban" {...field} />
+                <Input placeholder="Nhập tên phòng ban" {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>

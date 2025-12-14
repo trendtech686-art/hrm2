@@ -1,77 +1,77 @@
 import * as React from 'react'
 import { useAppearanceStore } from '../features/settings/appearance/store.ts'
+import type { CustomThemeConfig } from '../features/settings/appearance/store.ts'
+
+function applyTheme(customThemeConfig: CustomThemeConfig, colorMode: string, fontSize: string) {
+  const root = window.document.documentElement;
+  
+  console.log('[ThemeProvider] Applying theme:', { colorMode, fontSize, primary: customThemeConfig['--primary'] });
+
+  // Color Mode
+  root.classList.remove('light', 'dark');
+  root.classList.add(colorMode);
+
+  // Font Size
+  root.classList.remove('font-size-sm', 'font-size-base', 'font-size-lg');
+  root.classList.add(`font-size-${fontSize}`);
+
+  // Apply CSS variables directly to root element for highest specificity
+  const cssVars = [
+    '--background', '--foreground', '--card', '--card-foreground',
+    '--popover', '--popover-foreground', '--primary', '--primary-foreground',
+    '--secondary', '--secondary-foreground', '--muted', '--muted-foreground',
+    '--accent', '--accent-foreground', '--destructive', '--destructive-foreground',
+    '--border', '--input', '--ring',
+    '--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5',
+    '--sidebar', '--sidebar-foreground', '--sidebar-primary', '--sidebar-primary-foreground',
+    '--sidebar-accent', '--sidebar-accent-foreground', '--sidebar-border', '--sidebar-ring',
+    '--radius', '--font-sans', '--font-serif', '--font-mono',
+    '--font-size-h1', '--font-size-h2', '--font-size-h3', '--font-size-h4', '--font-size-h5', '--font-size-h6'
+  ] as const;
+  
+  cssVars.forEach(varName => {
+    const value = customThemeConfig[varName];
+    if (value) root.style.setProperty(varName, value);
+  });
+
+  // Shadow
+  const shadow = `${customThemeConfig['--shadow-x'] || '0px'} ${customThemeConfig['--shadow-y'] || '1px'} ${customThemeConfig['--shadow-blur'] || '2px'} ${customThemeConfig['--shadow-spread'] || '0px'} ${customThemeConfig['--shadow-color'] || 'hsl(0 0% 0% / 0.05)'}`;
+  root.style.setProperty('--shadow', shadow);
+  
+  // Force browser to recalculate styles by triggering a reflow
+  root.style.display = 'none';
+  void root.offsetHeight; // Force reflow
+  root.style.display = '';
+}
 
 export function ThemeProvider({ children }: React.PropsWithChildren) {
-  const { theme, font, fontSize, customThemeConfig } = useAppearanceStore()
+  const customThemeConfig = useAppearanceStore(s => s.customThemeConfig);
+  const colorMode = useAppearanceStore(s => s.colorMode);
+  const fontSize = useAppearanceStore(s => s.fontSize);
 
+  // Apply theme whenever store values change
   React.useEffect(() => {
-    const root = window.document.documentElement;
+    if (!customThemeConfig) return;
+    applyTheme(customThemeConfig, colorMode, fontSize);
+  }, [customThemeConfig, colorMode, fontSize]);
 
-    // --- Font Size (unchanged) ---
-    root.classList.remove('font-size-sm', 'font-size-base', 'font-size-lg');
-    root.classList.add(`font-size-${fontSize}`);
-
-    // --- Theme Handling ---
-    // 1. Clean up previous theme state
-    root.classList.remove('theme-slate', 'theme-blue', 'theme-green', 'theme-amber', 'theme-rose', 'theme-purple', 'theme-orange', 'theme-teal');
-    
-    let styleElement = document.getElementById('custom-theme-style');
-    if (styleElement) {
-        styleElement.remove();
-    }
-    // Reset individual properties explicitly
-    root.style.removeProperty('--radius');
-    root.style.removeProperty('--font-sans');
-    root.style.removeProperty('--font-serif');
-    root.style.removeProperty('--font-mono');
-
-
-    // 2. Apply new theme state
-    if (theme === 'custom' && customThemeConfig) {
-        styleElement = document.createElement('style');
-        styleElement.id = 'custom-theme-style';
-
-        // Compose shadow variable from individual parts
-        const shadow = `${customThemeConfig['--shadow-x'] || '0px'} ${customThemeConfig['--shadow-y'] || '1px'} ${customThemeConfig['--shadow-blur'] || '2px'} ${customThemeConfig['--shadow-spread'] || '0px'} ${customThemeConfig['--shadow-color'] || 'hsl(0 0% 0% / 0.05)'}`;
-
-        const cssVariables = Object.entries(customThemeConfig)
-            // Exclude properties that are handled separately or composed
-            .filter(([key]) => ![
-                '--radius', '--font-sans', '--font-serif', '--font-mono',
-                '--shadow-x', '--shadow-y', '--shadow-blur', '--shadow-spread', '--shadow-color'
-            ].includes(key))
-            .map(([key, value]) => `${key}: ${value};`)
-            .join('\n');
-        
-        styleElement.innerHTML = `:root { 
-            ${cssVariables}
-            --shadow: ${shadow};
-        }`;
-        document.head.appendChild(styleElement);
-
-        // Apply properties directly to the root element's style
-        root.style.setProperty('--radius', customThemeConfig['--radius']);
-        root.style.setProperty('--font-sans', customThemeConfig['--font-sans']);
-        root.style.setProperty('--font-serif', customThemeConfig['--font-serif']);
-        root.style.setProperty('--font-mono', customThemeConfig['--font-mono']);
-
-    } else {
-        root.classList.add(`theme-${theme}`);
-        // For preset themes, ensure custom font variables are set to their defaults
-        root.style.setProperty('--font-sans', 'Inter');
-        root.style.setProperty('--font-serif', 'Source Serif 4');
-        root.style.setProperty('--font-mono', 'Geist Mono');
+  // Subscribe to store rehydration and apply theme
+  React.useEffect(() => {
+    // Apply immediately with current store values
+    const state = useAppearanceStore.getState();
+    if (state.customThemeConfig) {
+      applyTheme(state.customThemeConfig, state.colorMode, state.fontSize);
     }
 
-    // This is the old font logic, we keep it for backward compatibility with presets
-    // but custom themes will override it with CSS variables.
-    root.classList.remove('font-inter', 'font-poppins', 'font-roboto', 'font-source-sans-3');
-    if (theme !== 'custom') {
-      root.classList.add(`font-${font}`);
-    }
+    // Also subscribe to any changes (including rehydration)
+    const unsubscribe = useAppearanceStore.subscribe((state) => {
+      if (state.customThemeConfig) {
+        applyTheme(state.customThemeConfig, state.colorMode, state.fontSize);
+      }
+    });
 
-
-  }, [theme, font, fontSize, customThemeConfig]);
+    return unsubscribe;
+  }, []);
 
   return <>{children}</>
 }

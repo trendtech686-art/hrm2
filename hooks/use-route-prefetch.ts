@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useCallback, useRef } from 'react';
 
 /**
@@ -17,6 +18,45 @@ interface PrefetchCache {
   };
 }
 
+export const routeImportMap: Record<string, () => Promise<unknown>> = {
+  // HRM Routes
+  '/attendance': () => import('@/features/attendance/page'),
+  '/leaves': () => import('@/features/leaves/page'),
+
+  // Sales Routes
+  '/products/new': () => import('@/features/products/form-page'),
+  '/orders/new': () => import('@/features/orders/order-form-page'),
+  '/returns': () => import('@/features/sales-returns/page'),
+
+  // Procurement Routes
+  '/suppliers': () => import('@/features/suppliers/page'),
+  '/purchase-orders': () => import('@/features/purchase-orders/page'),
+  '/inventory-receipts': () => import('@/features/inventory-receipts/page'),
+
+  // Finance Routes
+  '/cashbook': () => import('@/features/cashbook/page'),
+  '/receipts': () => import('@/features/receipts/page'),
+  '/payments': () => import('@/features/payments/page'),
+
+  // Internal Operations
+  '/packaging': () => import('@/features/packaging/page'),
+  '/shipments': () => import('@/features/shipments/page'),
+  '/reconciliation': () => import('@/features/reconciliation/page'),
+  '/warranty': () => import('@/features/warranty/warranty-list-page'),
+  '/complaints': () => import('@/features/complaints/page'),
+  '/wiki': () => import('@/features/wiki/page'),
+
+  // Reports
+  '/reports/sales': () => import('@/features/reports/sales-report/page'),
+  '/reports/inventory': () => import('@/features/reports/inventory-report/page'),
+
+  // Settings
+  '/settings': () => import('@/features/settings/page'),
+  '/settings/appearance': () => import('@/features/settings/appearance/appearance-page'),
+  '/settings/store-info': () => import('@/features/settings/store-info/store-info-page'),
+  '/settings/id-counters': () => import('@/features/settings/system/id-counter-settings-page'),
+};
+
 export function useRoutePrefetch() {
   const cacheRef = useRef<PrefetchCache>({});
 
@@ -28,52 +68,6 @@ export function useRoutePrefetch() {
 
     // Mark as loading
     cacheRef.current[routePath] = { loading: true, loaded: false };
-
-    // Map route paths to their component imports
-    const routeImportMap: Record<string, () => Promise<any>> = {
-      // HRM Routes
-      '/attendance': () => import('../features/attendance/page'),
-      '/leaves': () => import('../features/leaves/page'),
-      // '/payroll': () => import('../features/payroll/page'), // TODO: Create page
-      // '/kpi': () => import('../features/kpi/page'), // TODO: Create page
-      // '/organization-chart': () => import('../features/departments/organization-chart/page'), // TODO: Create page
-      
-      // Sales Routes
-      '/products/new': () => import('../features/products/form-page'),
-      '/orders/new': () => import('../features/orders/order-form-page'),
-      '/returns': () => import('../features/sales-returns/page'),
-      
-      // Procurement Routes
-      '/suppliers': () => import('../features/suppliers/page'),
-      '/purchase-orders': () => import('../features/purchase-orders/page'),
-      '/inventory-receipts': () => import('../features/inventory-receipts/page'),
-      
-      // Finance Routes
-      '/cashbook': () => import('../features/cashbook/page'),
-      '/receipts': () => import('../features/receipts/page'),
-      '/payments': () => import('../features/payments/page'),
-      
-      // Internal Operations
-      '/packaging': () => import('../features/packaging/page'),
-      '/shipments': () => import('../features/shipments/page'),
-      '/reconciliation': () => import('../features/reconciliation/page'),
-      '/warranty': () => import('../features/warranty/warranty-list-page'),
-      // '/internal-tasks': () => import('../features/internal-tasks/page'), // TODO: Create page
-      '/complaints': () => import('../features/complaints/page'),
-      // '/penalties': () => import('../features/penalties/page'), // TODO: Create page
-      // '/duty-schedule': () => import('../features/duty-schedule/page'), // TODO: Create page
-      '/wiki': () => import('../features/wiki/page'),
-      
-      // Reports
-      '/reports/sales': () => import('../features/reports/sales-report/page'),
-      '/reports/inventory': () => import('../features/reports/inventory-report/page'),
-      
-      // Settings
-      '/settings': () => import('../features/settings/page'),
-      '/settings/appearance': () => import('../features/settings/appearance/appearance-page'),
-      '/settings/store-info': () => import('../features/settings/store-info/store-info-page'),
-      '/settings/id-counters': () => import('../features/settings/system/id-counter-settings-page'), // ✅ NEW
-    };
 
     const importFn = routeImportMap[routePath];
     
@@ -130,4 +124,3 @@ export function useIdlePreload(routes: string[]) {
 }
 
 // Fix: Import React
-import * as React from 'react';

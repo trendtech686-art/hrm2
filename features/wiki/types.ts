@@ -9,5 +9,7 @@ export type WikiArticle = {
   tags?: string[];
   createdAt: string; // YYYY-MM-DD
   updatedAt: string; // YYYY-MM-DD
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
   author: string; // Employee Name
 };

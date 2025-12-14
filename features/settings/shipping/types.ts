@@ -4,7 +4,7 @@ import type { SystemId } from '@/lib/id-types';
 export type ShippingPartnerStatus = 'Đang hợp tác' | 'Ngừng hợp tác';
 
 export type ShippingService = {
-  systemId?: SystemId;
+  systemId?: SystemId | undefined;
   id: string;
   name: string;
 };
@@ -14,20 +14,20 @@ export type CredentialField = {
     label: string;
     placeholder: string;
     required: boolean;
-    type?: 'text' | 'password' | 'email';
+    type?: 'text' | 'password' | 'email' | undefined;
 };
 
 export type AdditionalService = {
-  systemId?: SystemId;
+  systemId?: SystemId | undefined;
   id: string;
   label: string;
-  tooltip?: string;
-  type?: 'checkbox' | 'radio' | 'select' | 'text' | 'number' | 'date';
-  options?: (string | { label: string; value: string })[];
-  placeholder?: string;
-  buttonLabel?: string;
-  disabled?: boolean;
-  gridSpan?: 1 | 2;
+  tooltip?: string | undefined;
+  type?: 'checkbox' | 'radio' | 'select' | 'text' | 'number' | 'date' | undefined;
+  options?: (string | { label: string; value: string })[] | undefined;
+  placeholder?: string | undefined;
+  buttonLabel?: string | undefined;
+  disabled?: boolean | undefined;
+  gridSpan?: 1 | 2 | undefined;
 };
 
 export type PartnerConfiguration = {
@@ -44,7 +44,7 @@ export type ShippingPartner = {
   description: string;
   phone: string;
   address: string;
-  contactPerson?: string;
+  contactPerson?: string | undefined;
   status: ShippingPartnerStatus;
   services: ShippingService[];
   isConnected: boolean;
@@ -53,4 +53,8 @@ export type ShippingPartner = {
   config: PartnerConfiguration;
   credentials: Record<string, any>;
   configuration: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

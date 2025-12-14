@@ -13,8 +13,8 @@ import type { ShippingService } from './types';
 interface ShippingPartnerSelectedProps {
   service: ShippingService;
   onEdit: () => void;
-  onTogglePreview?: () => void; // ✅ NEW: Callback to toggle preview
-  disabled?: boolean;
+  onTogglePreview?: (() => void) | undefined; // ✅ NEW: Callback to toggle preview
+  disabled?: boolean | undefined;
 }
 
 export function ShippingPartnerSelected({

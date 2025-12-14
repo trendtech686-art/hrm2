@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, FormProvider, useWatch, useFieldArray, useFormContext } from 'react-hook-form';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODateTime } from '@/lib/date-utils';
 import { ArrowLeft, PackageOpen } from 'lucide-react';
@@ -8,21 +8,26 @@ import { useRouteMeta } from '../../hooks/use-route-meta';
 
 // types
 import type { Product } from '../products/types.ts';
-import type { ProductFormValues } from '../products/product-form.tsx';
-import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus } from './types.ts';
+import type { ProductFormValues } from '../products/validation.ts';
+import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress } from './types.ts';
 
 // stores
 import { useProductStore } from '../products/store.ts';
 import { useEmployeeStore } from '../employees/store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
 import { useOrderStore } from './store.ts';
+import { usePaymentMethodStore } from '../settings/payments/methods/store.ts';
+import { useSalesChannelStore } from '../settings/sales-channels/store.ts';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
+import { useSalesManagementSettingsStore } from '../settings/sales/sales-management-store.ts';
 import { usePricingPolicyStore } from '../settings/pricing/store.ts';
 import { useStockHistoryStore } from '../stock-history/store.ts';
 import { useCustomerStore } from '../customers/store.ts';
 import { useShippingPartnerStore } from '../settings/shipping/store.ts';
+import { useTaxStore } from '../settings/taxes/store.ts';
 import { SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId } from './shipping-partners-config.ts';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
+import { generateSystemId, getMaxSystemIdCounter } from '@/lib/id-utils';
 
 // UI components
 import { Button } from '../../components/ui/button.tsx';
@@ -36,7 +41,7 @@ import { useAuth } from '../../contexts/auth-context.tsx';
 // Refactored Components
 import { CustomerSelector } from './components/customer-selector.tsx';
 import { OrderInfoCard } from './components/order-info-card.tsx';
-import { ProductSearch } from './components/product-search.tsx';
+import { OrderProductSearch } from '../../components/shared/unified-product-search.tsx';
 import { LineItemsTable } from './components/line-items-table.tsx';
 import { OrderSummary } from './components/order-summary.tsx';
 import { OrderNotes } from './components/order-notes.tsx';
@@ -49,6 +54,7 @@ import { ProductTableBottomToolbar } from './components/product-table-bottom-too
 import { ShippingCard } from './components/shipping-card.tsx';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
+import { cloneOrderAddress } from './address-utils.ts';
 // Form-specific types
 type FormLineItem = {
   id: string; 
@@ -60,40 +66,43 @@ type FormLineItem = {
   unitPrice: number;
   discount: number;
   discountType: 'percentage' | 'fixed';
+  tax: number; // Tax rate (%)
+  taxId?: string; // Tax systemId for reference
   total: number;
+  note?: string; // Ghi chú cho sản phẩm
 };
 
 export type OrderFormValues = {
   customer: any; 
   branchSystemId: string;
   salespersonSystemId: string;
-  packerId?: string;
+  packerId?: string | undefined;
   orderDate: Date;
   source: string;
   notes: string;
-  tags?: string[]; // Tags phân loại đơn hàng
+  tags?: (string | undefined)[] | undefined; // Tags phân loại đơn hàng
   
   // Expected dates & payment
-  expectedDeliveryDate?: Date; // Hẹn giao
-  expectedPaymentMethod?: string; // Thanh toán dự kiến
+  expectedDeliveryDate?: Date | undefined; // Hẹn giao
+  expectedPaymentMethod?: string | undefined; // Thanh toán dự kiến
   
   // External references
-  referenceUrl?: string; // Link đơn hàng bên ngoài
-  externalReference?: string; // Mã tham chiếu bên ngoài
+  referenceUrl?: string | undefined; // Link đơn hàng bên ngoài
+  externalReference?: string | undefined; // Mã tham chiếu bên ngoài
   
   // Service fees
-  serviceFees?: Array<{ id: string; name: string; amount: number }>; // Phí dịch vụ khác
+  serviceFees?: Array<{ id: string; name: string; amount: number }> | undefined; // Phí dịch vụ khác
   
   // Discount & Promotions
-  orderDiscount?: number;
-  orderDiscountType?: 'percentage' | 'fixed';
-  orderDiscountReason?: string;
-  voucherCode?: string;
-  voucherAmount?: number;
+  orderDiscount?: number | undefined;
+  orderDiscountType?: 'percentage' | 'fixed' | undefined;
+  orderDiscountReason?: string | undefined;
+  voucherCode?: string | undefined;
+  voucherAmount?: number | undefined;
   
-  trackingCode?: string;
-  shippingPartnerId?: string;
-  shippingServiceId?: string;
+  trackingCode?: string | undefined;
+  shippingPartnerId?: string | undefined;
+  shippingServiceId?: string | undefined;
   lineItems: FormLineItem[];
   subtotal: number;
   shippingFee: number;
@@ -102,34 +111,45 @@ export type OrderFormValues = {
   payments: { method: string; amount: number }[];
   deliveryMethod: string;
   // Add shipping details for the form
-  codAmount?: number;
-  weight?: number;
-  length?: number;
-  width?: number;
-  height?: number;
-  payer?: 'Người gửi' | 'Người nhận';
-  shippingNote?: string;
-  deliveryRequirement?: string;
-  configuration?: Record<string, any>;
+  codAmount?: number | undefined;
+  weight?: number | undefined;
+  length?: number | undefined;
+  width?: number | undefined;
+  height?: number | undefined;
+  payer?: 'Người gửi' | 'Người nhận' | undefined;
+  shippingNote?: string | undefined;
+  deliveryRequirement?: string | undefined;
+  configuration?: Record<string, any> | undefined;
   shippingAddress?: any; // ✅ Selected shipping address from customer
   billingAddress?: any; // ✅ Selected billing address from customer
 };
 
+const normalizeOrderAddress = (address?: string | OrderAddress | null): OrderAddress | undefined => {
+        if (!address) return undefined;
+        if (typeof address === 'string') {
+                return { street: address };
+        }
+        return cloneOrderAddress(address);
+};
+
 const calculateLineTotal = (item: FormLineItem | LineItem): number => {
     if (!item) return 0;
-    const { unitPrice = 0, quantity = 0, discount = 0, discountType = 'fixed' } = item;
+    const { unitPrice = 0, quantity = 0, discount = 0, discountType = 'fixed', tax = 0 } = item as FormLineItem;
     
     const lineGross = (Number(unitPrice) || 0) * (Number(quantity) || 0);
+    // Apply tax first
+    const lineWithTax = lineGross * (1 + (Number(tax) || 0) / 100);
+    // Then apply discount
     let lineDiscountAmount = 0;
     const discountAmount = Number(discount) || 0;
     if (discountAmount > 0) {
         if (discountType === 'percentage') {
-            lineDiscountAmount = lineGross * (discountAmount / 100);
+            lineDiscountAmount = lineWithTax * (discountAmount / 100);
         } else {
             lineDiscountAmount = discountAmount;
         }
     }
-    return lineGross - lineDiscountAmount;
+    return lineWithTax - lineDiscountAmount;
 };
 
 const OrderCalculations = () => {
@@ -155,7 +175,12 @@ const OrderCalculations = () => {
         });
         
         const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
-        const tax = 0; // Tax logic removed as per new UI
+        // Calculate total tax from all line items
+        const totalTax = items.reduce((sum, item) => {
+            const lineGross = (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0);
+            const taxAmount = lineGross * ((item as FormLineItem).tax || 0) / 100;
+            return sum + taxAmount;
+        }, 0);
         
         // Tính chiết khấu toàn đơn
         let orderDiscountAmount = 0;
@@ -175,10 +200,10 @@ const OrderCalculations = () => {
         const serviceFeeTotal = (watchedServiceFees || []).reduce((sum: number, fee: any) => sum + (Number(fee.amount) || 0), 0);
         
         // Tổng cộng = Subtotal + Shipping + Service Fees - Order Discount - Voucher
-        const grandTotal = Math.max(0, subtotal + shipping + serviceFeeTotal + tax - orderDiscountAmount - voucherDiscount);
+        const grandTotal = Math.max(0, subtotal + shipping + serviceFeeTotal - orderDiscountAmount - voucherDiscount);
         
         setValue('subtotal', subtotal, { shouldValidate: false });
-        setValue('tax', tax, { shouldValidate: false });
+        setValue('tax', totalTax, { shouldValidate: false });
         setValue('grandTotal', grandTotal, { shouldValidate: false });
 
     }, [watchedLineItems, watchedShippingFee, watchedOrderDiscount, watchedOrderDiscountType, watchedVoucherAmount, watchedServiceFees, setValue, getValues]);
@@ -190,16 +215,25 @@ const OrderCalculations = () => {
 export function OrderFormPage() {
     const { systemId } = useParams();
     const navigate = useNavigate();
-    const { findById, add, update, data: allOrders } = useOrderStore();
+    const [searchParams] = useSearchParams();
+    const { findById, add, update, addPayment: addOrderPayment, data: allOrders } = useOrderStore();
     const { data: employees } = useEmployeeStore();
     const { data: branches } = useBranchStore();
     const { data: pricingPolicies } = usePricingPolicyStore();
     const { data: allProducts, add: baseAddProduct } = useProductStore();
     const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
     const { data: partners } = useShippingPartnerStore();
+    const { getDefaultSale } = useTaxStore();
+    const paymentMethods = usePaymentMethodStore((state) => state.data);
+    const salesChannels = useSalesChannelStore((state) => state.data);
 
     const isEditing = !!systemId;
     const order = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+    const copyOrderSystemId = searchParams.get('copy');
+    const copySourceOrder = React.useMemo(() => {
+        if (isEditing || !copyOrderSystemId) return null;
+        return findById(copyOrderSystemId) || null;
+    }, [isEditing, copyOrderSystemId, findById]);
     
     // ✅ NEW LOGIC: Kiểm tra xem đơn đã đóng gói/xuất kho chưa
     const isPackagedOrDispatched = React.useMemo(() => {
@@ -219,7 +253,9 @@ export function OrderFormPage() {
 
     const isFullyReadOnly = React.useMemo(() => {
         if (!order) return false;
-        return order.status === 'Đã hủy' || order.deliveryStatus === 'Đã giao hàng';
+        // ✅ Chỉ khóa hoàn toàn khi đơn đã hủy. 
+        // Đơn hoàn thành/đã giao vẫn cho sửa metadata (Tags, Notes, v.v.)
+        return order.status === 'Đã hủy';
     }, [order]);
     
     // Lock Chi nhánh khi đã duyệt
@@ -244,6 +280,7 @@ export function OrderFormPage() {
     });
     const { employee: currentEmployee } = useAuth();
     const currentEmployeeName = currentEmployee?.fullName ?? 'Hệ thống';
+    const currentEmployeeSystemId = currentEmployee?.systemId ?? asSystemId('SYSTEM');
     const salesPolicies = React.useMemo(() => pricingPolicies.filter(p => p.type === 'Bán hàng'), [pricingPolicies]);
     const defaultSellingPolicy = React.useMemo(() => salesPolicies.find(p => p.isDefault) || salesPolicies[0], [salesPolicies]);
     const [selectedPolicyId, setSelectedPolicyId] = React.useState<string>(defaultSellingPolicy?.systemId || '');
@@ -251,16 +288,19 @@ export function OrderFormPage() {
     // Get default branch
     const defaultBranch = React.useMemo(() => branches.find(b => b.isDefault), [branches]);
     
-    const form = useForm<OrderFormValues>({
+        const form = useForm<OrderFormValues>({
       defaultValues: {
-        customer: null, branchSystemId: defaultBranch?.systemId || '', salespersonSystemId: '', orderDate: new Date(), source: '', notes: '', lineItems: [],
+                customer: null, branchSystemId: defaultBranch?.systemId || '', salespersonSystemId: '', orderDate: new Date(), source: '', notes: '', lineItems: [],
         subtotal: 0, shippingFee: 0, tax: 0, grandTotal: 0, payments: [], packerId: undefined, trackingCode: '',
         shippingPartnerId: undefined, shippingServiceId: undefined, deliveryMethod: 'deliver-later', configuration: {},
-        orderDiscount: 0, orderDiscountType: 'fixed'
+                orderDiscount: 0, orderDiscountType: 'fixed',
+                expectedPaymentMethod: '',
       }
     });
     const { handleSubmit, getValues, setValue, reset, control } = form;
     const { fields, append, prepend, remove, update: updateField } = useFieldArray({ control, name: "lineItems" });
+    const selectedBranchSystemId = useWatch({ control, name: 'branchSystemId' });
+    const copyPrefillAppliedRef = React.useRef(false);
 
     const handleSimplifiedAddProduct = (values: ProductFormValues) => {
         const defaultBranch = branches.find(b => b.isDefault);
@@ -295,16 +335,58 @@ export function OrderFormPage() {
         });
     };
 
-    React.useEffect(() => {
+        const appliedSalesChannels = React.useMemo(() => salesChannels.filter(channel => channel.isApplied), [salesChannels]);
+        const defaultSalesChannelName = React.useMemo(() => {
+            const preferred = appliedSalesChannels.find(channel => channel.isDefault);
+            return preferred?.name || appliedSalesChannels[0]?.name || '';
+        }, [appliedSalesChannels]);
+        const activePaymentMethods = React.useMemo(() => paymentMethods.filter(method => method.isActive), [paymentMethods]);
+        const defaultPaymentMethodName = React.useMemo(() => {
+            const preferred = activePaymentMethods.find(method => method.isDefault);
+            return preferred?.name || activePaymentMethods[0]?.name || '';
+        }, [activePaymentMethods]);
+
+        React.useEffect(() => {
       setSelectedPolicyId(defaultSellingPolicy?.systemId || '');
     }, [defaultSellingPolicy]);
 
-    // Auto-select default branch for new orders
+    // Auto-select default values for new orders
     React.useEffect(() => {
-        if (!isEditing && defaultBranch && !getValues('branchSystemId')) {
+        if (isEditing) return;
+
+        // 1. Branch
+        if (defaultBranch && !getValues('branchSystemId')) {
             setValue('branchSystemId', defaultBranch.systemId);
         }
-    }, [isEditing, defaultBranch, getValues, setValue]);
+
+        // 2. Salesperson
+        if (currentEmployee?.systemId && !getValues('salespersonSystemId')) {
+            setValue('salespersonSystemId', currentEmployee.systemId);
+        }
+
+        // 3. Source (Sales Channel)
+        if (defaultSalesChannelName) {
+            const currentSource = getValues('source');
+            if (!currentSource) {
+                console.log('Setting default source:', defaultSalesChannelName);
+                // Use setTimeout to ensure form is ready and avoid race conditions
+                setTimeout(() => {
+                    setValue('source', defaultSalesChannelName, { shouldValidate: true, shouldDirty: true });
+                }, 100);
+            }
+        }
+
+        // 4. Payment Method
+        if (defaultPaymentMethodName) {
+            const currentPayment = getValues('expectedPaymentMethod');
+            if (!currentPayment) {
+                console.log('Setting default payment method:', defaultPaymentMethodName);
+                setTimeout(() => {
+                    setValue('expectedPaymentMethod', defaultPaymentMethodName, { shouldValidate: true, shouldDirty: true });
+                }, 100);
+            }
+        }
+    }, [isEditing, defaultBranch, currentEmployee, defaultSalesChannelName, defaultPaymentMethodName, getValues, setValue]);
 
     React.useEffect(() => {
         if (!selectedPolicyId || isFormDisabled || isMetadataOnlyMode) return;
@@ -330,11 +412,14 @@ export function OrderFormPage() {
                 deliveryMethod = 'shipping-partner';
             }
 
+            const savedShippingAddress = normalizeOrderAddress(order.shippingAddress);
+            const savedBillingAddress = normalizeOrderAddress(order.billingAddress);
+
             reset({
                 customer: customer || null,
                 branchSystemId: order.branchSystemId, // ✅ Use systemId only
                 salespersonSystemId: order.salespersonSystemId,
-                packerId: (order as any).packerId,
+                packerId: order.assignedPackerSystemId || (order as any).packerId,
                 orderDate: parseDate(order.orderDate) || getCurrentDate(),
                 notes: order.notes || '',
                 tags: order.tags || [], // Tags phân loại đơn hàng
@@ -344,8 +429,9 @@ export function OrderFormPage() {
                 shippingServiceId: partners.find(p => p.name === order.shippingInfo?.carrier)?.services.find(s => s.name === order.shippingInfo?.service)?.id,
                 deliveryMethod,
                 // ✅ Load saved addresses from order (if editing)
-                shippingAddress: order.shippingAddress ? { street: order.shippingAddress } : (customer?.addresses?.find(a => a.isDefaultShipping) || null),
-                billingAddress: order.billingAddress ? { street: order.billingAddress } : (customer?.addresses?.find(a => a.isDefaultBilling) || null),
+                shippingAddress: savedShippingAddress || customer?.addresses?.find(a => a.isDefaultShipping) || null,
+                billingAddress: savedBillingAddress || customer?.addresses?.find(a => a.isDefaultBilling) || null,
+                expectedPaymentMethod: order.expectedPaymentMethod || '',
                 lineItems: order.lineItems.map(li => ({
                     id: `li_${li.productSystemId}_${Math.random()}`,
                     systemId: '',
@@ -356,7 +442,10 @@ export function OrderFormPage() {
                     unitPrice: li.unitPrice,
                     discount: li.discount,
                     discountType: li.discountType,
+                    tax: (li as any).tax || 0,
+                    taxId: (li as any).taxId || '',
                     total: calculateLineTotal(li),
+                    note: li.note || '',
                 })),
                 subtotal: order.subtotal,
                 shippingFee: order.shippingFee,
@@ -364,20 +453,84 @@ export function OrderFormPage() {
                 grandTotal: order.grandTotal,
                 payments: order.payments.map(p => ({ method: p.method, amount: p.amount })),
             });
-        } else {
-             const defaultBranch = branches.find(b => b.isDefault);
-             if (defaultBranch) setValue('branchSystemId', defaultBranch.systemId);
-             if (currentEmployee?.systemId) setValue('salespersonSystemId', currentEmployee.systemId);
         }
     }, [isEditing, order, reset, branches, currentEmployee, setValue, partners]);
+
+    React.useEffect(() => {
+        if (isEditing || !copySourceOrder || copyPrefillAppliedRef.current) {
+            return;
+        }
+
+        copyPrefillAppliedRef.current = true;
+        const customer = useCustomerStore.getState().data.find(c => c.systemId === copySourceOrder.customerSystemId);
+        const defaultShippingAddress = customer?.addresses?.find(a => a.isDefaultShipping) || null;
+        const defaultBillingAddress = customer?.addresses?.find(a => a.isDefaultBilling) || null;
+        const copiedShippingAddress = normalizeOrderAddress(copySourceOrder.shippingAddress);
+        const copiedBillingAddress = normalizeOrderAddress(copySourceOrder.billingAddress);
+
+        const deliveryMethod = 'deliver-later';
+
+        reset({
+            customer: customer || null,
+            branchSystemId: copySourceOrder.branchSystemId,
+            salespersonSystemId: copySourceOrder.salespersonSystemId,
+            packerId: undefined,
+            orderDate: getCurrentDate(),
+            notes: copySourceOrder.notes || '',
+            tags: copySourceOrder.tags || [],
+            source: copySourceOrder.source || '',
+            trackingCode: '',
+            shippingPartnerId: undefined,
+            shippingServiceId: undefined,
+            deliveryMethod,
+            shippingAddress: copiedShippingAddress || defaultShippingAddress,
+            billingAddress: copiedBillingAddress || defaultBillingAddress,
+            expectedPaymentMethod: '',
+            lineItems: copySourceOrder.lineItems.map(li => ({
+                id: `copy_${li.productSystemId}_${Math.random()}`,
+                systemId: '',
+                productSystemId: li.productSystemId,
+                productId: li.productId,
+                productName: li.productName,
+                quantity: li.quantity,
+                unitPrice: li.unitPrice,
+                discount: li.discount,
+                discountType: li.discountType,
+                tax: (li as any).tax || 0,
+                taxId: (li as any).taxId || '',
+                total: calculateLineTotal(li),
+                note: li.note || '',
+            })),
+            subtotal: copySourceOrder.subtotal,
+            shippingFee: copySourceOrder.shippingFee,
+            tax: copySourceOrder.tax,
+            grandTotal: copySourceOrder.grandTotal,
+            payments: [],
+            orderDiscount: copySourceOrder.orderDiscount ?? 0,
+            orderDiscountType: copySourceOrder.orderDiscountType ?? 'fixed',
+            orderDiscountReason: copySourceOrder.orderDiscountReason,
+            voucherCode: copySourceOrder.voucherCode,
+            voucherAmount: copySourceOrder.voucherAmount,
+            serviceFees: copySourceOrder.serviceFees ? copySourceOrder.serviceFees.map(fee => ({ ...fee })) : undefined,
+            expectedDeliveryDate: copySourceOrder.expectedDeliveryDate ? parseDate(copySourceOrder.expectedDeliveryDate) || undefined : undefined,
+            configuration: {},
+            codAmount: 0,
+        });
+
+        toast.success('Đang sao chép đơn hàng', {
+            description: `Dữ liệu từ ${copySourceOrder.id} đã được điền sẵn. Vui lòng kiểm tra trước khi lưu.`,
+        });
+    }, [isEditing, copySourceOrder, reset]);
     
-    const handleSelectProducts = (selectedProducts: Product[]) => {
+    const handleSelectProducts = (selectedProducts: Product[], quantities?: Record<string, number>) => {
         const currentItems = getValues('lineItems');
 
         const newItems: any[] = [];
         
         selectedProducts.forEach((product, idx) => {
             const price = product.prices[selectedPolicyId] || 0;
+            // Get quantity from dialog, default to 1 if not provided or 0
+            const selectedQty = quantities?.[product.systemId] || 1;
             
             // If split line is disabled, try to find existing item and increase quantity
             if (!enableSplitLine) {
@@ -385,7 +538,8 @@ export function OrderFormPage() {
                 
                 if (existingIndex > -1) {
                     const currentItem = getValues(`lineItems.${existingIndex}`);
-                    const updatedItem = { ...currentItem, quantity: (Number(currentItem.quantity) || 0) + 1 };
+                    // Add the selected quantity (not just 1)
+                    const updatedItem = { ...currentItem, quantity: (Number(currentItem.quantity) || 0) + selectedQty };
                     updateField(existingIndex, updatedItem);
                     return; // Skip adding new line
                 }
@@ -393,17 +547,21 @@ export function OrderFormPage() {
             
             // Add as new line (either split line is enabled, or product doesn't exist yet)
             // Ensure unique ID by using timestamp + random + index
+            const defaultTax = getDefaultSale();
+            const taxRate = defaultTax?.rate || 0;
             const newItem = {
                 id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${idx}`,
                 systemId: '',
                 productSystemId: product.systemId,
                 productId: product.id,
                 productName: product.name,
-                quantity: 1,
+                quantity: selectedQty, // Use quantity from dialog
                 unitPrice: price,
                 discount: 0,
                 discountType: tableSettings.discountDefaultType === 'percent' ? 'percentage' : 'fixed',
-                total: price,
+                tax: taxRate,
+                taxId: defaultTax?.systemId || '',
+                total: price * selectedQty * (1 + taxRate / 100),
             };
             newItems.push(newItem);
         });
@@ -485,7 +643,7 @@ export function OrderFormPage() {
             const ghtkService = new GHTKService(apiToken, partnerCode || '');
             
             // ✅ Call GHTK API with params (already built by shipping-integration previewParams)
-            console.log('� [createGHTKOrder] Calling GHTK API with params:', ghtkParams);
+            console.log('📦 [createGHTKOrder] Calling GHTK API with params:', ghtkParams);
             toast.info('Đang tạo đơn trên GHTK...', { duration: 2000 });
             const result = await ghtkService.createOrder(ghtkParams);
             
@@ -515,6 +673,14 @@ export function OrderFormPage() {
     // ✅ Guard to prevent double submission
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     
+    // ✅ Helper to generate packaging systemId (proper format: PACKAGE000001)
+    const PACKAGING_SYSTEM_ID_PREFIX = 'PACKAGE';
+    const getNextPackagingSystemId = React.useCallback((): string => {
+        const allPackagings = allOrders.flatMap(o => o.packagings || []);
+        const maxCounter = getMaxSystemIdCounter(allPackagings, PACKAGING_SYSTEM_ID_PREFIX);
+        return generateSystemId('packaging', maxCounter + 1);
+    }, [allOrders]);
+    
     const processSubmit = async (data: OrderFormValues) => {
         // ✅ Prevent double submission
         if (isSubmitting) {
@@ -535,8 +701,10 @@ export function OrderFormPage() {
         const customer = data.customer;
         const salespersonSystemId = data.salespersonSystemId ? asSystemId(data.salespersonSystemId) : undefined;
         const branchSystemId = data.branchSystemId ? asSystemId(data.branchSystemId) : undefined;
+        const packerSystemId = data.packerId ? asSystemId(data.packerId) : undefined;
         const salesperson = salespersonSystemId ? employees.find(e => e.systemId === salespersonSystemId) : undefined;
         const branch = branchSystemId ? branches.find(b => b.systemId === branchSystemId) : undefined;
+        const packer = packerSystemId ? employees.find(e => e.systemId === packerSystemId) : undefined;
     
         // Validate basic info
         if (!customer) {
@@ -571,6 +739,49 @@ export function OrderFormPage() {
                     description: `Sản phẩm "${item.productName}" có giá không hợp lệ` 
                 });
                 return;
+            }
+        }
+
+        // ✅ Check negative stock settings
+        const { allowNegativeOrder, allowNegativeApproval } = useSalesManagementSettingsStore.getState();
+        
+        // Determine if we need to validate stock based on settings and action
+        let shouldValidateStock = false;
+        
+        // 1. If "Allow Negative Order" is OFF, we must validate ALL orders (Draft or Approve)
+        if (!allowNegativeOrder) {
+            shouldValidateStock = true;
+        } 
+        // 2. If "Allow Negative Order" is ON, but "Allow Negative Approval" is OFF
+        // We only validate if the user is trying to Approve (submitAction === 'approve')
+        else if (submitAction === 'approve' && !allowNegativeApproval) {
+            shouldValidateStock = true;
+        }
+
+        if (shouldValidateStock && branchSystemId) {
+            for (const item of data.lineItems) {
+                const product = allProducts.find(p => p.systemId === item.productSystemId);
+                if (product) {
+                    const currentStock = product.inventoryByBranch?.[branchSystemId] || 0;
+                    const committed = product.committedByBranch?.[branchSystemId] || 0;
+                    let available = currentStock - committed;
+
+                    // If editing an active order, add back the quantity currently held by this order
+                    // This prevents "false positive" out of stock when updating an existing order
+                    if (isEditing && order && ['Đang giao dịch', 'Chờ lấy hàng', 'Đang giao hàng', 'Chờ giao lại'].includes(order.status)) {
+                        const existingItem = order.lineItems.find(li => li.productSystemId === item.productSystemId);
+                        if (existingItem) {
+                            available += existingItem.quantity;
+                        }
+                    }
+                    
+                    if (available < item.quantity) {
+                        toast.error('Hết hàng', { 
+                            description: `Sản phẩm "${item.productName}" không đủ tồn kho (Có sẵn: ${available}, Yêu cầu: ${item.quantity})` 
+                        });
+                        return;
+                    }
+                }
             }
         }
         
@@ -637,7 +848,7 @@ export function OrderFormPage() {
         }
         
         // ✅ Sanitize user inputs to prevent XSS
-        const sanitizeString = (str: string) => {
+        const sanitizeString = (str?: string) => {
             if (!str) return '';
             return str.trim()
                 .replace(/[<>]/g, '') // Remove < and >
@@ -645,15 +856,21 @@ export function OrderFormPage() {
         };
         
         const sanitizedNotes = sanitizeString(data.notes || '');
-        const sanitizedSource = sanitizeString(data.source || '');
+        const sanitizedSource = sanitizeString(data.source ?? '');
         const sanitizedTags = (data.tags || []).map(tag => sanitizeString(tag));
+        const sanitizedExpectedPaymentMethod = sanitizeString(data.expectedPaymentMethod || '');
         
-        const totalPaid = data.payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+        const formPayments = data.payments || [];
+        const totalPaid = formPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
         let paymentStatus: OrderPaymentStatus = 'Chưa thanh toán';
-        if (data.grandTotal > 0 && totalPaid >= data.grandTotal) {
-            paymentStatus = 'Thanh toán toàn bộ';
-        } else if (totalPaid > 0) {
-            paymentStatus = 'Thanh toán 1 phần';
+        if (!isEditing) {
+            if (data.grandTotal > 0 && totalPaid >= data.grandTotal) {
+                paymentStatus = 'Thanh toán toàn bộ';
+            } else if (totalPaid > 0) {
+                paymentStatus = 'Thanh toán 1 phần';
+            }
+        } else if (order) {
+            paymentStatus = order.paymentStatus;
         }
 
         // Auto-duyệt nếu đang submit "draft" nhưng có thanh toán
@@ -662,7 +879,8 @@ export function OrderFormPage() {
             effectiveSubmitAction = 'approve';
         }
 
-        let packagings: Packaging[] = [];
+        // ✅ FIX: Preserve existing packagings when editing order
+        let packagings: Packaging[] = (isEditing && order?.packagings) ? [...order.packagings] : [];
         let finalMainStatus: OrderMainStatus;
         let finalDeliveryStatus: OrderDeliveryStatus;
         let finalCompletedDate: string | undefined = undefined;
@@ -671,27 +889,35 @@ export function OrderFormPage() {
         // ✅ Generate order ID once - empty string for auto-generate
         const finalOrderId = (isEditing && order) ? order.id : asBusinessId('');
 
+        // ✅ Determine if we should keep existing status/packagings (editing) or create new
+        const hasExistingPackagings = isEditing && order?.packagings && order.packagings.length > 0;
+
         switch (data.deliveryMethod) {
             case 'pickup':
                 // Nhận tại cửa hàng - Trạng thái ban đầu: "Chờ đóng gói" (chưa chọn phương thức giao hàng cụ thể)
-                finalDeliveryStatus = 'Chờ đóng gói';
-                finalMainStatus = 'Đang giao dịch';
-                packagings.push({
-                    systemId: asSystemId(`PKG_TEMP_${Date.now()}`),
-                    id: asBusinessId(''), // ✅ Empty - auto-generate
-                    requestDate: now,
-                    requestingEmployeeId: salesperson.systemId, 
-                    requestingEmployeeName: salesperson.fullName,
-                    status: 'Chờ đóng gói',
-                    printStatus: 'Chưa in',
-                    // ✅ Không set deliveryMethod ngay, để sau khi đóng gói mới chọn
-                    deliveryStatus: 'Chờ đóng gói',
-                });
+                finalDeliveryStatus = hasExistingPackagings ? order!.deliveryStatus : 'Chờ đóng gói';
+                finalMainStatus = hasExistingPackagings ? order!.status : 'Đang giao dịch';
+                // ✅ Only create new packaging if no existing packagings
+                if (!hasExistingPackagings) {
+                    packagings.push({
+                        systemId: asSystemId(getNextPackagingSystemId()), // ✅ Use proper format PACKAGE000001
+                        id: asBusinessId(''), // ✅ Empty - auto-generate
+                        requestDate: now,
+                        requestingEmployeeId: salesperson.systemId, 
+                        requestingEmployeeName: salesperson.fullName,
+                        assignedEmployeeId: packerSystemId,
+                        assignedEmployeeName: packer?.fullName,
+                        status: 'Chờ đóng gói',
+                        printStatus: 'Chưa in',
+                        // ✅ Không set deliveryMethod ngay, để sau khi đóng gói mới chọn
+                        deliveryStatus: 'Chờ đóng gói',
+                    });
+                }
                 break;
 
             case 'shipping-partner':
-                finalMainStatus = 'Đang giao dịch';
-                finalDeliveryStatus = 'Chờ lấy hàng';
+                finalMainStatus = hasExistingPackagings ? order!.status : 'Đang giao dịch';
+                finalDeliveryStatus = hasExistingPackagings ? order!.deliveryStatus : 'Chờ lấy hàng';
                 // ✅ FIX: Find partner by ID (not systemId) because form stores partner.id
                 const partner = data.shippingPartnerId ? partners.find(p => p.id === data.shippingPartnerId) : undefined;
                 const service = partner?.services.find(s => s.id === data.shippingServiceId);
@@ -815,65 +1041,71 @@ export function OrderFormPage() {
                     console.log('==========================================');
                 }
                 
-                const allTrackingCodes = allOrders.flatMap(o => o.packagings).map(p => ({ id: p.trackingCode })).filter(p => p.id);
-                packagings.push({
-                    systemId: asSystemId(`PKG_TEMP_${Date.now()}`),
-                    id: asBusinessId(''), // ✅ Empty - auto-generate
-                    requestDate: now, confirmDate: now,
-                    requestingEmployeeId: salesperson.systemId, requestingEmployeeName: salesperson.fullName,
-                    confirmingEmployeeId: salesperson.systemId, confirmingEmployeeName: salesperson.fullName,
-                    status: 'Đã đóng gói',
-                    deliveryStatus: 'Chờ lấy hàng',
-                    printStatus: 'Chưa in',
-                    deliveryMethod: 'Dịch vụ giao hàng',
-                    carrier: partner?.name, service: service?.name,
-                    trackingCode: partnerTrackingCode || data.trackingCode || "", // ✅ Empty tracking code
-                    shippingFeeToPartner: data.shippingFee,
-                    codAmount: data.codAmount, 
-                    payer: data.payer, 
-                    noteToShipper: sanitizeString(data.shippingNote || ''),
-                    weight: data.weight, dimensions: (data.length && data.width && data.height) ? `${data.length}x${data.width}x${data.height}` : undefined,
-                });
+                // ✅ Only create new packaging if no existing packagings
+                if (!hasExistingPackagings) {
+                    const allTrackingCodes = allOrders.flatMap(o => o.packagings).map(p => ({ id: p.trackingCode })).filter(p => p.id);
+                    packagings.push({
+                        systemId: asSystemId(getNextPackagingSystemId()), // ✅ Use proper format PACKAGE000001
+                        id: asBusinessId(''), // ✅ Empty - auto-generate
+                        requestDate: now, confirmDate: now,
+                        requestingEmployeeId: salesperson.systemId, requestingEmployeeName: salesperson.fullName,
+                        confirmingEmployeeId: salesperson.systemId, confirmingEmployeeName: salesperson.fullName,
+                        assignedEmployeeId: packerSystemId,
+                        assignedEmployeeName: packer?.fullName,
+                        status: 'Đã đóng gói',
+                        deliveryStatus: 'Chờ lấy hàng',
+                        printStatus: 'Chưa in',
+                        deliveryMethod: 'Dịch vụ giao hàng',
+                        carrier: partner?.name, service: service?.name,
+                        trackingCode: partnerTrackingCode || data.trackingCode || "", // ✅ Empty tracking code
+                        shippingFeeToPartner: data.shippingFee,
+                        codAmount: data.codAmount, 
+                        payer: data.payer, 
+                        noteToShipper: sanitizeString(data.shippingNote || ''),
+                        weight: data.weight, dimensions: (data.length && data.width && data.height) ? `${data.length}x${data.width}x${data.height}` : undefined,
+                    });
+                }
                 break;
             
             case 'deliver-later':
             default:
                 // Áp dụng submitAction: draft = "Đặt hàng", approve = "Đang giao dịch"
-                finalMainStatus = effectiveSubmitAction === 'approve' ? 'Đang giao dịch' : 'Đặt hàng';
-                finalDeliveryStatus = 'Chờ đóng gói';
+                // ✅ Preserve existing status when editing
+                if (hasExistingPackagings) {
+                    finalMainStatus = order!.status;
+                    finalDeliveryStatus = order!.deliveryStatus;
+                } else {
+                    finalMainStatus = effectiveSubmitAction === 'approve' ? 'Đang giao dịch' : 'Đặt hàng';
+                    finalDeliveryStatus = 'Chờ đóng gói';
+                }
                 break;
         }
 
-        const paymentTimestamp = Date.now();
+        const resolvedShippingAddress = data.shippingAddress || customer.addresses?.find((a: any) => a.isDefaultShipping) || null;
+        const resolvedBillingAddress = data.billingAddress || customer.addresses?.find((a: any) => a.isDefaultBilling) || null;
+        const shippingAddressSnapshot = cloneOrderAddress(resolvedShippingAddress);
+        const billingAddressSnapshot = cloneOrderAddress(resolvedBillingAddress);
+
+        const initialPayments = isEditing && order ? order.payments : [];
+        const initialPaidAmount = isEditing && order ? order.paidAmount : 0;
 
         const finalOrderData = {
             id: finalOrderId,
             customerSystemId: customer.systemId, 
             customerName: sanitizeString(customer.name),
             
-            // ✅ Save selected addresses from form (or fallback to default)
-            shippingAddress: data.shippingAddress ? 
-                [data.shippingAddress.street, data.shippingAddress.ward, data.shippingAddress.district, data.shippingAddress.province].filter(Boolean).join(', ') :
-                (customer.addresses?.find(a => a.isDefaultShipping) ? 
-                    [customer.addresses.find(a => a.isDefaultShipping)?.street, 
-                     customer.addresses.find(a => a.isDefaultShipping)?.ward,
-                     customer.addresses.find(a => a.isDefaultShipping)?.district,
-                     customer.addresses.find(a => a.isDefaultShipping)?.province].filter(Boolean).join(', ') : 
-                    undefined),
-            billingAddress: data.billingAddress ? 
-                [data.billingAddress.street, data.billingAddress.ward, data.billingAddress.district, data.billingAddress.province].filter(Boolean).join(', ') :
-                (customer.addresses?.find(a => a.isDefaultBilling) ? 
-                    [customer.addresses.find(a => a.isDefaultBilling)?.street, 
-                     customer.addresses.find(a => a.isDefaultBilling)?.ward,
-                     customer.addresses.find(a => a.isDefaultBilling)?.district,
-                     customer.addresses.find(a => a.isDefaultBilling)?.province].filter(Boolean).join(', ') : 
-                    undefined),
+            // ✅ Save selected addresses from form (snapshot to prevent future mutations)
+            shippingAddress: shippingAddressSnapshot,
+            billingAddress: billingAddressSnapshot,
             
             branchSystemId: branch.systemId,
             branchName: branch.name,
             salespersonSystemId: salesperson.systemId, 
             salesperson: salesperson.fullName,
+            assignedPackerSystemId: packerSystemId,
+            assignedPackerName: packer?.fullName,
             orderDate: toISODateTime(data.orderDate),
+            expectedPaymentMethod: sanitizedExpectedPaymentMethod || undefined,
             lineItems: data.lineItems.map((li, index) => ({
                 productSystemId: asSystemId(li.productSystemId), 
                 productId: asBusinessId((li.productId || '').trim().toUpperCase() || `SKU${String(index + 1).padStart(6, '0')}`), 
@@ -882,21 +1114,16 @@ export function OrderFormPage() {
                 unitPrice: Number(li.unitPrice), 
                 discount: Number(li.discount), 
                 discountType: li.discountType,
+                tax: Number(li.tax) || 0,
+                taxId: li.taxId || '',
+                note: li.note?.trim() || undefined,
             })),
             subtotal: data.subtotal, 
             shippingFee: data.shippingFee, 
             tax: data.tax, 
             grandTotal: data.grandTotal,
-            paidAmount: totalPaid,
-            payments: (data.payments || []).map((p, index) => ({ 
-                systemId: asSystemId(`PAYMENT_TMP_${paymentTimestamp}_${index}`), 
-                id: asBusinessId(`PT${String(paymentTimestamp + index).slice(-6).padStart(6, '0')}`), 
-                date: now, 
-                createdBy: salesperson.systemId, 
-                description: '', 
-                method: p.method, 
-                amount: Number(p.amount) || 0
-            })),
+            paidAmount: initialPaidAmount,
+            payments: initialPayments,
             notes: sanitizedNotes, 
             tags: sanitizedTags,
             source: sanitizedSource,
@@ -910,6 +1137,7 @@ export function OrderFormPage() {
             codAmount: data.codAmount || 0,
             packagings: packagings,
             completedDate: finalCompletedDate,
+            createdAt: toISODateTime(new Date()), // Thời điểm tạo đơn
         };
 
         if (isEditing && order) {
@@ -923,6 +1151,17 @@ export function OrderFormPage() {
             console.log('🔵 [DEBUG] New item systemId:', newItem?.systemId);
             console.log('🔵 [DEBUG] Navigating to:', `/orders/${newItem?.systemId}`);
             if (newItem) {
+                if (!isEditing && formPayments.length > 0) {
+                    formPayments.forEach(payment => {
+                        const amount = Number(payment.amount) || 0;
+                        if (amount <= 0) return;
+                        addOrderPayment(newItem.systemId, { amount, method: payment.method }, currentEmployeeSystemId);
+                    });
+                }
+
+                // ✅ Công nợ sẽ được tạo khi đơn hàng giao thành công (completeDelivery)
+                // KHÔNG tạo công nợ ngay khi tạo đơn
+
                 navigate(`/orders/${newItem.systemId}`);
             } else {
                 console.error('❌ [DEBUG] add() returned null/undefined!');
@@ -985,8 +1224,9 @@ export function OrderFormPage() {
             { label: 'Đơn hàng', href: '/orders', isCurrent: false },
             { label: order.id, href: `/orders/${order.systemId}`, isCurrent: false },
             { label: isEditing ? 'Chỉnh sửa' : 'Chi tiết', href: '', isCurrent: true }
-        ] : routeMeta?.breadcrumb as any
-        // KHÔNG truyền title - để auto-generate từ MODULES config
+        ] : routeMeta?.breadcrumb as any,
+        // ✅ FIX: Pass order context so title shows businessId (DH000007) instead of systemId (ORDER000002)
+        context: order ? { id: order.id } : undefined
     });
     
     return (
@@ -999,8 +1239,8 @@ export function OrderFormPage() {
                         {isMetadataOnlyMode && (
                             <Card className="border-amber-200 bg-amber-50">
                                 <CardContent className="pt-6">
-                                    <p className="text-sm text-amber-800">
-                                        <strong>Lưu ý:</strong> Đơn hàng đã đóng gói/xuất kho. Chỉ có thể chỉnh sửa: Tags, Ghi chú, Hẹn giao, Ngày bán, Đường dẫn đơn hàng, Tham chiếu.
+                                    <p className="text-body-sm text-amber-800">
+                                        <strong>Lưu ý:</strong> Đơn hàng đã đóng gói/xuất kho. Chỉ có thể chỉnh sửa: Tags, Ghi chú, Đường dẫn đơn hàng, Tham chiếu.
                                     </p>
                                 </CardContent>
                             </Card>
@@ -1012,7 +1252,7 @@ export function OrderFormPage() {
                         </div>
                         <Card className="flex flex-col">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                                <CardTitle className="text-base font-semibold">Thông tin sản phẩm</CardTitle>
+                                <CardTitle className="text-h4">Thông tin sản phẩm</CardTitle>
                                 <ProductTableToolbar 
                                     disabled={isFormDisabled || isMetadataOnlyMode} 
                                     enableSplitLine={enableSplitLine}
@@ -1024,7 +1264,14 @@ export function OrderFormPage() {
                             <CardContent>
                                 <div className="mb-4">
                                     <div className="flex items-center gap-2">
-                                        <ProductSearch onSelectProduct={(p) => handleSelectProducts([p])} onAddProduct={handleSimplifiedAddProduct} disabled={isFormDisabled || isMetadataOnlyMode} defaultPolicyId={defaultSellingPolicy?.systemId} />
+                                        <OrderProductSearch 
+                                            onSelectProduct={(p) => handleSelectProducts([p])}
+                                            disabled={isFormDisabled || isMetadataOnlyMode}
+                                            allowCreateNew={true}
+                                            placeholder="Thêm sản phẩm (F3)"
+                                            searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+                                            {...(selectedBranchSystemId ? { branchSystemId: selectedBranchSystemId } : {})}
+                                        />
                                         <Button type="button" variant="outline" className="h-9 flex-shrink-0" onClick={() => setIsProductSelectionOpen(true)} disabled={isFormDisabled || isMetadataOnlyMode}>Chọn nhanh</Button>
                                         <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId} disabled={isFormDisabled || isMetadataOnlyMode}>
                                             <SelectTrigger className="h-9 w-[180px] flex-shrink-0"><SelectValue /></SelectTrigger>
@@ -1036,7 +1283,7 @@ export function OrderFormPage() {
                                     <>
                                         <div className="text-center text-muted-foreground p-12 border border-dashed rounded-md">
                                             <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
-                                            <p className="mt-4 text-sm">Chưa có sản phẩm nào trong đơn hàng</p>
+                                            <p className="mt-4 text-body-sm">Chưa có sản phẩm nào trong đơn hàng</p>
                                             <Button type="button" variant="link" className="mt-2" onClick={() => setIsProductSelectionOpen(true)} disabled={isMetadataOnlyMode}>Thêm sản phẩm</Button>
                                         </div>
                                         <ProductTableBottomToolbar 
@@ -1052,6 +1299,8 @@ export function OrderFormPage() {
                                         onApplyPromotion={() => setIsApplyPromotionDialogOpen(true)}
                                         fields={fields}
                                         remove={remove}
+                                        pricingPolicyId={selectedPolicyId}
+                                        allowNoteEdit={isMetadataOnlyMode && !isFullyReadOnly}
                                     /> 
                                 )}
                             </CardContent>
@@ -1068,7 +1317,12 @@ export function OrderFormPage() {
                         <ShippingCard hidden={isEditing} />
                     </div>
                 </ScrollArea>
-                <ProductSelectionDialog isOpen={isProductSelectionOpen} onOpenChange={setIsProductSelectionOpen} onSelect={handleSelectProducts} />
+                <ProductSelectionDialog 
+                    isOpen={isProductSelectionOpen}
+                    onOpenChange={setIsProductSelectionOpen}
+                    onSelect={handleSelectProducts}
+                    {...(selectedBranchSystemId ? { branchSystemId: selectedBranchSystemId } : {})}
+                />
                 <AddServiceDialog open={isAddServiceDialogOpen} onOpenChange={setIsAddServiceDialogOpen} disabled={isFormDisabled} onAppend={append} />
                 <ApplyPromotionDialog open={isApplyPromotionDialogOpen} onOpenChange={setIsApplyPromotionDialogOpen} onApply={handleApplyPromotion} disabled={isFormDisabled} />
             </form>

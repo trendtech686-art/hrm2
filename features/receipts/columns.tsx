@@ -7,7 +7,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { Badge } from "@/components/ui/badge";
 import type { ColumnDef } from '@/components/data-table/types';
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, RotateCcw, Eye, MoreHorizontal, CheckCircle, XCircle } from "lucide-react";
+import { Pencil, Trash2, RotateCcw, Eye, MoreHorizontal, CheckCircle, XCircle, Printer } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { SystemId } from '@/lib/id-types';
@@ -42,14 +42,15 @@ const getStatusBadge = (status?: Receipt['status']) => {
 export const getColumns = (
     accounts: CashAccount[],
     onCancel: (systemId: SystemId) => void,
-    navigate: (path: string) => void
+    navigate: (path: string) => void,
+    onPrint?: (receipt: Receipt) => void
 ): ColumnDef<Receipt>[] => [
     {
         id: "select",
         header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
             <Checkbox
                 checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-                onCheckedChange={(value) => onToggleAll(!!value)}
+                onCheckedChange={(value) => onToggleAll?.(!!value)}
                 aria-label="Select all"
             />
         ),
@@ -73,9 +74,9 @@ export const getColumns = (
             <DataTableColumnHeader
                 title="Mã phiếu"
                 sortKey="id"
-                isSorted={sorting.id === 'id'}
-                sortDirection={sorting.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+                isSorted={sorting?.id === 'id'}
+                sortDirection={sorting?.desc ? 'desc' : 'asc'}
+                onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => <div className="font-medium">{row.id}</div>,
@@ -91,9 +92,9 @@ export const getColumns = (
             <DataTableColumnHeader
                 title="Ngày thu"
                 sortKey="date"
-                isSorted={sorting.id === 'date'}
-                sortDirection={sorting.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting((s: any) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
+                isSorted={sorting?.id === 'date'}
+                sortDirection={sorting?.desc ? 'desc' : 'asc'}
+                onSort={() => setSorting?.((s: any) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => formatDateDisplay(row.date),
@@ -109,9 +110,9 @@ export const getColumns = (
             <DataTableColumnHeader
                 title="Số tiền"
                 sortKey="amount"
-                isSorted={sorting.id === 'amount'}
-                sortDirection={sorting.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting((s: any) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
+                isSorted={sorting?.id === 'amount'}
+                sortDirection={sorting?.desc ? 'desc' : 'asc'}
+                onSort={() => setSorting?.((s: any) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => (
@@ -288,9 +289,9 @@ export const getColumns = (
             <DataTableColumnHeader
                 title="Ngày tạo"
                 sortKey="createdAt"
-                isSorted={sorting.id === 'createdAt'}
-                sortDirection={sorting.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+                isSorted={sorting?.id === 'createdAt'}
+                sortDirection={sorting?.desc ? 'desc' : 'asc'}
+                onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => formatDateTimeDisplay(row.createdAt),
@@ -333,11 +334,11 @@ export const getColumns = (
                                 <DropdownMenuItem
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/receipts/${receipt.systemId}`);
+                                        onPrint?.(receipt);
                                     }}
                                 >
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Xem chi tiết
+                                    <Printer className="mr-2 h-4 w-4" />
+                                    In phiếu
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     onClick={(e) => {
@@ -345,7 +346,6 @@ export const getColumns = (
                                         navigate(`/receipts/${receipt.systemId}/edit`);
                                     }}
                                 >
-                                    <Pencil className="mr-2 h-4 w-4" />
                                     Chỉnh sửa
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
@@ -356,7 +356,6 @@ export const getColumns = (
                                         onCancel(receipt.systemId);
                                     }}
                                 >
-                                    <XCircle className="mr-2 h-4 w-4" />
                                     Hủy phiếu
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

@@ -8,6 +8,7 @@ import { useBranchStore } from "../settings/branches/store.ts";
 import { getColumns } from "./trash-columns.tsx"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
 import { Card, CardContent } from "../../components/ui/card.tsx"
+import { Button } from "../../components/ui/button.tsx"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx"
 import { getApiUrl } from "../../lib/api-config.ts"
 import type { Employee } from "./types.ts"
@@ -18,7 +19,20 @@ export function EmployeesTrashPage() {
   const { data: branchesRaw } = useBranchStore();
   const navigate = useNavigate();
   
-  usePageHeader();
+  usePageHeader({
+    title: 'Thùng rác nhân viên',
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Nhân viên', href: '/employees', isCurrent: false },
+      { label: 'Thùng rác', href: '', isCurrent: true },
+    ],
+    showBackButton: false,
+    actions: [
+      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => navigate('/employees')}>
+        Quay lại danh sách
+      </Button>,
+    ],
+  });
   
   const branches = React.useMemo(() => branchesRaw, [branchesRaw]);
   // React to store changes by depending on data array
@@ -98,14 +112,14 @@ export function EmployeesTrashPage() {
             </Avatar>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold truncate">{employee.fullName}</h3>
-              <p className="text-sm text-muted-foreground">{employee.id}</p>
-              <div className="text-sm text-muted-foreground mt-1">
+              <p className="text-body-sm text-muted-foreground">{employee.id}</p>
+              <div className="text-body-sm text-muted-foreground mt-1">
                 {employee.department} • {employee.jobTitle}
               </div>
             </div>
           </div>
           {employee.deletedAt && (
-            <div className="text-xs text-muted-foreground">
+            <div className="text-body-xs text-muted-foreground">
               Xóa: {formatDateCustom(new Date(employee.deletedAt), 'dd/MM/yyyy HH:mm')}
             </div>
           )}
@@ -115,7 +129,7 @@ export function EmployeesTrashPage() {
   );
 
   return (
-    <GenericTrashPage
+    <GenericTrashPage<Employee>
       deletedItems={deletedEmployees}
       onRestore={restore}
       onPermanentDelete={async (systemId) => {

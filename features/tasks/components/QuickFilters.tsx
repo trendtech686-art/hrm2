@@ -65,7 +65,7 @@ export function QuickFilters({
             {count > 0 && (
               <Badge
                 variant={isActive ? 'secondary' : 'outline'}
-                className="h-5 px-1.5 text-xs font-medium"
+                className="h-5 px-1.5 text-body-xs font-medium"
               >
                 {count}
               </Badge>
@@ -97,7 +97,7 @@ export function QuickFiltersCompact({
             key={filter.id}
             onClick={() => onToggleFilter(filter.id)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-body-xs font-medium whitespace-nowrap transition-colors',
               isActive
                 ? `bg-${filter.color}-500 text-white`
                 : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'

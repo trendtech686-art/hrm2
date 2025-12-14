@@ -18,4 +18,8 @@ export type CashAccount = {
   minBalance?: number; // Số dư tối thiểu cảnh báo
   maxBalance?: number; // Số dư tối đa cảnh báo
   managedBy?: SystemId; // Người quản lý (systemId)
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

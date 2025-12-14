@@ -7,6 +7,7 @@ import type { Complaint } from "../types.ts";
 import { usePaymentStore } from "../../payments/store.ts";
 import { useReceiptStore } from "../../receipts/store.ts";
 import { useInventoryCheckStore } from "../../inventory-checks/store.ts";
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface Props {
   complaint: Complaint;
@@ -212,7 +213,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                     </div>
                     {payment.status === 'cancelled' && payment.cancelledAt && (
                       <span className="text-xs text-muted-foreground">
-                        Hủy lúc: {new Date(payment.cancelledAt).toLocaleString('vi-VN')}
+                        Hủy lúc: {formatDateTimeForDisplay(payment.cancelledAt)}
                       </span>
                     )}
                   </div>
@@ -248,7 +249,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                     </div>
                     {receipt.status === 'cancelled' && receipt.cancelledAt && (
                       <span className="text-xs text-muted-foreground">
-                        Hủy lúc: {new Date(receipt.cancelledAt).toLocaleString('vi-VN')}
+                        Hủy lúc: {formatDateTimeForDisplay(receipt.cancelledAt)}
                       </span>
                     )}
                   </div>
@@ -285,7 +286,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                       </div>
                       {inventoryCheck.status === 'cancelled' && inventoryCheck.cancelledAt && (
                         <span className="text-xs text-muted-foreground">
-                          Hủy lúc: {new Date(inventoryCheck.cancelledAt).toLocaleString('vi-VN')}
+                          Hủy lúc: {formatDateTimeForDisplay(inventoryCheck.cancelledAt)}
                         </span>
                       )}
                     </div>

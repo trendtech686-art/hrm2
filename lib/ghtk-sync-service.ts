@@ -15,8 +15,8 @@ import { shouldSyncGHTKStatus } from './ghtk-constants';
 export type SyncMode = 'webhook' | 'polling' | 'hybrid';
 
 class GHTKSyncService {
-  private syncInterval?: NodeJS.Timeout;
-  private webhookPollInterval?: NodeJS.Timeout;
+  private syncInterval: NodeJS.Timeout | undefined;
+  private webhookPollInterval: NodeJS.Timeout | undefined;
   private mode: SyncMode = 'hybrid';
   private pollingIntervalMs = 10 * 60 * 1000; // 10 minutes (fallback)
   private webhookPollIntervalMs = 5 * 1000; // 5 seconds (webhook check)

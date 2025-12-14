@@ -4,6 +4,14 @@ import { formatDate } from '../../lib/date-utils.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useSalesReturnStore } from './store.ts';
 import { useBranchStore } from '../settings/branches/store.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { 
+  convertSalesReturnForPrint,
+  mapSalesReturnToPrintData,
+  mapSalesReturnLineItems,
+  createStoreSettingsFromBranch,
+} from '../../lib/print/sales-return-print-helper.ts';
 import { getColumns } from './columns.tsx';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
 import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
@@ -11,17 +19,20 @@ import { DataTableFacetedFilter } from '../../components/data-table/data-table-f
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { PageFilters } from '../../components/layout/page-filters.tsx';
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
 import { Card, CardContent } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
-import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User } from 'lucide-react';
+import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { toast } from 'sonner';
 import type { SalesReturn } from './types.ts';
 import Fuse from 'fuse.js';
+import { ROUTES } from '../../lib/router.ts';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '0';
@@ -32,12 +43,43 @@ export function SalesReturnsPage() {
     const navigate = useNavigate();
     const { data: returns, getActive } = useSalesReturnStore();
     const { data: branches } = useBranchStore();
+    const { info: storeInfo } = useStoreInfoStore();
     
     const activeReturns = React.useMemo(() => getActive(), [returns]);
     
-    usePageHeader({ actions: [] });
+    const handleCreateReturn = React.useCallback(() => {
+        navigate(ROUTES.SALES.ORDERS);
+    }, [navigate]);
+
+    const totalReturnValue = React.useMemo(() =>
+        activeReturns.reduce((sum, item) => sum + (item.totalReturnValue || 0), 0),
+    [activeReturns]);
+    const pendingCount = React.useMemo(() => activeReturns.filter(item => !item.isReceived).length, [activeReturns]);
+    const headerActions = React.useMemo(() => [
+        <Button
+            key="create"
+            size="sm"
+            className="h-9 px-4"
+            onClick={handleCreateReturn}
+        >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Tạo phiếu trả
+        </Button>
+    ], [handleCreateReturn]);
+
+    const pageHeaderConfig = React.useMemo(() => ({
+        title: 'Phiếu trả hàng',
+        breadcrumb: [
+            { label: 'Trang chủ', href: ROUTES.ROOT },
+            { label: 'Trả hàng', href: ROUTES.SALES.RETURNS, isCurrent: true }
+        ],
+        showBackButton: false,
+        actions: headerActions,
+    }), [activeReturns.length, pendingCount, totalReturnValue, headerActions]);
+
+    usePageHeader(pageHeaderConfig);
     
-    const [sorting, setSorting] = React.useState({ id: 'returnDate', desc: true });
+    const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
     const [globalFilter, setGlobalFilter] = React.useState('');
     const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
@@ -86,15 +128,63 @@ export function SalesReturnsPage() {
     const mobileScrollRef = React.useRef<HTMLDivElement>(null);
     const isMobile = !useMediaQuery('(min-width: 768px)');
 
+    // Print dialog state
+    const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
+    const [itemsToPrint, setItemsToPrint] = React.useState<SalesReturn[]>([]);
+
     React.useEffect(() => {
         const timer = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300);
         return () => clearTimeout(timer);
     }, [globalFilter]);
 
-    const handlePrintReturn = React.useCallback((returnIds: string[]) => {
-        console.log('In Phiếu Trả Hàng:', returnIds);
-        // TODO: Implement print logic
+    const { print, printMultiple } = usePrint();
+
+    // Handler để mở dialog in với options
+    const handleBulkPrint = React.useCallback((rows: SalesReturn[]) => {
+        setItemsToPrint(rows);
+        setPrintDialogOpen(true);
     }, []);
+
+    // Handler khi xác nhận in từ dialog
+    const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+        if (itemsToPrint.length === 0) return;
+
+        const { branchSystemId, paperSize } = options;
+        const selectedBranch = branches.find(b => b.systemId === branchSystemId);
+        const storeSettings = createStoreSettingsFromBranch(selectedBranch, storeInfo);
+
+        const printOptionsList = itemsToPrint.map(ret => {
+            const returnData = convertSalesReturnForPrint(ret, { branch: selectedBranch });
+            return {
+                data: mapSalesReturnToPrintData(returnData, storeSettings),
+                lineItems: mapSalesReturnLineItems(returnData.returnItems || []),
+                paperSize,
+            };
+        });
+
+        printMultiple('sales-return', printOptionsList);
+        setPrintDialogOpen(false);
+        setItemsToPrint([]);
+        setRowSelection({});
+        toast.success(`Đang in ${itemsToPrint.length} phiếu trả hàng`);
+    }, [itemsToPrint, branches, storeInfo, printMultiple]);
+
+    const handlePrintReturn = React.useCallback((returnIds: string[]) => {
+        returnIds.forEach(id => {
+            const ret = activeReturns.find(r => r.systemId === id);
+            if (!ret) return;
+
+            // Use helper to prepare print data
+            const branch = branches.find(b => b.name === ret.branchName);
+            const storeSettings = createStoreSettingsFromBranch(branch, storeInfo);
+            const returnData = convertSalesReturnForPrint(ret, { branch });
+            
+            print('sales-return', {
+                data: mapSalesReturnToPrintData(returnData, storeSettings),
+                lineItems: mapSalesReturnLineItems(returnData.returnItems || []),
+            });
+        });
+    }, [activeReturns, branches, storeInfo, print]);
 
     const handlePrintSingleReturn = React.useCallback((returnId: string) => {
         handlePrintReturn([returnId]);
@@ -144,6 +234,12 @@ export function SalesReturnsPage() {
                 const bValue = (b as any)[sorting.id];
                 if (aValue == null) return 1;
                 if (bValue == null) return -1;
+                // Special handling for date columns
+                if (sorting.id === 'createdAt' || sorting.id === 'returnDate') {
+                  const aTime = aValue ? new Date(aValue).getTime() : 0;
+                  const bTime = bValue ? new Date(bValue).getTime() : 0;
+                  return sorting.desc ? bTime - aTime : aTime - bTime;
+                }
                 if (aValue < bValue) return sorting.desc ? 1 : -1;
                 if (aValue > bValue) return sorting.desc ? -1 : 1;
                 return 0;
@@ -180,18 +276,27 @@ export function SalesReturnsPage() {
 
     const allSelectedRows = React.useMemo(() => activeReturns.filter(r => rowSelection[r.systemId]), [activeReturns, rowSelection]);
 
+    // Bulk actions với SimplePrintOptionsDialog
+    const bulkActions = React.useMemo(() => [
+        {
+            label: 'In phiếu trả hàng',
+            icon: Printer,
+            onSelect: (rows: SalesReturn[]) => handleBulkPrint(rows),
+        },
+    ], [handleBulkPrint]);
+
     const MobileSalesReturnCard = ({ salesReturn }: { salesReturn: SalesReturn }) => (
         <Card className='hover:shadow-md transition-shadow cursor-pointer' onClick={() => handleRowClick(salesReturn)}>
             <CardContent className='p-4'>
                 <div className='flex items-center justify-between mb-2'>
                     <div className='flex items-center gap-2 flex-1 min-w-0'>
                         <Avatar className='h-8 w-8 flex-shrink-0 bg-orange-100'>
-                            <AvatarFallback className='text-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback>
+                            <AvatarFallback className='text-body-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback>
                         </Avatar>
                         <div className='flex items-center gap-1.5 min-w-0 flex-1'>
-                            <h3 className='font-semibold text-sm truncate'>{salesReturn.id}</h3>
-                            <span className='text-xs text-muted-foreground'></span>
-                            <span className='text-xs text-muted-foreground font-mono'>{salesReturn.orderId}</span>
+                            <h3 className='font-medium text-body-sm truncate'>{salesReturn.id}</h3>
+                            <span className='text-body-xs text-muted-foreground'></span>
+                            <span className='text-body-xs text-muted-foreground font-mono'>{salesReturn.orderId}</span>
                         </div>
                     </div>
                     <DropdownMenu>
@@ -205,23 +310,23 @@ export function SalesReturnsPage() {
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
-                <div className='text-xs text-muted-foreground mb-3 flex items-center'>
+                <div className='text-body-xs text-muted-foreground mb-3 flex items-center'>
                     <User className='h-3 w-3 mr-1.5 flex-shrink-0' />
                     <span className='truncate'>{salesReturn.customerName}</span>
                 </div>
                 <div className='border-t mb-3' />
                 <div className='space-y-2'>
-                    <div className='flex items-center text-xs text-muted-foreground'>
+                    <div className='flex items-center text-body-xs text-muted-foreground'>
                         <Package className='h-3 w-3 mr-1.5 flex-shrink-0' />
                         <span>{salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0)} sản phẩm</span>
                     </div>
-                    <div className='flex items-center text-xs text-muted-foreground'>
+                    <div className='flex items-center text-body-xs text-muted-foreground'>
                         <Calendar className='h-3 w-3 mr-1.5 flex-shrink-0' />
                         <span>{formatDate(salesReturn.returnDate)}</span>
                     </div>
-                    <div className='flex items-center justify-between text-xs pt-1'>
-                        <span className='font-semibold text-base'>{formatCurrency(salesReturn.totalReturnValue)}</span>
-                        <Badge variant={salesReturn.isReceived ? 'default' : 'secondary'} className='text-xs'>
+                    <div className='flex items-center justify-between text-body-xs pt-1'>
+                        <span className='text-h4'>{formatCurrency(salesReturn.totalReturnValue)}</span>
+                        <Badge variant={salesReturn.isReceived ? 'default' : 'secondary'} className='text-body-xs'>
                             {salesReturn.isReceived ? 'Đã nhận' : 'Chưa nhận'}
                         </Badge>
                     </div>
@@ -258,10 +363,10 @@ export function SalesReturnsPage() {
                         <>
                             {sortedData.slice(0, mobileLoadedCount).map(salesReturn => <MobileSalesReturnCard key={salesReturn.systemId} salesReturn={salesReturn} />)}
                             {mobileLoadedCount < sortedData.length && (
-                                <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>
+                                <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-body-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>
                             )}
                             {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && (
-                                <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu trả hàng</span></CardContent></Card>
+                                <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-body-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu trả hàng</span></CardContent></Card>
                             )}
                         </>
                     )}
@@ -279,22 +384,7 @@ export function SalesReturnsPage() {
                         rowSelection={rowSelection} 
                         setRowSelection={setRowSelection} 
                         allSelectedRows={allSelectedRows}
-                        bulkActionButtons={
-                            allSelectedRows.length > 0 ? (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant='outline' size='sm'>
-                                            Chọn Hành Động ({allSelectedRows.length})
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align='start'>
-                                        <DropdownMenuItem onClick={() => handlePrintReturn(allSelectedRows.map(r => r.systemId))}>
-                                            In Phiếu Trả Hàng
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            ) : null
-                        }
+                        bulkActions={bulkActions}
                         expanded={expanded} 
                         setExpanded={setExpanded} 
                         sorting={sorting} 
@@ -309,6 +399,15 @@ export function SalesReturnsPage() {
                     />
                 </div>
             )}
+
+            {/* Print Options Dialog */}
+            <SimplePrintOptionsDialog
+                open={printDialogOpen}
+                onOpenChange={setPrintDialogOpen}
+                selectedCount={itemsToPrint.length}
+                onConfirm={handlePrintConfirm}
+                title="In phiếu trả hàng"
+            />
         </div>
     );
 }

@@ -1,5 +1,5 @@
 /**
- * CreatePaymentVoucherDialog
+ * WarrantyPaymentVoucherDialog
  * 
  * Dialog tạo phiếu chi (payment voucher) từ warranty
  * - Auto-fill số tiền từ remainingAmount
@@ -48,18 +48,18 @@ import { calculateWarrantySettlementTotal } from '../../utils/payment-calculatio
 import { recordWarrantySettlementMethods, type SettlementMethodInput } from '../../utils/settlement-store.ts';
 
 interface WarrantyPaymentVoucherDialogProps extends WarrantyVoucherDialogBaseProps {
-  existingPayments?: Payment[];
+  existingPayments?: Payment[] | undefined;
 }
 
 interface FormValues {
   amount: number;
   settlementType: 'order_deduction' | 'direct_payment' | 'mixed';
-  paymentMethodSystemId?: string;
-  accountSystemId?: string;
-  selectedOrderId?: string;
+  paymentMethodSystemId?: string | undefined;
+  accountSystemId?: string | undefined;
+  selectedOrderId?: string | undefined;
   notes: string;
-  mixedOrderAmount?: number;
-  mixedCashAmount?: number;
+  mixedOrderAmount?: number | undefined;
+  mixedCashAmount?: number | undefined;
 }
 
 const detectDirectSettlementType = (paymentMethod?: PaymentMethod | null): Exclude<SettlementType, 'mixed'> => {

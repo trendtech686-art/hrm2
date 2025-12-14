@@ -27,6 +27,7 @@ export const ENTITY_PREFIXES = {
   'stock-locations': 'KHO',    // Kho hàng (Stock Location)
   'inventory-receipts': 'NK',  // Nhập kho (Inventory Receipt)
   'inventory-checks': 'PKK',   // Phiếu kiểm kho (Inventory Check)
+  'stock-transfers': 'PCK',    // Phiếu chuyển kho (Stock Transfer)
   'stock-history': 'LS',       // Lịch sử kho (Stock History)
   
   // ========================================
@@ -59,6 +60,7 @@ export const ENTITY_PREFIXES = {
   'cash-accounts': 'TK',       // Tài khoản tiền (Cash Account)
   'payment-methods': 'PTTT',   // Phương thức thanh toán (Payment Method)
   'pricing-settings': 'GIA',   // Chính sách giá (Pricing Policy)
+  'taxes': 'TAX',              // Thuế (Tax)
   
   // ========================================
   // LƯƠNG & NHÂN SỰ (PAYROLL & HR)
@@ -106,6 +108,8 @@ export const ENTITY_PREFIXES = {
   'customer-sources': 'NKH',   // Nguồn khách hàng (Customer Source)
   'payment-terms': 'HTTT',     // Hạn thanh toán (Payment Term)
   'credit-ratings': 'XHTD',    // Xếp hạng tín dụng (Credit Rating)
+  'lifecycle-stages': 'GDL',   // Giai đoạn vòng đời khách hàng
+  'sla-settings': 'SLA',       // Cài đặt SLA khách hàng
   
   // ========================================
   // CÀI ĐẶT NHÂN VIÊN (EMPLOYEE SETTINGS)

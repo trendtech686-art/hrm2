@@ -4,39 +4,12 @@ import type { JobTitle } from './types.ts'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../../components/ui/button.tsx";
 import { MoreHorizontal } from "lucide-react";
-import { Checkbox } from "../../../components/ui/checkbox.tsx"
 import type { ColumnDef } from '../../../components/data-table/types.ts';
 
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onEdit: (jobTitle: JobTitle) => void
 ): ColumnDef<JobTitle>[] => [
-  {
-    id: "select",
-    header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
-       <div className="flex items-center justify-center">
-        <Checkbox
-          checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
-          aria-label="Select all"
-        />
-      </div>
-    ),
-    cell: ({ isSelected, onToggleSelect }) => (
-       <div className="flex items-center justify-center">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={onToggleSelect}
-          aria-label="Select row"
-        />
-      </div>
-    ),
-    size: 60,
-    meta: {
-      displayName: "Select",
-      sticky: "left",
-    },
-  },
   {
     id: "name",
     accessorKey: "name",

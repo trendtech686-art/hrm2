@@ -1,53 +1,55 @@
 import * as React from 'react';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
 import { PartnerConnectionsPageContent } from './partner-connections.tsx';
 import { GlobalShippingConfigTab } from './tabs/global-shipping-config.tsx';
 import { ShippingFeeConfigPageContent } from './shipping-fee-config.tsx';
-import { ResponsiveContainer } from '../../../components/mobile/responsive-container.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { TabsContent } from '../../../components/ui/tabs.tsx';
+import { useTabActionRegistry } from '../use-tab-action-registry.ts';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
 
 export function ShippingPartnersPage() {
-  const { setPageHeader } = usePageHeader();
   const [activeTab, setActiveTab] = React.useState('connections');
+  const { headerActions, registerActions } = useTabActionRegistry(activeTab);
+  const registerConnectionsActions = React.useMemo(() => registerActions('connections'), [registerActions]);
+  const registerGlobalConfigActions = React.useMemo(() => registerActions('global-config'), [registerActions]);
+  const registerFeesActions = React.useMemo(() => registerActions('fees'), [registerActions]);
 
-  React.useEffect(() => {
-    setPageHeader({
-      title: 'Cài đặt vận chuyển',
-      breadcrumb: [
-        { label: 'Trang chủ', href: '/' },
-        { label: 'Cài đặt', href: '/settings' },
-        { label: 'Cài đặt vận chuyển', href: '/settings/shipping', isCurrent: true }
-      ]
-    });
-    
-    console.log('[ShippingPartnersPage] Page mounted, header set');
-    
-    return () => {
-      console.log('[ShippingPartnersPage] Page unmounted');
-    };
-  }, [setPageHeader]);
+  useSettingsPageHeader({
+    title: 'Cài đặt vận chuyển',
+    actions: headerActions,
+  });
+
+  const tabs = React.useMemo(
+    () => [
+      { value: 'connections', label: 'Kết nối đối tác' },
+      { value: 'global-config', label: 'Cấu hình chung' },
+      { value: 'fees', label: 'Phí vận chuyển' },
+    ],
+    [],
+  );
 
   return (
-    <ResponsiveContainer maxWidth="full" padding="md">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-[600px]">
-          <TabsTrigger value="connections">Kết nối đối tác</TabsTrigger>
-          <TabsTrigger value="global-config">Cấu hình chung</TabsTrigger>
-          <TabsTrigger value="fees">Phí vận chuyển</TabsTrigger>
-        </TabsList>
+    <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
+      <TabsContent value="connections" className="mt-0">
+        <PartnerConnectionsPageContent
+          isActive={activeTab === 'connections'}
+          onRegisterActions={registerConnectionsActions}
+        />
+      </TabsContent>
 
-        <TabsContent value="connections" className="space-y-4">
-          <PartnerConnectionsPageContent />
-        </TabsContent>
+      <TabsContent value="global-config" className="mt-0">
+        <GlobalShippingConfigTab
+          isActive={activeTab === 'global-config'}
+          onRegisterActions={registerGlobalConfigActions}
+        />
+      </TabsContent>
 
-        <TabsContent value="global-config" className="space-y-4">
-          <GlobalShippingConfigTab />
-        </TabsContent>
-
-        <TabsContent value="fees" className="space-y-4">
-          <ShippingFeeConfigPageContent />
-        </TabsContent>
-      </Tabs>
-    </ResponsiveContainer>
+      <TabsContent value="fees" className="mt-0">
+        <ShippingFeeConfigPageContent
+          isActive={activeTab === 'fees'}
+          onRegisterActions={registerFeesActions}
+        />
+      </TabsContent>
+    </SettingsVerticalTabs>
   );
 }

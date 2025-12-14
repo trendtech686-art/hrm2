@@ -55,6 +55,16 @@ import { useDebounce } from '../../hooks/use-debounce.ts';
 import { loadCardColorSettings } from '../settings/warranty/warranty-settings-page.tsx';
 import { checkWarrantyOverdue } from './warranty-sla-utils.ts';
 import { ROUTES, generatePath } from '../../lib/router.ts';
+import { usePrint } from '../../lib/use-print.ts';
+import { useBranchStore } from '../settings/branches/store.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import {
+  convertWarrantyForPrint,
+  mapWarrantyToPrintData,
+  mapWarrantyLineItems,
+  createStoreSettings
+} from '../../lib/print/warranty-print-helper.ts';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
 
 /**
  * KanbanColumn Component - Display warranties by status
@@ -113,12 +123,12 @@ function KanbanColumn({
   return (
     <div className="flex-1 min-w-[300px] flex flex-col max-h-[calc(100vh-320px)]">
       {/* Header - Neutral bg-muted with icon */}
-      <div className="text-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
+      <div className="text-body-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
         <div className="flex items-center gap-2">
           <StatusIcon className="h-4 w-4" />
           {WARRANTY_STATUS_LABELS[status]}
         </div>
-        <span className="text-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
+        <span className="text-body-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
           {filteredTickets.length}
         </span>
       </div>
@@ -136,7 +146,7 @@ function KanbanColumn({
       {/* Scrollable Cards Area */}
       <div className="flex-1 space-y-3 overflow-y-auto pb-2">
         {filteredTickets.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">
+          <div className="text-center py-8 text-muted-foreground text-body-sm">
             {searchQuery ? 'Không tìm thấy kết quả' : 'Không có bảo hành nào'}
           </div>
         ) : (
@@ -258,50 +268,6 @@ export function WarrantyListPage() {
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
 
-  // Column visibility: 15+ columns for better UX
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-  const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'actions']);
-
-  // Pagination state
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-
-  // Dialogs
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
-  const [cancelQueue, setCancelQueue] = React.useState<WarrantyTicket[]>([]);
-  const bulkCancelRef = React.useRef(false);
-  const bulkCancelTicketIdsRef = React.useRef<Set<string>>(new Set());
-  const bulkCancelPendingRef = React.useRef(0);
-  const bulkCancelCompletedRef = React.useRef(0);
-  const currentCancelTicket = cancelQueue[0] ?? null;
-
-  // View mode: kanban or table
-  const [viewMode, setViewMode] = React.useState<'kanban' | 'table'>('table');
-
-  // Reminder system
-  const {
-    isReminderModalOpen,
-    openReminderModal,
-    closeReminderModal,
-    selectedTicket,
-    templates,
-    sendReminder,
-  } = useWarrantyReminders();
-
-  // Real-time updates
-  const [dataVersion, setDataVersion] = React.useState(() => getWarrantyDataVersion());
-  const { isPolling, togglePolling, refresh } = useRealtimeUpdates(
-    dataVersion,
-    () => {
-      // Reload warranty data
-      setDataVersion(getWarrantyDataVersion());
-      // Force re-render
-      window.location.reload();
-    },
-    30000 // 30 seconds
-  );
-
   // ==========================================
   // Default visible columns (20+ columns visible for sticky scrollbar)
   // ==========================================
@@ -344,15 +310,50 @@ export function WarrantyListPage() {
     []
   );
 
-  // Initialize column visibility - FORCE RESET to show all new columns
-  React.useEffect(() => {
-    // Force apply defaultVisibleColumns (bỏ qua localStorage cũ)
-    setColumnVisibility(defaultVisibleColumns);
-    
-    // Set column order
-    const allColumnIds = columns.map(c => c.id).filter(Boolean) as string[];
-    setColumnOrder(allColumnIds);
-  }, []); // Run ONCE on mount - will override localStorage
+  // Column visibility: 15+ columns for better UX
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(() => defaultVisibleColumns);
+  const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([]);
+  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'actions']);
+
+  // Pagination state
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+
+  // Dialogs
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
+  const [cancelQueue, setCancelQueue] = React.useState<WarrantyTicket[]>([]);
+  const bulkCancelRef = React.useRef(false);
+  const bulkCancelTicketIdsRef = React.useRef<Set<string>>(new Set());
+  const bulkCancelPendingRef = React.useRef(0);
+  const bulkCancelCompletedRef = React.useRef(0);
+  const currentCancelTicket = cancelQueue[0] ?? null;
+
+  // View mode: kanban or table
+  const [viewMode, setViewMode] = React.useState<'kanban' | 'table'>('table');
+
+  // Reminder system
+  const {
+    isReminderModalOpen,
+    openReminderModal,
+    closeReminderModal,
+    selectedTicket,
+    templates,
+    sendReminder,
+  } = useWarrantyReminders();
+
+  // Real-time updates
+  const [dataVersion, setDataVersion] = React.useState(() => getWarrantyDataVersion());
+  const { isPolling, togglePolling, refresh } = useRealtimeUpdates(
+    dataVersion,
+    () => {
+      // Reload warranty data
+      setDataVersion(getWarrantyDataVersion());
+      // Force re-render
+      window.location.reload();
+    },
+    30000 // 30 seconds
+  );
+
 
   // ==========================================
   // Handlers
@@ -535,6 +536,15 @@ export function WarrantyListPage() {
     [handleCancel, handleEdit, navigate, orders] // ✅ Add orders dependency
   );
 
+  const hasInitializedColumns = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hasInitializedColumns.current) return;
+    const allColumnIds = columns.map((c) => c.id).filter(Boolean) as string[];
+    setColumnOrder(allColumnIds);
+    hasInitializedColumns.current = true;
+  }, [columns]);
+
   // ==========================================
   // Search with Fuse.js (threshold 0.3)
   // ==========================================
@@ -657,17 +667,49 @@ export function WarrantyListPage() {
     link.click();
   }, [selectedTickets]);
 
+  // Print imports
+  const { data: branches } = useBranchStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { printMultiple } = usePrint();
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
+  const [pendingPrintTickets, setPendingPrintTickets] = React.useState<WarrantyTicket[]>([]);
+
   const handleBulkPrint = React.useCallback(() => {
     if (selectedTickets.length === 0) {
       toast.error('Vui lòng chọn ít nhất một phiếu để in');
       return;
     }
-    // TODO: Implement print functionality
-    toast.success(`Đang chuẩn bị in ${selectedTickets.length} phiếu...`);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    setPendingPrintTickets(selectedTickets);
+    setIsPrintDialogOpen(true);
   }, [selectedTickets]);
+
+  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+    const { branchSystemId, paperSize } = options;
+    
+    const printOptionsList = pendingPrintTickets.map(ticket => {
+      const branch = branchSystemId 
+        ? branches.find(b => b.systemId === branchSystemId)
+        : branches.find(b => b.systemId === ticket.branchSystemId);
+      const storeSettings = branch 
+        ? createStoreSettings(branch)
+        : createStoreSettings(storeInfo);
+      const ticketData = convertWarrantyForPrint(ticket, { branch });
+      
+      return {
+        data: mapWarrantyToPrintData(ticketData, storeSettings),
+        lineItems: mapWarrantyLineItems(ticketData.items),
+        paperSize,
+      };
+    });
+    
+    printMultiple('warranty', printOptionsList);
+    
+    toast.success('Đã gửi lệnh in', {
+      description: `Đang in ${pendingPrintTickets.length} phiếu bảo hành`
+    });
+    setRowSelection({});
+    setPendingPrintTickets([]);
+  }, [pendingPrintTickets, branches, storeInfo, printMultiple]);
 
   const handleBulkGetTrackingLink = React.useCallback(() => {
     if (selectedTickets.length === 0) {
@@ -785,8 +827,34 @@ export function WarrantyListPage() {
     ],
     [navigate, viewMode, isPolling, togglePolling]
   );
+  const warrantyStats = React.useMemo(() => {
+    return tickets.reduce(
+      (acc, ticket) => {
+        acc.total += 1;
+        if (ticket.status === 'incomplete') acc.incomplete += 1;
+        if (ticket.status === 'pending') acc.pending += 1;
+        if (ticket.status === 'processed') acc.processed += 1;
+        if (ticket.status === 'returned') acc.returned += 1;
+        if (ticket.status === 'completed') acc.completed += 1;
+        if (ticket.status === 'cancelled') acc.cancelled += 1;
+        const overdue = checkWarrantyOverdue(ticket);
+        if (overdue.isOverdueResponse || overdue.isOverdueProcessing || overdue.isOverdueReturn) {
+          acc.overdue += 1;
+        }
+        return acc;
+      },
+      { total: 0, incomplete: 0, pending: 0, processed: 0, returned: 0, completed: 0, cancelled: 0, overdue: 0 }
+    );
+  }, [tickets]);
 
-  usePageHeader({ actions }); // Title auto-generated from breadcrumb
+  usePageHeader({
+    title: 'Quản lý bảo hành',
+    actions,
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Quản lý bảo hành', href: '/warranty', isCurrent: true }
+    ]
+  });
 
   // ==========================================
   // Render
@@ -999,6 +1067,15 @@ export function WarrantyListPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Print Options Dialog */}
+      <SimplePrintOptionsDialog
+        open={isPrintDialogOpen}
+        onOpenChange={setIsPrintDialogOpen}
+        onConfirm={handlePrintConfirm}
+        selectedCount={pendingPrintTickets.length}
+        title="In phiếu bảo hành"
+      />
     </div>
   );
 }

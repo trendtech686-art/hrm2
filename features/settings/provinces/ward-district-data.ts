@@ -7,6 +7,9 @@
 
 import { asBusinessId } from '@/lib/id-types';
 import type { WardDistrictDataInput } from './ward-district-mapping';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
+
+const WARD_DISTRICT_AUDIT_DATE = '2024-01-17T00:00:00Z';
 
 const rawData = [
   {
@@ -26586,6 +26589,7 @@ export const WARD_DISTRICT_DATA: ReadonlyArray<WardDistrictDataInput> = rawData.
       ? item.provinceId.toString().padStart(2, '0')
       : item.provinceId
   ),
+  ...buildSeedAuditFields({ createdAt: WARD_DISTRICT_AUDIT_DATE }),
 }));
 
 export const STATISTICS = {

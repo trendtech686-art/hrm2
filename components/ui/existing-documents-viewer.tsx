@@ -2,11 +2,12 @@ import * as React from 'react';
 import { Card } from './card';
 import { Button } from './button';
 import { toast } from 'sonner';
-import { Eye, X, Download, Image as ImageIcon, FileText, File, RotateCcw } from 'lucide-react';
+import { Eye, X, Download, File, RotateCcw } from 'lucide-react';
 import { FileUploadAPI } from '../../lib/file-upload-api';
 import { getFileUrl, getBaseUrl } from '../../lib/api-config';
 import { ProgressiveImage } from './progressive-image';
 import type { StagingFile } from '../../lib/file-upload-api';
+import { useLazyImage } from '../../hooks/use-lazy-image';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,7 @@ type ExistingDocumentsViewerProps = {
   onMarkForDeletion?: (fileId: string) => void;
   markedForDeletion?: string[]; // List of file IDs marked for deletion
   hideFileInfo?: boolean; // Hide filename, size, and badge
+  gridTemplateClass?: string; // Allow callers to override the grid columns
 };
 
 const formatFileSize = (bytes: number) => {
@@ -36,20 +38,6 @@ const formatFileSize = (bytes: number) => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const getFileIcon = (type: string | undefined) => {
-  if (!type || typeof type !== 'string') return File;
-  if (type.startsWith('image/')) return ImageIcon;
-  if (type === 'application/pdf') return FileText;
-  return File;
-};
-
-const getFileIconColor = (type: string | undefined): string => {
-  if (!type || typeof type !== 'string') return 'text-muted-foreground';
-  if (type.startsWith('image/')) return 'text-blue-500';
-  if (type === 'application/pdf') return 'text-red-500';
-  return 'text-muted-foreground';
 };
 
 export function ExistingDocumentsViewer({
@@ -61,6 +49,7 @@ export function ExistingDocumentsViewer({
   onMarkForDeletion,
   markedForDeletion = [],
   hideFileInfo = false,
+  gridTemplateClass = 'grid-cols-5',
 }: ExistingDocumentsViewerProps) {
   const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
   const [bulkDeleteAlertOpen, setBulkDeleteAlertOpen] = React.useState(false);
@@ -244,102 +233,19 @@ export function ExistingDocumentsViewer({
 
   return (
     <div className={className}>
-      <div className="grid grid-cols-5 gap-2 mb-2">
-        {files.map((file) => {
-          const FileIcon = getFileIcon(file.type);
-          const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
-          const isMarkedForDeletion = markedForDeletion.includes(file.id);
-
-          return (
-            <Card 
-              key={file.id} 
-              className={`group p-1.5 transition-all duration-200 hover:shadow-md hover:scale-[1.01] ${
-                isMarkedForDeletion 
-                  ? 'border-red-300 bg-red-50/50 opacity-60' 
-                  : 'border-green-200 bg-green-50/30'
-              }`}
-            >
-              <div className="flex flex-col gap-1.5">
-                {/* Thumbnail/Icon */}
-                <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
-                  {isImage ? (
-                    <img
-                      src={getFileUrl(file.url)}
-                      alt={file.name}
-                      loading="eager"
-                      className="w-full h-full object-cover cursor-pointer"
-                      onClick={() => handlePreview(file)}
-                    />
-                  ) : (
-                    <FileIcon className={`w-12 h-12 ${getFileIconColor(file.type)}`} />
-                  )}
-                </div>
-
-                {/* File Info */}
-                {!hideFileInfo && (
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-medium truncate" title={file.name || file.originalName}>
-                      {file.name || file.originalName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(file.size)}
-                    </p>
-                    {isMarkedForDeletion ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium animate-pulse">
-                        <span>🗑️</span> Sẽ xóa khi Lưu
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                        <span>✓</span> Đã lưu vĩnh viễn
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 h-7 px-1"
-                    onClick={() => handleDownload(file)}
-                    title="Tải xuống"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </Button>
-                  {isImage && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="flex-1 h-7 px-1"
-                      onClick={() => handlePreview(file)}
-                      title="Xem trước"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={`flex-1 h-7 px-1 ${
-                      isMarkedForDeletion 
-                        ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' 
-                        : 'hover:bg-destructive/10 hover:text-destructive'
-                    }`}
-                    onClick={() => handleDelete(file.id)}
-                    disabled={disabled}
-                    title={isMarkedForDeletion ? 'Khôi phục file' : 'Đánh dấu xóa'}
-                  >
-                    {isMarkedForDeletion ? <RotateCcw className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
+      <div className={`grid ${gridTemplateClass} gap-2 mb-2`}>
+        {files.map((file) => (
+          <LazyFileCard
+            key={file.id}
+            file={file}
+            isMarkedForDeletion={markedForDeletion.includes(file.id)}
+            hideFileInfo={hideFileInfo}
+            disabled={disabled}
+            onPreview={handlePreview}
+            onDownload={handleDownload}
+            onDelete={handleDelete}
+          />
+        ))}
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -390,5 +296,158 @@ export function ExistingDocumentsViewer({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// ============================================
+// LAZY FILE CARD COMPONENT
+// ============================================
+
+type LazyFileCardProps = {
+  file: StagingFile;
+  isMarkedForDeletion: boolean;
+  hideFileInfo: boolean;
+  disabled: boolean;
+  onPreview: (file: StagingFile) => void;
+  onDownload: (file: StagingFile) => void;
+  onDelete: (fileId: string) => void;
+};
+
+function LazyFileCard({
+  file,
+  isMarkedForDeletion,
+  hideFileInfo,
+  disabled,
+  onPreview,
+  onDownload,
+  onDelete,
+}: LazyFileCardProps) {
+  const { ref, isInView, isLoaded, setIsLoaded } = useLazyImage();
+  
+  const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
+  const previewUrl = getFileUrl(file.url);
+
+  const handleImageRetry = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    const attempts = Number(img.dataset.retryCount || '0');
+    if (attempts >= 4) {
+      console.warn('Permanent image failed after retries:', previewUrl);
+      return;
+    }
+    const nextAttempts = attempts + 1;
+    img.dataset.retryCount = String(nextAttempts);
+    const delay = nextAttempts * 400;
+    setTimeout(() => {
+      const separator = previewUrl.includes('?') ? '&' : '?';
+      img.src = `${previewUrl}${separator}retry=${Date.now()}-${nextAttempts}`;
+    }, delay);
+  };
+
+  return (
+    <Card 
+      ref={ref}
+      className={`group p-1.5 transition-all duration-200 hover:shadow-md hover:scale-[1.01] ${
+        isMarkedForDeletion 
+          ? 'border-red-300 bg-red-50/50 opacity-60' 
+          : 'border-green-200 bg-green-50/30'
+      }`}
+    >
+      <div className="flex flex-col gap-1.5">
+        {/* Thumbnail/Icon with Lazy Loading */}
+        <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
+          {isImage ? (
+            isInView ? (
+              <>
+                {/* Skeleton while loading */}
+                {!isLoaded && (
+                  <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-muted via-muted/50 to-muted" />
+                )}
+                <img
+                  src={previewUrl}
+                  alt={file.name}
+                  loading="lazy"
+                  className={`w-full h-full object-cover cursor-pointer transition-opacity duration-300 ${
+                    isLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  onClick={() => onPreview(file)}
+                  onLoad={(e) => {
+                    e.currentTarget.dataset.retryCount = '0';
+                    setIsLoaded(true);
+                  }}
+                  onError={handleImageRetry}
+                />
+              </>
+            ) : (
+              // Placeholder before entering viewport
+              <div className="w-full h-full animate-pulse bg-gradient-to-r from-muted via-muted/50 to-muted" />
+            )
+          ) : (
+            <File className="w-12 h-12 text-muted-foreground" />
+          )}
+        </div>
+
+        {/* File Info */}
+        {!hideFileInfo && (
+          <div className="space-y-0.5">
+            <p className="text-xs font-medium truncate" title={file.name || file.originalName}>
+              {file.name || file.originalName}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatFileSize(file.size)}
+            </p>
+            {isMarkedForDeletion ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium animate-pulse">
+                <span>🗑️</span> Sẽ xóa khi Lưu
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                <span>✓</span> Đã lưu vĩnh viễn
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="flex-1 h-7 px-1"
+            onClick={() => onDownload(file)}
+            title="Tải xuống"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+          {isImage && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="flex-1 h-7 px-1"
+              onClick={() => onPreview(file)}
+              title="Xem trước"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={`flex-1 h-7 px-1 ${
+              isMarkedForDeletion 
+                ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' 
+                : 'hover:bg-destructive/10 hover:text-destructive'
+            }`}
+            onClick={() => onDelete(file.id)}
+            disabled={disabled}
+            title={isMarkedForDeletion ? 'Khôi phục file' : 'Đánh dấu xóa'}
+          >
+            {isMarkedForDeletion ? <RotateCcw className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }

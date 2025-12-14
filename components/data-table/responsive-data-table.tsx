@@ -25,7 +25,7 @@ import {
 import { StickyScrollbar } from "./sticky-scrollbar.tsx";
 import type { ColumnDef } from './types';
 
-interface BulkAction<TData> {
+export interface BulkAction<TData> {
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
   onSelect: (selectedRows: TData[]) => void;
@@ -40,12 +40,12 @@ interface DesktopDataTableProps<TData extends { systemId: string }> {
   rowCount: number;
   rowSelection: Record<string, boolean>;
   setRowSelection: (updater: React.SetStateAction<Record<string, boolean>>) => void;
-  onBulkDelete?: () => void;
-  showBulkDeleteButton?: boolean;
-  bulkActions?: BulkAction<TData>[];
-  bulkActionButtons?: React.ReactNode;
+  onBulkDelete?: (() => void) | undefined;
+  showBulkDeleteButton?: boolean | undefined;
+  bulkActions?: BulkAction<TData>[] | undefined;
+  bulkActionButtons?: React.ReactNode | undefined;
   allSelectedRows: TData[];
-  renderSubComponent?: (row: TData) => React.ReactNode;
+  renderSubComponent?: ((row: TData) => React.ReactNode) | undefined;
   expanded: Record<string, boolean>;
   setExpanded: (updater: React.SetStateAction<Record<string, boolean>>) => void;
   sorting: { id: string; desc: boolean };
@@ -56,9 +56,9 @@ interface DesktopDataTableProps<TData extends { systemId: string }> {
   setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
   pinnedColumns: string[];
   setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>;
-  onRowClick?: (row: TData) => void;
-  getRowStyle?: (row: TData) => React.CSSProperties;
-  className?: string;
+  onRowClick?: ((row: TData) => void) | undefined;
+  getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
+  className?: string | undefined;
 }
 
 interface ResponsiveDataTableProps<TData extends { systemId: string }> {
@@ -67,42 +67,45 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   data: TData[];
   
   // Mobile-specific
-  renderMobileCard?: (row: TData, index: number) => React.ReactNode;
-  mobileCardClassName?: string;
-  autoGenerateMobileCards?: boolean;
+  renderMobileCard?: ((row: TData, index: number) => React.ReactNode) | undefined;
+  mobileCardClassName?: string | undefined;
+  autoGenerateMobileCards?: boolean | undefined;
+  mobileVirtualized?: boolean | undefined;
+  mobileRowHeight?: number | undefined;
+  mobileListHeight?: number | undefined;
   
   // States
-  isLoading?: boolean;
-  emptyTitle?: string;
-  emptyDescription?: string;
-  emptyAction?: React.ReactNode;
+  isLoading?: boolean | undefined;
+  emptyTitle?: string | undefined;
+  emptyDescription?: string | undefined;
+  emptyAction?: React.ReactNode | undefined;
   
   // Desktop DataTable props
   pageCount: number;
   pagination: { pageIndex: number; pageSize: number };
   setPagination: (updater: React.SetStateAction<{ pageIndex: number; pageSize: number }>) => void;
   rowCount: number;
-  rowSelection?: Record<string, boolean>;
-  setRowSelection?: (updater: React.SetStateAction<Record<string, boolean>>) => void;
-  onBulkDelete?: () => void;
-  showBulkDeleteButton?: boolean;
-  bulkActions?: BulkAction<TData>[];
-  bulkActionButtons?: React.ReactNode;
-  allSelectedRows?: TData[];
-  renderSubComponent?: (row: TData) => React.ReactNode;
-  expanded?: Record<string, boolean>;
-  setExpanded?: (updater: React.SetStateAction<Record<string, boolean>>) => void;
+  rowSelection?: Record<string, boolean> | undefined;
+  setRowSelection?: ((updater: React.SetStateAction<Record<string, boolean>>) => void) | undefined;
+  onBulkDelete?: (() => void) | undefined;
+  showBulkDeleteButton?: boolean | undefined;
+  bulkActions?: BulkAction<TData>[] | undefined;
+  bulkActionButtons?: React.ReactNode | undefined;
+  allSelectedRows?: TData[] | undefined;
+  renderSubComponent?: ((row: TData) => React.ReactNode) | undefined;
+  expanded?: Record<string, boolean> | undefined;
+  setExpanded?: ((updater: React.SetStateAction<Record<string, boolean>>) => void) | undefined;
   sorting: { id: string; desc: boolean };
   setSorting: (updater: React.SetStateAction<{ id: string; desc: boolean }>) => void;
-  columnVisibility?: Record<string, boolean>;
-  setColumnVisibility?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  columnOrder?: string[];
-  setColumnOrder?: React.Dispatch<React.SetStateAction<string[]>>;
-  pinnedColumns?: string[];
-  setPinnedColumns?: React.Dispatch<React.SetStateAction<string[]>>;
-  onRowClick?: (row: TData) => void;
-  getRowStyle?: (row: TData) => React.CSSProperties;
-  className?: string;
+  columnVisibility?: Record<string, boolean> | undefined;
+  setColumnVisibility?: React.Dispatch<React.SetStateAction<Record<string, boolean>>> | undefined;
+  columnOrder?: string[] | undefined;
+  setColumnOrder?: React.Dispatch<React.SetStateAction<string[]>> | undefined;
+  pinnedColumns?: string[] | undefined;
+  setPinnedColumns?: React.Dispatch<React.SetStateAction<string[]>> | undefined;
+  onRowClick?: ((row: TData) => void) | undefined;
+  getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
+  className?: string | undefined;
 }
 
 /**
@@ -138,6 +141,9 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   emptyTitle = "Không có dữ liệu",
   emptyDescription,
   emptyAction,
+  mobileVirtualized = false,
+  mobileRowHeight = 180,
+  mobileListHeight = 600,
   pageCount,
   pagination,
   setPagination,
@@ -282,6 +288,25 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
 
   // Mobile card layout
   if (shouldRenderMobileCards && cardRenderer) {
+    if (mobileVirtualized) {
+      return (
+        <div
+          className={cn('pb-4', className)}
+          style={{ maxHeight: mobileListHeight, overflowY: 'auto' }}
+        >
+          {data.map((row, index) => (
+            <div
+              key={row.systemId}
+              className={mobileCardClassName}
+              style={{ minHeight: mobileRowHeight }}
+            >
+              {cardRenderer(row, index)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     return (
       <div className={cn("space-y-3 pb-4", className)}>
         {data.map((row, index) => (
@@ -361,6 +386,10 @@ function DesktopDataTable<TData extends { systemId: string }>({
   const numSelected = Object.keys(rowSelection).length;
   const isAllPageRowsSelected = data.length > 0 && data.every(row => rowSelection[row.systemId]);
   const isSomePageRowsSelected = !isAllPageRowsSelected && data.some(row => rowSelection[row.systemId]);
+  const hasData = data?.length > 0;
+  const [columnWidths, setColumnWidths] = React.useState<Record<string, number>>({});
+  const stickyCellBg = 'var(--sticky-column-bg, rgba(255, 255, 255, 1))';
+  const stickyHeaderBg = 'var(--sticky-column-header-bg, var(--muted))';
 
   const handleToggleAllPageRows = (value: boolean) => {
     const newSelection = { ...rowSelection };
@@ -403,16 +432,35 @@ function DesktopDataTable<TData extends { systemId: string }>({
 
     const visibleMasterCols = allConfigurableColumns.filter(col => {
       if (col.id === 'expander') return true;
-      return columnVisibility[col.id];
+      const isVisible = columnVisibility[col.id];
+      return isVisible !== false;
     });
 
-    const staticLeftCols = visibleMasterCols.filter(c => {
+    const normalizedCols = visibleMasterCols.map(col => {
+      if (['select', 'control'].includes(col.id)) {
+        return {
+          ...col,
+          meta: { ...col.meta, sticky: 'left' as const },
+        };
+      }
+
+      if (col.id === 'actions') {
+        return {
+          ...col,
+          meta: { ...col.meta, sticky: 'right' as const },
+        };
+      }
+
+      return col;
+    });
+
+    const staticLeftCols = normalizedCols.filter(c => {
       const meta = c.meta as any;
       return meta?.sticky === 'left' && !['select', 'control', 'expander'].includes(c.id);
     });
-    const staticRightCols = visibleMasterCols.filter(c => (c.meta as any)?.sticky === 'right');
-    const controlCols = visibleMasterCols.filter(c => ['select', 'control', 'expander'].includes(c.id));
-    const bodyCols = visibleMasterCols.filter(c => {
+    const staticRightCols = normalizedCols.filter(c => (c.meta as any)?.sticky === 'right');
+    const controlCols = normalizedCols.filter(c => ['select', 'control', 'expander'].includes(c.id));
+    const bodyCols = normalizedCols.filter(c => {
       const meta = c.meta as any;
       return !meta?.sticky && !['select', 'control', 'expander'].includes(c.id);
     });
@@ -430,7 +478,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
       .filter(col => pinnedColumns.includes(col.id))
       .map(col => ({
         ...col,
-        meta: { ...col.meta, sticky: 'left' }
+        meta: { ...col.meta, sticky: 'left' as const }
       }));
 
     const nonPinnedBodyCols = orderedBodyCols.filter(c => !pinnedColumns.includes(c.id));
@@ -441,35 +489,45 @@ function DesktopDataTable<TData extends { systemId: string }>({
       ...userPinnedCols,
       ...nonPinnedBodyCols,
       ...staticRightCols,
-    ];
+    ] as ColumnDef<TData>[];
   }, [columns, columnVisibility, columnOrder, pinnedColumns, renderSubComponent]);
 
   const leftStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as any)?.sticky === 'left'), [displayColumns]);
   const rightStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as any)?.sticky === 'right'), [displayColumns]);
 
+  const getColumnWidth = React.useCallback((column: ColumnDef<TData>) => {
+    return column.size ?? columnWidths[column.id] ?? ((column.meta as any)?.minWidth ?? 140);
+  }, [columnWidths]);
+
   const leftOffsets = React.useMemo(() => {
       let offset = 0;
       return leftStickyColumns.map(c => {
+          const width = getColumnWidth(c);
           const currentOffset = offset;
-          offset += (c.size || 100);
+          offset += width;
           return currentOffset;
       });
-  }, [leftStickyColumns]);
+  }, [leftStickyColumns, getColumnWidth]);
 
   const rightOffsets = React.useMemo(() => {
       let offset = 0;
       const reversedOffsets = [...rightStickyColumns].reverse().map(c => {
+          const width = getColumnWidth(c);
           const currentOffset = offset;
-          offset += (c.size || 100);
+          offset += width;
           return currentOffset;
       });
       return reversedOffsets.reverse();
-  }, [rightStickyColumns]);
+  }, [rightStickyColumns, getColumnWidth]);
 
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
   const headerScrollRef = React.useRef<HTMLDivElement>(null);
   const bodyTableRef = React.useRef<HTMLTableElement>(null);
   const headerTableRef = React.useRef<HTMLTableElement>(null);
+  const fallbackTableRef = React.useCallback((node: HTMLTableElement | null) => {
+    headerTableRef.current = node;
+    bodyTableRef.current = node;
+  }, []);
 
   const syncScroll = (source: 'header' | 'body') => {
     if (!headerScrollRef.current || !tableContainerRef.current) return;
@@ -482,31 +540,49 @@ function DesktopDataTable<TData extends { systemId: string }>({
   };
 
   React.useEffect(() => {
-    if (!bodyTableRef.current || !headerTableRef.current) return;
+    if (!hasData) return;
+    if (!headerTableRef.current) return;
 
     const syncWidths = () => {
       const bodyTable = bodyTableRef.current;
       const headerTable = headerTableRef.current;
-      if (!bodyTable || !headerTable) return;
+      if (!headerTable) return;
 
-      const bodyRow = bodyTable.querySelector('tbody tr:first-child');
+      const bodyRow = bodyTable?.querySelector('tbody tr:first-child');
       const headerRow = headerTable.querySelector('thead tr:last-child');
+      if (!headerRow) return;
 
-      if (!bodyRow || !headerRow) return;
-
-      const bodyCells = Array.from(bodyRow.querySelectorAll('td'));
+      const bodyCells = bodyRow ? Array.from(bodyRow.querySelectorAll('td')) : [];
       const headerCells = Array.from(headerRow.querySelectorAll('th'));
+      const nextWidthMap: Record<string, number> = {};
 
-      bodyCells.forEach((bodyCell, index) => {
-        if (headerCells[index]) {
-          const width = bodyCell.getBoundingClientRect().width;
+      displayColumns.forEach((column, index) => {
+        const sourceCell = bodyCells[index];
+        const fallbackCell = headerCells[index];
+        const width = sourceCell?.getBoundingClientRect().width || fallbackCell?.getBoundingClientRect().width;
+        if (width && headerCells[index]) {
           headerCells[index].style.width = `${width}px`;
           headerCells[index].style.minWidth = `${width}px`;
           headerCells[index].style.maxWidth = `${width}px`;
+          nextWidthMap[column.id] = width;
         }
       });
 
-      headerTable.style.width = `${bodyTable.getBoundingClientRect().width}px`;
+      if (bodyTable) {
+        headerTable.style.width = `${bodyTable.getBoundingClientRect().width}px`;
+      }
+
+      setColumnWidths(prev => {
+        let changed = false;
+        const updated = { ...prev };
+        Object.entries(nextWidthMap).forEach(([key, width]) => {
+          if (prev[key] !== width) {
+            changed = true;
+            updated[key] = width;
+          }
+        });
+        return changed ? updated : prev;
+      });
     };
 
     syncWidths();
@@ -521,238 +597,264 @@ function DesktopDataTable<TData extends { systemId: string }>({
       window.removeEventListener('resize', syncWidths);
       resizeObserver.disconnect();
     };
-  }, [data]);
+  }, [data, displayColumns, hasData]);
+
+  const renderHeaderRow = (isSticky: boolean) => (
+    <TableRow className="h-9">
+      {displayColumns.map((column, colIndex) => {
+        const stickyMeta = isSticky ? (column.meta as any)?.sticky : undefined;
+        const hasFixedSize = column.size !== undefined;
+        const fallbackMinWidth = (column.meta as any)?.minWidth ?? 140;
+
+        const style: React.CSSProperties = {};
+
+        if (hasFixedSize) {
+          style.width = column.size;
+          style.minWidth = column.size;
+          style.maxWidth = column.size;
+        } else {
+          style.minWidth = fallbackMinWidth;
+        }
+
+        let thClassName = "bg-muted whitespace-nowrap";
+
+        const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
+        const isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
+
+        if (isSticky && stickyMeta === 'left') {
+          const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
+          if (stickyIndex !== -1) {
+            (style as any).position = 'sticky';
+            (style as any).left = `${leftOffsets[stickyIndex]}px`;
+            (style as any).top = 0;
+            (style as any).backgroundColor = stickyHeaderBg;
+            thClassName = cn(thClassName, "z-30 bg-muted shadow-sm");
+          }
+        } else if (isSticky && stickyMeta === 'right') {
+          const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
+          if (stickyIndex !== -1) {
+            (style as any).position = 'sticky';
+            (style as any).right = `${rightOffsets[stickyIndex]}px`;
+            (style as any).top = 0;
+            (style as any).backgroundColor = stickyHeaderBg;
+            thClassName = cn(thClassName, "z-30 bg-muted shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]");
+          }
+        }
+
+        if (['control', 'select', 'expander', 'actions'].includes(column.id)) {
+          thClassName = cn(thClassName, "px-2 text-center");
+        }
+
+        return (
+          <TableHead
+            key={column.id}
+            style={style}
+            className={cn(thClassName, {
+              "border-r": isSticky && isLastLeftSticky,
+            })}
+          >
+            {typeof column.header === 'function'
+              // @ts-ignore
+              ? column.header({
+                  isAllPageRowsSelected,
+                  isSomePageRowsSelected,
+                  onToggleAll: handleToggleAllPageRows,
+                  sorting,
+                  setSorting,
+                })
+              : column.header}
+          </TableHead>
+        );
+      })}
+    </TableRow>
+  );
 
   return (
     <div className={cn("flex flex-col w-full", className)}>
-      <div
-        ref={headerScrollRef}
-        onScroll={() => syncScroll('header')}
-        className="sticky top-32 z-30 overflow-x-auto rounded-t-md border border-b-0 bg-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-      >
-        <Table ref={headerTableRef}>
-          <TableHeader className="bg-muted shadow-sm">
-            {numSelected > 0 && (
-              <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted/95 backdrop-blur-sm border-b shadow-md">
-                <th className="sticky left-0 z-[60] bg-muted/95 backdrop-blur-sm px-3 w-[48px]">
-                  {columns.find(c => c.id === 'select') &&
-                    typeof columns.find(c => c.id === 'select')!.header === 'function' &&
-                    // @ts-ignore
-                    columns.find(c => c.id === 'select')!.header({
-                      isAllPageRowsSelected,
-                      isSomePageRowsSelected,
-                      onToggleAll: handleToggleAllPageRows,
-                    })
-                  }
-                </th>
-                <th className="sticky left-[48px] z-[60] h-9 bg-muted/95 backdrop-blur-sm">
-                  <div className="flex items-center gap-3 px-4">
-                    <span className="text-sm font-medium">{numSelected} mục đã chọn</span>
-                    {bulkActions && bulkActions.length > 0 && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            Action
-                            <ChevronDown className="ml-2 h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          {bulkActions.map((action, index) => (
-                            <DropdownMenuItem
-                              key={index}
-                              onSelect={() => action.onSelect(allSelectedRows)}
-                            >
-                              {action.icon && <action.icon className="mr-2 h-4 w-4" />}
-                              {action.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                    {bulkActionButtons}
-                  </div>
-                </th>
-              </tr>
-            )}
-            <TableRow className="h-9">
-              {displayColumns.map((column, colIndex) => {
-                const stickyMeta = (column.meta as any)?.sticky;
-                const hasFixedSize = column.size !== undefined;
-                const colSize = column.size || 150;
-
-                const style: React.CSSProperties = hasFixedSize ? {
-                  width: colSize,
-                  minWidth: colSize,
-                  maxWidth: colSize,
-                } : {
-                  minWidth: 100,
-                };
-
-                let thClassName = "bg-muted whitespace-nowrap";
-
-                const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
-                const isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
-
-                if (stickyMeta === 'left') {
-                  const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
-                  if (stickyIndex !== -1) {
-                    (style as any).position = 'sticky';
-                    (style as any).left = `${leftOffsets[stickyIndex]}px`;
-                    (style as any).top = 0;
-                    thClassName = cn(thClassName, "z-30 bg-muted");
-                  }
-                } else if (stickyMeta === 'right') {
-                  const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
-                  if (stickyIndex !== -1) {
-                    (style as any).position = 'sticky';
-                    (style as any).right = `${rightOffsets[stickyIndex]}px`;
-                    (style as any).top = 0;
-                    thClassName = cn(thClassName, "z-30 bg-muted shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]");
-                  }
-                }
-
-                if (['control', 'select', 'expander', 'actions'].includes(column.id)) {
-                  thClassName = cn(thClassName, "px-2 text-center");
-                }
-
-                return (
-                  <TableHead
-                    key={column.id}
-                    style={style}
-                    className={cn(thClassName, {
-                      "border-r": isLastLeftSticky,
-                    })}
-                  >
-                    {typeof column.header === 'function'
-                      // @ts-ignore
-                      ? column.header({
+      {hasData ? (
+        <>
+          <div
+            ref={headerScrollRef}
+            onScroll={() => syncScroll('header')}
+            className="sticky top-32 z-30 overflow-x-auto rounded-t-md border border-b-0 bg-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          >
+            <Table ref={headerTableRef}>
+              <TableHeader className="bg-muted shadow-sm">
+                {numSelected > 0 && (
+                  <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted/95 backdrop-blur-sm border-b shadow-md">
+                    <th className="sticky left-0 z-[60] bg-muted/95 backdrop-blur-sm px-3 w-[48px]">
+                      {columns.find(c => c.id === 'select') &&
+                        typeof columns.find(c => c.id === 'select')!.header === 'function' &&
+                        // @ts-ignore
+                        columns.find(c => c.id === 'select')!.header({
                           isAllPageRowsSelected,
                           isSomePageRowsSelected,
                           onToggleAll: handleToggleAllPageRows,
-                          sorting,
-                          setSorting
                         })
-                      : column.header}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          </TableHeader>
-        </Table>
-      </div>
-
-      <div
-        ref={tableContainerRef}
-        onScroll={() => syncScroll('body')}
-        className="rounded-b-md border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-      >
-        <Table ref={bodyTableRef}>
-          <TableBody>
-            {data?.length ? (
-              data.map((row, rowIndex) => (
-                <React.Fragment key={`${row.systemId}-${rowIndex}`}>
-                  <TableRow
-                    data-state={rowSelection[row.systemId] && "selected"}
-                    onClick={() => onRowClick?.(row)}
-                    className={cn('group', onRowClick && 'cursor-pointer')}
-                    style={getRowStyle?.(row)}
-                  >
-                    {displayColumns.map((column, colIndex) => {
-                      const isInteractiveColumn = ['select', 'control', 'actions', 'expander'].includes(column.id);
-
-                      const stickyMeta = (column.meta as any)?.sticky;
-                      const hasFixedSize = column.size !== undefined;
-                      const colSize = column.size || 150;
-
-                      const style: React.CSSProperties = hasFixedSize ? {
-                        width: colSize,
-                        minWidth: colSize,
-                        maxWidth: colSize,
-                      } : {
-                        minWidth: 100,
-                      };
-
-                      let tdClassName = "";
-
-                      const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
-
-                      if (stickyMeta === 'left') {
-                        const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
-                        if (stickyIndex !== -1) {
-                          (style as any).position = 'sticky';
-                          (style as any).left = `${leftOffsets[stickyIndex]}px`;
-                          const rowBgColor = getRowStyle?.(row)?.backgroundColor;
-                          if (rowBgColor) {
-                            (style as any).backgroundColor = rowBgColor;
-                          }
-                          tdClassName = "z-10 group-hover:bg-muted/50 group-data-[state=selected]:bg-muted transition-colors";
-                        }
-                      } else if (stickyMeta === 'right') {
-                        const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
-                        if (stickyIndex !== -1) {
-                          (style as any).position = 'sticky';
-                          (style as any).right = `${rightOffsets[stickyIndex]}px`;
-                          const rowBgColor = getRowStyle?.(row)?.backgroundColor;
-                          if (rowBgColor) {
-                            (style as any).backgroundColor = rowBgColor;
-                          }
-                          tdClassName = "z-10 group-hover:bg-muted/50 group-data-[state=selected]:bg-muted transition-colors shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]";
-                        }
                       }
+                    </th>
+                    <th className="sticky left-[48px] z-[60] h-9 bg-muted/95 backdrop-blur-sm">
+                      <div className="flex items-center gap-3 px-4">
+                        <span className="text-sm font-medium">{numSelected} mục đã chọn</span>
+                        {bulkActions && bulkActions.length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                Action
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              {bulkActions.map((action, index) => (
+                                <DropdownMenuItem
+                                  key={index}
+                                  onSelect={() => action.onSelect(allSelectedRows)}
+                                >
+                                  {action.icon && <action.icon className="mr-2 h-4 w-4" />}
+                                  {action.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        {bulkActionButtons}
+                      </div>
+                    </th>
+                  </tr>
+                )}
+                {renderHeaderRow(true)}
+              </TableHeader>
+            </Table>
+          </div>
 
-                      if (['control', 'select', 'expander', 'actions'].includes(column.id)) {
-                        tdClassName = cn(tdClassName, "px-2 text-center");
-                      }
+          <div
+            ref={tableContainerRef}
+            onScroll={() => syncScroll('body')}
+            className="rounded-b-md border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          >
+            <Table ref={bodyTableRef}>
+              <TableBody>
+                {data.map((row, rowIndex) => (
+                  <React.Fragment key={`${row.systemId}-${rowIndex}`}>
+                    <TableRow
+                      data-state={rowSelection[row.systemId] && "selected"}
+                      onClick={() => onRowClick?.(row)}
+                      className={cn('group', onRowClick && 'cursor-pointer')}
+                      style={getRowStyle?.(row)}
+                    >
+                      {displayColumns.map((column, colIndex) => {
+                        const isInteractiveColumn = ['select', 'control', 'actions', 'expander'].includes(column.id);
 
-                      return (
-                        <TableCell
-                          key={column.id}
-                          style={style}
-                          className={cn(tdClassName, {
-                            "border-r": isLastLeftSticky,
-                          })}
-                          onClick={isInteractiveColumn ? (e) => e.stopPropagation() : undefined}
-                        >
-                          {column.cell({
-                            row,
-                            isSelected: !!rowSelection[row.systemId],
-                            isExpanded: !!expanded[row.systemId],
-                            onToggleSelect: (value) => {
-                              setRowSelection(prev => {
-                                const newSelection = { ...prev };
-                                if (value) {
-                                  newSelection[row.systemId] = true;
-                                } else {
-                                  delete newSelection[row.systemId];
-                                }
-                                return newSelection;
-                              });
-                            },
-                            onToggleExpand: () => setExpanded(prev => ({ ...prev, [row.systemId]: !prev[row.systemId] })),
-                          })}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                  {expanded[row.systemId] && renderSubComponent && (
-                    <TableRow>
-                      <TableCell colSpan={displayColumns.length} className="p-0">
-                        {renderSubComponent(row)}
-                      </TableCell>
+                        const stickyMeta = (column.meta as any)?.sticky;
+                        const hasFixedSize = column.size !== undefined;
+                        const fallbackMinWidth = (column.meta as any)?.minWidth ?? 140;
+
+                        const style: React.CSSProperties = {};
+
+                        if (hasFixedSize) {
+                          style.width = column.size;
+                          style.minWidth = column.size;
+                          style.maxWidth = column.size;
+                        } else {
+                          style.minWidth = fallbackMinWidth;
+                        }
+
+                        let tdClassName = "";
+
+                        const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
+
+                        if (stickyMeta === 'left') {
+                          const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
+                          if (stickyIndex !== -1) {
+                            (style as any).position = 'sticky';
+                            (style as any).left = `${leftOffsets[stickyIndex]}px`;
+                            const rowBgColor = getRowStyle?.(row)?.backgroundColor;
+                            (style as any).backgroundColor = rowBgColor || stickyCellBg;
+                            tdClassName = cn(
+                              "z-20 shadow-[2px_0_6px_rgba(0,0,0,0.05)]",
+                              "bg-muted text-foreground group-hover:bg-muted group-data-[state=selected]:bg-muted"
+                            );
+                          }
+                        } else if (stickyMeta === 'right') {
+                          const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
+                          if (stickyIndex !== -1) {
+                            (style as any).position = 'sticky';
+                            (style as any).right = `${rightOffsets[stickyIndex]}px`;
+                            const rowBgColor = getRowStyle?.(row)?.backgroundColor;
+                            (style as any).backgroundColor = rowBgColor || stickyCellBg;
+                            tdClassName = cn(
+                              "z-20",
+                              "bg-muted text-foreground group-hover:bg-muted group-data-[state=selected]:bg-muted shadow-[-2px_0_6px_rgba(0,0,0,0.08)]"
+                            );
+                          }
+                        }
+
+                        if (['control', 'select', 'expander', 'actions'].includes(column.id)) {
+                          tdClassName = cn(tdClassName, "px-2 text-center");
+                        }
+
+                        return (
+                          <TableCell
+                            key={column.id}
+                            style={style}
+                            className={cn(tdClassName, {
+                              "border-r": isLastLeftSticky,
+                            })}
+                            onClick={isInteractiveColumn ? (e) => e.stopPropagation() : undefined}
+                          >
+                            {column.cell({
+                              row,
+                              isSelected: !!rowSelection[row.systemId],
+                              isExpanded: !!expanded[row.systemId],
+                              onToggleSelect: (value) => {
+                                setRowSelection(prev => {
+                                  const newSelection = { ...prev };
+                                  if (value) {
+                                    newSelection[row.systemId] = true;
+                                  } else {
+                                    delete newSelection[row.systemId];
+                                  }
+                                  return newSelection;
+                                });
+                              },
+                              onToggleExpand: () => setExpanded(prev => ({ ...prev, [row.systemId]: !prev[row.systemId] })),
+                            })}
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
-                  )}
-                </React.Fragment>
-              ))
-            ) : (
+                    {expanded[row.systemId] && renderSubComponent && (
+                      <TableRow>
+                        <TableCell colSpan={displayColumns.length} className="p-0">
+                          {renderSubComponent(row)}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      ) : (
+        <div
+          ref={tableContainerRef}
+          className="rounded-md border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        >
+          <Table ref={fallbackTableRef}>
+            <TableHeader className="bg-muted shadow-sm">
+              {renderHeaderRow(true)}
+            </TableHeader>
+            <TableBody>
               <TableRow>
                 <TableCell colSpan={displayColumns.length} className="h-24 text-center">
                   Không có dữ liệu.
                 </TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <div className="flex-shrink-0 border-t bg-background px-6 py-3">
         <DataTablePagination

@@ -16,8 +16,6 @@ export function WarrantyHistorySection({ ticket }: WarrantyHistorySectionProps) 
   return (
     <ActivityHistory
       history={historyEntries}
-      title="Lịch sử thao tác"
-      showFilters
       filterableActions={filterableActions}
       filterableUsers={filterableUsers}
       groupByDate

@@ -22,6 +22,7 @@ export type ImportConfig<TData> = {
   fileName: string;
   existingData?: TData[]; // For checking duplicates
   getUniqueKey?: (item: any) => string; // Function to get unique identifier
+  templateUrl?: string; // URL to download template file (e.g., '/templates/Mau_Nhap_Khach_Hang.xlsx')
 };
 
 interface DataTableImportDialogProps<TData> {
@@ -177,7 +178,18 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
   };
   
   const handleDownloadTemplate = () => {
-    // This is a placeholder. In a real app, you would define columns and create a template.
+    // If templateUrl is provided, download from that URL
+    if (config.templateUrl) {
+      const link = document.createElement('a');
+      link.href = config.templateUrl;
+      link.download = config.templateUrl.split('/').pop() || `${config.fileName}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+    
+    // Fallback: Create a basic template
     const worksheet = XLSX.utils.aoa_to_sheet([
       ["name", "manager"], // Example for departments
     ]);

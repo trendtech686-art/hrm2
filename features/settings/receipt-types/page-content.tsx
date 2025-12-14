@@ -1,40 +1,93 @@
 import * as React from "react";
+import { Plus } from "lucide-react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { useReceiptTypeStore } from "./store.ts";
 import type { ReceiptType } from "./types.ts";
 import { ReceiptTypeForm, type ReceiptTypeFormValues } from "./form.tsx";
 import { Button } from "../../../components/ui/button.tsx";
-import { MoreHorizontal, Pencil, Trash2, PowerOff, Power } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
-import { Badge } from "../../../components/ui/badge.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog.tsx";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../../components/ui/alert-dialog.tsx";
+import { getReceiptTypeColumns } from "./columns.tsx";
 import { toast } from "sonner";
+import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable.tsx";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import type { RegisterTabActions } from "../use-tab-action-registry.ts";
 
-export function ReceiptTypesPageContent() {
+type ReceiptTypesPageContentProps = {
+  isActive: boolean;
+  onRegisterActions: RegisterTabActions;
+};
+
+export function ReceiptTypesPageContent({ isActive, onRegisterActions }: ReceiptTypesPageContentProps) {
   const { data, add, update, hardDelete } = useReceiptTypeStore();
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ReceiptType | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+
+  const handleAddNew = React.useCallback(() => {
+    setEditingItem(null);
+    setIsFormOpen(true);
+  }, []);
   
-  const handleEdit = (item: ReceiptType) => { setEditingItem(item); setIsFormOpen(true); };
-  const handleDeleteRequest = (systemId: SystemId) => { 
+  const handleEdit = React.useCallback((item: ReceiptType) => {
+    setEditingItem(item);
+    setIsFormOpen(true);
+  }, []);
+
+  const handleDeleteRequest = React.useCallback((systemId: SystemId) => {
     setIdToDelete(systemId);
     setIsAlertOpen(true);
-  };
+  }, []);
   
-  const handleToggleStatus = (item: ReceiptType) => {
-    update(item.systemId, { ...item, isActive: !item.isActive });
-    toast.success(item.isActive ? "Đã ngừng hoạt động" : "Đã kích hoạt");
-  };
+  const handleToggleDefault = React.useCallback((item: ReceiptType, isDefault: boolean) => {
+    if (isDefault) {
+      // Tắt mặc định của tất cả các loại khác
+      data.forEach(d => {
+        if (d.systemId !== item.systemId && d.isDefault) {
+          update(d.systemId, { ...d, isDefault: false });
+        }
+      });
+      update(item.systemId, { ...item, isDefault: true });
+      toast.success(`Đã đặt "${item.name}" làm mặc định`);
+    } else {
+      const other = data.find(d => d.systemId !== item.systemId && d.isActive);
+      if (other) {
+        update(item.systemId, { ...item, isDefault: false });
+        update(other.systemId, { ...other, isDefault: true });
+        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
+      } else {
+        toast.error("Phải có ít nhất một loại phiếu thu mặc định");
+      }
+    }
+  }, [data, update]);
+
+  const handleToggleStatus = React.useCallback((item: ReceiptType, isActive: boolean) => {
+    update(item.systemId, { ...item, isActive });
+    toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
+  }, [update]);
   
   const confirmDelete = () => {
     if (idToDelete) {
+      const item = data.find(d => d.systemId === idToDelete);
       hardDelete(idToDelete);
-      toast.success("Đã xóa thành công");
+      toast.success(`Đã xóa "${item?.name}"`);
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
@@ -57,13 +110,13 @@ export function ReceiptTypesPageContent() {
           ...editingItem,
           ...normalized,
         });
-        toast.success("Cập nhật thành công");
+        toast.success(`Đã cập nhật "${normalized.name}"`);
       } else {
         add({
           ...normalized,
           createdAt: now,
         });
-        toast.success("Thêm mới thành công");
+        toast.success(`Đã thêm "${normalized.name}"`);
       }
       setIsFormOpen(false);
     } catch (error) {
@@ -73,94 +126,45 @@ export function ReceiptTypesPageContent() {
     }
   };
 
+  const columns = React.useMemo(
+    () =>
+      getReceiptTypeColumns({
+        onEdit: handleEdit,
+        onToggleDefault: handleToggleDefault,
+        onToggleStatus: handleToggleStatus,
+        onDelete: handleDeleteRequest,
+      }),
+    [handleEdit, handleToggleDefault, handleToggleStatus, handleDeleteRequest]
+  );
+
+  React.useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    onRegisterActions([
+      <SettingsActionButton key="add-receipt-type" onClick={handleAddNew}>
+        <Plus className="mr-2 h-4 w-4" /> Thêm loại phiếu thu
+      </SettingsActionButton>,
+    ]);
+  }, [handleAddNew, isActive, onRegisterActions]);
+
   return (
     <div className="space-y-4">
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Mã loại</TableHead>
-              <TableHead>Tên loại</TableHead>
-              <TableHead>Mô tả</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  Chưa có dữ liệu
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((item) => (
-                <TableRow key={item.systemId}>
-                  <TableCell className="font-medium">{item.id}</TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {item.color && (
-                        <div
-                          className="h-3 w-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: item.color }}
-                        />
-                      )}
-                      <span>{item.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {item.description || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                      {item.isActive ? 'Hoạt động' : 'Ngừng'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Mở menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleEdit(item)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Chỉnh sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
-                          {item.isActive ? (
-                            <>
-                              <PowerOff className="mr-2 h-4 w-4" />
-                              Ngừng hoạt động
-                            </>
-                          ) : (
-                            <>
-                              <Power className="mr-2 h-4 w-4" />
-                              Kích hoạt
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteRequest(item.systemId)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <div className="rounded-md border bg-background">
+        <SimpleSettingsTable
+          data={data}
+          columns={columns}
+          emptyTitle="Chưa có dữ liệu"
+          emptyDescription="Thêm loại phiếu thu đầu tiên để bắt đầu cấu hình"
+          emptyAction={
+            <Button size="sm" onClick={handleAddNew}>
+              Thêm loại mới
+            </Button>
+          }
+        />
+      </div>
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Cập nhật loại phiếu thu' : 'Thêm loại phiếu thu'}</DialogTitle>

@@ -20,7 +20,7 @@ export const getColumns = (
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
     ),
@@ -44,9 +44,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Mã KH"
         sortKey="id"
-        isSorted={sorting.id === 'id'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'id'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => <span className="font-mono">{row.id}</span>,
@@ -62,9 +62,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Tên khách hàng"
         sortKey="name"
-        isSorted={sorting.id === 'name'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'name'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => (
@@ -147,9 +147,9 @@ export const getColumns = (
       <DataTableColumnHeader 
         title="Ngày xóa"
         sortKey="deletedAt"
-        isSorted={sorting.id === 'deletedAt'}
-        sortDirection={sorting.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting((s: any) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
+        isSorted={sorting?.id === 'deletedAt'}
+        sortDirection={sorting?.desc ? 'desc' : 'asc'}
+        onSort={() => setSorting?.((s: any) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => {

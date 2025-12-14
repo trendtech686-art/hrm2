@@ -165,7 +165,7 @@ export function VerificationDialog({
             <NewDocumentsUpload
               value={evidenceStagingFiles}
               onChange={setEvidenceStagingFiles}
-              sessionId={evidenceSessionId}
+              sessionId={evidenceSessionId ?? undefined}
               onSessionChange={setEvidenceSessionId}
               accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif'] }}
               maxSize={10 * 1024 * 1024}

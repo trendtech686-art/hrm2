@@ -1,15 +1,80 @@
-import { createCrudStore } from '../../lib/store-factory.ts';
+import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
 import { data as initialData } from './data.ts';
 import type { InventoryReceipt, InventoryReceiptLineItem } from './types.ts';
 import type { SystemId, BusinessId } from '../../lib/id-types.ts';
+import { useProductStore } from '../products/store.ts';
 
-export const useInventoryReceiptStore = createCrudStore<InventoryReceipt>(
+const baseStore = createCrudStore<InventoryReceipt>(
   initialData,
   'inventory-receipts',
   {
-    persistKey: 'hrm-inventory-receipts', // ✅ Enable localStorage persistence
+    persistKey: 'hrm-inventory-receipts',
   }
 );
+
+export interface InventoryReceiptStoreState extends CrudState<InventoryReceipt> {
+  // Add custom methods if needed
+}
+
+const addReceipt = (item: Omit<InventoryReceipt, 'systemId'>) => {
+  const newItem = baseStore.getState().add(item);
+  
+  // Update last purchase price for all items in the receipt
+  const productStore = useProductStore.getState();
+  newItem.items.forEach(item => {
+    if (item.productSystemId && item.unitPrice > 0) {
+      productStore.updateLastPurchasePrice(
+        item.productSystemId, 
+        item.unitPrice, 
+        newItem.receivedDate
+      );
+    }
+  });
+  
+  return newItem;
+};
+
+const updateReceipt = (systemId: SystemId, updates: Partial<InventoryReceipt>) => {
+  baseStore.getState().update(systemId, updates);
+  
+  // Update last purchase price if items or date changed
+  if (updates.items || updates.receivedDate) {
+    const updatedReceipt = baseStore.getState().findById(systemId);
+    if (updatedReceipt) {
+      const productStore = useProductStore.getState();
+      updatedReceipt.items.forEach(item => {
+        if (item.productSystemId && item.unitPrice > 0) {
+          productStore.updateLastPurchasePrice(
+            item.productSystemId, 
+            item.unitPrice, 
+            updatedReceipt.receivedDate
+          );
+        }
+      });
+    }
+  }
+};
+
+export const useInventoryReceiptStore = (): InventoryReceiptStoreState => {
+  const state = baseStore();
+  return {
+    ...state,
+    add: addReceipt,
+    update: updateReceipt,
+  };
+};
+
+useInventoryReceiptStore.getState = () => {
+  const state = baseStore.getState();
+  return {
+    ...state,
+    add: addReceipt,
+    update: updateReceipt,
+  };
+};
+
+(useInventoryReceiptStore as any).subscribe = baseStore.subscribe;
+(useInventoryReceiptStore as any).setState = baseStore.setState;
 
 type PurchaseOrderReference = {
   systemId: SystemId;
@@ -170,6 +235,6 @@ export function syncInventoryReceiptsWithPurchaseOrders({
 
   const hasChanges = updated.some((receipt, index) => receipt !== storeState.data[index]);
   if (hasChanges) {
-    useInventoryReceiptStore.setState({ data: updated });
+    (baseStore as any).setState({ data: updated });
   }
 }

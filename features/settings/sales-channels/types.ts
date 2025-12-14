@@ -6,4 +6,8 @@ export type SalesChannel = {
   name: string;
   isApplied: boolean;
   isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };

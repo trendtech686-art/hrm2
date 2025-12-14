@@ -60,7 +60,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePageHeader } from '../../../contexts/page-header-context';
+import { useSettingsPageHeader } from '../use-settings-page-header';
 import { 
   ID_CONFIG, 
   getEntityCategories, 
@@ -108,7 +108,7 @@ export function IDCounterSettingsPage() {
   const [selectedEntity, setSelectedEntity] = React.useState<CounterInfo | null>(null);
 
   // Page header
-  usePageHeader({
+  useSettingsPageHeader({
     title: 'Quản lý ID & Prefix',
     breadcrumb: [
       { label: 'Trang chủ', href: '/' },
@@ -294,7 +294,7 @@ export function IDCounterSettingsPage() {
   const categories = getEntityCategories();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Statistics Cards - Using StatsCard component */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatsCard

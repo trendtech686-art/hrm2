@@ -1,18 +1,20 @@
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Button } from "../../../components/ui/button.tsx";
-import { Input } from "../../../components/ui/input.tsx";
+import { NumberInput } from "../../../components/ui/number-input.tsx";
 import { CurrencyInput } from "../../../components/ui/currency-input.tsx";
-import { Package, Plus, X, StickyNote, History } from "lucide-react";
-import { ProductCombobox } from "./product-combobox-virtual.tsx";
-import { BulkProductSelectorDialog } from "./bulk-product-selector-dialog.tsx";
-import { PriceSelector } from "./price-selector.tsx";
+import { Package, Plus, X, StickyNote, History, Pencil, Eye, ChevronDown, ChevronRight } from "lucide-react";
+import { PurchaseProductSearch } from "../../../components/shared/unified-product-search.tsx";
+import { ProductSelectionDialog } from "../../shared/product-selection-dialog.tsx";
 import { TaxSelector } from "./tax-selector.tsx";
-import { useTaxSettingsStore } from "../../settings/tax-settings-store.ts";
 import { useTaxStore } from "../../settings/taxes/store.ts";
 import { useProductStore } from "../../products/store.ts";
+import { useProductTypeStore } from "../../settings/inventory/product-type-store.ts";
 import { usePurchaseOrderStore } from "../store.ts";
 import type { Product } from "../../products/types.ts";
+import { useProductImage } from "../../products/components/product-image.tsx";
+import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog.tsx";
+import { formatDateForDisplay } from '@/lib/date-utils';
 import {
   Popover,
   PopoverContent,
@@ -44,6 +46,76 @@ import {
 import { Textarea } from "../../../components/ui/textarea.tsx";
 import { Link } from "react-router-dom";
 
+// Component hiển thị ảnh sản phẩm với preview - tương tự LineItemsTable
+const ProductThumbnail = ({ 
+    product,
+    onPreview 
+}: { 
+    product: Product;
+    onPreview: (image: string, title: string) => void;
+}) => {
+    const imageUrl = useProductImage(product.systemId, product);
+    
+    if (imageUrl) {
+        return (
+            <div
+                className="group relative w-10 h-9 rounded overflow-hidden border border-muted cursor-pointer"
+                onClick={() => onPreview(imageUrl, product.name)}
+            >
+                <img
+                    src={imageUrl}
+                    alt={product.name}
+                    className="w-full h-full object-cover transition-all group-hover:brightness-75"
+                />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                </div>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="w-10 h-9 bg-muted rounded flex items-center justify-center">
+            <Package className="h-5 w-5 text-muted-foreground" />
+        </div>
+    );
+};
+
+// Helper component để hiển thị ảnh combo child
+const ComboChildImage = ({ 
+    product, 
+    onPreview 
+}: { 
+    product?: Product | null; 
+    onPreview: (image: string, title: string) => void;
+}) => {
+    const imageUrl = useProductImage(product?.systemId || '', product);
+    
+    if (imageUrl) {
+        return (
+            <div
+                className="group relative w-8 h-7 rounded overflow-hidden border border-muted cursor-pointer"
+                onClick={() => onPreview(imageUrl, product?.name || '')}
+            >
+                <img
+                    src={imageUrl}
+                    alt={product?.name || ''}
+                    className="w-full h-full object-cover transition-all group-hover:brightness-75"
+                />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                </div>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="w-8 h-7 bg-muted rounded flex items-center justify-center">
+            <Package className="h-4 w-4 text-muted-foreground" />
+        </div>
+    );
+};
+
 export interface ProductLineItem {
   product: Product;
   quantity: number;
@@ -59,14 +131,12 @@ export interface ProductLineItem {
 interface ProductSelectionCardProps {
   items: ProductLineItem[];
   onItemsChange: (items: ProductLineItem[]) => void;
-  supplierId?: string;
+  supplierId?: string | undefined;
 }
 
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(value);
+  if (typeof value !== 'number' || isNaN(value)) return '0';
+  return new Intl.NumberFormat("vi-VN").format(value);
 };
 
 export function ProductSelectionCard({
@@ -78,16 +148,52 @@ export function ProductSelectionCard({
   const [priceMode, setPriceMode] = React.useState<"cost" | "recent">("cost");
   const [editingNoteIndex, setEditingNoteIndex] = React.useState<number | null>(null);
   const [tempNote, setTempNote] = React.useState<string>("");
+  const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
+    open: false, image: '', title: ''
+  });
+  const [expandedCombos, setExpandedCombos] = React.useState<Record<number, boolean>>({});
   
-  // Get default tax settings
-  const { defaultPurchaseTaxId } = useTaxSettingsStore();
-  const { data: taxes } = useTaxStore();
+  // Get default tax from taxes store
+  const { data: taxes, getDefaultPurchase } = useTaxStore();
+  const defaultPurchaseTax = React.useMemo(() => getDefaultPurchase(), [getDefaultPurchase]);
   
   // Get products store
   const { data: allProducts } = useProductStore();
   
+  // Get product type store
+  const { findById: findProductTypeById } = useProductTypeStore();
+  
   // Get purchase orders for price history
   const { data: purchaseOrders } = usePurchaseOrderStore();
+
+  // Fallback labels for product types
+  const productTypeFallbackLabels: Record<string, string> = {
+    physical: 'Hàng hóa',
+    single: 'Hàng hóa',
+    service: 'Dịch vụ',
+    digital: 'Sản phẩm số',
+    combo: 'Combo',
+  };
+
+  // Get product type label
+  const getProductTypeLabel = React.useCallback((product: Product) => {
+    if (product.productTypeSystemId) {
+      const productType = findProductTypeById(product.productTypeSystemId);
+      if (productType?.name) return productType.name;
+    }
+    if (product.type && productTypeFallbackLabels[product.type]) {
+      return productTypeFallbackLabels[product.type];
+    }
+    return 'Hàng hóa';
+  }, [findProductTypeById]);
+
+  const handlePreview = React.useCallback((image: string, title: string) => {
+    setPreviewState({ open: true, image, title });
+  }, []);
+
+  const toggleComboExpanded = React.useCallback((index: number) => {
+    setExpandedCombos(prev => ({ ...prev, [index]: !prev[index] }));
+  }, []);
   
   // Get price history for a product
   const getPriceHistory = React.useCallback((productId: string) => {
@@ -117,12 +223,11 @@ export function ProductSelectionCard({
   
   // Get default tax rate
   const getDefaultTaxRate = React.useCallback(() => {
-    if (defaultPurchaseTaxId) {
-      const defaultTax = taxes.find(t => t.systemId === defaultPurchaseTaxId);
-      return defaultTax ? defaultTax.rate : 0;
+    if (defaultPurchaseTax) {
+      return defaultPurchaseTax.rate;
     }
     return 0;
-  }, [defaultPurchaseTaxId, taxes]);
+  }, [defaultPurchaseTax]);
 
   // Get price based on price mode
   const getProductPrice = React.useCallback((product: Product) => {
@@ -204,7 +309,7 @@ export function ProductSelectionCard({
       discount: 0,
       discountType: 'fixed',
       tax: defaultTaxRate,
-      taxId: defaultPurchaseTaxId || undefined,
+      taxId: defaultPurchaseTax?.systemId ?? "",
       total: productPrice * (1 + defaultTaxRate / 100),
       notes: '',
     };
@@ -239,7 +344,7 @@ export function ProductSelectionCard({
           discount: 0,
           discountType: 'fixed', // Mặc định là tiền mặt
           tax: defaultTaxRate,
-          taxId: defaultPurchaseTaxId || undefined,
+          taxId: defaultPurchaseTax?.systemId ?? "",
           total: productPrice * (1 + defaultTaxRate / 100),
           notes: '', // Khởi tạo notes rỗng
         });
@@ -331,11 +436,11 @@ export function ProductSelectionCard({
         <CardTitle className="text-base">Thông tin sản phẩm</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Search + Bulk Add + Price Mode */}
+        {/* Search + Bulk Add + Price Mode - Dùng component dùng chung */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="flex-1">
-            <ProductCombobox
-              onValueChange={handleAddProduct}
+            <PurchaseProductSearch
+              onSelectProduct={(product) => handleAddProduct(product.systemId)}
               placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
               excludeProductIds={excludedProductIds}
             />
@@ -358,8 +463,8 @@ export function ProductSelectionCard({
           </Select>
         </div>
 
-        {/* Products Table */}
-        <div className="border rounded-lg overflow-hidden">
+        {/* Products Table - UI giống LineItemsTable */}
+        <div className="border rounded-md">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Package className="h-12 w-12 mb-3" />
@@ -375,218 +480,335 @@ export function ProductSelectionCard({
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">STT</TableHead>
-                    <TableHead className="w-[60px]">Ảnh</TableHead>
-                    <TableHead className="min-w-[200px]">Tên sản phẩm</TableHead>
-                    <TableHead className="w-[100px]">Đơn vị</TableHead>
-                    <TableHead className="w-[100px]">SL nhập</TableHead>
-                    <TableHead className="w-[150px]">Đơn giá</TableHead>
-                    <TableHead className="w-[180px]">Thuế</TableHead>
-                    <TableHead className="w-[120px]">Chiết khấu</TableHead>
-                    <TableHead className="w-[150px]">Thành tiền</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item, index) => {
-                    // Validation checks
-                    const hasZeroPrice = item.unitPrice === 0;
-                    const hasInvalidQuantity = item.quantity <= 0;
-                    const hasError = hasZeroPrice || hasInvalidQuantity;
-                    
-                    return (
-                    <TableRow key={item.product.systemId} className={hasError ? 'bg-red-50 dark:bg-red-950/20' : ''}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        <div className="w-10 h-9 bg-muted rounded flex items-center justify-center">
-                          <Package className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{item.product.name}</p>
-                            {item.notes && (
-                              <StickyNote className="h-4 w-4 text-amber-500" />
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px] text-center">STT</TableHead>
+                  <TableHead className="w-[60px]">Ảnh</TableHead>
+                  <TableHead>Tên sản phẩm</TableHead>
+                  <TableHead className="w-[120px]">Số lượng</TableHead>
+                  <TableHead className="w-[180px]">Đơn giá</TableHead>
+                  <TableHead className="w-[140px]">Thuế</TableHead>
+                  <TableHead className="w-[180px]">Chiết khấu</TableHead>
+                  <TableHead className="w-[120px] text-right">Thành tiền</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => {
+                  // Validation checks
+                  const hasZeroPrice = item.unitPrice === 0;
+                  const hasInvalidQuantity = item.quantity <= 0;
+                  const hasError = hasZeroPrice || hasInvalidQuantity;
+                  const isPercentage = item.discountType === 'percent';
+                  
+                  // Check if combo
+                  const isCombo = item.product.type === 'combo' && item.product.comboItems?.length;
+                  const isComboExpanded = !!expandedCombos[index];
+                  const comboItems = isCombo
+                    ? (item.product.comboItems ?? []).map((comboItem: any) => {
+                        const childProduct = allProducts.find(p => p.systemId === comboItem.productSystemId);
+                        return { ...comboItem, product: childProduct };
+                      })
+                    : [];
+                  
+                  return (
+                    <React.Fragment key={item.product.systemId}>
+                      <TableRow className={`${isCombo ? 'bg-muted/30' : ''} ${hasError ? 'bg-red-50 dark:bg-red-950/20' : ''}`}>
+                        <TableCell className="text-center text-muted-foreground">
+                          <div className="flex items-center justify-center gap-1">
+                            {isCombo && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0"
+                                onClick={() => toggleComboExpanded(index)}
+                              >
+                                {isComboExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </Button>
                             )}
+                            <span>{index + 1}</span>
                           </div>
-                          <div className="flex items-center gap-2 group">
-                            <Link 
-                              to={`/products/${item.product.systemId}`} 
-                              target="_blank"
-                              className="text-sm text-primary hover:underline"
-                            >
-                              {item.product.id}
-                            </Link>
-                            {item.notes && (
-                              <span className="text-xs text-muted-foreground italic">
-                                • {item.notes}
-                              </span>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenNoteDialog(index)}
-                              className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              {item.notes ? 'Sửa' : 'Thêm ghi chú'}
-                            </Button>
+                        </TableCell>
+                        <TableCell>
+                          <ProductThumbnail
+                            product={item.product}
+                            onPreview={handlePreview}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <Link 
+                                to={`/products/${item.product.systemId}`} 
+                                className="font-medium text-primary hover:underline"
+                              >
+                                {item.product.name}
+                              </Link>
+                              {isCombo && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
+                                  COMBO
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground group/info">
+                                <span>{getProductTypeLabel(item.product)}</span>
+                                <span>-</span>
+                                <Link 
+                                  to={`/products/${item.product.systemId}`} 
+                                  className="text-primary hover:underline"
+                                >
+                                  {item.product.id}
+                                </Link>
+                                {item.notes ? (
+                                  <>
+                                    <span className="text-amber-600">
+                                      <StickyNote className="h-3 w-3 inline mr-0.5" />
+                                      <span className="italic">{item.notes}</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenNoteDialog(index)}
+                                      className="opacity-0 group-hover/info:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"
+                                    >
+                                      <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenNoteDialog(index)}
+                                    className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground ml-1 opacity-0 group-hover/info:opacity-100 transition-opacity"
+                                  >
+                                    Thêm ghi chú
+                                  </Button>
+                                )}
+                              </div>
+                              {hasZeroPrice && (
+                                <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                                  ⚠️ Chưa có giá nhập
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {hasZeroPrice && (
-                            <span className="text-xs text-red-600 font-medium flex items-center gap-1 mt-1">
-                              ⚠️ Chưa có giá nhập
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{item.product.unit}</TableCell>
-                      <TableCell>
-                        <div>
-                          <Input
-                            type="number"
-                            min="1"
+                        </TableCell>
+                        <TableCell>
+                          <NumberInput
                             value={item.quantity}
-                            onChange={(e) =>
-                              handleQuantityChange(index, Number(e.target.value))
-                            }
-                            className={`w-20 ${hasInvalidQuantity ? 'border-red-500' : ''}`}
+                            onChange={(value) => handleQuantityChange(index, value)}
+                            min={1}
+                            className={`h-9 ${hasInvalidQuantity ? 'border-red-500' : ''}`}
+                            format={false}
                           />
-                          {hasInvalidQuantity && (
-                            <span className="text-xs text-red-600 block mt-1">Phải &gt; 0</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <CurrencyInput
-                            value={item.unitPrice}
-                            onChange={(value) => handlePriceChange(index, value)}
-                            className={`w-36 ${hasZeroPrice ? 'border-red-500' : ''}`}
-                          />
-                          {getPriceHistory(item.product.systemId).length > 0 && (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <History className="h-4 w-4 text-muted-foreground" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80" align="start">
-                                <div className="space-y-3">
-                                  <p className="font-semibold text-sm">Lịch sử giá nhập</p>
-                                  <div className="space-y-2">
-                                    {getPriceHistory(item.product.systemId).map((h, i) => (
-                                      <div key={i} className="flex justify-between text-sm border-b pb-2 last:border-0">
-                                        <div>
-                                          <p className="font-medium">{new Date(h.date).toLocaleDateString('vi-VN')}</p>
-                                          <p className="text-xs text-muted-foreground">Đơn: {h.orderId}</p>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <CurrencyInput
+                              value={item.unitPrice}
+                              onChange={(value) => handlePriceChange(index, value)}
+                              className={`h-9 ${hasZeroPrice ? 'border-red-500' : ''}`}
+                            />
+                            {getPriceHistory(item.product.systemId).length > 0 && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <History className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80" align="start">
+                                  <div className="space-y-3">
+                                    <p className="font-semibold text-sm">Lịch sử giá nhập</p>
+                                    <div className="space-y-2">
+                                      {getPriceHistory(item.product.systemId).map((h, i) => (
+                                        <div key={i} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                                          <div>
+                                            <p className="font-medium">{formatDateForDisplay(h.date)}</p>
+                                            <p className="text-xs text-muted-foreground">Đơn: {h.orderId}</p>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="font-semibold">{formatCurrency(h.price)} ₫</p>
+                                            <p className="text-xs text-muted-foreground">SL: {h.quantity}</p>
+                                          </div>
                                         </div>
-                                        <div className="text-right">
-                                          <p className="font-semibold">{formatCurrency(h.price)}</p>
-                                          <p className="text-xs text-muted-foreground">SL: {h.quantity}</p>
-                                        </div>
-                                      </div>
-                                    ))}
+                                      ))}
+                                    </div>
+                                    <div className="pt-2 border-t">
+                                      <p className="text-sm text-muted-foreground">
+                                        Giá trung bình: <strong className="text-foreground">{formatCurrency(getAveragePrice(item.product.systemId))} ₫</strong>
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div className="pt-2 border-t">
-                                    <p className="text-sm text-muted-foreground">
-                                      Giá trung bình: <strong className="text-foreground">{formatCurrency(getAveragePrice(item.product.systemId))}</strong>
-                                    </p>
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <TaxSelector
-                          value={item.taxId || 'none'}
-                          onChange={(taxId, rate) => handleTaxChange(index, taxId, rate)}
-                          type="purchase"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={item.discount}
-                            onChange={(e) =>
-                              handleDiscountChange(index, Number(e.target.value))
-                            }
-                            className="w-24"
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <TaxSelector
+                            value={item.taxId || 'none'}
+                            onChange={(taxId, rate) => handleTaxChange(index, taxId, rate)}
+                            type="purchase"
                           />
-                          <Select
-                            value={item.discountType}
-                            onValueChange={(v: 'percent' | 'fixed') =>
-                              handleDiscountTypeChange(index, v)
-                            }
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Select
+                              value={item.discountType}
+                              onValueChange={(v: 'percent' | 'fixed') => handleDiscountTypeChange(index, v)}
+                            >
+                              <SelectTrigger className="h-9 w-[70px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="fixed">đ</SelectItem>
+                                <SelectItem value="percent">%</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {isPercentage ? (
+                              <div className="relative w-full">
+                                <NumberInput
+                                  value={item.discount}
+                                  onChange={(value) => handleDiscountChange(index, value)}
+                                  min={0}
+                                  max={100}
+                                  className="h-9"
+                                  format={false}
+                                />
+                                <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none z-10">
+                                  %
+                                </span>
+                              </div>
+                            ) : (
+                              <CurrencyInput
+                                value={item.discount}
+                                onChange={(value) => handleDiscountChange(index, value)}
+                                className="h-9"
+                              />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {formatCurrency(item.total)} ₫
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemove(index)}
                           >
-                            <SelectTrigger className="w-[80px] h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="fixed">VND</SelectItem>
-                              <SelectItem value="percent">%</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(item.total)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemove(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Combo items expanded view */}
+                      {isCombo && isComboExpanded && comboItems.length > 0 && (
+                        <>
+                          {comboItems.map((comboItem: any, ciIndex: number) => (
+                            <TableRow key={`combo-${index}-${ciIndex}`} className="bg-muted/40">
+                              <TableCell className="text-center text-muted-foreground pl-8">
+                                <span className="text-muted-foreground/50">└</span>
+                              </TableCell>
+                              <TableCell>
+                                <ComboChildImage 
+                                  product={comboItem.product}
+                                  onPreview={handlePreview}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-0.5">
+                                  <p className="text-sm text-muted-foreground">
+                                    {comboItem.product?.name || 'Sản phẩm không tồn tại'}
+                                  </p>
+                                  {comboItem.product && (
+                                    <Link
+                                      to={`/products/${comboItem.product.systemId}`}
+                                      className="text-xs text-primary hover:underline"
+                                    >
+                                      {comboItem.product.id}
+                                    </Link>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm text-muted-foreground">{comboItem.quantity * item.quantity}</span>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm text-muted-foreground">---</span>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm text-muted-foreground">---</span>
+                              </TableCell>
+                              <TableCell></TableCell>
+                              <TableCell className="text-right text-sm text-muted-foreground">---</TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          ))}
+                        </>
+                      )}
+                    </React.Fragment>
                   );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                })}
+              </TableBody>
+            </Table>
           )}
         </div>
       </CardContent>
 
-      {/* Bulk Selector Dialog */}
-      <BulkProductSelectorDialog
-        open={showBulkSelector}
+      {/* Bulk Selector Dialog - Dùng component dùng chung, loại bỏ combo */}
+      <ProductSelectionDialog
+        isOpen={showBulkSelector}
         onOpenChange={setShowBulkSelector}
-        onConfirm={handleBulkAdd}
-        excludeProductIds={excludedProductIds}
+        onSelect={(products) => handleBulkAdd(products)}
+        excludeTypes={['combo']}
       />
 
-      {/* Note Dialog */}
+      {/* Note Dialog - UI giống LineItemsTable */}
       <Dialog open={editingNoteIndex !== null} onOpenChange={(open) => !open && setEditingNoteIndex(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Ghi chú sản phẩm</DialogTitle>
             <DialogDescription>
-              Thêm ghi chú cho sản phẩm: {editingNoteIndex !== null ? items[editingNoteIndex]?.product.name : ''}
+              {editingNoteIndex !== null && items[editingNoteIndex] && (
+                <span>Ghi chú cho: {items[editingNoteIndex].product.name}</span>
+              )}
             </DialogDescription>
           </DialogHeader>
-          <Textarea
-            value={tempNote}
-            onChange={handleNoteInputChange}
-            placeholder="Nhập ghi chú..."
-            rows={4}
-          />
+          <div className="py-4">
+            <Textarea
+              placeholder="Nhập ghi chú cho sản phẩm..."
+              value={tempNote}
+              onChange={handleNoteInputChange}
+              rows={4}
+            />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingNoteIndex(null)}>Hủy</Button>
-            <Button onClick={handleSaveNote}>Lưu</Button>
+            <Button variant="outline" onClick={() => setEditingNoteIndex(null)}>
+              Hủy
+            </Button>
+            <Button onClick={handleSaveNote}>
+              Lưu ghi chú
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog 
+        open={previewState.open} 
+        onOpenChange={(open) => setPreviewState(prev => ({ ...prev, open }))} 
+        images={[previewState.image]} 
+        title={previewState.title}
+      />
     </Card>
   );
 }

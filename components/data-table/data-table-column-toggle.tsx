@@ -45,6 +45,7 @@ interface DataTableColumnCustomizerProps<TData> {
   setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
   pinnedColumns: string[];
   setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>;
+  onResetToDefault?: () => void;
 }
 
 export function DataTableColumnCustomizer<TData>({
@@ -56,6 +57,7 @@ export function DataTableColumnCustomizer<TData>({
   setColumnOrder,
   pinnedColumns,
   setPinnedColumns,
+  onResetToDefault,
 }: DataTableColumnCustomizerProps<TData>) {
   const [open, setOpen] = React.useState(false);
 
@@ -119,6 +121,11 @@ export function DataTableColumnCustomizer<TData>({
   };
   
   const handleReset = () => {
+    if (onResetToDefault) {
+      onResetToDefault();
+      return;
+    }
+
     const defaultVisibleColumns = [
       'id', 'fullName', 'workEmail', 'phone', 'department', 
       'jobTitle', 'hireDate', 'employmentStatus'

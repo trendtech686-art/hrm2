@@ -7,7 +7,7 @@ interface TimeTrackerProps {
   taskId: string;
   isRunning: boolean;
   totalSeconds: number;
-  estimatedHours?: number;
+  estimatedHours?: number | undefined;
 }
 
 /**
@@ -59,7 +59,7 @@ export function TimeTracker({
         <div className="flex-1">
           <div className="text-sm font-medium">Thời gian làm việc</div>
           <div className={cn(
-            "text-2xl font-bold tabular-nums",
+            "text-h3 font-bold tabular-nums",
             isOverEstimate && "text-destructive"
           )}>
             {formatTime(currentSeconds)}

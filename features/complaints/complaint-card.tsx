@@ -55,12 +55,12 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-sm text-primary">{complaint.id}</span>
-            <Badge variant="outline" className={cn("text-xs", complaintTypeColors[complaint.type])}>
+            <span className="font-semibold text-body-sm text-primary">{complaint.id}</span>
+            <Badge variant="outline" className={cn("text-body-xs", complaintTypeColors[complaint.type])}>
               {complaintTypeLabels[complaint.type]}
             </Badge>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-body-xs text-muted-foreground">
             <Package className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{complaint.orderCode}</span>
           </div>
@@ -70,7 +70,7 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
           <StatusBadge status={complaint.status} statusMap={COMPLAINT_STATUS_MAP} />
           
           {isOverdue && (
-            <Badge variant="outline" className="text-xs bg-red-100 text-red-800 whitespace-nowrap">
+            <Badge variant="outline" className="text-body-xs bg-red-100 text-red-800 whitespace-nowrap">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Quá hạn
             </Badge>
@@ -78,7 +78,7 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
           
           <Badge 
             variant="outline" 
-            className={cn("text-xs", priorityConfig[complaint.priority].color, "whitespace-nowrap")}
+            className={cn("text-body-xs", priorityConfig[complaint.priority].color, "whitespace-nowrap")}
           >
             {priorityConfig[complaint.priority].label}
           </Badge>
@@ -87,23 +87,23 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
 
       {/* Customer Info */}
       <div className="space-y-2 mb-3">
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-body-sm">
           <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="font-medium truncate">{complaint.customerName}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-body-sm text-muted-foreground">
           <Phone className="h-3.5 w-3.5 shrink-0" />
           <span>{complaint.customerPhone}</span>
         </div>
       </div>
 
       {/* Description */}
-      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+      <p className="text-body-sm text-muted-foreground line-clamp-2 mb-3">
         {complaint.description}
       </p>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t">
+      <div className="flex items-center justify-between text-body-xs text-muted-foreground pt-3 border-t">
         <div className="flex items-center gap-1">
           <Calendar className="h-3.5 w-3.5" />
           <span>{formatDate(complaint.createdAt)}</span>

@@ -21,7 +21,7 @@ interface PartnerConfigDialogProps {
   onOpenChange: (open: boolean) => void;
   partnerCode: ShippingPartner;
   partnerName: string;
-  accountId?: string; // Optional: Edit existing account
+  accountId?: string | undefined; // Optional: Edit existing account
   onSave: () => void;
 }
 
@@ -37,7 +37,7 @@ export function PartnerConfigDialog({
   
   // Find account to edit
   const account = accountId 
-    ? config.partners[partnerCode]?.accounts.find(a => a.id === accountId)
+    ? config.partners[partnerCode]?.accounts?.find(a => a.id === accountId)
     : undefined;
 
   const handleClose = () => {

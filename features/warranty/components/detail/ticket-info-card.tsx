@@ -7,12 +7,12 @@ import { formatDateTime } from '../../../../lib/date-utils.ts';
 
 interface TicketInfoCardProps {
   ticket: WarrantyTicket;
-  linkedOrderLabel?: string;
-  publicTrackingUrl?: string | null;
+  linkedOrderLabel?: string | undefined;
+  publicTrackingUrl?: string | null | undefined;
   onCopyPublicLink: () => void;
   onGenerateTrackingCode: () => void;
   onNavigateEmployee: () => void;
-  onNavigateOrder?: () => void;
+  onNavigateOrder?: (() => void) | undefined;
 }
 
 export function TicketInfoCard({
@@ -94,7 +94,7 @@ export function TicketInfoCard({
             </div>
           )}
 
-          {ticket.shippingFee > 0 && (
+          {ticket.shippingFee !== undefined && ticket.shippingFee > 0 && (
             <div>
               <p className="text-xs text-muted-foreground">Phí ship gửi về</p>
               <p className="font-medium text-sm">{ticket.shippingFee.toLocaleString('vi-VN')} đ</p>

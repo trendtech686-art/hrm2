@@ -4,6 +4,7 @@
  */
 
 import type { BusinessId, SystemId } from '@/lib/id-types';
+import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
 
 // ============================================
 // RECEIPT TYPE (Loại Phiếu Thu - Category)
@@ -12,11 +13,11 @@ export type ReceiptType = {
   systemId: SystemId; // Simple string for categories
   id: BusinessId; // Mã loại
   name: string; // Tên loại
-  description?: string;
+  description?: string | undefined;
   isBusinessResult: boolean; // Hạch toán kết quả kinh doanh
   createdAt: string; // YYYY-MM-DD
   isActive: boolean; // Trạng thái hoạt động
-  color?: string; // Màu sắc
+  color?: string | undefined; // Màu sắc
 };
 
 // ============================================
@@ -46,6 +47,12 @@ export const RECEIPT_CATEGORY_LABELS: Record<ReceiptCategory, string> = {
   other: 'Khác',
 };
 
+export type ReceiptOrderAllocation = {
+  orderSystemId: SystemId;
+  orderId: BusinessId;
+  amount: number;
+};
+
 export type Receipt = {
   systemId: SystemId;
   id: BusinessId; // PT-XXXXXX
@@ -56,7 +63,7 @@ export type Receipt = {
   payerTypeSystemId: SystemId; // Link to TargetGroup (KHACHHANG, NHACUNGCAP, NHANVIEN, DOITACVC, KHAC)
   payerTypeName: string; // Cached name: "Khách hàng", "Nhà cung cấp", etc.
   payerName: string;
-  payerSystemId?: SystemId; // Link to customer/supplier/employee
+  payerSystemId?: SystemId | undefined; // Link to customer/supplier/employee
   
   description: string;
   
@@ -77,24 +84,29 @@ export type Receipt = {
   
   // Status & Category
   status: ReceiptStatus;
-  category?: ReceiptCategory;
+  category?: ReceiptCategory | undefined;
   
   // Optional fields
-  recognitionDate?: string; // Ngày ghi nhận
-  updatedAt?: string;
-  cancelledAt?: string;
+  recognitionDate?: string | undefined; // Ngày ghi nhận
+  updatedAt?: string | undefined;
+  cancelledAt?: string | undefined;
   
   // Links to other documents
-  originalDocumentId?: BusinessId; // Link to Order/Complaint/Warranty (Business ID)
-  purchaseOrderSystemId?: SystemId; // Link trực tiếp đến đơn nhập hàng (systemId)
-  purchaseOrderId?: BusinessId; // Cache business id để hiển thị
-  linkedWarrantySystemId?: SystemId; // Link to Warranty (System ID)
-  linkedComplaintSystemId?: SystemId; // Link to Complaint (System ID)
-  linkedOrderSystemId?: SystemId; // Link to Order (System ID)
-  customerSystemId?: SystemId;
-  customerName?: string;
+  originalDocumentId?: BusinessId | undefined; // Link to Order/Complaint/Warranty (Business ID)
+  purchaseOrderSystemId?: SystemId | undefined; // Link trực tiếp đến đơn nhập hàng (systemId)
+  purchaseOrderId?: BusinessId | undefined; // Cache business id để hiển thị
+  linkedWarrantySystemId?: SystemId | undefined; // Link to Warranty (System ID)
+  linkedComplaintSystemId?: SystemId | undefined; // Link to Complaint (System ID)
+  linkedOrderSystemId?: SystemId | undefined; // Link to Order (System ID)
+  linkedSalesReturnSystemId?: SystemId | undefined; // Link to Sales Return (System ID)
+  customerSystemId?: SystemId | undefined;
+  customerName?: string | undefined;
   
   // Financial
   affectsDebt: boolean;
-  runningBalance?: number;
+  runningBalance?: number | undefined;
+  orderAllocations?: ReceiptOrderAllocation[] | undefined;
+  
+  // Activity History
+  activityHistory?: HistoryEntry[] | undefined;
 };

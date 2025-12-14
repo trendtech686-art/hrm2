@@ -36,7 +36,7 @@ interface WarrantyReminderDialogProps {
   onSendReminder: (
     ticket: WarrantyTicket,
     templateId: string,
-    customMessage?: string,
+    customMessage?: string | undefined,
   ) => Promise<boolean>;
 }
 

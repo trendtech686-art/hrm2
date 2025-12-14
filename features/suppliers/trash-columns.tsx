@@ -5,6 +5,7 @@ import type { Supplier } from "./types.ts"
 import { Badge } from "../../components/ui/badge.tsx"
 import { Button } from "../../components/ui/button.tsx"
 import { RotateCcw, Trash2 } from "lucide-react"
+import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 export function getColumns(
   navigate: NavigateFunction,
@@ -54,7 +55,7 @@ export function getColumns(
       id: "deletedAt",
       accessorKey: "deletedAt",
       header: "Ngày xóa",
-      cell: ({ row }) => row.deletedAt ? new Date(row.deletedAt).toLocaleString('vi-VN') : '-',
+      cell: ({ row }) => row.deletedAt ? formatDateTimeForDisplay(row.deletedAt) : '-',
       meta: { displayName: "Ngày xóa" }
     },
     {

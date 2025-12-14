@@ -35,6 +35,26 @@ export type ServerFile = {
   metadata: string; // Smart filename metadata
 };
 
+export type UploadedAsset = {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploadedAt: string;
+};
+
+export type UploadedFile = {
+  id: string;
+  name: string;
+  filename?: string;
+  type: string;
+  size: number;
+  url: string;
+  uploadedAt?: string;
+  metadata?: Record<string, unknown>;
+};
+
 export class FileUploadAPI {
   // Upload files vào staging (tạm thời)
   static async uploadToStaging(files: File[], sessionId?: string): Promise<{
@@ -86,27 +106,22 @@ export class FileUploadAPI {
   }
 
   // Confirm staging files → permanent với smart filename
-  // NOTE: employeeId MUST be the systemId (immutable), NOT the business ID
-  // This ensures files remain accessible even if the employee's business ID changes
+  // NOTE: entitySystemId MUST be immutable (systemId) to avoid broken references
   static async confirmStagingFiles(
     sessionId: string,
-    employeeId: string, // ⚠️ MUST use systemId (e.g., "NV00000001"), NOT business ID (e.g., "NV001")
+    entitySystemId: string,
     documentType: string,
     documentName: string,
-    employeeData?: {
-      name?: string;
-      department?: string;
-      [key: string]: any;
-    }
+    metadata?: Record<string, any>
   ): Promise<ServerFile[]> {
     const response = await fetch(
-      `${API_BASE_URL}/staging/confirm/${sessionId}/${employeeId}/${documentType}/${encodeURIComponent(documentName)}`,
+      `${API_BASE_URL}/staging/confirm/${sessionId}/${entitySystemId}/${documentType}/${encodeURIComponent(documentName)}`,
       { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ employeeData })
+        body: JSON.stringify({ metadata })
       }
     );
 
@@ -220,7 +235,9 @@ export class FileUploadAPI {
 
   // Lấy URL file để hiển thị (bao gồm staging và permanent)
   static getFileUrl(file: StagingFile | ServerFile): string {
-    return `${API_BASE_URL.replace('/api', '')}${file.url}`;
+    // ✅ Return relative path to use Vite proxy - avoid CORS
+    // Server already returns relative path like /api/staging/files/...
+    return file.url;
   }
 
   // Thống kê storage (chỉ permanent files)
@@ -244,30 +261,75 @@ export class FileUploadAPI {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // Confirm product images from staging to permanent
-  static async confirmProductImages(
-    sessionId: string,
-    productId: string,
-    productData?: {
-      name?: string;
-      [key: string]: any;
+  static async getProductFiles(productId: string): Promise<ServerFile[]> {
+    return this.getFiles(productId, 'products');
+  }
+
+  // Get customer files (images)
+  static async getCustomerFiles(customerId: string): Promise<ServerFile[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/customers/${customerId}`);
+      
+      if (!response.ok) {
+        return [];
+      }
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        return [];
+      }
+
+      return result.files || [];
+    } catch (error) {
+      console.error('Failed to get customer files:', error);
+      return [];
     }
+  }
+
+  // Get customer contract files
+  static async getCustomerContractFiles(customerId: string): Promise<ServerFile[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/customers/${customerId}/contracts`);
+      
+      if (!response.ok) {
+        return [];
+      }
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        return [];
+      }
+
+      return result.files || [];
+    } catch (error) {
+      console.error('Failed to get customer contract files:', error);
+      return [];
+    }
+  }
+
+  // Confirm customer contract files from staging to permanent
+  static async confirmCustomerContractFiles(
+    sessionId: string,
+    customerId: string,
+    customerData?: Record<string, any>
   ): Promise<ServerFile[]> {
     const response = await fetch(
-      `${API_BASE_URL}/staging/confirm/${sessionId}/products/${productId}`,
+      `${API_BASE_URL}/staging/confirm/${sessionId}/customers/${customerId}/contracts`,
       { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ productData })
+        body: JSON.stringify({ customerData })
       }
     );
 
     const result = await response.json();
     
     if (!result.success) {
-      throw new Error(result.message || 'Confirm product images failed');
+      throw new Error(result.message || 'Confirm customer contract files failed');
     }
 
     return result.files;
@@ -344,5 +406,152 @@ export class FileUploadAPI {
     if (!result.success) {
       throw new Error(result.message || 'Delete staging session failed');
     }
+  }
+
+  /**
+   * Upload ảnh từ TipTap Editor vào STAGING
+   * Ảnh sẽ được move sang permanent khi entity được save
+   * 
+   * @param file - File ảnh cần upload
+   * @param sessionId - Session ID để group các ảnh cùng editor
+   * @returns StagingFile với URL tạm thời
+   */
+  static async uploadEditorImageToStaging(file: File, sessionId?: string): Promise<{
+    file: StagingFile;
+    sessionId: string;
+  }> {
+    const result = await FileUploadAPI.uploadToStaging([file], sessionId);
+    return {
+      file: result.files[0],
+      sessionId: result.sessionId,
+    };
+  }
+
+  /**
+   * Confirm ảnh editor từ staging sang permanent
+   * Đồng thời replace staging URLs trong HTML content bằng permanent URLs
+   * 
+   * @param sessionId - Editor staging session
+   * @param entityId - ID của entity (category, product, etc.)
+   * @param entityType - Loại entity ('categories', 'products', etc.)
+   * @param htmlContent - Nội dung HTML cần update URLs
+   * @returns Updated HTML với permanent URLs
+   */
+  static async confirmEditorImages(
+    sessionId: string,
+    entityId: string,
+    entityType: string,
+    htmlContent: string
+  ): Promise<{ html: string; files: ServerFile[] }> {
+    // Confirm staging files
+    const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
+      sessionId,
+      entityId,
+      entityType,
+      'editor-images',
+      { source: 'tiptap-editor' }
+    );
+
+    // Replace staging URLs with permanent URLs in HTML
+    let updatedHtml = htmlContent;
+    for (const file of confirmedFiles) {
+      // Staging URL pattern: /api/staging/preview/{sessionId}/{filename}
+      // Find and replace with permanent URL
+      const stagingPattern = new RegExp(
+        `/api/staging/preview/[^/]+/${file.filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+        'g'
+      );
+      updatedHtml = updatedHtml.replace(stagingPattern, file.url);
+    }
+
+    return {
+      html: updatedHtml,
+      files: confirmedFiles,
+    };
+  }
+
+  static async uploadCommentImage(file: File): Promise<UploadedAsset> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`${API_BASE_URL}/comments/upload-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Upload ảnh bình luận thất bại');
+    }
+
+    return FileUploadAPI.mapDirectUpload(result.file, file.name);
+  }
+
+  static async uploadPrintTemplateImage(file: File): Promise<UploadedAsset> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`${API_BASE_URL}/print-templates/upload-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Upload ảnh mẫu in thất bại');
+    }
+
+    return FileUploadAPI.mapDirectUpload(result.file, file.name);
+  }
+
+  static async uploadComplaintCommentImage(complaintId: string, file: File): Promise<UploadedAsset> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`${API_BASE_URL}/complaints/${complaintId}/comments/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Upload ảnh khiếu nại thất bại');
+    }
+
+    return FileUploadAPI.mapDirectUpload(result.file, file.name);
+  }
+
+  static async uploadTaskEvidence(taskId: string, files: File[]): Promise<UploadedAsset[]> {
+    if (files.length === 0) {
+      return [];
+    }
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/evidence`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Upload bằng chứng công việc thất bại');
+    }
+
+    return (result.files || []).map((file: any, index: number) =>
+      FileUploadAPI.mapDirectUpload(file, files[index]?.name || `evidence-${index}`)
+    );
+  }
+
+  private static mapDirectUpload(file: any, fallbackName: string): UploadedAsset {
+    return {
+      id: file.id,
+      name: file.originalName || file.name || fallbackName,
+      size: file.size || file.filesize || 0,
+      type: file.mimetype || file.type || 'application/octet-stream',
+      url: file.url,
+      uploadedAt: file.uploadedAt || new Date().toISOString(),
+    };
   }
 }

@@ -3,8 +3,7 @@
  * Global settings for all shipping partners
  */
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useCallback, useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,8 +21,15 @@ import { Save } from 'lucide-react';
 import type { GlobalShippingConfig, WeightMode, DeliveryRequirement } from '@/lib/types/shipping-config';
 import { loadShippingConfig, updateGlobalConfig } from '@/lib/utils/shipping-config-migration';
 import { toast } from 'sonner';
+import { SettingsActionButton } from '@/components/settings/SettingsActionButton.tsx';
+import type { RegisterTabActions } from '../../use-tab-action-registry.ts';
 
-export function GlobalShippingConfigTab() {
+type GlobalShippingConfigTabProps = {
+  isActive: boolean;
+  onRegisterActions: RegisterTabActions;
+};
+
+export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalShippingConfigTabProps) {
   const [config, setConfig] = useState<GlobalShippingConfig>(() => {
     const fullConfig = loadShippingConfig();
     return fullConfig.global;
@@ -46,7 +52,7 @@ export function GlobalShippingConfigTab() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     try {
       const fullConfig = loadShippingConfig();
       const newConfig = updateGlobalConfig(fullConfig, config);
@@ -58,25 +64,33 @@ export function GlobalShippingConfigTab() {
       console.error('Failed to save config:', error);
       toast.error('Lỗi', { description: 'Không thể lưu cấu hình' });
     }
-  };
+  }, [config]);
+
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    onRegisterActions([
+      <SettingsActionButton key="save" onClick={handleSave}>
+        <Save className="h-4 w-4 mr-2" /> Lưu cấu hình
+      </SettingsActionButton>,
+    ]);
+  }, [handleSave, isActive, onRegisterActions]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <Card>
+      <CardHeader>
         <div>
-          <h3 className="text-lg font-semibold">Cấu hình chung</h3>
-          <p className="text-sm text-muted-foreground">
+          <CardTitle>Cấu hình chung</CardTitle>
+          <CardDescription>
             Cài đặt mặc định cho tất cả đối tác vận chuyển
-          </p>
+          </CardDescription>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges}>
-          <Save className="w-4 h-4 mr-2" />
-          Lưu thay đổi
-        </Button>
-      </div>
-
-      {/* Weight Settings */}
-      <Card>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Weight Settings */}
+        <Card>
         <CardHeader>
           <CardTitle>Cân nặng</CardTitle>
           <CardDescription>Cấu hình cách tính cân nặng đơn hàng</CardDescription>
@@ -263,6 +277,7 @@ export function GlobalShippingConfigTab() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

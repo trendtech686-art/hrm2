@@ -147,13 +147,13 @@ export function BulkActionsToolbar<T = any>({
     if (action.requiresConfirmation) {
       setConfirmDialog({ open: true, action });
     } else {
-      action.onAction(selectedIds);
+      action.onAction?.(selectedIds);
     }
   };
 
   const handleConfirmAction = async () => {
     if (confirmDialog.action) {
-      await confirmDialog.action.onAction(selectedIds);
+      await confirmDialog.action.onAction?.(selectedIds);
       setConfirmDialog({ open: false, action: null });
     }
   };

@@ -5,6 +5,7 @@
  */
 
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export type Ward3Level = {
   systemId: SystemId;
@@ -15,6 +16,10 @@ export type Ward3Level = {
   districtId: number;
   districtName: string;
   level: 3;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
 };
 
 type Ward3LevelSeed = {
@@ -27,6 +32,8 @@ type Ward3LevelSeed = {
   districtName: string;
   level: 3;
 };
+
+const WARD_3LEVEL_AUDIT_DATE = '2024-01-19T00:00:00Z';
 
 const rawData = [
   {
@@ -100385,4 +100392,5 @@ export const WARDS_3LEVEL_DATA: Ward3Level[] = rawData.map((item) => ({
   ...item,
   systemId: asSystemId(item.systemId),
   provinceId: asBusinessId(item.provinceId),
+  ...buildSeedAuditFields({ createdAt: WARD_3LEVEL_AUDIT_DATE }),
 }));

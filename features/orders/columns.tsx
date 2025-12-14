@@ -7,7 +7,7 @@ import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { MoreHorizontal } from "lucide-react";
 
@@ -65,9 +65,24 @@ const returnStatusVariants: Record<OrderReturnStatus, "warning" | "destructive" 
 };
 
 
+export interface OrderColumnActions {
+  onCancel: (systemId: string) => void;
+  navigate: (path: string) => void;
+  onPrintOrder?: (order: Order) => void;
+  onPrintPacking?: (order: Order) => void;
+  onPrintShippingLabel?: (order: Order) => void;
+  onPrintDelivery?: (order: Order) => void;
+}
+
 export const getColumns = (
   onCancel: (systemId: string) => void,
-  navigate: (path: string) => void
+  navigate: (path: string) => void,
+  printActions?: {
+    onPrintOrder?: (order: Order) => void;
+    onPrintPacking?: (order: Order) => void;
+    onPrintShippingLabel?: (order: Order) => void;
+    onPrintDelivery?: (order: Order) => void;
+  }
 ): ColumnDef<Order>[] => [
   {
     id: "select",
@@ -75,7 +90,7 @@ export const getColumns = (
        <div className="flex items-center justify-center">
         <Checkbox
           checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
-          onCheckedChange={(value) => onToggleAll(!!value)}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Select all"
         />
       </div>
@@ -102,7 +117,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <Link 
         to={`/orders/${row.systemId}`} 
-        className="font-medium text-primary hover:underline"
+        className="text-body-sm font-medium text-primary hover:underline"
       >
         {row.id}
       </Link>
@@ -160,7 +175,7 @@ export const getColumns = (
     cell: ({ row }) => {
         const totalPaid = (row.payments || []).reduce((sum, p) => sum + p.amount, 0);
         const remaining = row.grandTotal - totalPaid;
-        return <span className={remaining > 0 ? 'text-destructive font-semibold' : ''}>{formatCurrency(remaining)}</span>;
+        return <span className={remaining > 0 ? 'text-body-sm text-destructive font-semibold' : ''}>{formatCurrency(remaining)}</span>;
     },
     meta: { displayName: 'Còn lại', group: "Tài chính" }
   },
@@ -257,7 +272,11 @@ export const getColumns = (
    {
     id: "actions",
     header: () => <div className="text-center">Hành động</div>,
-    cell: ({ row }) => (
+    cell: ({ row }) => {
+      const hasPackaging = row.packagings && row.packagings.length > 0;
+      const hasConfirmedPackaging = row.packagings?.some((p: Packaging) => p.status === 'Đã đóng gói');
+      
+      return (
        <div className="flex items-center justify-center">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -267,14 +286,47 @@ export const getColumns = (
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => navigate(`/orders/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate(`/orders/${row.systemId}`)}>
+                Xem chi tiết
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate(`/orders/${row.systemId}/edit`)}>
+                Sửa
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem onSelect={() => printActions?.onPrintOrder?.(row)}>
+                In đơn hàng
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onSelect={() => printActions?.onPrintPacking?.(row)}
+                disabled={!hasPackaging}
+              >
+                In phiếu đóng gói
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onSelect={() => printActions?.onPrintShippingLabel?.(row)}
+                disabled={!hasConfirmedPackaging}
+              >
+                In nhãn giao hàng
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onSelect={() => printActions?.onPrintDelivery?.(row)}
+                disabled={!hasConfirmedPackaging}
+              >
+                In phiếu giao hàng
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
               <DropdownMenuItem className="text-destructive" onSelect={() => onCancel(row.systemId)}>
                 Hủy đơn hàng
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
        </div>
-    ),
+      );
+    },
     meta: {
       displayName: "Hành động",
       sticky: "right",

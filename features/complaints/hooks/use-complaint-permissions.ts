@@ -155,7 +155,7 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
     }
   }
 
-  return {
+  const permissions: ComplaintPermissions = {
     canView,
     canEdit,
     canDelete,
@@ -167,8 +167,13 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
     canInvestigate,
     canClose,
     canReopen,
-    reason,
   };
+
+  if (reason) {
+    permissions.reason = reason;
+  }
+
+  return permissions;
   }, [user, employee, complaint?.systemId, complaint?.status, complaint?.verification, complaint?.createdBy, complaint?.assignedTo, complaint?.responsibleUserId, complaint?.investigationNote]);
 }
 

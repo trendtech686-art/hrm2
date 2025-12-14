@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
-import { getWorkflowTemplate } from '../../settings/templates/workflow-templates-page.tsx';
+import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page.tsx';
 import { toast } from 'sonner';
 import { asSystemId } from '../../../lib/id-types.ts';
 import type { SystemId } from '../../../lib/id-types.ts';

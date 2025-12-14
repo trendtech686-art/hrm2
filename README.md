@@ -4,6 +4,8 @@
 
 # Run and deploy your AI Studio app
 
+[![pre-commit-checks](https://github.com/trendtech686-art/hrm2/actions/workflows/pre-commit-checks.yml/badge.svg?branch=main)](https://github.com/trendtech686-art/hrm2/actions/workflows/pre-commit-checks.yml)
+
 This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/drive/1hCSgHDcaoyfLTVYodttucvZR1JPOudig
@@ -18,6 +20,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1hCSgHDcaoyfLTVYodttucv
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+> Chuẩn hoá SystemId/BusinessId và bảng prefix đầy đủ được lưu tại [`docs/ID-GOVERNANCE.md`](docs/ID-GOVERNANCE.md). Khi thêm entity mới hoặc seed data hãy tra cứu trước để tránh lệch ID.
 
    ## Warranty Module Notes
 

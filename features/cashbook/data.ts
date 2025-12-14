@@ -1,6 +1,14 @@
 import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
 import type { CashAccount } from './types.ts';
 
+const SEED_AUTHOR = asSystemId('EMP000001');
+const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({
+  createdAt,
+  updatedAt: createdAt,
+  createdBy,
+  updatedBy: createdBy,
+});
+
 export const data: CashAccount[] = [
   {
     systemId: asSystemId('ACCOUNT000001'),
@@ -13,6 +21,7 @@ export const data: CashAccount[] = [
     isDefault: true,
     minBalance: 1000000,
     maxBalance: 5000000000,
+    ...buildAuditFields('2024-01-01T08:00:00Z'),
   },
   {
     systemId: asSystemId('ACCOUNT000002'),
@@ -29,6 +38,7 @@ export const data: CashAccount[] = [
     bankCode: 'VCB',
     accountHolder: 'CÔNG TY TNHH ABC',
     minBalance: 5000000,
+    ...buildAuditFields('2024-01-02T08:00:00Z'),
   },
   {
     systemId: asSystemId('ACCOUNT000003'),
@@ -44,5 +54,6 @@ export const data: CashAccount[] = [
     bankName: 'ACB',
     bankCode: 'ACB',
     accountHolder: 'CÔNG TY TNHH ABC',
+    ...buildAuditFields('2024-01-03T08:00:00Z'),
   },
 ];

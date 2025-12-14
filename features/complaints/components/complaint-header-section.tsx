@@ -13,6 +13,7 @@ import {
   complaintTypeLabels,
 } from '../types.ts';
 import { getSLAStatusLabel } from '../hooks/use-complaint-time-tracking.ts';
+import { ROUTES, generatePath } from "../../../lib/router.ts";
 
 interface Props {
   complaint: Complaint;
@@ -22,6 +23,28 @@ interface Props {
 
 export const ComplaintHeaderSection: React.FC<Props> = React.memo(({ complaint, timeTracking, headerActions }) => {
   const { setPageHeader } = usePageHeader();
+
+  const headerSubtitle = React.useMemo(() => {
+    if (!complaint) return undefined;
+    const parts = [
+      complaint.customerName && `Khách ${complaint.customerName}`,
+      complaint.orderCode && `Đơn ${complaint.orderCode}`,
+      complaint.branchName && `Chi nhánh ${complaint.branchName}`,
+      timeTracking?.currentProcessingTimeFormatted && `Xử lý ${timeTracking.currentProcessingTimeFormatted}`,
+    ].filter(Boolean) as string[];
+    return parts.length ? parts.join(' • ') : undefined;
+  }, [complaint, timeTracking]);
+
+  const detailBreadcrumb = React.useMemo(() => ([
+    { label: "Trang chủ", href: ROUTES.ROOT },
+    { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS },
+    {
+      label: complaint?.id || 'Chi tiết',
+      href: complaint
+        ? generatePath(ROUTES.INTERNAL.COMPLAINT_VIEW, { systemId: complaint.systemId as unknown as string })
+        : ROUTES.INTERNAL.COMPLAINTS,
+    },
+  ]), [complaint]);
 
   React.useEffect(() => {
     if (!complaint) return;
@@ -86,16 +109,13 @@ export const ComplaintHeaderSection: React.FC<Props> = React.memo(({ complaint, 
           )}
         </div>
       ) : 'Chi tiết khiếu nại',
-      breadcrumb: [
-        { label: "Trang chủ", href: "/" },
-        { label: "Quản lý Khiếu nại", href: "/complaints" },
-        { label: complaint?.id || 'Chi tiết', href: "" },
-      ],
+      showBackButton: true,
+      backPath: ROUTES.INTERNAL.COMPLAINTS,
+      breadcrumb: detailBreadcrumb,
       actions: headerActions,
     });
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [complaint, headerActions, timeTracking]);
+  }, [complaint, detailBreadcrumb, headerActions, headerSubtitle, setPageHeader, timeTracking]);
 
   return null;
 });

@@ -5,11 +5,13 @@ import { Input } from '../../components/ui/input.tsx';
 import { Label } from '../../components/ui/label.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { Badge } from '../../components/ui/badge.tsx';
-import { Eye, EyeOff, RefreshCw, Copy } from 'lucide-react';
+import { Eye, EyeOff, RefreshCw, Copy, ShieldAlert } from 'lucide-react';
 import type { Employee } from './types.ts';
 import type { EmployeeRole } from './roles.ts';
 import { useEmployeeStore } from './store.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { toast } from 'sonner';
+import { hashPassword, validatePasswordStrength, sanitizeInput } from '../../lib/security-utils.ts';
 
 interface EmployeeAccountTabProps {
   employee: Employee;
@@ -71,10 +73,16 @@ const generatePassword = (length: number = 12): string => {
 
 export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
   const { update } = useEmployeeStore();
+  const { user: currentUser } = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [selectedRole, setSelectedRole] = React.useState<EmployeeRole>(employee.role);
+
+  // Check if current user can change roles (only Admin can)
+  const canChangeRole = currentUser?.role === 'admin';
+  // Check if trying to edit own account
+  const isOwnAccount = currentUser?.employeeId === employee.systemId;
 
   const handleGeneratePassword = () => {
     const newPassword = generatePassword(12);
@@ -98,10 +106,12 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (password || confirmPassword) {
-      if (password.length < 6) {
-        toast.error('Mật khẩu phải có ít nhất 6 ký tự');
+      // Use centralized password validation
+      const validation = validatePasswordStrength(password);
+      if (!validation.isValid) {
+        toast.error(validation.errors[0]);
         return;
       }
       if (password !== confirmPassword) {
@@ -115,7 +125,9 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
     };
 
     if (password) {
-      updates.password = password;
+      // Hash password before storing (client-side protection)
+      // Real hashing should be done server-side with bcrypt
+      updates.password = await hashPassword(password);
     }
 
     update(employee.systemId, { ...employee, ...updates });
@@ -130,7 +142,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="text-h5">
             Thông tin đăng nhập
           </CardTitle>
           <CardDescription>
@@ -161,47 +173,60 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
 
           <div className="space-y-2">
             <Label htmlFor="role">Thay đổi vai trò</Label>
-            <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as EmployeeRole)}>
-              <SelectTrigger id="role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Sales">
-                  <div className="flex flex-col items-start py-1">
-                    <span className="font-medium">{getRoleLabel('Sales')}</span>
-                    <span className="text-xs text-muted-foreground">{getRoleDescription('Sales')}</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="Warehouse">
-                  <div className="flex flex-col items-start py-1">
-                    <span className="font-medium">{getRoleLabel('Warehouse')}</span>
-                    <span className="text-xs text-muted-foreground">{getRoleDescription('Warehouse')}</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="Manager">
-                  <div className="flex flex-col items-start py-1">
-                    <span className="font-medium">{getRoleLabel('Manager')}</span>
-                    <span className="text-xs text-muted-foreground">{getRoleDescription('Manager')}</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="Admin">
-                  <div className="flex flex-col items-start py-1">
-                    <span className="font-medium">{getRoleLabel('Admin')}</span>
-                    <span className="text-xs text-muted-foreground">{getRoleDescription('Admin')}</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Vai trò xác định quyền truy cập các chức năng trong hệ thống
-            </p>
+            {canChangeRole ? (
+              <>
+                <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as EmployeeRole)}>
+                  <SelectTrigger id="role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sales">
+                      <div className="flex flex-col items-start py-1">
+                        <span className="font-medium">{getRoleLabel('Sales')}</span>
+                        <span className="text-xs text-muted-foreground">{getRoleDescription('Sales')}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Warehouse">
+                      <div className="flex flex-col items-start py-1">
+                        <span className="font-medium">{getRoleLabel('Warehouse')}</span>
+                        <span className="text-xs text-muted-foreground">{getRoleDescription('Warehouse')}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Manager">
+                      <div className="flex flex-col items-start py-1">
+                        <span className="font-medium">{getRoleLabel('Manager')}</span>
+                        <span className="text-xs text-muted-foreground">{getRoleDescription('Manager')}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Admin">
+                      <div className="flex flex-col items-start py-1">
+                        <span className="font-medium">{getRoleLabel('Admin')}</span>
+                        <span className="text-xs text-muted-foreground">{getRoleDescription('Admin')}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Vai trò xác định quyền truy cập các chức năng trong hệ thống
+                </p>
+              </>
+            ) : (
+              <div className="rounded-lg border border-amber-200 p-3 bg-amber-50 dark:bg-amber-950/20">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                  <ShieldAlert className="h-4 w-4" />
+                  <p className="text-sm">
+                    Chỉ Admin mới có quyền thay đổi vai trò nhân viên.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="text-h5">
             Đổi mật khẩu
           </CardTitle>
           <CardDescription>

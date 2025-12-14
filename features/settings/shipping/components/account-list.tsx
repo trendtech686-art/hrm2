@@ -1,16 +1,24 @@
 /**
  * Account List Component - V2
- * Display and manage multiple accounts per partner
+ * Display and manage multiple accounts per partner using Table
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -24,7 +32,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MoreVertical, Plus, Star, StarOff, Pencil, Trash2, Power, PowerOff } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
+import { formatDateForDisplay } from '@/lib/date-utils';
 import type { PartnerAccount } from '@/lib/types/shipping-config';
 import { 
   deletePartnerAccount, 
@@ -41,7 +50,7 @@ interface AccountListProps {
   onAddAccount: () => void;
   onEditAccount: (accountId: string) => void;
   onAccountsChange: () => void;
-  onSelectAccountForAddresses?: (accountId: string) => void; // Optional callback to switch to addresses tab
+  onSelectAccountForAddresses?: ((accountId: string) => void) | undefined;
 }
 
 export function AccountList({
@@ -55,29 +64,43 @@ export function AccountList({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
 
-  const handleSetDefault = (accountId: string) => {
+  const handleSetDefault = (accountId: string, value: boolean) => {
     try {
       const config = loadShippingConfig();
-      const newConfig = setDefaultAccount(config, partnerCode, accountId);
-      saveShippingConfig(newConfig);
-      onAccountsChange();
-      toast.success('Đặt làm mặc định thành công');
+      if (value) {
+        // Đặt làm mặc định
+        const newConfig = setDefaultAccount(config, partnerCode, accountId);
+        saveShippingConfig(newConfig);
+        onAccountsChange();
+        const account = accounts.find(a => a.id === accountId);
+        toast.success('Đã đặt mặc định', { description: `"${account?.name}" là tài khoản mặc định.` });
+      } else {
+        // Bỏ mặc định - tự động chọn account đầu tiên khác làm mặc định
+        const otherAccounts = accounts.filter(a => a.id !== accountId);
+        if (otherAccounts.length > 0) {
+          const newDefaultAccount = otherAccounts[0];
+          const newConfig = setDefaultAccount(config, partnerCode, newDefaultAccount.id);
+          saveShippingConfig(newConfig);
+          onAccountsChange();
+          toast.success('Đã bỏ mặc định', { description: `"${newDefaultAccount.name}" đã được đặt làm mặc định.` });
+        }
+      }
     } catch (error) {
       console.error('Failed to set default account:', error);
       toast.error('Lỗi', { description: 'Không thể đặt làm mặc định' });
     }
   };
 
-  const handleToggleActive = (account: PartnerAccount) => {
+  const handleToggleActive = (account: PartnerAccount, value: boolean) => {
     try {
       const config = loadShippingConfig();
       const newConfig = updatePartnerAccount(config, partnerCode, account.id, {
         ...account,
-        active: !account.active,
+        active: value,
       });
       saveShippingConfig(newConfig);
       onAccountsChange();
-      toast.success(account.active ? 'Đã tắt tài khoản' : 'Đã bật tài khoản');
+      toast.success(value ? 'Đã bật tài khoản' : 'Đã tắt tài khoản');
     } catch (error) {
       console.error('Failed to toggle account:', error);
       toast.error('Lỗi', { description: 'Không thể thay đổi trạng thái' });
@@ -109,10 +132,9 @@ export function AccountList({
 
   if (accounts.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 border rounded-lg">
         <p className="text-muted-foreground mb-4">Chưa có tài khoản nào</p>
         <Button onClick={onAddAccount}>
-          <Plus className="w-4 h-4 mr-2" />
           Thêm tài khoản
         </Button>
       </div>
@@ -122,114 +144,76 @@ export function AccountList({
   return (
     <>
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-semibold">Danh sách tài khoản</h3>
-            <p className="text-sm text-muted-foreground">
-              Quản lý nhiều tài khoản cho đối tác này
-            </p>
-          </div>
-          <Button onClick={onAddAccount}>
-            <Plus className="w-4 h-4 mr-2" />
-            Thêm tài khoản
-          </Button>
+        <div>
+          <h3 className="text-lg font-semibold">Danh sách tài khoản</h3>
+          <p className="text-sm text-muted-foreground">
+            Quản lý nhiều tài khoản cho đối tác này
+          </p>
         </div>
 
-        <div className="grid gap-3">
-          {accounts.map((account) => (
-            <Card key={account.id} className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold">{account.name}</h4>
-                    {account.isDefault && (
-                      <Badge variant="default" className="gap-1">
-                        <Star className="w-3 h-3" />
-                        Mặc định
-                      </Badge>
-                    )}
-                    {account.active ? (
-                      <Badge variant="outline" className="gap-1 bg-green-50 text-green-700 border-green-200">
-                        <Power className="w-3 h-3" />
-                        Hoạt động
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="gap-1 bg-gray-50 text-gray-500 border-gray-200">
-                        <PowerOff className="w-3 h-3" />
-                        Tắt
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                    <div>
-                      <span className="font-medium">Địa chỉ lấy hàng:</span>{' '}
-                      {account.pickupAddresses?.length || 0} địa chỉ
-                      {onSelectAccountForAddresses && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 ml-2 text-xs"
-                          onClick={() => onSelectAccountForAddresses(account.id)}
-                        >
-                          Quản lý →
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tên tài khoản</TableHead>
+                <TableHead>Địa chỉ lấy hàng</TableHead>
+                <TableHead>Cập nhật</TableHead>
+                <TableHead className="w-[100px]">Mặc định</TableHead>
+                <TableHead className="w-[100px]">Trạng thái</TableHead>
+                <TableHead className="w-[80px] text-right">Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {accounts.map((account) => (
+                <TableRow key={account.id}>
+                  <TableCell className="font-medium">{account.name}</TableCell>
+                  <TableCell>
+                    {account.pickupAddresses?.length || 0} địa chỉ
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {formatDateForDisplay(account.updatedAt)}
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={account.isDefault}
+                      onCheckedChange={(value) => handleSetDefault(account.id, value)}
+                      aria-label="Đặt làm mặc định"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={account.active}
+                      onCheckedChange={(value) => handleToggleActive(account, value)}
+                      aria-label="Trạng thái hoạt động"
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Cập nhật: {new Date(account.updatedAt).toLocaleString('vi-VN')}
-                    </div>
-                  </div>
-                </div>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onEditAccount(account.id)}>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Chỉnh sửa
-                    </DropdownMenuItem>
-                    
-                    {!account.isDefault && account.active && (
-                      <DropdownMenuItem onClick={() => handleSetDefault(account.id)}>
-                        <Star className="w-4 h-4 mr-2" />
-                        Đặt làm mặc định
-                      </DropdownMenuItem>
-                    )}
-                    
-                    <DropdownMenuItem onClick={() => handleToggleActive(account)}>
-                      {account.active ? (
-                        <>
-                          <PowerOff className="w-4 h-4 mr-2" />
-                          Tắt tài khoản
-                        </>
-                      ) : (
-                        <>
-                          <Power className="w-4 h-4 mr-2" />
-                          Bật tài khoản
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    
-                    <DropdownMenuSeparator />
-                    
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteClick(account.id)}
-                      className="text-red-600"
-                      disabled={account.isDefault}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Xóa tài khoản
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </Card>
-          ))}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onEditAccount(account.id)}>
+                          Chỉnh sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteClick(account.id)}
+                          className="text-destructive"
+                          disabled={account.isDefault}
+                        >
+                          Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
 

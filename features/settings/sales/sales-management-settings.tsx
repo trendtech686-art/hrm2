@@ -1,26 +1,50 @@
 import * as React from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
+import { Switch } from '../../../components/ui/switch.tsx';
 import { Label } from '../../../components/ui/label.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { Info } from 'lucide-react';
-import { Button } from '../../../components/ui/button.tsx';
+import { Info, Save } from 'lucide-react';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
 import { useSalesManagementSettingsStore, type SalesManagementSettingsValues } from './sales-management-store.ts';
+import { useShallow } from 'zustand/react/shallow';
+import type { ReactNode } from 'react';
+import type { RegisterTabActions } from '../use-tab-action-registry.ts';
+import { toast } from 'sonner';
 
-export function SalesManagementSettings() {
-    const settings = useSalesManagementSettingsStore((state) => ({
+type SalesManagementSettingsProps = {
+    isActive?: boolean;
+    onRegisterActions?: RegisterTabActions;
+};
+
+export function SalesManagementSettings({ isActive, onRegisterActions }: SalesManagementSettingsProps) {
+    const settings = useSalesManagementSettingsStore(useShallow((state) => ({
         allowCancelAfterExport: state.allowCancelAfterExport,
         allowNegativeOrder: state.allowNegativeOrder,
         allowNegativeApproval: state.allowNegativeApproval,
         allowNegativePacking: state.allowNegativePacking,
         allowNegativeStockOut: state.allowNegativeStockOut,
         printCopies: state.printCopies,
-    }));
+    })));
     const updateSetting = useSalesManagementSettingsStore((state) => state.updateSetting);
-    const resetSettings = useSalesManagementSettingsStore((state) => state.reset);
 
-    const handleCheckedChange = (key: keyof SalesManagementSettingsValues) => (checked: boolean | 'indeterminate') => {
-        updateSetting(key, checked === true);
+    const handleSaveSettings = React.useCallback(() => {
+        toast.success('Đã lưu cài đặt thành công');
+    }, []);
+
+    const headerActions = React.useMemo(() => [
+        <SettingsActionButton key="save" onClick={handleSaveSettings}>
+            <Save className="mr-2 h-4 w-4" />
+            Lưu cài đặt
+        </SettingsActionButton>,
+    ], [handleSaveSettings]);
+
+    React.useEffect(() => {
+        if (!isActive || !onRegisterActions) return;
+        onRegisterActions(headerActions);
+    }, [headerActions, isActive, onRegisterActions]);
+
+    const handleCheckedChange = (key: keyof SalesManagementSettingsValues) => (checked: boolean) => {
+        updateSetting(key, checked);
     };
 
     return (
@@ -48,32 +72,29 @@ export function SalesManagementSettings() {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="allowCancelAfterExport" checked={settings.allowCancelAfterExport} onCheckedChange={handleCheckedChange('allowCancelAfterExport')} />
+                        <div className="flex items-center justify-between">
                             <Label htmlFor="allowCancelAfterExport">Cho phép hủy đơn hàng sau khi xuất kho</Label>
+                            <Switch id="allowCancelAfterExport" checked={settings.allowCancelAfterExport} onCheckedChange={handleCheckedChange('allowCancelAfterExport')} />
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="allowNegativeOrder" checked={settings.allowNegativeOrder} onCheckedChange={handleCheckedChange('allowNegativeOrder')} />
+                        <div className="flex items-center justify-between">
                             <Label htmlFor="allowNegativeOrder">Cho phép tạo đơn đặt hàng âm</Label>
+                            <Switch id="allowNegativeOrder" checked={settings.allowNegativeOrder} onCheckedChange={handleCheckedChange('allowNegativeOrder')} />
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="allowNegativeApproval" checked={settings.allowNegativeApproval} onCheckedChange={handleCheckedChange('allowNegativeApproval')} />
+                        <div className="flex items-center justify-between">
                             <Label htmlFor="allowNegativeApproval">Cho phép duyệt đơn âm</Label>
+                            <Switch id="allowNegativeApproval" checked={settings.allowNegativeApproval} onCheckedChange={handleCheckedChange('allowNegativeApproval')} />
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="allowNegativePacking" checked={settings.allowNegativePacking} onCheckedChange={handleCheckedChange('allowNegativePacking')} />
+                        <div className="flex items-center justify-between">
                             <Label htmlFor="allowNegativePacking" className="flex items-center">Cho phép đóng gói và tạo phiếu giao hàng âm <Info className="ml-1 h-4 w-4 text-muted-foreground" /></Label>
+                            <Switch id="allowNegativePacking" checked={settings.allowNegativePacking} onCheckedChange={handleCheckedChange('allowNegativePacking')} />
                         </div>
-                         <div className="flex items-center space-x-2">
-                            <Checkbox id="allowNegativeStockOut" checked={settings.allowNegativeStockOut} onCheckedChange={handleCheckedChange('allowNegativeStockOut')} />
+                         <div className="flex items-center justify-between">
                             <Label htmlFor="allowNegativeStockOut" className="flex items-center">Cho phép xuất kho âm <Info className="ml-1 h-4 w-4 text-muted-foreground" /></Label>
+                            <Switch id="allowNegativeStockOut" checked={settings.allowNegativeStockOut} onCheckedChange={handleCheckedChange('allowNegativeStockOut')} />
                         </div>
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="flex justify-end">
-                <Button variant="outline" onClick={resetSettings} className="h-9">Khôi phục mặc định</Button>
-            </CardFooter>
         </Card>
     );
 }

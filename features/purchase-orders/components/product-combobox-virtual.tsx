@@ -31,10 +31,10 @@ export function ProductCombobox({
   const { data: products, getActive } = useProductStore();
   const [showAddDialog, setShowAddDialog] = React.useState(false);
 
-  // Only show active products not yet added
+  // Only show active products not yet added - exclude combos (can't import combos)
   const availableProducts = React.useMemo(() => {
     const active = getActive();
-    return active.filter((p) => !excludeProductIds.includes(p.systemId));
+    return active.filter((p) => !excludeProductIds.includes(p.systemId) && p.type !== 'combo');
   }, [products, excludeProductIds]);
 
   // Find selected product
@@ -127,7 +127,7 @@ export function ProductCombobox({
             return (
               <div className="flex items-center gap-2 text-primary">
                 <Plus className="h-4 w-4" />
-                <span className="font-medium">{option.label}</span>
+                <span className="text-body-sm font-medium">{option.label}</span>
               </div>
             );
           }
@@ -141,13 +141,13 @@ export function ProductCombobox({
               </div>
               <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{option.label}</p>
+                  <p className="text-body-sm font-medium truncate">{option.label}</p>
                   {option.subtitle && (
-                    <p className="text-xs text-muted-foreground">{option.subtitle}</p>
+                    <p className="text-body-xs text-muted-foreground">{option.subtitle}</p>
                   )}
                 </div>
                 {meta && (
-                  <div className="text-xs text-right space-y-0.5 flex-shrink-0">
+                  <div className="text-body-xs text-right space-y-0.5 flex-shrink-0">
                     <p className="text-muted-foreground">
                       Giá: <span className="font-medium text-foreground">{formatCurrency(meta.costPrice)}</span>
                     </p>

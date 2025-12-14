@@ -575,14 +575,14 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
             <TabsContent value="fill-info">
                 <div className="grid grid-cols-2 gap-4 mt-4">
                     <FormField control={control} name="shippingPartnerId" render={({ field }) => (
-                        <FormItem><FormLabel>Đối tác vận chuyển</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disabled}><FormControl><SelectTrigger><SelectValue placeholder="Chọn đối tác" /></SelectTrigger></FormControl><SelectContent>{partners.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        <FormItem><FormLabel>Đối tác vận chuyển</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disabled ?? false}><FormControl><SelectTrigger><SelectValue placeholder="Chọn đối tác" /></SelectTrigger></FormControl><SelectContent>{partners.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                     )} />
                     {selectedPartner && selectedPartner.services.length > 0 && (
                         <FormField control={control} name="shippingServiceId" render={({ field }) => (
-                            <FormItem><FormLabel>Dịch vụ</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disabled}><FormControl><SelectTrigger><SelectValue placeholder="Chọn dịch vụ" /></SelectTrigger></FormControl><SelectContent>{selectedPartner.services.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                            <FormItem><FormLabel>Dịch vụ</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disabled ?? false}><FormControl><SelectTrigger><SelectValue placeholder="Chọn dịch vụ" /></SelectTrigger></FormControl><SelectContent>{selectedPartner.services.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
                         )} />
                     )}
-                     <FormField control={control} name="trackingCode" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Mã vận đơn (Tùy chọn)</FormLabel><FormControl><Input {...field} placeholder="Nhập mã vận đơn nếu có" disabled={disabled} /></FormControl></FormItem>)} />
+                     <FormField control={control} name="trackingCode" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Mã vận đơn (Tùy chọn)</FormLabel><FormControl><Input {...field} placeholder="Nhập mã vận đơn nếu có" disabled={disabled ?? false} /></FormControl></FormItem>)} />
                 </div>
             </TabsContent>
             <TabsContent value="select-partner">
@@ -598,8 +598,8 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                              <FormField control={control} name="width" render={({ field }) => (<FormItem><FormLabel>Rộng (cm)</FormLabel><FormControl><NumberInput {...field} onChange={field.onChange} disabled={disabled} /></FormControl></FormItem>)} />
                              <FormField control={control} name="height" render={({ field }) => (<FormItem><FormLabel>Cao (cm)</FormLabel><FormControl><NumberInput {...field} onChange={field.onChange} disabled={disabled} /></FormControl></FormItem>)} />
                         </div>
-                         <FormField control={control} name="deliveryRequirement" render={({ field }) => (<FormItem><FormLabel>Yêu cầu giao hàng</FormLabel><Select onValueChange={field.onChange} value={field.value as string} disabled={disabled}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="CHOXEMHANGKHONGTHU">Cho xem hàng, không cho thử</SelectItem><SelectItem value="KHONGCHOXEMHANG">Không cho xem hàng</SelectItem></SelectContent></Select></FormItem>)} />
-                        <FormField control={control} name="shippingNote" render={({ field }) => (<FormItem><FormLabel>Ghi chú</FormLabel><FormControl><Textarea {...field} disabled={disabled} /></FormControl></FormItem>)} />
+                         <FormField control={control} name="deliveryRequirement" render={({ field }) => (<FormItem><FormLabel>Yêu cầu giao hàng</FormLabel><Select onValueChange={field.onChange} value={field.value as string} disabled={disabled ?? false}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="CHOXEMHANGKHONGTHU">Cho xem hàng, không cho thử</SelectItem><SelectItem value="KHONGCHOXEMHANG">Không cho xem hàng</SelectItem></SelectContent></Select></FormItem>)} />
+                        <FormField control={control} name="shippingNote" render={({ field }) => (<FormItem><FormLabel>Ghi chú</FormLabel><FormControl><Textarea {...field} disabled={disabled ?? false} /></FormControl></FormItem>)} />
                     </div>
                     <div className="space-y-4 min-w-0">
                         {selectedService ? (

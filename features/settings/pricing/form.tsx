@@ -58,7 +58,7 @@ export function PricingPolicyForm({ initialData, onSubmit }: Props) {
             <FormField control={control} name="name" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Tên chính sách giá <span className="text-destructive">*</span></FormLabel>
-                    <FormControl><Input {...field} placeholder="Nhập tên chính sách giá" className="h-9" /></FormControl>
+                    <FormControl><Input {...field} value={field.value ?? ''} placeholder="Nhập tên chính sách giá" className="h-9" /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
@@ -68,6 +68,7 @@ export function PricingPolicyForm({ initialData, onSubmit }: Props) {
                     <FormControl>
                       <Input 
                         {...field} 
+                        value={field.value ?? ''}
                         placeholder="VD: GIA001" 
                         className="uppercase h-9"
                         onChange={(e) => field.onChange(e.target.value.toUpperCase())}
@@ -85,6 +86,7 @@ export function PricingPolicyForm({ initialData, onSubmit }: Props) {
                 <FormControl>
                     <Textarea 
                         {...field} 
+                        value={field.value ?? ''}
                         placeholder="Nhập mô tả cho chính sách giá này"
                         rows={3}
                     />

@@ -1,78 +1,33 @@
 import * as React from 'react';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { Input } from '../../../components/ui/input.tsx';
 import { Label } from '../../../components/ui/label.tsx';
 import { Badge } from '../../../components/ui/badge.tsx';
 import { Checkbox } from '../../../components/ui/checkbox.tsx';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog.tsx';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
 import { Separator } from '../../../components/ui/separator.tsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
+import { TabsContent } from '../../../components/ui/tabs.tsx';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
 import { toast } from 'sonner';
-import { Shield, Plus, Edit, Trash2, Save, RotateCcw } from 'lucide-react';
-import { PERMISSION_GROUPS, PERMISSION_LABELS, DEFAULT_ROLE_PERMISSIONS, type Permission } from '../../employees/permissions.ts';
-
-// Custom role type - có thể thêm mới
-interface CustomRole {
-  id: string;
-  name: string;
-  description: string;
-  permissions: Permission[];
-  isDefault: boolean; // Vai trò mặc định không thể xóa
-}
-
-// Mock store for role permissions
-const useRolePermissionsStore = () => {
-  const [roles, setRoles] = React.useState<CustomRole[]>([
-    { id: 'admin', name: 'Quản trị viên', description: 'Toàn quyền hệ thống', permissions: DEFAULT_ROLE_PERMISSIONS.Admin, isDefault: true },
-    { id: 'manager', name: 'Quản lý', description: 'Quản lý phòng ban', permissions: DEFAULT_ROLE_PERMISSIONS.Manager, isDefault: true },
-    { id: 'sales', name: 'Kinh doanh', description: 'Nhân viên kinh doanh', permissions: DEFAULT_ROLE_PERMISSIONS.Sales, isDefault: true },
-    { id: 'warehouse', name: 'Kho', description: 'Nhân viên kho', permissions: DEFAULT_ROLE_PERMISSIONS.Warehouse, isDefault: true },
-  ]);
-
-  const addRole = (name: string, description: string) => {
-    const newRole: CustomRole = {
-      id: `role_${Date.now()}`,
-      name,
-      description,
-      permissions: [],
-      isDefault: false,
-    };
-    setRoles(prev => [...prev, newRole]);
-    toast.success(`Đã thêm vai trò "${name}"`);
-  };
-
-  const updateRole = (roleId: string, updates: Partial<CustomRole>) => {
-    setRoles(prev => prev.map(r => r.id === roleId ? { ...r, ...updates } : r));
-    toast.success('Đã cập nhật vai trò');
-  };
-
-  const deleteRole = (roleId: string) => {
-    setRoles(prev => prev.filter(r => r.id !== roleId));
-    toast.success('Đã xóa vai trò');
-  };
-
-  const resetRole = (roleId: string) => {
-    const role = roles.find(r => r.id === roleId);
-    if (!role) return;
-    
-    // Reset về quyền mặc định dựa trên id
-    let defaultPerms: Permission[] = [];
-    if (role.id === 'admin') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Admin;
-    else if (role.id === 'manager') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Manager;
-    else if (role.id === 'sales') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Sales;
-    else if (role.id === 'warehouse') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Warehouse;
-    
-    setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: defaultPerms } : r));
-    toast.success('Đã khôi phục quyền mặc định');
-  };
-
-  return { roles, addRole, updateRole, deleteRole, resetRole };
-};
+import { Shield, Plus, Edit, Trash2, Save, RotateCcw, Copy, Users, Search, UserCog, Key, RefreshCw, Eye, EyeOff, Clipboard, MoreHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
+import { PERMISSION_GROUPS, PERMISSION_LABELS, type Permission } from '../../employees/permissions.ts';
+import { useRoleStore, type CustomRole } from './role-store.ts';
+import { useEmployeeStore } from '../../employees/store.ts';
+import type { Employee } from '../../employees/types.ts';
+import type { EmployeeRole } from '../../employees/roles.ts';
 
 export function EmployeeRolesPage() {
-  const { roles, addRole, updateRole, deleteRole, resetRole } = useRolePermissionsStore();
+  const { roles, addRole, updateRole, deleteRole, resetRole } = useRoleStore();
+  const { data: employees, update: updateEmployee } = useEmployeeStore();
+  
+  const [activeTab, setActiveTab] = React.useState('roles');
   const [selectedRole, setSelectedRole] = React.useState<CustomRole | null>(null);
   const [editingPermissions, setEditingPermissions] = React.useState<Permission[]>([]);
   const [showPermissionsDialog, setShowPermissionsDialog] = React.useState(false);
@@ -81,24 +36,47 @@ export function EmployeeRolesPage() {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [roleToDelete, setRoleToDelete] = React.useState<CustomRole | null>(null);
   const [roleForm, setRoleForm] = React.useState({ name: '', description: '' });
+  
+  // Tab 2: Gán vai trò
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [roleFilter, setRoleFilter] = React.useState<string>('all');
+  
+  // Password management
+  const [showPasswordDialog, setShowPasswordDialog] = React.useState(false);
+  const [showResetDialog, setShowResetDialog] = React.useState(false);
+  const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null);
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [generatedPassword, setGeneratedPassword] = React.useState('');
 
-  // Page header actions
-  const headerActions = React.useMemo(() => [
-    <Button 
-      key="add" 
-      size="sm" 
-      onClick={() => {
-        setRoleForm({ name: '', description: '' });
-        setShowAddDialog(true);
-      }}
-    >
-      <Plus className="mr-2 h-4 w-4" />
-      Thêm vai trò
-    </Button>
+  const tabs = React.useMemo(() => [
+    { value: 'roles', label: 'Danh sách vai trò' },
+    { value: 'assign', label: 'Gán vai trò' },
   ], []);
 
-  usePageHeader({
+  // Page header actions
+  const headerActions = React.useMemo(() => {
+    if (activeTab === 'roles') {
+      return [
+        <SettingsActionButton
+          key="add"
+          onClick={() => {
+            setRoleForm({ name: '', description: '' });
+            setShowAddDialog(true);
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Thêm vai trò
+        </SettingsActionButton>
+      ];
+    }
+    return [];
+  }, [activeTab]);
+
+  useSettingsPageHeader({
     title: 'Phân quyền & Tài khoản',
+    subtitle: 'Quản lý vai trò và gán quyền cho nhân viên',
     actions: headerActions,
     breadcrumb: [
       { label: 'Trang chủ', href: '/', isCurrent: false },
@@ -106,6 +84,29 @@ export function EmployeeRolesPage() {
       { label: 'Phân quyền & Tài khoản', href: '', isCurrent: true }
     ]
   });
+
+  // Filter employees for Tab 2
+  const filteredEmployees = React.useMemo(() => {
+    return employees.filter(emp => {
+      const matchSearch = !searchTerm || 
+        emp.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.workEmail?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchRole = roleFilter === 'all' || emp.role === roleFilter;
+      
+      return matchSearch && matchRole;
+    });
+  }, [employees, searchTerm, roleFilter]);
+
+  // Count employees by role
+  const employeeCountByRole = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    employees.forEach(emp => {
+      counts[emp.role] = (counts[emp.role] || 0) + 1;
+    });
+    return counts;
+  }, [employees]);
 
   const handleEditRole = (role: CustomRole) => {
     setSelectedRole(role);
@@ -119,7 +120,18 @@ export function EmployeeRolesPage() {
     setShowEditDialog(true);
   };
 
+  const handleDuplicateRole = (role: CustomRole) => {
+    addRole(`${role.name} (Copy)`, role.description);
+    toast.success(`Đã sao chép vai trò "${role.name}"`);
+  };
+
   const handleDeleteClick = (role: CustomRole) => {
+    // Check if any employee is using this role
+    const count = employeeCountByRole[role.id] || 0;
+    if (count > 0) {
+      toast.error(`Không thể xóa vai trò đang được sử dụng bởi ${count} nhân viên`);
+      return;
+    }
     setRoleToDelete(role);
     setShowDeleteDialog(true);
   };
@@ -129,6 +141,7 @@ export function EmployeeRolesPage() {
       deleteRole(roleToDelete.id);
       setShowDeleteDialog(false);
       setRoleToDelete(null);
+      toast.success('Đã xóa vai trò');
     }
   };
 
@@ -140,6 +153,7 @@ export function EmployeeRolesPage() {
     addRole(roleForm.name.trim(), roleForm.description.trim());
     setShowAddDialog(false);
     setRoleForm({ name: '', description: '' });
+    toast.success('Đã thêm vai trò mới');
   };
 
   const handleUpdateRoleInfo = () => {
@@ -153,6 +167,7 @@ export function EmployeeRolesPage() {
     });
     setShowEditDialog(false);
     setSelectedRole(null);
+    toast.success('Đã cập nhật thông tin vai trò');
   };
 
   const handleTogglePermission = (permission: Permission) => {
@@ -183,83 +198,386 @@ export function EmployeeRolesPage() {
     updateRole(selectedRole.id, { permissions: editingPermissions });
     setShowPermissionsDialog(false);
     setSelectedRole(null);
+    toast.success('Đã lưu cấu hình phân quyền');
+  };
+
+  const handleResetRole = (roleId: string) => {
+    resetRole(roleId);
+    toast.success('Đã khôi phục quyền mặc định');
+  };
+
+  const handleChangeEmployeeRole = (employee: Employee, newRole: string) => {
+    updateEmployee(employee.systemId, { ...employee, role: newRole as EmployeeRole });
+    toast.success(`Đã cập nhật vai trò cho ${employee.fullName}`);
+  };
+
+  // Password management handlers
+  const generatePassword = (length: number = 12): string => {
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '!@#$%^&*';
+    const all = uppercase + lowercase + numbers + special;
+    
+    let password = '';
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += special[Math.floor(Math.random() * special.length)];
+    
+    for (let i = 4; i < length; i++) {
+      password += all[Math.floor(Math.random() * all.length)];
+    }
+    
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  const handleOpenPasswordDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowPasswordDialog(true);
+  };
+
+  const handleOpenResetDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    const pwd = generatePassword(12);
+    setGeneratedPassword(pwd);
+    setShowResetDialog(true);
+  };
+
+  const handleSavePassword = () => {
+    if (!selectedEmployee) return;
+    
+    if (!newPassword) {
+      toast.error('Vui lòng nhập mật khẩu');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Mật khẩu phải có ít nhất 6 ký tự');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Mật khẩu xác nhận không khớp');
+      return;
+    }
+    
+    updateEmployee(selectedEmployee.systemId, { ...selectedEmployee, password: newPassword });
+    setShowPasswordDialog(false);
+    setSelectedEmployee(null);
+    toast.success(`Đã đặt mật khẩu cho ${selectedEmployee.fullName}`);
+  };
+
+  const handleConfirmReset = () => {
+    if (!selectedEmployee) return;
+    
+    updateEmployee(selectedEmployee.systemId, { ...selectedEmployee, password: generatedPassword });
+    setShowResetDialog(false);
+    setSelectedEmployee(null);
+    toast.success(`Đã reset mật khẩu cho ${selectedEmployee.fullName}`);
+  };
+
+  const handleCopyPassword = async (password: string) => {
+    try {
+      await navigator.clipboard.writeText(password);
+      toast.success('Đã sao chép mật khẩu');
+    } catch {
+      toast.error('Không thể sao chép');
+    }
+  };
+
+  const handleGeneratePassword = () => {
+    const pwd = generatePassword(12);
+    setNewPassword(pwd);
+    setConfirmPassword(pwd);
+    setShowPassword(true);
+  };
+
+  const getRoleBadgeVariant = (roleId: string) => {
+    switch (roleId) {
+      case 'Admin': return 'destructive' as const;
+      case 'Manager': return 'default' as const;
+      case 'Sales': return 'secondary' as const;
+      case 'Warehouse': return 'outline' as const;
+      default: return 'secondary' as const;
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Roles List */}
-      <div className="space-y-4">
-        {roles.map((role) => (
-          <Card key={role.id}>
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold">{role.name}</h3>
-                    <Badge variant="secondary" className="text-xs">
-                      {role.permissions.length} quyền
-                    </Badge>
-                    {role.isDefault && (
-                      <Badge variant="outline" className="text-xs">
-                        Mặc định
-                      </Badge>
+    <>
+      <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
+        {/* Tab 1: Danh sách vai trò */}
+        <TabsContent value="roles" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>Danh sách vai trò</CardTitle>
+              <CardDescription>Quản lý các vai trò và quyền hạn trong hệ thống</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Tên vai trò</TableHead>
+                      <TableHead className="w-[250px]">Mô tả</TableHead>
+                      <TableHead className="w-[100px] text-center">Số quyền</TableHead>
+                      <TableHead className="w-[120px] text-center">Nhân viên</TableHead>
+                      <TableHead className="w-[100px] text-center">Loại</TableHead>
+                      <TableHead className="w-[180px] text-right">Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {roles.map((role) => (
+                      <TableRow key={role.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{role.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {role.description}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline">{role.permissions.length}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">
+                            <Users className="h-3 w-3 mr-1" />
+                            {employeeCountByRole[role.id] || 0}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {role.isDefault ? (
+                            <Badge variant="outline" className="text-xs">Mặc định</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Tùy chỉnh</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleEditRoleInfo(role)}
+                              title="Sửa thông tin"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleDuplicateRole(role)}
+                              title="Sao chép"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-primary"
+                              onClick={() => handleEditRole(role)}
+                              title="Phân quyền"
+                            >
+                              <Shield className="h-4 w-4" />
+                            </Button>
+                            {role.isDefault ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                onClick={() => handleResetRole(role.id)}
+                                title="Khôi phục mặc định"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteClick(role)}
+                                title="Xóa vai trò"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {roles.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          Chưa có vai trò nào. Thêm vai trò mới để bắt đầu.
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {role.description}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(PERMISSION_GROUPS).map(([groupKey, group]) => {
-                      const groupPerms = group.permissions.filter(p => role.permissions.includes(p));
-                      if (groupPerms.length === 0) return null;
-                      
-                      return (
-                        <Badge key={groupKey} variant="outline" className="text-xs">
-                          {group.label}: {groupPerms.length}/{group.permissions.length}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditRoleInfo(role)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditRole(role)}
-                  >
-                    <Shield className="h-4 w-4" />
-                  </Button>
-                  {role.isDefault && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => resetRole(role.id)}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {!role.isDefault && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteClick(role)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  )}
-                </div>
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+
+          {/* Info Card */}
+          <Card className="bg-muted/50 mt-6">
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  Hướng dẫn phân quyền:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li><strong>Thêm vai trò mới:</strong> Click nút "Thêm vai trò" ở góc trên</li>
+                  <li><strong>Chỉnh sửa thông tin:</strong> Click icon bút chì để sửa tên và mô tả</li>
+                  <li><strong>Phân quyền:</strong> Click icon khiên để cấu hình quyền truy cập</li>
+                  <li><strong>Khôi phục:</strong> Vai trò mặc định có thể reset về quyền ban đầu</li>
+                  <li><strong>Xóa vai trò:</strong> Chỉ xóa được vai trò tùy chỉnh không có nhân viên nào</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Gán vai trò */}
+        <TabsContent value="assign" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gán vai trò cho nhân viên</CardTitle>
+              <CardDescription>Quản lý vai trò của từng nhân viên trong hệ thống</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm kiếm theo tên, mã NV, email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="Lọc theo vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả vai trò</SelectItem>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name} ({employeeCountByRole[role.id] || 0})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Employee Table */}
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[80px]">Mã NV</TableHead>
+                      <TableHead>Họ và tên</TableHead>
+                      <TableHead className="w-[200px]">Email</TableHead>
+                      <TableHead className="w-[150px]">Phòng ban</TableHead>
+                      <TableHead className="w-[180px]">Vai trò</TableHead>
+                      <TableHead className="w-[100px] text-right">Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEmployees.map((employee) => (
+                      <TableRow key={employee.systemId}>
+                        <TableCell className="font-medium">{employee.id}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <UserCog className="h-4 w-4 text-muted-foreground" />
+                            {employee.fullName}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {employee.workEmail || '—'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {employee.departmentId || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={employee.role}
+                            onValueChange={(value) => handleChangeEmployeeRole(employee, value)}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue>
+                                <Badge variant={getRoleBadgeVariant(employee.role)}>
+                                  {roles.find(r => r.id === employee.role)?.name || employee.role}
+                                </Badge>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {roles.map((role) => (
+                                <SelectItem key={role.id} value={role.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={getRoleBadgeVariant(role.id)} className="text-xs">
+                                      {role.name}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {role.description}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenPasswordDialog(employee)}>
+                                <Key className="h-4 w-4 mr-2" />
+                                Đặt mật khẩu
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenResetDialog(employee)}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Reset mật khẩu
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredEmployees.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          {searchTerm || roleFilter !== 'all' 
+                            ? 'Không tìm thấy nhân viên phù hợp'
+                            : 'Chưa có nhân viên nào trong hệ thống'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Summary */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {roles.map((role) => (
+                  <Badge key={role.id} variant="outline" className="text-xs">
+                    {role.name}: {employeeCountByRole[role.id] || 0} nhân viên
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </SettingsVerticalTabs>
 
       {/* Add Role Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -438,23 +756,138 @@ export function EmployeeRolesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Info Card */}
-      <Card className="bg-muted/50">
-        <CardContent className="pt-6">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">
-              Hướng dẫn phân quyền:
-            </p>
-            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-              <li><strong>Thêm vai trò mới:</strong> Click nút "Thêm vai trò" ở góc trên</li>
-              <li><strong>Chỉnh sửa thông tin:</strong> Click icon bút chì để sửa tên và mô tả</li>
-              <li><strong>Phân quyền:</strong> Click icon khiên để cấu hình quyền truy cập</li>
-              <li><strong>Khôi phục:</strong> Vai trò mặc định có thể reset về quyền ban đầu</li>
-              <li><strong>Xóa vai trò:</strong> Chỉ xóa được vai trò tùy chỉnh, không xóa được vai trò mặc định</li>
-            </ul>
+      {/* Set Password Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Đặt mật khẩu
+            </DialogTitle>
+            <DialogDescription>
+              Đặt mật khẩu đăng nhập cho {selectedEmployee?.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Mật khẩu mới</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Nhập mật khẩu mới..."
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pr-20"
+                />
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleCopyPassword(newPassword)}
+                    disabled={!newPassword}
+                    title="Sao chép"
+                  >
+                    <Clipboard className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setShowPassword(!showPassword)}
+                    title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Xác nhận mật khẩu</Label>
+              <Input
+                id="confirm-password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Nhập lại mật khẩu..."
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGeneratePassword}
+              className="w-full"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Tạo mật khẩu ngẫu nhiên
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleSavePassword}>
+              <Save className="h-4 w-4 mr-2" />
+              Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Reset mật khẩu
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span>Bạn có chắc muốn reset mật khẩu cho <strong>{selectedEmployee?.fullName}</strong>?</span>
+              <div className="bg-muted p-3 rounded-md space-y-2">
+                <p className="text-sm font-medium text-foreground">Mật khẩu mới:</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-background px-3 py-2 rounded border text-sm font-mono">
+                    {generatedPassword}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setGeneratedPassword(generatePassword(12))}
+                    title="Tạo mật khẩu khác"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleCopyPassword(generatedPassword)}
+                    title="Sao chép"
+                  >
+                    <Clipboard className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Hãy sao chép và gửi mật khẩu này cho nhân viên
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmReset}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Xác nhận reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

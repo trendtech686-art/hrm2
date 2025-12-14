@@ -24,7 +24,7 @@ interface WarrantyReturnDialogProps extends WarrantyVoucherDialogBaseProps {
 ```
 
 ## Checklist adopt
-1. ✅ `WarrantyPaymentVoucherDialog`, `WarrantyReceiptVoucherDialog`, `CreatePaymentVoucherDialog`, `WarrantyProcessingCard`, `store/index` đã dùng barrel.
+1. ✅ `WarrantyPaymentVoucherDialog`, `WarrantyReceiptVoucherDialog`, `WarrantyProcessingCard`, `store/index` đã dùng barrel.
 2. ⏱️ Kiểm tra các dialog/card còn lại trong `features/warranty/components/dialogs/` để tận dụng `WarrantyBranchContext` nếu đang truyền tay.
 3. ⏱️ Update docs/README (todo #2) để nhắc dev mới import type từ `features/warranty/types` thay vì đường dẫn sâu.
 

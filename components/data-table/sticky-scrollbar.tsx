@@ -3,9 +3,9 @@ import { cn } from '../../lib/utils';
 
 interface StickyScrollbarProps {
   /** Ref to the scrollable element (table container) */
-  targetRef: React.RefObject<HTMLDivElement>;
+  targetRef: React.RefObject<HTMLDivElement | null>;
   /** Additional CSS classes */
-  className?: string;
+  className?: string | undefined;
 }
 
 /**

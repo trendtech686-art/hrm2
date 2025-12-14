@@ -145,7 +145,7 @@ export const useProductCategoryStore = create<ProductCategoryState>()(
       getByParent: (parentId) => {
         return get().data.filter(
           (item) => !item.isDeleted && item.isActive && item.parentId === parentId
-        ).sort((a, b) => a.sortOrder - b.sortOrder);
+        ).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       },
 
       updateSortOrder: (systemId, newSortOrder) => {

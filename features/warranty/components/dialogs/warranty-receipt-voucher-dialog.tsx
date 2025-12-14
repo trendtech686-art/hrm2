@@ -38,7 +38,7 @@ import { useWarrantySettlement } from '../../hooks/use-warranty-settlement.ts';
 import { CurrencyInput } from '../../../../components/ui/currency-input.tsx';
 
 interface WarrantyReceiptVoucherDialogProps extends WarrantyVoucherDialogBaseProps {
-  existingReceipts?: Receipt[];
+  existingReceipts?: Receipt[] | undefined;
 }
 
 interface FormValues {

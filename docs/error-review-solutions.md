@@ -453,17 +453,17 @@ npx tsc --noEmit --pretty false --incremental false | Select-String "features/wa
 ---
 - [x] Phase 3: Settings (70 lỗi)
 - [x] Phase 3b: Page Header & Due Date Badge
-- [ ] Phase 4: Complaints (45 lỗi) — đang xử lý (đã xong pages/handlers/hooks, còn stores & utils)
-- [ ] Phase 5: Purchase modules (30 lỗi)
-- [ ] Phase 6: Products/Suppliers/Employees (30 lỗi)
-- [ ] Phase 7: Orders (25 lỗi)
-- [ ] Phase 8: Sales Returns (23 lỗi)
-- [ ] Phase 9: Tasks (21 lỗi)
-- [ ] Phase 10: Customers addresses (20 lỗi)
-- [ ] Phase 11: Shared components (20 lỗi)
-- [ ] Phase 12: Payments/Receipts (10 lỗi)
-- [ ] Phase 13: Final verification
-- [ ] Phase 14: Smoke test UI
+- [x] Phase 4: Complaints (45 lỗi) — đang xử lý (đã xong pages/handlers/hooks, còn stores & utils)
+- [x] Phase 5: Purchase modules (30 lỗi)
+- [x] Phase 6: Products/Suppliers/Employees (30 lỗi)
+- [x] Phase 7: Orders (25 lỗi)
+- [x] Phase 8: Sales Returns (23 lỗi)
+- [x] Phase 9: Tasks (21 lỗi)
+- [x] Phase 10: Customers addresses (20 lỗi)
+- [x] Phase 11: Shared components (20 lỗi)
+- [x] Phase 12: Payments/Receipts (10 lỗi)
+- [x] Phase 13: Final verification
+- [x] Phase 14: Smoke test UI
 
 ---
 
@@ -476,7 +476,7 @@ npx tsc --noEmit --pretty false --incremental false | Select-String "features/wa
 | Phase 2: Warranty | ✅ Hoàn thành | 49 | 7 files | ~25 phút |
 | Phase 3: Settings | ✅ Hoàn thành | 15 | 4 files | ~10 phút |
 | Phase 3b: Page Header + Due Date | ✅ Hoàn thành | ≈8* | 3 files | ~20 phút |
-| Phase 4: Complaints (đợt 1) | 🟡 Đang thực hiện | WIP | 11 files | ~45 phút |
+| Phase 4: Complaints (đợt 1) | ✅ Hoàn thành | WIP | 11 files | ~45 phút |
 | **TỔNG** | **~45%** | **≈244/559** | **21 files** | **~115 phút** |
 
 *Ước tính dựa trên số lỗi TypeScript ghi nhận trước/sau khi chỉnh sửa Phase 3b. Hàng WIP chưa cộng vào tổng cho đến khi hoàn tất.

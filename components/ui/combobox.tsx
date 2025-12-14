@@ -18,6 +18,9 @@ import { Spinner } from './spinner.tsx';
 export type ComboboxOption = {
   value: string;
   label: string;
+  subtitle?: string | undefined;
+  acText?: string | undefined;
+  metadata?: Record<string, unknown> | undefined;
 };
 
 type ComboboxProps = {
@@ -26,7 +29,7 @@ type ComboboxProps = {
   placeholder?: string;
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   renderHeader?: () => React.ReactNode;
   renderOption?: (option: ComboboxOption, isSelected: boolean) => React.ReactNode;
 } & ({
@@ -143,7 +146,8 @@ export function Combobox({
         <Command shouldFilter={!isAsync}>
           <CommandInput
             placeholder={searchPlaceholder}
-            onValueChange={isAsync ? setSearchQuery : undefined}
+            onValueChange={isAsync ? setSearchQuery : () => {}}
+            value={isAsync ? searchQuery : ""}
           />
           {renderHeader && renderHeader()}
           <div className="relative">

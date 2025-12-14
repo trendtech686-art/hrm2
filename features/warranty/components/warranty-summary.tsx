@@ -67,13 +67,13 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Thanh toán</CardTitle>
+        <CardTitle className="text-h4">Thanh toán</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2.5">
         {/* Tổng giá trị bảo hành */}
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Tổng giá trị bảo hành</span>
-          <span className="font-bold text-base">
+          <span className="text-body-sm text-muted-foreground">Tổng giá trị bảo hành</span>
+          <span className="font-bold text-body-md">
             {new Intl.NumberFormat('vi-VN').format(summary.totalValue)} đ
           </span>
         </div>
@@ -85,7 +85,7 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
         {summary.returnedQty > 0 && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Tổng giá trị trả lại</span>
+              <span className="text-body-sm text-muted-foreground">Tổng giá trị trả lại</span>
               <span className="font-semibold text-green-600">
                 {new Intl.NumberFormat('vi-VN').format(summary.returnedValue)} đ
               </span>
@@ -98,7 +98,7 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
         {summary.replacedQty > 0 && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Tổng giá trị đổi mới</span>
+              <span className="text-body-sm text-muted-foreground">Tổng giá trị đổi mới</span>
               <span className="font-semibold text-blue-600">
                 {new Intl.NumberFormat('vi-VN').format(summary.replacedValue)} đ
               </span>
@@ -109,7 +109,7 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
 
         {/* Tổng hàng trừ - Sum of out_of_stock products */}
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Tổng hàng trừ</span>
+          <span className="text-body-sm text-muted-foreground">Tổng hàng trừ</span>
           <span className="font-semibold text-red-600">
             {new Intl.NumberFormat('vi-VN').format(summary.outOfStockValue)} đ
           </span>
@@ -120,7 +120,7 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
         {shippingFee > 0 && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Phí ship gửi về</span>
+              <span className="text-body-sm text-muted-foreground">Phí ship gửi về</span>
               <span className="font-semibold text-orange-600">
                 {new Intl.NumberFormat('vi-VN').format(shippingFee)} đ
               </span>
@@ -131,8 +131,8 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
 
         {/* Tổng cộng = Tổng hàng trừ + Phí ship */}
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">Tổng cộng</span>
-          <span className="text-base font-bold text-primary">
+          <span className="text-body-sm font-semibold">Tổng cộng</span>
+          <span className="text-body-md font-bold text-primary">
             {new Intl.NumberFormat('vi-VN').format(summary.totalPayment)} đ
           </span>
         </div>
@@ -141,32 +141,32 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
 
         {/* Tổng số lượng */}
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Tổng số lượng</span>
+          <span className="text-body-sm text-muted-foreground">Tổng số lượng</span>
           <span className="font-semibold">{summary.totalQuantity}</span>
         </div>
 
         {/* Số lượng đổi mới */}
         <div className="flex items-center justify-between pl-4">
-          <span className="text-xs text-muted-foreground">↳ Đổi mới</span>
-          <span className="text-xs text-blue-600">{summary.replacedQty}</span>
+          <span className="text-body-xs text-muted-foreground">↳ Đổi mới</span>
+          <span className="text-body-xs text-blue-600">{summary.replacedQty}</span>
         </div>
 
         {/* Số lượng trả lại */}
         <div className="flex items-center justify-between pl-4">
-          <span className="text-xs text-muted-foreground">↳ Trả lại</span>
-          <span className="text-xs text-green-600">{summary.returnedQty}</span>
+          <span className="text-body-xs text-muted-foreground">↳ Trả lại</span>
+          <span className="text-body-xs text-green-600">{summary.returnedQty}</span>
         </div>
 
         {/* Số lượng hết hàng */}
         <div className="flex items-center justify-between pl-4">
-          <span className="text-xs text-muted-foreground">↳ Hết hàng</span>
-          <span className="text-xs text-red-600">{summary.outOfStockQty}</span>
+          <span className="text-body-xs text-muted-foreground">↳ Hết hàng</span>
+          <span className="text-body-xs text-red-600">{summary.outOfStockQty}</span>
         </div>
 
         <Separator />
 
         {/* Info text */}
-        <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+        <div className="text-body-xs text-muted-foreground bg-muted/50 p-2 rounded">
           <p>Sau khi tạo phiếu, bạn có thể thêm sản phẩm và xử lý bảo hành trong trang chi tiết.</p>
         </div>
       </CardContent>
