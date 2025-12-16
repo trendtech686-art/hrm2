@@ -134,12 +134,14 @@ export function createPriceUpdatePayload(product: Product): Partial<PkgxProductP
 
 /**
  * Tạo payload chỉ chứa SEO để update
+ * Ưu tiên lấy từ websiteSeo.pkgx, fallback về các field cũ
  */
 export function createSeoUpdatePayload(product: Product): Partial<PkgxProductPayload> {
+  const pkgxSeo = product.websiteSeo?.pkgx;
   return {
-    meta_title: product.ktitle || product.name,
-    meta_desc: product.seoDescription || product.shortDescription || '',
-    keywords: product.tags?.join(', ') || '',
+    meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
+    meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
+    keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || '',
   };
 }
 
@@ -149,6 +151,36 @@ export function createSeoUpdatePayload(product: Product): Partial<PkgxProductPay
 export function createInventoryUpdatePayload(product: Product): Partial<PkgxProductPayload> {
   return {
     goods_number: getTotalInventory(product),
+  };
+}
+
+/**
+ * Tạo payload chỉ chứa mô tả để update
+ * Ưu tiên lấy từ websiteSeo.pkgx, fallback về các field cũ
+ */
+export function createDescriptionUpdatePayload(product: Product): Partial<PkgxProductPayload> {
+  const pkgxSeo = product.websiteSeo?.pkgx;
+  return {
+    goods_desc: pkgxSeo?.longDescription || product.description || '',
+    goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
+  };
+}
+
+/**
+ * Tạo payload chỉ chứa flags (best, hot, new, ishome, is_on_sale) để update
+ * Note: HRM chỉ có isFeatured và isNewArrival
+ * - best = isFeatured (sản phẩm nổi bật)
+ * - new = isNewArrival (sản phẩm mới)
+ * - hot và ishome không có trong HRM, sẽ dùng isFeatured
+ * - is_on_sale = status === 'active' (hiển thị đăng web)
+ */
+export function createFlagsUpdatePayload(product: Product): Partial<PkgxProductPayload> {
+  return {
+    best: product.isFeatured || false,
+    hot: product.isFeatured || false, // HRM không có isHot, dùng isFeatured
+    new: product.isNewArrival || false,
+    ishome: product.isFeatured || false, // HRM không có showOnHomepage, dùng isFeatured
+    is_on_sale: product.status === 'active', // Hiển thị trên web nếu sản phẩm active
   };
 }
 

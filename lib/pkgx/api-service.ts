@@ -285,6 +285,66 @@ export async function uploadProductImage(
 }
 
 /**
+ * Upload ảnh từ URL (server-to-server, tránh CORS)
+ * Server PKGX sẽ tự download ảnh từ URL rồi xử lý
+ */
+export async function uploadImageFromUrl(
+  imageUrl: string,
+  options?: {
+    filenameSlug?: string;
+    goodsId?: number;
+  }
+): Promise<ApiResponse<PkgxImageUploadResponse>> {
+  const { apiUrl, apiKey, enabled } = getApiConfig();
+
+  if (!enabled) {
+    return { success: false, error: 'Tích hợp PKGX chưa được bật' };
+  }
+
+  if (!apiKey) {
+    return { success: false, error: 'Chưa cấu hình API Key' };
+  }
+
+  const url = `${apiUrl}?action=upload_image_from_url`;
+  
+  const payload: Record<string, unknown> = {
+    image_url: imageUrl,
+  };
+
+  if (options?.filenameSlug) {
+    payload.filename_slug = options.filenameSlug;
+  }
+
+  if (options?.goodsId) {
+    payload.goods_id = options.goodsId;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { success: false, error: data.message };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Không thể upload ảnh từ URL',
+    };
+  }
+}
+
+/**
  * Lấy chi tiết danh mục theo cat_id (bao gồm SEO fields)
  */
 export async function getCategoryById(catId: number): Promise<ApiResponse<PkgxCategoriesResponse>> {
@@ -359,4 +419,92 @@ export async function testConnection(): Promise<ApiResponse<{ productCount: numb
     success: true,
     data: { productCount: response.data?.pagination.total_items || 0 },
   };
+}
+
+// ========================================
+// Member Price API (Giá thành viên)
+// ========================================
+
+type MemberRank = {
+  rank_id: number;
+  rank_name: string;
+  min_points: number;
+  max_points: number;
+  discount: number;
+  special_rank: number;
+};
+
+type MemberRanksResponse = {
+  error: boolean;
+  message: string;
+  total: number;
+  data: MemberRank[];
+};
+
+type MemberPriceResult = {
+  user_rank: number;
+  rank_name?: string;
+  user_price?: number;
+  status: 'updated' | 'deleted' | 'skipped';
+  reason?: string;
+};
+
+type CurrentMemberPrice = {
+  user_rank: string;
+  user_price: string;
+  rank_name: string;
+};
+
+type UpdateMemberPriceResponse = {
+  error: boolean;
+  message: string;
+  goods_id: number;
+  goods_name: string;
+  results: MemberPriceResult[];
+  current_member_prices: CurrentMemberPrice[];
+};
+
+/**
+ * Lấy danh sách hạng thành viên từ PKGX
+ */
+export async function getMemberRanks(): Promise<ApiResponse<MemberRanksResponse>> {
+  const { apiUrl } = getApiConfig();
+  const url = `${apiUrl}?action=get_member_ranks`;
+  return fetchWithAuth<MemberRanksResponse>(url, { method: 'GET' });
+}
+
+/**
+ * Cập nhật giá thành viên cho sản phẩm
+ * 
+ * @param goodsId - ID sản phẩm trên PKGX
+ * @param memberPrices - Mảng giá thành viên theo user_rank
+ * 
+ * Ví dụ:
+ * - Cập nhật 1 giá: updateMemberPrice(8014, [{ user_rank: 8, user_price: 2200000 }])
+ * - Cập nhật nhiều: updateMemberPrice(8014, [{ user_rank: 8, user_price: 2200000 }, { user_rank: 9, user_price: 1800000 }])
+ * - Xóa giá (set = 0): updateMemberPrice(8014, [{ user_rank: 8, user_price: 0 }])
+ */
+export async function updateMemberPrice(
+  goodsId: number,
+  memberPrices: Array<{ user_rank: number; user_price: number }>
+): Promise<ApiResponse<UpdateMemberPriceResponse>> {
+  const { apiUrl } = getApiConfig();
+  const url = `${apiUrl}?action=update_member_price&goods_id=${goodsId}`;
+
+  return fetchWithAuth<UpdateMemberPriceResponse>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ member_prices: memberPrices }),
+  });
+}
+
+/**
+ * Cập nhật giá thành viên theo rank_id đơn lẻ
+ */
+export async function updateMemberPriceSingle(
+  goodsId: number,
+  userRank: number,
+  userPrice: number
+): Promise<ApiResponse<UpdateMemberPriceResponse>> {
+  return updateMemberPrice(goodsId, [{ user_rank: userRank, user_price: userPrice }]);
 }

@@ -1,40 +1,34 @@
 import * as React from "react";
 import { Plus, Save } from "lucide-react";
-import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
+import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { useSettingsPageHeader } from "../use-settings-page-header.tsx";
 import { useUnitStore } from "../units/store.ts";
 import { useProductTypeStore } from "./product-type-store.ts";
-import { useProductCategoryStore } from "./product-category-store.ts";
 import { useStorageLocationStore } from "./storage-location-store.ts";
 import { useSlaSettingsStore } from "./sla-settings-store.ts";
 import { useProductLogisticsSettingsStore } from "./logistics-settings-store.ts";
 import { useWarrantySettingsStore, type WarrantySettings } from "./warranty-settings-store.ts";
 import type { Unit } from "../units/types.ts";
-import type { ProductType, ProductCategory, ProductSlaSettings, ProductLogisticsSettings } from "./types.ts";
+import type { ProductType, ProductSlaSettings, ProductLogisticsSettings } from "./types.ts";
 import type { StorageLocation } from "./storage-location-types.ts";
 import { UnitForm, type UnitFormValues } from "../units/form.tsx";
 import {
   ProductTypeFormDialog,
-  ProductCategoryFormDialog,
   type ProductTypeFormValues,
-  type ProductCategoryFormValues,
 } from "./setting-form-dialogs.tsx";
 import { StorageLocationFormDialog, type StorageLocationFormValues } from "./storage-location-form-dialog.tsx";
-import { CategoryManager } from "./category-manager.tsx";
-import { CategoryTree } from "./category-tree.tsx";
 import { getUnitColumns } from "../units/columns.tsx";
 import { getProductTypeColumns } from "./product-type-columns.tsx";
+import { getStorageLocationColumns } from "./storage-location-columns.tsx";
 import { TabsContent } from "../../../components/ui/tabs.tsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Button } from "../../../components/ui/button.tsx";
-import { Badge } from "../../../components/ui/badge.tsx";
 import { Input } from "../../../components/ui/input.tsx";
 import { Switch } from "../../../components/ui/switch.tsx";
 import { Label } from "../../../components/ui/label.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select.tsx";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
-import { SettingsTable } from "./settings-table.tsx";
 import { toast } from "sonner";
 import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable.tsx";
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
@@ -46,140 +40,12 @@ type TabContentProps = {
   onRegisterActions: RegisterTabActions;
 };
 
-import { useBrandStore } from "./brand-store.ts";
-import type { Brand, Importer } from "./types.ts";
-import { BrandFormDialog, type BrandFormValues } from "./brand-form-dialog.tsx";
-import { getBrandColumns } from "./brand-columns.tsx";
+import type { Importer } from "./types.ts";
 
 // Importer imports
 import { useImporterStore } from "./importer-store.ts";
 import { ImporterFormDialog, type ImporterFormValues } from "./importer-form-dialog.tsx";
 import { getImporterColumns } from "./importer-columns.tsx";
-
-function BrandsTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { data, add, update, remove } = useBrandStore();
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editingItem, setEditingItem] = React.useState<Brand | null>(null);
-  const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-
-  const activeBrands = React.useMemo(() => data.filter(b => !b.isDeleted), [data]);
-  const existingIds = React.useMemo(() => activeBrands.map(b => b.id), [activeBrands]);
-
-  const handleAdd = React.useCallback(() => {
-    setEditingItem(null);
-    setDialogOpen(true);
-  }, []);
-
-  const handleEdit = React.useCallback((item: Brand) => {
-    setEditingItem(item);
-    setDialogOpen(true);
-  }, []);
-
-  const handleDeleteRequest = React.useCallback((systemId: SystemId) => {
-    setIdToDelete(systemId);
-    setIsAlertOpen(true);
-  }, []);
-
-  const handleToggleActive = React.useCallback((item: Brand) => {
-    const newActive = !item.isActive;
-    update(item.systemId, { ...item, isActive: newActive });
-    toast.success(newActive ? 'Đã kích hoạt' : 'Đã tắt');
-  }, [update]);
-
-  const confirmDelete = () => {
-    if (idToDelete) {
-      remove(idToDelete);
-      toast.success('Đã xóa thương hiệu');
-    }
-    setIsAlertOpen(false);
-    setIdToDelete(null);
-  };
-
-  const handleSubmit = (values: BrandFormValues) => {
-    const payload = { ...values, id: asBusinessId(values.id) };
-    if (editingItem) {
-      update(editingItem.systemId, payload);
-      toast.success('Đã cập nhật thương hiệu');
-    } else {
-      add(payload);
-      toast.success('Đã thêm thương hiệu mới');
-    }
-    setDialogOpen(false);
-  };
-
-  const columns = React.useMemo(
-    () => getBrandColumns({ 
-      onEdit: handleEdit, 
-      onDelete: handleDeleteRequest,
-      onToggleActive: handleToggleActive,
-    }),
-    [handleDeleteRequest, handleEdit, handleToggleActive],
-  );
-
-  React.useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
-    onRegisterActions([
-      <SettingsActionButton key="add-brand" onClick={handleAdd}>
-        <Plus className="mr-2 h-4 w-4" /> Thêm thương hiệu
-      </SettingsActionButton>,
-    ]);
-  }, [handleAdd, isActive, onRegisterActions]);
-
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Thương hiệu sản phẩm</CardTitle>
-              <CardDescription>
-                Quản lý các thương hiệu sản phẩm
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <SimpleSettingsTable
-            data={activeBrands}
-            columns={columns}
-            emptyTitle="Chưa có thương hiệu"
-            emptyDescription="Thêm thương hiệu đầu tiên để quản lý sản phẩm"
-            emptyAction={
-              <Button size="sm" onClick={handleAdd}>
-                Thêm thương hiệu
-              </Button>
-            }
-          />
-        </CardContent>
-      </Card>
-
-      <BrandFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        initialData={editingItem}
-        onSubmit={handleSubmit}
-        existingIds={existingIds}
-      />
-
-      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-            <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
 
 function ImportersTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const { data, add, update, remove, setDefault } = useImporterStore();
@@ -601,113 +467,6 @@ function ProductTypesTabContent({ isActive, onRegisterActions }: TabContentProps
   );
 }
 
-function ProductCategoriesTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const productCategories = useProductCategoryStore();
-
-  const activeCategories = React.useMemo(
-    () => productCategories.data.filter(c => !c.isDeleted),
-    [productCategories.data]
-  );
-
-  const existingIds = React.useMemo(
-    () => activeCategories.map(c => c.id),
-    [activeCategories]
-  );
-
-  const handleAdd = React.useCallback((data: any) => {
-    try {
-      const payload = {
-        ...data,
-        // Auto-generate id from slug or name
-        id: asBusinessId(data.slug || data.name.toLowerCase().replace(/\s+/g, '-')),
-        parentId: data.parentId ? asSystemId(data.parentId) : undefined,
-      };
-      productCategories.add(payload);
-      toast.success('Đã thêm danh mục mới');
-    } catch (error) {
-      toast.error('Có lỗi xảy ra');
-    }
-  }, [productCategories]);
-
-  const handleUpdate = React.useCallback((systemId: SystemId, data: any) => {
-    try {
-      const payload = {
-        ...data,
-        parentId: data.parentId ? asSystemId(data.parentId) : undefined,
-      };
-      productCategories.update(systemId, payload);
-      toast.success('Đã cập nhật danh mục');
-    } catch (error) {
-      toast.error('Có lỗi xảy ra');
-    }
-  }, [productCategories]);
-
-  const handleDelete = React.useCallback((systemId: SystemId) => {
-    productCategories.remove(systemId);
-    toast.success('Đã xóa danh mục sản phẩm');
-  }, [productCategories]);
-
-  const handleMove = React.useCallback((systemId: SystemId, newParentId: SystemId | undefined, newSortOrder: number) => {
-    const movedCategory = activeCategories.find(c => c.systemId === systemId);
-    const newParent = newParentId ? activeCategories.find(c => c.systemId === newParentId) : null;
-    
-    // Count how many descendants will be moved
-    const countDescendants = (parentId: SystemId): number => {
-      const children = activeCategories.filter(c => c.parentId === parentId);
-      return children.length + children.reduce((sum, child) => sum + countDescendants(child.systemId), 0);
-    };
-    
-    const descendantsCount = countDescendants(systemId);
-    
-    // Update the moved category
-    productCategories.moveCategory(systemId, newParentId, newSortOrder);
-    
-    // Update sortOrder of siblings that are affected
-    const siblings = activeCategories.filter(c => c.parentId === newParentId && c.systemId !== systemId);
-    siblings.forEach((sibling, index) => {
-      if ((sibling.sortOrder ?? 0) >= newSortOrder) {
-        productCategories.updateSortOrder(sibling.systemId, newSortOrder + index + 1);
-      }
-    });
-    
-    // Recalculate paths
-    productCategories.recalculatePaths();
-    
-    if (movedCategory) {
-      if (newParent) {
-        if (descendantsCount > 0) {
-          toast.success(`Đã di chuyển "${movedCategory.name}" và ${descendantsCount} danh mục con vào "${newParent.name}"`);
-        } else {
-          toast.success(`Đã di chuyển "${movedCategory.name}" vào "${newParent.name}"`);
-        }
-      } else {
-        if (descendantsCount > 0) {
-          toast.success(`Đã di chuyển "${movedCategory.name}" và ${descendantsCount} danh mục con thành danh mục gốc`);
-        } else {
-          toast.success(`Đã di chuyển "${movedCategory.name}" thành danh mục gốc`);
-        }
-      }
-    }
-  }, [activeCategories, productCategories]);
-
-  // No header actions for this tab - actions are built into the component
-  React.useEffect(() => {
-    if (!isActive) return;
-    onRegisterActions([]);
-  }, [isActive, onRegisterActions]);
-
-  return (
-    <CategoryManager
-      categories={activeCategories}
-      onAdd={handleAdd}
-      onUpdate={handleUpdate}
-      onDelete={handleDelete}
-      onMove={handleMove}
-      existingIds={existingIds}
-    />
-  );
-}
-
 function StorageLocationsTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const { data, add, update, remove } = useStorageLocationStore();
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -777,6 +536,16 @@ function StorageLocationsTabContent({ isActive, onRegisterActions }: TabContentP
     setIsFormOpen(false);
   };
 
+  const columns = React.useMemo(
+    () => getStorageLocationColumns({
+      onEdit: handleEdit,
+      onDelete: handleDeleteRequest,
+      onToggleDefault: handleToggleDefault,
+      onToggleActive: handleToggleActive,
+    }),
+    [handleDeleteRequest, handleEdit, handleToggleDefault, handleToggleActive],
+  );
+
   React.useEffect(() => {
     if (!isActive) {
       return;
@@ -799,12 +568,16 @@ function StorageLocationsTabContent({ isActive, onRegisterActions }: TabContentP
           </div>
         </CardHeader>
         <CardContent>
-          <SettingsTable
+          <SimpleSettingsTable
             data={activeLocations}
-            onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
-            onToggleDefault={handleToggleDefault}
-            onToggleActive={handleToggleActive}
+            columns={columns}
+            emptyTitle="Chưa có điểm lưu kho"
+            emptyDescription="Thêm điểm lưu kho đầu tiên để quản lý vị trí hàng hóa"
+            emptyAction={
+              <Button size="sm" onClick={handleAddNew}>
+                Thêm điểm lưu kho
+              </Button>
+            }
           />
         </CardContent>
       </Card>
@@ -1329,8 +1102,6 @@ export function InventorySettingsPage() {
   const { headerActions, registerActions } = useTabActionRegistry(activeTab);
   const registerUnitActions = React.useMemo(() => registerActions('units'), [registerActions]);
   const registerTypeActions = React.useMemo(() => registerActions('types'), [registerActions]);
-  const registerCategoryActions = React.useMemo(() => registerActions('categories'), [registerActions]);
-  const registerBrandActions = React.useMemo(() => registerActions('brands'), [registerActions]);
   const registerImporterActions = React.useMemo(() => registerActions('importers'), [registerActions]);
   const registerStorageActions = React.useMemo(() => registerActions('storage-locations'), [registerActions]);
   const registerSlaActions = React.useMemo(() => registerActions('sla-settings'), [registerActions]);
@@ -1346,8 +1117,6 @@ export function InventorySettingsPage() {
     () => [
       { value: 'units', label: 'Đơn vị tính' },
       { value: 'types', label: 'Loại sản phẩm' },
-      { value: 'categories', label: 'Danh mục sản phẩm' },
-      { value: 'brands', label: 'Thương hiệu' },
       { value: 'importers', label: 'Đơn vị nhập khẩu' },
       { value: 'storage-locations', label: 'Điểm lưu kho' },
       { value: 'logistics-settings', label: 'Khối lượng & kích thước' },
@@ -1365,14 +1134,6 @@ export function InventorySettingsPage() {
 
       <TabsContent value="types" className="mt-0">
         <ProductTypesTabContent isActive={activeTab === 'types'} onRegisterActions={registerTypeActions} />
-      </TabsContent>
-
-      <TabsContent value="categories" className="mt-0">
-        <ProductCategoriesTabContent isActive={activeTab === 'categories'} onRegisterActions={registerCategoryActions} />
-      </TabsContent>
-
-      <TabsContent value="brands" className="mt-0">
-        <BrandsTabContent isActive={activeTab === 'brands'} onRegisterActions={registerBrandActions} />
       </TabsContent>
 
       <TabsContent value="importers" className="mt-0">

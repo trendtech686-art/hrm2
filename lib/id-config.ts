@@ -329,6 +329,28 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     usesStoreFactory: true,
   },
   
+  'brands': {
+    entityType: 'brands',
+    prefix: ENTITY_PREFIXES['brands'], // 'TH'
+    systemIdPrefix: 'BRAND',
+    digitCount: 6,
+    displayName: 'Thương hiệu',
+    category: 'inventory',
+    validation: { allowCustomId: true },
+    usesStoreFactory: true,
+  },
+  
+  'categories': {
+    entityType: 'categories',
+    prefix: ENTITY_PREFIXES['categories'], // 'DM'
+    systemIdPrefix: 'CATEGORY',
+    digitCount: 6,
+    displayName: 'Danh mục',
+    category: 'inventory',
+    validation: { allowCustomId: true },
+    usesStoreFactory: true,
+  },
+  
   'units': {
     entityType: 'units',
     prefix: ENTITY_PREFIXES['units'], // 'DVT'

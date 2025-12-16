@@ -42,7 +42,11 @@ import { ProductFormPage } from '../features/products/form-page';
 import { ProductDetailPage } from '../features/products/detail-page';
 import { ProductsTrashPage } from '../features/products/trash-page';
 import { BrandsPage } from '../features/brands/page';
+import { BrandDetailPage } from '../features/brands/brand-detail';
+import { BrandNewPage } from '../features/brands/brand-new';
 import { ProductCategoriesPage } from '../features/categories/page';
+import { CategoryDetailPage } from '../features/categories/category-detail';
+import { CategoryNewPage } from '../features/categories/category-new';
 import { OrdersPage } from '../features/orders/page';
 import { OrderFormPage } from '../features/orders/order-form-page';
 import { OrderDetailPage } from '../features/orders/order-detail-page';
@@ -161,6 +165,7 @@ import { ComplaintsSettingsPage } from '../features/settings/complaints/complain
 import { TasksSettingsPage } from '../features/settings/tasks/tasks-settings-page.tsx';
 import { WarrantySettingsPage } from '../features/settings/warranty/warranty-settings-page.tsx';
 import { PkgxSettingsPage } from '../features/settings/pkgx/pkgx-settings-page.tsx';
+import { TrendtechSettingsPage } from '../features/settings/trendtech/trendtech-settings-page.tsx';
 import { IDCounterSettingsPage } from '../features/settings/system/id-counter-settings-page'; // [DONE] NEW: ID Management
 import { ImportExportHistoryPage } from '../features/shared/import-export-history-page';
 import { PlaceholderPage } from '../components/layout/placeholder-page';
@@ -437,8 +442,44 @@ export const routeDefinitions: AppRoute[] = [
     path: ROUTES.SALES.BRANDS,
     element: BrandsPage,
     meta: {
-      breadcrumb: ['Thương hiệu'],
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        'Thương hiệu'
+      ],
       preload: true
+    }
+  },
+  {
+    path: ROUTES.SALES.BRAND_NEW,
+    element: BrandNewPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Thương hiệu', href: '/brands' },
+        'Thêm mới'
+      ]
+    }
+  },
+  {
+    path: ROUTES.SALES.BRAND_VIEW,
+    element: BrandDetailPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Thương hiệu', href: '/brands' },
+        'Chi tiết'
+      ]
+    }
+  },
+  {
+    path: ROUTES.SALES.BRAND_EDIT,
+    element: BrandDetailPage,
+    meta: {
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Thương hiệu', href: '/brands' },
+        'Chỉnh sửa'
+      ]
     }
   },
   
@@ -449,6 +490,42 @@ export const routeDefinitions: AppRoute[] = [
     meta: {
       breadcrumb: ['Danh mục sản phẩm'],
       preload: true
+    }
+  },
+  {
+    path: ROUTES.SALES.CATEGORY_NEW,
+    element: CategoryNewPage,
+    meta: {
+      title: 'Tạo danh mục mới',
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Danh mục sản phẩm', href: '/categories' },
+        'Tạo mới'
+      ]
+    }
+  },
+  {
+    path: ROUTES.SALES.CATEGORY_VIEW,
+    element: CategoryDetailPage,
+    meta: {
+      title: 'Chi tiết danh mục',
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Danh mục sản phẩm', href: '/categories' },
+        'Chi tiết'
+      ]
+    }
+  },
+  {
+    path: ROUTES.SALES.CATEGORY_EDIT,
+    element: CategoryDetailPage,
+    meta: {
+      title: 'Chỉnh sửa danh mục',
+      breadcrumb: [
+        { label: 'Trang chủ', href: '/' },
+        { label: 'Danh mục sản phẩm', href: '/categories' },
+        'Chỉnh sửa'
+      ]
     }
   },
   
@@ -1503,6 +1580,13 @@ export const routeDefinitions: AppRoute[] = [
     element: PkgxSettingsPage,
     meta: {
       breadcrumb: ['Cài đặt', 'Tích hợp PKGX']
+    }
+  },
+  {
+    path: '/settings/trendtech',
+    element: TrendtechSettingsPage,
+    meta: {
+      breadcrumb: ['Cài đặt', 'Tích hợp Trendtech']
     }
   },
   {

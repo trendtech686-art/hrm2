@@ -330,6 +330,7 @@ export type PkgxProductPayload = {
   hot?: boolean;
   new?: boolean;
   ishome?: boolean;
+  is_on_sale?: boolean;  // Hiển thị đăng web (on/off trên website PKGX)
   seller_note?: string;
 };
 

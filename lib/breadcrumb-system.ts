@@ -216,6 +216,48 @@ export const MODULES = {
           title: (code) => code ? `Trả hàng ${code}` : 'Chi tiết trả hàng',
           description: 'Thông tin chi tiết đơn trả hàng'
         }
+      },
+      BRANDS: {
+        key: 'brands',
+        name: 'Thương hiệu',
+        icon: 'Tags',
+        list: {
+          title: 'Danh sách thương hiệu',
+          description: 'Quản lý thương hiệu sản phẩm và SEO'
+        },
+        detail: {
+          title: (name) => name ? `Thương hiệu ${name}` : 'Chi tiết thương hiệu',
+          description: 'Thông tin chi tiết và SEO thương hiệu'
+        },
+        edit: {
+          title: (name) => name ? `Chỉnh sửa ${name}` : 'Chỉnh sửa thương hiệu',
+          description: 'Cập nhật thông tin thương hiệu'
+        },
+        new: {
+          title: 'Thêm thương hiệu mới',
+          description: 'Tạo thương hiệu sản phẩm mới'
+        }
+      },
+      CATEGORIES: {
+        key: 'categories',
+        name: 'Danh mục sản phẩm',
+        icon: 'FolderTree',
+        list: {
+          title: 'Danh mục sản phẩm',
+          description: 'Quản lý cây danh mục và SEO'
+        },
+        detail: {
+          title: (name) => name ? `Danh mục ${name}` : 'Chi tiết danh mục',
+          description: 'Thông tin chi tiết và SEO danh mục'
+        },
+        edit: {
+          title: (name) => name ? `Chỉnh sửa ${name}` : 'Chỉnh sửa danh mục',
+          description: 'Cập nhật thông tin danh mục'
+        },
+        new: {
+          title: 'Thêm danh mục mới',
+          description: 'Tạo danh mục sản phẩm mới'
+        }
       }
     }
   },
@@ -876,6 +918,16 @@ const PATH_PATTERNS = {
   '/returns': { module: 'SALES', section: 'RETURNS', action: 'list' },
   '/returns/:systemId': { module: 'SALES', section: 'RETURNS', action: 'detail' },
   '/returns/new': { module: 'SALES', section: 'RETURNS', action: 'new' },
+  
+  // Brands & Categories
+  '/brands': { module: 'SALES', section: 'BRANDS', action: 'list' },
+  '/brands/new': { module: 'SALES', section: 'BRANDS', action: 'new' },
+  '/brands/:systemId': { module: 'SALES', section: 'BRANDS', action: 'detail' },
+  '/brands/:systemId/edit': { module: 'SALES', section: 'BRANDS', action: 'edit' },
+  '/categories': { module: 'SALES', section: 'CATEGORIES', action: 'list' },
+  '/categories/new': { module: 'SALES', section: 'CATEGORIES', action: 'new' },
+  '/categories/:systemId': { module: 'SALES', section: 'CATEGORIES', action: 'detail' },
+  '/categories/:systemId/edit': { module: 'SALES', section: 'CATEGORIES', action: 'edit' },
   
   // Procurement root aliases
   '/suppliers': { module: 'PROCUREMENT', section: 'SUPPLIERS', action: 'list' },

@@ -23,6 +23,8 @@ export const ENTITY_PREFIXES = {
   // SẢN PHẨM & KHO (PRODUCTS & INVENTORY)
   // ========================================
   'products': 'SP',            // Sản phẩm (Product)
+  'brands': 'TH',              // Thương hiệu (Brand)
+  'categories': 'DM',          // Danh mục (Category)
   'units': 'DVT',              // Đơn vị tính (Unit)
   'stock-locations': 'KHO',    // Kho hàng (Stock Location)
   'inventory-receipts': 'NK',  // Nhập kho (Inventory Receipt)

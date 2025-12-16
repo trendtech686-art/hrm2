@@ -7,7 +7,7 @@ import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useAuth } from '../../contexts/auth-context.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
 import { Button } from '../../components/ui/button.tsx';
-import { ArrowLeft, Edit, Info, Printer, TrendingUp, AlertTriangle, Eye, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Info, Printer, TrendingUp, AlertTriangle, Eye, Trash2, Package, Video, Globe, Truck, FileText, ShoppingCart, BarChart3, Clock, MapPin } from 'lucide-react';
 import { usePrint } from '@/lib/use-print';
 import { mapProductToLabelPrintData } from '@/lib/print-mappers/product-label.mapper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
@@ -46,6 +46,7 @@ import { useProductTypeStore } from '../settings/inventory/product-type-store.ts
 import { useProductCategoryStore } from '../settings/inventory/product-category-store.ts';
 import { useStorageLocationStore } from '../settings/inventory/storage-location-store.ts';
 import { useBrandStore } from '../settings/inventory/brand-store.ts';
+import { EcommerceTab } from './components/ecommerce-tab.tsx';
 import { sanitizeHtml } from '@/lib/sanitize.ts';
 import { toast } from 'sonner';
 import {
@@ -988,679 +989,451 @@ export function ProductDetailPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-        {/* Product Images */}
+        {/* Header Summary Card with Image and Basic Info */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-h3">Hình ảnh sản phẩm</CardTitle>
-          </CardHeader>
-          {hasImages ? (
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-10">
-                <div className="space-y-3 lg:col-span-3">
-                  <p className="text-body-sm font-medium text-muted-foreground flex items-center justify-between">
-                    <span>Ảnh sản phẩm</span>
-                    {thumbnailImage && (
-                      <Badge variant="secondary" className="text-[11px] font-medium">
-                        Thumbnail
-                      </Badge>
-                    )}
-                  </p>
-                  {thumbnailImage ? (
-                    <div
-                      className="relative aspect-square md:aspect-[4/5] rounded-lg overflow-hidden border bg-muted cursor-pointer"
-                      onClick={() => handleOpenPreview(thumbnailImage)}
-                    >
-                      <LazyImage
-                        src={thumbnailImage}
-                        alt={`${product.name} - Ảnh thumbnail`}
-                        className="w-full h-full object-cover"
-                        rootMargin="400px"
-                        skeletonClassName="rounded-none"
-                      />
+          <CardContent className="p-4 md:p-6">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Product Image */}
+              <div className="flex-shrink-0 lg:w-48">
+                {thumbnailImage ? (
+                  <div
+                    className="relative aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer"
+                    onClick={() => handleOpenPreview(thumbnailImage)}
+                  >
+                    <LazyImage
+                      src={thumbnailImage}
+                      alt={`${product.name} - Ảnh thumbnail`}
+                      className="w-full h-full object-cover"
+                      rootMargin="400px"
+                      skeletonClassName="rounded-none"
+                    />
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <Eye className="h-6 w-6 text-white opacity-0 hover:opacity-100 drop-shadow-lg" />
                     </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed bg-muted/40 text-center text-body-xs text-muted-foreground py-10">
-                      Chưa có ảnh thumbnail
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-3 lg:col-span-7">
-                  <p className="text-body-sm font-semibold text-muted-foreground">
-                    Thư viện ({galleryImages.length})
-                  </p>
-                  {galleryImages.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                      {galleryImages.map((imageUrl, index) => (
-                        <div
-                          key={`${imageUrl}-${index}`}
-                          className="relative aspect-square rounded-lg overflow-hidden border bg-muted hover:opacity-90 transition-opacity cursor-pointer"
-                          onClick={() => handleOpenPreview(imageUrl)}
-                        >
-                          <LazyImage
-                            src={imageUrl}
-                            alt={`${product.name} - Ảnh thư viện ${index + 1}`}
-                            className="w-full h-full object-cover"
-                            rootMargin="400px"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed bg-muted/40 text-center text-body-xs text-muted-foreground py-10">
-                      Chưa có ảnh thư viện
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="aspect-square rounded-lg border border-dashed bg-muted/40 flex items-center justify-center">
+                    <Package className="h-12 w-12 text-muted-foreground/50" />
+                  </div>
+                )}
               </div>
 
-              {/* Video Links Section */}
-              {product.videoLinks && product.videoLinks.length > 0 && (
-                <div className="space-y-3 pt-4 border-t">
-                  <p className="text-body-sm font-semibold text-muted-foreground">
-                    Video ({product.videoLinks.length})
-                  </p>
-                  <div className="space-y-2">
-                    {product.videoLinks.map((link, index) => (
-                      <a
-                        key={`${link}-${index}`}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-body-sm text-primary hover:underline"
-                      >
-                        <span className="text-muted-foreground">🎬</span>
-                        <span className="truncate">{link}</span>
-                      </a>
-                    ))}
+              {/* Quick Info */}
+              <div className="flex-1 min-w-0 space-y-3">
+                <div>
+                  <p className="text-body-sm text-muted-foreground">Mã SKU: <span className="font-medium text-foreground">{product.id}</span></p>
+                  <h2 className="text-h2 font-semibold">{product.name}</h2>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={getStatusBadgeVariant(product.status) as any}>
+                    {getStatusLabel(product.status)}
+                  </Badge>
+                  <Badge variant="outline">{getTypeLabel(product.type)}</Badge>
+                  {productType && <Badge variant="secondary">{productType.name}</Badge>}
+                  {category && <Badge variant="secondary">{category.name}</Badge>}
+                  {brand && <Badge variant="secondary">{brand.name}</Badge>}
+                </div>
+
+                {/* E-commerce Status Badges */}
+                <div className="flex flex-wrap gap-2">
+                  {product.isPublished ? (
+                    <Badge variant="success" className="gap-1">
+                      <Globe className="h-3 w-3" />
+                      Đã đăng web
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="gap-1">
+                      <Globe className="h-3 w-3" />
+                      Chưa đăng
+                    </Badge>
+                  )}
+                  {product.isFeatured && (
+                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">Nổi bật</Badge>
+                  )}
+                  {product.isNewArrival && (
+                    <Badge variant="outline" className="border-green-500 text-green-600">Mới về</Badge>
+                  )}
+                  {product.isBestSeller && (
+                    <Badge variant="destructive">Bán chạy</Badge>
+                  )}
+                  {product.isOnSale && (
+                    <Badge variant="default" className="bg-rose-500 hover:bg-rose-600">Đang giảm giá</Badge>
+                  )}
+                </div>
+
+                {/* Stock Alerts */}
+                {stockAlerts.isCritical && (
+                  <div className="flex items-center gap-2 text-body-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>{stockAlerts.message}</span>
+                  </div>
+                )}
+                {!stockAlerts.isCritical && stockAlerts.isLow && (
+                  <div className="flex items-center gap-2 text-body-sm text-amber-600">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>{stockAlerts.message}</span>
+                  </div>
+                )}
+
+                {/* Key Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t">
+                  <div>
+                    <p className="text-body-xs text-muted-foreground">Giá vốn</p>
+                    <p className="font-semibold">{formatCurrency(product.costPrice)}</p>
+                  </div>
+                  <div>
+                    <p className="text-body-xs text-muted-foreground">Giá bán (Mặc định)</p>
+                    <p className="font-semibold text-primary">
+                      {defaultSellingPolicy && product.prices?.[defaultSellingPolicy.systemId] 
+                        ? formatCurrency(product.prices[defaultSellingPolicy.systemId]) 
+                        : formatCurrency(product.sellingPrice || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-body-xs text-muted-foreground">Tồn kho</p>
+                    <p className="font-semibold">
+                      {product.type === 'combo' ? comboTotalStock : totalInventory} {product.unit}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-body-xs text-muted-foreground">Đã bán</p>
+                    <p className="font-semibold">{product.totalSold ?? 0}</p>
                   </div>
                 </div>
-              )}
-
-            </CardContent>
-          ) : (
-            <CardContent>
-              <div className="text-center text-body-sm text-muted-foreground border border-dashed rounded-md py-8">
-                {isImageLoading ? 'Đang tải hình ảnh...' : 'Chưa có hình ảnh nào được lưu cho sản phẩm này.'}
               </div>
-            </CardContent>
-          )}
+            </div>
+          </CardContent>
         </Card>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Left Column - 2/3 width */}
-            <div className="lg:col-span-2 space-y-4">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-h3">Thông tin cơ bản</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <DetailField label="Mã SKU" value={product.id} />
-                        <DetailField label="Tên sản phẩm/dịch vụ" value={product.name} />
-                        <DetailField label="Loại hình" value={getTypeLabel(product.type)} />
-                        {productType && <DetailField label="Loại sản phẩm" value={productType.name} />}
-                        {(category || product.category) && <DetailField label="Danh mục" value={category ? (category.path || category.name) : product.category} />}
-                        {product.subCategory && <DetailField label="Danh mục con" value={product.subCategory} />}
-                        <DetailField label="Thương hiệu" value={brand ? brand.name : '-'} />
-                        <DetailField 
-                          label="Tags" 
-                          value={
-                            product.tags && product.tags.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {product.tags.map(tag => (
-                                  <Badge key={tag} variant="outline" className="text-body-xs">{tag}</Badge>
-                                ))}
-                              </div>
-                            ) : '-'
-                          } 
-                        />
-                        <DetailField label="Đơn vị tính" value={product.unit} />
-                        <DetailField label="Mã vạch" value={product.barcode || '-'} />
-                        {product.pkgxId && <DetailField label="ID PKGX" value={product.pkgxId} />}
-                        {typeof product.warrantyPeriodMonths === 'number' && product.warrantyPeriodMonths > 0 && (
-                          <DetailField label="Bảo hành" value={`${product.warrantyPeriodMonths} tháng`} />
-                        )}
-                    </CardContent>
-                 </Card>
-
-                 {/* SEO & Mô tả */}
-                 {(product.ktitle || product.seoDescription) && (
-                   <Card>
-                      <CardHeader>
-                        <CardTitle className="text-h3">SEO</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {product.ktitle && <DetailField label="Tiêu đề SEO" value={product.ktitle} />}
-                        {product.seoDescription && <DetailField label="Mô tả SEO" value={product.seoDescription} />}
-                      </CardContent>
-                   </Card>
-                 )}
-
-                 {product.shortDescription && (
-                   <Card>
-                      <CardHeader>
-                        <CardTitle className="text-h3">Mô tả ngắn</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div 
-                            className="prose prose-sm max-w-none text-body-sm text-muted-foreground"
-                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }}
-                        />
-                      </CardContent>
-                   </Card>
-                 )}
-
-                 {product.description && (
-                   <Card>
-                      <CardHeader>
-                        <CardTitle className="text-h3">Mô tả chi tiết</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div 
-                            className="prose prose-sm max-w-none text-body-sm text-muted-foreground"
-                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }}
-                        />
-                      </CardContent>
-                   </Card>
-                 )}
-
-                 {/* Combo Items Card - Only show for combo products */}
-                 {isComboProduct(product) && product.comboItems && product.comboItems.length > 0 && (
-                   <ComboItemsCard 
-                     product={product}
-                     pricingPolicies={pricingPolicies}
-                     onImagePreview={(imageUrl) => {
-                       setPreviewImages([imageUrl]);
-                       setPreviewIndex(0);
-                       setIsPreviewOpen(true);
-                     }}
-                   />
-                 )}
-
-            </div>
-
-            {/* Right Column - 1/3 width */}
-            <div className="space-y-4">
-                 {/* Stock Alerts Card - Only show if there are alerts */}
-                 {getProductStockAlerts(product).length > 0 && (
-                   <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
-                      <CardHeader className="pb-2">
-                          <CardTitle className="text-h3 flex items-center gap-2">
-                            <span className="text-amber-600">⚠️</span>
-                            Cảnh báo tồn kho
-                          </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                          <StockAlertBadges product={product} showDescription />
-                          {getSuggestedOrderQuantity(product) > 0 && (
-                            <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
-                              <p className="text-body-sm text-muted-foreground">
-                                <span className="font-medium">Đề xuất đặt thêm:</span>{' '}
-                                <span className="font-semibold text-amber-700 dark:text-amber-400">
-                                  {getSuggestedOrderQuantity(product)} {product.unit}
-                                </span>
-                              </p>
-                            </div>
-                          )}
-                      </CardContent>
-                   </Card>
-                 )}
-
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-h3">Giá & Kho</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <DetailField label="Giá vốn" value={formatCurrency(product.costPrice)} />
-                        {/* Hide purchase-related fields for combo products - combo doesn't have purchase price */}
-                        {product.type !== 'combo' && (
-                          <>
-                            <DetailField 
-                              label="Giá nhập gần nhất" 
-                              value={product.lastPurchasePrice ? formatCurrency(product.lastPurchasePrice) : '-'} 
-                            />
-                            <DetailField 
-                              label="Nhà cung cấp chính" 
-                              value={supplier ? (
-                                <ReactRouterDOM.Link 
-                                  to={`/suppliers/${supplier.systemId}`}
-                                  className="text-primary hover:underline font-medium"
-                                >
-                                  {supplier.name}
-                                </ReactRouterDOM.Link>
-                              ) : '-'} 
-                            />
-                            <DetailField 
-                              label="Ngày nhập gần nhất" 
-                              value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} 
-                            />
-                          </>
-                        )}
-                        <DetailField 
-                          label="Giá tối thiểu" 
-                          value={product.minPrice ? formatCurrency(product.minPrice) : '-'} 
-                        />
-                        <Separator />
-                        <DetailField label="Theo dõi tồn kho" value={product.isStockTracked ? 'Có' : 'Không'} />
-                        {/* Only show inventory summary for non-combo products - combo shows in Tồn kho tab */}
-                        {product.type !== 'combo' && (
-                          <>
-                            <DetailField 
-                              label="Tổng tồn kho (Toàn hệ thống)" 
-                              value={<span className="font-semibold">{totalInventory}</span>} 
-                            />
-                            <DetailField 
-                              label="Đang giao dịch" 
-                              value={Object.values(product.committedByBranch || {}).reduce((sum, qty) => sum + qty, 0)} 
-                            />
-                            <DetailField 
-                              label="Đang về" 
-                              value={Object.values(product.inTransitByBranch || {}).reduce((sum, qty) => sum + qty, 0)} 
-                            />
-                            <DetailField 
-                              label="Đã bán" 
-                              value={product.totalSold ?? 0} 
-                            />
-                          </>
-                        )}
-                        <Separator />
-                        <DetailField 
-                          label="Mức đặt hàng lại" 
-                          value={product.reorderLevel ?? 0} 
-                        />
-                        <DetailField 
-                          label="Tồn kho an toàn" 
-                          value={product.safetyStock ?? 0} 
-                        />
-                        <DetailField 
-                          label="Mức tồn tối đa" 
-                          value={product.maxStock ?? 0} 
-                        />
-                        {storageLocation && (
-                          <DetailField label="Điểm lưu kho mặc định" value={storageLocation.name} />
-                        )}
-                    </CardContent>
-                 </Card>
-
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-h3">Bảng giá bán</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {salesPolicies.map(policy => (
-                            <DetailField 
-                                key={policy.systemId}
-                                label={`${policy.name}${policy.isDefault ? ' (Mặc định)' : ''}`}
-                                value={formatCurrency(product.prices[policy.systemId])} 
-                            />
-                        ))}
-                    </CardContent>
-                 </Card>
-
-                 {(product.weight !== undefined || product.dimensions) && (
-                   <Card>
-                      <CardHeader>
-                        <CardTitle className="text-h3">Logistics</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                          {product.weight !== undefined && (
-                            <DetailField label="Khối lượng" value={`${product.weight} ${product.weightUnit}`} />
-                          )}
-                          {product.dimensions && (
-                            <DetailField 
-                              label="Kích thước (D×R×C)" 
-                              value={`${product.dimensions.length || 0}×${product.dimensions.width || 0}×${product.dimensions.height || 0} cm`} 
-                            />
-                          )}
-                      </CardContent>
-                   </Card>
-                 )}
-
-                 {(product.totalSold || product.totalRevenue || product.viewCount || product.lastSoldDate) && (
-                   <Card>
-                      <CardHeader>
-                        <CardTitle className="text-h3">Phân tích bán hàng</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                          {product.totalSold !== undefined && (
-                            <DetailField label="Tổng đã bán" value={product.totalSold} />
-                          )}
-                          {product.totalRevenue && (
-                            <DetailField label="Tổng doanh thu" value={formatCurrency(product.totalRevenue)} />
-                          )}
-                          {product.viewCount && (
-                            <DetailField label="Lượt xem" value={product.viewCount} />
-                          )}
-                          {product.lastSoldDate && (
-                            <DetailField 
-                              label="Bán gần nhất" 
-                              value={formatDateForDisplay(product.lastSoldDate)} 
-                            />
-                          )}
-                      </CardContent>
-                   </Card>
-                 )}
-
-                 {/* E-commerce Card */}
-                 {(product.isPublished || product.isFeatured || product.isNewArrival || product.isBestSeller || product.isOnSale || product.slug || product.publishedAt) && (
-                   <Card>
-                      <CardHeader>
-                        <CardTitle className="text-h3">E-commerce</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                          {product.slug && (
-                            <DetailField label="Slug (URL)" value={product.slug} />
-                          )}
-                          <DetailField 
-                            label="Trạng thái web" 
-                            value={
-                              <Badge variant={product.isPublished ? 'success' : 'secondary'}>
-                                {product.isPublished ? 'Đã đăng' : 'Chưa đăng'}
-                              </Badge>
-                            } 
-                          />
-                          {product.publishedAt && (
-                            <DetailField 
-                              label="Ngày đăng web" 
-                              value={formatDateForDisplay(product.publishedAt)} 
-                            />
-                          )}
-                          {(product.isFeatured || product.isNewArrival || product.isBestSeller || product.isOnSale) && (
-                            <DetailField 
-                              label="Badge" 
-                              value={
-                                <div className="flex flex-wrap gap-1">
-                                  {product.isFeatured && <Badge variant="default">Nổi bật</Badge>}
-                                  {product.isNewArrival && <Badge variant="outline">Mới về</Badge>}
-                                  {product.isBestSeller && <Badge variant="destructive">Bán chạy</Badge>}
-                                  {product.isOnSale && <Badge variant="warning">Sale</Badge>}
-                                </div>
-                              } 
-                            />
-                          )}
-                          {product.sortOrder !== undefined && product.sortOrder > 0 && (
-                            <DetailField label="Thứ tự hiển thị" value={product.sortOrder} />
-                          )}
-                      </CardContent>
-                   </Card>
-                 )}
-
-                 {(product.launchedDate || product.discontinuedDate || product.createdAt || product.updatedAt || createdByEmployee || updatedByEmployee) && (
-                   <Card>
-                      <CardHeader>
-                        <CardTitle className="text-h3">Thông tin hệ thống</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                          {product.launchedDate && (
-                            <DetailField 
-                              label="Ngày ra mắt" 
-                              value={formatDateForDisplay(product.launchedDate)} 
-                            />
-                          )}
-                          {product.discontinuedDate && (
-                            <DetailField 
-                              label="Ngày ngừng KD" 
-                              value={formatDateForDisplay(product.discontinuedDate)} 
-                            />
-                          )}
-                          <Separator />
-                          {product.createdAt && (
-                            <DetailField 
-                              label="Ngày tạo" 
-                              value={formatDateTimeForDisplay(product.createdAt)} 
-                            />
-                          )}
-                          {createdByEmployee && (
-                            <DetailField 
-                              label="Người tạo" 
-                              value={
-                                <ReactRouterDOM.Link 
-                                  to={`/employees/${createdByEmployee.systemId}`}
-                                  className="text-primary hover:underline font-medium"
-                                >
-                                  {createdByEmployee.fullName}
-                                </ReactRouterDOM.Link>
-                              } 
-                            />
-                          )}
-                          {product.updatedAt && (
-                            <DetailField 
-                              label="Cập nhật lần cuối" 
-                              value={formatDateTimeForDisplay(product.updatedAt)} 
-                            />
-                          )}
-                          {updatedByEmployee && (
-                            <DetailField 
-                              label="Người cập nhật" 
-                              value={
-                                <ReactRouterDOM.Link 
-                                  to={`/employees/${updatedByEmployee.systemId}`}
-                                  className="text-primary hover:underline font-medium"
-                                >
-                                  {updatedByEmployee.fullName}
-                                </ReactRouterDOM.Link>
-                              } 
-                            />
-                          )}
-                      </CardContent>
-                   </Card>
-                 )}
-            </div>
-        </div>
-
-        {/* Tabs Section */}
-        <Tabs defaultValue="inventory" className="w-full">
-            <TabsList>
-                <TabsTrigger value="inventory">Tồn kho</TabsTrigger>
-                <TabsTrigger value="history">Lịch sử kho</TabsTrigger>
-                {product.type !== 'combo' && (
-                    <TabsTrigger value="price-history">Lịch sử giá nhập</TabsTrigger>
-                )}
+        {/* Main Tabs */}
+        <Tabs defaultValue="info" className="w-full">
+            <TabsList className="flex-wrap h-auto gap-1">
+                <TabsTrigger value="info">Thông tin</TabsTrigger>
+                <TabsTrigger value="images">Hình ảnh</TabsTrigger>
+                <TabsTrigger value="pricing">Giá & Kho</TabsTrigger>
+                <TabsTrigger value="ecommerce">E-commerce</TabsTrigger>
+                <TabsTrigger value="seo-pkgx">SEO PKGX</TabsTrigger>
+                <TabsTrigger value="seo-trendtech">SEO Trendtech</TabsTrigger>
+                <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
+                {isComboProduct(product) && <TabsTrigger value="combo">Combo</TabsTrigger>}
+                <TabsTrigger value="history">Lịch sử</TabsTrigger>
             </TabsList>
-            <TabsContent value="inventory" className="mt-4">
-                {product.type === 'combo' ? (
-                    <ComboInventoryCard 
-                        product={product} 
-                        branches={branches} 
-                        allProducts={allProducts}
-                        onCommittedClick={(branch) => {
-                          setSelectedBranch({ systemId: branch.systemId, name: branch.name });
-                          setCommittedDialogOpen(true);
-                        }}
-                        onInTransitClick={(branch) => {
-                          setInTransitBranch({ systemId: branch.systemId, name: branch.name });
-                          setInTransitDialogOpen(true);
-                        }}
-                    />
-                ) : (
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-h3">Tồn kho theo chi nhánh</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                       <div className="overflow-x-auto">
-                        <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Chi nhánh</TableHead>
-                                <TableHead>Điểm lưu kho</TableHead>
-                                <TableHead>
-                                    <div className="flex items-center gap-1">
-                                        Tồn kho 
-                                        <Info className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center gap-1">
-                                        Giá trị tồn
-                                        <Info className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center gap-1">
-                                        Có thể bán
-                                        <Info className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center gap-1">
-                                        Đang giao dịch
-                                        <Info className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center gap-1">
-                                        Hàng đang về
-                                        <Info className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                </TableHead>
-                                <TableHead>
-                                    <div className="flex items-center gap-1">
-                                        Đang giao
-                                        <Info className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {branches.map(branch => {
-                                const onHand = product.inventoryByBranch[branch.systemId] || 0;
-                                const committed = product.committedByBranch[branch.systemId] || 0;
-                                const inTransit = product.inTransitByBranch[branch.systemId] || 0;
-                                const available = onHand - committed;
-                                
-                                const incomingQuantity = allPurchaseOrders
-                                  .filter(po => 
-                                    po.branchSystemId === branch.systemId &&
-                                    (po.status === 'Đặt hàng' || po.status === 'Đang giao dịch') &&
-                                    po.deliveryStatus !== 'Đã nhập'
-                                  )
-                                  .reduce((total, po) => {
-                                    const itemInPO = po.lineItems.find(item => item.productSystemId === product.systemId);
-                                    if (!itemInPO) return total;
 
-                                    const poSystemId = asSystemId(po.systemId);
-                                    const totalReceivedForPO = allInventoryReceipts
-                                      .filter(receipt => receipt.purchaseOrderSystemId === poSystemId)
-                                      .reduce((receivedSum, receipt) => {
-                                        const itemInReceipt = receipt.items.find(item => item.productSystemId === product.systemId);
-                                        return receivedSum + (itemInReceipt ? Number(itemInReceipt.receivedQuantity) : 0);
-                                      }, 0);
-                                    
-                                    const remainingToReceive = itemInPO.quantity - totalReceivedForPO;
-                                    return total + (remainingToReceive > 0 ? remainingToReceive : 0);
-                                  }, 0);
-
-                                return (
-                                <TableRow key={branch.systemId}>
-                                    <TableCell className="font-medium">{branch.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">{storageLocation?.name || 'Mặc định'}</TableCell>
-                                    <TableCell className="font-semibold">{onHand}</TableCell>
-                                    <TableCell>{formatCurrency(onHand * (product.costPrice || 0))}</TableCell>
-                                    <TableCell className={available > 0 ? 'font-medium' : 'text-muted-foreground'}>{available}</TableCell>
-                                    <TableCell 
-                                      className={committed > 0 ? 'text-primary cursor-pointer hover:underline font-medium' : ''}
-                                      onClick={() => {
-                                        if (committed > 0) {
-                                          setSelectedBranch({ systemId: branch.systemId, name: branch.name });
-                                          setCommittedDialogOpen(true);
-                                        }
-                                      }}
-                                    >
-                                      {committed}
-                                    </TableCell>
-                                    <TableCell className={incomingQuantity > 0 ? 'font-medium' : 'text-muted-foreground'}>{incomingQuantity}</TableCell>
-                                    <TableCell 
-                                      className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline font-medium' : ''}
-                                      onClick={() => {
-                                        if (inTransit > 0) {
-                                          setInTransitBranch({ systemId: branch.systemId, name: branch.name });
-                                          setInTransitDialogOpen(true);
-                                        }
-                                      }}
-                                    >
-                                      {inTransit}
-                                    </TableCell>
-                                </TableRow>
-                            )})}
-                        </TableBody>
-                       </Table>
-                       </div>
-                    </CardContent>
-                </Card>
-                )}
-            </TabsContent>
-            <TabsContent value="history" className="mt-4">
+            {/* Tab: Thông tin cơ bản */}
+            <TabsContent value="info" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader><CardTitle className="text-h3">Thông tin cơ bản</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2">
+                  <DetailField label="Mã SKU" value={product.id} />
+                  <DetailField label="Tên sản phẩm" value={product.name} />
+                  <DetailField label="Loại hình" value={getTypeLabel(product.type)} />
+                  {productType && <DetailField label="Loại sản phẩm" value={productType.name} />}
+                  {(category || product.category) && <DetailField label="Danh mục" value={category ? (category.path || category.name) : product.category} />}
+                  {product.subCategory && <DetailField label="Danh mục con" value={product.subCategory} />}
+                  <DetailField label="Thương hiệu" value={brand?.name || '-'} />
+                  <DetailField label="Đơn vị tính" value={product.unit} />
+                  <DetailField label="Mã vạch" value={product.barcode || '-'} />
+                  {product.pkgxId && <DetailField label="ID PKGX" value={product.pkgxId} />}
+                  {typeof product.warrantyPeriodMonths === 'number' && product.warrantyPeriodMonths > 0 && (
+                    <DetailField label="Bảo hành" value={`${product.warrantyPeriodMonths} tháng`} />
+                  )}
+                  <DetailField label="Tags" value={product.tags?.length ? (
+                    <div className="flex flex-wrap gap-1">{product.tags.map(tag => <Badge key={tag} variant="outline" className="text-body-xs">{tag}</Badge>)}</div>
+                  ) : '-'} />
+                  {product.sellerNote && (
+                    <div className="md:col-span-2">
+                      <DetailField label="Ghi chú nội bộ" value={product.sellerNote} />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              {/* Tem phụ */}
+              {(product.nameVat || product.origin || product.usageGuide || product.importerName) && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-h3">
-                            Lịch sử xuất nhập kho
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                        <RelatedDataTable 
-                            data={productHistory} 
-                            columns={stockHistoryColumns} 
-                            searchKeys={['action', 'documentId', 'employeeName']}
-                            searchPlaceholder="Tìm kiếm lịch sử..."
-                            dateFilterColumn="date"
-                            dateFilterTitle="Ngày ghi nhận"
-                            exportFileName={`Lich_su_kho_${product.id}`}
-                        >
-                            <Select
-                              value={historyBranchFilter}
-                              onValueChange={(value) =>
-                                setHistoryBranchFilter(value === 'all' ? 'all' : asSystemId(value))
-                              }
-                            >
-                                <SelectTrigger className="h-8 w-full sm:w-[200px]">
-                                    <SelectValue placeholder="Lọc chi nhánh" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                                    {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </RelatedDataTable>
-                    </CardContent>
+                  <CardHeader><CardTitle className="text-h3">Thông tin Tem phụ</CardTitle></CardHeader>
+                  <CardContent className="grid gap-3 md:grid-cols-2">
+                    {product.nameVat && <DetailField label="Tên VAT" value={product.nameVat} />}
+                    {product.origin && <DetailField label="Xuất xứ" value={product.origin} />}
+                    {product.usageGuide && <DetailField label="Hướng dẫn sử dụng" value={product.usageGuide} />}
+                    {product.importerName && <DetailField label="Đơn vị nhập khẩu" value={product.importerName} />}
+                    {product.importerAddress && <DetailField label="Địa chỉ nhập khẩu" value={product.importerAddress} />}
+                  </CardContent>
                 </Card>
+              )}
+              {/* Hệ thống */}
+              <Card>
+                <CardHeader><CardTitle className="text-h3">Thông tin hệ thống</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2">
+                  {product.launchedDate && <DetailField label="Ngày ra mắt" value={formatDateForDisplay(product.launchedDate)} />}
+                  {product.discontinuedDate && <DetailField label="Ngày ngừng KD" value={formatDateForDisplay(product.discontinuedDate)} />}
+                  {product.createdAt && <DetailField label="Ngày tạo" value={formatDateTimeForDisplay(product.createdAt)} />}
+                  {createdByEmployee && <DetailField label="Người tạo" value={<ReactRouterDOM.Link to={`/employees/${createdByEmployee.systemId}`} className="text-primary hover:underline">{createdByEmployee.fullName}</ReactRouterDOM.Link>} />}
+                  {product.updatedAt && <DetailField label="Cập nhật" value={formatDateTimeForDisplay(product.updatedAt)} />}
+                  {updatedByEmployee && <DetailField label="Người cập nhật" value={<ReactRouterDOM.Link to={`/employees/${updatedByEmployee.systemId}`} className="text-primary hover:underline">{updatedByEmployee.fullName}</ReactRouterDOM.Link>} />}
+                </CardContent>
+              </Card>
             </TabsContent>
-            {product.type !== 'combo' && (
-            <TabsContent value="price-history" className="mt-4">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-h3">Lịch sử giá nhập</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                        <RelatedDataTable 
-                            data={purchasePriceHistory} 
-                            columns={purchasePriceHistoryColumns} 
-                            searchKeys={['supplierName', 'reference', 'note']}
-                            searchPlaceholder="Tìm kiếm lịch sử giá..."
-                            dateFilterColumn="date"
-                            dateFilterTitle="Ngày cập nhật"
-                            exportFileName={`Lich_su_gia_${product.id}`}
-                        >
-                            <Select
-                              value={priceHistoryBranchFilter}
-                              onValueChange={(value) =>
-                                setPriceHistoryBranchFilter(value === 'all' ? 'all' : asSystemId(value))
-                              }
-                            >
-                                <SelectTrigger className="h-8 w-full sm:w-[200px]">
-                                    <SelectValue placeholder="Lọc chi nhánh" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                                    {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </RelatedDataTable>
-                    </CardContent>
+
+            {/* Tab: Hình ảnh */}
+            <TabsContent value="images" className="mt-4">
+              <Card>
+                <CardHeader><CardTitle className="text-h3">Hình ảnh sản phẩm</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  {hasImages ? (
+                    <div className="grid gap-4 lg:grid-cols-10">
+                      <div className="space-y-3 lg:col-span-3">
+                        <p className="text-body-sm font-medium text-muted-foreground">Ảnh thumbnail</p>
+                        {thumbnailImage ? (
+                          <div className="relative aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer" onClick={() => handleOpenPreview(thumbnailImage)}>
+                            <LazyImage src={thumbnailImage} alt={`${product.name} - Thumbnail`} className="w-full h-full object-cover" rootMargin="400px" />
+                          </div>
+                        ) : <div className="rounded-lg border border-dashed bg-muted/40 text-center text-body-xs text-muted-foreground py-10">Chưa có ảnh</div>}
+                      </div>
+                      <div className="space-y-3 lg:col-span-7">
+                        <p className="text-body-sm font-medium text-muted-foreground">Thư viện ({galleryImages.length})</p>
+                        {galleryImages.length > 0 ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                            {galleryImages.map((url, i) => (
+                              <div key={`${url}-${i}`} className="aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer" onClick={() => handleOpenPreview(url)}>
+                                <LazyImage src={url} alt={`${product.name} - ${i + 1}`} className="w-full h-full object-cover" rootMargin="400px" />
+                              </div>
+                            ))}
+                          </div>
+                        ) : <div className="rounded-lg border border-dashed bg-muted/40 text-center text-body-xs text-muted-foreground py-10">Chưa có ảnh</div>}
+                      </div>
+                    </div>
+                  ) : <div className="text-center text-body-sm text-muted-foreground border border-dashed rounded-md py-8">{isImageLoading ? 'Đang tải...' : 'Chưa có hình ảnh'}</div>}
+                  {product.videoLinks && product.videoLinks.length > 0 && (
+                    <div className="space-y-3 pt-4 border-t">
+                      <p className="text-body-sm font-medium text-muted-foreground flex items-center gap-2"><Video className="h-4 w-4" />Video ({product.videoLinks.length})</p>
+                      <div className="space-y-2">{product.videoLinks.map((link, i) => <a key={`${link}-${i}`} href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-body-sm text-primary hover:underline truncate">{link}</a>)}</div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab: SEO PKGX */}
+            <TabsContent value="seo-pkgx" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-h3 flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-blue-600" />
+                    SEO - PKGX
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <DetailField label="Slug PKGX" value={product.pkgxSlug || '-'} />
+                  <DetailField label="Tiêu đề SEO" value={product.websiteSeo?.pkgx?.seoTitle || '-'} />
+                  <DetailField label="Meta Description" value={product.websiteSeo?.pkgx?.metaDescription || '-'} />
+                  <DetailField label="Keywords" value={product.websiteSeo?.pkgx?.seoKeywords || '-'} />
+                  <div>
+                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
+                    {product.websiteSeo?.pkgx?.shortDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.pkgx.shortDescription) }} />
+                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                  </div>
+                  <div>
+                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
+                    {product.websiteSeo?.pkgx?.longDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.pkgx.longDescription) }} />
+                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab: SEO Trendtech */}
+            <TabsContent value="seo-trendtech" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-h3 flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-green-600" />
+                    SEO - Trendtech
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <DetailField label="Slug Trendtech" value={product.trendtechSlug || '-'} />
+                  <DetailField label="Tiêu đề SEO" value={product.websiteSeo?.trendtech?.seoTitle || '-'} />
+                  <DetailField label="Meta Description" value={product.websiteSeo?.trendtech?.metaDescription || '-'} />
+                  <DetailField label="Keywords" value={product.websiteSeo?.trendtech?.seoKeywords || '-'} />
+                  <div>
+                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
+                    {product.websiteSeo?.trendtech?.shortDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.trendtech.shortDescription) }} />
+                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                  </div>
+                  <div>
+                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
+                    {product.websiteSeo?.trendtech?.longDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.trendtech.longDescription) }} />
+                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab: Giá & Kho */}
+            <TabsContent value="pricing" className="mt-4 space-y-4">
+              {/* Cảnh báo tồn kho */}
+              {getProductStockAlerts(product).length > 0 && (
+                <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+                  <CardHeader className="pb-2"><CardTitle className="text-h3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Cảnh báo tồn kho</CardTitle></CardHeader>
+                  <CardContent>
+                    <StockAlertBadges product={product} showDescription />
+                    {getSuggestedOrderQuantity(product) > 0 && <p className="text-body-sm mt-2">Đề xuất đặt thêm: <span className="font-semibold text-amber-700">{getSuggestedOrderQuantity(product)} {product.unit}</span></p>}
+                  </CardContent>
                 </Card>
+              )}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader><CardTitle className="text-h3">Giá</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <DetailField label="Giá vốn" value={formatCurrency(product.costPrice)} />
+                    {product.type !== 'combo' && <DetailField label="Giá nhập gần nhất" value={product.lastPurchasePrice ? formatCurrency(product.lastPurchasePrice) : '-'} />}
+                    {product.type !== 'combo' && supplier && <DetailField label="NCC chính" value={<ReactRouterDOM.Link to={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</ReactRouterDOM.Link>} />}
+                    {product.type !== 'combo' && <DetailField label="Ngày nhập gần nhất" value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} />}
+                    <DetailField label="Giá tối thiểu" value={product.minPrice ? formatCurrency(product.minPrice) : '-'} />
+                    {product.suggestedRetailPrice && <DetailField label="Giá bán lẻ đề xuất" value={formatCurrency(product.suggestedRetailPrice)} />}
+                    {product.taxRate !== undefined && <DetailField label="Thuế suất" value={`${product.taxRate}%`} />}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle className="text-h3">Bảng giá bán</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    {salesPolicies.map(p => <DetailField key={p.systemId} label={`${p.name}${p.isDefault ? ' (Mặc định)' : ''}`} value={formatCurrency(product.prices[p.systemId])} />)}
+                  </CardContent>
+                </Card>
+              </div>
+              <Card>
+                <CardHeader><CardTitle className="text-h3">Quản lý tồn kho</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                  <DetailField label="Theo dõi tồn kho" value={product.isStockTracked ? 'Có' : 'Không'} />
+                  <DetailField label="Tổng tồn kho" value={<span className="font-semibold">{product.type === 'combo' ? comboTotalStock : totalInventory}</span>} />
+                  {product.type !== 'combo' && <DetailField label="Đang giao dịch" value={Object.values(product.committedByBranch || {}).reduce((s, q) => s + q, 0)} />}
+                  {product.type !== 'combo' && <DetailField label="Đang về" value={Object.values(product.inTransitByBranch || {}).reduce((s, q) => s + q, 0)} />}
+                  <DetailField label="Mức đặt hàng lại" value={product.reorderLevel ?? 0} />
+                  <DetailField label="Tồn kho an toàn" value={product.safetyStock ?? 0} />
+                  <DetailField label="Mức tồn tối đa" value={product.maxStock ?? 0} />
+                  {storageLocation && <DetailField label="Điểm lưu kho" value={storageLocation.name} />}
+                </CardContent>
+              </Card>
+
+              {/* Tồn kho theo chi nhánh */}
+              {product.type === 'combo' ? (
+                <ComboInventoryCard product={product} branches={branches} allProducts={allProducts}
+                  onCommittedClick={(b) => { setSelectedBranch({ systemId: b.systemId, name: b.name }); setCommittedDialogOpen(true); }}
+                  onInTransitClick={(b) => { setInTransitBranch({ systemId: b.systemId, name: b.name }); setInTransitDialogOpen(true); }}
+                />
+              ) : (
+                <Card>
+                  <CardHeader><CardTitle className="text-h3">Tồn kho theo chi nhánh</CardTitle></CardHeader>
+                  <CardContent className="p-0 overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Chi nhánh</TableHead>
+                          <TableHead>Tồn kho</TableHead>
+                          <TableHead>Giá trị</TableHead>
+                          <TableHead>Có thể bán</TableHead>
+                          <TableHead>Đang GD</TableHead>
+                          <TableHead>Đang về</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {branches.map(branch => {
+                          const onHand = product.inventoryByBranch[branch.systemId] || 0;
+                          const committed = product.committedByBranch[branch.systemId] || 0;
+                          const inTransit = product.inTransitByBranch[branch.systemId] || 0;
+                          return (
+                            <TableRow key={branch.systemId}>
+                              <TableCell className="font-medium">{branch.name}</TableCell>
+                              <TableCell className="font-semibold">{onHand}</TableCell>
+                              <TableCell>{formatCurrency(onHand * (product.costPrice || 0))}</TableCell>
+                              <TableCell>{Math.max(0, onHand - committed)}</TableCell>
+                              <TableCell className={committed > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => committed > 0 && (setSelectedBranch({ systemId: branch.systemId, name: branch.name }), setCommittedDialogOpen(true))}>{committed}</TableCell>
+                              <TableCell className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inTransit > 0 && (setInTransitBranch({ systemId: branch.systemId, name: branch.name }), setInTransitDialogOpen(true))}>{inTransit}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
+
+            {/* Tab: E-commerce */}
+            <TabsContent value="ecommerce" className="mt-4">
+              <EcommerceTab product={product} />
+            </TabsContent>
+
+            {/* Tab: Vận chuyển & Logistics */}
+            <TabsContent value="logistics" className="mt-4">
+              <Card>
+                <CardHeader><CardTitle className="text-h3">Thông tin vận chuyển</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2">
+                  {product.weight !== undefined && <DetailField label="Khối lượng" value={`${product.weight} ${product.weightUnit || 'g'}`} />}
+                  {product.dimensions && <DetailField label="Kích thước (D×R×C)" value={`${product.dimensions.length || 0}×${product.dimensions.width || 0}×${product.dimensions.height || 0} cm`} />}
+                  {product.barcode && <DetailField label="Mã vạch" value={product.barcode} />}
+                </CardContent>
+              </Card>
+              {/* Analytics */}
+              <Card className="mt-4">
+                <CardHeader><CardTitle className="text-h3">Phân tích bán hàng</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                  <DetailField label="Tổng đã bán" value={product.totalSold ?? 0} />
+                  {product.totalRevenue && <DetailField label="Tổng doanh thu" value={formatCurrency(product.totalRevenue)} />}
+                  {product.viewCount && <DetailField label="Lượt xem" value={product.viewCount} />}
+                  {product.lastSoldDate && <DetailField label="Bán gần nhất" value={formatDateForDisplay(product.lastSoldDate)} />}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab: Combo */}
+            {isComboProduct(product) && (
+              <TabsContent value="combo" className="mt-4">
+                <ComboItemsCard product={product} pricingPolicies={pricingPolicies} onImagePreview={(url) => { setPreviewImages([url]); setPreviewIndex(0); setIsPreviewOpen(true); }} />
+                <ComboLowStockWarning product={product} allProducts={allProducts} />
+              </TabsContent>
             )}
+
+            {/* Tab: Lịch sử */}
+            <TabsContent value="history" className="mt-4 space-y-4">
+              {/* Lịch sử kho */}
+              <Card>
+                <CardHeader><CardTitle className="text-h3">Lịch sử xuất nhập kho</CardTitle></CardHeader>
+                <CardContent className="p-4">
+                  <RelatedDataTable data={productHistory} columns={stockHistoryColumns} searchKeys={['action', 'documentId', 'employeeName']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_kho_${product.id}`}>
+                    <Select value={historyBranchFilter} onValueChange={(v) => setHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
+                      <SelectTrigger className="h-8 w-full sm:w-[200px]"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                        {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </RelatedDataTable>
+                </CardContent>
+              </Card>
+              {/* Lịch sử giá nhập */}
+              {product.type !== 'combo' && (
+                <Card>
+                  <CardHeader><CardTitle className="text-h3">Lịch sử giá nhập</CardTitle></CardHeader>
+                  <CardContent className="p-4">
+                    <RelatedDataTable data={purchasePriceHistory} columns={purchasePriceHistoryColumns} searchKeys={['supplierName', 'reference', 'note']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_gia_${product.id}`}>
+                      <Select value={priceHistoryBranchFilter} onValueChange={(v) => setPriceHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
+                        <SelectTrigger className="h-8 w-full sm:w-[200px]"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                          {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </RelatedDataTable>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
         </Tabs>
 
         {/* Comments */}

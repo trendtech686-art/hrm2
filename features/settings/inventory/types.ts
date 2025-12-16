@@ -15,6 +15,7 @@ export interface WebsiteSeoData {
   shortDescription?: string | undefined; // Mô tả ngắn (1-2 câu)
   longDescription?: string | undefined; // Mô tả chi tiết (HTML)
   slug?: string | undefined; // URL slug cho website này
+  ogImage?: string | undefined; // Open Graph image URL (for social sharing)
 }
 
 /**

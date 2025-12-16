@@ -217,7 +217,7 @@ if ($action === 'create_product') {
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         send_json_response(['error' => true, 'message' => 'Phương thức yêu cầu không hợp lệ. Chỉ hỗ trợ GET.'], 405);
     }
-    get_categories();
+    api_get_categories();
 } else if ($action === 'update_category') {
     // ACTION: Cập nhật thông tin danh mục
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -233,7 +233,7 @@ if ($action === 'create_product') {
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         send_json_response(['error' => true, 'message' => 'Phương thức yêu cầu không hợp lệ. Chỉ hỗ trợ GET.'], 405);
     }
-    get_brands();
+    api_get_brands();
 } else if ($action === 'update_brand') {
     // ACTION: Cập nhật thông tin thương hiệu
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -472,8 +472,15 @@ function update_product($goods_id, $data)
     // Lọc dữ liệu đầu vào để tránh ghi đè bằng giá trị rỗng
     $filtered_data = [];
     foreach ($data as $key => $value) {
-        $boolean_keys = ['best', 'hot', 'new', 'ishome'];
+        // Boolean keys - luôn chấp nhận (true/false)
+        $boolean_keys = ['best', 'hot', 'new', 'ishome', 'is_on_sale', 'on_sale'];
+        // Text keys - cho phép gửi giá trị rỗng để xóa nội dung
+        $text_keys = ['meta_desc', 'goods_desc', 'goods_brief', 'keywords', 'meta_title', 'seller_note'];
+        
         if (in_array($key, $boolean_keys)) {
+            $filtered_data[$key] = $value;
+        } else if (in_array($key, $text_keys)) {
+            // Text fields: luôn chấp nhận, kể cả rỗng
             $filtered_data[$key] = $value;
         } else if ($value !== '') {
             $filtered_data[$key] = $value;
@@ -517,6 +524,11 @@ function update_product($goods_id, $data)
         }
         if (isset($filtered_data['ishome'])) {
             $update_fields[] = "is_home = '" . (!empty($filtered_data['ishome']) ? 1 : 0) . "'";
+        }
+        // is_on_sale = Hiển thị đăng web (on/off trên website)
+        if (isset($filtered_data['is_on_sale']) || isset($filtered_data['on_sale'])) {
+            $is_on_sale_value = isset($filtered_data['is_on_sale']) ? $filtered_data['is_on_sale'] : $filtered_data['on_sale'];
+            $update_fields[] = "is_on_sale = '" . (!empty($is_on_sale_value) ? 1 : 0) . "'";
         }
         if (isset($filtered_data['shop_price'])) {
             $update_fields[] = "shop_price = '" . floatval($filtered_data['shop_price']) . "'";
@@ -882,8 +894,9 @@ function create_safe_filename($str) {
  * Lấy danh sách danh mục từ database (bao gồm SEO fields)
  * URL: ?action=get_categories
  * Optional: ?action=get_categories&cat_id=123 (lấy chi tiết 1 danh mục)
+ * NOTE: Renamed to api_get_categories to avoid conflict with ECShop lib_common.php
  */
-function get_categories()
+function api_get_categories()
 {
     global $db, $ecs;
     
@@ -989,8 +1002,9 @@ function get_categories()
  * Lấy danh sách thương hiệu từ database
  * URL: ?action=get_brands
  * Optional: ?action=get_brands&brand_id=123 (lấy chi tiết 1 thương hiệu)
+ * NOTE: Renamed to api_get_brands to avoid conflict with ECShop lib_common.php
  */
-function get_brands()
+function api_get_brands()
 {
     global $db, $ecs;
     

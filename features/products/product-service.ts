@@ -18,6 +18,7 @@ export interface ProductQueryParams {
   categoryFilter: string;
   comboFilter: 'all' | 'combo' | 'non-combo';
   stockLevelFilter: 'all' | 'out-of-stock' | 'low-stock' | 'below-safety' | 'high-stock';
+  pkgxFilter: 'all' | 'linked' | 'not-linked';
   dateRange?: [string | undefined, string | undefined] | undefined;
   pagination: { pageIndex: number; pageSize: number };
   sorting: { id: ProductSortKey; desc: boolean };
@@ -40,7 +41,7 @@ const fuseOptions: IFuseOptions<Product> = {
 };
 
 function applyFilters(products: Product[], params: ProductQueryParams): PipelineResult {
-  const { search, statusFilter, typeFilter, categoryFilter, comboFilter, stockLevelFilter, dateRange, sorting } = params;
+  const { search, statusFilter, typeFilter, categoryFilter, comboFilter, stockLevelFilter, pkgxFilter, dateRange, sorting } = params;
 
   let dataset = products.filter((product) => !product.isDeleted);
 
@@ -85,6 +86,13 @@ function applyFilters(products: Product[], params: ProductQueryParams): Pipeline
           return true;
       }
     });
+  }
+
+  // PKGX link filter
+  if (pkgxFilter === 'linked') {
+    dataset = dataset.filter((product) => !!product.pkgxId);
+  } else if (pkgxFilter === 'not-linked') {
+    dataset = dataset.filter((product) => !product.pkgxId);
   }
 
   if (dateRange && (dateRange[0] || dateRange[1])) {

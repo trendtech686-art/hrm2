@@ -7,8 +7,9 @@ import { useBranchStore } from "../settings/branches/store.ts"
 import { useBrandStore } from "../settings/inventory/brand-store.ts"
 import { usePricingPolicyStore } from "../settings/pricing/store.ts"
 import { usePkgxSettingsStore } from "../settings/pkgx/store.ts"
-import { createProduct, updateProduct, updateProductPrice } from "../../lib/pkgx/api-service.ts"
+import { createProduct, updateProduct } from "../../lib/pkgx/api-service.ts"
 import type { PkgxProductPayload } from "../settings/pkgx/types.ts"
+import { usePkgxSync } from "./hooks/use-pkgx-sync.ts"
 import { useAuth } from "../../contexts/auth-context.tsx"
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { getColumns } from "./columns.tsx"
@@ -83,6 +84,7 @@ const defaultTableState: ProductQueryParams = {
   categoryFilter: 'all',
   comboFilter: 'all',
   stockLevelFilter: 'all',
+  pkgxFilter: 'all',
   dateRange: undefined,
   pagination: { pageIndex: 0, pageSize: 20 },
   sorting: DEFAULT_PRODUCT_SORT,
@@ -267,7 +269,19 @@ export function ProductsPage() {
   // ===== PKGX Handlers =====
   const { settings: pkgxSettings, addLog: addPkgxLog } = usePkgxSettingsStore();
   
-  // Helper: Build PKGX product payload from HRM product
+  // Use PKGX sync hook for all sync handlers
+  const {
+    handlePkgxUpdatePrice,
+    handlePkgxSyncInventory,
+    handlePkgxUpdateSeo,
+    handlePkgxSyncDescription,
+    handlePkgxSyncFlags,
+    handlePkgxSyncBasicInfo,
+    handlePkgxSyncImages,
+    handlePkgxSyncAll,
+  } = usePkgxSync({ addPkgxLog });
+  
+  // Helper: Build PKGX product payload from HRM product (for Publish)
   const buildPkgxPayload = React.useCallback((product: Product): PkgxProductPayload => {
     // Find mapped category
     const categoryMapping = pkgxSettings.categoryMappings.find(
@@ -281,18 +295,38 @@ export function ProductsPage() {
     ) : undefined;
     
     // Get price from mapping or default
-    let shopPrice = product.costPrice || 0;
     const { priceMapping } = pkgxSettings;
+    
+    // Shop price (giá bán)
+    let shopPrice = product.costPrice || 0;
     if (priceMapping.shopPrice && product.prices[priceMapping.shopPrice]) {
       shopPrice = product.prices[priceMapping.shopPrice];
     } else if (defaultSellingPolicy) {
       shopPrice = product.prices[defaultSellingPolicy.systemId] || shopPrice;
     }
     
-    // Get market price from mapping
+    // Market price (giá thị trường)
     let marketPrice = shopPrice * 1.2; // Default markup
     if (priceMapping.marketPrice && product.prices[priceMapping.marketPrice]) {
       marketPrice = product.prices[priceMapping.marketPrice];
+    }
+    
+    // Partner price (giá đối tác)
+    let partnerPrice: number | undefined;
+    if (priceMapping.partnerPrice && product.prices[priceMapping.partnerPrice]) {
+      partnerPrice = product.prices[priceMapping.partnerPrice];
+    }
+    
+    // ACE price (giá ACE)
+    let acePrice: number | undefined;
+    if (priceMapping.acePrice && product.prices[priceMapping.acePrice]) {
+      acePrice = product.prices[priceMapping.acePrice];
+    }
+    
+    // Deal price (giá khuyến mãi)
+    let dealPrice: number | undefined;
+    if (priceMapping.dealPrice && product.prices[priceMapping.dealPrice]) {
+      dealPrice = product.prices[priceMapping.dealPrice];
     }
     
     // Calculate total inventory
@@ -300,7 +334,7 @@ export function ProductsPage() {
       ? Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0)
       : 0;
     
-    return {
+    const payload: PkgxProductPayload = {
       goods_name: product.name,
       goods_sn: product.id,
       cat_id: categoryMapping?.pkgxCatId || 0,
@@ -315,65 +349,14 @@ export function ProductsPage() {
       meta_desc: product.seoDescription || product.shortDescription || '',
       original_img: product.thumbnailImage || product.images?.[0] || '',
     };
+    
+    // Add optional prices if mapped
+    if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
+    if (acePrice !== undefined) payload.ace_price = acePrice;
+    if (dealPrice !== undefined) payload.deal_price = dealPrice;
+    
+    return payload;
   }, [pkgxSettings, defaultSellingPolicy]);
-  
-  const handlePkgxUpdatePrice = React.useCallback(async (product: Product) => {
-    if (!product.pkgxId) {
-      toast.error('Sản phẩm chưa được liên kết với PKGX');
-      return;
-    }
-    
-    toast.loading(`Đang đồng bộ giá...`, { id: 'pkgx-sync-price' });
-    
-    try {
-      // Build prices from mappings
-      const prices: Record<string, number> = {};
-      const { priceMapping } = pkgxSettings;
-      
-      if (priceMapping.shopPrice && product.prices[priceMapping.shopPrice]) {
-        prices.shop_price = product.prices[priceMapping.shopPrice];
-      }
-      if (priceMapping.marketPrice && product.prices[priceMapping.marketPrice]) {
-        prices.market_price = product.prices[priceMapping.marketPrice];
-      }
-      if (priceMapping.partnerPrice && product.prices[priceMapping.partnerPrice]) {
-        prices.partner_price = product.prices[priceMapping.partnerPrice];
-      }
-      if (priceMapping.acePrice && product.prices[priceMapping.acePrice]) {
-        prices.ace_price = product.prices[priceMapping.acePrice];
-      }
-      if (priceMapping.dealPrice && product.prices[priceMapping.dealPrice]) {
-        prices.deal_price = product.prices[priceMapping.dealPrice];
-      }
-      
-      // If no mappings, use default price
-      if (Object.keys(prices).length === 0 && defaultSellingPolicy) {
-        prices.shop_price = product.prices[defaultSellingPolicy.systemId] || product.costPrice || 0;
-      }
-      
-      const response = await updateProductPrice(product.pkgxId, prices);
-      
-      if (response.success) {
-        toast.success(`Đã đồng bộ giá cho sản phẩm: ${product.name}`, { id: 'pkgx-sync-price' });
-        addPkgxLog({
-          action: 'sync_price',
-          status: 'success',
-          message: `Đã đồng bộ giá: ${product.name}`,
-          details: { productId: product.systemId, pkgxId: product.pkgxId },
-        });
-      } else {
-        throw new Error(response.error);
-      }
-    } catch (error) {
-      toast.error(`Lỗi đồng bộ giá: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-sync-price' });
-      addPkgxLog({
-        action: 'sync_price',
-        status: 'error',
-        message: `Lỗi đồng bộ giá: ${product.name}`,
-        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
-      });
-    }
-  }, [pkgxSettings, defaultSellingPolicy, addPkgxLog]);
 
   const handlePkgxPublish = React.useCallback(async (product: Product) => {
     if (product.pkgxId) {
@@ -421,85 +404,6 @@ export function ProductsPage() {
     }
   }, [pkgxSettings, buildPkgxPayload, update, addPkgxLog]);
 
-  const handlePkgxUpdateSeo = React.useCallback(async (product: Product) => {
-    if (!product.pkgxId) {
-      toast.error('Sản phẩm chưa được liên kết với PKGX');
-      return;
-    }
-    
-    toast.loading(`Đang đồng bộ SEO...`, { id: 'pkgx-sync-seo' });
-    
-    try {
-      const response = await updateProduct(product.pkgxId, {
-        keywords: product.ktitle || product.name,
-        meta_title: product.ktitle || product.name,
-        meta_desc: product.seoDescription || product.shortDescription || '',
-        goods_brief: product.shortDescription || '',
-        goods_desc: product.description || '',
-      });
-      
-      if (response.success) {
-        toast.success(`Đã đồng bộ SEO cho sản phẩm: ${product.name}`, { id: 'pkgx-sync-seo' });
-        addPkgxLog({
-          action: 'sync_seo',
-          status: 'success',
-          message: `Đã đồng bộ SEO: ${product.name}`,
-          details: { productId: product.systemId, pkgxId: product.pkgxId },
-        });
-      } else {
-        throw new Error(response.error);
-      }
-    } catch (error) {
-      toast.error(`Lỗi đồng bộ SEO: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-sync-seo' });
-      addPkgxLog({
-        action: 'sync_seo',
-        status: 'error',
-        message: `Lỗi đồng bộ SEO: ${product.name}`,
-        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
-      });
-    }
-  }, [addPkgxLog]);
-
-  const handlePkgxSyncInventory = React.useCallback(async (product: Product) => {
-    if (!product.pkgxId) {
-      toast.error('Sản phẩm chưa được liên kết với PKGX');
-      return;
-    }
-    
-    toast.loading(`Đang đồng bộ tồn kho...`, { id: 'pkgx-sync-inventory' });
-    
-    try {
-      // Calculate total inventory
-      const totalInventory = product.inventoryByBranch
-        ? Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0)
-        : 0;
-      
-      const response = await updateProduct(product.pkgxId, {
-        goods_number: totalInventory,
-      });
-      
-      if (response.success) {
-        toast.success(`Đã đồng bộ tồn kho: ${totalInventory} sản phẩm`, { id: 'pkgx-sync-inventory' });
-        addPkgxLog({
-          action: 'sync_inventory',
-          status: 'success',
-          message: `Đã đồng bộ tồn kho: ${product.name} (${totalInventory})`,
-          details: { productId: product.systemId, pkgxId: product.pkgxId, inventory: totalInventory },
-        });
-      } else {
-        throw new Error(response.error);
-      }
-    } catch (error) {
-      toast.error(`Lỗi đồng bộ tồn kho: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-sync-inventory' });
-      addPkgxLog({
-        action: 'sync_inventory',
-        status: 'error',
-        message: `Lỗi đồng bộ tồn kho: ${product.name}`,
-        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
-      });
-    }
-  }, [addPkgxLog]);
-
   const columns = React.useMemo(
     () => getColumns(
       handleDelete, 
@@ -509,9 +413,14 @@ export function ProductsPage() {
       handlePkgxUpdatePrice,
       handlePkgxPublish,
       handlePkgxUpdateSeo,
-      handlePkgxSyncInventory
+      handlePkgxSyncInventory,
+      handlePkgxSyncDescription,
+      handlePkgxSyncFlags,
+      handlePkgxSyncBasicInfo,
+      handlePkgxSyncImages,
+      handlePkgxSyncAll
     ),
-    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxUpdatePrice, handlePkgxPublish, handlePkgxUpdateSeo, handlePkgxSyncInventory]
+    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxUpdatePrice, handlePkgxPublish, handlePkgxUpdateSeo, handlePkgxSyncInventory, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncBasicInfo, handlePkgxSyncImages, handlePkgxSyncAll]
   );
   
   // ✅ Run once on mount only
@@ -523,7 +432,7 @@ export function ProductsPage() {
     ];
     const initialVisibility: Record<string, boolean> = {};
     columns.forEach(c => {
-      if (c.id === 'select' || c.id === 'actions') {
+      if (c.id === 'select' || c.id === 'actions' || c.id === 'pkgxActions') {
         initialVisibility[c.id!] = true;
       } else {
         initialVisibility[c.id!] = defaultVisibleColumns.includes(c.id!);
@@ -600,6 +509,17 @@ export function ProductsPage() {
       updateTableState((prev) => ({
         ...prev,
         stockLevelFilter: value as ProductQueryParams['stockLevelFilter'],
+        pagination: { ...prev.pagination, pageIndex: 0 },
+      }));
+    },
+    [updateTableState]
+  );
+
+  const handlePkgxFilterChange = React.useCallback(
+    (value: string) => {
+      updateTableState((prev) => ({
+        ...prev,
+        pkgxFilter: value as ProductQueryParams['pkgxFilter'],
         pagination: { ...prev.pagination, pageIndex: 0 },
       }));
     },
@@ -894,6 +814,17 @@ export function ProductsPage() {
           <SelectItem value="high-stock">Tồn cao ({stockLevelCounts.highStock})</SelectItem>
         </SelectContent>
       </Select>
+
+      <Select value={tableState.pkgxFilter} onValueChange={handlePkgxFilterChange}>
+        <SelectTrigger className="w-full sm:w-[180px] h-9">
+          <SelectValue placeholder="Trạng thái PKGX" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Tất cả PKGX</SelectItem>
+          <SelectItem value="linked">Đã liên kết PKGX</SelectItem>
+          <SelectItem value="not-linked">Chưa liên kết PKGX</SelectItem>
+        </SelectContent>
+      </Select>
     </>  
   );
 
@@ -920,6 +851,76 @@ export function ProductsPage() {
     printMultiple('product-label', printOptionsList);
   }, [printMultiple, storeSettings, defaultSellingPolicy]);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PKGX Bulk Action Helper Functions
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Get total inventory across all branches
+  const getTotalInventory = (product: Product): number => {
+    if (!product.inventoryByBranch) return 0;
+    return Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0);
+  };
+
+  // Create price update payload for PKGX
+  const createPriceUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
+    const pkgxSettingsState = usePkgxSettingsStore.getState();
+    const { priceMapping } = pkgxSettingsState.settings;
+    
+    const payload: Partial<PkgxProductPayload> = {};
+    
+    // Shop price (giá bán)
+    if (priceMapping?.shopPrice && product.prices?.[priceMapping.shopPrice]) {
+      payload.shop_price = product.prices[priceMapping.shopPrice];
+    } else if (defaultSellingPolicy && product.prices?.[defaultSellingPolicy.systemId]) {
+      payload.shop_price = product.prices[defaultSellingPolicy.systemId];
+    } else if (product.costPrice) {
+      payload.shop_price = product.costPrice;
+    }
+    
+    // Market price (giá thị trường)
+    if (priceMapping?.marketPrice && product.prices?.[priceMapping.marketPrice]) {
+      payload.market_price = product.prices[priceMapping.marketPrice];
+    }
+    
+    // Partner price
+    if (priceMapping?.partnerPrice && product.prices?.[priceMapping.partnerPrice]) {
+      payload.partner_price = product.prices[priceMapping.partnerPrice];
+    }
+    
+    // Ace price
+    if (priceMapping?.acePrice && product.prices?.[priceMapping.acePrice]) {
+      payload.ace_price = product.prices[priceMapping.acePrice];
+    }
+    
+    // Deal price
+    if (priceMapping?.dealPrice && product.prices?.[priceMapping.dealPrice]) {
+      payload.deal_price = product.prices[priceMapping.dealPrice];
+    }
+    
+    return payload;
+  };
+
+  // Create SEO update payload for PKGX
+  const createSeoUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
+    return {
+      meta_title: product.ktitle || product.name,
+      meta_desc: product.seoDescription || product.shortDescription || '',
+      keywords: product.ktitle || product.name,
+      goods_brief: product.shortDescription || '',
+    };
+  };
+
+  // Create flags update payload for PKGX
+  const createFlagsUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
+    return {
+      best: product.isBestSeller ?? false,
+      hot: product.isFeatured ?? false,
+      new: product.isNewArrival ?? false,
+      ishome: product.isFeatured ?? false,
+      is_on_sale: product.isPublished ?? true,
+    };
+  };
+
   const bulkActions = [
     {
       label: "In tem phụ sản phẩm",
@@ -927,6 +928,210 @@ export function ProductsPage() {
         handlePrintLabels(selectedRows);
         toast.success(`Đang in tem cho ${selectedRows.length} sản phẩm`);
       }
+    },
+    {
+      label: "───── PKGX ─────",
+      onSelect: () => {},
+      disabled: true,
+    },
+    {
+      label: "Đẩy lên PKGX",
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        // Filter products that have category mapping
+        const validProducts = selectedRows.filter(p => {
+          if (!p.categorySystemId) return false;
+          return pkgxSettings.getCategoryMappingByHrmId(p.categorySystemId);
+        });
+        
+        if (validProducts.length === 0) {
+          toast.error('Không có sản phẩm nào có thể đẩy lên PKGX (chưa mapping danh mục)');
+          return;
+        }
+        
+        toast.info(`Đang đẩy ${validProducts.length} sản phẩm lên PKGX...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of validProducts) {
+          try {
+            const payload = buildPkgxPayload(product);
+            
+            if (product.pkgxId) {
+              const response = await updateProduct(product.pkgxId, payload);
+              if (response.success) successCount++;
+              else errorCount++;
+            } else {
+              const response = await createProduct(payload);
+              if (response.success && response.data?.goods_id) {
+                update(product.systemId, { pkgxId: response.data.goods_id });
+                successCount++;
+              } else errorCount++;
+            }
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã đẩy ${successCount} sản phẩm lên PKGX`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      }
+    },
+    {
+      label: "Sync giá PKGX",
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang sync giá ${linkedProducts.length} sản phẩm...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            const pricePayload = createPriceUpdatePayload(product);
+            const response = await updateProduct(product.pkgxId!, pricePayload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã sync giá ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi sync giá ${errorCount} sản phẩm`);
+      }
+    },
+    {
+      label: "Sync tồn kho PKGX",
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang sync tồn kho ${linkedProducts.length} sản phẩm...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            const totalStock = getTotalInventory(product);
+            const response = await updateProduct(product.pkgxId!, { goods_number: totalStock });
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã sync tồn kho ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi sync tồn kho ${errorCount} sản phẩm`);
+      }
+    },
+    {
+      label: "Sync SEO PKGX",
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang sync SEO ${linkedProducts.length} sản phẩm...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            const seoPayload = createSeoUpdatePayload(product);
+            const response = await updateProduct(product.pkgxId!, seoPayload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã sync SEO ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi sync SEO ${errorCount} sản phẩm`);
+      }
+    },
+    {
+      label: "Sync flags PKGX",
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang sync flags ${linkedProducts.length} sản phẩm...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            const flagsPayload = createFlagsUpdatePayload(product);
+            const response = await updateProduct(product.pkgxId!, flagsPayload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã sync flags ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi sync flags ${errorCount} sản phẩm`);
+      }
+    },
+    {
+      label: "───────────────",
+      onSelect: () => {},
+      disabled: true,
     },
     {
       label: "Chuyển vào thùng rác",

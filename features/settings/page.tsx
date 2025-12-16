@@ -139,6 +139,14 @@ const operationalSettings: SettingsItem[] = [
     iconColor: 'text-rose-600'
   },
   { 
+    icon: Globe, 
+    title: 'Website Trendtech', 
+    description: 'Đồng bộ sản phẩm với website Trendtech (Next.js)', 
+    href: '/settings/trendtech',
+    badge: 'new' as const,
+    iconColor: 'text-blue-600'
+  },
+  { 
     icon: Truck, 
     title: 'Cài đặt vận chuyển', 
     description: 'Quản lý đối tác và hình thức vận chuyển', 

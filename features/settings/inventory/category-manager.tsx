@@ -52,6 +52,7 @@ import {
 import type { ProductCategory, WebsiteSeoData } from './types';
 import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
 import { nanoid } from 'nanoid';
+import { SeoAnalysisPanel } from '../../../components/shared/seo-preview';
 
 // =============================================================================
 // TYPES
@@ -64,6 +65,8 @@ interface CategoryManagerProps {
   onDelete: (systemId: SystemId) => void;
   onMove: (systemId: SystemId, newParentId: SystemId | undefined, newSortOrder: number) => void;
   existingIds: string[];
+  /** Ref để expose hàm addNew từ PageHeader */
+  addNewRef?: React.RefObject<{ addNew: () => void } | null>;
 }
 
 // =============================================================================
@@ -335,6 +338,19 @@ function CategoryDetailForm({
 
   // Auto-generate slug
   const watchName = form.watch('name');
+  
+  // Watch SEO fields for PKGX
+  const watchedPkgxSeoTitle = form.watch('websiteSeo.pkgx.seoTitle');
+  const watchedPkgxMetaDesc = form.watch('websiteSeo.pkgx.metaDescription');
+  const watchedPkgxKeywords = form.watch('websiteSeo.pkgx.seoKeywords');
+  const watchedPkgxSlug = form.watch('websiteSeo.pkgx.slug');
+  
+  // Watch SEO fields for Trendtech
+  const watchedTrendtechSeoTitle = form.watch('websiteSeo.trendtech.seoTitle');
+  const watchedTrendtechMetaDesc = form.watch('websiteSeo.trendtech.metaDescription');
+  const watchedTrendtechKeywords = form.watch('websiteSeo.trendtech.seoKeywords');
+  const watchedTrendtechSlug = form.watch('websiteSeo.trendtech.slug');
+
   React.useEffect(() => {
     if (watchName && isNew) {
       const slug = watchName
@@ -751,7 +767,12 @@ function CategoryDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả ngắn</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả ngắn gọn 1-2 câu" {...field} value={field.value || ''} rows={2} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả ngắn gọn 1-2 câu..."
+                              minHeight="100px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -765,11 +786,48 @@ function CategoryDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả chi tiết</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả đầy đủ (hỗ trợ HTML)" {...field} value={field.value || ''} rows={4} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả đầy đủ về danh mục..."
+                              minHeight="200px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="websiteSeo.pkgx.slug"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL Slug</FormLabel>
+                          <FormControl>
+                            <Input placeholder="danh-muc-abc" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>Đường dẫn URL cho website PKGX</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* SEO Analysis Panel - PKGX */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SeoAnalysisPanel
+                      title={watchedPkgxSeoTitle || watchName || ''}
+                      description={watchedPkgxMetaDesc || ''}
+                      keywords={watchedPkgxKeywords || ''}
+                      slug={watchedPkgxSlug || ''}
+                      siteName="phukiengiaxuong.com.vn"
                     />
                   </CardContent>
                 </Card>
@@ -837,7 +895,12 @@ function CategoryDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả ngắn</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả ngắn gọn 1-2 câu" {...field} value={field.value || ''} rows={2} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả ngắn gọn 1-2 câu..."
+                              minHeight="100px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -851,11 +914,48 @@ function CategoryDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả chi tiết</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả đầy đủ (hỗ trợ HTML)" {...field} value={field.value || ''} rows={4} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả đầy đủ về danh mục..."
+                              minHeight="200px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="websiteSeo.trendtech.slug"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL Slug</FormLabel>
+                          <FormControl>
+                            <Input placeholder="danh-muc-abc" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>Đường dẫn URL cho website Trendtech</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* SEO Analysis Panel - Trendtech */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SeoAnalysisPanel
+                      title={watchedTrendtechSeoTitle || watchName || ''}
+                      description={watchedTrendtechMetaDesc || ''}
+                      keywords={watchedTrendtechKeywords || ''}
+                      slug={watchedTrendtechSlug || ''}
+                      siteName="trendtech.vn"
                     />
                   </CardContent>
                 </Card>
@@ -879,6 +979,7 @@ export function CategoryManager({
   onDelete,
   onMove,
   existingIds,
+  addNewRef,
 }: CategoryManagerProps) {
   const [selectedCategory, setSelectedCategory] = React.useState<ProductCategory | null>(null);
   const [isNewMode, setIsNewMode] = React.useState(false);
@@ -886,6 +987,15 @@ export function CategoryManager({
   const [searchTerm, setSearchTerm] = React.useState('');
   const [expandedIds, setExpandedIds] = React.useState<Set<SystemId>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+
+  // Expose addNew function via ref for PageHeader
+  React.useImperativeHandle(addNewRef, () => ({
+    addNew: () => {
+      setSelectedCategory(null);
+      setNewParentId(undefined);
+      setIsNewMode(true);
+    }
+  }), []);
 
   const rootCategories = React.useMemo(
     () => categories.filter(c => !c.parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
@@ -978,7 +1088,7 @@ export function CategoryManager({
 
   return (
     <>
-      <div className="h-[calc(100vh-220px)] flex border rounded-lg overflow-hidden bg-background">
+      <div className="h-[calc(100vh-140px)] flex border rounded-lg overflow-hidden bg-background">
         {/* Left Panel - Tree */}
         <div className="w-80 border-r flex flex-col bg-muted/30">
           {/* Tree Header */}

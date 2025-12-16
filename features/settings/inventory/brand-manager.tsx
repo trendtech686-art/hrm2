@@ -13,6 +13,8 @@ import {
   MoreVertical,
   Power,
   Pencil,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,6 +58,11 @@ import {
 import type { Brand, WebsiteSeoData } from './types';
 import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
+import { NewDocumentsUpload } from '../../../components/ui/new-documents-upload';
+import { FileUploadAPI, type StagingFile } from '../../../lib/file-upload-api';
+import { SeoAnalysisPanel } from '../../../components/shared/seo-preview';
+import { TipTapEditor } from '../../../components/ui/tiptap-editor';
+import { nanoid } from 'nanoid';
 
 // =============================================================================
 // TYPES
@@ -68,6 +75,8 @@ interface BrandManagerProps {
   onDelete: (systemId: SystemId) => void;
   onToggleActive: (systemId: SystemId, isActive: boolean) => void;
   existingIds: string[];
+  /** Ref để expose hàm addNew từ PageHeader */
+  addNewRef?: React.RefObject<{ addNew: () => void } | null>;
 }
 
 // =============================================================================
@@ -235,6 +244,10 @@ function BrandDetailForm({
   onDelete,
 }: BrandDetailFormProps) {
   const [activeTab, setActiveTab] = React.useState<'general' | 'seo-pkgx' | 'seo-trendtech'>('general');
+  
+  // Logo upload state
+  const [logoFiles, setLogoFiles] = React.useState<StagingFile[]>([]);
+  const [logoSessionId, setLogoSessionId] = React.useState<string | undefined>();
 
   const form = useForm<BrandFormValues>({
     resolver: zodResolver(brandFormSchema),
@@ -265,6 +278,9 @@ function BrandDetailForm({
         trendtech: brand?.websiteSeo?.trendtech || {},
       },
     });
+    // Reset logo upload state when brand changes
+    setLogoFiles([]);
+    setLogoSessionId(undefined);
     setActiveTab('general');
   }, [brand, form]);
 
@@ -274,10 +290,45 @@ function BrandDetailForm({
       form.setError('id', { message: 'Mã thương hiệu đã tồn tại' });
       return;
     }
-    onSave(data);
+    
+    const brandId = brand?.systemId || `BRAND_${nanoid(10)}`;
+    
+    // Confirm logo staging files
+    let logoUrl = data.logo;
+    if (logoFiles.length > 0 && logoSessionId) {
+      try {
+        await FileUploadAPI.confirmStagingFiles(
+          logoSessionId,
+          brandId,
+          'brands',
+          'logo',
+          { name: data.name }
+        );
+        logoUrl = logoFiles[0]?.url || logoUrl;
+      } catch (error) {
+        console.error('Error confirming logo:', error);
+      }
+    }
+    
+    onSave({
+      ...data,
+      logo: logoUrl,
+    });
   };
 
   const watchedName = form.watch('name');
+  
+  // Watch SEO fields for PKGX
+  const watchedPkgxSeoTitle = form.watch('websiteSeo.pkgx.seoTitle');
+  const watchedPkgxMetaDesc = form.watch('websiteSeo.pkgx.metaDescription');
+  const watchedPkgxKeywords = form.watch('websiteSeo.pkgx.seoKeywords');
+  const watchedPkgxSlug = form.watch('websiteSeo.pkgx.slug');
+  
+  // Watch SEO fields for Trendtech
+  const watchedTrendtechSeoTitle = form.watch('websiteSeo.trendtech.seoTitle');
+  const watchedTrendtechMetaDesc = form.watch('websiteSeo.trendtech.metaDescription');
+  const watchedTrendtechKeywords = form.watch('websiteSeo.trendtech.seoKeywords');
+  const watchedTrendtechSlug = form.watch('websiteSeo.trendtech.slug');
 
   // Auto-generate ID from name for new brands
   React.useEffect(() => {
@@ -453,6 +504,46 @@ function BrandDetailForm({
                     />
                   </CardContent>
                 </Card>
+
+                {/* Logo Upload Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4" />
+                      Logo thương hiệu
+                    </CardTitle>
+                    <CardDescription>Tải lên logo thương hiệu (PNG, JPG, WebP - tối đa 2MB)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Existing logo */}
+                    {brand?.logo && logoFiles.length === 0 && (
+                      <div className="flex items-center gap-4">
+                        <div className="w-24 h-24 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
+                          <img 
+                            src={brand.logo} 
+                            alt="Logo hiện tại" 
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Logo hiện tại. Upload logo mới để thay thế.
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Upload new logo */}
+                    <NewDocumentsUpload
+                      accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }}
+                      maxFiles={1}
+                      maxSize={2 * 1024 * 1024}
+                      value={logoFiles}
+                      onChange={setLogoFiles}
+                      sessionId={logoSessionId}
+                      onSessionChange={setLogoSessionId}
+                      className="min-h-[120px]"
+                    />
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {/* SEO PKGX Tab */}
@@ -517,7 +608,12 @@ function BrandDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả ngắn</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả ngắn gọn 1-2 câu" {...field} value={field.value || ''} rows={2} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả ngắn gọn 1-2 câu..."
+                              minHeight="100px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -531,11 +627,48 @@ function BrandDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả chi tiết</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả đầy đủ (hỗ trợ HTML)" {...field} value={field.value || ''} rows={4} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả đầy đủ về thương hiệu..."
+                              minHeight="200px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="websiteSeo.pkgx.slug"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL Slug</FormLabel>
+                          <FormControl>
+                            <Input placeholder="thuong-hieu-abc" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>Đường dẫn URL thân thiện. VD: /thuong-hieu/thuong-hieu-abc</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* SEO Analysis Panel - PKGX */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SeoAnalysisPanel
+                      title={watchedPkgxSeoTitle || watchedName || ''}
+                      description={watchedPkgxMetaDesc || ''}
+                      keywords={watchedPkgxKeywords || ''}
+                      slug={watchedPkgxSlug || ''}
+                      siteName="phukiengiaxuong.com.vn"
                     />
                   </CardContent>
                 </Card>
@@ -603,7 +736,12 @@ function BrandDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả ngắn</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả ngắn gọn 1-2 câu" {...field} value={field.value || ''} rows={2} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả ngắn gọn 1-2 câu..."
+                              minHeight="100px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -617,11 +755,48 @@ function BrandDetailForm({
                         <FormItem>
                           <FormLabel>Mô tả chi tiết</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Mô tả đầy đủ (hỗ trợ HTML)" {...field} value={field.value || ''} rows={4} />
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả đầy đủ về thương hiệu..."
+                              minHeight="200px"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="websiteSeo.trendtech.slug"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL Slug</FormLabel>
+                          <FormControl>
+                            <Input placeholder="thuong-hieu-abc" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>Đường dẫn URL thân thiện</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* SEO Analysis Panel - Trendtech */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SeoAnalysisPanel
+                      title={watchedTrendtechSeoTitle || watchedName || ''}
+                      description={watchedTrendtechMetaDesc || ''}
+                      keywords={watchedTrendtechKeywords || ''}
+                      slug={watchedTrendtechSlug || ''}
+                      siteName="trendtech.vn"
                     />
                   </CardContent>
                 </Card>
@@ -645,12 +820,21 @@ export function BrandManager({
   onDelete,
   onToggleActive,
   existingIds,
+  addNewRef,
 }: BrandManagerProps) {
   const [selectedBrand, setSelectedBrand] = React.useState<Brand | null>(null);
   const [isNewMode, setIsNewMode] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [brandToDelete, setBrandToDelete] = React.useState<Brand | null>(null);
+
+  // Expose addNew function via ref for PageHeader
+  React.useImperativeHandle(addNewRef, () => ({
+    addNew: () => {
+      setSelectedBrand(null);
+      setIsNewMode(true);
+    }
+  }), []);
 
   // Sort brands by name
   const sortedBrands = React.useMemo(
@@ -722,7 +906,7 @@ export function BrandManager({
 
   return (
     <>
-      <div className="h-[calc(100vh-220px)] flex border rounded-lg overflow-hidden bg-background">
+      <div className="h-[calc(100vh-140px)] flex border rounded-lg overflow-hidden bg-background">
         {/* Left Panel - Brand List */}
         <div className="w-80 border-r flex flex-col bg-muted/30">
           {/* Header */}

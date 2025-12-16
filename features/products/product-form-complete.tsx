@@ -11,6 +11,8 @@ import { useProductLogisticsSettingsStore } from "../settings/inventory/logistic
 import { useStorageLocationStore } from "../settings/inventory/storage-location-store.ts";
 import { useBrandStore } from "../settings/inventory/brand-store.ts";
 import { useImporterStore } from "../settings/inventory/importer-store.ts";
+import { useProductTypeStore } from "../settings/inventory/product-type-store.ts";
+import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts";
 import { ImageUploadManager } from '../../components/ui/image-upload-manager.tsx';
 import { useImageUpload } from '../../hooks/use-image-upload.ts';
 import { toast } from 'sonner';
@@ -26,6 +28,7 @@ import {
 } from "../../components/ui/form.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
+import { TipTapEditor } from "../../components/ui/tiptap-editor.tsx";
 import { CurrencyInput } from "../../components/ui/currency-input.tsx";
 import {
   Select,
@@ -44,7 +47,7 @@ import { PlusCircle, X, Info, Globe } from "lucide-react";
 import { ComboSection } from './components/combo-section.tsx';
 import { calculateComboCostPrice, calculateFinalComboPricesByPolicy } from './combo-utils.ts';
 import type { SystemId } from '@/lib/id-types';
-import type { StagingFile } from '@/lib/file-upload-api.ts';
+import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api.ts';
 
 // ═══════════════════════════════════════════════════════════════
 // VALIDATION HELPER
@@ -117,24 +120,117 @@ export function ProductFormComplete({
   const { getActive: getActiveStorageLocations } = useStorageLocationStore();
   const { getActive: getActiveBrands } = useBrandStore();
   const { getActive: getActiveImporters, getDefault: getDefaultImporter } = useImporterStore();
+  const { getActive: getActiveProductTypes } = useProductTypeStore();
+  const { data: productCategories } = useProductCategoryStore();
 
-  // Image upload management
-  const imageUploadOptions = React.useMemo(
+  // ═══════════════════════════════════════════════════════════════
+  // IMAGE MANAGEMENT - Load existing images for edit mode
+  // ═══════════════════════════════════════════════════════════════
+  const [isLoadingImages, setIsLoadingImages] = React.useState(false);
+  const [loadedThumbnails, setLoadedThumbnails] = React.useState<StagingFile[]>([]);
+  const [loadedGallery, setLoadedGallery] = React.useState<StagingFile[]>([]);
+
+  // Load images from server when editing
+  React.useEffect(() => {
+    if (initialData?.systemId && isEditMode) {
+      setIsLoadingImages(true);
+      
+      FileUploadAPI.getProductFiles(initialData.systemId)
+        .then((files) => {
+          console.log('[ProductForm] Loaded files from server:', files);
+          
+          // Separate thumbnail and gallery files
+          const thumbnails: StagingFile[] = [];
+          const gallery: StagingFile[] = [];
+          
+          files.forEach(file => {
+            const stagingFile: StagingFile = {
+              id: file.id,
+              sessionId: '', // No session for existing files
+              name: file.name,
+              originalName: file.originalName,
+              slug: file.slug,
+              filename: file.filename,
+              size: file.size,
+              type: file.type,
+              url: file.url,
+              status: 'permanent' as const,
+              uploadedAt: file.uploadedAt,
+              metadata: file.metadata
+            };
+            
+            if (file.documentName === 'thumbnail') {
+              thumbnails.push(stagingFile);
+            } else if (file.documentName === 'gallery') {
+              gallery.push(stagingFile);
+            }
+          });
+          
+          setLoadedThumbnails(thumbnails);
+          setLoadedGallery(gallery);
+          
+          // Also set to staging files for the upload components
+          if (thumbnails.length > 0) {
+            setThumbnailStagingFiles(thumbnails);
+          }
+          if (gallery.length > 0) {
+            setGalleryStagingFiles(gallery);
+          }
+        })
+        .catch((error) => {
+          console.error('[ProductForm] Failed to load images:', error);
+        })
+        .finally(() => {
+          setIsLoadingImages(false);
+        });
+    }
+  }, [initialData?.systemId, isEditMode]);
+
+  // Image upload management - THUMBNAIL (single main image)
+  const thumbnailUploadOptions = React.useMemo(
     () => ({
       entityType: 'product' as const,
-      ...(initialData?.images ? { initialImages: initialData.images } : {}),
     }),
-    [initialData?.images]
+    []
   );
 
   const {
-    stagingFiles: imageStagingFiles,
-    sessionId: imageSessionId,
-    setStagingFiles: setImageStagingFiles,
-    setSessionId: setImageSessionId,
-    confirmImages,
-    hasImages,
-  } = useImageUpload(imageUploadOptions);
+    stagingFiles: thumbnailStagingFiles,
+    sessionId: thumbnailSessionId,
+    setStagingFiles: setThumbnailStagingFiles,
+    setSessionId: setThumbnailSessionId,
+    confirmImages: confirmThumbnailImages,
+    hasImages: hasThumbnailImages,
+  } = useImageUpload(thumbnailUploadOptions);
+
+  // Image upload management - GALLERY (album images)
+  const galleryUploadOptions = React.useMemo(
+    () => ({
+      entityType: 'product' as const,
+    }),
+    []
+  );
+
+  const {
+    stagingFiles: galleryStagingFiles,
+    sessionId: gallerySessionId,
+    setStagingFiles: setGalleryStagingFiles,
+    setSessionId: setGallerySessionId,
+    confirmImages: confirmGalleryImages,
+    hasImages: hasGalleryImages,
+  } = useImageUpload(galleryUploadOptions);
+
+  // Combined check for any images
+  const hasImages = hasThumbnailImages || hasGalleryImages;
+
+  // Combined confirm function
+  const confirmImages = async (productId: string, values: Record<string, any>) => {
+    const results = await Promise.all([
+      hasThumbnailImages ? confirmThumbnailImages(productId, { ...values, documentName: 'thumbnail' }) : Promise.resolve(null),
+      hasGalleryImages ? confirmGalleryImages(productId, { ...values, documentName: 'gallery' }) : Promise.resolve(null),
+    ]);
+    return results.flat().filter(Boolean);
+  };
   
   const [tags, setTags] = React.useState<string[]>(initialData?.tags || []);
   const [tagInput, setTagInput] = React.useState('');
@@ -177,6 +273,23 @@ export function ProductFormComplete({
   const brandOptions = React.useMemo(
     () => activeBrands.map(b => ({ value: b.systemId, label: b.name })),
     [activeBrands]
+  );
+
+  const activeProductTypes = React.useMemo(
+    () => getActiveProductTypes(),
+    [getActiveProductTypes]
+  );
+
+  const productTypeOptions = React.useMemo(
+    () => activeProductTypes.map(pt => ({ value: pt.systemId, label: pt.name })),
+    [activeProductTypes]
+  );
+
+  const categoryOptions = React.useMemo(
+    () => productCategories
+      .filter(c => c.isActive !== false)
+      .map(c => ({ value: c.systemId, label: c.path || c.name })),
+    [productCategories]
   );
 
   const activeImporters = React.useMemo(
@@ -489,17 +602,31 @@ export function ProductFormComplete({
       return;
     }
     
-    // Submit the form data
+    // Build image files to pass to parent
+    const imageFiles: Record<string, StagingFile[]> = {};
+    
+    if (thumbnailStagingFiles.length > 0 && thumbnailSessionId) {
+      imageFiles['thumbnail'] = thumbnailStagingFiles.map(f => ({
+        ...f,
+        sessionId: thumbnailSessionId,
+      }));
+    }
+    
+    if (galleryStagingFiles.length > 0 && gallerySessionId) {
+      imageFiles['gallery'] = galleryStagingFiles.map(f => ({
+        ...f,
+        sessionId: gallerySessionId,
+      }));
+    }
+    
+    console.log('[ProductForm] Submitting with imageFiles:', imageFiles);
+    
+    // Submit the form data with image files
     onSubmit({
       ...values,
       tags,
+      _imageFiles: Object.keys(imageFiles).length > 0 ? imageFiles : undefined,
     });
-    
-    // Then confirm images if any
-    if (hasImages) {
-      const productId = values.id;
-      await confirmImages(productId, values);
-    }
   };
 
   return (
@@ -510,13 +637,12 @@ export function ProductFormComplete({
         className="space-y-6"
       >
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="basic">Cơ bản &amp; Giá bán</TabsTrigger>
             <TabsTrigger value="images">Hình ảnh</TabsTrigger>
             <TabsTrigger value="inventory">Kho</TabsTrigger>
             <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
             <TabsTrigger value="label">Tem phụ</TabsTrigger>
-            <TabsTrigger value="ecommerce">E-commerce</TabsTrigger>
             <TabsTrigger value="seo-pkgx" className="gap-1">
               <Globe className="h-3 w-3" style={{ color: '#ef4444' }} />
               SEO PKGX
@@ -706,6 +832,114 @@ export function ProductFormComplete({
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="productTypeSystemId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Loại sản phẩm</FormLabel>
+                        <FormControl>
+                          <Combobox
+                            options={productTypeOptions}
+                            value={productTypeOptions.find(opt => opt.value === field.value) || null}
+                            onChange={option => field.onChange(option?.value)}
+                            placeholder="Chọn loại sản phẩm"
+                            searchPlaceholder="Tìm kiếm..."
+                            emptyPlaceholder="Không tìm thấy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="categorySystemId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Danh mục</FormLabel>
+                        <FormControl>
+                          <Combobox
+                            options={categoryOptions}
+                            value={categoryOptions.find(opt => opt.value === field.value) || null}
+                            onChange={option => field.onChange(option?.value)}
+                            placeholder="Chọn danh mục"
+                            searchPlaceholder="Tìm kiếm..."
+                            emptyPlaceholder="Không tìm thấy"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <FormField
+                    control={form.control}
+                    name="taxRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Thuế suất (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            className="h-9"
+                            type="number"
+                            min={0}
+                            max={100}
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              field.onChange(val === '' ? undefined : parseFloat(val));
+                            }}
+                            placeholder="VD: 10"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="launchedDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ngày ra mắt</FormLabel>
+                        <FormControl>
+                          <Input
+                            className="h-9"
+                            type="date"
+                            {...field}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="discontinuedDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ngày ngừng KD</FormLabel>
+                        <FormControl>
+                          <Input
+                            className="h-9"
+                            type="date"
+                            {...field}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -743,6 +977,178 @@ export function ProductFormComplete({
                     </div>
                   )}
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="sellerNote"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ghi chú nội bộ</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="min-h-[80px]"
+                          {...field}
+                          value={field.value || ''}
+                          placeholder="Ghi chú riêng cho người bán (không hiển thị cho khách hàng)..."
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Ghi chú nội bộ - chỉ nhân viên xem được, không hiển thị trên website
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Card: Cài đặt hiển thị website - moved from E-commerce tab */}
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-h3">Cài đặt hiển thị website</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="isPublished"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Đăng web</FormLabel>
+                          <FormDescription className="text-xs">
+                            Hiển thị trên website
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value || false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="isFeatured"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Nổi bật</FormLabel>
+                          <FormDescription className="text-xs">
+                            Sản phẩm nổi bật
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value || false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="isNewArrival"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Mới về</FormLabel>
+                          <FormDescription className="text-xs">
+                            Hàng mới về
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value || false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="isBestSeller"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Bán chạy</FormLabel>
+                          <FormDescription className="text-xs">
+                            Sản phẩm bán chạy
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value || false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="isOnSale"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>Đang giảm giá</FormLabel>
+                          <FormDescription className="text-xs">
+                            Hiện badge Sale
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value || false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sortOrder"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Thứ tự hiển thị</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            placeholder="0"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="publishedAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ngày đăng web</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Ngày sản phẩm được đăng lên website
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
 
@@ -939,20 +1345,73 @@ export function ProductFormComplete({
 
           {/* Tab 2: Images */}
           <TabsContent value="images" className="space-y-4 mt-4">
+            {/* Ảnh chính (thumbnail) - chỉ 1 ảnh */}
             <Card>
               <CardHeader>
-                <CardTitle>Hình ảnh sản phẩm</CardTitle>
+                <CardTitle>Ảnh chính</CardTitle>
               </CardHeader>
               <CardContent>
                 <ImageUploadManager
-                  value={imageStagingFiles}
-                  onChange={setImageStagingFiles}
-                  {...(imageSessionId ? { sessionId: imageSessionId } : {})}
-                  onSessionChange={(nextSessionId) => setImageSessionId(nextSessionId)}
-                  maxFiles={20}
+                  value={thumbnailStagingFiles}
+                  onChange={setThumbnailStagingFiles}
+                  {...(thumbnailSessionId ? { sessionId: thumbnailSessionId } : {})}
+                  onSessionChange={(nextSessionId) => setThumbnailSessionId(nextSessionId)}
+                  maxFiles={1}
+                  maxSize={5 * 1024 * 1024}
+                  maxTotalSize={5 * 1024 * 1024}
+                  description="Tải lên ảnh đại diện chính của sản phẩm. Chỉ được phép 1 ảnh."
+                />
+              </CardContent>
+            </Card>
+
+            {/* Ảnh album (gallery) - nhiều ảnh */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Album ảnh</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ImageUploadManager
+                  value={galleryStagingFiles}
+                  onChange={setGalleryStagingFiles}
+                  {...(gallerySessionId ? { sessionId: gallerySessionId } : {})}
+                  onSessionChange={(nextSessionId) => setGallerySessionId(nextSessionId)}
+                  maxFiles={19}
                   maxSize={5 * 1024 * 1024}
                   maxTotalSize={50 * 1024 * 1024}
-                  description="Tải lên hình ảnh sản phẩm. Ảnh đầu tiên sẽ được dùng làm ảnh đại diện."
+                  description="Tải lên các hình ảnh phụ cho bộ sưu tập sản phẩm. Tối đa 19 ảnh."
+                />
+              </CardContent>
+            </Card>
+
+            {/* Video Links - moved from E-commerce tab */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Video Links</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="videoLinks"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Danh sách Video</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          value={(field.value as string[] | undefined)?.join('\n') || ''}
+                          onChange={(e) => {
+                            const links = e.target.value.split('\n').filter(Boolean);
+                            field.onChange(links.length > 0 ? links : undefined);
+                          }}
+                          placeholder="https://youtube.com/watch?v=xxx&#10;https://tiktok.com/@channel/video/xxx&#10;https://drive.google.com/file/d/xxx"
+                          rows={5}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Mỗi link trên một dòng. Hỗ trợ: YouTube, TikTok, Google Drive, Vimeo, Facebook
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </CardContent>
             </Card>
@@ -1381,208 +1840,7 @@ export function ProductFormComplete({
             </Card>
           </TabsContent>
 
-          {/* Tab 6: E-commerce */}
-          <TabsContent value="ecommerce" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cài đặt E-commerce</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="slug"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Slug (URL)</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="ao-so-mi-nam-oxford" />
-                      </FormControl>
-                      <FormDescription>
-                        URL thân thiện SEO. Để trống sẽ tự động tạo từ tên sản phẩm.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="isPublished"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel>Đăng web</FormLabel>
-                          <FormDescription className="text-xs">
-                            Hiển thị trên website
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value || false}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isFeatured"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel>Nổi bật</FormLabel>
-                          <FormDescription className="text-xs">
-                            Sản phẩm nổi bật
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value || false}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isNewArrival"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel>Mới về</FormLabel>
-                          <FormDescription className="text-xs">
-                            Hàng mới về
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value || false}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isBestSeller"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel>Bán chạy</FormLabel>
-                          <FormDescription className="text-xs">
-                            Sản phẩm bán chạy
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value || false}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isOnSale"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel>Đang giảm giá</FormLabel>
-                          <FormDescription className="text-xs">
-                            Hiện badge Sale
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value || false}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sortOrder"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Thứ tự hiển thị</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                            placeholder="0"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="publishedAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ngày đăng web</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Ngày sản phẩm được đăng lên website
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Video Links</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="videoLinks"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Danh sách Video</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          value={(field.value as string[] | undefined)?.join('\n') || ''}
-                          onChange={(e) => {
-                            const links = e.target.value.split('\n').filter(Boolean);
-                            field.onChange(links.length > 0 ? links : undefined);
-                          }}
-                          placeholder="https://youtube.com/watch?v=xxx&#10;https://tiktok.com/@channel/video/xxx&#10;https://drive.google.com/file/d/xxx"
-                          rows={5}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Mỗi link trên một dòng. Hỗ trợ: YouTube, TikTok, Google Drive, Vimeo, Facebook
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab 7: SEO PKGX */}
+          {/* Tab 6: SEO PKGX */}
           <TabsContent value="seo-pkgx" className="space-y-4 mt-4">
             <Card>
               <CardHeader>
@@ -1593,6 +1851,23 @@ export function ProductFormComplete({
                 <CardDescription>phukiengiaxuong.com.vn - SEO riêng cho website này</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="pkgxSlug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Slug PKGX (URL)</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} placeholder="ao-so-mi-nam-oxford" />
+                      </FormControl>
+                      <FormDescription>
+                        URL thân thiện SEO cho website PKGX. Để trống sẽ tự động tạo từ tên sản phẩm.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="websiteSeo.pkgx.seoTitle"
@@ -1644,7 +1919,12 @@ export function ProductFormComplete({
                     <FormItem>
                       <FormLabel>Mô tả ngắn</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Mô tả ngắn gọn 1-2 câu" {...field} value={field.value || ''} rows={2} />
+                        <TipTapEditor
+                          content={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Mô tả ngắn gọn 1-2 câu..."
+                          minHeight="100px"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1658,7 +1938,12 @@ export function ProductFormComplete({
                     <FormItem>
                       <FormLabel>Mô tả chi tiết</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Mô tả đầy đủ (hỗ trợ HTML)" {...field} value={field.value || ''} rows={6} />
+                        <TipTapEditor
+                          content={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Mô tả đầy đủ về sản phẩm..."
+                          minHeight="250px"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1668,7 +1953,7 @@ export function ProductFormComplete({
             </Card>
           </TabsContent>
 
-          {/* Tab 8: SEO Trendtech */}
+          {/* Tab 7: SEO Trendtech */}
           <TabsContent value="seo-trendtech" className="space-y-4 mt-4">
             <Card>
               <CardHeader>
@@ -1679,6 +1964,23 @@ export function ProductFormComplete({
                 <CardDescription>Coming soon - SEO riêng cho website này</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="trendtechSlug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Slug Trendtech (URL)</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} placeholder="ao-so-mi-nam-oxford" />
+                      </FormControl>
+                      <FormDescription>
+                        URL thân thiện SEO cho website Trendtech. Để trống sẽ tự động tạo từ tên sản phẩm.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="websiteSeo.trendtech.seoTitle"
@@ -1730,7 +2032,12 @@ export function ProductFormComplete({
                     <FormItem>
                       <FormLabel>Mô tả ngắn</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Mô tả ngắn gọn 1-2 câu" {...field} value={field.value || ''} rows={2} />
+                        <TipTapEditor
+                          content={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Mô tả ngắn gọn 1-2 câu..."
+                          minHeight="100px"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1744,7 +2051,12 @@ export function ProductFormComplete({
                     <FormItem>
                       <FormLabel>Mô tả chi tiết</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Mô tả đầy đủ (hỗ trợ HTML)" {...field} value={field.value || ''} rows={6} />
+                        <TipTapEditor
+                          content={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Mô tả đầy đủ về sản phẩm..."
+                          minHeight="250px"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

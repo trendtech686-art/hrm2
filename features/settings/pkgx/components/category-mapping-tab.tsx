@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
 import { Label } from '../../../../components/ui/label.tsx';
 import { ScrollArea } from '../../../../components/ui/scroll-area.tsx';
-import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, Eye } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert.tsx';
+import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, Eye, AlertCircle, AlertTriangle, Lightbulb } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu.tsx';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
@@ -17,6 +18,8 @@ import { getCategoryById, updateCategory } from '../../../../lib/pkgx/api-servic
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import type { PkgxCategoryMapping, PkgxCategory, PkgxCategoryFromApi } from '../types';
+import { useCategoryMappingValidation } from '../hooks';
+import type { CategoryMappingInput } from '../validation';
 
 // Extended type for PKGX categories table
 interface PkgxCategoryRow extends PkgxCategory {
@@ -59,11 +62,21 @@ export function CategoryMappingTab() {
   // Form state
   const [selectedHrmCategory, setSelectedHrmCategory] = React.useState('');
   const [selectedPkgxCategory, setSelectedPkgxCategory] = React.useState('');
+  const [showWarningConfirm, setShowWarningConfirm] = React.useState(false);
   
   const hrmCategories = React.useMemo(
     () => productCategories.getActive().sort((a, b) => (a.path || '').localeCompare(b.path || '')),
     [productCategories]
   );
+  
+  // Validation hook
+  const validation = useCategoryMappingValidation({
+    existingMappings: settings.categoryMappings,
+    hrmCategories: hrmCategories,
+    pkgxCategories: settings.categories,
+    editingMappingId: editingMapping?.id,
+    debounceMs: 300,
+  });
   
   // Find if PKGX category is mapped
   const findMapping = React.useCallback((pkgxCatId: number) => {
@@ -346,11 +359,44 @@ export function CategoryMappingTab() {
     setEditingMapping(null);
     setSelectedHrmCategory('');
     setSelectedPkgxCategory('');
+    setShowWarningConfirm(false);
+    validation.clearValidation();
   };
   
+  // Validate when form values change
+  React.useEffect(() => {
+    if (isDialogOpen && (selectedHrmCategory || selectedPkgxCategory)) {
+      const input: CategoryMappingInput = {
+        hrmCategorySystemId: selectedHrmCategory || '',
+        hrmCategoryName: hrmCategories.find(c => c.systemId === selectedHrmCategory)?.name || '',
+        pkgxCatId: selectedPkgxCategory ? parseInt(selectedPkgxCategory) : '',
+        pkgxCatName: settings.categories.find(c => c.id === parseInt(selectedPkgxCategory))?.name || '',
+      };
+      validation.validateAsync(input);
+    }
+  }, [selectedHrmCategory, selectedPkgxCategory, isDialogOpen]);
+  
   const handleSave = () => {
-    if (!selectedHrmCategory || !selectedPkgxCategory) {
-      toast.error('Vui lòng chọn đầy đủ danh mục HRM và PKGX');
+    // Build input for validation
+    const input: CategoryMappingInput = {
+      hrmCategorySystemId: selectedHrmCategory || '',
+      hrmCategoryName: hrmCategories.find(c => c.systemId === selectedHrmCategory)?.name || '',
+      pkgxCatId: selectedPkgxCategory ? parseInt(selectedPkgxCategory) : '',
+      pkgxCatName: settings.categories.find(c => c.id === parseInt(selectedPkgxCategory))?.name || '',
+    };
+    
+    // Run final validation
+    const result = validation.validate(input);
+    
+    // Block if there are errors
+    if (!result.isValid) {
+      toast.error(result.errors[0]?.message || 'Vui lòng kiểm tra lại thông tin');
+      return;
+    }
+    
+    // Show warning confirmation if there are warnings and not yet confirmed
+    if (result.warnings.length > 0 && !showWarningConfirm) {
+      setShowWarningConfirm(true);
       return;
     }
     
@@ -377,14 +423,6 @@ export function CategoryMappingTab() {
       });
       toast.success('Đã cập nhật mapping danh mục');
     } else {
-      const existing = settings.categoryMappings.find(
-        (m) => m.hrmCategorySystemId === hrmCategory.systemId
-      );
-      if (existing) {
-        toast.error('Danh mục HRM này đã được mapping');
-        return;
-      }
-      
       addCategoryMapping({
         id: `catmap-${Date.now()}`,
         hrmCategorySystemId: hrmCategory.systemId,
@@ -591,7 +629,7 @@ export function CategoryMappingTab() {
       </Card>
       
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingMapping ? 'Sửa mapping' : 'Thêm mapping'} danh mục</DialogTitle>
             <DialogDescription>
@@ -600,10 +638,11 @@ export function CategoryMappingTab() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+            {/* HRM Category Select */}
             <div className="space-y-2">
               <Label htmlFor="hrmCategory">Danh mục HRM</Label>
               <Select value={selectedHrmCategory} onValueChange={setSelectedHrmCategory}>
-                <SelectTrigger id="hrmCategory">
+                <SelectTrigger id="hrmCategory" className={validation.getFieldError('hrmCategorySystemId') ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Chọn danh mục HRM..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -614,12 +653,19 @@ export function CategoryMappingTab() {
                   ))}
                 </SelectContent>
               </Select>
+              {validation.getFieldError('hrmCategorySystemId') && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validation.getFieldError('hrmCategorySystemId')}
+                </p>
+              )}
             </div>
             
+            {/* PKGX Category Select */}
             <div className="space-y-2">
               <Label htmlFor="pkgxCategory">Danh mục PKGX</Label>
               <Select value={selectedPkgxCategory} onValueChange={setSelectedPkgxCategory}>
-                <SelectTrigger id="pkgxCategory">
+                <SelectTrigger id="pkgxCategory" className={validation.getFieldError('pkgxCatId') ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Chọn danh mục PKGX..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -630,15 +676,98 @@ export function CategoryMappingTab() {
                   ))}
                 </SelectContent>
               </Select>
+              {validation.getFieldError('pkgxCatId') && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validation.getFieldError('pkgxCatId')}
+                </p>
+              )}
             </div>
+            
+            {/* Suggestions */}
+            {validation.suggestions.length > 0 && selectedHrmCategory && !selectedPkgxCategory && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Lightbulb className="h-3 w-3" />
+                  Gợi ý danh mục PKGX phù hợp:
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {validation.suggestions.slice(0, 3).map((s) => (
+                    <Button
+                      key={s.category.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setSelectedPkgxCategory(s.category.id.toString())}
+                    >
+                      {s.category.name}
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {Math.round(s.score * 100)}%
+                      </Badge>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Validation Errors */}
+            {validation.validationResult && validation.validationResult.errors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Lỗi validation</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc list-inside space-y-1 mt-2">
+                    {validation.validationResult.errors.map((err, i) => (
+                      <li key={i}>{err.message}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {/* Validation Warnings */}
+            {validation.validationResult && validation.validationResult.warnings.length > 0 && validation.validationResult.errors.length === 0 && (
+              <Alert variant="default" className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <AlertTitle className="text-yellow-700 dark:text-yellow-400">Cảnh báo</AlertTitle>
+                <AlertDescription className="text-yellow-600 dark:text-yellow-300">
+                  <ul className="list-disc list-inside space-y-1 mt-2">
+                    {validation.validationResult.warnings.map((warn, i) => (
+                      <li key={i}>
+                        {warn.message}
+                        {warn.details?.suggestedCategory && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 ml-1 text-yellow-700"
+                            onClick={() => setSelectedPkgxCategory(warn.details!.suggestedCategory.id.toString())}
+                          >
+                            → Chọn "{warn.details.suggestedCategory.name}"
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {showWarningConfirm && (
+                    <p className="mt-3 font-medium">Bấm "{editingMapping ? 'Cập nhật' : 'Thêm'}" lần nữa để xác nhận.</p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDialog}>
               Hủy
             </Button>
-            <Button onClick={handleSave}>
-              {editingMapping ? 'Cập nhật' : 'Thêm'}
+            <Button 
+              onClick={handleSave}
+              disabled={validation.hasErrors || validation.isValidating}
+            >
+              {validation.isValidating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {showWarningConfirm ? 'Xác nhận ' : ''}{editingMapping ? 'Cập nhật' : 'Thêm'}
             </Button>
           </DialogFooter>
         </DialogContent>

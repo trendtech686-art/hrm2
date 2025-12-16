@@ -23,6 +23,7 @@ describe('product-service filtering pipeline', () => {
     categoryFilter: 'all',
     comboFilter: 'all',
     stockLevelFilter: 'all',
+    pkgxFilter: 'all',
     dateRange: undefined,
     pagination: { pageIndex: 0, pageSize: 25 },
     sorting: DEFAULT_PRODUCT_SORT,

@@ -101,6 +101,7 @@ export type Product = {
   tags?: string[] | undefined; // Tags để filter
   status?: ProductStatus | undefined; // 'active' | 'inactive' | 'discontinued'
   pkgxId?: number | undefined; // ID PKGX (chỉ số dương)
+  trendtechId?: number | undefined; // ID Trendtech (chỉ số dương)
   
   unit: string;
   costPrice: number;
@@ -140,6 +141,9 @@ export type Product = {
   // Warranty
   warrantyPeriodMonths?: number | undefined; // Thời hạn bảo hành (tháng), mặc định 12 tháng
   
+  // Internal Notes
+  sellerNote?: string | undefined; // Ghi chú nội bộ người bán (không hiển thị cho khách)
+  
   // ═══════════════════════════════════════════════════════════════
   // TEM PHỤ FIELDS (thông tin in tem phụ sản phẩm)
   // ═══════════════════════════════════════════════════════════════
@@ -161,7 +165,8 @@ export type Product = {
   // ═══════════════════════════════════════════════════════════════
   // E-COMMERCE FIELDS (cho bán hàng trên website)
   // ═══════════════════════════════════════════════════════════════
-  slug?: string | undefined; // URL-friendly: "ao-so-mi-nam-trang" (tự generate từ name nếu để trống)
+  pkgxSlug?: string | undefined; // Slug riêng cho PKGX website (URL-friendly)
+  trendtechSlug?: string | undefined; // Slug riêng cho Trendtech website (URL-friendly)
   isPublished?: boolean | undefined; // Hiển thị trên website (default: false - chỉ hiện khi publish)
   isFeatured?: boolean | undefined; // Sản phẩm nổi bật (hiện ở trang chủ)
   isNewArrival?: boolean | undefined; // Sản phẩm mới về
