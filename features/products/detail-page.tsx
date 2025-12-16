@@ -525,7 +525,8 @@ export function ProductDetailPage() {
   const [inTransitDialogOpen, setInTransitDialogOpen] = React.useState(false);
   const [inTransitBranch, setInTransitBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
 
-  const product = React.useMemo(() => (systemId ? findProductById(asSystemId(systemId)) : null), [systemId, findProductById]);
+  // Include allProducts in deps to trigger re-render when store updates (e.g. after PKGX link)
+  const product = React.useMemo(() => (systemId ? findProductById(asSystemId(systemId)) : null), [systemId, findProductById, allProducts]);
   const productSystemId = product?.systemId ?? null;
   const supplier = React.useMemo(() => (product?.primarySupplierSystemId ? findSupplierById(product.primarySupplierSystemId) : null), [product, findSupplierById]);
   const createdByEmployee = React.useMemo(() => (product?.createdBy ? findEmployeeById(product.createdBy) : null), [product, findEmployeeById]);

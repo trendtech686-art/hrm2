@@ -508,3 +508,132 @@ export async function updateMemberPriceSingle(
 ): Promise<ApiResponse<UpdateMemberPriceResponse>> {
   return updateMemberPrice(goodsId, [{ user_rank: userRank, user_price: userPrice }]);
 }
+
+// ========================================
+// HTML Image Processing
+// ========================================
+
+/**
+ * Kiểm tra URL có phải là URL công khai không (không phải localhost/internal)
+ */
+function isPublicUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    // Loại bỏ các URL nội bộ
+    if (hostname === 'localhost' || 
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.endsWith('.local')) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Kiểm tra xem URL có phải là ảnh base64 không
+ */
+function isBase64Image(url: string): boolean {
+  return url.startsWith('data:image/');
+}
+
+/**
+ * Kiểm tra xem URL đã là URL của PKGX CDN chưa
+ */
+function isPkgxCdnUrl(url: string): boolean {
+  return url.includes('phukiengiaxuong.com.vn/cdn/');
+}
+
+/**
+ * Xử lý HTML để upload tất cả ảnh lên PKGX và thay thế URL
+ * 
+ * Hàm này sẽ:
+ * 1. Tìm tất cả <img> tags trong HTML
+ * 2. Với mỗi ảnh có src là URL công khai (không phải localhost):
+ *    - Upload lên PKGX qua upload_image_from_url
+ *    - Thay thế src bằng URL mới trên PKGX CDN
+ * 3. Với ảnh base64: bỏ qua (quá nặng, không sync)
+ * 4. Với ảnh đã trên PKGX CDN: giữ nguyên
+ * 
+ * @param html - HTML content cần xử lý
+ * @param filenamePrefix - Prefix cho tên file (optional)
+ * @returns HTML đã được xử lý với URLs mới
+ */
+export async function processHtmlImagesForPkgx(
+  html: string,
+  filenamePrefix?: string
+): Promise<{ processedHtml: string; uploadedCount: number; skippedCount: number; errors: string[] }> {
+  if (!html) {
+    return { processedHtml: html, uploadedCount: 0, skippedCount: 0, errors: [] };
+  }
+
+  // Regex để tìm tất cả <img> tags
+  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  
+  let processedHtml = html;
+  let uploadedCount = 0;
+  let skippedCount = 0;
+  const errors: string[] = [];
+  
+  // Tìm tất cả các ảnh
+  const matches: Array<{ fullMatch: string; src: string }> = [];
+  let match;
+  while ((match = imgRegex.exec(html)) !== null) {
+    matches.push({ fullMatch: match[0], src: match[1] });
+  }
+
+  // Xử lý từng ảnh
+  for (let i = 0; i < matches.length; i++) {
+    const { fullMatch, src } = matches[i];
+    
+    // Skip base64 images
+    if (isBase64Image(src)) {
+      skippedCount++;
+      errors.push(`Bỏ qua ảnh base64 (không hỗ trợ upload base64)`);
+      continue;
+    }
+    
+    // Skip if already on PKGX CDN
+    if (isPkgxCdnUrl(src)) {
+      skippedCount++;
+      continue;
+    }
+    
+    // Skip localhost/internal URLs
+    if (!isPublicUrl(src)) {
+      skippedCount++;
+      errors.push(`Bỏ qua URL nội bộ: ${src.substring(0, 50)}...`);
+      continue;
+    }
+    
+    // Upload to PKGX
+    try {
+      const slug = filenamePrefix 
+        ? `${filenamePrefix}-desc-img-${i + 1}` 
+        : `desc-img-${Date.now()}-${i + 1}`;
+      
+      const uploadResult = await uploadImageFromUrl(src, { filenameSlug: slug });
+      
+      if (uploadResult.success && uploadResult.data?.data?.full_urls?.original) {
+        // Replace src in HTML
+        const newSrc = uploadResult.data.data.full_urls.original;
+        const newImgTag = fullMatch.replace(src, newSrc);
+        processedHtml = processedHtml.replace(fullMatch, newImgTag);
+        uploadedCount++;
+      } else {
+        errors.push(`Lỗi upload ảnh: ${uploadResult.error || 'Unknown error'}`);
+        skippedCount++;
+      }
+    } catch (error) {
+      errors.push(`Exception upload ảnh: ${error instanceof Error ? error.message : String(error)}`);
+      skippedCount++;
+    }
+  }
+
+  return { processedHtml, uploadedCount, skippedCount, errors };
+}

@@ -4,7 +4,7 @@
 import React from 'react';
 import { toast } from 'sonner';
 import type { Product } from '../types';
-import { updateProduct, updateMemberPrice, uploadImageFromUrl } from '@/lib/pkgx/api-service';
+import { updateProduct, updateMemberPrice, uploadImageFromUrl, processHtmlImagesForPkgx } from '@/lib/pkgx/api-service';
 import { usePkgxSettingsStore } from '@/features/settings/pkgx/store';
 import { useImageStore } from '../image-store';
 
@@ -269,7 +269,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
   }, [addPkgxLog]);
 
   // ═══════════════════════════════════════════════════════════════
-  // 4. SYNC MÔ TẢ
+  // 4. SYNC MÔ TẢ (với xử lý ảnh trong HTML)
   // ═══════════════════════════════════════════════════════════════
   const handlePkgxSyncDescription = React.useCallback(async (product: Product) => {
     if (!product.pkgxId) {
@@ -281,18 +281,52 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     
     try {
       const pkgxSeo = product.websiteSeo?.pkgx;
+      
+      // Get raw descriptions
+      const rawLongDesc = pkgxSeo?.longDescription || product.description || '';
+      const rawShortDesc = pkgxSeo?.shortDescription || product.shortDescription || '';
+      
+      // Process images in long description (upload to PKGX and replace URLs)
+      let processedLongDesc = rawLongDesc;
+      let imageStats = { uploadedCount: 0, skippedCount: 0, errors: [] as string[] };
+      
+      if (rawLongDesc.includes('<img')) {
+        toast.loading(`Đang xử lý ảnh trong mô tả...`, { id: 'pkgx-sync-desc' });
+        
+        const filenamePrefix = product.sku || product.id || `product-${product.pkgxId}`;
+        const result = await processHtmlImagesForPkgx(rawLongDesc, filenamePrefix);
+        
+        processedLongDesc = result.processedHtml;
+        imageStats = result;
+        
+        if (result.uploadedCount > 0) {
+          toast.loading(`Đã upload ${result.uploadedCount} ảnh, đang cập nhật mô tả...`, { id: 'pkgx-sync-desc' });
+        }
+      }
+      
+      // Sync to PKGX
       const response = await updateProduct(product.pkgxId, {
-        goods_desc: pkgxSeo?.longDescription || product.description || '',
-        goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
+        goods_desc: processedLongDesc,
+        goods_brief: rawShortDesc,
       });
       
       if (response.success) {
-        toast.success(`Đã đồng bộ mô tả`, { id: 'pkgx-sync-desc' });
+        const message = imageStats.uploadedCount > 0
+          ? `Đã đồng bộ mô tả (${imageStats.uploadedCount} ảnh đã upload)`
+          : `Đã đồng bộ mô tả`;
+          
+        toast.success(message, { id: 'pkgx-sync-desc' });
         addPkgxLog({
           action: 'sync_description',
-          status: 'success',
-          message: `Đã đồng bộ mô tả: ${product.name}`,
-          details: { productId: product.systemId, pkgxId: product.pkgxId },
+          status: imageStats.errors.length > 0 ? 'partial' : 'success',
+          message: `${message}: ${product.name}`,
+          details: { 
+            productId: product.systemId, 
+            pkgxId: product.pkgxId,
+            imagesUploaded: imageStats.uploadedCount,
+            imagesSkipped: imageStats.skippedCount,
+            imageErrors: imageStats.errors,
+          },
         });
       } else {
         throw new Error(response.error);
@@ -622,7 +656,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
   }, [addPkgxLog]);
 
   // ═══════════════════════════════════════════════════════════════
-  // 8. SYNC TẤT CẢ (Full sync)
+  // 8. SYNC TẤT CẢ (Full sync, bao gồm xử lý ảnh trong mô tả)
   // ═══════════════════════════════════════════════════════════════
   const handlePkgxSyncAll = React.useCallback(async (product: Product) => {
     if (!product.pkgxId) {
@@ -634,6 +668,24 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     
     try {
       const pkgxSeo = product.websiteSeo?.pkgx;
+      
+      // Get raw descriptions
+      const rawLongDesc = pkgxSeo?.longDescription || product.description || '';
+      const rawShortDesc = pkgxSeo?.shortDescription || product.shortDescription || '';
+      
+      // Process images in long description
+      let processedLongDesc = rawLongDesc;
+      let imageStats = { uploadedCount: 0, skippedCount: 0, errors: [] as string[] };
+      
+      if (rawLongDesc.includes('<img')) {
+        toast.loading(`Đang xử lý ảnh trong mô tả...`, { id: 'pkgx-sync-all' });
+        
+        const filenamePrefix = product.sku || product.id || `product-${product.pkgxId}`;
+        const result = await processHtmlImagesForPkgx(rawLongDesc, filenamePrefix);
+        
+        processedLongDesc = result.processedHtml;
+        imageStats = result;
+      }
       
       // Build full payload
       const payload: Record<string, unknown> = {
@@ -651,9 +703,9 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
         meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
         
-        // Mô tả
-        goods_desc: pkgxSeo?.longDescription || product.description || '',
-        goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
+        // Mô tả (đã xử lý ảnh)
+        goods_desc: processedLongDesc,
+        goods_brief: rawShortDesc,
         
         // Flags
         best: product.isFeatured || false,
@@ -700,12 +752,22 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       const response = await updateProduct(product.pkgxId, payload);
       
       if (response.success) {
-        toast.success(`Đã đồng bộ tất cả thông tin`, { id: 'pkgx-sync-all' });
+        const message = imageStats.uploadedCount > 0
+          ? `Đã đồng bộ tất cả (${imageStats.uploadedCount} ảnh trong mô tả đã upload)`
+          : `Đã đồng bộ tất cả thông tin`;
+          
+        toast.success(message, { id: 'pkgx-sync-all' });
         addPkgxLog({
           action: 'sync_all',
-          status: 'success',
-          message: `Đã đồng bộ tất cả: ${product.name}`,
-          details: { productId: product.systemId, pkgxId: product.pkgxId },
+          status: imageStats.errors.length > 0 ? 'partial' : 'success',
+          message: `${message}: ${product.name}`,
+          details: { 
+            productId: product.systemId, 
+            pkgxId: product.pkgxId,
+            imagesUploaded: imageStats.uploadedCount,
+            imagesSkipped: imageStats.skippedCount,
+            imageErrors: imageStats.errors,
+          },
         });
       } else {
         throw new Error(response.error);

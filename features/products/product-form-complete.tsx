@@ -698,34 +698,6 @@ export function ProductFormComplete({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
                   <FormField
                     control={form.control}
-                    name="type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Loại *</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value}
-                          disabled={isComboProduct}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Chọn loại" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="physical">Hàng hóa</SelectItem>
-                            <SelectItem value="service">Dịch vụ</SelectItem>
-                            <SelectItem value="digital">Sản phẩm số</SelectItem>
-                            <SelectItem value="combo">Combo</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
                     name="unit"
                     render={({ field }) => (
                       <FormItem>
