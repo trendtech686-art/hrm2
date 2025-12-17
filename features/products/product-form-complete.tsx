@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
-import type { Product, MultiWebsiteSeo } from "./types.ts";
+import type { Product, WebsiteSeoData } from "./types.ts";
 import { useProductStore } from "./store.ts";
 import { usePricingPolicyStore } from '../settings/pricing/store.ts';
 import { useUnitStore } from "../settings/units/store.ts";
@@ -317,10 +317,8 @@ export function ProductFormComplete({
         comboItems: initialData.comboItems ?? [],
         comboPricingType: initialData.comboPricingType ?? 'fixed',
         comboDiscount: initialData.comboDiscount ?? 0,
-        websiteSeo: {
-          pkgx: initialData.websiteSeo?.pkgx || {},
-          trendtech: initialData.websiteSeo?.trendtech || {},
-        },
+        seoPkgx: initialData.seoPkgx || {},
+        seoTrendtech: initialData.seoTrendtech || {},
       };
     }
 
@@ -370,10 +368,8 @@ export function ProductFormComplete({
       publishedAt: '',
       videoLinks: undefined,
       // Website SEO defaults
-      websiteSeo: {
-        pkgx: {},
-        trendtech: {},
-      },
+      seoPkgx: {},
+      seoTrendtech: {},
     };
   }, [initialData, defaultType, slaSettings, logisticsSettings, defaultStorageLocation]);
 
@@ -482,7 +478,7 @@ export function ProductFormComplete({
           const firstPrice = Object.values(product.prices || {}).find(
             (value): value is number => typeof value === 'number' && value > 0
           );
-          unitPrice = firstPrice || product.suggestedRetailPrice || product.minPrice || 0;
+          unitPrice = firstPrice || product.minPrice || 0;
         }
         totalOriginalPrice += unitPrice * item.quantity;
       }
@@ -637,12 +633,16 @@ export function ProductFormComplete({
         className="space-y-6"
       >
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="basic">Cơ bản &amp; Giá bán</TabsTrigger>
             <TabsTrigger value="images">Hình ảnh</TabsTrigger>
             <TabsTrigger value="inventory">Kho</TabsTrigger>
             <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
             <TabsTrigger value="label">Tem phụ</TabsTrigger>
+            <TabsTrigger value="seo-default" className="gap-1">
+              <Globe className="h-3 w-3" />
+              SEO Chung
+            </TabsTrigger>
             <TabsTrigger value="seo-pkgx" className="gap-1">
               <Globe className="h-3 w-3" style={{ color: '#ef4444' }} />
               SEO PKGX
@@ -1196,24 +1196,6 @@ export function ProductFormComplete({
 
                   {!isComboProduct && (
                     <>
-                      <FormField
-                        control={form.control}
-                        name="suggestedRetailPrice"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Giá bán lẻ đề xuất</FormLabel>
-                            <FormControl>
-                              <CurrencyInput
-                                value={field.value}
-                                onChange={field.onChange}
-                                placeholder="0"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
                       <FormField
                         control={form.control}
                         name="lastPurchasePrice"
@@ -1812,7 +1794,112 @@ export function ProductFormComplete({
             </Card>
           </TabsContent>
 
-          {/* Tab 6: SEO PKGX */}
+          {/* Tab 6: SEO Chung (Default) */}
+          <TabsContent value="seo-default" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  <CardTitle>SEO Mặc định</CardTitle>
+                </div>
+                <CardDescription>
+                  Thông tin SEO chung - sẽ được dùng cho tất cả website nếu không có SEO riêng
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tiêu đề SEO (ktitle)</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} placeholder="Tiêu đề tối ưu SEO" />
+                      </FormControl>
+                      <FormDescription>
+                        Title tag mặc định. Nên 50-60 ký tự. Nếu để trống sẽ dùng tên sản phẩm.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="seoDescription"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Description</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} value={field.value || ''} placeholder="Mô tả ngắn gọn về sản phẩm cho SEO" rows={2} />
+                      </FormControl>
+                      <FormDescription>
+                        Meta description mặc định. Nên 150-160 ký tự.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="seoKeywords"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Từ khóa SEO</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} placeholder="từ khóa 1, từ khóa 2, từ khóa 3" />
+                      </FormControl>
+                      <FormDescription>
+                        Các từ khóa cách nhau bởi dấu phẩy. Nên 3-5 từ khóa.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="shortDescription"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mô tả ngắn</FormLabel>
+                      <FormControl>
+                        <TipTapEditor
+                          content={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Mô tả ngắn gọn 1-2 câu về sản phẩm..."
+                          minHeight="100px"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mô tả chi tiết</FormLabel>
+                      <FormControl>
+                        <TipTapEditor
+                          content={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder="Mô tả đầy đủ về sản phẩm..."
+                          minHeight="250px"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab 7: SEO PKGX */}
           <TabsContent value="seo-pkgx" className="space-y-4 mt-4">
             <Card>
               <CardHeader>
@@ -1820,7 +1907,7 @@ export function ProductFormComplete({
                   <Globe className="h-5 w-5" style={{ color: '#ef4444' }} />
                   <CardTitle>SEO cho PKGX</CardTitle>
                 </div>
-                <CardDescription>phukiengiaxuong.com.vn - SEO riêng cho website này</CardDescription>
+                <CardDescription>phukiengiaxuong.com.vn - SEO riêng cho website này (override SEO chung)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -1842,7 +1929,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.pkgx.seoTitle"
+                  name="seoPkgx.seoTitle"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tiêu đề SEO</FormLabel>
@@ -1857,7 +1944,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.pkgx.metaDescription"
+                  name="seoPkgx.metaDescription"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Meta Description</FormLabel>
@@ -1872,7 +1959,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.pkgx.seoKeywords"
+                  name="seoPkgx.seoKeywords"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Từ khóa SEO</FormLabel>
@@ -1886,7 +1973,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.pkgx.shortDescription"
+                  name="seoPkgx.shortDescription"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Mô tả ngắn</FormLabel>
@@ -1905,7 +1992,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.pkgx.longDescription"
+                  name="seoPkgx.longDescription"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Mô tả chi tiết</FormLabel>
@@ -1955,7 +2042,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.trendtech.seoTitle"
+                  name="seoTrendtech.seoTitle"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tiêu đề SEO</FormLabel>
@@ -1970,7 +2057,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.trendtech.metaDescription"
+                  name="seoTrendtech.metaDescription"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Meta Description</FormLabel>
@@ -1985,7 +2072,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.trendtech.seoKeywords"
+                  name="seoTrendtech.seoKeywords"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Từ khóa SEO</FormLabel>
@@ -1999,7 +2086,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.trendtech.shortDescription"
+                  name="seoTrendtech.shortDescription"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Mô tả ngắn</FormLabel>
@@ -2018,7 +2105,7 @@ export function ProductFormComplete({
 
                 <FormField
                   control={form.control}
-                  name="websiteSeo.trendtech.longDescription"
+                  name="seoTrendtech.longDescription"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Mô tả chi tiết</FormLabel>

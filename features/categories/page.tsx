@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import { useShallow } from 'zustand/react/shallow';
+import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink } from "lucide-react";
 import { asSystemId, type SystemId } from "@/lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts";
@@ -19,12 +20,22 @@ import { toast } from "sonner";
 import Fuse from "fuse.js";
 import { getColumns } from "./columns.tsx";
 import { MobileCategoryCard } from "./card.tsx";
+import { usePkgxCategorySync } from "./hooks/use-pkgx-category-sync.ts";
+import { usePkgxSettingsStore } from "../settings/pkgx/store.ts";
+import { updateCategory } from "@/lib/pkgx/api-service.ts";
 
 export function ProductCategoriesPage() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
   
-  const { data, update, remove } = useProductCategoryStore();
+  // ✅ Use shallow comparison to prevent unnecessary re-renders
+  const { data, update, remove } = useProductCategoryStore(
+    useShallow((state) => ({
+      data: state.data,
+      update: state.update,
+      remove: state.remove,
+    }))
+  );
 
   const activeCategories = React.useMemo(() => data.filter(c => !c.isDeleted), [data]);
 
@@ -115,14 +126,24 @@ export function ProductCategoriesPage() {
     navigate(`/categories/${category.systemId}`);
   }, [navigate]);
 
+  // PKGX Sync Hook
+  const { handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxCatId } = usePkgxCategorySync();
+  const pkgxSettings = usePkgxSettingsStore((s) => s.settings);
+
   const columns = React.useMemo(() => getColumns(
     handleDelete, 
     handleToggleActive, 
     navigate, 
     data,
     handleUpdateName,
-    handleUpdateSortOrder
-  ), [handleDelete, handleToggleActive, navigate, data, handleUpdateName, handleUpdateSortOrder]);
+    handleUpdateSortOrder,
+    // PKGX handlers
+    handleSyncSeo,
+    handleSyncDescription,
+    handleSyncAll,
+    hasPkgxMapping,
+    getPkgxCatId,
+  ), [handleDelete, handleToggleActive, navigate, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxCatId]);
 
   // Export config
   const exportConfig = {
@@ -130,20 +151,26 @@ export function ProductCategoriesPage() {
     columns,
   };
 
-  // Set default column visibility
+  // Set default column visibility - only on mount
   React.useEffect(() => {
-    const defaultVisibleColumns = ['thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'isActive', 'createdAt'];
+    // Skip if already has stored visibility
+    const storageKey = 'categories-column-visibility';
+    const stored = localStorage.getItem(storageKey);
+    if (stored) return;
+    
+    const defaultVisibleColumns = ['thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt'];
+    const columnIds = ['select', 'thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt', 'actions'];
     const initialVisibility: Record<string, boolean> = {};
-    columns.forEach(c => {
-      if (c.id === 'select' || c.id === 'actions') {
-        initialVisibility[c.id!] = true;
+    columnIds.forEach(id => {
+      if (id === 'select' || id === 'actions') {
+        initialVisibility[id] = true;
       } else {
-        initialVisibility[c.id!] = defaultVisibleColumns.includes(c.id!);
+        initialVisibility[id] = defaultVisibleColumns.includes(id);
       }
     });
     setColumnVisibility(initialVisibility);
-    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-  }, [columns]);
+    setColumnOrder(columnIds);
+  }, []);
 
   const fuse = React.useMemo(() => new Fuse(activeCategories, {
     keys: ["id", "name", "path", "slug"],
@@ -412,6 +439,168 @@ export function ProductCategoriesPage() {
                 label: 'Xóa',
                 icon: Trash2,
                 onSelect: () => setIsBulkDeleteAlertOpen(true),
+              },
+            ]}
+            pkgxBulkActions={[
+              {
+                label: "Đồng bộ tất cả",
+                icon: RefreshCw,
+                onSelect: async (selectedRows: ProductCategory[]) => {
+                  if (!pkgxSettings.enabled) {
+                    toast.error('PKGX chưa được bật');
+                    return;
+                  }
+                  
+                  const linkedCategories = selectedRows.filter(c => hasPkgxMapping(c));
+                  if (linkedCategories.length === 0) {
+                    toast.error('Không có danh mục nào đã liên kết PKGX');
+                    return;
+                  }
+                  
+                  if (!confirm(`Bạn có chắc muốn đồng bộ tất cả thông tin cho ${linkedCategories.length} danh mục?`)) {
+                    return;
+                  }
+                  
+                  toast.info(`Đang đồng bộ ${linkedCategories.length} danh mục...`);
+                  
+                  let successCount = 0;
+                  let errorCount = 0;
+                  
+                  for (const category of linkedCategories) {
+                    try {
+                      const pkgxCatId = getPkgxCatId(category);
+                      if (!pkgxCatId) continue;
+                      
+                      const pkgxSeo = category.websiteSeo?.pkgx;
+                      const payload = {
+                        cat_name: category.name,
+                        cat_alias: pkgxSeo?.slug || category.slug || '',
+                        keywords: pkgxSeo?.seoKeywords || category.seoKeywords || category.name,
+                        meta_title: pkgxSeo?.seoTitle || category.seoTitle || category.name,
+                        meta_desc: pkgxSeo?.metaDescription || category.metaDescription || '',
+                        short_desc: pkgxSeo?.shortDescription || category.shortDescription || '',
+                        cat_desc: pkgxSeo?.longDescription || category.longDescription || '',
+                      };
+                      
+                      const response = await updateCategory(pkgxCatId, payload);
+                      if (response.success) successCount++;
+                      else errorCount++;
+                    } catch {
+                      errorCount++;
+                    }
+                  }
+                  
+                  setRowSelection({});
+                  if (successCount > 0) toast.success(`Đã đồng bộ ${successCount} danh mục`);
+                  if (errorCount > 0) toast.error(`Lỗi ${errorCount} danh mục`);
+                }
+              },
+              {
+                label: "SEO",
+                icon: Search,
+                onSelect: async (selectedRows: ProductCategory[]) => {
+                  if (!pkgxSettings.enabled) {
+                    toast.error('PKGX chưa được bật');
+                    return;
+                  }
+                  
+                  const linkedCategories = selectedRows.filter(c => hasPkgxMapping(c));
+                  if (linkedCategories.length === 0) {
+                    toast.error('Không có danh mục nào đã liên kết PKGX');
+                    return;
+                  }
+                  
+                  toast.info(`Đang đồng bộ SEO ${linkedCategories.length} danh mục...`);
+                  
+                  let successCount = 0;
+                  let errorCount = 0;
+                  
+                  for (const category of linkedCategories) {
+                    try {
+                      const pkgxCatId = getPkgxCatId(category);
+                      if (!pkgxCatId) continue;
+                      
+                      const pkgxSeo = category.websiteSeo?.pkgx;
+                      const payload = {
+                        cat_alias: pkgxSeo?.slug || category.slug || '',
+                        keywords: pkgxSeo?.seoKeywords || category.seoKeywords || category.name,
+                        meta_title: pkgxSeo?.seoTitle || category.seoTitle || category.name,
+                        meta_desc: pkgxSeo?.metaDescription || category.metaDescription || '',
+                        short_desc: pkgxSeo?.shortDescription || category.shortDescription || '',
+                      };
+                      
+                      const response = await updateCategory(pkgxCatId, payload);
+                      if (response.success) successCount++;
+                      else errorCount++;
+                    } catch {
+                      errorCount++;
+                    }
+                  }
+                  
+                  setRowSelection({});
+                  if (successCount > 0) toast.success(`Đã đồng bộ SEO ${successCount} danh mục`);
+                  if (errorCount > 0) toast.error(`Lỗi ${errorCount} danh mục`);
+                }
+              },
+              {
+                label: "Mô tả",
+                icon: AlignLeft,
+                onSelect: async (selectedRows: ProductCategory[]) => {
+                  if (!pkgxSettings.enabled) {
+                    toast.error('PKGX chưa được bật');
+                    return;
+                  }
+                  
+                  const linkedCategories = selectedRows.filter(c => hasPkgxMapping(c));
+                  if (linkedCategories.length === 0) {
+                    toast.error('Không có danh mục nào đã liên kết PKGX');
+                    return;
+                  }
+                  
+                  toast.info(`Đang đồng bộ mô tả ${linkedCategories.length} danh mục...`);
+                  
+                  let successCount = 0;
+                  let errorCount = 0;
+                  
+                  for (const category of linkedCategories) {
+                    try {
+                      const pkgxCatId = getPkgxCatId(category);
+                      if (!pkgxCatId) continue;
+                      
+                      const pkgxSeo = category.websiteSeo?.pkgx;
+                      const payload = {
+                        cat_desc: pkgxSeo?.longDescription || category.longDescription || '',
+                        short_desc: pkgxSeo?.shortDescription || category.shortDescription || '',
+                      };
+                      
+                      const response = await updateCategory(pkgxCatId, payload);
+                      if (response.success) successCount++;
+                      else errorCount++;
+                    } catch {
+                      errorCount++;
+                    }
+                  }
+                  
+                  setRowSelection({});
+                  if (successCount > 0) toast.success(`Đã đồng bộ mô tả ${successCount} danh mục`);
+                  if (errorCount > 0) toast.error(`Lỗi ${errorCount} danh mục`);
+                }
+              },
+              {
+                label: "Xem trên PKGX",
+                icon: ExternalLink,
+                onSelect: (selectedRows: ProductCategory[]) => {
+                  const linkedCategories = selectedRows.filter(c => hasPkgxMapping(c));
+                  if (linkedCategories.length === 0) {
+                    toast.error('Không có danh mục nào đã liên kết PKGX');
+                    return;
+                  }
+                  const firstCategory = linkedCategories[0];
+                  const pkgxId = getPkgxCatId(firstCategory);
+                  if (pkgxId) {
+                    window.open(`https://phukiengiaxuong.com.vn/admin/category.php?act=edit&cat_id=${pkgxId}`, '_blank');
+                  }
+                }
               },
             ]}
             expanded={{}}

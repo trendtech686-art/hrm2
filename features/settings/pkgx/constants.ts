@@ -153,7 +153,7 @@ export const PKGX_BRANDS: PkgxBrand[] = [
  * API Configuration
  */
 export const PKGX_API_CONFIG = {
-  baseUrl: 'https://phukiengiaxuong.com.vn/admin/api_product_pro.php',
+  baseUrl: 'https://phukiengiaxuong.com.vn/admin/api_product_hrm.php',
   cdnUrl: 'https://phukiengiaxuong.com.vn/cdn/',
   defaultApiKey: 'a91f2c47e5d8b6f03a7c4e9d12f0b8a6',
   

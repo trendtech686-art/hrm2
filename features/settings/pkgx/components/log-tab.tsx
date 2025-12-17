@@ -5,7 +5,7 @@ import { Input } from '../../../../components/ui/input.tsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table.tsx';
 import { Badge } from '../../../../components/ui/badge.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
-import { Trash2, Search, CheckCircle2, XCircle, AlertCircle, RefreshCw, Globe, Link, Unlink, Save, Settings, DollarSign, Package, FileText, Info } from 'lucide-react';
+import { Trash2, Search, CheckCircle2, XCircle, AlertCircle, RefreshCw, Globe, Link, Unlink, Save, Settings, DollarSign, Package, FileText, Info, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
 import type { PkgxSyncLog } from '../types';
@@ -224,13 +224,14 @@ export function LogTab() {
                     <TableHead className="w-[140px]">Hành động</TableHead>
                     <TableHead className="w-[100px]">Trạng thái</TableHead>
                     <TableHead>Thông báo</TableHead>
+                    <TableHead className="w-[120px]">Người thực hiện</TableHead>
                     <TableHead className="w-[200px]">Chi tiết</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
                         {searchTerm || statusFilter !== 'all' || actionFilter !== 'all'
                           ? 'Không tìm thấy log nào'
                           : 'Chưa có hoạt động đồng bộ nào'}
@@ -251,6 +252,14 @@ export function LogTab() {
                         <TableCell>{getStatusBadge(log.status)}</TableCell>
                         <TableCell className="text-sm max-w-[300px] truncate" title={log.message}>
                           {log.message}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <User className="h-3 w-3 text-muted-foreground" />
+                            <span className="truncate max-w-[100px]" title={log.userName || 'Hệ thống'}>
+                              {log.userName || 'Hệ thống'}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {log.details && (

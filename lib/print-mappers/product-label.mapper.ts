@@ -96,7 +96,7 @@ export function mapProductToLabelPrintData(
   overrides: Partial<ProductLabelForPrint> = {},
 ): PrintData {
   const firstPrice = Object.values(product.prices || {})[0];
-  const resolvedPrice = overrides.price ?? product.sellingPrice ?? product.suggestedRetailPrice ?? firstPrice;
+  const resolvedPrice = overrides.price ?? product.sellingPrice ?? firstPrice;
 
   return mapProductLabelToPrintData(
     {

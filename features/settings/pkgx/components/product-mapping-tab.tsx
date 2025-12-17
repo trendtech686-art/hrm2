@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
 import { Button } from '../../../../components/ui/button.tsx';
 import { Input } from '../../../../components/ui/input.tsx';
@@ -10,15 +11,16 @@ import { Label } from '../../../../components/ui/label.tsx';
 import { ScrollArea } from '../../../../components/ui/scroll-area.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu.tsx';
-import { Search, ExternalLink, Link, Unlink, RefreshCw, Loader2, CheckCircle2, Upload, ArrowRight, Settings2, MoreHorizontal, Eye, TriangleAlert, Package, DollarSign, FileText, Link2 } from 'lucide-react';
+import { Search, ExternalLink, Link, Unlink, RefreshCw, Loader2, CheckCircle2, Upload, ArrowRight, Settings2, MoreHorizontal, Eye, TriangleAlert, Package, DollarSign, FileText, Link2, ImageIcon, Flame, Sparkles, Home, Star, ShoppingBag, Circle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProductStore } from '../../../products/store';
 import { usePkgxSettingsStore } from '../store';
-import { getProducts as fetchPkgxProducts, updateProduct as updatePkgxProduct, getProductById as fetchPkgxProductById } from '../../../../lib/pkgx/api-service';
-import type { PkgxProduct } from '../types';
+import { getProducts as fetchPkgxProducts, updateProduct as updatePkgxProduct, getProductById as fetchPkgxProductById, getProductGallery as fetchPkgxGallery } from '../../../../lib/pkgx/api-service';
+import type { PkgxProduct, PkgxGalleryImage } from '../types';
 import type { SystemId } from '../../../../lib/id-types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../components/ui/tooltip.tsx';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table.tsx';
+import { useAuth, getCurrentUserName } from '../../../../contexts/auth-context';
 import type { ColumnDef } from '../../../../components/data-table/types';
 
 // ========================================
@@ -77,7 +79,6 @@ interface PkgxProductRow extends PkgxProduct {
     // Giá cả
     sellingPrice?: number;
     costPrice?: number;
-    suggestedRetailPrice?: number;
     partnerPrice?: number;
     acePrice?: number;
     dealPrice?: number;
@@ -104,6 +105,11 @@ interface PkgxProductRow extends PkgxProduct {
 }
 
 export function ProductMappingTab() {
+  // Router & Auth
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // Stores
   const { settings, addLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, setPkgxProducts } = usePkgxSettingsStore();
   const productStore = useProductStore();
   
@@ -113,10 +119,26 @@ export function ProductMappingTab() {
   // Sử dụng pkgxProducts từ store (dùng chung với Link Dialog)
   const pkgxProducts = settings.pkgxProducts || [];
   
+  // Auto-fetch khi vào tab nếu chưa có data và PKGX đã được cấu hình
+  const hasAutoFetched = React.useRef(false);
+  
+  // Helper function để build URL ảnh PKGX
+  const buildPkgxImageUrl = React.useCallback((imagePath: string | undefined | null): string => {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    // Xóa / ở đầu nếu có và build URL đầy đủ với /cdn/
+    const cleanPath = imagePath.replace(/^\/+/, '');
+    return `https://phukiengiaxuong.com.vn/cdn/${cleanPath}`;
+  }, []);
+  
   // Product detail dialog state
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
   const [selectedProductForDetail, setSelectedProductForDetail] = React.useState<PkgxProductRow | null>(null);
   const [isLoadingProductDetail, setIsLoadingProductDetail] = React.useState(false);
+  
+  // Gallery state
+  const [galleryImages, setGalleryImages] = React.useState<PkgxGalleryImage[]>([]);
+  const [isLoadingGallery, setIsLoadingGallery] = React.useState(false);
   
   // Link dialog state
   const [selectedPkgxProduct, setSelectedPkgxProduct] = React.useState<PkgxProduct | null>(null);
@@ -146,8 +168,9 @@ export function ProductMappingTab() {
   );
   
   // Find HRM product linked to a PKGX product
+  // FIX: Sử dụng == thay vì === để handle cả string và number (localStorage có thể lưu string)
   const findLinkedHrmProduct = React.useCallback((pkgxId: number) => {
-    return hrmProducts.find((p) => p.pkgxId === pkgxId);
+    return hrmProducts.find((p) => p.pkgxId == pkgxId);
   }, [hrmProducts]);
   
   // Filter and transform PKGX products
@@ -180,7 +203,6 @@ export function ProductMappingTab() {
           // Giá cả
           sellingPrice: linked.sellingPrice,
           costPrice: linked.costPrice,
-          suggestedRetailPrice: linked.suggestedRetailPrice,
           partnerPrice: (linked as any).partnerPrice,
           acePrice: (linked as any).acePrice,
           dealPrice: (linked as any).dealPrice,
@@ -272,9 +294,17 @@ export function ProductMappingTab() {
       size: 200,
       cell: ({ row }) => (
         row.linkedHrmProduct ? (
-          <span className="text-sm truncate block max-w-[190px]" title={row.linkedHrmProduct.name}>
+          <button 
+            className="text-sm truncate block max-w-[190px] text-left hover:text-primary hover:underline cursor-pointer transition-colors" 
+            title={`Click để xem chi tiết: ${row.linkedHrmProduct.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Mở trang sản phẩm trong tab mới
+              window.open(`/products?id=${row.linkedHrmProduct.id}`, '_blank');
+            }}
+          >
             {row.linkedHrmProduct.name}
-          </span>
+          </button>
         ) : (
           <span className="text-sm text-muted-foreground">Chưa liên kết</span>
         )
@@ -317,28 +347,25 @@ export function ProductMappingTab() {
               <Eye className="h-4 w-4 mr-2" />
               Xem chi tiết
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleRefreshSingleProduct(row.goods_id)}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Tải lại
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleViewOnPkgx(row.goods_id)}>
               <ExternalLink className="h-4 w-4 mr-2" />
               Xem trên PKGX
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {row.linkedHrmProduct ? (
+            {row.linkedHrmProduct && (
               <>
-                <DropdownMenuItem onClick={() => handleOpenPushDialog(row)} className="text-green-600">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Đẩy từ HRM → PKGX
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleOpenUnlinkDialog(row)} className="text-orange-600">
+                <DropdownMenuItem 
+                  onClick={() => handleOpenUnlinkDialog(row)}
+                  className="text-destructive focus:text-destructive"
+                >
                   <Unlink className="h-4 w-4 mr-2" />
                   Hủy liên kết
                 </DropdownMenuItem>
               </>
-            ) : (
-              <DropdownMenuItem onClick={() => handleOpenLinkDialog(row)} className="text-green-600">
-                <Link className="h-4 w-4 mr-2" />
-                Liên kết với HRM
-              </DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -380,28 +407,25 @@ export function ProductMappingTab() {
                 <Eye className="h-4 w-4 mr-2" />
                 Xem chi tiết
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleRefreshSingleProduct(row.goods_id)}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tải lại
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleViewOnPkgx(row.goods_id)}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Xem trên PKGX
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {row.linkedHrmProduct ? (
+              {row.linkedHrmProduct && (
                 <>
-                  <DropdownMenuItem onClick={() => handleOpenPushDialog(row)} className="text-green-600">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Đẩy từ HRM → PKGX
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleOpenUnlinkDialog(row)} className="text-orange-600">
+                  <DropdownMenuItem 
+                    onClick={() => handleOpenUnlinkDialog(row)}
+                    className="text-destructive focus:text-destructive"
+                  >
                     <Unlink className="h-4 w-4 mr-2" />
                     Hủy liên kết
                   </DropdownMenuItem>
                 </>
-              ) : (
-                <DropdownMenuItem onClick={() => handleOpenLinkDialog(row)} className="text-green-600">
-                  <Link className="h-4 w-4 mr-2" />
-                  Liên kết với HRM
-                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -410,16 +434,39 @@ export function ProductMappingTab() {
       
       {row.linkedHrmProduct && (
         <div className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">HRM:</span> {row.linkedHrmProduct.name}
+          <span className="font-medium text-foreground">HRM:</span>{' '}
+          <button
+            className="hover:text-primary hover:underline cursor-pointer transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(`/products?id=${row.linkedHrmProduct.id}`, '_blank');
+            }}
+          >
+            {row.linkedHrmProduct.name}
+          </button>
         </div>
       )}
     </div>
   ), []);
   
   // Handlers
-  const handleOpenDetailDialog = React.useCallback((row: PkgxProductRow) => {
+  const handleOpenDetailDialog = React.useCallback(async (row: PkgxProductRow) => {
     setSelectedProductForDetail(row);
     setIsDetailDialogOpen(true);
+    setGalleryImages([]); // Reset gallery
+    
+    // Fetch gallery ảnh
+    setIsLoadingGallery(true);
+    try {
+      const result = await fetchPkgxGallery(row.goods_id);
+      if (result.success && result.data) {
+        setGalleryImages(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching gallery:', error);
+    } finally {
+      setIsLoadingGallery(false);
+    }
   }, []);
   
   const handleViewOnPkgx = React.useCallback((goodsId: number) => {
@@ -466,13 +513,13 @@ export function ProductMappingTab() {
     }
   };
   
-  // Sync products from PKGX (limit 500)
+  // Sync products from PKGX (limit 100 to fit localStorage)
   const handleSyncFromPkgx = async () => {
     setIsSyncing(true);
     const startTime = Date.now();
     try {
       toast.info('Đang tải sản phẩm từ PKGX...');
-      const response = await fetchPkgxProducts(1, 500);
+      const response = await fetchPkgxProducts(1, 100);
       if (response.success && response.data && !response.data.error) {
         // Lưu vào store để dùng chung với Link Dialog
         setPkgxProducts(response.data.data);
@@ -535,7 +582,6 @@ export function ProductMappingTab() {
               sku: (linked as any).sku,
               sellingPrice: linked.sellingPrice,
               costPrice: linked.costPrice,
-              suggestedRetailPrice: linked.suggestedRetailPrice,
               partnerPrice: (linked as any).partnerPrice,
               acePrice: (linked as any).acePrice,
               dealPrice: (linked as any).dealPrice,
@@ -664,9 +710,6 @@ export function ProductMappingTab() {
               // Chỉ push giá nếu có mapping tương ứng
               if (priceMapping.shopPrice && hrm.sellingPrice) {
                 pushData.shop_price = hrm.sellingPrice;
-              }
-              if (priceMapping.marketPrice && hrm.suggestedRetailPrice) {
-                pushData.market_price = hrm.suggestedRetailPrice;
               }
               if (priceMapping.partnerPrice && hrm.partnerPrice) {
                 pushData.partner_price = hrm.partnerPrice;
@@ -1078,16 +1121,14 @@ export function ProductMappingTab() {
       
       {/* Product Detail Dialog - Tabbed design */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {selectedProductForDetail?.goods_thumb && (
                 <img 
-                  src={selectedProductForDetail.goods_thumb.startsWith('http') 
-                    ? selectedProductForDetail.goods_thumb 
-                    : `https://phukiengiaxuong.com.vn/${selectedProductForDetail.goods_thumb.replace(/^\//, '')}`}
+                  src={buildPkgxImageUrl(selectedProductForDetail.goods_thumb)}
                   alt=""
-                  className="w-10 h-10 object-contain rounded border"
+                  className="w-12 h-12 object-contain rounded border"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
@@ -1115,24 +1156,73 @@ export function ProductMappingTab() {
                   <FileText className="h-3 w-3 mr-1" />
                   Nội dung & SEO
                 </TabsTrigger>
-                <TabsTrigger value="link" className="text-xs">
-                  <Link2 className="h-3 w-3 mr-1" />
-                  Liên kết
+                <TabsTrigger value="images" className="text-xs">
+                  <ImageIcon className="h-3 w-3 mr-1" />
+                  Hình ảnh
                 </TabsTrigger>
               </TabsList>
               
               {/* Tab: Thông tin cơ bản */}
               <TabsContent value="basic" className="flex-1 overflow-auto mt-4">
+                <ScrollArea className="h-[350px] pr-4">
                 <div className="space-y-4">
-                  {/* Status badges */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={selectedProductForDetail.is_on_sale === 1 ? 'default' : 'secondary'}>
-                      {selectedProductForDetail.is_on_sale === 1 ? 'Đang bán' : 'Ngừng bán'}
-                    </Badge>
-                    {selectedProductForDetail.is_best === 1 && <Badge>Best</Badge>}
-                    {selectedProductForDetail.is_hot === 1 && <Badge variant="destructive">Hot</Badge>}
-                    {selectedProductForDetail.is_new === 1 && <Badge variant="secondary">New</Badge>}
-                    {selectedProductForDetail.is_home === 1 && <Badge variant="outline">Home</Badge>}
+                  {/* Status flags + HRM Link - Cùng hàng */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Trạng thái hiển thị */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Trạng thái hiển thị</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant={selectedProductForDetail.is_on_sale == 1 ? 'default' : 'secondary'} className="gap-1">
+                          {selectedProductForDetail.is_on_sale == 1 ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                          Đăng bán
+                        </Badge>
+                        <Badge variant={selectedProductForDetail.is_best == 1 ? 'default' : 'secondary'} className="gap-1">
+                          {selectedProductForDetail.is_best == 1 ? <Star className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                          Best
+                        </Badge>
+                        <Badge variant={selectedProductForDetail.is_hot == 1 ? 'destructive' : 'secondary'} className="gap-1">
+                          {selectedProductForDetail.is_hot == 1 ? <Flame className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                          Hot
+                        </Badge>
+                        <Badge variant={selectedProductForDetail.is_new == 1 ? 'default' : 'secondary'} className={`gap-1 ${selectedProductForDetail.is_new == 1 ? 'bg-purple-500 hover:bg-purple-600' : ''}`}>
+                          {selectedProductForDetail.is_new == 1 ? <Sparkles className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                          New
+                        </Badge>
+                        <Badge variant={selectedProductForDetail.is_home == 1 ? 'outline' : 'secondary'} className={`gap-1 ${selectedProductForDetail.is_home == 1 ? 'border-orange-500 text-orange-600' : ''}`}>
+                          {selectedProductForDetail.is_home == 1 ? <Home className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                          Home
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {/* Liên kết HRM */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Liên kết HRM</Label>
+                      {selectedProductForDetail.linkedHrmProduct ? (
+                        <button
+                          onClick={() => {
+                            setIsDetailDialogOpen(false);
+                            navigate(`/products?id=${selectedProductForDetail.linkedHrmProduct!.id}`);
+                          }}
+                          className="w-full p-2 border rounded bg-green-50 border-green-200 hover:bg-green-100 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <span className="font-medium text-green-700 truncate text-sm">{selectedProductForDetail.linkedHrmProduct.name}</span>
+                            <ArrowRight className="h-3 w-3 text-green-600 flex-shrink-0 ml-auto" />
+                          </div>
+                          <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                            <span>SKU: {selectedProductForDetail.linkedHrmProduct.sku || '-'}</span>
+                            <span>Tồn: {selectedProductForDetail.linkedHrmProduct.quantity || 0}</span>
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="p-2 border rounded text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+                          <XCircle className="h-4 w-4" />
+                          Chưa liên kết
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Classification */}
@@ -1179,10 +1269,12 @@ export function ProductMappingTab() {
                     </div>
                   )}
                 </div>
+                </ScrollArea>
               </TabsContent>
               
               {/* Tab: Giá & Tồn kho */}
               <TabsContent value="price" className="flex-1 overflow-auto mt-4">
+                <ScrollArea className="h-[350px] pr-4">
                 <div className="space-y-4">
                   {/* Prices */}
                   <div className="space-y-2">
@@ -1220,6 +1312,7 @@ export function ProductMappingTab() {
                     </div>
                   </div>
                 </div>
+                </ScrollArea>
               </TabsContent>
               
               {/* Tab: Nội dung & SEO */}
@@ -1265,70 +1358,193 @@ export function ProductMappingTab() {
                 </ScrollArea>
               </TabsContent>
               
-              {/* Tab: Liên kết HRM */}
-              <TabsContent value="link" className="flex-1 overflow-auto mt-4">
-                <div className="space-y-4">
-                  {selectedProductForDetail.linkedHrmProduct ? (
-                    <>
-                      <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        <span className="font-medium text-green-700">Đã liên kết với sản phẩm HRM</span>
+              {/* Tab: Hình ảnh */}
+              <TabsContent value="images" className="flex-1 overflow-auto mt-4">
+                <ScrollArea className="h-[350px] pr-4">
+                  <div className="space-y-4">
+                    {/* Ảnh đại diện - dùng iframe để bypass CORS */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Ảnh sản phẩm</Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {selectedProductForDetail.original_img && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Ảnh gốc</Label>
+                            <a 
+                              href={buildPkgxImageUrl(selectedProductForDetail.original_img)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block border rounded p-2 hover:border-primary transition-colors bg-white"
+                            >
+                              <div className="w-full h-28 flex items-center justify-center overflow-hidden">
+                                <img 
+                                  src={buildPkgxImageUrl(selectedProductForDetail.original_img)}
+                                  alt="Original"
+                                  className="max-w-full max-h-full object-contain"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => { 
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-8">Click để xem</div>';
+                                  }}
+                                />
+                              </div>
+                              <div className="text-xs text-center text-primary mt-1">Xem ảnh gốc</div>
+                            </a>
+                          </div>
+                        )}
+                        {selectedProductForDetail.goods_img && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Ảnh SP</Label>
+                            <a 
+                              href={buildPkgxImageUrl(selectedProductForDetail.goods_img)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block border rounded p-2 hover:border-primary transition-colors bg-white"
+                            >
+                              <div className="w-full h-28 flex items-center justify-center overflow-hidden">
+                                <img 
+                                  src={buildPkgxImageUrl(selectedProductForDetail.goods_img)}
+                                  alt="Goods"
+                                  className="max-w-full max-h-full object-contain"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => { 
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-8">Click để xem</div>';
+                                  }}
+                                />
+                              </div>
+                              <div className="text-xs text-center text-primary mt-1">Xem ảnh SP</div>
+                            </a>
+                          </div>
+                        )}
+                        {selectedProductForDetail.goods_thumb && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Thumbnail</Label>
+                            <a 
+                              href={buildPkgxImageUrl(selectedProductForDetail.goods_thumb)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block border rounded p-2 hover:border-primary transition-colors bg-white"
+                            >
+                              <div className="w-full h-28 flex items-center justify-center overflow-hidden">
+                                <img 
+                                  src={buildPkgxImageUrl(selectedProductForDetail.goods_thumb)}
+                                  alt="Thumbnail"
+                                  className="max-w-full max-h-full object-contain"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => { 
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-8">Click để xem</div>';
+                                  }}
+                                />
+                              </div>
+                              <div className="text-xs text-center text-primary mt-1">Xem thumbnail</div>
+                            </a>
+                          </div>
+                        )}
                       </div>
-                      
-                      <div className="space-y-3">
-                        <div className="p-3 border rounded space-y-2">
-                          <div className="font-medium">{selectedProductForDetail.linkedHrmProduct.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            SKU: {selectedProductForDetail.linkedHrmProduct.sku || '-'}
-                          </div>
+                      {!selectedProductForDetail.original_img && !selectedProductForDetail.goods_img && !selectedProductForDetail.goods_thumb && (
+                        <div className="text-sm text-muted-foreground p-4 border rounded text-center">
+                          Chưa có ảnh sản phẩm
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="p-2 border rounded">
-                            <div className="text-xs text-muted-foreground">Giá bán HRM</div>
-                            <div className="font-medium">{Number(selectedProductForDetail.linkedHrmProduct.sellingPrice || 0).toLocaleString('vi-VN')}đ</div>
-                          </div>
-                          <div className="p-2 border rounded">
-                            <div className="text-xs text-muted-foreground">Tồn kho HRM</div>
-                            <div className="font-medium">{selectedProductForDetail.linkedHrmProduct.quantity || 0}</div>
-                          </div>
-                        </div>
-                        
-                        {/* Compare prices */}
-                        <div className="p-3 border rounded bg-muted/30">
-                          <Label className="text-xs text-muted-foreground">So sánh giá</Label>
-                          <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">PKGX Shop: </span>
-                              <span className="font-medium">{Number(selectedProductForDetail.shop_price || 0).toLocaleString('vi-VN')}đ</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">HRM: </span>
-                              <span className="font-medium">{Number(selectedProductForDetail.linkedHrmProduct.sellingPrice || 0).toLocaleString('vi-VN')}đ</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <Link2 className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                      <p className="text-muted-foreground">Sản phẩm chưa được liên kết với HRM</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-4"
-                        onClick={() => {
-                          setIsDetailDialogOpen(false);
-                          handleOpenLinkDialog(selectedProductForDetail);
-                        }}
-                      >
-                        <Link className="h-4 w-4 mr-2" />
-                        Liên kết ngay
-                      </Button>
+                      )}
                     </div>
-                  )}
-                </div>
+                    
+                    {/* Đường dẫn ảnh - có thể copy */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Đường dẫn ảnh (click để mở)</Label>
+                      <div className="space-y-2 text-xs">
+                        {selectedProductForDetail.original_img && (
+                          <a 
+                            href={buildPkgxImageUrl(selectedProductForDetail.original_img)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted transition-colors break-all"
+                          >
+                            <ExternalLink className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                            <span className="text-muted-foreground font-medium">Original:</span>
+                            <span className="text-primary underline">{selectedProductForDetail.original_img}</span>
+                          </a>
+                        )}
+                        {selectedProductForDetail.goods_img && (
+                          <a 
+                            href={buildPkgxImageUrl(selectedProductForDetail.goods_img)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted transition-colors break-all"
+                          >
+                            <ExternalLink className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                            <span className="text-muted-foreground font-medium">Goods:</span>
+                            <span className="text-primary underline">{selectedProductForDetail.goods_img}</span>
+                          </a>
+                        )}
+                        {selectedProductForDetail.goods_thumb && (
+                          <a 
+                            href={buildPkgxImageUrl(selectedProductForDetail.goods_thumb)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted transition-colors break-all"
+                          >
+                            <ExternalLink className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                            <span className="text-muted-foreground font-medium">Thumb:</span>
+                            <span className="text-primary underline">{selectedProductForDetail.goods_thumb}</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Album ảnh */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Album ảnh {galleryImages.length > 0 && `(${galleryImages.length})`}
+                      </Label>
+                      {isLoadingGallery ? (
+                        <div className="flex items-center justify-center p-4 border rounded">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-sm text-muted-foreground">Đang tải gallery...</span>
+                        </div>
+                      ) : galleryImages.length > 0 ? (
+                        <div className="grid grid-cols-4 gap-2">
+                          {galleryImages.map((img, index) => (
+                            <a
+                              key={img.img_id || index}
+                              href={buildPkgxImageUrl(img.img_url || img.img_original)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block border rounded p-1 hover:border-primary transition-colors bg-white"
+                            >
+                              <div className="w-full h-20 flex items-center justify-center overflow-hidden">
+                                <img
+                                  src={buildPkgxImageUrl(img.thumb_url || img.img_url)}
+                                  alt={img.img_desc || `Gallery ${index + 1}`}
+                                  className="max-w-full max-h-full object-contain"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-4">Lỗi</div>';
+                                  }}
+                                />
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground p-4 border rounded text-center">
+                          <p>Chưa có ảnh trong album</p>
+                          <p className="text-xs mt-1 opacity-70">
+                            Sản phẩm này chưa có ảnh gallery hoặc gallery trống
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </ScrollArea>
               </TabsContent>
             </Tabs>
           )}
@@ -1345,19 +1561,24 @@ export function ProductMappingTab() {
                   {isLoadingProductDetail ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                   <span className="ml-2">Tải lại</span>
                 </Button>
-                {selectedProductForDetail.linkedHrmProduct && (
-                  <Button variant="outline" size="sm" onClick={() => {
-                    setIsDetailDialogOpen(false);
-                    handleOpenPushDialog(selectedProductForDetail);
-                  }}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Đẩy lên PKGX
-                  </Button>
-                )}
                 <Button variant="outline" size="sm" onClick={() => handleViewOnPkgx(selectedProductForDetail.goods_id)}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Xem trên PKGX
                 </Button>
+                {selectedProductForDetail.linkedHrmProduct && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      setIsDetailDialogOpen(false);
+                      handleOpenUnlinkDialog(selectedProductForDetail);
+                    }}
+                  >
+                    <Unlink className="h-4 w-4 mr-2" />
+                    Hủy liên kết
+                  </Button>
+                )}
               </>
             )}
             <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>

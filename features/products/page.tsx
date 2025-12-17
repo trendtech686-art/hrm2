@@ -264,7 +264,7 @@ export function ProductsPage() {
     const printData = mapProductToLabelPrintData(product, storeSettings, {
       category: categoryName,
       brand: brandName,
-      price: defaultPrice ?? product.sellingPrice ?? product.suggestedRetailPrice,
+      price: defaultPrice ?? product.sellingPrice,
     });
     printSingleLabel('product-label', { data: printData });
   }, [printSingleLabel, storeSettings, defaultSellingPolicy]);
@@ -337,8 +337,8 @@ export function ProductsPage() {
       ? Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0)
       : 0;
     
-    // Get PKGX-specific SEO data (ưu tiên websiteSeo.pkgx, fallback về field gốc)
-    const pkgxSeo = product.websiteSeo?.pkgx;
+    // Get PKGX-specific SEO data (ưu tiên seoPkgx, fallback về field gốc)
+    const pkgxSeo = product.seoPkgx;
     
     const payload: PkgxProductPayload = {
       // Thông tin cơ bản (giống handlePkgxSyncBasicInfo)
@@ -366,12 +366,16 @@ export function ProductsPage() {
       original_img: product.thumbnailImage || product.images?.[0] || '',
       gallery_images: product.galleryImages || product.images || [],
       
-      // Flags (giống handlePkgxSyncFlags)
+      // Flags - mapping đúng theo HRM fields
+      // HRM isPublished (Đăng web) -> PKGX is_on_sale
+      // HRM isFeatured (Nổi bật) -> PKGX is_best, ishome
+      // HRM isBestSeller (Bán chạy) -> PKGX is_hot
+      // HRM isNewArrival (Mới về) -> PKGX is_new
       best: product.isFeatured || false,
-      hot: product.isFeatured || false,
+      hot: product.isBestSeller || false,
       new: product.isNewArrival || false,
       ishome: product.isFeatured || false,
-      is_on_sale: product.status === 'active',
+      is_on_sale: product.isPublished ?? (product.status === 'active'),
     };
     
     // Add optional prices if mapped
@@ -500,6 +504,117 @@ export function ProductsPage() {
     toast.success(`Đã hủy liên kết PKGX cho sản phẩm: ${product.name}`);
   }, [update, queryClient]);
 
+  // Handler thay đổi trạng thái sản phẩm (Switch)
+  const handleStatusChange = React.useCallback((product: Product, newStatus: 'active' | 'inactive') => {
+    update(asSystemId(product.systemId), { status: newStatus });
+    
+    // Update React Query cache
+    queryClient.setQueriesData<ProductQueryResult>(
+      { queryKey: ['products'] },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          items: oldData.items.map(item => 
+            item.systemId === product.systemId 
+              ? { ...item, status: newStatus }
+              : item
+          ),
+        };
+      }
+    );
+    
+    toast.success(`${product.name}: ${newStatus === 'active' ? 'Đang bán' : 'Ngừng bán'}`);
+  }, [update, queryClient]);
+
+  // Handler thay đổi tồn kho (Inline edit)
+  const handleInventoryChange = React.useCallback((product: Product, newQuantity: number) => {
+    // Lấy branch mặc định (branch đầu tiên có trong inventoryByBranch)
+    const branches = Object.keys(product.inventoryByBranch);
+    if (branches.length === 0) {
+      toast.error('Không tìm thấy chi nhánh để cập nhật tồn kho');
+      return;
+    }
+    
+    const defaultBranch = branches[0];
+    const newInventory = { ...product.inventoryByBranch, [defaultBranch]: newQuantity };
+    
+    update(asSystemId(product.systemId), { inventoryByBranch: newInventory });
+    
+    // Update React Query cache
+    queryClient.setQueriesData<ProductQueryResult>(
+      { queryKey: ['products'] },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          items: oldData.items.map(item => 
+            item.systemId === product.systemId 
+              ? { ...item, inventoryByBranch: newInventory }
+              : item
+          ),
+        };
+      }
+    );
+    
+    toast.success(`Đã cập nhật tồn kho ${product.name}: ${newQuantity}`);
+  }, [update, queryClient]);
+
+  // Handler cập nhật trường bất kỳ (Inline edit cho text/number/boolean fields)
+  const handleFieldUpdate = React.useCallback((product: Product, field: string, value: string | number | boolean) => {
+    // Xử lý nested field như prices.systemId
+    let updateData: Partial<Product>;
+    
+    if (field.startsWith('prices.')) {
+      const policySystemId = field.replace('prices.', '');
+      updateData = { prices: { ...product.prices, [policySystemId]: value as number } };
+    } else {
+      updateData = { [field]: value } as Partial<Product>;
+    }
+    
+    update(asSystemId(product.systemId), updateData);
+    
+    // Update React Query cache
+    queryClient.setQueriesData<ProductQueryResult>(
+      { queryKey: ['products'] },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          items: oldData.items.map(item => 
+            item.systemId === product.systemId 
+              ? { ...item, ...updateData }
+              : item
+          ),
+        };
+      }
+    );
+    
+    // Show success toast
+    const fieldLabels: Record<string, string> = {
+      pkgxId: 'ID PKGX',
+      trendtechId: 'ID Trendtech',
+      reorderLevel: 'Mức đặt hàng lại',
+      safetyStock: 'Tồn kho an toàn',
+      maxStock: 'Mức tồn tối đa',
+      sellerNote: 'Ghi chú',
+      isPublished: 'Đăng web',
+      isFeatured: 'Nổi bật',
+      isNewArrival: 'Mới về',
+      isBestSeller: 'Bán chạy',
+      isOnSale: 'Đang giảm giá',
+      isStockTracked: 'Theo dõi kho',
+      costPrice: 'Giá vốn',
+      sortOrder: 'Thứ tự',
+    };
+    
+    const label = field.startsWith('prices.') ? 'Giá' : (fieldLabels[field] || field);
+    const displayValue = typeof value === 'boolean' 
+      ? (value ? 'Bật' : 'Tắt') 
+      : (typeof value === 'string' && value.includes('T') ? formatDate(new Date(value)) : value);
+    toast.success(`Đã cập nhật ${label}: ${displayValue}`);
+  }, [update, queryClient]);
+
   const columns = React.useMemo(
     () => getColumns(
       handleDelete, 
@@ -516,25 +631,20 @@ export function ProductsPage() {
       handlePkgxSyncImages,
       handlePkgxSyncAll,
       handlePkgxLink,
-      handlePkgxUnlink
+      handlePkgxUnlink,
+      handleStatusChange,
+      handleInventoryChange,
+      handleFieldUpdate
     ),
-    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxUpdatePrice, handlePkgxPublish, handlePkgxUpdateSeo, handlePkgxSyncInventory, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncBasicInfo, handlePkgxSyncImages, handlePkgxSyncAll, handlePkgxLink, handlePkgxUnlink]
+    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxUpdatePrice, handlePkgxPublish, handlePkgxUpdateSeo, handlePkgxSyncInventory, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncBasicInfo, handlePkgxSyncImages, handlePkgxSyncAll, handlePkgxLink, handlePkgxUnlink, handleStatusChange, handleInventoryChange, handleFieldUpdate]
   );
   
   // ✅ Run once on mount only
   React.useEffect(() => {
-    const defaultVisibleColumns = [
-      'id', 'name', 'sku', 'categorySystemId', 'type', 
-      'status', 'defaultPrice', 'costPrice', 'inventory', 'unit',
-      'inventoryWarning', 'weight', 'dimensions', 'brand', 'supplier'
-    ];
+    // Show ALL columns by default for testing
     const initialVisibility: Record<string, boolean> = {};
     columns.forEach(c => {
-      if (c.id === 'select' || c.id === 'actions' || c.id === 'pkgxActions') {
-        initialVisibility[c.id!] = true;
-      } else {
-        initialVisibility[c.id!] = defaultVisibleColumns.includes(c.id!);
-      }
+      initialVisibility[c.id!] = true; // Show all columns
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
@@ -942,7 +1052,7 @@ export function ProductsPage() {
         data: mapProductToLabelPrintData(product, storeSettings, {
           category: categoryName,
           brand: brandName,
-          price: defaultPrice ?? product.sellingPrice ?? product.suggestedRetailPrice,
+          price: defaultPrice ?? product.sellingPrice,
         }),
       };
     });
@@ -1000,7 +1110,7 @@ export function ProductsPage() {
 
   // Create SEO update payload for PKGX (đồng nhất với handlePkgxUpdateSeo)
   const createSeoUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
-    const pkgxSeo = product.websiteSeo?.pkgx;
+    const pkgxSeo = product.seoPkgx;
     return {
       keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || product.name,
       meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
@@ -1009,14 +1119,15 @@ export function ProductsPage() {
     };
   };
 
-  // Create flags update payload for PKGX (đồng nhất với handlePkgxSyncFlags)
+  // Create flags update payload for PKGX
+  // Mapping: HRM isPublished->is_on_sale, isFeatured->best/ishome, isBestSeller->hot, isNewArrival->new
   const createFlagsUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
     return {
       best: product.isFeatured || false,
-      hot: product.isFeatured || false,
+      hot: product.isBestSeller || false,
       new: product.isNewArrival || false,
       ishome: product.isFeatured || false,
-      is_on_sale: product.status === 'active',
+      is_on_sale: product.isPublished ?? (product.status === 'active'),
     };
   };
 
@@ -1296,7 +1407,7 @@ export function ProductsPage() {
         
         for (const product of linkedProducts) {
           try {
-            const pkgxSeo = product.websiteSeo?.pkgx;
+            const pkgxSeo = product.seoPkgx;
             const payload = {
               goods_desc: pkgxSeo?.longDescription || product.description || '',
               goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',

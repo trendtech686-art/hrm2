@@ -16,6 +16,7 @@ import type {
 import { DEFAULT_PKGX_SETTINGS } from './types';
 import { PKGX_CATEGORIES, PKGX_BRANDS } from './constants';
 import { getCategories as fetchPkgxCategories, getBrands as fetchPkgxBrands } from '@/lib/pkgx/api-service';
+import { getCurrentUserInfo } from '@/contexts/auth-context';
 
 // ========================================
 // Store Interface
@@ -298,10 +299,15 @@ export const usePkgxSettingsStore = create<PkgxSettingsStore>()(
       
       // === Log Actions ===
       addLog: (log) => {
+        // Lấy thông tin user hiện tại
+        const userInfo = getCurrentUserInfo();
+        
         const newLog: PkgxSyncLog = {
           ...log,
           id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           timestamp: new Date().toISOString(),
+          userId: userInfo.systemId,
+          userName: userInfo.name,
         };
         set((state) => ({
           settings: {
@@ -479,25 +485,22 @@ export const usePkgxSettingsStore = create<PkgxSettingsStore>()(
     {
       name: 'pkgx-settings',
       storage: createJSONStorage(() => localStorage),
-      version: 3, // v3: Remove pkgxProducts from persist (too large for localStorage)
+      version: 6, // v6: Re-enable pkgxProducts persist (limit 100 SP to fit localStorage)
       migrate: (persistedState: any, version: number) => {
-        if (version < 3) {
-          // Remove pkgxProducts from persisted state - it's too large for localStorage
-          const newSettings = { ...persistedState.settings };
-          delete newSettings.pkgxProducts;
-          delete newSettings.pkgxProductsLastFetch;
-          return {
-            ...persistedState,
-            settings: newSettings,
-          };
-        }
-        return persistedState;
+        // Ensure pkgxProducts exists
+        return {
+          ...persistedState,
+          settings: {
+            ...persistedState?.settings,
+            pkgxProducts: persistedState?.settings?.pkgxProducts || [],
+            pkgxProductsLastFetch: persistedState?.settings?.pkgxProductsLastFetch || undefined,
+          },
+        };
       },
       partialize: (state) => {
-        // Exclude pkgxProducts from localStorage - keep only in memory
-        const { pkgxProducts, pkgxProductsLastFetch, ...settingsToSave } = state.settings;
+        // Persist toàn bộ settings bao gồm pkgxProducts (giới hạn 100 SP)
         return {
-          settings: settingsToSave,
+          settings: state.settings,
         };
       },
     }

@@ -53,8 +53,8 @@ export function getTotalInventory(product: Product): number {
  * Đồng nhất với các action update trong use-pkgx-sync.ts
  */
 export function mapHrmToPkgxPayload(product: Product): PkgxProductPayload {
-  // Get PKGX-specific SEO data (ưu tiên websiteSeo.pkgx, fallback về field gốc)
-  const pkgxSeo = product.websiteSeo?.pkgx;
+  // Get PKGX-specific SEO data (ưu tiên seoPkgx, fallback về field gốc)
+  const pkgxSeo = product.seoPkgx;
   
   const payload: PkgxProductPayload = {
     // Thông tin cơ bản (giống handlePkgxSyncBasicInfo)
@@ -97,12 +97,18 @@ export function mapHrmToPkgxPayload(product: Product): PkgxProductPayload {
   payload.meta_title = pkgxSeo?.seoTitle || product.ktitle || product.name;
   payload.meta_desc = pkgxSeo?.metaDescription || product.seoDescription || '';
 
-  // Map flags (giống handlePkgxSyncFlags)
+  // Map flags - đúng theo các trường của HRM
+  // HRM isPublished (Đăng web) -> PKGX is_on_sale
+  // HRM isFeatured (Nổi bật) -> PKGX is_best
+  // HRM isBestSeller (Bán chạy) -> PKGX is_hot
+  // HRM isNewArrival (Mới về) -> PKGX is_new
+  // HRM isFeatured (Nổi bật) -> PKGX ishome (hiển trang chủ)
+  // HRM isOnSale (Đang giảm giá) -> ko có trường tương ứng trong PKGX API
   payload.best = product.isFeatured || false;
-  payload.hot = product.isFeatured || false;
+  payload.hot = product.isBestSeller || false;
   payload.new = product.isNewArrival || false;
   payload.ishome = product.isFeatured || false;
-  payload.is_on_sale = product.status === 'active';
+  payload.is_on_sale = product.isPublished ?? (product.status === 'active');
   
   // Map images
   if (product.thumbnailImage) {
@@ -156,14 +162,14 @@ export function createPriceUpdatePayload(product: Product): Partial<PkgxProductP
 
 /**
  * Tạo payload chỉ chứa SEO để update
- * Ưu tiên lấy từ websiteSeo.pkgx, fallback về các field cũ
+ * Fallback chain: SEO PKGX → SEO Chung → tags → empty
  */
 export function createSeoUpdatePayload(product: Product): Partial<PkgxProductPayload> {
-  const pkgxSeo = product.websiteSeo?.pkgx;
+  const pkgxSeo = product.seoPkgx;
   return {
     meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
     meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
-    keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || '',
+    keywords: pkgxSeo?.seoKeywords || product.seoKeywords || product.tags?.join(', ') || '',
   };
 }
 
@@ -178,10 +184,10 @@ export function createInventoryUpdatePayload(product: Product): Partial<PkgxProd
 
 /**
  * Tạo payload chỉ chứa mô tả để update
- * Ưu tiên lấy từ websiteSeo.pkgx, fallback về các field cũ
+ * Ưu tiên lấy từ seoPkgx, fallback về các field cũ
  */
 export function createDescriptionUpdatePayload(product: Product): Partial<PkgxProductPayload> {
-  const pkgxSeo = product.websiteSeo?.pkgx;
+  const pkgxSeo = product.seoPkgx;
   return {
     goods_desc: pkgxSeo?.longDescription || product.description || '',
     goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
@@ -190,19 +196,20 @@ export function createDescriptionUpdatePayload(product: Product): Partial<PkgxPr
 
 /**
  * Tạo payload chỉ chứa flags (best, hot, new, ishome, is_on_sale) để update
- * Note: HRM chỉ có isFeatured và isNewArrival
- * - best = isFeatured (sản phẩm nổi bật)
- * - new = isNewArrival (sản phẩm mới)
- * - hot và ishome không có trong HRM, sẽ dùng isFeatured
- * - is_on_sale = status === 'active' (hiển thị đăng web)
+ * Mapping:
+ * - HRM isPublished (Đăng web) -> PKGX is_on_sale
+ * - HRM isFeatured (Nổi bật) -> PKGX is_best
+ * - HRM isBestSeller (Bán chạy) -> PKGX is_hot  
+ * - HRM isNewArrival (Mới về) -> PKGX is_new
+ * - HRM isFeatured (Nổi bật) -> PKGX ishome (hiển trang chủ)
  */
 export function createFlagsUpdatePayload(product: Product): Partial<PkgxProductPayload> {
   return {
     best: product.isFeatured || false,
-    hot: product.isFeatured || false, // HRM không có isHot, dùng isFeatured
+    hot: product.isBestSeller || false,
     new: product.isNewArrival || false,
-    ishome: product.isFeatured || false, // HRM không có showOnHomepage, dùng isFeatured
-    is_on_sale: product.status === 'active', // Hiển thị trên web nếu sản phẩm active
+    ishome: product.isFeatured || false,
+    is_on_sale: product.isPublished ?? (product.status === 'active'),
   };
 }
 

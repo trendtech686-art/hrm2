@@ -6,11 +6,12 @@ import { Badge } from "../../components/ui/badge.tsx";
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { Button } from "../../components/ui/button.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
-import { MoreHorizontal, Image as ImageIcon, Package, Pencil, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { MoreHorizontal, Image as ImageIcon, Package, Pencil, CheckCircle, AlertTriangle, XCircle, RefreshCw, Search, AlignLeft, ExternalLink, Unlink } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx";
 import { useProductStore } from '../products/store.ts';
 import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell.tsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx";
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return '';
@@ -44,6 +45,151 @@ const getSeoStatusBadge = (score: number) => {
   return <Badge variant="outline" className="text-muted-foreground">—</Badge>;
 };
 
+// ═══════════════════════════════════════════════════════════════
+// PKGX Actions Cell Component
+// ═══════════════════════════════════════════════════════════════
+type PkgxActionsCellProps = {
+  row: ProductCategory;
+  hasPkgxMapping: boolean;
+  pkgxCatId?: number;
+  onPkgxSyncSeo?: (category: ProductCategory) => void;
+  onPkgxSyncDescription?: (category: ProductCategory) => void;
+  onPkgxSyncAll?: (category: ProductCategory) => void;
+};
+
+function PkgxActionsCell({
+  row,
+  hasPkgxMapping,
+  pkgxCatId,
+  onPkgxSyncSeo,
+  onPkgxSyncDescription,
+  onPkgxSyncAll,
+}: PkgxActionsCellProps) {
+  const [confirmAction, setConfirmAction] = React.useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: (() => void) | null;
+  }>({ open: false, title: '', description: '', action: null });
+
+  const handleConfirm = (title: string, description: string, action: () => void) => {
+    setConfirmAction({ open: true, title, description, action });
+  };
+
+  const executeAction = () => {
+    if (confirmAction.action) {
+      confirmAction.action();
+    }
+    setConfirmAction({ open: false, title: '', description: '', action: null });
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="ghost" 
+              className={`h-8 w-8 p-0 ${hasPkgxMapping ? "text-primary" : "text-muted-foreground"}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="sr-only">PKGX menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {hasPkgxMapping ? (
+              <>
+                {/* Sync All */}
+                {onPkgxSyncAll && (
+                  <DropdownMenuItem 
+                    onSelect={() => handleConfirm(
+                      'Đồng bộ tất cả',
+                      `Bạn có chắc muốn đồng bộ TẤT CẢ thông tin danh mục "${row.name}" lên PKGX?`,
+                      () => onPkgxSyncAll(row)
+                    )}
+                    className="font-medium"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Đồng bộ tất cả
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                
+                {/* Individual sync actions */}
+                {onPkgxSyncSeo && (
+                  <DropdownMenuItem 
+                    onSelect={() => handleConfirm(
+                      'Đồng bộ SEO',
+                      `Đồng bộ SEO (keywords, meta title, meta description) của "${row.name}" lên PKGX?`,
+                      () => onPkgxSyncSeo(row)
+                    )}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    SEO
+                  </DropdownMenuItem>
+                )}
+                {onPkgxSyncDescription && (
+                  <DropdownMenuItem 
+                    onSelect={() => handleConfirm(
+                      'Đồng bộ mô tả',
+                      `Đồng bộ mô tả danh mục "${row.name}" lên PKGX?`,
+                      () => onPkgxSyncDescription(row)
+                    )}
+                  >
+                    <AlignLeft className="mr-2 h-4 w-4" />
+                    Mô tả
+                  </DropdownMenuItem>
+                )}
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onSelect={() => window.open(`https://phukiengiaxuong.com.vn/admin/category.php?act=edit&cat_id=${pkgxCatId}`, '_blank')}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Xem trên PKGX
+                </DropdownMenuItem>
+              </>
+            ) : (
+              /* Not linked - show info */
+              <>
+                <DropdownMenuItem 
+                  className="text-muted-foreground"
+                  onSelect={() => window.open('/settings/pkgx', '_self')}
+                >
+                  <Unlink className="mr-2 h-4 w-4" />
+                  Chưa liên kết
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onSelect={() => window.open('/settings/pkgx', '_self')}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Cài đặt mapping PKGX
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmAction.open} onOpenChange={(open) => !open && setConfirmAction({ open: false, title: '', description: '', action: null })}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmAction.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmAction.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.stopPropagation(); executeAction(); }}>Xác nhận</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onToggleActive: (systemId: string, isActive: boolean) => void,
@@ -51,6 +197,12 @@ export const getColumns = (
   allCategories: ProductCategory[], // Để tính số danh mục con
   onUpdateName?: (systemId: string, name: string) => void, // Inline edit handler
   onUpdateSortOrder?: (systemId: string, sortOrder: number) => void, // Sort order handler
+  // PKGX handlers
+  onPkgxSyncSeo?: (category: ProductCategory) => void,
+  onPkgxSyncDescription?: (category: ProductCategory) => void,
+  onPkgxSyncAll?: (category: ProductCategory) => void,
+  hasPkgxMapping?: (category: ProductCategory) => boolean,
+  getPkgxCatId?: (category: ProductCategory) => number | undefined,
 ): ColumnDef<ProductCategory>[] => {
   // Get product counts per category - không dùng useMemo vì đây không phải React component
   const productStore = useProductStore.getState();
@@ -418,6 +570,32 @@ export const getColumns = (
     meta: {
       displayName: "Ngày tạo",
       group: "Thời gian"
+    },
+  },
+  // PKGX Actions Column
+  {
+    id: "pkgx",
+    header: "PKGX",
+    cell: ({ row }) => {
+      const category = row as ProductCategory;
+      const hasMapping = hasPkgxMapping?.(category) ?? false;
+      const pkgxId = getPkgxCatId?.(category);
+      
+      return (
+        <PkgxActionsCell
+          row={category}
+          hasPkgxMapping={hasMapping}
+          pkgxCatId={pkgxId}
+          onPkgxSyncSeo={onPkgxSyncSeo}
+          onPkgxSyncDescription={onPkgxSyncDescription}
+          onPkgxSyncAll={onPkgxSyncAll}
+        />
+      );
+    },
+    size: 70,
+    meta: {
+      displayName: "PKGX",
+      group: "PKGX"
     },
   },
   // Actions

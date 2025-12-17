@@ -49,6 +49,7 @@ export interface ProductCategory {
   // SEO Fields (giống WordPress) - Default/HRM internal
   seoTitle?: string | undefined; // Title tag cho SEO
   metaDescription?: string | undefined; // Meta description cho SEO
+  seoKeywords?: string | undefined; // Từ khóa SEO
   shortDescription?: string | undefined; // Mô tả ngắn (1-2 câu)
   longDescription?: string | undefined; // Mô tả chi tiết (HTML)
   
@@ -88,6 +89,7 @@ export interface Brand {
   // SEO Fields (NEW) - Default/HRM internal
   seoTitle?: string | undefined;
   metaDescription?: string | undefined;
+  seoKeywords?: string | undefined; // Từ khóa SEO
   shortDescription?: string | undefined; // Mô tả ngắn
   longDescription?: string | undefined; // Mô tả dài (HTML)
   

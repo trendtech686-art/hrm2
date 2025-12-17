@@ -102,6 +102,8 @@ export function ProductFormPage() {
     const { _imageFiles, title, seoDescription, ...productData } = values;
     
     console.log('[FormPage] handleSubmit received _imageFiles:', _imageFiles);
+    console.log('[FormPage] seoPkgx value:', values.seoPkgx);
+    console.log('[FormPage] seoTrendtech value:', values.seoTrendtech);
     
     if (product) {
       // Edit mode - update existing product

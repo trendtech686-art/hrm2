@@ -822,7 +822,7 @@ export function ProductDetailPage() {
     const printData = mapProductToLabelPrintData(product, storeSettings, {
       category: categoryName,
       brand: brandName,
-      price: defaultPrice ?? product.sellingPrice ?? product.suggestedRetailPrice,
+      price: defaultPrice ?? product.sellingPrice,
     });
     printLabel('product-label', { data: printData });
   }, [product, printLabel, storeSettings, defaultSellingPolicy]);
@@ -1114,6 +1114,7 @@ export function ProductDetailPage() {
                 <TabsTrigger value="images">Hình ảnh</TabsTrigger>
                 <TabsTrigger value="pricing">Giá & Kho</TabsTrigger>
                 <TabsTrigger value="ecommerce">E-commerce</TabsTrigger>
+                <TabsTrigger value="seo-default">SEO Chung</TabsTrigger>
                 <TabsTrigger value="seo-pkgx">SEO PKGX</TabsTrigger>
                 <TabsTrigger value="seo-trendtech">SEO Trendtech</TabsTrigger>
                 <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
@@ -1215,6 +1216,38 @@ export function ProductDetailPage() {
               </Card>
             </TabsContent>
 
+            {/* Tab: SEO Chung (Default) */}
+            <TabsContent value="seo-default" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-h3 flex items-center gap-2">
+                    <Globe className="h-5 w-5" />
+                    SEO Mặc định
+                  </CardTitle>
+                  <p className="text-body-sm text-muted-foreground">
+                    Thông tin SEO chung - sẽ được dùng nếu không có SEO riêng cho từng website
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <DetailField label="Tiêu đề SEO (ktitle)" value={product.ktitle || '-'} />
+                  <DetailField label="Meta Description" value={product.seoDescription || '-'} />
+                  <DetailField label="Keywords" value={product.seoKeywords || '-'} />
+                  <div>
+                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
+                    {product.shortDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }} />
+                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                  </div>
+                  <div>
+                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả chi tiết</p>
+                    {product.description ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} />
+                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Tab: SEO PKGX */}
             <TabsContent value="seo-pkgx" className="mt-4 space-y-4">
               <Card>
@@ -1226,19 +1259,19 @@ export function ProductDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <DetailField label="Slug PKGX" value={product.pkgxSlug || '-'} />
-                  <DetailField label="Tiêu đề SEO" value={product.websiteSeo?.pkgx?.seoTitle || '-'} />
-                  <DetailField label="Meta Description" value={product.websiteSeo?.pkgx?.metaDescription || '-'} />
-                  <DetailField label="Keywords" value={product.websiteSeo?.pkgx?.seoKeywords || '-'} />
+                  <DetailField label="Tiêu đề SEO" value={product.seoPkgx?.seoTitle || '-'} />
+                  <DetailField label="Meta Description" value={product.seoPkgx?.metaDescription || '-'} />
+                  <DetailField label="Keywords" value={product.seoPkgx?.seoKeywords || '-'} />
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
-                    {product.websiteSeo?.pkgx?.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.pkgx.shortDescription) }} />
+                    {product.seoPkgx?.shortDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.shortDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
-                    {product.websiteSeo?.pkgx?.longDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.pkgx.longDescription) }} />
+                    {product.seoPkgx?.longDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.longDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
@@ -1256,19 +1289,19 @@ export function ProductDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <DetailField label="Slug Trendtech" value={product.trendtechSlug || '-'} />
-                  <DetailField label="Tiêu đề SEO" value={product.websiteSeo?.trendtech?.seoTitle || '-'} />
-                  <DetailField label="Meta Description" value={product.websiteSeo?.trendtech?.metaDescription || '-'} />
-                  <DetailField label="Keywords" value={product.websiteSeo?.trendtech?.seoKeywords || '-'} />
+                  <DetailField label="Tiêu đề SEO" value={product.seoTrendtech?.seoTitle || '-'} />
+                  <DetailField label="Meta Description" value={product.seoTrendtech?.metaDescription || '-'} />
+                  <DetailField label="Keywords" value={product.seoTrendtech?.seoKeywords || '-'} />
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
-                    {product.websiteSeo?.trendtech?.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.trendtech.shortDescription) }} />
+                    {product.seoTrendtech?.shortDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.shortDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
-                    {product.websiteSeo?.trendtech?.longDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.websiteSeo.trendtech.longDescription) }} />
+                    {product.seoTrendtech?.longDescription ? (
+                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.longDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
@@ -1296,7 +1329,6 @@ export function ProductDetailPage() {
                     {product.type !== 'combo' && supplier && <DetailField label="NCC chính" value={<ReactRouterDOM.Link to={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</ReactRouterDOM.Link>} />}
                     {product.type !== 'combo' && <DetailField label="Ngày nhập gần nhất" value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} />}
                     <DetailField label="Giá tối thiểu" value={product.minPrice ? formatCurrency(product.minPrice) : '-'} />
-                    {product.suggestedRetailPrice && <DetailField label="Giá bán lẻ đề xuất" value={formatCurrency(product.suggestedRetailPrice)} />}
                     {product.taxRate !== undefined && <DetailField label="Thuế suất" value={`${product.taxRate}%`} />}
                   </CardContent>
                 </Card>

@@ -305,19 +305,6 @@ export const productFields: FieldConfig<Product>[] = [
     },
   },
   {
-    key: 'suggestedRetailPrice',
-    label: 'Giá bán lẻ đề xuất',
-    required: false,
-    type: 'number',
-    exportGroup: 'Giá',
-    example: '280000',
-    importTransform: (value: unknown) => {
-      if (!value) return undefined;
-      const num = Number(String(value).replace(/[,.\s]/g, ''));
-      return isNaN(num) ? undefined : num;
-    },
-  },
-  {
     key: 'minPrice',
     label: 'Giá tối thiểu',
     required: false,

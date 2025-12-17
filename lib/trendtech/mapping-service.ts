@@ -108,8 +108,8 @@ export function mapHrmToTrendtechPayload(product: Product): TrendtechProductPayl
   if (product.thumbnailImage) payload.thumbnail = product.thumbnailImage;
   if (product.galleryImages?.length) payload.images = product.galleryImages;
 
-  // Map SEO - Ưu tiên từ websiteSeo.trendtech nếu có
-  const trendtechSeo = product.websiteSeo?.trendtech;
+  // Map SEO - Ưu tiên từ seoTrendtech nếu có, fallback về field gốc
+  const trendtechSeo = product.seoTrendtech;
   payload.metaTitle = trendtechSeo?.seoTitle || product.ktitle || product.name;
   payload.metaDescription = trendtechSeo?.metaDescription || product.seoDescription || product.shortDescription || '';
   payload.metaKeywords = trendtechSeo?.seoKeywords || product.seoKeywords || product.tags?.join(', ') || '';
@@ -153,7 +153,7 @@ export function createPriceUpdatePayload(product: Product): Partial<TrendtechPro
  * Tạo payload chỉ chứa SEO để update
  */
 export function createSeoUpdatePayload(product: Product): Partial<TrendtechProductPayload> {
-  const trendtechSeo = product.websiteSeo?.trendtech;
+  const trendtechSeo = product.seoTrendtech;
   
   return {
     metaTitle: trendtechSeo?.seoTitle || product.ktitle || product.name,
@@ -211,7 +211,7 @@ export function compareProductData(
   }
   
   // SEO comparison
-  const trendtechSeo = hrmProduct.websiteSeo?.trendtech;
+  const trendtechSeo = hrmProduct.seoTrendtech;
   const hrmMetaTitle = trendtechSeo?.seoTitle || hrmProduct.ktitle || hrmProduct.name;
   if (hrmMetaTitle !== trendtechProduct.metaTitle) {
     details.push({ field: 'metaTitle', hrmValue: hrmMetaTitle, trendtechValue: trendtechProduct.metaTitle });

@@ -33,6 +33,18 @@ export type PkgxBrand = {
   sort_order?: number;    // Thứ tự sắp xếp
 };
 
+/**
+ * Ảnh trong gallery sản phẩm PKGX
+ */
+export type PkgxGalleryImage = {
+  img_id: number;           // ID ảnh trong gallery
+  goods_id: number;         // ID sản phẩm
+  img_url: string;          // Đường dẫn ảnh gốc
+  thumb_url: string;        // Đường dẫn thumbnail
+  img_desc?: string;        // Mô tả ảnh
+  img_original?: string;    // Ảnh gốc (nếu có)
+};
+
 // ========================================
 // Mapping Types
 // ========================================
@@ -113,6 +125,9 @@ export type PkgxSyncLog = {
     | 'save_mapping';             // Lưu mapping
   status: 'success' | 'error' | 'partial' | 'info';
   message: string;                // Log message
+  // User info - Ai thực hiện action
+  userId?: string;                // User systemId hoặc 'SYSTEM'
+  userName?: string;              // Tên người dùng
   details?: {
     // Request info
     url?: string;
@@ -304,6 +319,17 @@ export type PkgxBrandsResponse = {
   message: string;
   total: number;
   data: PkgxBrandFromApi[];
+};
+
+/**
+ * Response lấy gallery ảnh sản phẩm từ PKGX API
+ */
+export type PkgxGalleryResponse = {
+  error: boolean;
+  message: string;
+  goods_id: number;
+  total: number;
+  data: PkgxGalleryImage[];
 };
 
 /**

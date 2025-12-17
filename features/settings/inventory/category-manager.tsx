@@ -88,6 +88,7 @@ const categoryFormSchema = z.object({
   slug: z.string().optional(),
   seoTitle: z.string().optional(),
   metaDescription: z.string().optional(),
+  seoKeywords: z.string().optional(),
   shortDescription: z.string().optional(),
   longDescription: z.string().optional(),
   parentId: z.string().optional(),
@@ -279,7 +280,7 @@ function CategoryDetailForm({
   onCancel,
   onDelete,
 }: CategoryDetailFormProps) {
-  const [activeTab, setActiveTab] = React.useState<'general' | 'seo-pkgx' | 'seo-trendtech'>('general');
+  const [activeTab, setActiveTab] = React.useState<'general' | 'seo-default' | 'seo-pkgx' | 'seo-trendtech'>('general');
   
   // Image upload state (thumbnail)
   const [thumbnailFiles, setThumbnailFiles] = React.useState<StagingFile[]>([]);
@@ -476,8 +477,12 @@ function CategoryDetailForm({
         <Form {...form}>
           <form className="p-4 space-y-6">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="general">Thông tin</TabsTrigger>
+                <TabsTrigger value="seo-default" className="gap-1">
+                  <Globe className="h-3 w-3" />
+                  SEO Chung
+                </TabsTrigger>
                 <TabsTrigger value="seo-pkgx" className="gap-1">
                   <Globe className="h-3 w-3" style={{ color: '#ef4444' }} />
                   SEO PKGX
@@ -705,6 +710,104 @@ function CategoryDetailForm({
                 </Card>
               </TabsContent>
 
+              {/* SEO Default Tab */}
+              <TabsContent value="seo-default" className="space-y-4 mt-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      <CardTitle className="text-base">SEO Mặc định</CardTitle>
+                    </div>
+                    <CardDescription>
+                      Thông tin SEO chung - sẽ được dùng cho tất cả website nếu không có SEO riêng
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="seoTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tiêu đề SEO</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Tiêu đề mặc định" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>Title tag mặc định. Nên 50-60 ký tự.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="metaDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Meta Description</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Mô tả SEO mặc định" {...field} value={field.value || ''} rows={2} />
+                          </FormControl>
+                          <FormDescription>Nên 150-160 ký tự.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="seoKeywords"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Từ khóa SEO</FormLabel>
+                          <FormControl>
+                            <Input placeholder="từ khóa 1, từ khóa 2" {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="shortDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mô tả ngắn</FormLabel>
+                          <FormControl>
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả ngắn gọn 1-2 câu..."
+                              minHeight="100px"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="longDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mô tả chi tiết</FormLabel>
+                          <FormControl>
+                            <TipTapEditor
+                              content={field.value || ''}
+                              onChange={field.onChange}
+                              placeholder="Mô tả đầy đủ về danh mục..."
+                              minHeight="200px"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               {/* SEO PKGX Tab */}
               <TabsContent value="seo-pkgx" className="space-y-4 mt-4">
                 <Card>
@@ -713,7 +816,7 @@ function CategoryDetailForm({
                       <Globe className="h-4 w-4" style={{ color: '#ef4444' }} />
                       <CardTitle className="text-base">SEO cho PKGX</CardTitle>
                     </div>
-                    <CardDescription>phukiengiaxuong.com.vn</CardDescription>
+                    <CardDescription>phukiengiaxuong.com.vn - Override SEO chung</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <FormField

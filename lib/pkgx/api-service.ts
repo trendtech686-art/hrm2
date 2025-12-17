@@ -6,6 +6,8 @@ import type {
   PkgxImageUploadResponse,
   PkgxCategoriesResponse,
   PkgxBrandsResponse,
+  PkgxGalleryResponse,
+  PkgxGalleryImage,
 } from '../../features/settings/pkgx/types';
 import { PKGX_API_CONFIG } from '../../features/settings/pkgx/constants';
 
@@ -155,6 +157,35 @@ export async function getProductById(goodsId: number): Promise<ApiResponse<PkgxP
   // Trả về sản phẩm đầu tiên nếu có
   const product = response.data.data?.[0] || null;
   return { success: true, data: product };
+}
+
+/**
+ * Lấy gallery ảnh sản phẩm theo goods_id
+ * Note: Cần API endpoint `get_gallery` trên server PKGX
+ */
+export async function getProductGallery(goodsId: number): Promise<ApiResponse<PkgxGalleryImage[]>> {
+  const { apiUrl } = getApiConfig();
+  const url = `${apiUrl}?action=get_gallery&goods_id=${goodsId}`;
+  
+  try {
+    const response = await fetchWithAuth<PkgxGalleryResponse>(url, { method: 'GET' });
+    
+    // Debug log
+    console.log('Gallery API response:', response);
+    
+    if (!response.success) {
+      // Nếu API chưa có hoặc lỗi, trả về mảng rỗng
+      console.log('Gallery API error:', response.error);
+      return { success: true, data: [] };
+    }
+    
+    // response.data chứa toàn bộ response từ API: { error, message, goods_id, total, data }
+    const galleryData = response.data as PkgxGalleryResponse;
+    return { success: true, data: galleryData.data || [] };
+  } catch (error) {
+    console.error('Gallery API exception:', error);
+    return { success: true, data: [] }; // Fallback to empty array
+  }
 }
 
 /**
@@ -355,6 +386,15 @@ export async function getCategoryById(catId: number): Promise<ApiResponse<PkgxCa
 
 /**
  * Cập nhật thông tin danh mục (SEO, mô tả)
+ * 
+ * Các trường hỗ trợ:
+ * - cat_name: Tên danh mục
+ * - cat_desc: Mô tả chi tiết (HTML) - tương đương longDescription
+ * - keywords: Từ khóa SEO - tương đương seoKeywords
+ * - cat_alias: Slug URL
+ * - meta_title: Tiêu đề SEO (NEW)
+ * - meta_desc: Mô tả SEO (NEW)
+ * - short_desc: Mô tả ngắn (NEW)
  */
 export async function updateCategory(
   catId: number,
@@ -363,6 +403,10 @@ export async function updateCategory(
     cat_desc?: string;
     keywords?: string;
     cat_alias?: string;
+    // SEO fields (NEW)
+    meta_title?: string;
+    meta_desc?: string;
+    short_desc?: string;
   }
 ): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number }>> {
   const { apiUrl } = getApiConfig();
@@ -386,6 +430,15 @@ export async function getBrandById(brandId: number): Promise<ApiResponse<PkgxBra
 
 /**
  * Cập nhật thông tin thương hiệu (SEO, mô tả)
+ * 
+ * Các trường hỗ trợ:
+ * - brand_name: Tên thương hiệu
+ * - brand_desc: Mô tả chi tiết (HTML) - tương đương longDescription
+ * - site_url: Website URL
+ * - keywords: Từ khóa SEO (NEW) - tương đương seoKeywords
+ * - meta_title: Tiêu đề SEO (NEW)
+ * - meta_desc: Mô tả SEO (NEW)
+ * - short_desc: Mô tả ngắn (NEW)
  */
 export async function updateBrand(
   brandId: number,
@@ -393,6 +446,11 @@ export async function updateBrand(
     brand_name?: string;
     brand_desc?: string;
     site_url?: string;
+    // SEO fields (NEW)
+    keywords?: string;
+    meta_title?: string;
+    meta_desc?: string;
+    short_desc?: string;
   }
 ): Promise<ApiResponse<{ error: boolean; message: string; brand_id: number }>> {
   const { apiUrl } = getApiConfig();

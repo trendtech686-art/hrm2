@@ -80,10 +80,9 @@ export type Product = {
   images?: string[] | undefined; // Trường legacy - vẫn giữ để tương thích
   videoLinks?: string[] | undefined; // Video links (YouTube, TikTok, Google Drive...)
   
-  // Multi-website SEO (NEW) - SEO riêng cho từng website
-  // Key: 'pkgx' | 'web2' | ...
-  // Mỗi website có thể có: seoTitle, metaDescription, seoKeywords, shortDescription, longDescription, slug
-  websiteSeo?: MultiWebsiteSeo | undefined;
+  // SEO riêng cho từng website (PKGX và Trendtech là 2 website khác nhau)
+  seoPkgx?: WebsiteSeoData | undefined; // SEO cho website PKGX
+  seoTrendtech?: WebsiteSeoData | undefined; // SEO cho website Trendtech
   
   // Classification - Linked to settings
   type?: ProductType | undefined; // 'physical' | 'service' | 'digital'
@@ -110,7 +109,6 @@ export type Product = {
   
   // Pricing
   prices: Record<string, number>; // Key is PricingPolicy.systemId
-  suggestedRetailPrice?: number | undefined; // Giá bán lẻ đề xuất
   minPrice?: number | undefined; // Giá tối thiểu cho phép
   sellingPrice?: number | undefined; // Legacy selling price
   taxRate?: number | undefined;

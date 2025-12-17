@@ -595,37 +595,6 @@ export function EcommerceTab({ product }: EcommerceTabProps) {
           )}
         </CardContent>
       </Card>
-      
-      {/* Quick SEO Info */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            <CardTitle className="text-lg">Thông tin SEO</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* PKGX SEO */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium">PKGX</p>
-              <div className="text-sm space-y-1 text-muted-foreground">
-                <p><span className="font-medium">Title:</span> {product.websiteSeo?.pkgx?.seoTitle || product.ktitle || '-'}</p>
-                <p><span className="font-medium">Slug:</span> {product.pkgxSlug || '-'}</p>
-              </div>
-            </div>
-            
-            {/* Trendtech SEO */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Trendtech</p>
-              <div className="text-sm space-y-1 text-muted-foreground">
-                <p><span className="font-medium">Title:</span> {product.websiteSeo?.trendtech?.seoTitle || '-'}</p>
-                <p><span className="font-medium">Slug:</span> {product.trendtechSlug || '-'}</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

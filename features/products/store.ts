@@ -304,7 +304,6 @@ const updateProduct = (systemId: SystemId, updatedProduct: Product) => {
       { key: 'brandSystemId', label: 'Thương hiệu' },
       { key: 'unit', label: 'Đơn vị tính' },
       { key: 'costPrice', label: 'Giá vốn' },
-      { key: 'suggestedRetailPrice', label: 'Giá bán lẻ đề xuất' },
       { key: 'minPrice', label: 'Giá tối thiểu' },
       { key: 'barcode', label: 'Mã vạch' },
       { key: 'primarySupplierSystemId', label: 'Nhà cung cấp chính' },

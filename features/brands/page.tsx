@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import { useShallow } from 'zustand/react/shallow';
+import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink } from "lucide-react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { useBrandStore } from "../settings/inventory/brand-store.ts";
@@ -19,12 +20,22 @@ import { toast } from "sonner";
 import Fuse from "fuse.js";
 import { getColumns } from "./columns.tsx";
 import { MobileBrandCard } from "./card.tsx";
+import { usePkgxBrandSync } from "./hooks/use-pkgx-brand-sync.ts";
+import { usePkgxSettingsStore } from "../settings/pkgx/store.ts";
+import { updateBrand } from "@/lib/pkgx/api-service.ts";
 
 export function BrandsPage() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
   
-  const { data, update, remove } = useBrandStore();
+  // ✅ Use shallow comparison to prevent unnecessary re-renders
+  const { data, update, remove } = useBrandStore(
+    useShallow((state) => ({
+      data: state.data,
+      update: state.update,
+      remove: state.remove,
+    }))
+  );
 
   const activeBrands = React.useMemo(() => data.filter(b => !b.isDeleted), [data]);
 
@@ -103,12 +114,22 @@ export function BrandsPage() {
     navigate(`/brands/${brand.systemId}`);
   }, [navigate]);
 
+  // PKGX Sync Hook
+  const { handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
+  const pkgxSettings = usePkgxSettingsStore((s) => s.settings);
+
   const columns = React.useMemo(() => getColumns(
     handleDelete, 
     handleToggleActive, 
     navigate,
-    handleUpdateName
-  ), [handleDelete, handleToggleActive, navigate, handleUpdateName]);
+    handleUpdateName,
+    // PKGX handlers
+    handleSyncSeo,
+    handleSyncDescription,
+    handleSyncAll,
+    hasPkgxMapping,
+    getPkgxBrandId,
+  ), [handleDelete, handleToggleActive, navigate, handleUpdateName, handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxBrandId]);
 
   // Bulk actions config
   const bulkActions = React.useMemo(() => [
@@ -129,26 +150,198 @@ export function BrandsPage() {
     },
   ], [handleBulkActivate, handleBulkDeactivate]);
 
+  // ═══════════════════════════════════════════════════════════════
+  // PKGX Bulk Actions - Dropdown riêng cho PKGX
+  // ═══════════════════════════════════════════════════════════════
+  const pkgxBulkActions = React.useMemo(() => [
+    {
+      label: "Đồng bộ tất cả",
+      icon: RefreshCw,
+      onSelect: async (selectedRows: Brand[]) => {
+        if (!pkgxSettings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
+        if (linkedBrands.length === 0) {
+          toast.error('Không có thương hiệu nào đã liên kết PKGX');
+          return;
+        }
+        
+        if (!confirm(`Bạn có chắc muốn đồng bộ tất cả thông tin cho ${linkedBrands.length} thương hiệu?`)) {
+          return;
+        }
+        
+        toast.info(`Đang đồng bộ ${linkedBrands.length} thương hiệu...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const brand of linkedBrands) {
+          try {
+            const pkgxBrandId = getPkgxBrandId(brand);
+            if (!pkgxBrandId) continue;
+            
+            const pkgxSeo = brand.websiteSeo?.pkgx;
+            const payload = {
+              brand_name: brand.name,
+              site_url: brand.website || '',
+              keywords: pkgxSeo?.seoKeywords || brand.seoKeywords || brand.name,
+              meta_title: pkgxSeo?.seoTitle || brand.seoTitle || brand.name,
+              meta_desc: pkgxSeo?.metaDescription || brand.metaDescription || '',
+              short_desc: pkgxSeo?.shortDescription || brand.shortDescription || '',
+              brand_desc: pkgxSeo?.longDescription || brand.longDescription || brand.description || '',
+            };
+            
+            const response = await updateBrand(pkgxBrandId, payload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã đồng bộ ${successCount} thương hiệu`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} thương hiệu`);
+      }
+    },
+    {
+      label: "SEO",
+      icon: Search,
+      onSelect: async (selectedRows: Brand[]) => {
+        if (!pkgxSettings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
+        if (linkedBrands.length === 0) {
+          toast.error('Không có thương hiệu nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang đồng bộ SEO ${linkedBrands.length} thương hiệu...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const brand of linkedBrands) {
+          try {
+            const pkgxBrandId = getPkgxBrandId(brand);
+            if (!pkgxBrandId) continue;
+            
+            const pkgxSeo = brand.websiteSeo?.pkgx;
+            const payload = {
+              keywords: pkgxSeo?.seoKeywords || brand.seoKeywords || brand.name,
+              meta_title: pkgxSeo?.seoTitle || brand.seoTitle || brand.name,
+              meta_desc: pkgxSeo?.metaDescription || brand.metaDescription || '',
+              short_desc: pkgxSeo?.shortDescription || brand.shortDescription || '',
+            };
+            
+            const response = await updateBrand(pkgxBrandId, payload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã đồng bộ SEO ${successCount} thương hiệu`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} thương hiệu`);
+      }
+    },
+    {
+      label: "Mô tả",
+      icon: AlignLeft,
+      onSelect: async (selectedRows: Brand[]) => {
+        if (!pkgxSettings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
+        if (linkedBrands.length === 0) {
+          toast.error('Không có thương hiệu nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang đồng bộ mô tả ${linkedBrands.length} thương hiệu...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const brand of linkedBrands) {
+          try {
+            const pkgxBrandId = getPkgxBrandId(brand);
+            if (!pkgxBrandId) continue;
+            
+            const pkgxSeo = brand.websiteSeo?.pkgx;
+            const payload = {
+              brand_desc: pkgxSeo?.longDescription || brand.longDescription || brand.description || '',
+              short_desc: pkgxSeo?.shortDescription || brand.shortDescription || '',
+            };
+            
+            const response = await updateBrand(pkgxBrandId, payload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã đồng bộ mô tả ${successCount} thương hiệu`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} thương hiệu`);
+      }
+    },
+    {
+      label: "Xem trên PKGX",
+      icon: ExternalLink,
+      onSelect: (selectedRows: Brand[]) => {
+        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
+        if (linkedBrands.length === 0) {
+          toast.error('Không có thương hiệu nào đã liên kết PKGX');
+          return;
+        }
+        // Open first linked brand in new tab
+        const firstBrand = linkedBrands[0];
+        const pkgxId = getPkgxBrandId(firstBrand);
+        if (pkgxId) {
+          window.open(`https://phukiengiaxuong.com.vn/admin/brand.php?act=edit&id=${pkgxId}`, '_blank');
+        }
+      }
+    },
+  ], [pkgxSettings.enabled, hasPkgxMapping, getPkgxBrandId]);
+
   // Export config
   const exportConfig = {
     fileName: 'Thuong_hieu',
     columns,
   };
 
-  // Set default column visibility
+  // Set default column visibility - only on mount
   React.useEffect(() => {
-    const defaultVisibleColumns = ['logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'isActive', 'createdAt'];
+    // Skip if already has stored visibility
+    const storageKey = 'brands-column-visibility';
+    const stored = localStorage.getItem(storageKey);
+    if (stored) return;
+    
+    const defaultVisibleColumns = ['logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt'];
+    const columnIds = ['select', 'logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt', 'updatedAt', 'actions'];
     const initialVisibility: Record<string, boolean> = {};
-    columns.forEach(c => {
-      if (c.id === 'select' || c.id === 'actions') {
-        initialVisibility[c.id!] = true;
+    columnIds.forEach(id => {
+      if (id === 'select' || id === 'actions') {
+        initialVisibility[id] = true;
       } else {
-        initialVisibility[c.id!] = defaultVisibleColumns.includes(c.id!);
+        initialVisibility[id] = defaultVisibleColumns.includes(id);
       }
     });
     setColumnVisibility(initialVisibility);
-    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-  }, [columns]);
+    setColumnOrder(columnIds);
+  }, []);
 
   const fuse = React.useMemo(() => new Fuse(activeBrands, {
     keys: ["id", "name", "description", "website"],
@@ -368,6 +561,7 @@ export function BrandsPage() {
             setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
             allSelectedRows={allSelectedRows}
             bulkActions={bulkActions}
+            pkgxBulkActions={pkgxBulkActions}
             expanded={{}}
             setExpanded={() => {}}
             columnVisibility={columnVisibility}

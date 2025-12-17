@@ -2,7 +2,6 @@ import * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, X, Pencil } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 
 interface InlineEditableCellProps {
   value: string;
@@ -64,13 +63,13 @@ export function InlineEditableCell({
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
-          className={inputClassName || 'h-7 text-sm w-40'}
+          className={inputClassName || 'h-8 text-sm min-w-[120px]'}
         />
-        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={handleSave}>
-          <Check className="h-3 w-3 text-green-600" />
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleSave}>
+          <Check className="h-4 w-4 text-green-600" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={handleCancel}>
-          <X className="h-3 w-3 text-red-600" />
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleCancel}>
+          <X className="h-4 w-4 text-red-600" />
         </Button>
       </div>
     );
@@ -81,19 +80,15 @@ export function InlineEditableCell({
   }
 
   return (
-    <div className={`flex items-center gap-2 group ${className || ''}`}>
-      <span className="truncate">{value}</span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleEdit();
-        }}
-      >
-        <Pencil className="h-3 w-3" />
-      </Button>
+    <div 
+      className={`flex items-center gap-2 group cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 ${className || ''}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleEdit();
+      }}
+    >
+      <span className="truncate">{value || '-'}</span>
+      <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />
     </div>
   );
 }
@@ -104,6 +99,7 @@ interface InlineEditableNumberCellProps {
   className?: string;
   inputClassName?: string;
   renderDisplay?: (value: number, onEdit: () => void) => React.ReactNode;
+  formatDisplay?: (value: number) => string;
 }
 
 export function InlineEditableNumberCell({
@@ -112,6 +108,7 @@ export function InlineEditableNumberCell({
   className,
   inputClassName,
   renderDisplay,
+  formatDisplay,
 }: InlineEditableNumberCellProps) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editValue, setEditValue] = React.useState(String(value));
@@ -158,7 +155,7 @@ export function InlineEditableNumberCell({
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
-          className={inputClassName || "h-7 w-16 text-center text-sm"}
+          className={inputClassName || "h-8 w-24 text-right text-sm"}
         />
       </div>
     );
@@ -168,17 +165,18 @@ export function InlineEditableNumberCell({
     return <>{renderDisplay(value, handleEdit)}</>;
   }
 
+  const displayValue = formatDisplay ? formatDisplay(value) : value.toLocaleString('vi-VN');
+
   return (
     <div
-      className={`flex items-center justify-center cursor-pointer ${className || ''}`}
+      className={`flex items-center justify-end cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 group ${className || ''}`}
       onClick={(e) => {
         e.stopPropagation();
         setIsEditing(true);
       }}
     >
-      <Badge variant="outline" className="font-mono text-xs hover:bg-muted">
-        {value}
-      </Badge>
+      <span className="text-sm">{displayValue}</span>
+      <Pencil className="h-3.5 w-3.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground" />
     </div>
   );
 }

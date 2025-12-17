@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil } from 'lucide-react';
+import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -51,6 +51,7 @@ import { usePageHeader } from '@/contexts/page-header-context';
 import { slugify } from '@/lib/utils';
 import { CharacterCounter } from '@/components/shared/character-counter';
 import { SeoScoreDisplay } from '@/components/shared/seo-score-display';
+import { usePkgxCategorySync } from './hooks/use-pkgx-category-sync';
 
 // Schema
 const websiteSeoSchema = z.object({
@@ -69,6 +70,13 @@ const categoryFormSchema = z.object({
   parentId: z.string().optional(),
   thumbnailImage: z.string().optional(),
   isActive: z.boolean().optional(),
+  // SEO mặc định
+  seoTitle: z.string().optional(),
+  metaDescription: z.string().optional(),
+  seoKeywords: z.string().optional(),
+  shortDescription: z.string().optional(),
+  longDescription: z.string().optional(),
+  // SEO riêng cho từng website
   websiteSeo: z.object({
     pkgx: websiteSeoSchema,
     trendtech: websiteSeoSchema,
@@ -85,6 +93,9 @@ export function CategoryDetailPage() {
   const isEditMode = location.pathname.endsWith('/edit');
   
   const { data, update, remove, isBusinessIdExists } = useProductCategoryStore();
+  
+  // PKGX sync hook
+  const { handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping } = usePkgxCategorySync();
   
   const category = React.useMemo(() => 
     data.find(c => c.systemId === systemId), 
@@ -111,7 +122,7 @@ export function CategoryDetailPage() {
   );
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState<'general' | 'seo-pkgx' | 'seo-trendtech'>('general');
+  const [activeTab, setActiveTab] = React.useState<'general' | 'seo-default' | 'seo-pkgx' | 'seo-trendtech'>('general');
   
   // Image upload states
   const [thumbnailFiles, setThumbnailFiles] = React.useState<StagingFile[]>([]);
@@ -129,6 +140,13 @@ export function CategoryDetailPage() {
       parentId: '',
       thumbnailImage: '',
       isActive: true,
+      // SEO mặc định
+      seoTitle: '',
+      metaDescription: '',
+      seoKeywords: '',
+      shortDescription: '',
+      longDescription: '',
+      // SEO riêng cho từng website
       websiteSeo: {
         pkgx: {},
         trendtech: {},
@@ -145,6 +163,13 @@ export function CategoryDetailPage() {
         parentId: category.parentId ? String(category.parentId) : '',
         thumbnailImage: category.thumbnailImage || '',
         isActive: category.isActive ?? true,
+        // SEO mặc định
+        seoTitle: category.seoTitle || '',
+        metaDescription: category.metaDescription || '',
+        seoKeywords: category.seoKeywords || '',
+        shortDescription: category.shortDescription || '',
+        longDescription: category.longDescription || '',
+        // SEO riêng cho từng website
         websiteSeo: {
           pkgx: category.websiteSeo?.pkgx || {},
           trendtech: category.websiteSeo?.trendtech || {},
@@ -282,6 +307,10 @@ export function CategoryDetailPage() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
           <TabsList>
             <TabsTrigger value="general">Thông tin</TabsTrigger>
+            <TabsTrigger value="seo-default" className="gap-1">
+              <Globe className="h-3 w-3" />
+              SEO Chung
+            </TabsTrigger>
             <TabsTrigger value="seo-pkgx" className="gap-1">
               <Globe className="h-3 w-3 text-red-500" />
               SEO PKGX
@@ -387,65 +416,121 @@ export function CategoryDetailPage() {
             )}
           </TabsContent>
 
+          {/* SEO Default Tab */}
+          <TabsContent value="seo-default" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  <CardTitle>SEO Mặc định</CardTitle>
+                </div>
+                <CardDescription>Thông tin SEO chung - sẽ được dùng nếu không có SEO riêng cho từng website</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Tiêu đề SEO</p>
+                  <p className="text-sm font-medium">{category.seoTitle || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Meta Description</p>
+                  <p className="text-sm">{category.metaDescription || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Từ khóa SEO</p>
+                  <p className="text-sm">{category.seoKeywords || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
+                  {category.shortDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.shortDescription }} />
+                  ) : <p className="text-sm text-muted-foreground">-</p>}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
+                  {category.longDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.longDescription }} />
+                  ) : <p className="text-sm text-muted-foreground">-</p>}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* SEO PKGX Tab */}
           <TabsContent value="seo-pkgx" className="space-y-6 mt-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-red-500" />
-                  <CardTitle>SEO PKGX</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-red-500" />
+                    <CardTitle>SEO PKGX</CardTitle>
+                  </div>
+                  {category && hasPkgxMapping(category) && (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 text-xs"
+                        onClick={() => handleSyncSeo(category)}
+                      >
+                        <RefreshCw className="mr-1.5 h-3 w-3" />
+                        Đồng bộ SEO
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 text-xs"
+                        onClick={() => handleSyncDescription(category)}
+                      >
+                        <RefreshCw className="mr-1.5 h-3 w-3" />
+                        Đồng bộ mô tả
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        className="h-8 text-xs"
+                        onClick={() => handleSyncAll(category)}
+                      >
+                        <RefreshCw className="mr-1.5 h-3 w-3" />
+                        Đồng bộ tất cả
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <CardDescription>phukiengiaxuong.com.vn</CardDescription>
+                <CardDescription>
+                  phukiengiaxuong.com.vn - Override SEO chung
+                  {category && !hasPkgxMapping(category) && (
+                    <span className="text-orange-600 ml-2">(Chưa mapping với PKGX - vào Cài đặt &gt; PKGX để mapping)</span>
+                  )}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {category.websiteSeo?.pkgx?.seoTitle || category.websiteSeo?.pkgx?.metaDescription ? (
-                  <div className="space-y-4">
-                    {category.websiteSeo?.pkgx?.ogImage && (
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">Hình ảnh OG</p>
-                        <img 
-                          src={category.websiteSeo.pkgx.ogImage} 
-                          alt="OG Image" 
-                          className="max-w-md rounded-lg border"
-                        />
-                      </div>
-                    )}
-                    <Separator />
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">SEO Title</p>
-                        <p className="font-medium">{category.websiteSeo?.pkgx?.seoTitle || '—'}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">URL Slug</p>
-                        <p className="font-mono text-sm">{category.websiteSeo?.pkgx?.slug ? `/${category.websiteSeo.pkgx.slug}` : '—'}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Meta Description</p>
-                      <p className="text-sm">{category.websiteSeo?.pkgx?.metaDescription || '—'}</p>
-                    </div>
-                    
-                    {category.websiteSeo?.pkgx?.seoKeywords && (
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Keywords</p>
-                        <div className="flex flex-wrap gap-1">
-                          {category.websiteSeo.pkgx.seoKeywords.split(',').map((kw, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {kw.trim()}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Globe className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                    <p className="text-muted-foreground">Chưa cấu hình SEO</p>
-                  </div>
-                )}
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Tiêu đề SEO</p>
+                  <p className="text-sm font-medium">{category.websiteSeo?.pkgx?.seoTitle || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Meta Description</p>
+                  <p className="text-sm">{category.websiteSeo?.pkgx?.metaDescription || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Từ khóa SEO</p>
+                  <p className="text-sm">{category.websiteSeo?.pkgx?.seoKeywords || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">URL Slug</p>
+                  <p className="text-sm font-mono">{category.websiteSeo?.pkgx?.slug || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
+                  {category.websiteSeo?.pkgx?.shortDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.pkgx.shortDescription }} />
+                  ) : <p className="text-sm text-muted-foreground">-</p>}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
+                  {category.websiteSeo?.pkgx?.longDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.pkgx.longDescription }} />
+                  ) : <p className="text-sm text-muted-foreground">-</p>}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -458,44 +543,37 @@ export function CategoryDetailPage() {
                   <Globe className="h-4 w-4 text-blue-500" />
                   <CardTitle>SEO Trendtech</CardTitle>
                 </div>
-                <CardDescription>trendtech.vn</CardDescription>
+                <CardDescription>trendtech.vn - Override SEO chung</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {category.websiteSeo?.trendtech?.seoTitle || category.websiteSeo?.trendtech?.metaDescription ? (
-                  <div className="space-y-4">
-                    {category.websiteSeo?.trendtech?.ogImage && (
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">Hình ảnh OG</p>
-                        <img 
-                          src={category.websiteSeo.trendtech.ogImage} 
-                          alt="OG Image" 
-                          className="max-w-md rounded-lg border"
-                        />
-                      </div>
-                    )}
-                    <Separator />
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">SEO Title</p>
-                        <p className="font-medium">{category.websiteSeo?.trendtech?.seoTitle || '—'}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">URL Slug</p>
-                        <p className="font-mono text-sm">{category.websiteSeo?.trendtech?.slug ? `/${category.websiteSeo.trendtech.slug}` : '—'}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Meta Description</p>
-                      <p className="text-sm">{category.websiteSeo?.trendtech?.metaDescription || '—'}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Globe className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                    <p className="text-muted-foreground">Chưa cấu hình SEO</p>
-                  </div>
-                )}
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Tiêu đề SEO</p>
+                  <p className="text-sm font-medium">{category.websiteSeo?.trendtech?.seoTitle || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Meta Description</p>
+                  <p className="text-sm">{category.websiteSeo?.trendtech?.metaDescription || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Từ khóa SEO</p>
+                  <p className="text-sm">{category.websiteSeo?.trendtech?.seoKeywords || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">URL Slug</p>
+                  <p className="text-sm font-mono">{category.websiteSeo?.trendtech?.slug || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
+                  {category.websiteSeo?.trendtech?.shortDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.trendtech.shortDescription }} />
+                  ) : <p className="text-sm text-muted-foreground">-</p>}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
+                  {category.websiteSeo?.trendtech?.longDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.trendtech.longDescription }} />
+                  ) : <p className="text-sm text-muted-foreground">-</p>}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -533,6 +611,10 @@ export function CategoryDetailPage() {
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
             <TabsList>
               <TabsTrigger value="general">Thông tin</TabsTrigger>
+              <TabsTrigger value="seo-default" className="gap-1">
+                <Globe className="h-3 w-3" />
+                SEO Chung
+              </TabsTrigger>
               <TabsTrigger value="seo-pkgx" className="gap-1">
                 <Globe className="h-3 w-3 text-red-500" />
                 SEO PKGX
@@ -662,6 +744,102 @@ export function CategoryDetailPage() {
                     sessionId={thumbnailSessionId}
                     onSessionChange={setThumbnailSessionId}
                     className="min-h-[120px]"
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* SEO Default Tab */}
+            <TabsContent value="seo-default" className="space-y-6 mt-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    <CardTitle>SEO Mặc định</CardTitle>
+                  </div>
+                  <CardDescription>Thông tin SEO chung - sẽ được dùng nếu không có SEO riêng</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="seoTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tiêu đề SEO</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Tiêu đề mặc định" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <FormDescription>Title tag mặc định. Nên 50-60 ký tự.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="metaDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meta Description</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Mô tả SEO mặc định" {...field} value={field.value || ''} rows={2} />
+                        </FormControl>
+                        <FormDescription>Nên 150-160 ký tự.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="seoKeywords"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Từ khóa SEO</FormLabel>
+                        <FormControl>
+                          <Input placeholder="từ khóa 1, từ khóa 2" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="shortDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mô tả ngắn</FormLabel>
+                        <FormControl>
+                          <TipTapEditor
+                            content={field.value || ''}
+                            onChange={field.onChange}
+                            placeholder="Mô tả ngắn gọn 1-2 câu..."
+                            minHeight="100px"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="longDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mô tả chi tiết</FormLabel>
+                        <FormControl>
+                          <TipTapEditor
+                            content={field.value || ''}
+                            onChange={field.onChange}
+                            placeholder="Mô tả đầy đủ về danh mục..."
+                            minHeight="200px"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </CardContent>
               </Card>

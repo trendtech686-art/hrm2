@@ -199,7 +199,7 @@ export function ComboSection() {
     if (typeof firstDefinedPrice === 'number') {
       return firstDefinedPrice;
     }
-    return product.suggestedRetailPrice || product.minPrice || 0;
+    return product.minPrice || 0;
   }, [defaultPricingPolicy]);
 
   // Calculate totals

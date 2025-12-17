@@ -239,12 +239,21 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     toast.loading(`Đang đồng bộ SEO...`, { id: 'pkgx-sync-seo' });
     
     try {
-      const pkgxSeo = product.websiteSeo?.pkgx;
-      const response = await updateProduct(product.pkgxId, {
-        keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || product.name,
+      const pkgxSeo = product.seoPkgx;
+      // Fallback chain: SEO PKGX → SEO Chung → tags → name
+      const seoPayload = {
+        keywords: pkgxSeo?.seoKeywords || product.seoKeywords || product.tags?.join(', ') || product.name,
         meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
         meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
-      });
+      };
+      
+      // DEBUG: Log payload để kiểm tra
+      console.log('[PKGX SEO Sync] Product:', product.name);
+      console.log('[PKGX SEO Sync] seoPkgx:', product.seoPkgx);
+      console.log('[PKGX SEO Sync] SEO Chung - seoKeywords:', product.seoKeywords);
+      console.log('[PKGX SEO Sync] Payload being sent:', seoPayload);
+      
+      const response = await updateProduct(product.pkgxId, seoPayload);
       
       if (response.success) {
         toast.success(`Đã đồng bộ SEO cho sản phẩm: ${product.name}`, { id: 'pkgx-sync-seo' });
@@ -280,7 +289,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     toast.loading(`Đang đồng bộ mô tả...`, { id: 'pkgx-sync-desc' });
     
     try {
-      const pkgxSeo = product.websiteSeo?.pkgx;
+      const pkgxSeo = product.seoPkgx;
       
       // Get raw descriptions
       const rawLongDesc = pkgxSeo?.longDescription || product.description || '';
@@ -356,10 +365,10 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     try {
       const response = await updateProduct(product.pkgxId, {
         best: product.isFeatured || false,
-        hot: product.isFeatured || false,
+        hot: product.isBestSeller || false,
         new: product.isNewArrival || false,
         ishome: product.isFeatured || false,
-        is_on_sale: product.status === 'active',
+        is_on_sale: product.isPublished ?? (product.status === 'active'),
       });
       
       if (response.success) {
@@ -667,7 +676,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     toast.loading(`Đang đồng bộ tất cả thông tin...`, { id: 'pkgx-sync-all' });
     
     try {
-      const pkgxSeo = product.websiteSeo?.pkgx;
+      const pkgxSeo = product.seoPkgx;
       
       // Get raw descriptions
       const rawLongDesc = pkgxSeo?.longDescription || product.description || '';
@@ -709,10 +718,10 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         
         // Flags
         best: product.isFeatured || false,
-        hot: product.isFeatured || false,
+        hot: product.isBestSeller || false,
         new: product.isNewArrival || false,
         ishome: product.isFeatured || false,
-        is_on_sale: product.status === 'active',
+        is_on_sale: product.isPublished ?? (product.status === 'active'),
         
         // Image - ảnh đại diện
         ...(product.thumbnailImage && { original_img: product.thumbnailImage }),
