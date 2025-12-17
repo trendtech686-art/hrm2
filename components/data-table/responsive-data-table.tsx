@@ -43,6 +43,7 @@ interface DesktopDataTableProps<TData extends { systemId: string }> {
   onBulkDelete?: (() => void) | undefined;
   showBulkDeleteButton?: boolean | undefined;
   bulkActions?: BulkAction<TData>[] | undefined;
+  pkgxBulkActions?: BulkAction<TData>[] | undefined;
   bulkActionButtons?: React.ReactNode | undefined;
   allSelectedRows: TData[];
   renderSubComponent?: ((row: TData) => React.ReactNode) | undefined;
@@ -90,6 +91,7 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   onBulkDelete?: (() => void) | undefined;
   showBulkDeleteButton?: boolean | undefined;
   bulkActions?: BulkAction<TData>[] | undefined;
+  pkgxBulkActions?: BulkAction<TData>[] | undefined;
   bulkActionButtons?: React.ReactNode | undefined;
   allSelectedRows?: TData[] | undefined;
   renderSubComponent?: ((row: TData) => React.ReactNode) | undefined;
@@ -153,6 +155,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   onBulkDelete,
   showBulkDeleteButton = true,
   bulkActions,
+  pkgxBulkActions,
   bulkActionButtons,
   allSelectedRows = [],
   renderSubComponent,
@@ -243,6 +246,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
     onBulkDelete,
     showBulkDeleteButton,
     bulkActions,
+    pkgxBulkActions,
     bulkActionButtons,
     allSelectedRows,
     renderSubComponent,
@@ -366,6 +370,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
   onBulkDelete,
   showBulkDeleteButton = true,
   bulkActions,
+  pkgxBulkActions,
   bulkActionButtons,
   allSelectedRows,
   renderSubComponent,
@@ -709,6 +714,30 @@ function DesktopDataTable<TData extends { systemId: string }>({
                                 <DropdownMenuItem
                                   key={index}
                                   onSelect={() => action.onSelect(allSelectedRows)}
+                                  disabled={(action as any).disabled}
+                                >
+                                  {action.icon && <action.icon className="mr-2 h-4 w-4" />}
+                                  {action.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        {pkgxBulkActions && pkgxBulkActions.length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                PKGX
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              {pkgxBulkActions.map((action, index) => (
+                                <DropdownMenuItem
+                                  key={index}
+                                  onSelect={() => action.onSelect(allSelectedRows)}
+                                  disabled={(action as any).disabled}
+                                  className={(action as any).variant === 'destructive' ? 'text-destructive focus:text-destructive' : ''}
                                 >
                                   {action.icon && <action.icon className="mr-2 h-4 w-4" />}
                                   {action.label}

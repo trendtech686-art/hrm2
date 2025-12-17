@@ -50,12 +50,18 @@ export function getTotalInventory(product: Product): number {
 
 /**
  * Map HRM Product → PKGX Payload để tạo/cập nhật sản phẩm
+ * Đồng nhất với các action update trong use-pkgx-sync.ts
  */
 export function mapHrmToPkgxPayload(product: Product): PkgxProductPayload {
+  // Get PKGX-specific SEO data (ưu tiên websiteSeo.pkgx, fallback về field gốc)
+  const pkgxSeo = product.websiteSeo?.pkgx;
+  
   const payload: PkgxProductPayload = {
+    // Thông tin cơ bản (giống handlePkgxSyncBasicInfo)
     goods_name: product.name,
     goods_sn: product.id,
     goods_number: getTotalInventory(product),
+    seller_note: product.sellerNote || '',
   };
 
   // Map category
@@ -82,18 +88,34 @@ export function mapHrmToPkgxPayload(product: Product): PkgxProductPayload {
   const dealPrice = getPriceByMapping(product, 'dealPrice');
   if (dealPrice !== undefined) payload.deal_price = dealPrice;
 
-  // Map content
-  if (product.description) payload.goods_desc = product.description;
-  if (product.shortDescription) payload.goods_brief = product.shortDescription;
+  // Map mô tả (giống handlePkgxSyncDescription)
+  payload.goods_desc = pkgxSeo?.longDescription || product.description || '';
+  payload.goods_brief = pkgxSeo?.shortDescription || product.shortDescription || '';
 
-  // Map SEO
-  if (product.ktitle) payload.meta_title = product.ktitle;
-  if (product.seoDescription) payload.meta_desc = product.seoDescription;
-  if (product.tags?.length) payload.keywords = product.tags.join(', ');
+  // Map SEO (giống handlePkgxUpdateSeo)
+  payload.keywords = pkgxSeo?.seoKeywords || product.tags?.join(', ') || product.name;
+  payload.meta_title = pkgxSeo?.seoTitle || product.ktitle || product.name;
+  payload.meta_desc = pkgxSeo?.metaDescription || product.seoDescription || '';
 
-  // Map flags
-  if (product.isFeatured !== undefined) payload.best = product.isFeatured;
-  if (product.isNewArrival !== undefined) payload.new = product.isNewArrival;
+  // Map flags (giống handlePkgxSyncFlags)
+  payload.best = product.isFeatured || false;
+  payload.hot = product.isFeatured || false;
+  payload.new = product.isNewArrival || false;
+  payload.ishome = product.isFeatured || false;
+  payload.is_on_sale = product.status === 'active';
+  
+  // Map images
+  if (product.thumbnailImage) {
+    payload.original_img = product.thumbnailImage;
+  } else if (product.images && product.images.length > 0) {
+    payload.original_img = product.images[0];
+  }
+  
+  // Gallery images (album ảnh) - ưu tiên galleryImages, fallback images
+  const galleryImages = product.galleryImages || product.images || [];
+  if (galleryImages.length > 0) {
+    payload.gallery_images = galleryImages;
+  }
 
   return payload;
 }

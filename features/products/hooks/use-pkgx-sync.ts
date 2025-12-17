@@ -398,7 +398,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     try {
       const payload: Record<string, unknown> = {
         goods_name: product.name,
-        goods_sn: product.sku || product.id || '',
+        goods_sn: product.id,
         seller_note: product.sellerNote || '',
       };
 
@@ -691,7 +691,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       const payload: Record<string, unknown> = {
         // Thông tin cơ bản
         goods_name: product.name,
-        goods_sn: product.sku || product.id || '',
+        goods_sn: product.id,
         
         // Tồn kho
         goods_number: product.inventoryByBranch
@@ -718,9 +718,8 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         ...(product.thumbnailImage && { original_img: product.thumbnailImage }),
       };
 
-      // Gallery images (album ảnh)
-      const galleryImages = product.galleryImages || 
-        (product.images && product.images.length > 1 ? product.images.slice(1) : []);
+      // Gallery images (album ảnh) - update toàn bộ
+      const galleryImages = product.galleryImages || product.images || [];
       if (galleryImages.length > 0) {
         payload.gallery_images = galleryImages;
       }

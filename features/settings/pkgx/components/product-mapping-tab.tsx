@@ -104,36 +104,14 @@ interface PkgxProductRow extends PkgxProduct {
 }
 
 export function ProductMappingTab() {
+  const { settings, addLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, setPkgxProducts } = usePkgxSettingsStore();
   const productStore = useProductStore();
-  const { settings, addLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand } = usePkgxSettingsStore();
   
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isSyncing, setIsSyncing] = React.useState(false);
   
-  // Load pkgxProducts from localStorage on mount (limit 100)
-  const [pkgxProducts, setPkgxProducts] = React.useState<PkgxProduct[]>(() => {
-    try {
-      const saved = localStorage.getItem('pkgx-products-cache');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed.slice(0, 100) : [];
-      }
-    } catch {
-      // ignore
-    }
-    return [];
-  });
-  
-  // Save to localStorage when pkgxProducts changes (limit 100)
-  React.useEffect(() => {
-    if (pkgxProducts.length > 0) {
-      try {
-        localStorage.setItem('pkgx-products-cache', JSON.stringify(pkgxProducts.slice(0, 100)));
-      } catch {
-        // quota exceeded - ignore
-      }
-    }
-  }, [pkgxProducts]);
+  // Sử dụng pkgxProducts từ store (dùng chung với Link Dialog)
+  const pkgxProducts = settings.pkgxProducts || [];
   
   // Product detail dialog state
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
@@ -155,14 +133,10 @@ export function ProductMappingTab() {
   const [selectedPushFields, setSelectedPushFields] = React.useState<PushSyncFieldKey[]>(['goods_name', 'sync_prices', 'goods_number']);
   const [isPushingProduct, setIsPushingProduct] = React.useState(false);
   
-  // Sync settings dialog - Only for Push settings
-  const [isSyncSettingsOpen, setIsSyncSettingsOpen] = React.useState(false);
-  const [defaultPushFields, setDefaultPushFields] = React.useState<PushSyncFieldKey[]>(['goods_name', 'sync_prices', 'goods_number']);
-  
-  // HRM products
+  // HRM products - sử dụng productStore.data trực tiếp để đảm bảo reactive
   const hrmProducts = React.useMemo(
-    () => productStore.getActive().sort((a, b) => a.name.localeCompare(b.name)),
-    [productStore]
+    () => productStore.data.filter(p => !p.isDeleted).sort((a, b) => a.name.localeCompare(b.name)),
+    [productStore.data]
   );
   
   // Count of linked HRM products
@@ -471,9 +445,10 @@ export function ProductMappingTab() {
   
   const handleOpenPushDialog = React.useCallback((row: PkgxProductRow) => {
     setProductToPush(row);
-    setSelectedPushFields([...defaultPushFields]);
+    // Reset to default fields when opening dialog
+    setSelectedPushFields(['goods_name', 'sync_prices', 'goods_number']);
     setIsPushDialogOpen(true);
-  }, [defaultPushFields]);
+  }, []);
   
   const handleTogglePushField = (field: PushSyncFieldKey) => {
     setSelectedPushFields(prev => 
@@ -491,13 +466,7 @@ export function ProductMappingTab() {
     }
   };
   
-  const handleSaveDefaultSettings = () => {
-    setDefaultPushFields([...selectedPushFields]);
-    toast.success('Đã lưu cài đặt trường đẩy lên PKGX');
-    setIsSyncSettingsOpen(false);
-  };
-  
-  // Sync products from PKGX (limit 500 to avoid localStorage quota)
+  // Sync products from PKGX (limit 500)
   const handleSyncFromPkgx = async () => {
     setIsSyncing(true);
     const startTime = Date.now();
@@ -505,6 +474,7 @@ export function ProductMappingTab() {
       toast.info('Đang tải sản phẩm từ PKGX...');
       const response = await fetchPkgxProducts(1, 500);
       if (response.success && response.data && !response.data.error) {
+        // Lưu vào store để dùng chung với Link Dialog
         setPkgxProducts(response.data.data);
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
         
@@ -820,10 +790,6 @@ export function ProductMappingTab() {
                 {isSyncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Đồng bộ từ PKGX
               </Button>
-              <Button variant="outline" onClick={() => setIsSyncSettingsOpen(true)}>
-                <Settings2 className="h-4 w-4 mr-2" />
-                Cài đặt
-              </Button>
             </div>
           </div>
         </CardHeader>
@@ -1105,89 +1071,6 @@ export function ProductMappingTab() {
                 <Upload className="h-4 w-4 mr-2" />
               )}
               Đẩy lên PKGX ({selectedPushFields.length} trường)
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Sync Settings Dialog */}
-      <Dialog open={isSyncSettingsOpen} onOpenChange={setIsSyncSettingsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings2 className="h-5 w-5" />
-              Cài đặt đồng bộ mặc định
-            </DialogTitle>
-            <DialogDescription>
-              Cấu hình các trường mặc định khi đẩy dữ liệu từ HRM → PKGX
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4 space-y-4">
-            {/* Push settings - only this needs config */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium text-green-600">
-                  <Upload className="h-4 w-4" />
-                  Đẩy từ HRM → PKGX ({selectedPushFields.length}/{PUSH_SYNC_FIELDS.length})
-                </div>
-                <Button variant="ghost" size="sm" className="text-xs h-6" onClick={handleSelectAllPushFields}>
-                  {selectedPushFields.length === PUSH_SYNC_FIELDS.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                </Button>
-              </div>
-              <ScrollArea className="h-[350px] pr-2">
-                <TooltipProvider delayDuration={200}>
-                  <div className="grid grid-cols-4 gap-2">
-                    {PUSH_SYNC_FIELDS.map((field) => {
-                      const isSpecialField = (field as any).isSpecial === true;
-                      return (
-                        <Tooltip key={field.key}>
-                          <TooltipTrigger asChild>
-                            <div className={`flex items-center justify-between p-2 rounded border hover:bg-muted/50 ${
-                              isSpecialField ? 'col-span-2 bg-blue-50 border-blue-200' : ''
-                            }`}>
-                              <div className="flex items-center gap-1 min-w-0 flex-1">
-                                <span className="text-xs truncate">{field.label}</span>
-                                {isSpecialField && <Settings2 className="h-3 w-3 text-blue-500 shrink-0" />}
-                              </div>
-                              <Switch 
-                                checked={selectedPushFields.includes(field.key)} 
-                                onCheckedChange={() => {
-                                  setSelectedPushFields(prev => 
-                                    prev.includes(field.key) 
-                                      ? prev.filter(f => f !== field.key)
-                                      : [...prev, field.key]
-                                  );
-                                }}
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <div className="text-xs">
-                              <div className="font-medium">{field.label}</div>
-                              {isSpecialField ? (
-                                <div className="text-blue-600">Sử dụng cấu hình từ tab "Mapping giá"</div>
-                              ) : (
-                                <div className="text-muted-foreground">PKGX: {field.key} ↔ HRM: {field.hrmField}</div>
-                              )}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                </TooltipProvider>
-              </ScrollArea>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSyncSettingsOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleSaveDefaultSettings}>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Lưu cài đặt
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
 import { Button } from '../../../components/ui/button.tsx';
 import { Badge } from '../../../components/ui/badge.tsx';
@@ -51,6 +52,7 @@ export function EcommerceTab({ product }: EcommerceTabProps) {
   const [isSyncingFlags, setIsSyncingFlags] = React.useState(false);
   const [isUnlinking, setIsUnlinking] = React.useState(false);
   
+  const queryClient = useQueryClient();
   const pkgxSettings = usePkgxSettingsStore();
   const pricingPolicies = usePricingPolicyStore();
   const { update: updateProduct } = useProductStore();
@@ -106,6 +108,9 @@ export function EcommerceTab({ product }: EcommerceTabProps) {
             pkgxId: response.data.goods_id,
             updatedAt: new Date().toISOString(),
           });
+          
+          // Invalidate React Query cache so list page refreshes immediately
+          queryClient.invalidateQueries({ queryKey: ['products'] });
         }
         
         pkgxSettings.addLog({

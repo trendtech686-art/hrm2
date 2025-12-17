@@ -326,6 +326,7 @@ export type PkgxProductPayload = {
   meta_title?: string;
   meta_desc?: string;
   original_img?: string;
+  gallery_images?: string[];  // Album ảnh sản phẩm
   best?: boolean;
   hot?: boolean;
   new?: boolean;

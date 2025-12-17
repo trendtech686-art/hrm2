@@ -7,7 +7,7 @@ import { Badge } from "../../components/ui/badge.tsx"
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { MoreHorizontal, RotateCcw, Globe, RefreshCw, FileText, DollarSign, Package, Search, AlignLeft, Tag, Image, ExternalLink, Upload } from "lucide-react";
+import { MoreHorizontal, RotateCcw, Globe, RefreshCw, FileText, DollarSign, Package, Search, AlignLeft, Tag, Image, ExternalLink, Upload, Link2, Unlink } from "lucide-react";
 import { usePricingPolicyStore } from '../settings/pricing/store.ts';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store.ts';
 import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
@@ -76,6 +76,8 @@ type PkgxActionsCellProps = {
   onPkgxSyncBasicInfo?: (product: Product) => void;
   onPkgxSyncImages?: (product: Product) => void;
   onPkgxSyncAll?: (product: Product) => void;
+  onPkgxLink?: (product: Product) => void;
+  onPkgxUnlink?: (product: Product) => void;
 };
 
 function PkgxActionsCell({
@@ -89,6 +91,8 @@ function PkgxActionsCell({
   onPkgxSyncBasicInfo,
   onPkgxSyncImages,
   onPkgxSyncAll,
+  onPkgxLink,
+  onPkgxUnlink,
 }: PkgxActionsCellProps) {
   // State for confirmation dialog - MUST be called before any early returns
   const [confirmAction, setConfirmAction] = React.useState<{
@@ -248,19 +252,45 @@ function PkgxActionsCell({
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Xem trên PKGX
                 </DropdownMenuItem>
+                
+                {/* Hủy liên kết PKGX */}
+                {onPkgxUnlink && (
+                  <DropdownMenuItem 
+                    onSelect={() => handleConfirm(
+                      'Hủy liên kết PKGX',
+                      `Bạn có chắc muốn hủy liên kết sản phẩm "${row.name}" với PKGX? (Sản phẩm vẫn tồn tại trên PKGX)`,
+                      () => onPkgxUnlink(row)
+                    )}
+                    className="text-destructive"
+                  >
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Hủy liên kết
+                  </DropdownMenuItem>
+                )}
               </>
             ) : (
-              /* Publish to PKGX - Only show for products WITHOUT pkgxId */
-              onPkgxPublish && (
-                <DropdownMenuItem onSelect={() => handleConfirm(
-                  'Đăng lên PKGX',
-                  `Bạn có chắc muốn đăng sản phẩm "${row.name}" lên PKGX?`,
-                  () => onPkgxPublish(row)
-                )}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Đăng lên PKGX
-                </DropdownMenuItem>
-              )
+              /* Actions for products WITHOUT pkgxId */
+              <>
+                {/* Publish to PKGX - Tạo mới sản phẩm trên PKGX */}
+                {onPkgxPublish && (
+                  <DropdownMenuItem onSelect={() => handleConfirm(
+                    'Đăng lên PKGX',
+                    `Bạn có chắc muốn đăng sản phẩm "${row.name}" lên PKGX?`,
+                    () => onPkgxPublish(row)
+                  )}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Đăng lên PKGX
+                  </DropdownMenuItem>
+                )}
+                
+                {/* Link to existing PKGX product */}
+                {onPkgxLink && (
+                  <DropdownMenuItem onSelect={() => onPkgxLink(row)}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Liên kết với PKGX
+                  </DropdownMenuItem>
+                )}
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -298,6 +328,8 @@ export const getColumns = (
   onPkgxSyncBasicInfo?: (product: Product) => void,
   onPkgxSyncImages?: (product: Product) => void,
   onPkgxSyncAll?: (product: Product) => void,
+  onPkgxLink?: (product: Product) => void,
+  onPkgxUnlink?: (product: Product) => void,
 ): ColumnDef<Product>[] => {
   
   const { data: pricingPolicies } = usePricingPolicyStore.getState();
@@ -832,6 +864,8 @@ export const getColumns = (
           onPkgxSyncBasicInfo={onPkgxSyncBasicInfo}
           onPkgxSyncImages={onPkgxSyncImages}
           onPkgxSyncAll={onPkgxSyncAll}
+          onPkgxLink={onPkgxLink}
+          onPkgxUnlink={onPkgxUnlink}
         />
       ),
       meta: {

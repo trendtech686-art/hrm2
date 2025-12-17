@@ -1,6 +1,7 @@
 import * as React from "react"
 // FIX: Use named imports for react-router-dom to fix module export errors.
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useProductStore } from "./store.ts"
 import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts"
 import { useBranchStore } from "../settings/branches/store.ts"
@@ -46,8 +47,9 @@ import {
 import type { Product } from "./types.ts"
 import { Button } from "../../components/ui/button.tsx"
 import { PlusCircle } from "lucide-react"
+import { PkgxLinkDialog } from "./components/pkgx-link-dialog.tsx"
 import { useProductsQuery } from "./hooks/use-products-query.ts";
-import { DEFAULT_PRODUCT_SORT, getFilteredProductsSnapshot, type ProductQueryParams } from "./product-service.ts";
+import { DEFAULT_PRODUCT_SORT, getFilteredProductsSnapshot, type ProductQueryParams, type ProductQueryResult } from "./product-service.ts";
 import { usePersistentState } from "../../hooks/use-persistent-state.ts";
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
@@ -68,7 +70,7 @@ import {
   SelectValue,
 } from "../../components/ui/select.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet.tsx";
-import { MoreVertical, Package, Settings2, SlidersHorizontal, Columns3, Layers } from "lucide-react";
+import { MoreVertical, Package, Settings2, SlidersHorizontal, Columns3, Layers, RefreshCw, FileText, DollarSign, PackageSearch, Search, Flag, Image, ExternalLink, Unlink, Printer, Trash2, Play, StopCircle } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate } from '@/lib/date-utils';
 
@@ -95,6 +97,7 @@ function resolveStateAction<T>(current: T, action: React.SetStateAction<T>): T {
 }
 export function ProductsPage() {
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const queryClient = useQueryClient();
   const { data: productsRaw, remove, restore, getDeleted, addMultiple, add, update } = useProductStore();
   const categories = useProductCategoryStore(state => state.data);
   const activeCategories = React.useMemo(
@@ -334,20 +337,41 @@ export function ProductsPage() {
       ? Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0)
       : 0;
     
+    // Get PKGX-specific SEO data (ưu tiên websiteSeo.pkgx, fallback về field gốc)
+    const pkgxSeo = product.websiteSeo?.pkgx;
+    
     const payload: PkgxProductPayload = {
+      // Thông tin cơ bản (giống handlePkgxSyncBasicInfo)
       goods_name: product.name,
       goods_sn: product.id,
       cat_id: categoryMapping?.pkgxCatId || 0,
       brand_id: brandMapping?.pkgxBrandId || 0,
+      seller_note: product.sellerNote || '',
+      
+      // Giá
       shop_price: shopPrice,
       market_price: marketPrice,
-      goods_brief: product.shortDescription || '',
-      goods_desc: product.description || '',
       goods_number: totalInventory,
-      keywords: product.ktitle || product.name,
-      meta_title: product.ktitle || product.name,
-      meta_desc: product.seoDescription || product.shortDescription || '',
+      
+      // Mô tả (giống handlePkgxSyncDescription)
+      goods_desc: pkgxSeo?.longDescription || product.description || '',
+      goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
+      
+      // SEO (giống handlePkgxUpdateSeo)
+      keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || product.name,
+      meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
+      meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
+      
+      // Hình ảnh
       original_img: product.thumbnailImage || product.images?.[0] || '',
+      gallery_images: product.galleryImages || product.images || [],
+      
+      // Flags (giống handlePkgxSyncFlags)
+      best: product.isFeatured || false,
+      hot: product.isFeatured || false,
+      new: product.isNewArrival || false,
+      ishome: product.isFeatured || false,
+      is_on_sale: product.status === 'active',
     };
     
     // Add optional prices if mapped
@@ -378,8 +402,25 @@ export function ProductsPage() {
       if (response.success && response.data) {
         const goodsId = response.data.goods_id;
         
-        // Save pkgxId to product store
+        // Save pkgxId to product store - Zustand sẽ trigger re-render tự động
         update(product.systemId as any, { pkgxId: goodsId });
+        
+        // Update React Query cache trực tiếp (không cần refetch - realtime!)
+        // Tìm tất cả queries có prefix 'products' và update item trong cache
+        queryClient.setQueriesData<ProductQueryResult>(
+          { queryKey: ['products'] },
+          (oldData) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              items: oldData.items.map(item => 
+                item.systemId === product.systemId 
+                  ? { ...item, pkgxId: goodsId }
+                  : item
+              ),
+            };
+          }
+        );
         
         toast.success(`Đã đăng sản phẩm lên PKGX! ID: ${goodsId}`, { id: 'pkgx-publish' });
         
@@ -402,7 +443,62 @@ export function ProductsPage() {
         details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [pkgxSettings, buildPkgxPayload, update, addPkgxLog]);
+  }, [pkgxSettings, buildPkgxPayload, update, addPkgxLog, queryClient]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // PKGX Link Dialog State
+  // ═══════════════════════════════════════════════════════════════
+  const [pkgxLinkDialogOpen, setPkgxLinkDialogOpen] = React.useState(false);
+  const [productToLink, setProductToLink] = React.useState<Product | null>(null);
+
+  const handlePkgxLink = React.useCallback((product: Product) => {
+    setProductToLink(product);
+    setPkgxLinkDialogOpen(true);
+  }, []);
+
+  const handlePkgxLinkSuccess = React.useCallback((pkgxId: number) => {
+    // Update React Query cache trực tiếp (realtime)
+    if (productToLink) {
+      queryClient.setQueriesData<ProductQueryResult>(
+        { queryKey: ['products'] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            items: oldData.items.map(item => 
+              item.systemId === productToLink.systemId 
+                ? { ...item, pkgxId }
+                : item
+            ),
+          };
+        }
+      );
+    }
+  }, [productToLink, queryClient]);
+
+  // Handler hủy liên kết PKGX
+  const handlePkgxUnlink = React.useCallback((product: Product) => {
+    // Update store - xóa pkgxId
+    update(product.systemId as any, { pkgxId: undefined });
+    
+    // Update React Query cache trực tiếp (realtime)
+    queryClient.setQueriesData<ProductQueryResult>(
+      { queryKey: ['products'] },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          items: oldData.items.map(item => 
+            item.systemId === product.systemId 
+              ? { ...item, pkgxId: undefined }
+              : item
+          ),
+        };
+      }
+    );
+    
+    toast.success(`Đã hủy liên kết PKGX cho sản phẩm: ${product.name}`);
+  }, [update, queryClient]);
 
   const columns = React.useMemo(
     () => getColumns(
@@ -418,9 +514,11 @@ export function ProductsPage() {
       handlePkgxSyncFlags,
       handlePkgxSyncBasicInfo,
       handlePkgxSyncImages,
-      handlePkgxSyncAll
+      handlePkgxSyncAll,
+      handlePkgxLink,
+      handlePkgxUnlink
     ),
-    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxUpdatePrice, handlePkgxPublish, handlePkgxUpdateSeo, handlePkgxSyncInventory, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncBasicInfo, handlePkgxSyncImages, handlePkgxSyncAll]
+    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxUpdatePrice, handlePkgxPublish, handlePkgxUpdateSeo, handlePkgxSyncInventory, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncBasicInfo, handlePkgxSyncImages, handlePkgxSyncAll, handlePkgxLink, handlePkgxUnlink]
   );
   
   // ✅ Run once on mount only
@@ -900,42 +998,78 @@ export function ProductsPage() {
     return payload;
   };
 
-  // Create SEO update payload for PKGX
+  // Create SEO update payload for PKGX (đồng nhất với handlePkgxUpdateSeo)
   const createSeoUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
+    const pkgxSeo = product.websiteSeo?.pkgx;
     return {
-      meta_title: product.ktitle || product.name,
-      meta_desc: product.seoDescription || product.shortDescription || '',
-      keywords: product.ktitle || product.name,
-      goods_brief: product.shortDescription || '',
+      keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || product.name,
+      meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
+      meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
+      goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
     };
   };
 
-  // Create flags update payload for PKGX
+  // Create flags update payload for PKGX (đồng nhất với handlePkgxSyncFlags)
   const createFlagsUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
     return {
-      best: product.isBestSeller ?? false,
-      hot: product.isFeatured ?? false,
-      new: product.isNewArrival ?? false,
-      ishome: product.isFeatured ?? false,
-      is_on_sale: product.isPublished ?? true,
+      best: product.isFeatured || false,
+      hot: product.isFeatured || false,
+      new: product.isNewArrival || false,
+      ishome: product.isFeatured || false,
+      is_on_sale: product.status === 'active',
     };
   };
 
   const bulkActions = [
     {
       label: "In tem phụ sản phẩm",
+      icon: Printer,
       onSelect: (selectedRows: Product[]) => {
         handlePrintLabels(selectedRows);
         toast.success(`Đang in tem cho ${selectedRows.length} sản phẩm`);
       }
     },
     {
-      label: "───── PKGX ─────",
-      onSelect: () => {},
-      disabled: true,
+      label: "Chuyển vào thùng rác",
+      icon: Trash2,
+      onSelect: (selectedRows: Product[]) => {
+        const systemIds = selectedRows.map(p => p.systemId);
+        systemIds.forEach(id => remove(asSystemId(id)));
+        setRowSelection({});
+        toast.success(`Đã chuyển ${selectedRows.length} sản phẩm vào thùng rác`);
+      }
     },
     {
-      label: "Đẩy lên PKGX",
+      label: "Đang hoạt động",
+      icon: Play,
+      onSelect: (selectedRows: Product[]) => {
+        selectedRows.forEach(product => {
+          update(asSystemId(product.systemId), { ...product, status: 'active' });
+        });
+        setRowSelection({});
+        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Đang hoạt động"`);
+      }
+    },
+    {
+      label: "Ngừng kinh doanh",
+      icon: StopCircle,
+      onSelect: (selectedRows: Product[]) => {
+        selectedRows.forEach(product => {
+          update(asSystemId(product.systemId), { ...product, status: 'discontinued' });
+        });
+        setRowSelection({});
+        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Ngừng kinh doanh"`);
+      }
+    }
+  ];
+
+  // ═══════════════════════════════════════════════════════════════
+  // PKGX Bulk Actions - Tách riêng dropdown PKGX
+  // ═══════════════════════════════════════════════════════════════
+  const pkgxBulkActions = [
+    {
+      label: "Đồng bộ tất cả",
+      icon: RefreshCw,
       onSelect: async (selectedRows: Product[]) => {
         const pkgxSettings = usePkgxSettingsStore.getState();
         if (!pkgxSettings.settings.enabled) {
@@ -943,49 +1077,53 @@ export function ProductsPage() {
           return;
         }
         
-        // Filter products that have category mapping
-        const validProducts = selectedRows.filter(p => {
-          if (!p.categorySystemId) return false;
-          return pkgxSettings.getCategoryMappingByHrmId(p.categorySystemId);
-        });
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        const unlinkedProducts = selectedRows.filter(p => !p.pkgxId);
         
-        if (validProducts.length === 0) {
-          toast.error('Không có sản phẩm nào có thể đẩy lên PKGX (chưa mapping danh mục)');
+        if (linkedProducts.length === 0 && unlinkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào được chọn');
           return;
         }
         
-        toast.info(`Đang đẩy ${validProducts.length} sản phẩm lên PKGX...`);
+        // Build confirm message based on selection
+        let confirmMsg = '';
+        if (linkedProducts.length > 0 && unlinkedProducts.length > 0) {
+          confirmMsg = `Bạn có chắc muốn đồng bộ ${linkedProducts.length} sản phẩm đã liên kết?\n(${unlinkedProducts.length} sản phẩm chưa liên kết sẽ bị bỏ qua)`;
+        } else if (linkedProducts.length > 0) {
+          confirmMsg = `Bạn có chắc muốn đồng bộ tất cả thông tin cho ${linkedProducts.length} sản phẩm?`;
+        } else {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        if (!confirm(confirmMsg)) {
+          return;
+        }
+        
+        toast.info(`Đang đồng bộ ${linkedProducts.length} sản phẩm...`);
         
         let successCount = 0;
         let errorCount = 0;
         
-        for (const product of validProducts) {
+        for (const product of linkedProducts) {
           try {
             const payload = buildPkgxPayload(product);
-            
-            if (product.pkgxId) {
-              const response = await updateProduct(product.pkgxId, payload);
-              if (response.success) successCount++;
-              else errorCount++;
-            } else {
-              const response = await createProduct(payload);
-              if (response.success && response.data?.goods_id) {
-                update(product.systemId, { pkgxId: response.data.goods_id });
-                successCount++;
-              } else errorCount++;
-            }
+            const response = await updateProduct(product.pkgxId!, payload);
+            if (response.success) successCount++;
+            else errorCount++;
           } catch {
             errorCount++;
           }
         }
         
         setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đẩy ${successCount} sản phẩm lên PKGX`);
+        if (successCount > 0) toast.success(`Đã đồng bộ ${successCount} sản phẩm`);
         if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
       }
     },
     {
-      label: "Sync giá PKGX",
+      label: "Thông tin cơ bản",
+      icon: FileText,
       onSelect: async (selectedRows: Product[]) => {
         const pkgxSettings = usePkgxSettingsStore.getState();
         if (!pkgxSettings.settings.enabled) {
@@ -999,7 +1137,48 @@ export function ProductsPage() {
           return;
         }
         
-        toast.info(`Đang sync giá ${linkedProducts.length} sản phẩm...`);
+        toast.info(`Đang đồng bộ thông tin cơ bản ${linkedProducts.length} sản phẩm...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            const payload = {
+              goods_name: product.name,
+              goods_sn: product.id,
+              seller_note: product.sellerNote || '',
+            };
+            const response = await updateProduct(product.pkgxId!, payload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã đồng bộ thông tin cơ bản ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      }
+    },
+    {
+      label: "Giá",
+      icon: DollarSign,
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang đồng bộ giá ${linkedProducts.length} sản phẩm...`);
         
         let successCount = 0;
         let errorCount = 0;
@@ -1016,12 +1195,13 @@ export function ProductsPage() {
         }
         
         setRowSelection({});
-        if (successCount > 0) toast.success(`Đã sync giá ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi sync giá ${errorCount} sản phẩm`);
+        if (successCount > 0) toast.success(`Đã đồng bộ giá ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
       }
     },
     {
-      label: "Sync tồn kho PKGX",
+      label: "Tồn kho",
+      icon: PackageSearch,
       onSelect: async (selectedRows: Product[]) => {
         const pkgxSettings = usePkgxSettingsStore.getState();
         if (!pkgxSettings.settings.enabled) {
@@ -1035,7 +1215,7 @@ export function ProductsPage() {
           return;
         }
         
-        toast.info(`Đang sync tồn kho ${linkedProducts.length} sản phẩm...`);
+        toast.info(`Đang đồng bộ tồn kho ${linkedProducts.length} sản phẩm...`);
         
         let successCount = 0;
         let errorCount = 0;
@@ -1052,12 +1232,13 @@ export function ProductsPage() {
         }
         
         setRowSelection({});
-        if (successCount > 0) toast.success(`Đã sync tồn kho ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi sync tồn kho ${errorCount} sản phẩm`);
+        if (successCount > 0) toast.success(`Đã đồng bộ tồn kho ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
       }
     },
     {
-      label: "Sync SEO PKGX",
+      label: "SEO",
+      icon: Search,
       onSelect: async (selectedRows: Product[]) => {
         const pkgxSettings = usePkgxSettingsStore.getState();
         if (!pkgxSettings.settings.enabled) {
@@ -1071,7 +1252,7 @@ export function ProductsPage() {
           return;
         }
         
-        toast.info(`Đang sync SEO ${linkedProducts.length} sản phẩm...`);
+        toast.info(`Đang đồng bộ SEO ${linkedProducts.length} sản phẩm...`);
         
         let successCount = 0;
         let errorCount = 0;
@@ -1088,12 +1269,13 @@ export function ProductsPage() {
         }
         
         setRowSelection({});
-        if (successCount > 0) toast.success(`Đã sync SEO ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi sync SEO ${errorCount} sản phẩm`);
+        if (successCount > 0) toast.success(`Đã đồng bộ SEO ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
       }
     },
     {
-      label: "Sync flags PKGX",
+      label: "Mô tả",
+      icon: FileText,
       onSelect: async (selectedRows: Product[]) => {
         const pkgxSettings = usePkgxSettingsStore.getState();
         if (!pkgxSettings.settings.enabled) {
@@ -1107,7 +1289,48 @@ export function ProductsPage() {
           return;
         }
         
-        toast.info(`Đang sync flags ${linkedProducts.length} sản phẩm...`);
+        toast.info(`Đang đồng bộ mô tả ${linkedProducts.length} sản phẩm...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            const pkgxSeo = product.websiteSeo?.pkgx;
+            const payload = {
+              goods_desc: pkgxSeo?.longDescription || product.description || '',
+              goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
+            };
+            const response = await updateProduct(product.pkgxId!, payload);
+            if (response.success) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+        
+        setRowSelection({});
+        if (successCount > 0) toast.success(`Đã đồng bộ mô tả ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      }
+    },
+    {
+      label: "Flags",
+      icon: Flag,
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang đồng bộ flags ${linkedProducts.length} sản phẩm...`);
         
         let successCount = 0;
         let errorCount = 0;
@@ -1124,44 +1347,105 @@ export function ProductsPage() {
         }
         
         setRowSelection({});
-        if (successCount > 0) toast.success(`Đã sync flags ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi sync flags ${errorCount} sản phẩm`);
+        if (successCount > 0) toast.success(`Đã đồng bộ flags ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
       }
     },
     {
-      label: "───────────────",
-      onSelect: () => {},
-      disabled: true,
-    },
-    {
-      label: "Chuyển vào thùng rác",
-      onSelect: (selectedRows: Product[]) => {
-        const systemIds = selectedRows.map(p => p.systemId);
-        systemIds.forEach(id => remove(asSystemId(id)));
+      label: "Hình ảnh",
+      icon: Image,
+      onSelect: async (selectedRows: Product[]) => {
+        const pkgxSettings = usePkgxSettingsStore.getState();
+        if (!pkgxSettings.settings.enabled) {
+          toast.error('PKGX chưa được bật');
+          return;
+        }
+        
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        toast.info(`Đang đồng bộ hình ảnh ${linkedProducts.length} sản phẩm...`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            const payload: Record<string, unknown> = {};
+            if (product.thumbnailImage) payload.original_img = product.thumbnailImage;
+            const galleryImages = product.galleryImages || product.images || [];
+            if (galleryImages.length > 0) payload.gallery_images = galleryImages;
+            
+            if (Object.keys(payload).length > 0) {
+              const response = await updateProduct(product.pkgxId!, payload);
+              if (response.success) successCount++;
+              else errorCount++;
+            } else {
+              errorCount++;
+            }
+          } catch {
+            errorCount++;
+          }
+        }
+        
         setRowSelection({});
-        toast.success(`Đã chuyển ${selectedRows.length} sản phẩm vào thùng rác`);
+        if (successCount > 0) toast.success(`Đã đồng bộ hình ảnh ${successCount} sản phẩm`);
+        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
       }
     },
     {
-      label: "Đang hoạt động",
+      label: "Xem trên PKGX",
+      icon: ExternalLink,
       onSelect: (selectedRows: Product[]) => {
-        selectedRows.forEach(product => {
-          update(asSystemId(product.systemId), { ...product, status: 'active' });
-        });
-        setRowSelection({});
-        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Đang hoạt động"`);
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        if (linkedProducts.length === 1) {
+          // Mở 1 sản phẩm
+          window.open(`https://phukiengiaxuong.com.vn/admin/goods.php?act=edit_goods&goods_id=${linkedProducts[0].pkgxId}`, '_blank');
+        } else {
+          // Mở danh sách sản phẩm
+          toast.info(`Đã chọn ${linkedProducts.length} sản phẩm. Vui lòng chọn 1 sản phẩm để xem.`);
+        }
       }
     },
     {
-      label: "Ngừng kinh doanh",
-      onSelect: (selectedRows: Product[]) => {
-        selectedRows.forEach(product => {
-          update(asSystemId(product.systemId), { ...product, status: 'discontinued' });
-        });
+      label: "Hủy liên kết",
+      icon: Unlink,
+      variant: 'destructive',
+      onSelect: async (selectedRows: Product[]) => {
+        const linkedProducts = selectedRows.filter(p => p.pkgxId);
+        if (linkedProducts.length === 0) {
+          toast.error('Không có sản phẩm nào đã liên kết PKGX');
+          return;
+        }
+        
+        // Confirm before unlinking
+        if (!confirm(`Bạn có chắc muốn hủy liên kết ${linkedProducts.length} sản phẩm với PKGX?`)) {
+          return;
+        }
+        
+        let successCount = 0;
+        
+        for (const product of linkedProducts) {
+          try {
+            update(asSystemId(product.systemId), { pkgxId: undefined });
+            successCount++;
+          } catch {
+            // ignore
+          }
+        }
+        
         setRowSelection({});
-        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Ngừng kinh doanh"`);
+        toast.success(`Đã hủy liên kết ${successCount} sản phẩm với PKGX`);
       }
-    }
+    },
   ];
 
   const getStatusVariant = (status?: string) => {
@@ -1408,6 +1692,7 @@ export function ProductsPage() {
           allSelectedRows={allSelectedRows}
           onBulkDelete={undefined}
           bulkActions={bulkActions}
+          pkgxBulkActions={pkgxBulkActions}
           sorting={tableState.sorting}
           setSorting={handleSortingChange}
           columnVisibility={columnVisibility}
@@ -1468,6 +1753,14 @@ export function ProductsPage() {
           systemId: authEmployee.systemId,
           name: authEmployee.fullName || authEmployee.id,
         } : { systemId: asSystemId('SYSTEM'), name: 'System' }}
+      />
+
+      {/* PKGX Link Dialog */}
+      <PkgxLinkDialog
+        open={pkgxLinkDialogOpen}
+        onOpenChange={setPkgxLinkDialogOpen}
+        product={productToLink}
+        onSuccess={handlePkgxLinkSuccess}
       />
     </div>
   )
