@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useShallow } from 'zustand/react/shallow';
-import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink } from "lucide-react";
+import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, Link2, Unlink, FileUp, Download } from "lucide-react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { useBrandStore } from "../settings/inventory/brand-store.ts";
@@ -22,16 +22,26 @@ import { getColumns } from "./columns.tsx";
 import { MobileBrandCard } from "./card.tsx";
 import { usePkgxBrandSync } from "./hooks/use-pkgx-brand-sync.ts";
 import { usePkgxSettingsStore } from "../settings/pkgx/store.ts";
+import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync.ts";
+import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog.tsx";
 import { updateBrand } from "@/lib/pkgx/api-service.ts";
+import { PkgxBrandLinkDialog } from "./components/pkgx-link-dialog.tsx";
+import { PkgxBrandDetailDialog } from "./components/pkgx-brand-detail-dialog.tsx";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { brandImportExportConfig } from "@/lib/import-export/configs/brand.config";
+import { useAuth } from "@/contexts/auth-context.tsx";
 
 export function BrandsPage() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const { employee: authEmployee } = useAuth();
   
   // ✅ Use shallow comparison to prevent unnecessary re-renders
-  const { data, update, remove } = useBrandStore(
+  const { data, add, update, remove } = useBrandStore(
     useShallow((state) => ({
       data: state.data,
+      add: state.add,
       update: state.update,
       remove: state.remove,
     }))
@@ -115,21 +125,71 @@ export function BrandsPage() {
   }, [navigate]);
 
   // PKGX Sync Hook
-  const { handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
+  const { handleSyncBasicInfo, handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
   const pkgxSettings = usePkgxSettingsStore((s) => s.settings);
+  const deleteBrandMapping = usePkgxSettingsStore((s) => s.deleteBrandMapping);
+  const getBrandMappingByHrmId = usePkgxSettingsStore((s) => s.getBrandMappingByHrmId);
+  
+  // Bulk sync hook for PKGX brands
+  const {
+    confirmAction: bulkConfirmAction,
+    progress: bulkProgress,
+    triggerBulkSync,
+    executeAction: executeBulkAction,
+    cancelConfirm: cancelBulkConfirm,
+    getPkgxBrandId: hookGetPkgxBrandId,
+  } = usePkgxBulkSync({ entityType: 'brand' });
+  
+  // PKGX Link Dialog state
+  const [pkgxLinkDialogOpen, setPkgxLinkDialogOpen] = React.useState(false);
+  const [brandToLink, setBrandToLink] = React.useState<Brand | null>(null);
+  
+  // PKGX Detail Dialog state
+  const [pkgxDetailDialogOpen, setPkgxDetailDialogOpen] = React.useState(false);
+  const [brandToViewDetail, setBrandToViewDetail] = React.useState<Brand | null>(null);
+  const [pkgxBrandIdToView, setPkgxBrandIdToView] = React.useState<number | null>(null);
+  
+  // Import/Export Dialog states
+  const [isImportOpen, setIsImportOpen] = React.useState(false);
+  const [isExportOpen, setIsExportOpen] = React.useState(false);
+  
+  // PKGX Link handlers
+  const handlePkgxLink = React.useCallback((brand: Brand) => {
+    setBrandToLink(brand);
+    setPkgxLinkDialogOpen(true);
+  }, []);
+  
+  const handlePkgxUnlink = React.useCallback((brand: Brand) => {
+    const mapping = getBrandMappingByHrmId(brand.systemId);
+    if (mapping) {
+      deleteBrandMapping(mapping.id);
+      toast.success(`Đã hủy liên kết thương hiệu "${brand.name}" với PKGX`);
+    }
+  }, [getBrandMappingByHrmId, deleteBrandMapping]);
+  
+  const handlePkgxLinkSuccess = React.useCallback(() => {
+    // Refresh handled by store update
+  }, []);
+  
+  // PKGX View Detail handler
+  const handlePkgxViewDetail = React.useCallback((brand: Brand, pkgxBrandId: number) => {
+    setBrandToViewDetail(brand);
+    setPkgxBrandIdToView(pkgxBrandId);
+    setPkgxDetailDialogOpen(true);
+  }, []);
 
   const columns = React.useMemo(() => getColumns(
     handleDelete, 
     handleToggleActive, 
     navigate,
     handleUpdateName,
-    // PKGX handlers
-    handleSyncSeo,
-    handleSyncDescription,
-    handleSyncAll,
+    // PKGX handlers - used by PkgxBrandActionsCell
     hasPkgxMapping,
     getPkgxBrandId,
-  ), [handleDelete, handleToggleActive, navigate, handleUpdateName, handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxBrandId]);
+    handlePkgxLink,
+    handlePkgxUnlink,
+    handlePkgxViewDetail,
+  ), [handleDelete, handleToggleActive, navigate, handleUpdateName, hasPkgxMapping, getPkgxBrandId, handlePkgxLink, handlePkgxUnlink, handlePkgxViewDetail]);
 
   // Bulk actions config
   const bulkActions = React.useMemo(() => [
@@ -151,150 +211,28 @@ export function BrandsPage() {
   ], [handleBulkActivate, handleBulkDeactivate]);
 
   // ═══════════════════════════════════════════════════════════════
-  // PKGX Bulk Actions - Dropdown riêng cho PKGX
+  // PKGX Bulk Actions - Using shared usePkgxBulkSync hook
   // ═══════════════════════════════════════════════════════════════
   const pkgxBulkActions = React.useMemo(() => [
     {
       label: "Đồng bộ tất cả",
       icon: RefreshCw,
-      onSelect: async (selectedRows: Brand[]) => {
-        if (!pkgxSettings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
-        if (linkedBrands.length === 0) {
-          toast.error('Không có thương hiệu nào đã liên kết PKGX');
-          return;
-        }
-        
-        if (!confirm(`Bạn có chắc muốn đồng bộ tất cả thông tin cho ${linkedBrands.length} thương hiệu?`)) {
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ ${linkedBrands.length} thương hiệu...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const brand of linkedBrands) {
-          try {
-            const pkgxBrandId = getPkgxBrandId(brand);
-            if (!pkgxBrandId) continue;
-            
-            const pkgxSeo = brand.websiteSeo?.pkgx;
-            const payload = {
-              brand_name: brand.name,
-              site_url: brand.website || '',
-              keywords: pkgxSeo?.seoKeywords || brand.seoKeywords || brand.name,
-              meta_title: pkgxSeo?.seoTitle || brand.seoTitle || brand.name,
-              meta_desc: pkgxSeo?.metaDescription || brand.metaDescription || '',
-              short_desc: pkgxSeo?.shortDescription || brand.shortDescription || '',
-              brand_desc: pkgxSeo?.longDescription || brand.longDescription || brand.description || '',
-            };
-            
-            const response = await updateBrand(pkgxBrandId, payload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ ${successCount} thương hiệu`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} thương hiệu`);
+      onSelect: (selectedRows: Brand[]) => {
+        triggerBulkSync(selectedRows, 'sync_all');
       }
     },
     {
       label: "SEO",
       icon: Search,
-      onSelect: async (selectedRows: Brand[]) => {
-        if (!pkgxSettings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
-        if (linkedBrands.length === 0) {
-          toast.error('Không có thương hiệu nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ SEO ${linkedBrands.length} thương hiệu...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const brand of linkedBrands) {
-          try {
-            const pkgxBrandId = getPkgxBrandId(brand);
-            if (!pkgxBrandId) continue;
-            
-            const pkgxSeo = brand.websiteSeo?.pkgx;
-            const payload = {
-              keywords: pkgxSeo?.seoKeywords || brand.seoKeywords || brand.name,
-              meta_title: pkgxSeo?.seoTitle || brand.seoTitle || brand.name,
-              meta_desc: pkgxSeo?.metaDescription || brand.metaDescription || '',
-              short_desc: pkgxSeo?.shortDescription || brand.shortDescription || '',
-            };
-            
-            const response = await updateBrand(pkgxBrandId, payload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ SEO ${successCount} thương hiệu`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} thương hiệu`);
+      onSelect: (selectedRows: Brand[]) => {
+        triggerBulkSync(selectedRows, 'sync_seo');
       }
     },
     {
       label: "Mô tả",
       icon: AlignLeft,
-      onSelect: async (selectedRows: Brand[]) => {
-        if (!pkgxSettings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
-        if (linkedBrands.length === 0) {
-          toast.error('Không có thương hiệu nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ mô tả ${linkedBrands.length} thương hiệu...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const brand of linkedBrands) {
-          try {
-            const pkgxBrandId = getPkgxBrandId(brand);
-            if (!pkgxBrandId) continue;
-            
-            const pkgxSeo = brand.websiteSeo?.pkgx;
-            const payload = {
-              brand_desc: pkgxSeo?.longDescription || brand.longDescription || brand.description || '',
-              short_desc: pkgxSeo?.shortDescription || brand.shortDescription || '',
-            };
-            
-            const response = await updateBrand(pkgxBrandId, payload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ mô tả ${successCount} thương hiệu`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} thương hiệu`);
+      onSelect: (selectedRows: Brand[]) => {
+        triggerBulkSync(selectedRows, 'sync_description');
       }
     },
     {
@@ -306,7 +244,6 @@ export function BrandsPage() {
           toast.error('Không có thương hiệu nào đã liên kết PKGX');
           return;
         }
-        // Open first linked brand in new tab
         const firstBrand = linkedBrands[0];
         const pkgxId = getPkgxBrandId(firstBrand);
         if (pkgxId) {
@@ -314,7 +251,116 @@ export function BrandsPage() {
         }
       }
     },
-  ], [pkgxSettings.enabled, hasPkgxMapping, getPkgxBrandId]);
+    {
+      label: "Hủy liên kết",
+      icon: Unlink,
+      variant: "destructive" as const,
+      onSelect: (selectedRows: Brand[]) => {
+        const linkedBrands = selectedRows.filter(b => hasPkgxMapping(b));
+        if (linkedBrands.length === 0) {
+          toast.error('Không có thương hiệu nào đã liên kết PKGX');
+          return;
+        }
+        
+        if (!confirm(`Bạn có chắc muốn hủy liên kết ${linkedBrands.length} thương hiệu với PKGX?`)) {
+          return;
+        }
+        
+        let count = 0;
+        for (const brand of linkedBrands) {
+          const mapping = getBrandMappingByHrmId(brand.systemId);
+          if (mapping) {
+            deleteBrandMapping(mapping.id);
+            count++;
+          }
+        }
+        
+        setRowSelection({});
+        toast.success(`Đã hủy liên kết ${count} thương hiệu`);
+      }
+    },
+  ], [triggerBulkSync, hasPkgxMapping, getPkgxBrandId, getBrandMappingByHrmId, deleteBrandMapping]);
+
+  // Import handler
+  const handleImport = React.useCallback(async (data: Partial<Brand>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
+    const currentEmployeeSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
+    
+    const results = {
+      success: 0,
+      failed: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [] as Array<{ row: number; message: string }>,
+    };
+    
+    try {
+      for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        try {
+          // Check if brand exists (by id)
+          const existingBrand = activeBrands.find(b => 
+            item.id && b.id === item.id
+          );
+          
+          if (existingBrand) {
+            // Brand exists
+            if (mode === 'insert-only') {
+              // Skip in insert-only mode
+              results.skipped++;
+              continue;
+            }
+            
+            // Update existing brand
+            const updatedFields: Partial<Brand> = {
+              ...item,
+              updatedAt: new Date().toISOString(),
+            };
+            // Remove fields that shouldn't be overwritten
+            delete (updatedFields as any).systemId;
+            delete (updatedFields as any).createdAt;
+            
+            update(existingBrand.systemId, updatedFields);
+            results.updated++;
+            results.success++;
+          } else {
+            // Brand does not exist
+            if (mode === 'update-only') {
+              // Skip in update-only mode
+              results.skipped++;
+              continue;
+            }
+            
+            // Insert new brand
+            const newBrand = {
+              ...item,
+              id: asBusinessId(item.id || `BRAND-${Date.now()}`),
+              name: item.name || '',
+              isActive: item.isActive !== false,
+              isDeleted: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as Omit<Brand, 'systemId'>;
+            
+            add(newBrand);
+            results.inserted++;
+            results.success++;
+          }
+        } catch (err) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            message: err instanceof Error ? err.message : 'Lỗi không xác định',
+          });
+        }
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('[Brands Importer] Lỗi nhập thương hiệu', error);
+      throw error;
+    }
+  }, [activeBrands, add, update, authEmployee?.systemId]);
 
   // Export config
   const exportConfig = {
@@ -329,8 +375,8 @@ export function BrandsPage() {
     const stored = localStorage.getItem(storageKey);
     if (stored) return;
     
-    const defaultVisibleColumns = ['logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt'];
-    const columnIds = ['select', 'logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt', 'updatedAt', 'actions'];
+    const defaultVisibleColumns = ['logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt'];
+    const columnIds = ['select', 'logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt', 'updatedAt', 'actions'];
     const initialVisibility: Record<string, boolean> = {};
     columnIds.forEach(id => {
       if (id === 'select' || id === 'actions') {
@@ -465,12 +511,14 @@ export function BrandsPage() {
         <PageToolbar
           leftActions={
             <>
-              <DataTableExportDialog
-                allData={activeBrands}
-                filteredData={sortedData}
-                pageData={paginatedData}
-                config={exportConfig}
-              />
+              <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Nhập file
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
             </>
           }
           rightActions={[
@@ -615,6 +663,58 @@ export function BrandsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PKGX Link Dialog */}
+      <PkgxBrandLinkDialog
+        open={pkgxLinkDialogOpen}
+        onOpenChange={setPkgxLinkDialogOpen}
+        brand={brandToLink}
+        onSuccess={handlePkgxLinkSuccess}
+      />
+      
+      {/* PKGX Detail Dialog */}
+      <PkgxBrandDetailDialog
+        open={pkgxDetailDialogOpen}
+        onOpenChange={setPkgxDetailDialogOpen}
+        brand={brandToViewDetail}
+        pkgxBrandId={pkgxBrandIdToView}
+      />
+
+      {/* PKGX Bulk Sync Confirm Dialog */}
+      <PkgxBulkSyncConfirmDialog
+        confirmAction={bulkConfirmAction}
+        progress={bulkProgress}
+        onConfirm={executeBulkAction}
+        onCancel={cancelBulkConfirm}
+      />
+
+      {/* Import Dialog V2 */}
+      <GenericImportDialogV2<Brand>
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        config={brandImportExportConfig}
+        existingData={activeBrands}
+        onImport={handleImport}
+        currentUser={authEmployee ? {
+          systemId: authEmployee.systemId,
+          name: authEmployee.fullName || authEmployee.id,
+        } : undefined}
+      />
+
+      {/* Export Dialog V2 */}
+      <GenericExportDialogV2<Brand>
+        open={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        config={brandImportExportConfig}
+        allData={activeBrands}
+        filteredData={sortedData}
+        currentPageData={paginatedData}
+        selectedData={allSelectedRows}
+        currentUser={authEmployee ? {
+          systemId: authEmployee.systemId,
+          name: authEmployee.fullName || authEmployee.id,
+        } : { systemId: asSystemId('SYSTEM'), name: 'System' }}
+      />
     </div>
   );
 }

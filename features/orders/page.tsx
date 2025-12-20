@@ -6,9 +6,10 @@ import { getColumns } from "./columns.tsx"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx"
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx"
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx"
-import { DataTableImportDialog } from "../../components/data-table/data-table-import-dialog.tsx"
-import type { ImportConfig } from "../../components/data-table/data-table-import-dialog.tsx"
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx"
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx"
+import { orderImportExportConfig, flattenOrdersForExport } from "../../lib/import-export/configs/order.config.ts"
+import { sapoOrderImportConfig } from "../../lib/import-export/configs/order-sapo.config.ts"
 import type { TemplateType, PaperSize } from "../settings/printer/types.ts"
 import type { PrintOptions } from "../../lib/use-print.ts"
 import { 
@@ -30,7 +31,7 @@ import { Button } from "../../components/ui/button.tsx"
 import { Label } from "../../components/ui/label.tsx"
 import { Checkbox } from "../../components/ui/checkbox.tsx"
 import { Textarea } from "../../components/ui/textarea.tsx"
-import { PlusCircle, FileText } from "lucide-react"
+import { PlusCircle, FileText, FileUp, Download } from "lucide-react"
 import { PrintOptionsDialog, type PrintOptionsResult, type OrderPrintTemplateType } from "../../components/shared/print-options-dialog.tsx"
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context.tsx"
@@ -47,6 +48,8 @@ import { asBusinessId, asSystemId, type SystemId } from "../../lib/id-types.ts"
 import { usePrint } from "../../lib/use-print.ts"
 import { useCustomerStore } from "../customers/store.ts"
 import { useBranchStore } from "../settings/branches/store.ts"
+import { useProductStore } from "../products/store.ts"
+import { useEmployeeStore } from "../employees/store.ts"
 import { 
   convertOrderForPrint,
   convertPackagingToDeliveryForPrint,
@@ -80,9 +83,13 @@ export function OrdersPage() {
   const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
   const isMobile = useMediaQuery("(max-width: 768px)");
   
-  // Stores for print
-  const { findById: findCustomerById } = useCustomerStore();
-  const { findById: findBranchById } = useBranchStore();
+  // Stores for print and import lookup
+  const customerStore = useCustomerStore();
+  const branchStore = useBranchStore();
+  const productStore = useProductStore();
+  const employeeStore = useEmployeeStore();
+  const { findById: findCustomerById } = customerStore;
+  const { findById: findBranchById } = branchStore;
   const { print, printMultiple, printMixedDocuments } = usePrint();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
@@ -95,6 +102,11 @@ export function OrdersPage() {
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false)
   const [pendingPrintOrders, setPendingPrintOrders] = React.useState<Order[]>([])
   const [initialPrintTemplateType, setInitialPrintTemplateType] = React.useState<OrderPrintTemplateType>('order')
+
+  // Import/Export dialog states
+  const [isImportOpen, setIsImportOpen] = React.useState(false)
+  const [isExportOpen, setIsExportOpen] = React.useState(false)
+  const [isSapoImportOpen, setIsSapoImportOpen] = React.useState(false)
 
   const resetCancelForm = React.useCallback(() => {
     setCancelReason('')
@@ -540,95 +552,89 @@ export function OrdersPage() {
     },
   ], [handleBulkPrintWithOptions]);
   
-  // Export config
-  const exportConfig = {
-    fileName: 'Danh_sach_Don_hang',
-    columns,
-  };
-
-  // Import config
-  const importConfig: ImportConfig<Order> = {
-    importer: (items) => {
-      const processed = items.map((item: any) => {
-        const orderDate = item.orderDate ? new Date(item.orderDate) : new Date();
-
-        if (!item.customerName) {
-          throw new Error(`Dòng "${item.id || 'N/A'}": Thiếu tên khách hàng`);
-        }
-
-        if (!item.customerSystemId) {
-          throw new Error(`Dòng "${item.id || 'N/A'}": Thiếu systemId khách hàng (customerSystemId)`);
-        }
-
-        if (!item.branchSystemId) {
-          throw new Error(`Dòng "${item.id || 'N/A'}": Thiếu systemId chi nhánh (branchSystemId)`);
-        }
-
-        if (isNaN(orderDate.getTime())) {
-          throw new Error(`Dòng "${item.id}": Định dạng ngày không hợp lệ`);
-        }
-
-        const validStatuses: OrderMainStatus[] = ['Đặt hàng', 'Đang giao dịch', 'Hoàn thành', 'Đã hủy'];
-        if (item.status && !validStatuses.includes(item.status as OrderMainStatus)) {
-          throw new Error(`Dòng "${item.id}": Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(', ')}`);
-        }
-
-        if (item.grandTotal && isNaN(Number(item.grandTotal))) {
-          throw new Error(`Dòng "${item.id}": Tổng tiền phải là số`);
-        }
-
-        const branchSystemId = asSystemId(item.branchSystemId);
-        const customerSystemId = asSystemId(item.customerSystemId);
-        const salespersonSystemId = item.salespersonSystemId
-          ? asSystemId(item.salespersonSystemId)
-          : currentEmployeeSystemId;
-
-        return {
-          id: item.id ? asBusinessId(item.id) : asBusinessId(''),
-          customerName: item.customerName || '',
-          customerSystemId,
-          orderDate: orderDate.toISOString(),
-          branchName: item.branchName || '',
-          branchSystemId,
-          salesperson: item.salesperson || currentEmployeeName,
-          salespersonSystemId,
-          subtotal: Number(item.grandTotal) || 0,
-          shippingFee: 0,
-          tax: 0,
-          grandTotal: Number(item.grandTotal) || 0,
-          totalPaid: 0,
-          paidAmount: 0,
-          debt: Number(item.grandTotal) || 0,
-          codAmount: 0,
-          status: (item.status as OrderMainStatus) || 'Đặt hàng',
-          paymentStatus: 'Chưa thanh toán' as OrderPaymentStatus,
-          packagingStatus: 'Chưa đóng gói',
-          deliveryStatus: 'Chờ đóng gói' as OrderDeliveryStatus,
-          printStatus: 'Chưa in' as OrderPrintStatus,
-          stockOutStatus: 'Chưa xuất kho' as OrderStockOutStatus,
-          returnStatus: 'Chưa trả hàng' as OrderReturnStatus,
-          source: item.source || 'Import',
-          notes: item.notes || '',
-          lineItems: [],
-          deliveryMethod: 'Dịch vụ giao hàng',
-          payments: [],
-          packagings: [],
-          createdAt: new Date().toISOString(),
-          createdBy: currentEmployeeSystemId,
-          updatedAt: new Date().toISOString(),
-          updatedBy: currentEmployeeSystemId,
-        };
-      });
-      
-      // Add to store - Dùng addMultiple để auto-generate systemId
-      const typedProcessed = processed.map(item => item as Omit<Order, 'systemId'>);
-      orderStore.addMultiple(typedProcessed);
-      toast.success(`Đã nhập ${processed.length} đơn hàng thành công`);
+  // Prepare orderImportExportConfig with stores for lookup
+  const orderConfigWithStores = React.useMemo(() => ({
+    ...orderImportExportConfig,
+    storeContext: {
+      customerStore,
+      productStore,
+      branchStore,
+      employeeStore,
     },
-    fileName: 'Mau_Nhap_Don_hang',
-    existingData: orders,
-    getUniqueKey: (item: any) => item.id
-  };
+  }), [customerStore, productStore, branchStore, employeeStore]);
+
+  // Prepare sapoOrderImportConfig with stores for lookup
+  const sapoOrderConfigWithStores = React.useMemo(() => ({
+    ...sapoOrderImportConfig,
+    storeContext: {
+      customerStore,
+      productStore,
+      branchStore,
+      employeeStore,
+    },
+  }), [customerStore, productStore, branchStore, employeeStore]);
+
+  // Flatten orders for export (multi-line per product) - cast to Order[] for component compatibility
+  const ordersForExport = React.useMemo(() => flattenOrdersForExport(orders) as unknown as Order[], [orders]);
+  const filteredOrdersForExport = React.useMemo(() => flattenOrdersForExport(sortedData) as unknown as Order[], [sortedData]);
+  const pageOrdersForExport = React.useMemo(() => flattenOrdersForExport(paginatedData) as unknown as Order[], [paginatedData]);
+  const selectedOrdersForExport = React.useMemo(() => flattenOrdersForExport(allSelectedRows) as unknown as Order[], [allSelectedRows]);
+
+  // Import handler for GenericImportDialogV2
+  const handleImport = React.useCallback(async (
+    data: Partial<Order>[],
+    mode: 'insert-only' | 'update-only' | 'upsert',
+    branchId?: string
+  ) => {
+    const results = {
+      success: 0,
+      failed: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [] as Array<{ row: number; message: string }>,
+    };
+
+    try {
+      for (let i = 0; i < data.length; i++) {
+        const order = data[i] as Order;
+        
+        // Tất cả đơn import đều là insert mới
+        if (mode === 'update-only') {
+          results.skipped++;
+          continue;
+        }
+
+        try {
+          // Add order to store
+          orderStore.add(order);
+          results.inserted++;
+          results.success++;
+        } catch (err) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            message: err instanceof Error ? err.message : 'Lỗi không xác định',
+          });
+        }
+      }
+
+      if (results.inserted > 0) {
+        toast.success(`Đã nhập ${results.inserted} đơn hàng thành công`);
+      }
+      if (results.skipped > 0) {
+        toast.info(`Bỏ qua ${results.skipped} đơn (chế độ update-only)`);
+      }
+      if (results.failed > 0) {
+        toast.error(`${results.failed} đơn nhập thất bại`);
+      }
+
+      return results;
+    } catch (error) {
+      console.error('[Orders Import] Error:', error);
+      throw error;
+    }
+  }, [orderStore]);
   
   // Header actions - Chỉ còn nút Tạo đơn hàng
   const headerActions = React.useMemo(() => [
@@ -655,13 +661,18 @@ export function OrdersPage() {
         <PageToolbar
           leftActions={
             <>
-              <DataTableImportDialog config={importConfig} />
-              <DataTableExportDialog 
-                allData={orders} 
-                filteredData={sortedData} 
-                pageData={paginatedData} 
-                config={exportConfig} 
-              />
+              <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Nhập file
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsSapoImportOpen(true)}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Import Sapo
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
             </>
           }
           rightActions={
@@ -811,6 +822,47 @@ export function OrdersPage() {
         onConfirm={handlePrintConfirm}
         selectedCount={pendingPrintOrders.length}
         initialTemplateType={initialPrintTemplateType}
+      />
+
+      {/* Import Dialog V2 */}
+      <GenericImportDialogV2<Order>
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        config={orderConfigWithStores}
+        existingData={orders}
+        onImport={handleImport}
+        currentUser={authEmployee ? {
+          systemId: authEmployee.systemId,
+          name: authEmployee.fullName || authEmployee.id,
+        } : undefined}
+      />
+
+      {/* Export Dialog V2 */}
+      <GenericExportDialogV2<Order>
+        open={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        config={orderImportExportConfig}
+        allData={ordersForExport}
+        filteredData={filteredOrdersForExport}
+        currentPageData={pageOrdersForExport}
+        selectedData={selectedOrdersForExport}
+        currentUser={authEmployee ? {
+          systemId: authEmployee.systemId,
+          name: authEmployee.fullName || authEmployee.id,
+        } : { systemId: asSystemId('SYSTEM'), name: 'System' }}
+      />
+
+      {/* Sapo Import Dialog V2 */}
+      <GenericImportDialogV2<Order>
+        open={isSapoImportOpen}
+        onOpenChange={setIsSapoImportOpen}
+        config={sapoOrderConfigWithStores}
+        existingData={orders}
+        onImport={handleImport}
+        currentUser={authEmployee ? {
+          systemId: authEmployee.systemId,
+          name: authEmployee.fullName || authEmployee.id,
+        } : undefined}
       />
     </>
   )

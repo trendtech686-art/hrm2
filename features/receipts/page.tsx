@@ -11,11 +11,14 @@ import { usePageHeader } from "@/contexts/page-header-context";
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Printer } from "lucide-react";
+import { Plus, Printer, FileSpreadsheet, Download } from "lucide-react";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { receiptImportExportConfig } from "../../lib/import-export/configs/receipt.config.ts";
+import { useAuth } from "../../contexts/auth-context.tsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
-import { DataTableExportDialog } from "@/components/data-table/data-table-export-dialog";
 import { DataTableImportDialog } from "@/components/data-table/data-table-import-dialog";
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
@@ -59,10 +62,15 @@ export function ReceiptsPage() {
     const { data: customers } = useCustomerStore();
     const { info: storeInfo } = useStoreInfoStore();
     const { print, printMultiple } = usePrint();
+    const { employee } = useAuth();
 
     // Print dialog state
     const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<Receipt[]>([]);
+    
+    // Import/Export dialog state
+    const [showImportDialog, setShowImportDialog] = React.useState(false);
+    const [showExportDialog, setShowExportDialog] = React.useState(false);
     
     // ✅ Header Actions
     const headerActions = React.useMemo(() => [
@@ -158,12 +166,6 @@ export function ReceiptsPage() {
     }, [branches, storeInfo, print]);
 
     const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate, handleSinglePrint), [accounts, handleCancel, navigate, handleSinglePrint]);
-    
-    // ✅ Export config
-    const exportConfig = {
-        fileName: 'Phieu_thu',
-        columns,
-    };
     
     // ✅ Set default column visibility - Run ONCE on mount
     React.useEffect(() => {
@@ -333,6 +335,67 @@ export function ReceiptsPage() {
       receipts.filter(v => rowSelection[v.systemId]),
     [receipts, rowSelection]);
 
+    // Selected receipts for export
+    const selectedReceipts = React.useMemo(() => {
+      return receipts.filter(r => rowSelection[r.systemId]);
+    }, [receipts, rowSelection]);
+
+    // Import handler
+    const handleImport = React.useCallback(async (
+      importedReceipts: Partial<Receipt>[],
+      mode: 'insert-only' | 'update-only' | 'upsert',
+      _branchId?: string
+    ) => {
+      let addedCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const errors: Array<{ row: number; message: string }> = [];
+      
+      const storeState = useReceiptStore.getState();
+      
+      importedReceipts.forEach((receipt, index) => {
+        try {
+          const existing = receipts.find(r => 
+            r.id.toLowerCase() === (receipt.id || '').toLowerCase()
+          );
+          
+          if (existing) {
+            if (mode === 'update-only' || mode === 'upsert') {
+              storeState.update(asSystemId(existing.systemId), { ...existing, ...receipt, systemId: existing.systemId } as Receipt);
+              updatedCount++;
+            } else {
+              skippedCount++;
+            }
+          } else {
+            if (mode === 'insert-only' || mode === 'upsert') {
+              storeState.add(receipt as Receipt);
+              addedCount++;
+            } else {
+              skippedCount++;
+            }
+          }
+        } catch (error) {
+          errors.push({ row: index + 1, message: (error as Error).message });
+        }
+      });
+      
+      if (addedCount > 0 || updatedCount > 0) {
+        const messages = [];
+        if (addedCount > 0) messages.push(`${addedCount} phiếu thu mới`);
+        if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
+        toast.success(`Đã import: ${messages.join(', ')}`);
+      }
+      
+      return {
+        success: addedCount + updatedCount,
+        failed: errors.length,
+        inserted: addedCount,
+        updated: updatedCount,
+        skipped: skippedCount,
+        errors,
+      };
+    }, [receipts]);
+
     // Bulk print handlers
     const handleBulkPrint = React.useCallback((rows: Receipt[]) => {
         setItemsToPrint(rows);
@@ -407,12 +470,14 @@ export function ReceiptsPage() {
                 <PageToolbar
                     leftActions={
                         <>
-                            <DataTableExportDialog 
-                                allData={receipts} 
-                                filteredData={sortedData} 
-                                pageData={paginatedData} 
-                                config={exportConfig} 
-                            />
+                            <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                Nhập file
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Xuất Excel
+                            </Button>
                         </>
                     }
                     rightActions={[
@@ -598,6 +663,35 @@ export function ReceiptsPage() {
                 onConfirm={handlePrintConfirm}
                 selectedCount={itemsToPrint.length}
                 title="In phiếu thu"
+            />
+
+            {/* Import Dialog */}
+            <GenericImportDialogV2<Receipt>
+                open={showImportDialog}
+                onOpenChange={setShowImportDialog}
+                config={receiptImportExportConfig}
+                branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+                existingData={receipts}
+                onImport={handleImport}
+                currentUser={{
+                    name: employee?.fullName || 'Hệ thống',
+                    systemId: employee?.systemId || asSystemId('SYSTEM'),
+                }}
+            />
+
+            {/* Export Dialog */}
+            <GenericExportDialogV2<Receipt>
+                open={showExportDialog}
+                onOpenChange={setShowExportDialog}
+                config={receiptImportExportConfig}
+                allData={receipts}
+                filteredData={sortedData}
+                currentPageData={paginatedData}
+                selectedData={selectedReceipts}
+                currentUser={{
+                    name: employee?.fullName || 'Hệ thống',
+                    systemId: employee?.systemId || asSystemId('SYSTEM'),
+                }}
             />
         </div>
     );

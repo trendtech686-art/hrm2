@@ -9,9 +9,10 @@ import { DatePicker } from "../../components/ui/date-picker.tsx"
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { MoreHorizontal, RotateCcw, Globe, RefreshCw, FileText, DollarSign, Package, Search, AlignLeft, Tag, Image, ExternalLink, Upload, Link2, Unlink, ShoppingCart, Wrench, FileDigit, Layers, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { MoreHorizontal, RotateCcw, Globe, ShoppingCart, Wrench, FileDigit, Layers, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { usePricingPolicyStore } from '../settings/pricing/store.ts';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store.ts';
+import { PkgxProductActionsCell } from './pkgx-product-actions-cell';
 import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
 import { useBrandStore } from '../settings/inventory/brand-store.ts';
 import { useSupplierStore } from '../suppliers/store.ts';
@@ -90,274 +91,16 @@ const getSeoStatusBadge = (score: number) => {
   return <Badge variant="outline" className="text-muted-foreground">—</Badge>;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// PKGX Actions Cell Component - Tách riêng để dùng hooks
-// ═══════════════════════════════════════════════════════════════
-type PkgxActionsCellProps = {
-  row: Product;
-  onPkgxUpdatePrice?: (product: Product) => void;
-  onPkgxPublish?: (product: Product) => void;
-  onPkgxUpdateSeo?: (product: Product) => void;
-  onPkgxSyncInventory?: (product: Product) => void;
-  onPkgxSyncDescription?: (product: Product) => void;
-  onPkgxSyncFlags?: (product: Product) => void;
-  onPkgxSyncBasicInfo?: (product: Product) => void;
-  onPkgxSyncImages?: (product: Product) => void;
-  onPkgxSyncAll?: (product: Product) => void;
-  onPkgxLink?: (product: Product) => void;
-  onPkgxUnlink?: (product: Product) => void;
-};
-
-function PkgxActionsCell({
-  row,
-  onPkgxUpdatePrice,
-  onPkgxPublish,
-  onPkgxUpdateSeo,
-  onPkgxSyncInventory,
-  onPkgxSyncDescription,
-  onPkgxSyncFlags,
-  onPkgxSyncBasicInfo,
-  onPkgxSyncImages,
-  onPkgxSyncAll,
-  onPkgxLink,
-  onPkgxUnlink,
-}: PkgxActionsCellProps) {
-  // State for confirmation dialog - MUST be called before any early returns
-  const [confirmAction, setConfirmAction] = React.useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    action: (() => void) | null;
-  }>({ open: false, title: '', description: '', action: null });
-
-  // Don't show for deleted items
-  if (row.deletedAt) return null;
-  
-  const hasPkgxId = !!row.pkgxId;
-
-  const handleConfirm = (title: string, description: string, action: () => void) => {
-    setConfirmAction({ open: true, title, description, action });
-  };
-
-  const executeAction = () => {
-    if (confirmAction.action) {
-      confirmAction.action();
-    }
-    setConfirmAction({ open: false, title: '', description: '', action: null });
-  };
-  
-  return (
-    <>
-      <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button 
-              variant="ghost" 
-              className={`h-8 w-8 p-0 ${hasPkgxId ? "text-primary" : "text-muted-foreground"}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span className="sr-only">PKGX menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            {hasPkgxId ? (
-              <>
-                {/* Sync All - Most important action */}
-                {onPkgxSyncAll && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ tất cả',
-                      `Bạn có chắc muốn đồng bộ TẤT CẢ thông tin sản phẩm "${row.name}" lên PKGX?`,
-                      () => onPkgxSyncAll(row)
-                    )}
-                    className="font-medium"
-                    title="Đồng bộ tên, SKU, giá, tồn kho, SEO, mô tả, flags, hình ảnh đại diện + album"
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Đồng bộ tất cả
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                
-                {/* Individual sync actions */}
-                {onPkgxSyncBasicInfo && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ thông tin cơ bản',
-                      `Đồng bộ tên, SKU, danh mục, thương hiệu của "${row.name}" lên PKGX?`,
-                      () => onPkgxSyncBasicInfo(row)
-                    )}
-                    title="Tên sản phẩm, mã SKU, danh mục, thương hiệu"
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    Thông tin cơ bản
-                  </DropdownMenuItem>
-                )}
-                {onPkgxUpdatePrice && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ giá',
-                      `Đồng bộ giá sản phẩm "${row.name}" lên PKGX? (bao gồm giá ace thành viên)`,
-                      () => onPkgxUpdatePrice(row)
-                    )}
-                    title="Giá bán, giá thị trường, giá đối tác + giá ace thành viên"
-                  >
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    Giá
-                  </DropdownMenuItem>
-                )}
-                {onPkgxSyncInventory && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ tồn kho',
-                      `Đồng bộ tồn kho sản phẩm "${row.name}" lên PKGX?`,
-                      () => onPkgxSyncInventory(row)
-                    )}
-                    title="Tổng số lượng tồn kho từ tất cả chi nhánh"
-                  >
-                    <Package className="mr-2 h-4 w-4" />
-                    Tồn kho
-                  </DropdownMenuItem>
-                )}
-                {onPkgxUpdateSeo && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ SEO',
-                      `Đồng bộ SEO (keywords, meta title, meta description) của "${row.name}" lên PKGX?`,
-                      () => onPkgxUpdateSeo(row)
-                    )}
-                    title="Keywords, Meta Title, Meta Description"
-                  >
-                    <Search className="mr-2 h-4 w-4" />
-                    SEO
-                  </DropdownMenuItem>
-                )}
-                {onPkgxSyncDescription && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ mô tả',
-                      `Đồng bộ mô tả ngắn và mô tả chi tiết của "${row.name}" lên PKGX?`,
-                      () => onPkgxSyncDescription(row)
-                    )}
-                    title="Mô tả ngắn (goods_brief), mô tả chi tiết (goods_desc)"
-                  >
-                    <AlignLeft className="mr-2 h-4 w-4" />
-                    Mô tả
-                  </DropdownMenuItem>
-                )}
-                {onPkgxSyncFlags && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ flags',
-                      `Đồng bộ flags (nổi bật, mới, hot, hiển thị) của "${row.name}" lên PKGX?`,
-                      () => onPkgxSyncFlags(row)
-                    )}
-                    title="Nổi bật (best), Hot, Mới (new), Trang chủ, Đang bán"
-                  >
-                    <Tag className="mr-2 h-4 w-4" />
-                    Flags
-                  </DropdownMenuItem>
-                )}
-                {onPkgxSyncImages && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Đồng bộ hình ảnh',
-                      `Đồng bộ hình ảnh đại diện và album ảnh của "${row.name}" lên PKGX?`,
-                      () => onPkgxSyncImages(row)
-                    )}
-                    title="Hình ảnh đại diện (original_img) + Album ảnh (goods_gallery)"
-                  >
-                    <Image className="mr-2 h-4 w-4" />
-                    Hình ảnh
-                  </DropdownMenuItem>
-                )}
-                
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onSelect={() => window.open(`https://phukiengiaxuong.com.vn/admin/goods.php?act=edit&goods_id=${row.pkgxId}`, '_blank')}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Xem trên PKGX
-                </DropdownMenuItem>
-                
-                {/* Hủy liên kết PKGX */}
-                {onPkgxUnlink && (
-                  <DropdownMenuItem 
-                    onSelect={() => handleConfirm(
-                      'Hủy liên kết PKGX',
-                      `Bạn có chắc muốn hủy liên kết sản phẩm "${row.name}" với PKGX? (Sản phẩm vẫn tồn tại trên PKGX)`,
-                      () => onPkgxUnlink(row)
-                    )}
-                    className="text-destructive"
-                  >
-                    <Unlink className="mr-2 h-4 w-4" />
-                    Hủy liên kết
-                  </DropdownMenuItem>
-                )}
-              </>
-            ) : (
-              /* Actions for products WITHOUT pkgxId */
-              <>
-                {/* Publish to PKGX - Tạo mới sản phẩm trên PKGX */}
-                {onPkgxPublish && (
-                  <DropdownMenuItem onSelect={() => handleConfirm(
-                    'Đăng lên PKGX',
-                    `Bạn có chắc muốn đăng sản phẩm "${row.name}" lên PKGX?`,
-                    () => onPkgxPublish(row)
-                  )}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Đăng lên PKGX
-                  </DropdownMenuItem>
-                )}
-                
-                {/* Link to existing PKGX product */}
-                {onPkgxLink && (
-                  <DropdownMenuItem onSelect={() => onPkgxLink(row)}>
-                    <Link2 className="mr-2 h-4 w-4" />
-                    Liên kết với PKGX
-                  </DropdownMenuItem>
-                )}
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      
-      {/* Confirmation Dialog */}
-      <AlertDialog open={confirmAction.open} onOpenChange={(open) => !open && setConfirmAction({ open: false, title: '', description: '', action: null })}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmAction.title}</AlertDialogTitle>
-            <AlertDialogDescription>{confirmAction.description}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.stopPropagation(); executeAction(); }}>Xác nhận</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onRestore: (systemId: string) => void,
   navigate: (path: string) => void,
   onPrintLabel?: (product: Product) => void,
-  // PKGX handlers
-  onPkgxUpdatePrice?: (product: Product) => void,
+  // PKGX handlers - used by PkgxProductActionsCell
   onPkgxPublish?: (product: Product) => void,
-  onPkgxUpdateSeo?: (product: Product) => void,
-  onPkgxSyncInventory?: (product: Product) => void,
-  onPkgxSyncDescription?: (product: Product) => void,
-  onPkgxSyncFlags?: (product: Product) => void,
-  onPkgxSyncBasicInfo?: (product: Product) => void,
-  onPkgxSyncImages?: (product: Product) => void,
-  onPkgxSyncAll?: (product: Product) => void,
   onPkgxLink?: (product: Product) => void,
   onPkgxUnlink?: (product: Product) => void,
+  onPkgxSyncImages?: (product: Product) => void,
   // Status & Inline edit handlers
   onStatusChange?: (product: Product, newStatus: 'active' | 'inactive') => void,
   onInventoryChange?: (product: Product, newQuantity: number) => void,
@@ -368,6 +111,12 @@ export const getColumns = (
   const { data: pricingPolicies } = usePricingPolicyStore.getState();
   const activePricingPolicies = pricingPolicies.filter(p => p.isActive);
   const defaultSellingPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
+
+  // Pre-fetch lookup data to avoid repeated store access in cell renders
+  const categoryStore = useProductCategoryStore.getState();
+  const brandStore = useBrandStore.getState();
+  const supplierStore = useSupplierStore.getState();
+  const employeeStore = useEmployeeStore.getState();
 
   return [
     {
@@ -434,7 +183,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const categoryId = row.categorySystemId;
         if (!categoryId) return row.category || '-';
-        const category = useProductCategoryStore.getState().findById(categoryId);
+        const category = categoryStore.findById(categoryId);
         return category ? (category.path || category.name) : (row.category || '-');
       },
       meta: { displayName: "Danh mục" },
@@ -603,7 +352,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const brandId = row.brandSystemId;
         if (!brandId) return '-';
-        const brand = useBrandStore.getState().findById(brandId);
+        const brand = brandStore.findById(brandId);
         return brand ? brand.name : '-';
       },
       meta: { displayName: "Thương hiệu" },
@@ -710,7 +459,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const supplierId = row.primarySupplierSystemId;
         if (!supplierId) return '-';
-        const supplier = useSupplierStore.getState().findById(supplierId);
+        const supplier = supplierStore.findById(supplierId);
         return supplier ? supplier.name : '-';
       },
       meta: { displayName: "Nhà cung cấp chính" },
@@ -1215,7 +964,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const employeeId = row.createdBy;
         if (!employeeId) return '-';
-        const employee = useEmployeeStore.getState().findById(employeeId);
+        const employee = employeeStore.findById(employeeId);
         return employee ? employee.fullName : '-';
       },
       meta: { displayName: "Người tạo" },
@@ -1227,7 +976,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const employeeId = row.updatedBy;
         if (!employeeId) return '-';
-        const employee = useEmployeeStore.getState().findById(employeeId);
+        const employee = employeeStore.findById(employeeId);
         return employee ? employee.fullName : '-';
       },
       meta: { displayName: "Người cập nhật" },
@@ -1239,19 +988,12 @@ export const getColumns = (
       id: "pkgxActions",
       header: () => <div className="text-center">PKGX</div>,
       cell: ({ row }) => (
-        <PkgxActionsCell
-          row={row}
-          onPkgxUpdatePrice={onPkgxUpdatePrice}
+        <PkgxProductActionsCell
+          product={row}
           onPkgxPublish={onPkgxPublish}
-          onPkgxUpdateSeo={onPkgxUpdateSeo}
-          onPkgxSyncInventory={onPkgxSyncInventory}
-          onPkgxSyncDescription={onPkgxSyncDescription}
-          onPkgxSyncFlags={onPkgxSyncFlags}
-          onPkgxSyncBasicInfo={onPkgxSyncBasicInfo}
-          onPkgxSyncImages={onPkgxSyncImages}
-          onPkgxSyncAll={onPkgxSyncAll}
           onPkgxLink={onPkgxLink}
           onPkgxUnlink={onPkgxUnlink}
+          onPkgxSyncImages={onPkgxSyncImages}
         />
       ),
       meta: {

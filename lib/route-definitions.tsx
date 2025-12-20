@@ -142,6 +142,15 @@ import { SalesReportPage } from '../features/reports/sales-report/page';
 import { InventoryReportPage } from '../features/reports/inventory-report/page';
 import { CustomerSlaReportPage } from '../features/reports/customer-sla-report/page';
 import { ProductSlaReportPage } from '../features/reports/product-sla-report/page';
+import { ReportsIndexPage } from '../features/reports/index-page';
+import { 
+  SalesTimeReportPage,
+  SalesEmployeeReportPage,
+  SalesProductReportPage,
+  SalesBranchReportPage,
+  SalesCustomerReportPage,
+  SalesOrderReportPage,
+} from '../features/reports/business-activity/pages';
 import { SettingsPage } from '../features/settings/page';
 import { AppearancePage } from '../features/settings/appearance/appearance-page';
 import { StoreInfoPage } from '../features/settings/store-info/store-info-page';
@@ -1613,6 +1622,13 @@ export const routeDefinitions: AppRoute[] = [
   
   // Reports Routes
   {
+    path: ROUTES.REPORTS.INDEX,
+    element: ReportsIndexPage,
+    meta: {
+      breadcrumb: ['Báo cáo']
+    }
+  },
+  {
     path: ROUTES.REPORTS.SALES,
     element: SalesReportPage,
     meta: {
@@ -1638,6 +1654,50 @@ export const routeDefinitions: AppRoute[] = [
     element: ProductSlaReportPage,
     meta: {
       breadcrumb: ['Báo cáo', 'Cảnh báo tồn kho']
+    }
+  },
+  
+  // Business Activity Reports - Sales
+  {
+    path: ROUTES.REPORTS.SALES_BY_TIME,
+    element: SalesTimeReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Bán hàng theo thời gian']
+    }
+  },
+  {
+    path: ROUTES.REPORTS.SALES_BY_EMPLOYEE,
+    element: SalesEmployeeReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Bán hàng theo nhân viên']
+    }
+  },
+  {
+    path: ROUTES.REPORTS.SALES_BY_PRODUCT,
+    element: SalesProductReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Bán hàng theo sản phẩm']
+    }
+  },
+  {
+    path: ROUTES.REPORTS.SALES_BY_ORDER,
+    element: SalesOrderReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Bán hàng theo đơn hàng']
+    }
+  },
+  {
+    path: ROUTES.REPORTS.SALES_BY_BRANCH,
+    element: SalesBranchReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Bán hàng theo chi nhánh']
+    }
+  },
+  {
+    path: ROUTES.REPORTS.SALES_BY_CUSTOMER,
+    element: SalesCustomerReportPage,
+    meta: {
+      breadcrumb: ['Báo cáo', 'Bán hàng theo khách hàng']
     }
   },
   

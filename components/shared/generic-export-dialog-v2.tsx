@@ -36,6 +36,7 @@ import {
   formatFileSize,
 } from '../../lib/import-export/index.ts'
 import type { SystemId } from "../../lib/id-types.ts"
+import { usePricingPolicyStore } from "../../features/settings/pricing/store.ts"
 
 // ============================================
 // TYPES
@@ -127,14 +128,48 @@ export function GenericExportDialogV2<T>({
       groups[group].push(field)
     })
     
+    // ===== DYNAMIC PRICING COLUMNS (chỉ cho products) =====
+    if (config.entityType === 'products') {
+      const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
+      if (pricingPolicies.length > 0) {
+        const pricingFields: FieldConfig<T>[] = pricingPolicies.map(policy => ({
+          key: `_price_${policy.systemId}` as keyof T & string,
+          label: `Giá: ${policy.name}`,
+          type: 'number' as const,
+          exportGroup: 'Bảng giá',
+          group: 'Bảng giá',
+          // Custom transform to extract price from prices object
+          exportTransform: (value: unknown, row?: T) => {
+            const product = row as { prices?: Record<string, number> }
+            return product?.prices?.[policy.systemId] ?? ''
+          },
+        }))
+        groups['Bảng giá'] = pricingFields
+      }
+    }
+    
     return groups
-  }, [config.fields])
+  }, [config.fields, config.entityType])
 
-  // Exportable fields (non-hidden)
-  const exportableFields = React.useMemo(() => 
-    config.fields.filter(f => !f.hidden && f.exportable !== false),
-    [config.fields]
-  )
+  // Exportable fields (non-hidden) - including dynamic pricing fields
+  const exportableFields = React.useMemo(() => {
+    const staticFields = config.fields.filter(f => !f.hidden && f.exportable !== false)
+    
+    // Add dynamic pricing fields for products
+    if (config.entityType === 'products') {
+      const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
+      const pricingFields: FieldConfig<T>[] = pricingPolicies.map(policy => ({
+        key: `_price_${policy.systemId}` as keyof T & string,
+        label: `Giá: ${policy.name}`,
+        type: 'number' as const,
+        exportGroup: 'Bảng giá',
+        group: 'Bảng giá',
+      }))
+      return [...staticFields, ...pricingFields]
+    }
+    
+    return staticFields
+  }, [config.fields, config.entityType])
 
   // Data count by scope
   const getDataByScope = React.useCallback((scope: ExportScope): T[] => {
@@ -197,15 +232,49 @@ export function GenericExportDialogV2<T>({
     setIsExporting(true)
 
     try {
-      // Get selected fields config
-      const selectedFields = config.fields.filter(f => 
+      // Get selected fields config (including dynamic pricing fields)
+      const staticSelectedFields = config.fields.filter(f => 
         selectedColumns.includes(f.key as string)
       )
+      
+      // Add dynamic pricing fields for products
+      let allSelectedFields = [...staticSelectedFields]
+      const selectedPriceColumns = selectedColumns.filter(k => k.startsWith('_price_'))
+      
+      if (config.entityType === 'products' && selectedPriceColumns.length > 0) {
+        const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
+        const pricingFields: FieldConfig<T>[] = selectedPriceColumns.map(colKey => {
+          const systemId = colKey.replace('_price_', '')
+          const policy = pricingPolicies.find(p => p.systemId === systemId)
+          return {
+            key: colKey as keyof T & string,
+            label: `Giá: ${policy?.name || systemId}`,
+            type: 'number' as const,
+            exportGroup: 'Bảng giá',
+          }
+        })
+        allSelectedFields = [...allSelectedFields, ...pricingFields]
+      }
 
-      // Transform data
-      const transformedData = dataToExport.map(item => 
-        transformExportRow(item, selectedFields)
-      )
+      // Transform data (with special handling for pricing columns)
+      const transformedData = dataToExport.map(item => {
+        const row = transformExportRow(item, staticSelectedFields)
+        
+        // Add pricing columns for products
+        if (config.entityType === 'products' && selectedPriceColumns.length > 0) {
+          const product = item as { prices?: Record<string, number> }
+          const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
+          
+          selectedPriceColumns.forEach(colKey => {
+            const systemId = colKey.replace('_price_', '')
+            const policy = pricingPolicies.find(p => p.systemId === systemId)
+            const label = `Giá: ${policy?.name || systemId}`
+            row[label] = product?.prices?.[systemId] ?? ''
+          })
+        }
+        
+        return row
+      })
 
       // Create workbook
       const ws = XLSX.utils.json_to_sheet(transformedData)

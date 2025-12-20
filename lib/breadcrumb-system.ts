@@ -666,6 +666,51 @@ export const MODULES = {
     name: 'Báo cáo',
     icon: 'BarChart',
     sections: {
+      INDEX: {
+        key: 'reports-index',
+        name: 'Tổng quan báo cáo',
+        icon: 'AreaChart',
+        list: {
+          title: 'Báo cáo',
+          description: 'Trung tâm tổng hợp các báo cáo kinh doanh'
+        }
+      },
+      SALES_BY_TIME: {
+        key: 'sales-by-time',
+        name: 'Bán hàng theo thời gian',
+        icon: 'TrendingUp',
+        list: {
+          title: 'Báo cáo bán hàng theo thời gian',
+          description: 'Thống kê doanh thu theo ngày, tuần, tháng'
+        }
+      },
+      SALES_BY_EMPLOYEE: {
+        key: 'sales-by-employee',
+        name: 'Bán hàng theo nhân viên',
+        icon: 'Users',
+        list: {
+          title: 'Báo cáo bán hàng theo nhân viên',
+          description: 'Hiệu suất bán hàng của từng nhân viên'
+        }
+      },
+      SALES_BY_PRODUCT: {
+        key: 'sales-by-product',
+        name: 'Bán hàng theo sản phẩm',
+        icon: 'Package',
+        list: {
+          title: 'Báo cáo bán hàng theo sản phẩm',
+          description: 'Doanh thu và số lượng bán từng sản phẩm'
+        }
+      },
+      SALES_BY_BRANCH: {
+        key: 'sales-by-branch',
+        name: 'Bán hàng theo chi nhánh',
+        icon: 'Building2',
+        list: {
+          title: 'Báo cáo bán hàng theo chi nhánh',
+          description: 'So sánh doanh thu giữa các chi nhánh'
+        }
+      },
       SALES_REPORT: {
         key: 'sales-report',
         name: 'Báo cáo bán hàng',

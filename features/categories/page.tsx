@@ -1,8 +1,8 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useShallow } from 'zustand/react/shallow';
-import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink } from "lucide-react";
-import { asSystemId, type SystemId } from "@/lib/id-types";
+import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, Link2, FolderEdit, FileUp, Download } from "lucide-react";
+import { asSystemId, asBusinessId, type SystemId } from "@/lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts";
 import type { ProductCategory } from "../settings/inventory/types.ts";
@@ -22,16 +22,23 @@ import { getColumns } from "./columns.tsx";
 import { MobileCategoryCard } from "./card.tsx";
 import { usePkgxCategorySync } from "./hooks/use-pkgx-category-sync.ts";
 import { usePkgxSettingsStore } from "../settings/pkgx/store.ts";
-import { updateCategory } from "@/lib/pkgx/api-service.ts";
+import { updateCategory, updateCategoryBasic } from "@/lib/pkgx/api-service.ts";
+import { PkgxCategoryLinkDialog } from "./components/pkgx-link-dialog.tsx";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { categoryImportExportConfig } from "@/lib/import-export/configs/category.config";
+import { useAuth } from "@/contexts/auth-context.tsx";
 
 export function ProductCategoriesPage() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const { employee: authEmployee } = useAuth();
   
   // ✅ Use shallow comparison to prevent unnecessary re-renders
-  const { data, update, remove } = useProductCategoryStore(
+  const { data, add, update, remove } = useProductCategoryStore(
     useShallow((state) => ({
       data: state.data,
+      add: state.add,
       update: state.update,
       remove: state.remove,
     }))
@@ -127,8 +134,138 @@ export function ProductCategoriesPage() {
   }, [navigate]);
 
   // PKGX Sync Hook
-  const { handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxCatId } = usePkgxCategorySync();
+  const { handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId } = usePkgxCategorySync();
   const pkgxSettings = usePkgxSettingsStore((s) => s.settings);
+  const deleteCategoryMapping = usePkgxSettingsStore((s) => s.deleteCategoryMapping);
+  const getCategoryMappingByHrmId = usePkgxSettingsStore((s) => s.getCategoryMappingByHrmId);
+
+  // PKGX Link Dialog state
+  const [pkgxLinkDialogOpen, setPkgxLinkDialogOpen] = React.useState(false);
+  const [categoryToLink, setCategoryToLink] = React.useState<ProductCategory | null>(null);
+
+  // Import/Export Dialog states
+  const [isImportOpen, setIsImportOpen] = React.useState(false);
+  const [isExportOpen, setIsExportOpen] = React.useState(false);
+
+  // PKGX Link handlers
+  const handlePkgxLink = React.useCallback((category: ProductCategory) => {
+    setCategoryToLink(category);
+    setPkgxLinkDialogOpen(true);
+  }, []);
+
+  const handlePkgxUnlink = React.useCallback((category: ProductCategory) => {
+    const mapping = getCategoryMappingByHrmId(category.systemId);
+    if (mapping) {
+      deleteCategoryMapping(mapping.id);
+      toast.success(`Đã hủy liên kết danh mục "${category.name}" với PKGX`);
+    }
+  }, [getCategoryMappingByHrmId, deleteCategoryMapping]);
+
+  const handlePkgxLinkSuccess = React.useCallback(() => {
+    // Refresh handled by store update
+  }, []);
+
+  // Import handler
+  const handleImport = React.useCallback(async (importData: Partial<ProductCategory>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
+    const results = {
+      success: 0,
+      failed: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [] as Array<{ row: number; message: string }>,
+    };
+    
+    try {
+      for (let i = 0; i < importData.length; i++) {
+        const item = importData[i];
+        try {
+          // Check if category exists (by id)
+          const existingCategory = activeCategories.find(c => 
+            item.id && c.id === item.id
+          );
+          
+          if (existingCategory) {
+            // Category exists
+            if (mode === 'insert-only') {
+              // Skip in insert-only mode
+              results.skipped++;
+              continue;
+            }
+            
+            // Update existing category
+            const updatedFields: Partial<ProductCategory> = {
+              ...item,
+              updatedAt: new Date().toISOString(),
+            };
+            // Remove fields that shouldn't be overwritten
+            delete (updatedFields as any).systemId;
+            delete (updatedFields as any).createdAt;
+            
+            // Recalculate path if parentId changed
+            if (item.parentId && item.parentId !== existingCategory.parentId) {
+              const parent = data.find(c => c.systemId === item.parentId);
+              if (parent) {
+                updatedFields.path = parent.path ? `${parent.path} > ${item.name || existingCategory.name}` : (item.name || existingCategory.name);
+                updatedFields.level = (parent.level ?? 0) + 1;
+              }
+            }
+            
+            update(existingCategory.systemId, updatedFields);
+            results.updated++;
+            results.success++;
+          } else {
+            // Category does not exist
+            if (mode === 'update-only') {
+              // Skip in update-only mode
+              results.skipped++;
+              continue;
+            }
+            
+            // Calculate path and level based on parentId
+            let path = item.name || '';
+            let level = 0;
+            if (item.parentId) {
+              const parent = data.find(c => c.systemId === item.parentId);
+              if (parent) {
+                path = parent.path ? `${parent.path} > ${item.name}` : (item.name || '');
+                level = (parent.level ?? 0) + 1;
+              }
+            }
+            
+            // Insert new category
+            const newCategory = {
+              ...item,
+              id: asBusinessId(item.id || `CAT-${Date.now()}`),
+              name: item.name || '',
+              path,
+              level,
+              sortOrder: item.sortOrder ?? 0,
+              isActive: item.isActive !== false,
+              isDeleted: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as Omit<ProductCategory, 'systemId'>;
+            
+            add(newCategory);
+            results.inserted++;
+            results.success++;
+          }
+        } catch (err) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            message: err instanceof Error ? err.message : 'Lỗi không xác định',
+          });
+        }
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('[Categories Importer] Lỗi nhập danh mục', error);
+      throw error;
+    }
+  }, [activeCategories, data, add, update]);
 
   const columns = React.useMemo(() => getColumns(
     handleDelete, 
@@ -141,9 +278,12 @@ export function ProductCategoriesPage() {
     handleSyncSeo,
     handleSyncDescription,
     handleSyncAll,
+    handleSyncBasic,
     hasPkgxMapping,
     getPkgxCatId,
-  ), [handleDelete, handleToggleActive, navigate, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxCatId]);
+    handlePkgxLink,
+    handlePkgxUnlink,
+  ), [handleDelete, handleToggleActive, navigate, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink]);
 
   // Export config
   const exportConfig = {
@@ -158,8 +298,8 @@ export function ProductCategoriesPage() {
     const stored = localStorage.getItem(storageKey);
     if (stored) return;
     
-    const defaultVisibleColumns = ['thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt'];
-    const columnIds = ['select', 'thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgx', 'isActive', 'createdAt', 'actions'];
+    const defaultVisibleColumns = ['thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt'];
+    const columnIds = ['select', 'thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt', 'actions'];
     const initialVisibility: Record<string, boolean> = {};
     columnIds.forEach(id => {
       if (id === 'select' || id === 'actions') {
@@ -320,12 +460,14 @@ export function ProductCategoriesPage() {
         <PageToolbar
           leftActions={
             <>
-              <DataTableExportDialog
-                allData={activeCategories}
-                filteredData={sortedData}
-                pageData={paginatedData}
-                config={exportConfig}
-              />
+              <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Nhập file
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
             </>
           }
           rightActions={[
@@ -587,6 +729,53 @@ export function ProductCategoriesPage() {
                 }
               },
               {
+                label: "Thông tin cơ bản",
+                icon: FolderEdit,
+                onSelect: async (selectedRows: ProductCategory[]) => {
+                  if (!pkgxSettings.enabled) {
+                    toast.error('PKGX chưa được bật');
+                    return;
+                  }
+                  
+                  const linkedCategories = selectedRows.filter(c => hasPkgxMapping(c));
+                  if (linkedCategories.length === 0) {
+                    toast.error('Không có danh mục nào đã liên kết PKGX');
+                    return;
+                  }
+                  
+                  if (!confirm(`Bạn có chắc muốn đồng bộ thông tin cơ bản (Tên, Hiển thị) cho ${linkedCategories.length} danh mục?`)) {
+                    return;
+                  }
+                  
+                  toast.info(`Đang đồng bộ thông tin cơ bản ${linkedCategories.length} danh mục...`);
+                  
+                  let successCount = 0;
+                  let errorCount = 0;
+                  
+                  for (const category of linkedCategories) {
+                    try {
+                      const pkgxCatId = getPkgxCatId(category);
+                      if (!pkgxCatId) continue;
+                      
+                      const payload = {
+                        cat_name: category.name,
+                        is_show: category.isActive ? 1 : 0,
+                      };
+                      
+                      const response = await updateCategoryBasic(pkgxCatId, payload);
+                      if (response.success) successCount++;
+                      else errorCount++;
+                    } catch {
+                      errorCount++;
+                    }
+                  }
+                  
+                  setRowSelection({});
+                  if (successCount > 0) toast.success(`Đã đồng bộ thông tin cơ bản ${successCount} danh mục`);
+                  if (errorCount > 0) toast.error(`Lỗi ${errorCount} danh mục`);
+                }
+              },
+              {
                 label: "Xem trên PKGX",
                 icon: ExternalLink,
                 onSelect: (selectedRows: ProductCategory[]) => {
@@ -657,6 +846,42 @@ export function ProductCategoriesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PKGX Link Dialog */}
+      <PkgxCategoryLinkDialog
+        open={pkgxLinkDialogOpen}
+        onOpenChange={setPkgxLinkDialogOpen}
+        category={categoryToLink}
+        onSuccess={handlePkgxLinkSuccess}
+      />
+
+      {/* Import Dialog V2 */}
+      <GenericImportDialogV2<ProductCategory>
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        config={categoryImportExportConfig}
+        existingData={activeCategories}
+        onImport={handleImport}
+        currentUser={authEmployee ? {
+          systemId: authEmployee.systemId,
+          name: authEmployee.fullName || authEmployee.id,
+        } : undefined}
+      />
+
+      {/* Export Dialog V2 */}
+      <GenericExportDialogV2<ProductCategory>
+        open={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        config={categoryImportExportConfig}
+        allData={activeCategories}
+        filteredData={sortedData}
+        currentPageData={paginatedData}
+        selectedData={allSelectedRows}
+        currentUser={authEmployee ? {
+          systemId: authEmployee.systemId,
+          name: authEmployee.fullName || authEmployee.id,
+        } : { systemId: asSystemId('SYSTEM'), name: 'System' }}
+      />
     </div>
   );
 }

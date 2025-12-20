@@ -20,7 +20,8 @@ import {
 import type { Shipment, ShipmentView } from './types.ts';
 import { getColumns } from './columns.tsx';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
+import { shipmentConfig } from '../../lib/import-export/configs/shipment.config.ts';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { PageFilters } from '../../components/layout/page-filters.tsx';
@@ -30,12 +31,14 @@ import { Badge } from '../../components/ui/badge.tsx';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
-import { Truck, MoreHorizontal, Calendar, User, MapPin, Package, Printer, FileText } from 'lucide-react';
+import { Truck, MoreHorizontal, Calendar, User, MapPin, Package, Printer, FileText, Download } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
+import { useAuth } from '../../contexts/auth-context.tsx';
+import { asSystemId } from '../../lib/id-types.ts';
 
 export function ShipmentsPage() {
     const { data: shipmentsData } = useShipmentStore();
@@ -43,6 +46,7 @@ export function ShipmentsPage() {
     const { data: allCustomers } = useCustomerStore();
     const { data: branches } = useBranchStore();
     const { info: storeInfo } = useStoreInfoStore();
+    const { employee: currentUser } = useAuth();
     const navigate = useNavigate();
     const { print, printMultiple } = usePrint();
 
@@ -50,6 +54,9 @@ export function ShipmentsPage() {
     const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<ShipmentView[]>([]);
     const [printType, setPrintType] = React.useState<'delivery' | 'handover'>('delivery');
+    
+    // Export dialog state
+    const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
     const [branchFilter, setBranchFilter] = React.useState('all');
     const [statusFilter, setStatusFilter] = React.useState('all');
@@ -336,7 +343,6 @@ export function ShipmentsPage() {
     
     React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter, partnerFilter]);
 
-    const exportConfig = { fileName: 'Danh_sach_Van_chuyen', columns };
     const handleRowClick = (row: ShipmentView) => navigate('/shipments/' + row.systemId);
 
     const MobileShipmentCard = ({ shipment }: { shipment: ShipmentView }) => {
@@ -421,7 +427,10 @@ export function ShipmentsPage() {
             {!isMobile && (
                 <PageToolbar
                     leftActions={
-                        <DataTableExportDialog allData={shipments} filteredData={sortedData} pageData={paginatedData} config={exportConfig} />
+                        <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Xuất Excel
+                        </Button>
                     }
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
@@ -507,6 +516,21 @@ export function ShipmentsPage() {
                 onConfirm={handlePrintConfirm}
                 selectedCount={itemsToPrint.length}
                 title={printType === 'delivery' ? 'In phiếu giao hàng' : 'In phiếu bàn giao'}
+            />
+
+            {/* Export Dialog */}
+            <GenericExportDialogV2<ShipmentView>
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                config={shipmentConfig}
+                allData={shipments}
+                filteredData={sortedData}
+                currentPageData={paginatedData}
+                selectedData={allSelectedRows}
+                currentUser={{
+                    name: currentUser?.fullName || 'Hệ thống',
+                    systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+                }}
             />
         </div>
     );

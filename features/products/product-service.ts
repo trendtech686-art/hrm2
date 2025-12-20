@@ -40,6 +40,38 @@ const fuseOptions: IFuseOptions<Product> = {
   threshold: 0.3,
 };
 
+// ========================================
+// Cached Fuse index for better performance
+// ========================================
+let cachedFuseIndex: Fuse<Product> | null = null;
+let cachedProductsLength = 0;
+let cachedProductsHash = '';
+
+function getProductsHash(products: Product[]): string {
+  // Simple hash based on first/last product IDs and length
+  if (products.length === 0) return 'empty';
+  return `${products.length}-${products[0]?.systemId}-${products[products.length - 1]?.systemId}`;
+}
+
+function getFuseIndex(products: Product[]): Fuse<Product> {
+  const hash = getProductsHash(products);
+  if (cachedFuseIndex && cachedProductsHash === hash) {
+    return cachedFuseIndex;
+  }
+  // Rebuild index only when products change
+  cachedFuseIndex = new Fuse(products, fuseOptions);
+  cachedProductsHash = hash;
+  cachedProductsLength = products.length;
+  return cachedFuseIndex;
+}
+
+// Export for manual cache invalidation (e.g., after adding/deleting products)
+export function invalidateFuseCache() {
+  cachedFuseIndex = null;
+  cachedProductsHash = '';
+  cachedProductsLength = 0;
+}
+
 function applyFilters(products: Product[], params: ProductQueryParams): PipelineResult {
   const { search, statusFilter, typeFilter, categoryFilter, comboFilter, stockLevelFilter, pkgxFilter, dateRange, sorting } = params;
 
@@ -108,7 +140,8 @@ function applyFilters(products: Product[], params: ProductQueryParams): Pipeline
   }
 
   if (search.trim()) {
-    const fuse = new Fuse(dataset, fuseOptions);
+    // Use cached Fuse index for better performance
+    const fuse = getFuseIndex(dataset);
     dataset = fuse.search(search.trim()).map((result) => result.item);
   }
 
@@ -148,7 +181,29 @@ export async function fetchProductsPage(params: ProductQueryParams): Promise<Pro
   const end = start + pageSize;
   const pagedItems = filtered.slice(start, end);
 
-  await new Promise((resolve) => setTimeout(resolve, 120));
+  // Small delay to simulate async behavior and prevent UI blocking
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  return {
+    items: pagedItems,
+    total: filtered.length,
+    pageCount: Math.max(1, Math.ceil(filtered.length / pageSize)),
+    pageIndex,
+  };
+}
+
+/**
+ * Synchronous version for React Query initialData
+ * Returns data immediately from store without any delay
+ */
+export function getInitialProductsPage(params: ProductQueryParams): ProductQueryResult {
+  const { data } = useProductStore.getState();
+  const { filtered } = applyFilters(data, params);
+
+  const { pageIndex, pageSize } = params.pagination;
+  const start = pageIndex * pageSize;
+  const end = start + pageSize;
+  const pagedItems = filtered.slice(start, end);
 
   return {
     items: pagedItems,

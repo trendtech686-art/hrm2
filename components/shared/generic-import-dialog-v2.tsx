@@ -92,6 +92,7 @@ import {
 import type { SystemId } from "../../lib/id-types.ts"
 import { ExcelFileDropzone, type ExcelFile } from './excel-file-dropzone.tsx'
 import { useBranchStore } from "../../features/settings/branches/store.ts"
+import { usePricingPolicyStore } from "../../features/settings/pricing/store.ts"
 
 // ============================================
 // EDITABLE CELL COMPONENT (Memoized for performance)
@@ -604,21 +605,55 @@ export function GenericImportDialogV2<T>({
     try {
       // Create template with headers only
       const headers: Record<string, string> = {}
-      config.fields.forEach(field => {
-        if (!field.hidden) {
-          headers[field.key as string] = field.label
-        }
+      const visibleFields = config.fields.filter(field => !field.hidden)
+      
+      visibleFields.forEach(field => {
+        headers[field.key as string] = field.label
       })
       
-      // Sample row
-      const sampleRow: Record<string, any> = {}
-      config.fields.forEach(field => {
-        if (!field.hidden) {
-          sampleRow[field.key as string] = field.required ? `(Bắt buộc)` : ''
+      // ===== DYNAMIC PRICING COLUMNS (chỉ cho products) =====
+      const pricingColumns: Array<{ key: string; label: string; example: string }> = []
+      if (config.entityType === 'products') {
+        const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
+        pricingPolicies.forEach(policy => {
+          const key = `price_${policy.systemId}`
+          const label = `Giá: ${policy.name}`
+          headers[key] = label
+          pricingColumns.push({
+            key,
+            label,
+            example: policy.type === 'Bán hàng' ? '250000' : '150000',
+          })
+        })
+      }
+      
+      // Sample row: Example values (dữ liệu mẫu từ field.example)
+      // Note: Required fields are marked with (*) in the label
+      const exampleRow: Record<string, any> = {}
+      visibleFields.forEach(field => {
+        if (field.example) {
+          exampleRow[field.key as string] = field.example
+        } else if (field.defaultValue !== undefined) {
+          // Fallback to defaultValue or enumLabels
+          if (field.enumLabels && field.defaultValue) {
+            exampleRow[field.key as string] = field.enumLabels[field.defaultValue as string] || field.defaultValue
+          } else {
+            exampleRow[field.key as string] = field.defaultValue
+          }
+        } else {
+          exampleRow[field.key as string] = ''
         }
       })
+      // Add pricing columns examples
+      pricingColumns.forEach(col => {
+        exampleRow[col.key] = col.example
+      })
       
-      const ws = XLSX.utils.json_to_sheet([sampleRow], { header: Object.keys(headers) })
+      // Combine all column keys
+      const allColumnKeys = [...Object.keys(headers).filter(k => !k.startsWith('price_')), ...pricingColumns.map(c => c.key)]
+      
+      // Tạo worksheet với 1 dòng mẫu (không cần dòng hướng dẫn Bắt buộc/Tùy chọn)
+      const ws = XLSX.utils.json_to_sheet([exampleRow], { header: allColumnKeys })
       
       // Rename headers to Vietnamese
       const range = XLSX.utils.decode_range(ws['!ref']!)
@@ -633,10 +668,15 @@ export function GenericImportDialogV2<T>({
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Data')
       
-      // Auto-size columns
-      const colWidths = Object.values(headers).map(header => ({
-        wch: Math.min(30, Math.max(10, header.length + 5))
-      }))
+      // Auto-size columns based on header length and example values
+      const allFields = [...visibleFields, ...pricingColumns.map(c => ({ label: c.label, example: c.example }))]
+      const colWidths = allFields.map(field => {
+        const headerLen = field.label.length
+        const exampleLen = String(field.example || '').length
+        return {
+          wch: Math.min(40, Math.max(12, headerLen + 3, exampleLen + 2))
+        }
+      })
       ws['!cols'] = colWidths
       
       const fileName = config.templateFileName || `Mau_Nhap_${config.entityDisplayName}.xlsx`

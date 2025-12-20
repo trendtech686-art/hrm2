@@ -13,7 +13,11 @@ import { Button } from '../../components/ui/button.tsx';
 import { Input } from '../../components/ui/input.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
-import { Plus, Download, Printer, XCircle, Scale } from 'lucide-react';
+import { useAuth } from '../../contexts/auth-context.tsx';
+import { Plus, Download, Printer, XCircle, Scale, FileSpreadsheet } from 'lucide-react';
+import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2.tsx';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
+import { inventoryCheckImportExportConfig, flattenInventoryChecksForExport } from '../../lib/import-export/configs/inventory-check.config.ts';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
@@ -49,6 +53,7 @@ type ConfirmState =
 export function InventoryChecksPage() {
   const navigate = useNavigate();
   const { isMobile } = useBreakpoint();
+  const { employee: currentUser } = useAuth();
   const { data, balanceCheck, cancelCheck } = useInventoryCheckStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { findById: findBranchById, data: branches } = useBranchStore();
@@ -57,6 +62,10 @@ export function InventoryChecksPage() {
   // Print dialog state
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintItems, setPendingPrintItems] = React.useState<InventoryCheck[]>([]);
+
+  // Import/Export dialog state
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
 
   // States
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -269,6 +278,67 @@ export function InventoryChecksPage() {
     [rowSelection, filteredData]
   );
 
+  // Selected checks for export
+  const selectedChecks = React.useMemo(() => {
+    return data.filter(c => rowSelection[c.systemId]);
+  }, [data, rowSelection]);
+
+  // Import handler
+  const handleImport = React.useCallback(async (
+    importedChecks: Partial<InventoryCheck>[],
+    mode: 'insert-only' | 'update-only' | 'upsert',
+    _branchId?: string
+  ) => {
+    let addedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+    
+    const storeState = useInventoryCheckStore.getState();
+    
+    importedChecks.forEach((check, index) => {
+      try {
+        const existing = data.find(c => 
+          c.id.toLowerCase() === (check.id || '').toLowerCase()
+        );
+        
+        if (existing) {
+          if (mode === 'update-only' || mode === 'upsert') {
+            storeState.update(asSystemId(existing.systemId), { ...existing, ...check, systemId: existing.systemId } as InventoryCheck);
+            updatedCount++;
+          } else {
+            skippedCount++;
+          }
+        } else {
+          if (mode === 'insert-only' || mode === 'upsert') {
+            storeState.add(check as InventoryCheck);
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        }
+      } catch (error) {
+        errors.push({ row: index + 1, message: (error as Error).message });
+      }
+    });
+    
+    if (addedCount > 0 || updatedCount > 0) {
+      const messages = [];
+      if (addedCount > 0) messages.push(`${addedCount} phiếu kiểm kê mới`);
+      if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
+      toast.success(`Đã import: ${messages.join(', ')}`);
+    }
+    
+    return {
+      success: addedCount + updatedCount,
+      failed: errors.length,
+      inserted: addedCount,
+      updated: updatedCount,
+      skipped: skippedCount,
+      errors,
+    };
+  }, [data]);
+
   // Bulk print - open dialog
   const handleBulkPrint = React.useCallback(() => {
     if (allSelectedRows.length === 0) return;
@@ -413,20 +483,16 @@ export function InventoryChecksPage() {
       {!isMobile && (
         <PageToolbar
           leftActions={
-            <DataTableExportDialog 
-              allData={data}
-              filteredData={filteredData}
-              pageData={paginatedData}
-              config={{
-                fileName: 'danh-sach-kiem-hang',
-                columns: columns || []
-              }}
-            >
-              <Button variant="outline" size="sm" className="h-9 gap-1">
-                <Download className="h-4 w-4" />
-                Xuất file
+            <>
+              <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Nhập file
               </Button>
-            </DataTableExportDialog>
+              <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
+            </>
           }
           rightActions={
             columns && columns.length > 0 ? (
@@ -548,6 +614,35 @@ export function InventoryChecksPage() {
         onConfirm={handlePrintConfirm}
         selectedCount={pendingPrintItems.length}
         title="In phiếu kiểm hàng"
+      />
+
+      {/* Import Dialog */}
+      <GenericImportDialogV2<InventoryCheck>
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        config={inventoryCheckImportExportConfig}
+        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+        existingData={data}
+        onImport={handleImport}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
+      />
+
+      {/* Export Dialog */}
+      <GenericExportDialogV2<InventoryCheck>
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        config={inventoryCheckImportExportConfig}
+        allData={data}
+        filteredData={filteredData}
+        currentPageData={paginatedData}
+        selectedData={selectedChecks}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
       />
     </div>
   );

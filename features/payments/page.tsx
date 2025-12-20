@@ -14,11 +14,14 @@ import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table.tsx";
 import { Card, CardContent } from "../../components/ui/card.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { Minus, ReceiptText, Printer } from "lucide-react";
+import { Minus, ReceiptText, Printer, FileSpreadsheet, Download } from "lucide-react";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { paymentImportExportConfig } from "../../lib/import-export/configs/payment.config.ts";
+import { useAuth } from "../../contexts/auth-context.tsx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx";
 import { DataTableImportDialog } from "../../components/data-table/data-table-import-dialog.tsx";
 import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx";
@@ -54,10 +57,15 @@ export function PaymentsPage() {
     const { info: storeInfo } = useStoreInfoStore();
     const { data: employees } = useEmployeeStore();
     const { print, printMultiple } = usePrint();
+    const { employee } = useAuth();
 
     // Print dialog state
     const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<Payment[]>([]);
+    
+    // Import/Export dialog state
+    const [showImportDialog, setShowImportDialog] = React.useState(false);
+    const [showExportDialog, setShowExportDialog] = React.useState(false);
     
     // ✅ Header Actions
     const headerActions = React.useMemo(() => [
@@ -158,12 +166,6 @@ export function PaymentsPage() {
     }, [branches, storeInfo, print]);
 
     const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate, handleSinglePrint, employees), [accounts, handleCancel, navigate, handleSinglePrint, employees]);
-    
-    // ✅ Export config
-    const exportConfig = {
-        fileName: 'Phieu_chi',
-        columns,
-    };
     
     // ✅ Set default column visibility - Run ONCE on mount
     React.useEffect(() => {
@@ -453,6 +455,67 @@ export function PaymentsPage() {
         },
     ], [handleBulkPrint]);
 
+    // Selected payments for export
+    const selectedPayments = React.useMemo(() => {
+        return payments.filter(p => rowSelection[p.systemId]);
+    }, [payments, rowSelection]);
+
+    // Import handler
+    const handleImport = React.useCallback(async (
+        importedPayments: Partial<Payment>[],
+        mode: 'insert-only' | 'update-only' | 'upsert',
+        _branchId?: string
+    ) => {
+        let addedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+        const errors: Array<{ row: number; message: string }> = [];
+        
+        const storeState = usePaymentStore.getState();
+        
+        importedPayments.forEach((payment, index) => {
+            try {
+                const existing = payments.find(p => 
+                    p.id.toLowerCase() === (payment.id || '').toLowerCase()
+                );
+                
+                if (existing) {
+                    if (mode === 'update-only' || mode === 'upsert') {
+                        storeState.update(asSystemId(existing.systemId), { ...existing, ...payment, systemId: existing.systemId } as Payment);
+                        updatedCount++;
+                    } else {
+                        skippedCount++;
+                    }
+                } else {
+                    if (mode === 'insert-only' || mode === 'upsert') {
+                        storeState.add(payment as Payment);
+                        addedCount++;
+                    } else {
+                        skippedCount++;
+                    }
+                }
+            } catch (error) {
+                errors.push({ row: index + 1, message: (error as Error).message });
+            }
+        });
+        
+        if (addedCount > 0 || updatedCount > 0) {
+            const messages = [];
+            if (addedCount > 0) messages.push(`${addedCount} phiếu chi mới`);
+            if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
+            toast.success(`Đã import: ${messages.join(', ')}`);
+        }
+        
+        return {
+            success: addedCount + updatedCount,
+            failed: errors.length,
+            inserted: addedCount,
+            updated: updatedCount,
+            skipped: skippedCount,
+            errors,
+        };
+    }, [payments]);
+
     // ✅ Mobile infinite scroll
     React.useEffect(() => {
         if (!isMobile) return;
@@ -487,12 +550,14 @@ export function PaymentsPage() {
                 <PageToolbar
                     leftActions={
                         <>
-                            <DataTableExportDialog 
-                                allData={payments} 
-                                filteredData={sortedData} 
-                                pageData={paginatedData} 
-                                config={exportConfig} 
-                            />
+                            <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                Nhập file
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Xuất Excel
+                            </Button>
                         </>
                     }
                     rightActions={[
@@ -681,6 +746,35 @@ export function PaymentsPage() {
                 onConfirm={handlePrintConfirm}
                 selectedCount={itemsToPrint.length}
                 title="In phiếu chi"
+            />
+
+            {/* Import Dialog */}
+            <GenericImportDialogV2<Payment>
+                open={showImportDialog}
+                onOpenChange={setShowImportDialog}
+                config={paymentImportExportConfig}
+                branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+                existingData={payments}
+                onImport={handleImport}
+                currentUser={{
+                    name: employee?.fullName || 'Hệ thống',
+                    systemId: employee?.systemId || asSystemId('SYSTEM'),
+                }}
+            />
+
+            {/* Export Dialog */}
+            <GenericExportDialogV2<Payment>
+                open={showExportDialog}
+                onOpenChange={setShowExportDialog}
+                config={paymentImportExportConfig}
+                allData={payments}
+                filteredData={sortedData}
+                currentPageData={paginatedData}
+                selectedData={selectedPayments}
+                currentUser={{
+                    name: employee?.fullName || 'Hệ thống',
+                    systemId: employee?.systemId || asSystemId('SYSTEM'),
+                }}
             />
         </div>
     );

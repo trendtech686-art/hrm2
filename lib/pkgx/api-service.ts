@@ -6,6 +6,7 @@ import type {
   PkgxImageUploadResponse,
   PkgxCategoriesResponse,
   PkgxBrandsResponse,
+  PkgxBrandFromApi,
   PkgxGalleryResponse,
   PkgxGalleryImage,
 } from '../../features/settings/pkgx/types';
@@ -59,16 +60,38 @@ async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise
     return { success: false, error: 'Chưa cấu hình API Key' };
   }
 
+  // DEBUG: Log request details
+  console.log('[PKGX fetchWithAuth] URL:', url);
+  console.log('[PKGX fetchWithAuth] Method:', options.method || 'GET');
+  console.log('[PKGX fetchWithAuth] Headers:', options.headers);
+  if (options.body) {
+    console.log('[PKGX fetchWithAuth] Body (raw):', options.body);
+    console.log('[PKGX fetchWithAuth] Body type:', typeof options.body);
+  }
+
   try {
-    const response = await fetch(url, {
+    const fetchOptions: RequestInit = {
       ...options,
+      mode: 'cors',
+      credentials: 'omit',
       headers: {
         'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
         ...options.headers,
       },
-    });
+    };
+    console.log('[PKGX fetchWithAuth] Full fetch options:', JSON.stringify(fetchOptions, null, 2));
+    
+    const response = await fetch(url, fetchOptions);
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log('[PKGX fetchWithAuth] Response text:', responseText);
+    
+    const data = JSON.parse(responseText);
+    
+    // DEBUG: Log response
+    console.log('[PKGX fetchWithAuth] Response status:', response.status);
+    console.log('[PKGX fetchWithAuth] Response data:', data);
 
     if (data.error) {
       return { success: false, error: data.message || 'Lỗi từ server PKGX' };
@@ -103,6 +126,22 @@ export async function getBrands(): Promise<ApiResponse<PkgxBrandsResponse>> {
   const { apiUrl } = getApiConfig();
   const url = `${apiUrl}?action=get_brands`;
   return fetchWithAuth<PkgxBrandsResponse>(url, { method: 'GET' });
+}
+
+/**
+ * Lấy chi tiết 1 thương hiệu từ PKGX theo brand_id
+ */
+export async function getBrandById(brandId: number): Promise<ApiResponse<PkgxBrandFromApi | null>> {
+  const { apiUrl } = getApiConfig();
+  const url = `${apiUrl}?action=get_brands&brand_id=${brandId}`;
+  
+  const response = await fetchWithAuth<{ error: boolean; message: string; data: PkgxBrandFromApi }>(url, { method: 'GET' });
+  
+  if (!response.success || !response.data) {
+    return { success: false, error: response.error };
+  }
+  
+  return { success: true, data: response.data.data };
 }
 
 /**
@@ -400,17 +439,21 @@ export async function updateCategory(
   catId: number,
   payload: {
     cat_name?: string;
-    cat_desc?: string;
+    cat_desc?: string;  // Mô tả ngắn (shortDescription)
+    long_desc?: string; // Mô tả dài (longDescription) - HTML
     keywords?: string;
     cat_alias?: string;
-    // SEO fields (NEW)
+    // SEO fields
     meta_title?: string;
     meta_desc?: string;
-    short_desc?: string;
   }
 ): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number }>> {
   const { apiUrl } = getApiConfig();
-  const url = `${apiUrl}?action=update_category&cat_id=${catId}`;
+  // Add timestamp to bust cache
+  const timestamp = Date.now();
+  const url = `${apiUrl}?action=update_category&cat_id=${catId}&_t=${timestamp}`;
+
+  console.log('[updateCategory] Calling with catId:', catId, 'payload:', payload);
 
   return fetchWithAuth(url, {
     method: 'POST',
@@ -420,12 +463,33 @@ export async function updateCategory(
 }
 
 /**
- * Lấy chi tiết thương hiệu theo brand_id (bao gồm SEO fields)
+ * Cập nhật thông tin cơ bản danh mục (tên, parent, hiển thị)
+ * URL: POST ?action=update_category_basic&cat_id=123
+ * 
+ * Các trường hỗ trợ:
+ * - cat_name: Tên danh mục
+ * - parent_id: ID danh mục cha (0 = gốc)
+ * - is_show: 1 = Hiển thị, 0 = Ẩn (Display in Category Home)
  */
-export async function getBrandById(brandId: number): Promise<ApiResponse<PkgxBrandsResponse>> {
+export async function updateCategoryBasic(
+  catId: number,
+  payload: {
+    cat_name?: string;
+    parent_id?: number;
+    is_show?: number; // 1 = hiển thị, 0 = ẩn
+  }
+): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number; changes?: Record<string, { old: unknown; new: unknown }> }>> {
   const { apiUrl } = getApiConfig();
-  const url = `${apiUrl}?action=get_brands&brand_id=${brandId}`;
-  return fetchWithAuth<PkgxBrandsResponse>(url, { method: 'GET' });
+  const timestamp = Date.now();
+  const url = `${apiUrl}?action=update_category_basic&cat_id=${catId}&_t=${timestamp}`;
+
+  console.log('[updateCategoryBasic] Calling with catId:', catId, 'payload:', payload);
+
+  return fetchWithAuth(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 }
 
 /**
@@ -439,6 +503,7 @@ export async function getBrandById(brandId: number): Promise<ApiResponse<PkgxBra
  * - meta_title: Tiêu đề SEO (NEW)
  * - meta_desc: Mô tả SEO (NEW)
  * - short_desc: Mô tả ngắn (NEW)
+ * - long_desc: Mô tả dài (NEW)
  */
 export async function updateBrand(
   brandId: number,
@@ -451,6 +516,7 @@ export async function updateBrand(
     meta_title?: string;
     meta_desc?: string;
     short_desc?: string;
+    long_desc?: string;
   }
 ): Promise<ApiResponse<{ error: boolean; message: string; brand_id: number }>> {
   const { apiUrl } = getApiConfig();

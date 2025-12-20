@@ -1,6 +1,8 @@
-import type { Product } from '@/features/products/types';
+import type { Product, ProductType as ProductTypeEnum } from '@/features/products/types';
 import type { ImportExportConfig, FieldConfig } from '../types';
 import { usePricingPolicyStore } from '@/features/settings/pricing/store';
+import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
+import { asSystemId } from '@/lib/id-types';
 
 /**
  * Product Import/Export Configuration
@@ -12,11 +14,110 @@ const getAllPricingPolicies = () => {
   return usePricingPolicyStore.getState().data;
 };
 
-// Helper: Get pricing policy systemId from code (id)
-const getPricingPolicySystemId = (code: string): string | null => {
+// ===== PRODUCT TYPE HELPERS =====
+// Helper: Get all active product types from settings
+const getAllProductTypes = () => {
+  return useProductTypeStore.getState().getActive();
+};
+
+// Helper: Get ProductType systemId from name (tên loại sản phẩm)
+const getProductTypeSystemIdByName = (name: string): string | null => {
+  if (!name) return null;
+  const productTypes = getAllProductTypes();
+  const normalizedName = name.toLowerCase().trim();
+  
+  // Tìm theo tên chính xác (case-insensitive)
+  const productType = productTypes.find(pt => 
+    pt.name.toLowerCase() === normalizedName ||
+    pt.id.toLowerCase() === normalizedName
+  );
+  
+  return productType?.systemId || null;
+};
+
+// Helper: Get ProductType name from systemId
+const getProductTypeNameById = (systemId: string): string => {
+  if (!systemId) return '';
+  const productTypes = getAllProductTypes();
+  const productType = productTypes.find(pt => pt.systemId === systemId);
+  return productType?.name || '';
+};
+
+// Helper: Get default ProductType systemId
+const getDefaultProductTypeSystemId = (): string | null => {
+  const productTypes = getAllProductTypes();
+  const defaultType = productTypes.find(pt => pt.isDefault);
+  return defaultType?.systemId || productTypes[0]?.systemId || null;
+};
+
+// Helper: Map enum type ('physical', 'service', 'digital') to ProductType systemId
+// Fallback khi user import bằng type cũ
+const getProductTypeSystemIdByEnumType = (enumType: ProductTypeEnum | string): string | null => {
+  if (!enumType) return getDefaultProductTypeSystemId();
+  
+  const productTypes = getAllProductTypes();
+  const normalizedType = String(enumType).toLowerCase().trim();
+  
+  // Map từ enum type sang tên tiếng Việt để tìm ProductType
+  const typeNameMapping: Record<string, string[]> = {
+    'physical': ['hàng hóa', 'hang hoa', 'physical', 'hàng hoá'],
+    'service': ['dịch vụ', 'dich vu', 'service'],
+    'digital': ['digital', 'sản phẩm số', 'san pham so', 'kỹ thuật số', 'ky thuat so'],
+    'combo': ['combo', 'bộ sản phẩm', 'bo san pham'],
+  };
+  
+  for (const [_enumKey, names] of Object.entries(typeNameMapping)) {
+    if (names.includes(normalizedType)) {
+      // Tìm ProductType có tên match với một trong các aliases
+      const productType = productTypes.find(pt => 
+        names.some(name => pt.name.toLowerCase().includes(name) || name.includes(pt.name.toLowerCase()))
+      );
+      if (productType) return productType.systemId;
+    }
+  }
+  
+  // Fallback: tìm trực tiếp theo tên
+  const productType = productTypes.find(pt => 
+    pt.name.toLowerCase().includes(normalizedType) ||
+    normalizedType.includes(pt.name.toLowerCase())
+  );
+  
+  return productType?.systemId || getDefaultProductTypeSystemId();
+};
+
+// ===== PRICING POLICY HELPERS =====
+// Helper: Get pricing policy systemId from code (id) OR name
+// Hỗ trợ nhiều format cột giá trong Excel:
+// - "Giá: Giá bán lẻ" hoặc "Giá: BANLE" (có prefix "Giá:")
+// - "Giá bán lẻ" hoặc "BANLE" (không có prefix)
+const getPricingPolicySystemId = (columnName: string): string | null => {
   const policies = getAllPricingPolicies();
-  const policy = policies.find(p => p.id.toUpperCase() === code.toUpperCase());
-  return policy?.systemId || null;
+  
+  // Normalize: bỏ prefix "Giá:" hoặc "Gia:" nếu có
+  let normalizedName = columnName.trim();
+  const pricePrefix = /^(giá|gia)\s*:\s*/i;
+  if (pricePrefix.test(normalizedName)) {
+    normalizedName = normalizedName.replace(pricePrefix, '').trim();
+  }
+  
+  const upperName = normalizedName.toUpperCase();
+  
+  // Tìm theo id (mã bảng giá) trước
+  const policyById = policies.find(p => p.id.toUpperCase() === upperName);
+  if (policyById) return policyById.systemId;
+  
+  // Tìm theo name (tên bảng giá)
+  const policyByName = policies.find(p => p.name.toUpperCase() === upperName);
+  if (policyByName) return policyByName.systemId;
+  
+  // Tìm theo name chứa (partial match)
+  const policyByPartialName = policies.find(p => 
+    p.name.toUpperCase().includes(upperName) || 
+    upperName.includes(p.name.toUpperCase())
+  );
+  if (policyByPartialName) return policyByPartialName.systemId;
+  
+  return null;
 };
 
 // Helper: Get pricing policy code (id) from systemId  
@@ -26,10 +127,16 @@ const getPricingPolicyCode = (systemId: string): string => {
   return policy?.id || systemId;
 };
 
-// Helper: Check if a column name matches a pricing policy code
-const isPricingPolicyColumn = (columnName: string): boolean => {
+// Helper: Get pricing policy name from systemId  
+const getPricingPolicyName = (systemId: string): string => {
   const policies = getAllPricingPolicies();
-  return policies.some(p => p.id.toUpperCase() === columnName.toUpperCase());
+  const policy = policies.find(p => p.systemId === systemId);
+  return policy?.name || systemId;
+};
+
+// Helper: Check if a column name matches a pricing policy (by id or name)
+const isPricingPolicyColumn = (columnName: string): boolean => {
+  return getPricingPolicySystemId(columnName) !== null;
 };
 
 // ===== FIELD DEFINITIONS =====
@@ -69,7 +176,7 @@ export const productFields: FieldConfig<Product>[] = [
   },
   {
     key: 'type',
-    label: 'Loại sản phẩm',
+    label: 'Loại SP (Hệ thống)',
     required: false,
     type: 'enum',
     enumValues: ['physical', 'service', 'digital'], // Không cho phép import combo
@@ -81,18 +188,62 @@ export const productFields: FieldConfig<Product>[] = [
     exportGroup: 'Thông tin cơ bản',
     example: 'Hàng hóa',
     defaultValue: 'physical',
+    hidden: true, // Ẩn field cũ, khuyến khích dùng "Loại sản phẩm" mới (productTypeSystemId)
     importTransform: (value: unknown) => {
       if (!value) return 'physical';
       const str = String(value).toLowerCase().trim();
       // Map tiếng Việt sang English
-      if (str === 'hàng hóa' || str === 'hang hoa' || str === 'physical') return 'physical';
+      if (str === 'hàng hóa' || str === 'hang hoa' || str === 'physical' || str === 'hàng hoá') return 'physical';
       if (str === 'dịch vụ' || str === 'dich vu' || str === 'service') return 'service';
-      if (str === 'sản phẩm số' || str === 'san pham so' || str === 'kỹ thuật số' || str === 'digital') return 'digital';
+      if (str === 'sản phẩm số' || str === 'san pham so' || str === 'kỹ thuật số' || str === 'digital' || str === 'ky thuat so') return 'digital';
+      if (str === 'combo' || str === 'bộ sản phẩm' || str === 'bo san pham') return 'combo';
       return 'physical';
     },
     validator: (value: unknown) => {
       if (value === 'combo') {
         return 'Không hỗ trợ import sản phẩm Combo. Vui lòng tạo Combo trực tiếp trong hệ thống.';
+      }
+      return null;
+    },
+  },
+  // NEW: Loại sản phẩm từ Settings (ProductType) - Khuyến khích dùng thay cho field "type" cũ
+  {
+    key: 'productTypeSystemId',
+    label: 'Loại sản phẩm',
+    required: false,
+    type: 'string',
+    exportGroup: 'Thông tin cơ bản',
+    example: 'Hàng hóa', // User nhập tên loại SP, hệ thống tự map sang systemId
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const str = String(value).trim();
+      if (!str) return undefined;
+      
+      // Trước tiên thử tìm theo tên/id trong ProductType settings
+      const systemId = getProductTypeSystemIdByName(str);
+      if (systemId) return systemId;
+      
+      // Fallback: map từ enum type cũ
+      const enumSystemId = getProductTypeSystemIdByEnumType(str);
+      return enumSystemId || undefined;
+    },
+    exportTransform: (value: unknown) => {
+      // Export ra tên loại SP thay vì systemId
+      return getProductTypeNameById(value as string);
+    },
+    validator: (value: unknown) => {
+      if (!value) return null; // Optional field
+      const str = String(value).trim();
+      if (!str) return null;
+      
+      // Validate: tên loại SP phải tồn tại trong settings
+      const systemId = getProductTypeSystemIdByName(str);
+      if (!systemId) {
+        // Fallback check enum type
+        const enumSystemId = getProductTypeSystemIdByEnumType(str);
+        if (!enumSystemId) {
+          return `Loại sản phẩm "${str}" không tồn tại trong hệ thống. Vui lòng kiểm tra danh sách loại SP trong Cài đặt > Kho hàng.`;
+        }
       }
       return null;
     },
@@ -553,6 +704,19 @@ export const productFields: FieldConfig<Product>[] = [
     },
   },
   {
+    key: 'trendtechId',
+    label: 'ID Trendtech',
+    required: false,
+    type: 'number',
+    exportGroup: 'Thông tin cơ bản',
+    example: '67890',
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const num = Number(String(value).replace(/[,.\s]/g, ''));
+      return isNaN(num) || num <= 0 ? undefined : num;
+    },
+  },
+  {
     key: 'warehouseLocation',
     label: 'Vị trí kho',
     required: false,
@@ -619,12 +783,54 @@ export const productFields: FieldConfig<Product>[] = [
   },
 
   // ===== E-COMMERCE (bán hàng website) =====
+  // Slug chung (legacy - không khuyến khích dùng nữa)
   {
     key: 'slug',
     label: 'Slug (URL)',
     required: false,
     type: 'string',
     exportGroup: 'E-commerce',
+    hidden: true, // Ẩn field cũ, dùng pkgxSlug/trendtechSlug thay thế
+    example: 'ao-so-mi-nam-trang-oxford',
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      // Convert to URL-friendly slug
+      return String(value).trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    },
+  },
+  // Slug riêng cho PKGX website
+  {
+    key: 'pkgxSlug',
+    label: 'Slug PKGX',
+    required: false,
+    type: 'string',
+    exportGroup: 'E-commerce PKGX',
+    example: 'ao-so-mi-nam-trang-oxford',
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      // Convert to URL-friendly slug
+      return String(value).trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    },
+  },
+  // Slug riêng cho Trendtech website
+  {
+    key: 'trendtechSlug',
+    label: 'Slug Trendtech',
+    required: false,
+    type: 'string',
+    exportGroup: 'E-commerce Trendtech',
     example: 'ao-so-mi-nam-trang-oxford',
     importTransform: (value: unknown) => {
       if (!value) return undefined;
@@ -904,9 +1110,25 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
     // Remove initialStock from final data (không lưu vào Product)
     const { initialStock: _removed, ...cleanRow } = row as Partial<Product> & { initialStock?: number };
     
+    // Auto-set productTypeSystemId nếu chưa có
+    // Ưu tiên: productTypeSystemId > type enum mapping > default
+    let productTypeSystemIdStr = cleanRow.productTypeSystemId as string | undefined;
+    if (!productTypeSystemIdStr && cleanRow.type) {
+      // Map từ type enum sang productTypeSystemId
+      productTypeSystemIdStr = getProductTypeSystemIdByEnumType(cleanRow.type) || undefined;
+    }
+    if (!productTypeSystemIdStr) {
+      // Fallback: lấy default ProductType
+      productTypeSystemIdStr = getDefaultProductTypeSystemId() || undefined;
+    }
+    
+    // Cast to SystemId if we have a value
+    const productTypeSystemId = productTypeSystemIdStr ? asSystemId(productTypeSystemIdStr) : undefined;
+    
     return {
       ...cleanRow,
       type: cleanRow.type || 'physical',
+      productTypeSystemId, // Luôn set productTypeSystemId
       status: cleanRow.status || 'active',
       unit: cleanRow.unit || 'Cái',
       costPrice: cleanRow.costPrice ?? 0,

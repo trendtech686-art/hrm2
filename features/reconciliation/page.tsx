@@ -8,10 +8,13 @@ import { Card, CardContent, CardTitle } from '../../components/ui/card.tsx';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { PageFilters } from '../../components/layout/page-filters.tsx';
 import { Button } from '../../components/ui/button.tsx';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Download } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
+import { reconciliationConfig } from '../../lib/import-export/configs/reconciliation.config.ts';
+import { asSystemId } from '../../lib/id-types.ts';
 import { Badge } from '../../components/ui/badge.tsx';
 import { formatDate } from '../../lib/date-utils.ts';
 import { useAuth } from '../../contexts/auth-context.tsx';
@@ -36,6 +39,7 @@ export function ReconciliationPage() {
     const currentEmployeeSystemId = authEmployee?.systemId ?? 'SYSTEM';
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
     const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
     const [globalFilter, setGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
     const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
@@ -169,6 +173,12 @@ export function ReconciliationPage() {
             {/* PageToolbar - Desktop only */}
             {!isMobile && (
                 <PageToolbar
+                    leftActions={
+                        <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Xuất Excel
+                        </Button>
+                    }
                     rightActions={
                         <DataTableColumnCustomizer
                             columns={columns}
@@ -257,6 +267,21 @@ export function ReconciliationPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Export Dialog */}
+            <GenericExportDialogV2<ReconciliationItem>
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                config={reconciliationConfig}
+                allData={reconciliationList}
+                filteredData={filteredData}
+                currentPageData={paginatedData}
+                selectedData={allSelectedRows}
+                currentUser={{
+                    name: authEmployee?.fullName || 'Hệ thống',
+                    systemId: authEmployee?.systemId || asSystemId('SYSTEM'),
+                }}
+            />
         </div>
     );
 }

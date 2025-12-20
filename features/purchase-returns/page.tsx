@@ -17,18 +17,23 @@ import {
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
 import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
 import { PageFilters } from "../../components/layout/page-filters.tsx";
+import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
 import { Card, CardContent } from "../../components/ui/card.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
 import { useMediaQuery } from "../../lib/use-media-query.ts";
-import { PackageX, Building2, User, Calendar, FileText, Plus, Printer } from "lucide-react";
+import { PackageX, Building2, User, Calendar, FileText, Plus, Printer, Download } from "lucide-react";
 import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types.ts";
 import type { PurchaseReturn } from "./types.ts";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { toast } from 'sonner';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { purchaseReturnConfig } from "../../lib/import-export/configs/purchase-return.config.ts";
+import { useAuth } from "../../contexts/auth-context.tsx";
+import { asSystemId } from "../../lib/id-types.ts";
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
@@ -237,12 +242,16 @@ export function PurchaseReturnsPage() {
   const { data: branches } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
+  const { employee: currentUser } = useAuth();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Print dialog state - using SimplePrintOptionsDialog like Orders page
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintReturns, setPendingPrintReturns] = React.useState<PurchaseReturn[]>([]);
+  
+  // Export dialog state
+  const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
   const handleRowPrint = React.useCallback((entry: PurchaseReturn) => {
     // In ngay không cần xác nhận
@@ -581,6 +590,18 @@ export function PurchaseReturnsPage() {
   return (
     <>
     <div className="space-y-4 flex flex-col h-full">
+      {/* PageToolbar - Desktop only */}
+      {!isMobile && (
+        <PageToolbar
+          leftActions={
+            <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              Xuất Excel
+            </Button>
+          }
+        />
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -719,6 +740,21 @@ export function PurchaseReturnsPage() {
         onConfirm={handlePrintConfirm}
         selectedCount={pendingPrintReturns.length}
         title="In phiếu trả NCC"
+      />
+
+      {/* Export Dialog */}
+      <GenericExportDialogV2<PurchaseReturn>
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        config={purchaseReturnConfig}
+        allData={purchaseReturns}
+        filteredData={filteredData}
+        currentPageData={paginatedData}
+        selectedData={selectedRows}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
       />
     </div>
     </>

@@ -11,9 +11,14 @@ export type PkgxCategory = {
   id: number;         // cat_id trên PKGX
   name: string;       // Tên danh mục
   parentId?: number;  // Parent category (nếu có)
+  sortOrder?: number; // Thứ tự sắp xếp
+  isShow?: number;    // Hiển thị (1=hiện, 0=ẩn)
   // SEO fields
-  cat_desc?: string;      // Mô tả danh mục (HTML)
+  cat_desc?: string;      // Mô tả danh mục ngắn
+  long_desc?: string;     // Mô tả danh mục dài (HTML)
   keywords?: string;      // SEO keywords
+  meta_title?: string;    // Meta title
+  meta_desc?: string;     // Meta description
   cat_alias?: string;     // Slug/alias
   style?: string;         // Template style
   grade?: number;         // Cấp độ danh mục
@@ -26,11 +31,24 @@ export type PkgxCategory = {
 export type PkgxBrand = {
   id: number;           // brand_id trên PKGX
   name: string;         // Tên thương hiệu
+  // Basic fields
+  logo?: string;          // Logo URL
+  description?: string;   // Mô tả thương hiệu (brand_desc)
+  siteUrl?: string;       // Website URL
+  sortOrder?: number;     // Thứ tự sắp xếp
+  isShow?: number;        // Hiển thị (1=hiện, 0=ẩn)
   // SEO fields
-  brand_logo?: string;    // Logo URL
-  brand_desc?: string;    // Mô tả thương hiệu (HTML)
-  site_url?: string;      // Website URL
-  sort_order?: number;    // Thứ tự sắp xếp
+  keywords?: string;      // Keywords
+  metaTitle?: string;     // Meta title
+  metaDesc?: string;      // Meta description
+  // Description fields
+  shortDescription?: string;  // Mô tả ngắn (short_desc)
+  longDescription?: string;   // Mô tả dài (long_desc)
+  // Legacy fields (backward compatibility)
+  brand_logo?: string;    // Logo URL (legacy)
+  brand_desc?: string;    // Mô tả thương hiệu (HTML) (legacy)
+  site_url?: string;      // Website URL (legacy)
+  sort_order?: number;    // Thứ tự sắp xếp (legacy)
 };
 
 /**
@@ -112,11 +130,25 @@ export type PkgxSyncLog = {
     | 'sync_price'                // Đồng bộ giá
     | 'sync_inventory'            // Đồng bộ tồn kho
     | 'sync_seo'                  // Đồng bộ SEO
+    | 'sync_description'          // Đồng bộ mô tả
+    | 'sync_flags'                // Đồng bộ flags (isHot, isNew, etc.)
+    | 'sync_basic'                // Đồng bộ thông tin cơ bản (alias)
+    | 'sync_basic_info'           // Đồng bộ thông tin cơ bản
+    | 'sync_images'               // Đồng bộ ảnh sản phẩm
     | 'create_product'            // Tạo sản phẩm mới trên PKGX
     | 'update_product'            // Cập nhật sản phẩm
     | 'link_product'              // Liên kết SP HRM với PKGX
     | 'unlink_product'            // Hủy liên kết SP
     | 'unlink_mapping'            // Hủy liên kết mapping (category/brand)
+    | 'batch_unlink'              // Hủy liên kết hàng loạt
+    | 'bulk_sync_all'             // Bulk: Đồng bộ toàn bộ
+    | 'bulk_sync_basic'           // Bulk: Đồng bộ thông tin cơ bản
+    | 'bulk_sync_price'           // Bulk: Đồng bộ giá
+    | 'bulk_sync_inventory'       // Bulk: Đồng bộ tồn kho
+    | 'bulk_sync_seo'             // Bulk: Đồng bộ SEO
+    | 'bulk_sync_description'     // Bulk: Đồng bộ mô tả
+    | 'bulk_sync_flags'           // Bulk: Đồng bộ flags
+    | 'bulk_sync_images'          // Bulk: Đồng bộ ảnh
     | 'sync_categories'           // Đồng bộ danh mục
     | 'sync_brands'               // Đồng bộ thương hiệu
     | 'get_products'              // Lấy danh sách SP từ PKGX
@@ -286,9 +318,13 @@ export type PkgxCategoryFromApi = {
   cat_name: string;
   parent_id: number;
   sort_order: number;
-  // SEO fields (optional - chỉ có khi API hỗ trợ)
+  is_show?: number; // 0 or 1
+  // SEO fields
   cat_desc?: string;
+  long_desc?: string;
   keywords?: string;
+  meta_title?: string;
+  meta_desc?: string;
   cat_alias?: string;
   style?: string;
   grade?: number;
@@ -310,8 +346,14 @@ export type PkgxBrandFromApi = {
   brand_name: string;
   brand_logo?: string;
   brand_desc?: string;
+  short_desc?: string;
+  long_desc?: string;
+  keywords?: string;
+  meta_title?: string;
+  meta_desc?: string;
   site_url?: string;
   sort_order: number;
+  is_show?: number; // 0 or 1
 };
 
 export type PkgxBrandsResponse = {

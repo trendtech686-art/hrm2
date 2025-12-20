@@ -187,10 +187,48 @@ export const ROUTES = {
   
   // Reports
   REPORTS: {
+    // Main index page
+    INDEX: '/reports',
+    
+    // Legacy routes (redirect to new)
     SALES: '/reports/sales',
     INVENTORY: '/reports/inventory',
     CUSTOMER_SLA: '/reports/customer-sla',
     PRODUCT_SLA: '/reports/product-sla',
+    
+    // Business Activity Reports - Sales
+    SALES_BY_TIME: '/reports/sales/time',
+    SALES_BY_EMPLOYEE: '/reports/sales/employee',
+    SALES_BY_PRODUCT: '/reports/sales/product',
+    SALES_BY_ORDER: '/reports/sales/order',
+    SALES_BY_BRANCH: '/reports/sales/branch',
+    SALES_BY_SOURCE: '/reports/sales/source',
+    SALES_BY_CUSTOMER: '/reports/sales/customer',
+    SALES_BY_CUSTOMER_GROUP: '/reports/sales/customer-group',
+    
+    // Delivery Reports
+    DELIVERY_BY_TIME: '/reports/delivery/time',
+    DELIVERY_BY_EMPLOYEE: '/reports/delivery/employee',
+    DELIVERY_BY_SHIPMENT: '/reports/delivery/shipment',
+    DELIVERY_BY_CARRIER: '/reports/delivery/carrier',
+    DELIVERY_BY_BRANCH: '/reports/delivery/branch',
+    DELIVERY_BY_CUSTOMER: '/reports/delivery/customer',
+    DELIVERY_BY_CHANNEL: '/reports/delivery/channel',
+    
+    // Return Reports
+    RETURNS_BY_ORDER: '/reports/returns/order',
+    RETURNS_BY_PRODUCT: '/reports/returns/product',
+    
+    // Payment Reports
+    PAYMENT_BY_TIME: '/reports/payments/time',
+    PAYMENT_BY_EMPLOYEE: '/reports/payments/employee',
+    PAYMENT_BY_METHOD: '/reports/payments/method',
+    PAYMENT_BY_BRANCH: '/reports/payments/branch',
+    
+    // Inventory Reports
+    INVENTORY_BY_PRODUCT: '/reports/inventory/product',
+    INVENTORY_BY_BRANCH: '/reports/inventory/branch',
+    INVENTORY_BY_CATEGORY: '/reports/inventory/category',
   },
   
   // Settings

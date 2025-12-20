@@ -120,10 +120,7 @@ const menuGroups: MenuGroup[] = [
   {
     title: 'Báo cáo',
     links: [
-      { href: '/reports/sales', label: 'Báo cáo bán hàng', icon: AreaChart },
-      { href: '/reports/inventory', label: 'Báo cáo tồn kho', icon: Warehouse },
-      { href: '/reports/customer-sla', label: 'Báo cáo khách hàng', icon: Bell },
-      { href: '/reports/product-sla', label: 'Báo cáo tồn kho', icon: Target },
+      { href: '/reports', label: 'Báo cáo', icon: AreaChart },
     ]
   },
   {

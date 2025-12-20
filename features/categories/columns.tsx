@@ -6,7 +6,7 @@ import { Badge } from "../../components/ui/badge.tsx";
 import type { ColumnDef } from '../../components/data-table/types.ts';
 import { Button } from "../../components/ui/button.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
-import { MoreHorizontal, Image as ImageIcon, Package, Pencil, CheckCircle, AlertTriangle, XCircle, RefreshCw, Search, AlignLeft, ExternalLink, Unlink } from "lucide-react";
+import { MoreHorizontal, Image as ImageIcon, Package, Pencil, CheckCircle, AlertTriangle, XCircle, RefreshCw, Search, AlignLeft, ExternalLink, Unlink, Globe, Link2, FolderEdit } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx";
 import { useProductStore } from '../products/store.ts';
@@ -55,6 +55,9 @@ type PkgxActionsCellProps = {
   onPkgxSyncSeo?: (category: ProductCategory) => void;
   onPkgxSyncDescription?: (category: ProductCategory) => void;
   onPkgxSyncAll?: (category: ProductCategory) => void;
+  onPkgxSyncBasic?: (category: ProductCategory) => void;
+  onPkgxLink?: (category: ProductCategory) => void;
+  onPkgxUnlink?: (category: ProductCategory) => void;
 };
 
 function PkgxActionsCell({
@@ -64,6 +67,9 @@ function PkgxActionsCell({
   onPkgxSyncSeo,
   onPkgxSyncDescription,
   onPkgxSyncAll,
+  onPkgxSyncBasic,
+  onPkgxLink,
+  onPkgxUnlink,
 }: PkgxActionsCellProps) {
   const [confirmAction, setConfirmAction] = React.useState<{
     open: boolean;
@@ -109,6 +115,7 @@ function PkgxActionsCell({
                       () => onPkgxSyncAll(row)
                     )}
                     className="font-medium"
+                    title="Đồng bộ: Keywords, Meta Title, Meta Desc, Mô tả ngắn, Mô tả dài"
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Đồng bộ tất cả
@@ -124,6 +131,7 @@ function PkgxActionsCell({
                       `Đồng bộ SEO (keywords, meta title, meta description) của "${row.name}" lên PKGX?`,
                       () => onPkgxSyncSeo(row)
                     )}
+                    title="Đồng bộ: Keywords, Meta Title, Meta Desc"
                   >
                     <Search className="mr-2 h-4 w-4" />
                     SEO
@@ -136,9 +144,23 @@ function PkgxActionsCell({
                       `Đồng bộ mô tả danh mục "${row.name}" lên PKGX?`,
                       () => onPkgxSyncDescription(row)
                     )}
+                    title="Đồng bộ: Mô tả ngắn (Short Desc), Mô tả dài (Long Desc)"
                   >
                     <AlignLeft className="mr-2 h-4 w-4" />
                     Mô tả
+                  </DropdownMenuItem>
+                )}
+                {onPkgxSyncBasic && (
+                  <DropdownMenuItem 
+                    onSelect={() => handleConfirm(
+                      'Đồng bộ thông tin cơ bản',
+                      `Đồng bộ thông tin cơ bản (Tên, Trạng thái hiển thị) của "${row.name}" lên PKGX?`,
+                      () => onPkgxSyncBasic(row)
+                    )}
+                    title="Đồng bộ: Tên danh mục, Trạng thái hiển thị"
+                  >
+                    <FolderEdit className="mr-2 h-4 w-4" />
+                    Thông tin cơ bản
                   </DropdownMenuItem>
                 )}
                 
@@ -149,24 +171,34 @@ function PkgxActionsCell({
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Xem trên PKGX
                 </DropdownMenuItem>
+                
+                {/* Hủy liên kết */}
+                {onPkgxUnlink && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onSelect={() => handleConfirm(
+                        'Hủy liên kết PKGX',
+                        `Bạn có chắc muốn hủy liên kết danh mục "${row.name}" với PKGX?`,
+                        () => onPkgxUnlink(row)
+                      )}
+                      className="text-destructive"
+                    >
+                      <Unlink className="mr-2 h-4 w-4" />
+                      Hủy liên kết
+                    </DropdownMenuItem>
+                  </>
+                )}
               </>
             ) : (
-              /* Not linked - show info */
+              /* Not linked - show link option */
               <>
-                <DropdownMenuItem 
-                  className="text-muted-foreground"
-                  onSelect={() => window.open('/settings/pkgx', '_self')}
-                >
-                  <Unlink className="mr-2 h-4 w-4" />
-                  Chưa liên kết
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onSelect={() => window.open('/settings/pkgx', '_self')}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Cài đặt mapping PKGX
-                </DropdownMenuItem>
+                {onPkgxLink && (
+                  <DropdownMenuItem onSelect={() => onPkgxLink(row)}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Liên kết với PKGX
+                  </DropdownMenuItem>
+                )}
               </>
             )}
           </DropdownMenuContent>
@@ -201,8 +233,11 @@ export const getColumns = (
   onPkgxSyncSeo?: (category: ProductCategory) => void,
   onPkgxSyncDescription?: (category: ProductCategory) => void,
   onPkgxSyncAll?: (category: ProductCategory) => void,
+  onPkgxSyncBasic?: (category: ProductCategory) => void,
   hasPkgxMapping?: (category: ProductCategory) => boolean,
   getPkgxCatId?: (category: ProductCategory) => number | undefined,
+  onPkgxLink?: (category: ProductCategory) => void,
+  onPkgxUnlink?: (category: ProductCategory) => void,
 ): ColumnDef<ProductCategory>[] => {
   // Get product counts per category - không dùng useMemo vì đây không phải React component
   const productStore = useProductStore.getState();
@@ -304,6 +339,7 @@ export const getColumns = (
       const category = row as ProductCategory;
       const level = category.level ?? 0;
       const indent = level * 24;
+      const hasMapping = hasPkgxMapping?.(category) ?? false;
       
       if (onUpdateName) {
         return (
@@ -321,6 +357,12 @@ export const getColumns = (
                   >
                     {value}
                   </span>
+                  {hasMapping && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Globe className="h-3 w-3 mr-1" />
+                      PKGX
+                    </Badge>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -347,6 +389,12 @@ export const getColumns = (
         >
           {level > 0 && <span className="text-muted-foreground/50">└</span>}
           <span className="font-medium truncate">{category.name}</span>
+          {hasMapping && (
+            <Badge variant="secondary" className="text-xs">
+              <Globe className="h-3 w-3 mr-1" />
+              PKGX
+            </Badge>
+          )}
         </div>
       );
     },
@@ -522,6 +570,30 @@ export const getColumns = (
       group: "SEO"
     },
   },
+  // PKGX Status - Hiển thị trạng thái liên kết
+  {
+    id: "pkgxStatus",
+    header: "Liên kết PKGX",
+    cell: ({ row }) => {
+      const category = row as ProductCategory;
+      const hasMapping = hasPkgxMapping?.(category) ?? false;
+      const pkgxId = getPkgxCatId?.(category);
+      
+      return hasMapping ? (
+        <Badge variant="default" className="bg-green-500 text-xs">
+          <Globe className="h-3 w-3 mr-1" />
+          {pkgxId}
+        </Badge>
+      ) : (
+        <Badge variant="secondary" className="text-xs">Chưa liên kết</Badge>
+      );
+    },
+    size: 110,
+    meta: {
+      displayName: "Liên kết PKGX",
+      group: "PKGX"
+    },
+  },
   // Trạng thái - Switch
   {
     id: "isActive",
@@ -589,6 +661,9 @@ export const getColumns = (
           onPkgxSyncSeo={onPkgxSyncSeo}
           onPkgxSyncDescription={onPkgxSyncDescription}
           onPkgxSyncAll={onPkgxSyncAll}
+          onPkgxSyncBasic={onPkgxSyncBasic}
+          onPkgxLink={onPkgxLink}
+          onPkgxUnlink={onPkgxUnlink}
         />
       );
     },

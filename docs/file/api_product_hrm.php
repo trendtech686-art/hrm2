@@ -1021,7 +1021,12 @@ function api_get_brands()
                         brand_desc,
                         site_url,
                         sort_order,
-                        is_show
+                        is_show,
+                        brand_cat_desc,
+                        brand_long_desc,
+                        brand_keyword,
+                        brand_meta_title,
+                        brand_meta_desc
                     FROM " . $ecs->table('brand') . "
                     WHERE brand_id = '$brand_id'";
             
@@ -1044,6 +1049,11 @@ function api_get_brands()
                     'brand_desc' => $brand['brand_desc'],
                     'site_url' => $brand['site_url'],
                     'sort_order' => intval($brand['sort_order']),
+                    'short_desc' => $brand['brand_cat_desc'],
+                    'long_desc' => $brand['brand_long_desc'],
+                    'keywords' => $brand['brand_keyword'],
+                    'meta_title' => $brand['brand_meta_title'],
+                    'meta_desc' => $brand['brand_meta_desc'],
                 ]
             ], 200);
             return;
@@ -1057,7 +1067,12 @@ function api_get_brands()
                     brand_desc,
                     site_url,
                     sort_order,
-                    is_show
+                    is_show,
+                    brand_cat_desc,
+                    brand_long_desc,
+                    brand_keyword,
+                    brand_meta_title,
+                    brand_meta_desc
                 FROM " . $ecs->table('brand') . "
                 WHERE is_show = 1
                 ORDER BY sort_order ASC, brand_id ASC";
@@ -1078,6 +1093,11 @@ function api_get_brands()
                 'brand_desc' => $row['brand_desc'],
                 'site_url' => $row['site_url'],
                 'sort_order' => intval($row['sort_order']),
+                'short_desc' => $row['brand_cat_desc'],
+                'long_desc' => $row['brand_long_desc'],
+                'keywords' => $row['brand_keyword'],
+                'meta_title' => $row['brand_meta_title'],
+                'meta_desc' => $row['brand_meta_desc'],
             ];
         }
         
@@ -1206,6 +1226,22 @@ function update_brand($brand_id, $data)
         }
         if (isset($data['sort_order'])) {
             $update_fields[] = "sort_order = '" . intval($data['sort_order']) . "'";
+        }
+        // SEO fields
+        if (isset($data['short_desc'])) {
+            $update_fields[] = "brand_cat_desc = '" . addslashes(trim($data['short_desc'])) . "'";
+        }
+        if (isset($data['long_desc'])) {
+            $update_fields[] = "brand_long_desc = '" . addslashes(trim($data['long_desc'])) . "'";
+        }
+        if (isset($data['keywords'])) {
+            $update_fields[] = "brand_keyword = '" . addslashes(trim($data['keywords'])) . "'";
+        }
+        if (isset($data['meta_title'])) {
+            $update_fields[] = "brand_meta_title = '" . addslashes(trim($data['meta_title'])) . "'";
+        }
+        if (isset($data['meta_desc'])) {
+            $update_fields[] = "brand_meta_desc = '" . addslashes(trim($data['meta_desc'])) . "'";
         }
         
         if (!empty($update_fields)) {

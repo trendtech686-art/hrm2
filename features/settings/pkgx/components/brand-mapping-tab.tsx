@@ -5,21 +5,23 @@ import { Input } from '../../../../components/ui/input.tsx';
 import { Badge } from '../../../../components/ui/badge.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
 import { Label } from '../../../../components/ui/label.tsx';
 import { ScrollArea } from '../../../../components/ui/scroll-area.tsx';
-import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert.tsx';
-import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, Eye, AlertCircle, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, Globe, Link2 } from 'lucide-react';
+import { Checkbox } from '../../../../components/ui/checkbox.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu.tsx';
+import { getBrandById, updateBrand } from '../../../../lib/pkgx/api-service';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
 import { useBrandStore } from '../../inventory/brand-store';
-import { getBrandById, updateBrand } from '../../../../lib/pkgx/api-service';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import type { PkgxBrandMapping, PkgxBrand, PkgxBrandFromApi } from '../types';
-import { useBrandMappingValidation } from '../hooks';
+import { useBrandMappingValidation, usePkgxEntitySync } from '../hooks';
+import type { HrmBrandData } from '../hooks';
 import type { BrandMappingInput } from '../validation';
+import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-dialog';
+import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 
 // Extended type for PKGX brands table
 interface PkgxBrandRow extends PkgxBrand {
@@ -58,11 +60,18 @@ export function BrandMappingTab() {
   // Table state
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'id', desc: false });
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   
   // Form state
   const [selectedHrmBrand, setSelectedHrmBrand] = React.useState('');
   const [selectedPkgxBrand, setSelectedPkgxBrand] = React.useState('');
   const [showWarningConfirm, setShowWarningConfirm] = React.useState(false);
+  
+  // Use shared PKGX entity sync hook
+  const entitySync = usePkgxEntitySync({
+    entityType: 'brand',
+    onLog: addLog,
+  });
   
   const hrmBrands = React.useMemo(
     () => brandStore.getActive().sort((a, b) => a.name.localeCompare(b.name)),
@@ -127,8 +136,69 @@ export function BrandMappingTab() {
     return mappingsData.slice(start, start + pagination.pageSize);
   }, [mappingsData, pagination]);
   
+  // All selected rows and bulk actions for PKGX brands table
+  const allSelectedPkgxRows = React.useMemo(() => 
+    paginatedPkgxData.filter(p => rowSelection[p.systemId]),
+  [paginatedPkgxData, rowSelection]);
+  
+  // Get selected PKGX brands that are NOT mapped (for bulk mapping)
+  const selectedUnmappedBrands = React.useMemo(() => 
+    allSelectedPkgxRows.filter(b => !b.mappedToHrm),
+  [allSelectedPkgxRows]);
+  
+  // Get selected PKGX brands that ARE mapped (for bulk unlink)
+  const selectedMappedBrands = React.useMemo(() => 
+    allSelectedPkgxRows.filter(b => b.mappedToHrm),
+  [allSelectedPkgxRows]);
+  
+  // Bulk actions for PKGX brands table
+  const pkgxBulkActions = React.useMemo(() => [
+    {
+      label: `Hủy mapping (${selectedMappedBrands.length})`,
+      icon: Unlink,
+      variant: 'destructive' as const,
+      disabled: selectedMappedBrands.length === 0,
+      onSelect: () => {
+        if (selectedMappedBrands.length === 0) {
+          toast.error('Không có thương hiệu đã mapping nào được chọn');
+          return;
+        }
+        // Bulk delete mappings
+        selectedMappedBrands.forEach(brand => {
+          const mapping = findMapping(brand.id);
+          if (mapping) {
+            deleteBrandMapping(mapping.id);
+          }
+        });
+        toast.success(`Đã hủy mapping ${selectedMappedBrands.length} thương hiệu`);
+        setRowSelection({});
+      },
+    },
+  ], [selectedMappedBrands, findMapping, deleteBrandMapping]);
+  
   // PKGX Brands columns
   const pkgxColumns: ColumnDef<PkgxBrandRow>[] = React.useMemo(() => [
+    {
+      id: 'select',
+      header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
+        <Checkbox
+          checked={isAllPageRowsSelected ? true : (isSomePageRowsSelected ? 'indeterminate' : false)}
+          onCheckedChange={(checked) => onToggleAll?.(checked === true)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row, isSelected, onToggleSelect }) => (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelect(!isSelected)}
+          aria-label="Select row"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      size: 48,
+      enableSorting: false,
+      meta: { displayName: 'Chọn', sticky: 'left' },
+    },
     {
       id: 'id',
       accessorKey: 'id',
@@ -160,44 +230,110 @@ export function BrandMappingTab() {
       id: 'actions',
       header: '',
       size: 50,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleViewDetail(row.id)}>
-              <Eye className="h-4 w-4 mr-2" />
-              Xem chi tiết
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleQuickMap(row)} disabled={!!row.mappedToHrm}>
-              <Link className="h-4 w-4 mr-2" />
-              {row.mappedToHrm ? 'Đã mapping' : 'Mapping nhanh'}
-            </DropdownMenuItem>
-            {row.mappedToHrm && (
-              <>
-                <DropdownMenuItem onClick={() => handlePushBrand(row.id)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Đẩy HRM → PKGX
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleUnlinkBrand(row.id)}>
-                  <Unlink className="h-4 w-4 mr-2" />
-                  Hủy liên kết
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => window.open(`https://phukiengiaxuong.com.vn/admin/brand.php?act=edit&brand_id=${row.id}`, '_blank')}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Xem trên PKGX
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        // Get HRM brand for sync actions
+        const mapping = findMapping(row.id);
+        const hrmBrand = mapping ? hrmBrands.find(b => b.systemId === mapping.hrmBrandSystemId) : null;
+        
+        // Helper to trigger sync with proper HRM data
+        const triggerSync = (actionKey: 'sync_all' | 'sync_basic' | 'sync_seo' | 'sync_description') => {
+          if (!mapping || !hrmBrand) {
+            toast.error('Thương hiệu chưa được liên kết với HRM');
+            return;
+          }
+          const hrmData: HrmBrandData = {
+            systemId: hrmBrand.systemId,
+            name: hrmBrand.name,
+            website: hrmBrand.website,
+            seoKeywords: hrmBrand.seoKeywords,
+            seoTitle: hrmBrand.seoTitle,
+            metaDescription: hrmBrand.metaDescription,
+            shortDescription: hrmBrand.shortDescription,
+            longDescription: hrmBrand.longDescription,
+            websiteSeo: hrmBrand.websiteSeo,
+          };
+          entitySync.triggerSyncAction(actionKey, row.id, hrmData, row.name);
+        };
+        
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {row.mappedToHrm ? (
+                <>
+                  {/* Sync All */}
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_all')}
+                    className="font-medium"
+                    title="Đồng bộ: Tên, Website, Keywords, Meta Title, Meta Desc, Mô tả ngắn, Mô tả dài"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Đồng bộ tất cả
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  
+                  {/* Individual sync actions */}
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_basic')}
+                    title="Đồng bộ: Tên thương hiệu, Website URL"
+                  >
+                    <Globe className="h-4 w-4 mr-2" />
+                    Thông tin cơ bản
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_seo')}
+                    title="Đồng bộ: Keywords, Meta Title, Meta Desc"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    SEO
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_description')}
+                    title="Đồng bộ: Mô tả ngắn (Short Desc), Mô tả dài (Long Desc)"
+                  >
+                    <AlignLeft className="h-4 w-4 mr-2" />
+                    Mô tả
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => window.open(`https://phukiengiaxuong.com.vn/admin/brand.php?act=edit&brand_id=${row.id}`, '_blank')}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Xem trên PKGX
+                  </DropdownMenuItem>
+                  
+                  {/* Hủy liên kết */}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => entitySync.handleConfirm(
+                      'Hủy liên kết PKGX',
+                      `Bạn có chắc muốn hủy liên kết thương hiệu "${row.name}" với PKGX?`,
+                      () => handleUnlinkBrand(row.id)
+                    )}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Unlink className="h-4 w-4 mr-2" />
+                    Hủy liên kết
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                /* Not linked - show link option */
+                <>
+                  <DropdownMenuItem onClick={() => handleQuickMap(row)}>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Liên kết với HRM
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
-  ], []);
+  ], [hrmBrands, findMapping, entitySync]);
   
   // Mappings columns
   const mappingColumns: ColumnDef<MappingRow>[] = React.useMemo(() => [
@@ -391,8 +527,8 @@ export function BrandMappingTab() {
     setIsDetailDialogOpen(true);
     try {
       const response = await getBrandById(pkgxBrandId);
-      if (response.success && response.data?.data?.[0]) {
-        setSelectedBrandForDetail(response.data.data[0]);
+      if (response.success && response.data) {
+        setSelectedBrandForDetail(response.data);
       } else {
         toast.error('Không tìm thấy thương hiệu');
         setIsDetailDialogOpen(false);
@@ -429,8 +565,8 @@ export function BrandMappingTab() {
       
       // Refresh detail
       const response = await getBrandById(pkgxBrandId);
-      if (response.success && response.data?.data?.[0]) {
-        setSelectedBrandForDetail(response.data.data[0]);
+      if (response.success && response.data) {
+        setSelectedBrandForDetail(response.data);
       }
       
       addLog({
@@ -575,6 +711,10 @@ export function BrandMappingTab() {
                     rowCount={pkgxBrandsData.length}
                     sorting={sorting}
                     setSorting={setSorting}
+                    rowSelection={rowSelection}
+                    setRowSelection={setRowSelection}
+                    bulkActions={pkgxBulkActions}
+                    allSelectedRows={allSelectedPkgxRows}
                     emptyTitle="Không tìm thấy thương hiệu"
                   />
                 )}
@@ -607,150 +747,36 @@ export function BrandMappingTab() {
         </CardContent>
       </Card>
       
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingMapping ? 'Sửa mapping' : 'Thêm mapping'} thương hiệu</DialogTitle>
-            <DialogDescription>
-              Chọn thương hiệu HRM và thương hiệu PKGX tương ứng
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* HRM Brand Select */}
-            <div className="space-y-2">
-              <Label htmlFor="hrmBrand">Thương hiệu HRM</Label>
-              <Select value={selectedHrmBrand} onValueChange={setSelectedHrmBrand}>
-                <SelectTrigger id="hrmBrand" className={validation.getFieldError('hrmBrandSystemId') ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Chọn thương hiệu HRM..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {hrmBrands.map((brand) => (
-                    <SelectItem key={brand.systemId} value={brand.systemId}>
-                      {brand.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {validation.getFieldError('hrmBrandSystemId') && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {validation.getFieldError('hrmBrandSystemId')}
-                </p>
-              )}
-            </div>
-            
-            {/* PKGX Brand Select */}
-            <div className="space-y-2">
-              <Label htmlFor="pkgxBrand">Thương hiệu PKGX</Label>
-              <Select value={selectedPkgxBrand} onValueChange={setSelectedPkgxBrand}>
-                <SelectTrigger id="pkgxBrand" className={validation.getFieldError('pkgxBrandId') ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Chọn thương hiệu PKGX..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {settings.brands.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id.toString()}>
-                      {brand.name} (ID: {brand.id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {validation.getFieldError('pkgxBrandId') && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {validation.getFieldError('pkgxBrandId')}
-                </p>
-              )}
-            </div>
-            
-            {/* Suggestions */}
-            {validation.suggestions.length > 0 && selectedHrmBrand && !selectedPkgxBrand && (
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Lightbulb className="h-3 w-3" />
-                  Gợi ý thương hiệu PKGX phù hợp:
-                </Label>
-                <div className="flex flex-wrap gap-2">
-                  {validation.suggestions.slice(0, 3).map((s) => (
-                    <Button
-                      key={s.brand.id}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => setSelectedPkgxBrand(s.brand.id.toString())}
-                    >
-                      {s.brand.name}
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {Math.round(s.score * 100)}%
-                      </Badge>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Validation Errors */}
-            {validation.validationResult && validation.validationResult.errors.length > 0 && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Lỗi validation</AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc list-inside space-y-1 mt-2">
-                    {validation.validationResult.errors.map((err, i) => (
-                      <li key={i}>{err.message}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {/* Validation Warnings */}
-            {validation.validationResult && validation.validationResult.warnings.length > 0 && validation.validationResult.errors.length === 0 && (
-              <Alert variant="default" className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <AlertTitle className="text-yellow-700 dark:text-yellow-400">Cảnh báo</AlertTitle>
-                <AlertDescription className="text-yellow-600 dark:text-yellow-300">
-                  <ul className="list-disc list-inside space-y-1 mt-2">
-                    {validation.validationResult.warnings.map((warn, i) => (
-                      <li key={i}>
-                        {warn.message}
-                        {warn.details?.suggestedBrand && (
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 ml-1 text-yellow-700"
-                            onClick={() => setSelectedPkgxBrand(warn.details!.suggestedBrand.id.toString())}
-                          >
-                            → Chọn "{warn.details.suggestedBrand.name}"
-                          </Button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  {showWarningConfirm && (
-                    <p className="mt-3 font-medium">Bấm "{editingMapping ? 'Cập nhật' : 'Thêm'}" lần nữa để xác nhận.</p>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Hủy
-            </Button>
-            <Button 
-              onClick={handleSave}
-              disabled={validation.hasErrors || validation.isValidating}
-            >
-              {validation.isValidating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {showWarningConfirm ? 'Xác nhận ' : ''}{editingMapping ? 'Cập nhật' : 'Thêm'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Mapping Dialog - Using shared PkgxMappingDialog component */}
+      <PkgxMappingDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        type="brand"
+        isEditing={!!editingMapping}
+        hrmItems={hrmBrands.map((b) => ({
+          id: b.systemId,
+          name: b.name,
+        }))}
+        selectedHrmId={selectedHrmBrand}
+        onSelectHrmId={setSelectedHrmBrand}
+        pkgxItems={settings.brands.map((b) => ({
+          id: b.id.toString(),
+          name: b.name,
+          subText: `ID: ${b.id}`,
+        }))}
+        selectedPkgxId={selectedPkgxBrand}
+        onSelectPkgxId={setSelectedPkgxBrand}
+        pkgxSuggestions={validation.suggestions.map(s => ({
+          item: { id: s.brand.id.toString(), name: s.brand.name },
+          score: s.score,
+        }))}
+        validation={validation.validationResult}
+        hasErrors={validation.hasErrors}
+        isValidating={validation.isValidating}
+        showWarningConfirm={showWarningConfirm}
+        onConfirm={handleSave}
+        onCancel={handleCloseDialog}
+      />
       
       {/* Brand Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
@@ -887,6 +913,14 @@ export function BrandMappingTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Confirmation Dialog for sync actions - using shared component */}
+      <PkgxSyncConfirmDialog
+        confirmAction={entitySync.confirmAction}
+        isSyncing={entitySync.isSyncing}
+        onConfirm={entitySync.executeAction}
+        onCancel={entitySync.cancelConfirm}
+      />
     </div>
   );
 }

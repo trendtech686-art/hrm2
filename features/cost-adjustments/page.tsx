@@ -6,10 +6,13 @@ import { ResponsiveDataTable } from '../../components/data-table/responsive-data
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
 import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
+import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2.tsx';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
+import { costAdjustmentImportExportConfig, flattenCostAdjustmentsForExport } from '../../lib/import-export/configs/cost-adjustment.config.ts';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { ROUTES } from '../../lib/router.ts';
 import { Button } from '../../components/ui/button.tsx';
-import { Plus, XCircle, CheckCircle, Printer } from 'lucide-react';
+import { Plus, XCircle, CheckCircle, Printer, FileSpreadsheet, Download } from 'lucide-react';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { PageFilters } from '../../components/layout/page-filters.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
@@ -116,6 +119,10 @@ export function CostAdjustmentListPage() {
   // Filters
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [dateFilter, setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
+
+  // Import/Export dialogs
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
 
   // Column customization state
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(
@@ -293,6 +300,85 @@ export function CostAdjustmentListPage() {
   const allSelectedRows = React.useMemo(() =>
     adjustments.filter(a => rowSelection[a.systemId]),
   [adjustments, rowSelection]);
+
+  // Selected adjustments for export
+  const selectedAdjustments = React.useMemo(() => {
+    return adjustments.filter(a => rowSelection[a.systemId]);
+  }, [adjustments, rowSelection]);
+
+  // Import handler - CostAdjustment requires special handling via create() method
+  const handleImport = React.useCallback(async (
+    importedAdjustments: Partial<CostAdjustment>[],
+    mode: 'insert-only' | 'update-only' | 'upsert',
+    _branchId?: string
+  ) => {
+    let addedCount = 0;
+    let skippedCount = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+    
+    const storeState = useCostAdjustmentStore.getState();
+    const creatorSystemId = employee?.systemId || asSystemId('SYSTEM');
+    const creatorName = employee?.fullName || 'Hệ thống';
+    
+    importedAdjustments.forEach((adjustment, index) => {
+      try {
+        // Check if exists by business ID
+        const existing = storeState.getByBusinessId(adjustment.id?.toString() || '');
+        
+        if (existing) {
+          // CostAdjustment doesn't support update via import
+          skippedCount++;
+        } else {
+          if (mode === 'insert-only' || mode === 'upsert') {
+            // Create new adjustment using store's create method
+            if (adjustment.items && adjustment.items.length > 0) {
+              storeState.create(
+                adjustment.items.map(item => ({
+                  productSystemId: item.productSystemId,
+                  productId: item.productId,
+                  productName: item.productName,
+                  productImage: item.productImage,
+                  oldCostPrice: item.oldCostPrice,
+                  newCostPrice: item.newCostPrice,
+                  reason: item.reason,
+                })),
+                adjustment.type || 'manual',
+                creatorSystemId,
+                creatorName,
+                {
+                  customId: adjustment.id?.toString(),
+                  note: adjustment.note,
+                  reason: adjustment.reason,
+                  referenceCode: adjustment.referenceCode,
+                  status: adjustment.status || 'draft',
+                }
+              );
+              addedCount++;
+            } else {
+              errors.push({ row: index + 1, message: 'Phiếu điều chỉnh cần có ít nhất 1 sản phẩm' });
+            }
+          } else {
+            skippedCount++;
+          }
+        }
+      } catch (error) {
+        errors.push({ row: index + 1, message: (error as Error).message });
+      }
+    });
+    
+    if (addedCount > 0) {
+      toast.success(`Đã import: ${addedCount} phiếu điều chỉnh mới`);
+    }
+    
+    return {
+      success: addedCount,
+      failed: errors.length,
+      inserted: addedCount,
+      updated: 0,
+      skipped: skippedCount,
+      errors,
+    };
+  }, [adjustments, employee]);
 
   // Bulk cancel handler
   const handleBulkCancel = React.useCallback(() => {
@@ -482,12 +568,16 @@ export function CostAdjustmentListPage() {
       {!isMobile && (
         <PageToolbar
           leftActions={
-            <DataTableExportDialog
-              allData={adjustments}
-              filteredData={sortedData}
-              pageData={paginatedData}
-              config={exportConfig}
-            />
+            <>
+              <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Nhập file
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
+            </>
           }
           rightActions={
             <DataTableColumnCustomizer
@@ -588,6 +678,35 @@ export function CostAdjustmentListPage() {
         selectedCount={itemsToPrint.length}
         onConfirm={handlePrintConfirm}
         title="In phiếu điều chỉnh giá vốn"
+      />
+
+      {/* Import Dialog */}
+      <GenericImportDialogV2<CostAdjustment>
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        config={costAdjustmentImportExportConfig}
+        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+        existingData={adjustments}
+        onImport={handleImport}
+        currentUser={{
+          name: employee?.fullName || 'Hệ thống',
+          systemId: employee?.systemId || asSystemId('SYSTEM'),
+        }}
+      />
+
+      {/* Export Dialog */}
+      <GenericExportDialogV2<CostAdjustment>
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        config={costAdjustmentImportExportConfig}
+        allData={adjustments}
+        filteredData={sortedData}
+        currentPageData={paginatedData}
+        selectedData={selectedAdjustments}
+        currentUser={{
+          name: employee?.fullName || 'Hệ thống',
+          systemId: employee?.systemId || asSystemId('SYSTEM'),
+        }}
       />
     </div>
   );

@@ -1,0 +1,552 @@
+/**
+ * Delivery Report Hooks
+ * 
+ * Hooks để tính toán dữ liệu báo cáo giao hàng
+ */
+
+import * as React from 'react';
+import { format, parseISO, isWithinInterval, differenceInHours, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, startOfQuarter, startOfYear } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { useShipmentStore } from '@/features/shipments/store.ts';
+import { useEmployeeStore } from '@/features/employees/store.ts';
+import { useBranchStore } from '@/features/settings/branches/store.ts';
+import { useCustomerStore } from '@/features/customers/store.ts';
+import type { 
+  ReportDateRange, 
+  TimeGrouping,
+  DeliveryTimeReportRow,
+  DeliveryEmployeeReportRow,
+  DeliveryShipmentReportRow,
+  DeliveryCarrierReportRow,
+  DeliveryBranchReportRow,
+  DeliveryCustomerReportRow,
+  DeliveryReportSummary,
+} from '../types.ts';
+import type { SystemId } from '@/lib/id-types.ts';
+
+// Helper: Get time key and label based on grouping
+function getTimeKey(date: Date, grouping: TimeGrouping): { key: string; label: string } {
+  switch (grouping) {
+    case 'day':
+      return {
+        key: format(date, 'yyyy-MM-dd'),
+        label: format(date, 'dd/MM', { locale: vi }),
+      };
+    case 'week':
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+      return {
+        key: format(weekStart, 'yyyy-ww'),
+        label: `T${format(weekStart, 'w')} (${format(weekStart, 'dd/MM')})`,
+      };
+    case 'month':
+      return {
+        key: format(date, 'yyyy-MM'),
+        label: format(date, 'MM/yyyy', { locale: vi }),
+      };
+    case 'quarter':
+      const quarter = Math.ceil((date.getMonth() + 1) / 3);
+      return {
+        key: `${date.getFullYear()}-Q${quarter}`,
+        label: `Q${quarter}/${date.getFullYear()}`,
+      };
+    case 'year':
+      return {
+        key: format(date, 'yyyy'),
+        label: format(date, 'yyyy'),
+      };
+    default:
+      return {
+        key: format(date, 'yyyy-MM-dd'),
+        label: format(date, 'dd/MM', { locale: vi }),
+      };
+  }
+}
+
+// Helper: Generate time periods
+function generateTimePeriods(dateRange: ReportDateRange, grouping: TimeGrouping): { key: string; label: string }[] {
+  const start = parseISO(dateRange.from);
+  const end = parseISO(dateRange.to);
+  
+  let dates: Date[] = [];
+  
+  switch (grouping) {
+    case 'day':
+      dates = eachDayOfInterval({ start, end });
+      break;
+    case 'week':
+      dates = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 });
+      break;
+    case 'month':
+      dates = eachMonthOfInterval({ start, end });
+      break;
+    case 'quarter':
+      let current = startOfQuarter(start);
+      while (current <= end) {
+        dates.push(current);
+        current = new Date(current.getFullYear(), current.getMonth() + 3, 1);
+      }
+      break;
+    case 'year':
+      let currentYear = startOfYear(start);
+      while (currentYear <= end) {
+        dates.push(currentYear);
+        currentYear = new Date(currentYear.getFullYear() + 1, 0, 1);
+      }
+      break;
+  }
+  
+  return dates.map(d => getTimeKey(d, grouping));
+}
+
+// Hook: Báo cáo giao hàng theo thời gian
+export function useDeliveryTimeReport(
+  dateRange: ReportDateRange,
+  timeGrouping: TimeGrouping = 'day',
+  filters?: {
+    branchIds?: SystemId[];
+    carrierIds?: SystemId[];
+  }
+) {
+  const { data: shipments } = useShipmentStore();
+  
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+    
+    // Filter shipments
+    const filteredShipments = shipments.filter(shipment => {
+      const shipDate = shipment.createdAt ? parseISO(shipment.createdAt) : null;
+      if (!shipDate || !isWithinInterval(shipDate, { start, end })) return false;
+      
+      if (filters?.branchIds?.length && shipment.branchSystemId && 
+          !filters.branchIds.includes(shipment.branchSystemId)) return false;
+      
+      if (filters?.carrierIds?.length && shipment.carrierSystemId && 
+          !filters.carrierIds.includes(shipment.carrierSystemId)) return false;
+      
+      return true;
+    });
+    
+    // Generate periods
+    const periods = generateTimePeriods(dateRange, timeGrouping);
+    
+    // Initialize data map
+    const dataMap = new Map<string, DeliveryTimeReportRow>();
+    periods.forEach(period => {
+      dataMap.set(period.key, {
+        key: period.key,
+        label: period.label,
+        totalShipments: 0,
+        deliveredCount: 0,
+        pendingCount: 0,
+        failedCount: 0,
+        returnedCount: 0,
+        totalAmount: 0,
+        codAmount: 0,
+        shippingFee: 0,
+        deliveryRate: 0,
+      });
+    });
+    
+    // Aggregate shipments
+    filteredShipments.forEach(shipment => {
+      const shipDate = parseISO(shipment.createdAt!);
+      const { key } = getTimeKey(shipDate, timeGrouping);
+      
+      const row = dataMap.get(key);
+      if (!row) return;
+      
+      row.totalShipments += 1;
+      row.codAmount += shipment.codAmount || 0;
+      row.shippingFee += shipment.shippingFee || 0;
+      row.totalAmount += (shipment.codAmount || 0) + (shipment.shippingFee || 0);
+      
+      // Status counts
+      switch (shipment.status) {
+        case 'Đã giao':
+        case 'delivered':
+          row.deliveredCount += 1;
+          break;
+        case 'Đang giao':
+        case 'Chờ giao':
+        case 'pending':
+        case 'shipping':
+          row.pendingCount += 1;
+          break;
+        case 'Thất bại':
+        case 'failed':
+          row.failedCount += 1;
+          break;
+        case 'Hoàn hàng':
+        case 'returned':
+          row.returnedCount += 1;
+          break;
+      }
+    });
+    
+    // Calculate delivery rate
+    dataMap.forEach(row => {
+      row.deliveryRate = row.totalShipments > 0 
+        ? (row.deliveredCount / row.totalShipments) * 100 
+        : 0;
+    });
+    
+    const data = Array.from(dataMap.values());
+    
+    // Calculate summary
+    const summary: DeliveryReportSummary = {
+      totalShipments: data.reduce((sum, r) => sum + r.totalShipments, 0),
+      deliveredCount: data.reduce((sum, r) => sum + r.deliveredCount, 0),
+      pendingCount: data.reduce((sum, r) => sum + r.pendingCount, 0),
+      failedCount: data.reduce((sum, r) => sum + r.failedCount, 0),
+      returnedCount: data.reduce((sum, r) => sum + r.returnedCount, 0),
+      deliveryRate: 0,
+      totalAmount: data.reduce((sum, r) => sum + r.totalAmount, 0),
+      codAmount: data.reduce((sum, r) => sum + r.codAmount, 0),
+    };
+    
+    summary.deliveryRate = summary.totalShipments > 0 
+      ? (summary.deliveredCount / summary.totalShipments) * 100 
+      : 0;
+    
+    return { data, summary };
+  }, [shipments, dateRange, timeGrouping, filters]);
+}
+
+// Hook: Báo cáo giao hàng theo nhân viên
+export function useDeliveryEmployeeReport(
+  dateRange: ReportDateRange,
+  filters?: {
+    branchIds?: SystemId[];
+  }
+) {
+  const { data: shipments } = useShipmentStore();
+  const { data: employees } = useEmployeeStore();
+  
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+    
+    // Filter shipments
+    const filteredShipments = shipments.filter(shipment => {
+      const shipDate = shipment.createdAt ? parseISO(shipment.createdAt) : null;
+      if (!shipDate || !isWithinInterval(shipDate, { start, end })) return false;
+      if (filters?.branchIds?.length && shipment.branchSystemId && 
+          !filters.branchIds.includes(shipment.branchSystemId)) return false;
+      return true;
+    });
+    
+    // Aggregate by employee
+    const employeeMap = new Map<string, DeliveryEmployeeReportRow>();
+    
+    filteredShipments.forEach(shipment => {
+      const empId = shipment.assigneeSystemId || 'unknown';
+      const employee = employees.find(e => e.systemId === empId);
+      
+      if (!employeeMap.has(empId)) {
+        employeeMap.set(empId, {
+          employeeSystemId: empId as SystemId,
+          employeeName: employee?.fullName || 'Không xác định',
+          totalShipments: 0,
+          deliveredCount: 0,
+          failedCount: 0,
+          deliveryRate: 0,
+          totalAmount: 0,
+        });
+      }
+      
+      const row = employeeMap.get(empId)!;
+      row.totalShipments += 1;
+      row.totalAmount += (shipment.codAmount || 0);
+      
+      if (shipment.status === 'Đã giao' || shipment.status === 'delivered') {
+        row.deliveredCount += 1;
+      } else if (shipment.status === 'Thất bại' || shipment.status === 'failed') {
+        row.failedCount += 1;
+      }
+    });
+    
+    // Calculate delivery rate
+    employeeMap.forEach(row => {
+      row.deliveryRate = row.totalShipments > 0 
+        ? (row.deliveredCount / row.totalShipments) * 100 
+        : 0;
+    });
+    
+    const data = Array.from(employeeMap.values()).sort((a, b) => b.totalShipments - a.totalShipments);
+    
+    const summary: DeliveryReportSummary = {
+      totalShipments: data.reduce((sum, r) => sum + r.totalShipments, 0),
+      deliveredCount: data.reduce((sum, r) => sum + r.deliveredCount, 0),
+      pendingCount: 0,
+      failedCount: data.reduce((sum, r) => sum + r.failedCount, 0),
+      returnedCount: 0,
+      deliveryRate: 0,
+      totalAmount: data.reduce((sum, r) => sum + r.totalAmount, 0),
+      codAmount: 0,
+    };
+    
+    summary.deliveryRate = summary.totalShipments > 0 
+      ? (summary.deliveredCount / summary.totalShipments) * 100 
+      : 0;
+    
+    return { data, summary };
+  }, [shipments, employees, dateRange, filters]);
+}
+
+// Hook: Báo cáo giao hàng theo đối tác vận chuyển
+export function useDeliveryCarrierReport(
+  dateRange: ReportDateRange,
+  filters?: {
+    branchIds?: SystemId[];
+  }
+) {
+  const { data: shipments } = useShipmentStore();
+  
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+    
+    // Filter shipments
+    const filteredShipments = shipments.filter(shipment => {
+      const shipDate = shipment.createdAt ? parseISO(shipment.createdAt) : null;
+      if (!shipDate || !isWithinInterval(shipDate, { start, end })) return false;
+      if (filters?.branchIds?.length && shipment.branchSystemId && 
+          !filters.branchIds.includes(shipment.branchSystemId)) return false;
+      return true;
+    });
+    
+    // Aggregate by carrier
+    const carrierMap = new Map<string, DeliveryCarrierReportRow>();
+    
+    filteredShipments.forEach(shipment => {
+      const carrierId = shipment.carrierSystemId || 'self';
+      
+      if (!carrierMap.has(carrierId)) {
+        carrierMap.set(carrierId, {
+          carrierSystemId: carrierId as SystemId,
+          carrierName: shipment.carrierName || 'Tự giao',
+          totalShipments: 0,
+          deliveredCount: 0,
+          pendingCount: 0,
+          failedCount: 0,
+          deliveryRate: 0,
+          totalCod: 0,
+          totalShippingFee: 0,
+        });
+      }
+      
+      const row = carrierMap.get(carrierId)!;
+      row.totalShipments += 1;
+      row.totalCod += shipment.codAmount || 0;
+      row.totalShippingFee += shipment.shippingFee || 0;
+      
+      switch (shipment.status) {
+        case 'Đã giao':
+        case 'delivered':
+          row.deliveredCount += 1;
+          break;
+        case 'Đang giao':
+        case 'Chờ giao':
+        case 'pending':
+        case 'shipping':
+          row.pendingCount += 1;
+          break;
+        case 'Thất bại':
+        case 'failed':
+          row.failedCount += 1;
+          break;
+      }
+    });
+    
+    // Calculate delivery rate
+    carrierMap.forEach(row => {
+      row.deliveryRate = row.totalShipments > 0 
+        ? (row.deliveredCount / row.totalShipments) * 100 
+        : 0;
+    });
+    
+    const data = Array.from(carrierMap.values()).sort((a, b) => b.totalShipments - a.totalShipments);
+    
+    const summary: DeliveryReportSummary = {
+      totalShipments: data.reduce((sum, r) => sum + r.totalShipments, 0),
+      deliveredCount: data.reduce((sum, r) => sum + r.deliveredCount, 0),
+      pendingCount: data.reduce((sum, r) => sum + r.pendingCount, 0),
+      failedCount: data.reduce((sum, r) => sum + r.failedCount, 0),
+      returnedCount: 0,
+      deliveryRate: 0,
+      totalAmount: 0,
+      codAmount: data.reduce((sum, r) => sum + r.totalCod, 0),
+    };
+    
+    summary.deliveryRate = summary.totalShipments > 0 
+      ? (summary.deliveredCount / summary.totalShipments) * 100 
+      : 0;
+    
+    return { data, summary };
+  }, [shipments, dateRange, filters]);
+}
+
+// Hook: Báo cáo giao hàng theo chi nhánh
+export function useDeliveryBranchReport(dateRange: ReportDateRange) {
+  const { data: shipments } = useShipmentStore();
+  const { data: branches } = useBranchStore();
+  
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+    
+    // Filter shipments
+    const filteredShipments = shipments.filter(shipment => {
+      const shipDate = shipment.createdAt ? parseISO(shipment.createdAt) : null;
+      return shipDate && isWithinInterval(shipDate, { start, end });
+    });
+    
+    // Aggregate by branch
+    const branchMap = new Map<string, DeliveryBranchReportRow>();
+    
+    filteredShipments.forEach(shipment => {
+      const branchId = shipment.branchSystemId || 'unknown';
+      const branch = branches.find(b => b.systemId === branchId);
+      
+      if (!branchMap.has(branchId)) {
+        branchMap.set(branchId, {
+          branchSystemId: branchId as SystemId,
+          branchName: branch?.name || 'Không xác định',
+          totalShipments: 0,
+          deliveredCount: 0,
+          failedCount: 0,
+          deliveryRate: 0,
+          totalAmount: 0,
+        });
+      }
+      
+      const row = branchMap.get(branchId)!;
+      row.totalShipments += 1;
+      row.totalAmount += (shipment.codAmount || 0);
+      
+      if (shipment.status === 'Đã giao' || shipment.status === 'delivered') {
+        row.deliveredCount += 1;
+      } else if (shipment.status === 'Thất bại' || shipment.status === 'failed') {
+        row.failedCount += 1;
+      }
+    });
+    
+    // Calculate delivery rate
+    branchMap.forEach(row => {
+      row.deliveryRate = row.totalShipments > 0 
+        ? (row.deliveredCount / row.totalShipments) * 100 
+        : 0;
+    });
+    
+    const data = Array.from(branchMap.values()).sort((a, b) => b.totalShipments - a.totalShipments);
+    
+    const summary: DeliveryReportSummary = {
+      totalShipments: data.reduce((sum, r) => sum + r.totalShipments, 0),
+      deliveredCount: data.reduce((sum, r) => sum + r.deliveredCount, 0),
+      pendingCount: 0,
+      failedCount: data.reduce((sum, r) => sum + r.failedCount, 0),
+      returnedCount: 0,
+      deliveryRate: 0,
+      totalAmount: data.reduce((sum, r) => sum + r.totalAmount, 0),
+      codAmount: 0,
+    };
+    
+    summary.deliveryRate = summary.totalShipments > 0 
+      ? (summary.deliveredCount / summary.totalShipments) * 100 
+      : 0;
+    
+    return { data, summary };
+  }, [shipments, branches, dateRange]);
+}
+
+// Hook: Báo cáo giao hàng theo khách hàng
+export function useDeliveryCustomerReport(
+  dateRange: ReportDateRange,
+  filters?: {
+    branchIds?: SystemId[];
+  }
+) {
+  const { data: shipments } = useShipmentStore();
+  const { data: customers } = useCustomerStore();
+  
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+    
+    // Filter shipments
+    const filteredShipments = shipments.filter(shipment => {
+      const shipDate = shipment.createdAt ? parseISO(shipment.createdAt) : null;
+      if (!shipDate || !isWithinInterval(shipDate, { start, end })) return false;
+      if (filters?.branchIds?.length && shipment.branchSystemId && 
+          !filters.branchIds.includes(shipment.branchSystemId)) return false;
+      return true;
+    });
+    
+    // Aggregate by customer
+    const customerMap = new Map<string, DeliveryCustomerReportRow>();
+    
+    filteredShipments.forEach(shipment => {
+      const custId = shipment.customerSystemId || 'unknown';
+      const customer = customers.find(c => c.systemId === custId);
+      
+      if (!customerMap.has(custId)) {
+        customerMap.set(custId, {
+          customerSystemId: custId as SystemId,
+          customerName: customer?.name || shipment.customerName || 'Không xác định',
+          totalShipments: 0,
+          deliveredCount: 0,
+          failedCount: 0,
+          returnedCount: 0,
+          totalAmount: 0,
+        });
+      }
+      
+      const row = customerMap.get(custId)!;
+      row.totalShipments += 1;
+      row.totalAmount += (shipment.codAmount || 0);
+      
+      switch (shipment.status) {
+        case 'Đã giao':
+        case 'delivered':
+          row.deliveredCount += 1;
+          break;
+        case 'Thất bại':
+        case 'failed':
+          row.failedCount += 1;
+          break;
+        case 'Hoàn hàng':
+        case 'returned':
+          row.returnedCount += 1;
+          break;
+      }
+    });
+    
+    const data = Array.from(customerMap.values()).sort((a, b) => b.totalShipments - a.totalShipments);
+    
+    const summary: DeliveryReportSummary = {
+      totalShipments: data.reduce((sum, r) => sum + r.totalShipments, 0),
+      deliveredCount: data.reduce((sum, r) => sum + r.deliveredCount, 0),
+      pendingCount: 0,
+      failedCount: data.reduce((sum, r) => sum + r.failedCount, 0),
+      returnedCount: data.reduce((sum, r) => sum + r.returnedCount, 0),
+      deliveryRate: 0,
+      totalAmount: data.reduce((sum, r) => sum + r.totalAmount, 0),
+      codAmount: 0,
+    };
+    
+    summary.deliveryRate = summary.totalShipments > 0 
+      ? (summary.deliveredCount / summary.totalShipments) * 100 
+      : 0;
+    
+    return { data, summary };
+  }, [shipments, customers, dateRange, filters]);
+}
+
+export default {
+  useDeliveryTimeReport,
+  useDeliveryEmployeeReport,
+  useDeliveryCarrierReport,
+  useDeliveryBranchReport,
+  useDeliveryCustomerReport,
+};

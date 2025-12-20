@@ -14,7 +14,9 @@ import {
 } from '../../lib/print/sales-return-print-helper.ts';
 import { getColumns } from './columns.tsx';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
+import { salesReturnConfig } from '../../lib/import-export/configs/sales-return.config.ts';
+import { asSystemId } from '../../lib/id-types.ts';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
@@ -26,9 +28,10 @@ import { Badge } from '../../components/ui/badge.tsx';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
-import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer } from 'lucide-react';
+import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer, Download } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
 import { toast } from 'sonner';
 import type { SalesReturn } from './types.ts';
 import Fuse from 'fuse.js';
@@ -44,8 +47,12 @@ export function SalesReturnsPage() {
     const { data: returns, getActive } = useSalesReturnStore();
     const { data: branches } = useBranchStore();
     const { info: storeInfo } = useStoreInfoStore();
+    const { employee: currentUser } = useAuth();
     
     const activeReturns = React.useMemo(() => getActive(), [returns]);
+    
+    // Export dialog state
+    const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
     
     const handleCreateReturn = React.useCallback(() => {
         navigate(ROUTES.SALES.ORDERS);
@@ -271,7 +278,6 @@ export function SalesReturnsPage() {
     React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter]);
 
     const statusOptions = React.useMemo(() => [{ label: 'Đã nhận', value: 'Đã nhận' }, { label: 'Chưa nhận', value: 'Chưa nhận' }], []);
-    const exportConfig = { fileName: 'Danh_sach_Tra_hang', columns };
     const handleRowClick = (row: SalesReturn) => navigate('/returns/' + row.systemId);
 
     const allSelectedRows = React.useMemo(() => activeReturns.filter(r => rowSelection[r.systemId]), [activeReturns, rowSelection]);
@@ -340,7 +346,10 @@ export function SalesReturnsPage() {
             {!isMobile && (
                 <PageToolbar
                     leftActions={
-                        <DataTableExportDialog allData={activeReturns} filteredData={sortedData} pageData={paginatedData} config={exportConfig} />
+                        <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Xuất Excel
+                        </Button>
                     }
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
@@ -407,6 +416,21 @@ export function SalesReturnsPage() {
                 selectedCount={itemsToPrint.length}
                 onConfirm={handlePrintConfirm}
                 title="In phiếu trả hàng"
+            />
+
+            {/* Export Dialog */}
+            <GenericExportDialogV2<SalesReturn>
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                config={salesReturnConfig}
+                allData={activeReturns}
+                filteredData={sortedData}
+                currentPageData={paginatedData}
+                selectedData={allSelectedRows}
+                currentUser={{
+                    name: currentUser?.fullName || 'Hệ thống',
+                    systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+                }}
             />
         </div>
     );

@@ -18,7 +18,7 @@ import type { ImportExportConfig, FieldConfig, AttendanceImportRow } from '../ty
 const attendanceFields: FieldConfig<AttendanceImportRow>[] = [
   {
     key: 'machineEmployeeId',
-    label: 'Mã NV (máy)',
+    label: 'Mã NV (máy) (*)',
     required: true,
     type: 'number',
     example: '1',
@@ -27,7 +27,7 @@ const attendanceFields: FieldConfig<AttendanceImportRow>[] = [
   },
   {
     key: 'employeeName',
-    label: 'Họ tên',
+    label: 'Họ tên (*)',
     required: true,
     type: 'string',
     example: 'nguyen van a',

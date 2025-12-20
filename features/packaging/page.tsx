@@ -7,7 +7,9 @@ import { useBranchStore } from '../settings/branches/store.ts';
 import type { PackagingSlip } from './types.ts';
 import { getColumns } from './columns.tsx';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
+import { packagingConfig } from '../../lib/import-export/configs/packaging.config.ts';
+import { asSystemId } from '../../lib/id-types.ts';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
 import { PageFilters } from '../../components/layout/page-filters.tsx';
@@ -21,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '../../components/ui/textarea.tsx';
 import { Label } from '../../components/ui/label.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
-import { Package, MoreHorizontal, Calendar, User, Inbox, Printer } from 'lucide-react';
+import { Package, MoreHorizontal, Calendar, User, Inbox, Printer, Download } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button.tsx';
 import { useMediaQuery } from '../../lib/use-media-query.ts';
 import { toast } from 'sonner';
@@ -73,6 +75,9 @@ export function PackagingPage() {
     // Print dialog state
     const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<PackagingSlip[]>([]);
+    
+    // Export dialog state
+    const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
     usePageHeader({
         title: 'Phiếu đóng gói',
@@ -333,7 +338,6 @@ export function PackagingPage() {
     
     React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter]);
 
-    const exportConfig = { fileName: 'Danh_sach_Dong_goi', columns };
     const handleRowClick = (row: PackagingSlip) => navigate('/packaging/' + row.systemId);
 
     const MobilePackagingCard = ({ packaging }: { packaging: PackagingSlip }) => {
@@ -407,7 +411,10 @@ export function PackagingPage() {
             {!isMobile && (
                 <PageToolbar
                     leftActions={
-                        <DataTableExportDialog allData={packagingSlips} filteredData={sortedData} pageData={paginatedData} config={exportConfig} />
+                        <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Xuất Excel
+                        </Button>
                     }
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
@@ -484,6 +491,21 @@ export function PackagingPage() {
                 title="In phiếu đóng gói"
             />
             <CancelDialog isOpen={!!cancelDialogState} onOpenChange={(open) => !open && setCancelDialogState(null)} onConfirm={handleConfirmCancel} />
+
+            {/* Export Dialog */}
+            <GenericExportDialogV2<PackagingSlip>
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                config={packagingConfig}
+                allData={packagingSlips}
+                filteredData={sortedData}
+                currentPageData={paginatedData}
+                selectedData={allSelectedRows}
+                currentUser={{
+                    name: authEmployee?.fullName || 'Hệ thống',
+                    systemId: authEmployee?.systemId || asSystemId('SYSTEM'),
+                }}
+            />
         </div>
     );
 }

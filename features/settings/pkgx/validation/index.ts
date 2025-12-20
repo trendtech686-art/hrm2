@@ -52,3 +52,29 @@ export {
   // Utilities
   suggestMatchingBrands,
 } from './brand-mapping-validation';
+
+// Product Mapping Validation
+export {
+  // Types
+  type ProductValidationResult,
+  type ProductValidationError,
+  type ProductValidationWarning,
+  type ProductMappingInput,
+  type ProductValidationContext,
+  
+  // Error/Warning codes
+  PRODUCT_MAPPING_ERROR_CODES,
+  PRODUCT_MAPPING_WARNING_CODES,
+  PRODUCT_MAPPING_ERROR_MESSAGES,
+  PRODUCT_MAPPING_WARNING_MESSAGES,
+  
+  // Validation functions
+  validateProductMapping,
+  validateRequiredFields as validateProductRequiredFields,
+  validateProductExists,
+  validateDuplicateLinks,
+  checkWarnings as checkProductWarnings,
+  
+  // Utilities
+  suggestMatchingProducts,
+} from './product-mapping-validation';

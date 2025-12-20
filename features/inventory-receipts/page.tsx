@@ -9,11 +9,12 @@ import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
 import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
 import { PageFilters } from "../../components/layout/page-filters.tsx";
+import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
 import { Card, CardContent } from "../../components/ui/card.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useMediaQuery } from "../../lib/use-media-query.ts";
-import { Package, Calendar as CalendarIcon, Users, FileText, Printer } from "lucide-react";
+import { Package, Calendar as CalendarIcon, Users, FileText, Printer, Download } from "lucide-react";
 import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types.ts";
 import type { InventoryReceipt } from "./types.ts";
@@ -29,6 +30,10 @@ import {
 } from "../../lib/print/stock-in-print-helper.ts";
 import { toast } from "sonner";
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { inventoryReceiptConfig } from "../../lib/import-export/configs/inventory-receipt.config.ts";
+import { useAuth } from "../../contexts/auth-context.tsx";
+import { asSystemId } from "../../lib/id-types.ts";
 
 const getColumns = (
   handlers: {
@@ -197,8 +202,12 @@ export function InventoryReceiptsPage() {
   const { data: branches, findById: findBranchById } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
+  const { employee: currentUser } = useAuth();
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  
+  // Export dialog state
+  const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
   const headerActions = React.useMemo(() => [
     <Button
@@ -556,6 +565,18 @@ export function InventoryReceiptsPage() {
 
   return (
     <div className="space-y-4 flex flex-col h-full">
+      {/* PageToolbar - Desktop only */}
+      {!isMobile && (
+        <PageToolbar
+          leftActions={
+            <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              Xuất Excel
+            </Button>
+          }
+        />
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -679,6 +700,21 @@ export function InventoryReceiptsPage() {
         onConfirm={handlePrintConfirm}
         selectedCount={pendingPrintReceipts.length}
         title="In phiếu nhập kho"
+      />
+
+      {/* Export Dialog */}
+      <GenericExportDialogV2<InventoryReceipt>
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        config={inventoryReceiptConfig}
+        allData={receipts}
+        filteredData={filteredData}
+        currentPageData={paginatedData}
+        selectedData={selectedRows}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
       />
     </div>
   );

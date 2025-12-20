@@ -5,13 +5,15 @@ import { Button } from '../../../../components/ui/button.tsx';
 import { Input } from '../../../../components/ui/input.tsx';
 import { Badge } from '../../../../components/ui/badge.tsx';
 import { Switch } from '../../../../components/ui/switch.tsx';
+import { Checkbox } from '../../../../components/ui/checkbox.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog.tsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../../components/ui/alert-dialog.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
 import { Label } from '../../../../components/ui/label.tsx';
 import { ScrollArea } from '../../../../components/ui/scroll-area.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu.tsx';
-import { Search, ExternalLink, Link, Unlink, RefreshCw, Loader2, CheckCircle2, Upload, ArrowRight, Settings2, MoreHorizontal, Eye, TriangleAlert, Package, DollarSign, FileText, Link2, ImageIcon, Flame, Sparkles, Home, Star, ShoppingBag, Circle, XCircle } from 'lucide-react';
+import { Search, ExternalLink, Link, Unlink, RefreshCw, Loader2, CheckCircle2, Upload, ArrowRight, Settings2, MoreHorizontal, Eye, TriangleAlert, Package, DollarSign, FileText, Link2, ImageIcon, Flame, Sparkles, Home, Star, ShoppingBag, Circle, XCircle, Trash2, AlertCircle, Lightbulb, AlertTriangle, AlignLeft, Tag, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProductStore } from '../../../products/store';
 import { usePkgxSettingsStore } from '../store';
@@ -21,7 +23,133 @@ import type { SystemId } from '../../../../lib/id-types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../components/ui/tooltip.tsx';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table.tsx';
 import { useAuth, getCurrentUserName } from '../../../../contexts/auth-context';
+import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert.tsx';
+import { useProductMappingValidation } from '../hooks/use-product-mapping-validation';
+import { usePkgxEntitySync } from '../hooks';
+import type { HrmProductData } from '../hooks';
+import type { ProductMappingInput } from '../validation/product-mapping-validation';
+import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-dialog';
+import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 import type { ColumnDef } from '../../../../components/data-table/types';
+
+// ========================================
+// Mobile Dropdown Helper Component
+// ========================================
+interface MobileProductDropdownProps {
+  row: PkgxProductRow;
+  entitySync: ReturnType<typeof usePkgxEntitySync>;
+  onViewOnPkgx: (goodsId: number) => void;
+  onOpenLinkDialog: (row: PkgxProduct) => void;
+  onOpenUnlinkDialog: (row: PkgxProduct) => void;
+}
+
+function MobileProductDropdown({ row, entitySync, onViewOnPkgx, onOpenLinkDialog, onOpenUnlinkDialog }: MobileProductDropdownProps) {
+  // Helper to build HRM product data for sync
+  const buildHrmData = (): HrmProductData | null => {
+    if (!row.linkedHrmProduct) return null;
+    return {
+      systemId: row.linkedHrmProduct.systemId,
+      name: row.linkedHrmProduct.name,
+      sku: row.linkedHrmProduct.sku,
+      sellingPrice: row.linkedHrmProduct.sellingPrice,
+      costPrice: row.linkedHrmProduct.costPrice,
+      dealPrice: row.linkedHrmProduct.dealPrice,
+      quantity: row.linkedHrmProduct.quantity,
+      seoKeywords: row.linkedHrmProduct.seoKeywords,
+      ktitle: row.linkedHrmProduct.ktitle,
+      seoDescription: row.linkedHrmProduct.seoDescription,
+      shortDescription: row.linkedHrmProduct.shortDescription,
+      description: row.linkedHrmProduct.description,
+      isBest: row.linkedHrmProduct.isBest,
+      isNew: row.linkedHrmProduct.isNew,
+      isHot: row.linkedHrmProduct.isHot,
+      isHome: row.linkedHrmProduct.isHome,
+      categorySystemId: row.linkedHrmProduct.categorySystemId,
+      brandSystemId: row.linkedHrmProduct.brandSystemId,
+    };
+  };
+  
+  // Helper to trigger sync with proper HRM data
+  const triggerSync = (actionKey: 'sync_all' | 'sync_basic' | 'sync_seo' | 'sync_description' | 'sync_price' | 'sync_inventory' | 'sync_flags') => {
+    const hrmData = buildHrmData();
+    if (!hrmData) {
+      toast.error('Sản phẩm chưa được liên kết với HRM');
+      return;
+    }
+    entitySync.triggerSyncAction(actionKey, row.goods_id, hrmData, row.goods_name);
+  };
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {row.linkedHrmProduct ? (
+          <>
+            {/* Sync All */}
+            <DropdownMenuItem 
+              onClick={() => triggerSync('sync_all')}
+              className="font-medium"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Đồng bộ tất cả
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => triggerSync('sync_basic')}>
+              <FileText className="h-4 w-4 mr-2" />
+              Thông tin cơ bản
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => triggerSync('sync_price')}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              Giá
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => triggerSync('sync_inventory')}>
+              <Package className="h-4 w-4 mr-2" />
+              Tồn kho
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => triggerSync('sync_seo')}>
+              <Search className="h-4 w-4 mr-2" />
+              SEO
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => triggerSync('sync_description')}>
+              <AlignLeft className="h-4 w-4 mr-2" />
+              Mô tả
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => triggerSync('sync_flags')}>
+              <Tag className="h-4 w-4 mr-2" />
+              Flags
+            </DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onViewOnPkgx(row.goods_id)}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Xem trên PKGX
+            </DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => onOpenUnlinkDialog(row)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Unlink className="h-4 w-4 mr-2" />
+              Hủy liên kết
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <>
+            <DropdownMenuItem onClick={() => onOpenLinkDialog(row)}>
+              <Link2 className="h-4 w-4 mr-2" />
+              Liên kết với HRM
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 // ========================================
 // PKGX Sync Fields Configuration
@@ -144,10 +272,25 @@ export function ProductMappingTab() {
   const [selectedPkgxProduct, setSelectedPkgxProduct] = React.useState<PkgxProduct | null>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = React.useState(false);
   const [selectedHrmProductId, setSelectedHrmProductId] = React.useState('');
+  const [showWarningConfirm, setShowWarningConfirm] = React.useState(false);
   
   // Unlink dialog state
   const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = React.useState(false);
   const [productToUnlink, setProductToUnlink] = React.useState<{ pkgxProduct: PkgxProduct; hrmProduct: any } | null>(null);
+  
+  // Row selection state
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  
+  // Bulk unlink dialog state
+  const [isBulkUnlinkDialogOpen, setIsBulkUnlinkDialogOpen] = React.useState(false);
+  
+  // Use shared PKGX entity sync hook
+  const entitySync = usePkgxEntitySync({
+    entityType: 'product',
+    onLog: addLog,
+    getPkgxCatIdByHrmCategory,
+    getPkgxBrandIdByHrmBrand,
+  });
   
   // Sync dialog state - Push (HRM to PKGX) - Default basic fields + prices
   const [isPushDialogOpen, setIsPushDialogOpen] = React.useState(false);
@@ -160,6 +303,20 @@ export function ProductMappingTab() {
     () => productStore.data.filter(p => !p.isDeleted).sort((a, b) => a.name.localeCompare(b.name)),
     [productStore.data]
   );
+  
+  // Validation hook
+  const validation = useProductMappingValidation({
+    hrmProducts: hrmProducts.map(p => ({
+      systemId: p.systemId,
+      name: p.name,
+      id: p.id,
+      pkgxId: p.pkgxId,
+      status: p.status,
+    })),
+    pkgxProducts: pkgxProducts,
+    editingProductId: undefined,
+    debounceMs: 300,
+  });
   
   // Count of linked HRM products
   const linkedCount = React.useMemo(
@@ -250,6 +407,26 @@ export function ProductMappingTab() {
   
   // Column definitions for ResponsiveDataTable
   const columns = React.useMemo((): ColumnDef<PkgxProductRow>[] => [
+    // Checkbox column
+    {
+      id: 'select',
+      header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
+        <Checkbox
+          checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? "indeterminate" : false}
+          onCheckedChange={(value) => onToggleAll?.(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ onToggleSelect, isSelected }) => (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={onToggleSelect}
+          aria-label="Select row"
+        />
+      ),
+      size: 40,
+      meta: { displayName: 'Chọn', excludeFromExport: true },
+    },
     {
       id: 'goods_id',
       accessorKey: 'goods_id',
@@ -335,44 +512,143 @@ export function ProductMappingTab() {
       id: 'actions',
       header: '',
       size: 50,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleOpenDetailDialog(row)}>
-              <Eye className="h-4 w-4 mr-2" />
-              Xem chi tiết
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleRefreshSingleProduct(row.goods_id)}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Tải lại
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleViewOnPkgx(row.goods_id)}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Xem trên PKGX
-            </DropdownMenuItem>
-            {row.linkedHrmProduct && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onClick={() => handleOpenUnlinkDialog(row)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Unlink className="h-4 w-4 mr-2" />
-                  Hủy liên kết
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        // Helper to build HRM product data for sync
+        const buildHrmData = (): HrmProductData | null => {
+          if (!row.linkedHrmProduct) return null;
+          return {
+            systemId: row.linkedHrmProduct.systemId,
+            name: row.linkedHrmProduct.name,
+            sku: row.linkedHrmProduct.sku,
+            sellingPrice: row.linkedHrmProduct.sellingPrice,
+            costPrice: row.linkedHrmProduct.costPrice,
+            dealPrice: row.linkedHrmProduct.dealPrice,
+            quantity: row.linkedHrmProduct.quantity,
+            seoKeywords: row.linkedHrmProduct.seoKeywords,
+            ktitle: row.linkedHrmProduct.ktitle,
+            seoDescription: row.linkedHrmProduct.seoDescription,
+            shortDescription: row.linkedHrmProduct.shortDescription,
+            description: row.linkedHrmProduct.description,
+            isBest: row.linkedHrmProduct.isBest,
+            isNew: row.linkedHrmProduct.isNew,
+            isHot: row.linkedHrmProduct.isHot,
+            isHome: row.linkedHrmProduct.isHome,
+            categorySystemId: row.linkedHrmProduct.categorySystemId,
+            brandSystemId: row.linkedHrmProduct.brandSystemId,
+          };
+        };
+        
+        // Helper to trigger sync with proper HRM data
+        const triggerSync = (actionKey: 'sync_all' | 'sync_basic' | 'sync_seo' | 'sync_description' | 'sync_price' | 'sync_inventory' | 'sync_flags') => {
+          const hrmData = buildHrmData();
+          if (!hrmData) {
+            toast.error('Sản phẩm chưa được liên kết với HRM');
+            return;
+          }
+          entitySync.triggerSyncAction(actionKey, row.goods_id, hrmData, row.goods_name);
+        };
+        
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {row.linkedHrmProduct ? (
+                <>
+                  {/* Sync All - Most important action */}
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_all')}
+                    className="font-medium"
+                    title="Đồng bộ tên, SKU, giá, tồn kho, SEO, mô tả, flags"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Đồng bộ tất cả
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  
+                  {/* Individual sync actions */}
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_basic')}
+                    title="Tên sản phẩm, mã SKU, danh mục, thương hiệu"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Thông tin cơ bản
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_price')}
+                    title="Giá bán, giá thị trường, giá khuyến mãi"
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Giá
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_inventory')}
+                    title="Tổng số lượng tồn kho từ tất cả chi nhánh"
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Tồn kho
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_seo')}
+                    title="Keywords, Meta Title, Meta Description"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    SEO
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_description')}
+                    title="Mô tả ngắn (goods_brief), mô tả chi tiết (goods_desc)"
+                  >
+                    <AlignLeft className="h-4 w-4 mr-2" />
+                    Mô tả
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_flags')}
+                    title="Nổi bật (best), Hot, Mới (new), Trang chủ"
+                  >
+                    <Tag className="h-4 w-4 mr-2" />
+                    Flags
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleViewOnPkgx(row.goods_id)}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Xem trên PKGX
+                  </DropdownMenuItem>
+                  
+                  {/* Hủy liên kết */}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => entitySync.handleConfirm(
+                      'Hủy liên kết PKGX',
+                      `Bạn có chắc muốn hủy liên kết sản phẩm "${row.goods_name}" với HRM?`,
+                      () => handleOpenUnlinkDialog(row)
+                    )}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Unlink className="h-4 w-4 mr-2" />
+                    Hủy liên kết
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                /* Not linked - show link option */
+                <>
+                  <DropdownMenuItem onClick={() => handleOpenLinkDialog(row)}>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Liên kết với HRM
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
       meta: { displayName: '', excludeFromExport: true },
     },
-  ], []);
+  ], [hrmProducts, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, entitySync]);
   
   // Mobile card renderer
   const renderMobileCard = React.useCallback((row: PkgxProductRow, index: number) => (
@@ -396,39 +672,13 @@ export function ProductMappingTab() {
           ) : (
             <Badge variant="secondary" className="text-xs shrink-0">Chưa liên kết</Badge>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleOpenDetailDialog(row)}>
-                <Eye className="h-4 w-4 mr-2" />
-                Xem chi tiết
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleRefreshSingleProduct(row.goods_id)}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Tải lại
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleViewOnPkgx(row.goods_id)}>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Xem trên PKGX
-              </DropdownMenuItem>
-              {row.linkedHrmProduct && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => handleOpenUnlinkDialog(row)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Unlink className="h-4 w-4 mr-2" />
-                    Hủy liên kết
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <MobileProductDropdown 
+            row={row} 
+            entitySync={entitySync}
+            onViewOnPkgx={handleViewOnPkgx}
+            onOpenLinkDialog={handleOpenLinkDialog}
+            onOpenUnlinkDialog={handleOpenUnlinkDialog}
+          />
         </div>
       </div>
       
@@ -447,7 +697,7 @@ export function ProductMappingTab() {
         </div>
       )}
     </div>
-  ), []);
+  ), [hrmProducts, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand]);
   
   // Handlers
   const handleOpenDetailDialog = React.useCallback(async (row: PkgxProductRow) => {
@@ -475,12 +725,25 @@ export function ProductMappingTab() {
   
   const handleOpenLinkDialog = React.useCallback((pkgxProduct: PkgxProduct) => {
     setSelectedPkgxProduct(pkgxProduct);
+    // Auto-suggest matching products
+    validation.updateSuggestions(pkgxProduct);
+    // Try to find exact match by SKU first, then by name
     const matchedProduct = hrmProducts.find(
       (p) => p.id === pkgxProduct.goods_sn || p.name === pkgxProduct.goods_name
     );
     setSelectedHrmProductId(matchedProduct?.systemId || '');
+    setShowWarningConfirm(false);
+    validation.clearValidation();
     setIsLinkDialogOpen(true);
-  }, [hrmProducts]);
+  }, [hrmProducts, validation]);
+  
+  const handleCloseLinkDialog = React.useCallback(() => {
+    setIsLinkDialogOpen(false);
+    setSelectedPkgxProduct(null);
+    setSelectedHrmProductId('');
+    setShowWarningConfirm(false);
+    validation.clearValidation();
+  }, [validation]);
   
   const handleOpenUnlinkDialog = React.useCallback((pkgxProduct: PkgxProduct) => {
     const hrmProduct = findLinkedHrmProduct(pkgxProduct.goods_id);
@@ -489,6 +752,55 @@ export function ProductMappingTab() {
       setIsUnlinkDialogOpen(true);
     }
   }, [findLinkedHrmProduct]);
+  
+  // Get selected products that are linked (for bulk unlink)
+  const selectedLinkedProducts = React.useMemo(() => {
+    const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
+    return paginatedData.filter(p => selectedIds.includes(p.systemId) && p.linkedHrmProduct);
+  }, [rowSelection, paginatedData]);
+  
+  // All selected rows for bulk actions
+  const allSelectedRows = React.useMemo(() => 
+    paginatedData.filter(p => rowSelection[p.systemId]),
+  [paginatedData, rowSelection]);
+  
+  // Bulk actions for ResponsiveDataTable
+  const bulkActions = React.useMemo(() => [
+    {
+      label: 'Hủy liên kết',
+      icon: Unlink,
+      variant: 'destructive' as const,
+      disabled: selectedLinkedProducts.length === 0,
+      onSelect: () => {
+        if (selectedLinkedProducts.length === 0) {
+          toast.error('Không có sản phẩm đã liên kết nào được chọn');
+          return;
+        }
+        setIsBulkUnlinkDialogOpen(true);
+      },
+    },
+  ], [selectedLinkedProducts]);
+  
+  const handleConfirmBulkUnlink = React.useCallback(() => {
+    let successCount = 0;
+    selectedLinkedProducts.forEach(product => {
+      if (product.linkedHrmProduct) {
+        productStore.update(product.linkedHrmProduct.systemId as SystemId, { pkgxId: undefined });
+        successCount++;
+      }
+    });
+    
+    setIsBulkUnlinkDialogOpen(false);
+    setRowSelection({});
+    toast.success(`Đã hủy liên kết ${successCount} sản phẩm`);
+    
+    addLog({
+      action: 'batch_unlink',
+      status: 'success',
+      message: `Đã hủy liên kết ${successCount} sản phẩm`,
+      details: { total: successCount },
+    });
+  }, [selectedLinkedProducts, productStore, addLog]);
   
   const handleOpenPushDialog = React.useCallback((row: PkgxProductRow) => {
     setProductToPush(row);
@@ -617,16 +929,57 @@ export function ProductMappingTab() {
     }
   };
   
+  // Validate when form values change
+  React.useEffect(() => {
+    if (isLinkDialogOpen && selectedPkgxProduct && selectedHrmProductId) {
+      const hrmProduct = hrmProducts.find(p => p.systemId === selectedHrmProductId);
+      const input: ProductMappingInput = {
+        hrmProductSystemId: selectedHrmProductId || '',
+        hrmProductName: hrmProduct?.name || '',
+        hrmProductSku: hrmProduct?.id,
+        pkgxProductId: selectedPkgxProduct.goods_id,
+        pkgxProductName: selectedPkgxProduct.goods_name,
+        pkgxProductSku: selectedPkgxProduct.goods_sn,
+      };
+      validation.validateAsync(input);
+    }
+  }, [selectedHrmProductId, selectedPkgxProduct, isLinkDialogOpen, hrmProducts, validation]);
+  
   // Confirm link
   const handleConfirmLink = () => {
-    if (!selectedPkgxProduct || !selectedHrmProductId) {
-      toast.error('Vui lòng chọn sản phẩm HRM');
+    if (!selectedPkgxProduct) {
+      toast.error('Vui lòng chọn sản phẩm PKGX');
       return;
     }
     
-    const hrmProduct = hrmProducts.find((p) => p.systemId === selectedHrmProductId);
-    if (hrmProduct?.pkgxId && hrmProduct.pkgxId !== selectedPkgxProduct.goods_id) {
-      toast.error(`Sản phẩm "${hrmProduct.name}" đã được liên kết với PKGX ID ${hrmProduct.pkgxId}`);
+    // Build input for validation
+    const hrmProduct = hrmProducts.find(p => p.systemId === selectedHrmProductId);
+    const input: ProductMappingInput = {
+      hrmProductSystemId: selectedHrmProductId || '',
+      hrmProductName: hrmProduct?.name || '',
+      hrmProductSku: hrmProduct?.id,
+      pkgxProductId: selectedPkgxProduct.goods_id,
+      pkgxProductName: selectedPkgxProduct.goods_name,
+      pkgxProductSku: selectedPkgxProduct.goods_sn,
+    };
+    
+    // Run final validation
+    const result = validation.validate(input);
+    
+    // Block if there are errors
+    if (!result.isValid) {
+      toast.error(result.errors[0]?.message || 'Vui lòng kiểm tra lại thông tin');
+      return;
+    }
+    
+    // Show warning confirmation if there are warnings and not yet confirmed
+    if (result.warnings.length > 0 && !showWarningConfirm) {
+      setShowWarningConfirm(true);
+      return;
+    }
+    
+    if (!hrmProduct) {
+      toast.error('Không tìm thấy sản phẩm HRM');
       return;
     }
     
@@ -636,17 +989,15 @@ export function ProductMappingTab() {
     addLog({
       action: 'link_product',
       status: 'success',
-      message: `Đã liên kết: ${hrmProduct?.name} ↔ ${selectedPkgxProduct.goods_name}`,
+      message: `Đã liên kết: ${hrmProduct.name} ↔ ${selectedPkgxProduct.goods_name}`,
       details: { 
         pkgxId: selectedPkgxProduct.goods_id, 
         productId: selectedHrmProductId, 
-        productName: hrmProduct?.name,
+        productName: hrmProduct.name,
       },
     });
     
-    setIsLinkDialogOpen(false);
-    setSelectedPkgxProduct(null);
-    setSelectedHrmProductId('');
+    handleCloseLinkDialog();
   };
   
   // Confirm unlink
@@ -859,90 +1210,126 @@ export function ProductMappingTab() {
               </div>
             </div>
             
-            {/* Warning if not enabled */}
-            {!settings.enabled && (
-              <div className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                <TriangleAlert className="h-4 w-4 flex-shrink-0" />
-                <p>Tích hợp PKGX chưa được bật. Vui lòng bật trong tab "Cấu hình chung".</p>
-              </div>
-            )}
-            
-            {/* ResponsiveDataTable */}
-            <ResponsiveDataTable<PkgxProductRow>
-              columns={columns}
-              data={paginatedData}
-              pageCount={pageCount}
-              pagination={pagination}
-              setPagination={setPagination}
-              rowCount={tableData.length}
-              sorting={sorting}
-              setSorting={setSorting}
-              renderMobileCard={renderMobileCard}
-              isLoading={isSyncing}
-              emptyTitle="Chưa có dữ liệu sản phẩm"
-              emptyDescription="Bấm 'Đồng bộ từ PKGX' để lấy danh sách sản phẩm"
-              emptyAction={
-                <Button onClick={handleSyncFromPkgx} disabled={isSyncing}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Đồng bộ từ PKGX
-                </Button>
-              }
-            />
+            {/* Tabs - PKGX Products and Linked/Mapping */}
+            <Tabs defaultValue="pkgx-products" className="w-full">
+              <TabsList>
+                <TabsTrigger value="pkgx-products">
+                  <Package className="h-4 w-4 mr-2" />
+                  Sản phẩm PKGX ({pkgxProducts.length})
+                </TabsTrigger>
+                <TabsTrigger value="linked">
+                  <Link className="h-4 w-4 mr-2" />
+                  Đã liên kết ({linkedCount})
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="pkgx-products" className="mt-4">
+                {/* Warning if not enabled */}
+                {!settings.enabled && (
+                  <div className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 mb-4">
+                    <TriangleAlert className="h-4 w-4 flex-shrink-0" />
+                    <p>Tích hợp PKGX chưa được bật. Vui lòng bật trong tab "Cấu hình chung".</p>
+                  </div>
+                )}
+                
+                {pkgxProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Chưa có sản phẩm từ PKGX.</p>
+                    <p className="text-sm mt-1">Bấm "Đồng bộ từ PKGX" để lấy danh sách.</p>
+                  </div>
+                ) : (
+                  <ResponsiveDataTable<PkgxProductRow>
+                    columns={columns}
+                    data={paginatedData}
+                    pageCount={pageCount}
+                    pagination={pagination}
+                    setPagination={setPagination}
+                    rowCount={tableData.length}
+                    sorting={sorting}
+                    setSorting={setSorting}
+                    rowSelection={rowSelection}
+                    setRowSelection={setRowSelection}
+                    renderMobileCard={renderMobileCard}
+                    isLoading={isSyncing}
+                    bulkActions={bulkActions}
+                    allSelectedRows={allSelectedRows}
+                    emptyTitle="Không tìm thấy sản phẩm"
+                  />
+                )}
+              </TabsContent>
+              
+              <TabsContent value="linked" className="mt-4">
+                {linkedCount === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Link className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Chưa có sản phẩm nào được liên kết.</p>
+                    <p className="text-sm mt-1">Chọn sản phẩm trong tab "Sản phẩm PKGX" và liên kết với HRM.</p>
+                  </div>
+                ) : (
+                  <ResponsiveDataTable<PkgxProductRow>
+                    columns={columns}
+                    data={paginatedData.filter(p => p.linkedHrmProduct)}
+                    pageCount={Math.ceil(tableData.filter(p => p.linkedHrmProduct).length / pagination.pageSize)}
+                    pagination={pagination}
+                    setPagination={setPagination}
+                    rowCount={tableData.filter(p => p.linkedHrmProduct).length}
+                    sorting={sorting}
+                    setSorting={setSorting}
+                    rowSelection={rowSelection}
+                    setRowSelection={setRowSelection}
+                    renderMobileCard={renderMobileCard}
+                    isLoading={isSyncing}
+                    bulkActions={bulkActions}
+                    allSelectedRows={allSelectedRows.filter(p => p.linkedHrmProduct)}
+                    emptyTitle="Không tìm thấy sản phẩm đã liên kết"
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </CardContent>
       </Card>
       
-      {/* Link Dialog */}
-      <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Liên kết sản phẩm</DialogTitle>
-            <DialogDescription>
-              Chọn sản phẩm HRM để liên kết với sản phẩm PKGX
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedPkgxProduct && (
-            <div className="space-y-4 py-4">
-              <div className="rounded-lg bg-muted p-3">
-                <p className="text-sm font-medium">Sản phẩm PKGX:</p>
-                <p className="text-sm">{selectedPkgxProduct.goods_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  ID: {selectedPkgxProduct.goods_id} | Mã: {selectedPkgxProduct.goods_sn || '-'}
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Chọn sản phẩm HRM</Label>
-                <Select value={selectedHrmProductId} onValueChange={setSelectedHrmProductId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn sản phẩm HRM..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hrmProducts
-                      .filter((p) => !p.pkgxId || p.pkgxId === selectedPkgxProduct.goods_id)
-                      .map((product) => (
-                        <SelectItem key={product.systemId} value={product.systemId}>
-                          {product.name} ({product.id})
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsLinkDialogOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleConfirmLink}>
-              <Link className="h-4 w-4 mr-2" />
-              Liên kết
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Link Dialog - Using shared PkgxMappingDialog component */}
+      <PkgxMappingDialog
+        open={isLinkDialogOpen}
+        onOpenChange={handleCloseLinkDialog}
+        type="product"
+        hrmItems={hrmProducts
+          .filter((p) => !p.pkgxId || (selectedPkgxProduct && p.pkgxId === selectedPkgxProduct.goods_id))
+          .map((p) => ({
+            id: p.systemId,
+            name: p.name,
+            subText: p.id,
+          }))}
+        selectedHrmId={selectedHrmProductId}
+        onSelectHrmId={setSelectedHrmProductId}
+        pkgxItems={pkgxProducts.map((p) => ({
+          id: p.goods_id.toString(),
+          name: p.goods_name,
+          subText: `ID: ${p.goods_id}`,
+        }))}
+        selectedPkgxId={selectedPkgxProduct?.goods_id.toString() || ''}
+        onSelectPkgxId={(id) => {
+          const pkgx = pkgxProducts.find(p => p.goods_id.toString() === id);
+          if (pkgx) {
+            setSelectedPkgxProduct(pkgx);
+            validation.updateSuggestions(pkgx);
+          }
+        }}
+        pkgxSuggestions={validation.suggestions.map(s => ({
+          item: { id: s.product.systemId, name: s.product.name, subText: s.product.id },
+          score: s.score,
+          matchType: s.matchType,
+        }))}
+        validation={validation.validationResult}
+        hasErrors={validation.hasErrors}
+        isValidating={validation.isValidating}
+        showWarningConfirm={showWarningConfirm}
+        onConfirm={handleConfirmLink}
+        onCancel={handleCloseLinkDialog}
+      />
       
       {/* Unlink Dialog */}
       <Dialog open={isUnlinkDialogOpen} onOpenChange={setIsUnlinkDialogOpen}>
@@ -1552,15 +1939,6 @@ export function ProductMappingTab() {
           <DialogFooter className="mt-4 flex-wrap gap-2">
             {selectedProductForDetail && (
               <>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleRefreshSingleProduct(selectedProductForDetail.goods_id)}
-                  disabled={isLoadingProductDetail}
-                >
-                  {isLoadingProductDetail ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  <span className="ml-2">Tải lại</span>
-                </Button>
                 <Button variant="outline" size="sm" onClick={() => handleViewOnPkgx(selectedProductForDetail.goods_id)}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Xem trên PKGX
@@ -1587,6 +1965,33 @@ export function ProductMappingTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Bulk Unlink Confirm Dialog */}
+      <AlertDialog open={isBulkUnlinkDialogOpen} onOpenChange={setIsBulkUnlinkDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hủy liên kết {selectedLinkedProducts.length} sản phẩm?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn hủy liên kết {selectedLinkedProducts.length} sản phẩm đã chọn với HRM? 
+              Hành động này sẽ xóa liên kết giữa sản phẩm PKGX và HRM, không xóa dữ liệu sản phẩm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmBulkUnlink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Xác nhận hủy liên kết
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Confirmation Dialog for sync actions - using shared component */}
+      <PkgxSyncConfirmDialog
+        confirmAction={entitySync.confirmAction}
+        isSyncing={entitySync.isSyncing}
+        onConfirm={entitySync.executeAction}
+        onCancel={entitySync.cancelConfirm}
+      />
     </div>
   );
 }

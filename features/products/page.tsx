@@ -8,6 +8,8 @@ import { useBranchStore } from "../settings/branches/store.ts"
 import { useBrandStore } from "../settings/inventory/brand-store.ts"
 import { usePricingPolicyStore } from "../settings/pricing/store.ts"
 import { usePkgxSettingsStore } from "../settings/pkgx/store.ts"
+import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync.ts"
+import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog.tsx"
 import { createProduct, updateProduct } from "../../lib/pkgx/api-service.ts"
 import type { PkgxProductPayload } from "../settings/pkgx/types.ts"
 import { usePkgxSync } from "./hooks/use-pkgx-sync.ts"
@@ -70,7 +72,7 @@ import {
   SelectValue,
 } from "../../components/ui/select.tsx";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet.tsx";
-import { MoreVertical, Package, Settings2, SlidersHorizontal, Columns3, Layers, RefreshCw, FileText, DollarSign, PackageSearch, Search, Flag, Image, ExternalLink, Unlink, Printer, Trash2, Play, StopCircle } from "lucide-react";
+import { MoreVertical, Package, Settings2, SlidersHorizontal, Columns3, Layers, RefreshCw, FileText, DollarSign, PackageSearch, Search, Flag, Image, ExternalLink, Unlink, Printer, Trash2, Play, StopCircle, FileUp, Download } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate } from '@/lib/date-utils';
 
@@ -283,6 +285,15 @@ export function ProductsPage() {
     handlePkgxSyncImages,
     handlePkgxSyncAll,
   } = usePkgxSync({ addPkgxLog });
+  
+  // Bulk sync hook for PKGX operations
+  const {
+    confirmAction: bulkConfirmAction,
+    progress: bulkProgress,
+    triggerBulkSync,
+    executeAction: executeBulkAction,
+    cancelConfirm: cancelBulkConfirm,
+  } = usePkgxBulkSync({ entityType: 'product', onLog: addPkgxLog });
   
   // Helper: Build PKGX product payload from HRM product (for Publish)
   const buildPkgxPayload = React.useCallback((product: Product): PkgxProductPayload => {
@@ -621,22 +632,15 @@ export function ProductsPage() {
       handleRestore, 
       navigate, 
       handlePrintLabel,
-      handlePkgxUpdatePrice,
       handlePkgxPublish,
-      handlePkgxUpdateSeo,
-      handlePkgxSyncInventory,
-      handlePkgxSyncDescription,
-      handlePkgxSyncFlags,
-      handlePkgxSyncBasicInfo,
-      handlePkgxSyncImages,
-      handlePkgxSyncAll,
       handlePkgxLink,
       handlePkgxUnlink,
+      handlePkgxSyncImages,
       handleStatusChange,
       handleInventoryChange,
       handleFieldUpdate
     ),
-    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxUpdatePrice, handlePkgxPublish, handlePkgxUpdateSeo, handlePkgxSyncInventory, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncBasicInfo, handlePkgxSyncImages, handlePkgxSyncAll, handlePkgxLink, handlePkgxUnlink, handleStatusChange, handleInventoryChange, handleFieldUpdate]
+    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxPublish, handlePkgxLink, handlePkgxUnlink, handlePkgxSyncImages, handleStatusChange, handleInventoryChange, handleFieldUpdate]
   );
   
   // ✅ Run once on mount only
@@ -880,19 +884,26 @@ export function ProductsPage() {
         }
       }
       
+      // Invalidate query cache để refresh danh sách sản phẩm
+      if (results.success > 0) {
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+      }
+      
       return results;
     } catch (error) {
       console.error('[Products Importer] Lỗi nhập sản phẩm', error);
       throw error;
     }
-  }, [products, add, update, authEmployee?.systemId]);
+  }, [products, add, update, authEmployee?.systemId, queryClient]);
 
   const toolbarLeftActions = (
     <>
       <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
+        <FileUp className="mr-2 h-4 w-4" />
         Nhập file
       </Button>
       <Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}>
+        <Download className="mr-2 h-4 w-4" />
         Xuất Excel
       </Button>
     </>
@@ -1175,336 +1186,63 @@ export function ProductsPage() {
   ];
 
   // ═══════════════════════════════════════════════════════════════
-  // PKGX Bulk Actions - Tách riêng dropdown PKGX
+  // PKGX Bulk Actions - Using shared usePkgxBulkSync hook
   // ═══════════════════════════════════════════════════════════════
-  const pkgxBulkActions = [
+  const pkgxBulkActions = React.useMemo(() => [
     {
       label: "Đồng bộ tất cả",
       icon: RefreshCw,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        const unlinkedProducts = selectedRows.filter(p => !p.pkgxId);
-        
-        if (linkedProducts.length === 0 && unlinkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào được chọn');
-          return;
-        }
-        
-        // Build confirm message based on selection
-        let confirmMsg = '';
-        if (linkedProducts.length > 0 && unlinkedProducts.length > 0) {
-          confirmMsg = `Bạn có chắc muốn đồng bộ ${linkedProducts.length} sản phẩm đã liên kết?\n(${unlinkedProducts.length} sản phẩm chưa liên kết sẽ bị bỏ qua)`;
-        } else if (linkedProducts.length > 0) {
-          confirmMsg = `Bạn có chắc muốn đồng bộ tất cả thông tin cho ${linkedProducts.length} sản phẩm?`;
-        } else {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        if (!confirm(confirmMsg)) {
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const payload = buildPkgxPayload(product);
-            const response = await updateProduct(product.pkgxId!, payload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_all');
       }
     },
     {
       label: "Thông tin cơ bản",
       icon: FileText,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ thông tin cơ bản ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const payload = {
-              goods_name: product.name,
-              goods_sn: product.id,
-              seller_note: product.sellerNote || '',
-            };
-            const response = await updateProduct(product.pkgxId!, payload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ thông tin cơ bản ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_basic');
       }
     },
     {
       label: "Giá",
       icon: DollarSign,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ giá ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const pricePayload = createPriceUpdatePayload(product);
-            const response = await updateProduct(product.pkgxId!, pricePayload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ giá ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_price');
       }
     },
     {
       label: "Tồn kho",
       icon: PackageSearch,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ tồn kho ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const totalStock = getTotalInventory(product);
-            const response = await updateProduct(product.pkgxId!, { goods_number: totalStock });
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ tồn kho ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_inventory');
       }
     },
     {
       label: "SEO",
       icon: Search,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ SEO ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const seoPayload = createSeoUpdatePayload(product);
-            const response = await updateProduct(product.pkgxId!, seoPayload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ SEO ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_seo');
       }
     },
     {
       label: "Mô tả",
       icon: FileText,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ mô tả ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const pkgxSeo = product.seoPkgx;
-            const payload = {
-              goods_desc: pkgxSeo?.longDescription || product.description || '',
-              goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
-            };
-            const response = await updateProduct(product.pkgxId!, payload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ mô tả ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_description');
       }
     },
     {
       label: "Flags",
       icon: Flag,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ flags ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const flagsPayload = createFlagsUpdatePayload(product);
-            const response = await updateProduct(product.pkgxId!, flagsPayload);
-            if (response.success) successCount++;
-            else errorCount++;
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ flags ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_flags');
       }
     },
     {
       label: "Hình ảnh",
       icon: Image,
-      onSelect: async (selectedRows: Product[]) => {
-        const pkgxSettings = usePkgxSettingsStore.getState();
-        if (!pkgxSettings.settings.enabled) {
-          toast.error('PKGX chưa được bật');
-          return;
-        }
-        
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        toast.info(`Đang đồng bộ hình ảnh ${linkedProducts.length} sản phẩm...`);
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            const payload: Record<string, unknown> = {};
-            if (product.thumbnailImage) payload.original_img = product.thumbnailImage;
-            const galleryImages = product.galleryImages || product.images || [];
-            if (galleryImages.length > 0) payload.gallery_images = galleryImages;
-            
-            if (Object.keys(payload).length > 0) {
-              const response = await updateProduct(product.pkgxId!, payload);
-              if (response.success) successCount++;
-              else errorCount++;
-            } else {
-              errorCount++;
-            }
-          } catch {
-            errorCount++;
-          }
-        }
-        
-        setRowSelection({});
-        if (successCount > 0) toast.success(`Đã đồng bộ hình ảnh ${successCount} sản phẩm`);
-        if (errorCount > 0) toast.error(`Lỗi ${errorCount} sản phẩm`);
+      onSelect: (selectedRows: Product[]) => {
+        triggerBulkSync(selectedRows, 'sync_images');
       }
     },
     {
@@ -1518,10 +1256,8 @@ export function ProductsPage() {
         }
         
         if (linkedProducts.length === 1) {
-          // Mở 1 sản phẩm
           window.open(`https://phukiengiaxuong.com.vn/admin/goods.php?act=edit_goods&goods_id=${linkedProducts[0].pkgxId}`, '_blank');
         } else {
-          // Mở danh sách sản phẩm
           toast.info(`Đã chọn ${linkedProducts.length} sản phẩm. Vui lòng chọn 1 sản phẩm để xem.`);
         }
       }
@@ -1529,7 +1265,7 @@ export function ProductsPage() {
     {
       label: "Hủy liên kết",
       icon: Unlink,
-      variant: 'destructive',
+      variant: 'destructive' as const,
       onSelect: async (selectedRows: Product[]) => {
         const linkedProducts = selectedRows.filter(p => p.pkgxId);
         if (linkedProducts.length === 0) {
@@ -1537,7 +1273,6 @@ export function ProductsPage() {
           return;
         }
         
-        // Confirm before unlinking
         if (!confirm(`Bạn có chắc muốn hủy liên kết ${linkedProducts.length} sản phẩm với PKGX?`)) {
           return;
         }
@@ -1557,7 +1292,7 @@ export function ProductsPage() {
         toast.success(`Đã hủy liên kết ${successCount} sản phẩm với PKGX`);
       }
     },
-  ];
+  ], [triggerBulkSync, update, setRowSelection]);
 
   const getStatusVariant = (status?: string) => {
     if (!status) return 'secondary';
@@ -1872,6 +1607,14 @@ export function ProductsPage() {
         onOpenChange={setPkgxLinkDialogOpen}
         product={productToLink}
         onSuccess={handlePkgxLinkSuccess}
+      />
+
+      {/* PKGX Bulk Sync Confirm Dialog */}
+      <PkgxBulkSyncConfirmDialog
+        confirmAction={bulkConfirmAction}
+        progress={bulkProgress}
+        onConfirm={executeBulkAction}
+        onCancel={cancelBulkConfirm}
       />
     </div>
   )

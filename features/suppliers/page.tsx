@@ -21,7 +21,7 @@ import {
 } from "../../components/ui/alert-dialog.tsx"
 import type { Supplier } from "./types.ts"
 import { Button } from "../../components/ui/button.tsx"
-import { PlusCircle, Trash2 } from "lucide-react"
+import { PlusCircle, Trash2, FileSpreadsheet, Download } from "lucide-react"
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context.tsx";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
@@ -29,11 +29,22 @@ import { SupplierCard } from "./supplier-card.tsx";
 import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from "@/lib/id-types";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { supplierImportExportConfig } from "../../lib/import-export/configs/supplier.config.ts";
+import { useBranchStore } from "../settings/branches/store.ts";
+import { useAuth } from "../../contexts/auth-context.tsx";
 
 export function SuppliersPage() {
-  const { data: suppliersRaw, remove, restore, getActive, getDeleted, updateStatus, bulkDelete } = useSupplierStore();
+  const { data: suppliersRaw, remove, restore, getActive, getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
+  const { data: branches } = useBranchStore();
+  const { employee: currentUser } = useAuth();
   const navigate = ReactRouterDOM.useNavigate();
   const { isMobile } = useBreakpoint();
+  
+  // ✅ Import/Export dialogs
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
   
   // ✅ Memoize suppliers để tránh unstable reference
   const suppliers = React.useMemo(() => suppliersRaw, [suppliersRaw]);
@@ -298,23 +309,106 @@ export function SuppliersPage() {
     }
   ];
 
+  // ✅ Import handler
+  const handleImport = React.useCallback(async (
+    importedSuppliers: Partial<Supplier>[], 
+    mode: 'insert-only' | 'update-only' | 'upsert',
+    _branchId?: string
+  ) => {
+    let addedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+    
+    importedSuppliers.forEach((supplier, index) => {
+      try {
+        const existing = activeSuppliers.find(s => 
+          s.id.toLowerCase() === (supplier.id || '').toLowerCase()
+        );
+        
+        if (existing) {
+          if (mode === 'update-only' || mode === 'upsert') {
+            update(existing.systemId, { ...supplier, systemId: existing.systemId });
+            updatedCount++;
+          } else {
+            skippedCount++;
+          }
+        } else {
+          if (mode === 'insert-only' || mode === 'upsert') {
+            add(supplier as Supplier);
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        }
+      } catch (error) {
+        errors.push({ row: index + 1, message: (error as Error).message });
+      }
+    });
+    
+    if (addedCount > 0 || updatedCount > 0) {
+      const messages = [];
+      if (addedCount > 0) messages.push(`${addedCount} nhà cung cấp mới`);
+      if (updatedCount > 0) messages.push(`${updatedCount} nhà cung cấp cập nhật`);
+      toast.success(`Đã import: ${messages.join(', ')}`);
+    }
+    
+    return {
+      success: addedCount + updatedCount,
+      failed: errors.length,
+      inserted: addedCount,
+      updated: updatedCount,
+      skipped: skippedCount,
+      errors,
+    };
+  }, [activeSuppliers, add, update]);
+
+  // Get selected suppliers for export
+  const selectedSuppliers = React.useMemo(() => {
+    return activeSuppliers.filter(s => rowSelection[s.systemId]);
+  }, [activeSuppliers, rowSelection]);
+
   return (
     <div className="space-y-4">
       {/* PageToolbar - Desktop only */}
       {!isMobile && (
         <PageToolbar
           rightActions={
-            <DataTableColumnCustomizer
-              columns={columns}
-              columnVisibility={columnVisibility}
-              setColumnVisibility={setColumnVisibility}
-              columnOrder={columnOrder}
-              setColumnOrder={setColumnOrder}
-              pinnedColumns={pinnedColumns}
-              setPinnedColumns={setPinnedColumns}
-            />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Nhập file
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
+              <DataTableColumnCustomizer
+                columns={columns}
+                columnVisibility={columnVisibility}
+                setColumnVisibility={setColumnVisibility}
+                columnOrder={columnOrder}
+                setColumnOrder={setColumnOrder}
+                pinnedColumns={pinnedColumns}
+                setPinnedColumns={setPinnedColumns}
+              />
+            </div>
           }
         />
+      )}
+      
+      {/* Mobile Import/Export Buttons */}
+      {isMobile && (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Nhập
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            Xuất
+          </Button>
+        </div>
       )}
 
       {/* PageFilters */}
@@ -385,6 +479,35 @@ export function SuppliersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Import Dialog */}
+      <GenericImportDialogV2<Supplier>
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        config={supplierImportExportConfig}
+        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+        existingData={activeSuppliers}
+        onImport={handleImport}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
+      />
+
+      {/* Export Dialog */}
+      <GenericExportDialogV2<Supplier>
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        config={supplierImportExportConfig}
+        allData={activeSuppliers}
+        filteredData={sortedData}
+        currentPageData={paginatedData}
+        selectedData={selectedSuppliers}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
+      />
     </div>
   )
 }

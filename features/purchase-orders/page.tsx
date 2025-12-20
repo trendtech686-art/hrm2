@@ -62,6 +62,10 @@ import {
   createStoreSettings,
 } from '../../lib/print/purchase-order-print-helper.ts';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { purchaseOrderImportExportConfig, flattenPurchaseOrdersForExport } from "../../lib/import-export/configs/purchase-order.config.ts";
+import { FileSpreadsheet, Download } from "lucide-react";
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
@@ -148,6 +152,8 @@ export function PurchaseOrdersPage() {
   }>({ isOpen: false, po: null });
 
   const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = React.useState(false);
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
   const [receiveDialogState, setReceiveDialogState] = React.useState<ReceiveDialogState>({
     isOpen: false,
     purchaseOrder: null,
@@ -589,6 +595,10 @@ export function PurchaseOrdersPage() {
     purchaseOrders.filter(po => rowSelection[po.systemId]),
   [purchaseOrders, rowSelection]);
 
+  const selectedOrders = React.useMemo(() => {
+    return purchaseOrders.filter(o => rowSelection[o.systemId]);
+  }, [purchaseOrders, rowSelection]);
+
   const numSelected = Object.keys(rowSelection).length;
 
   const confirmBulkPay = () => {
@@ -654,6 +664,63 @@ export function PurchaseOrdersPage() {
     setRowSelection({});
     setIsBulkPayAlertOpen(false);
   };
+
+  // Import handler
+  const handleImport = React.useCallback(async (
+    importedOrders: Partial<PurchaseOrder>[],
+    mode: 'insert-only' | 'update-only' | 'upsert',
+    _branchId?: string
+  ) => {
+    let addedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+    
+    // Get add and update from store
+    const storeState = usePurchaseOrderStore.getState();
+    
+    importedOrders.forEach((order, index) => {
+      try {
+        const existing = purchaseOrders.find(o => 
+          o.id.toLowerCase() === (order.id || '').toLowerCase()
+        );
+        
+        if (existing) {
+          if (mode === 'update-only' || mode === 'upsert') {
+            storeState.update(asSystemId(existing.systemId), { ...existing, ...order, systemId: existing.systemId } as PurchaseOrder);
+            updatedCount++;
+          } else {
+            skippedCount++;
+          }
+        } else {
+          if (mode === 'insert-only' || mode === 'upsert') {
+            storeState.add(order as PurchaseOrder);
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        }
+      } catch (error) {
+        errors.push({ row: index + 1, message: (error as Error).message });
+      }
+    });
+    
+    if (addedCount > 0 || updatedCount > 0) {
+      const messages = [];
+      if (addedCount > 0) messages.push(`${addedCount} đơn nhập hàng mới`);
+      if (updatedCount > 0) messages.push(`${updatedCount} đơn cập nhật`);
+      toast.success(`Đã import: ${messages.join(', ')}`);
+    }
+    
+    return {
+      success: addedCount + updatedCount,
+      failed: errors.length,
+      inserted: addedCount,
+      updated: updatedCount,
+      skipped: skippedCount,
+      errors,
+    };
+  }, [purchaseOrders]);
 
   const handleBulkReceiveStart = React.useCallback(() => {
     if (allSelectedRows.length === 0) {
@@ -890,15 +957,25 @@ export function PurchaseOrdersPage() {
       {!isMobile && (
         <PageToolbar
           rightActions={
-            <DataTableColumnCustomizer
-              columns={columns}
-              columnVisibility={columnVisibility}
-              setColumnVisibility={setColumnVisibility}
-              columnOrder={columnOrder}
-              setColumnOrder={setColumnOrder}
-              pinnedColumns={pinnedColumns}
-              setPinnedColumns={setPinnedColumns}
-            />
+            <>
+              <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Nhập file
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
+              <DataTableColumnCustomizer
+                columns={columns}
+                columnVisibility={columnVisibility}
+                setColumnVisibility={setColumnVisibility}
+                columnOrder={columnOrder}
+                setColumnOrder={setColumnOrder}
+                pinnedColumns={pinnedColumns}
+                setPinnedColumns={setPinnedColumns}
+              />
+            </>
           }
         />
       )}
@@ -1178,6 +1255,35 @@ export function PurchaseOrdersPage() {
         onConfirm={handlePrintConfirm}
         selectedCount={pendingPrintPOs.length}
         title="In đơn nhập hàng"
+      />
+
+      {/* Import Dialog */}
+      <GenericImportDialogV2<PurchaseOrder>
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        config={purchaseOrderImportExportConfig}
+        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+        existingData={purchaseOrders}
+        onImport={handleImport}
+        currentUser={{
+          name: loggedInUser?.fullName || 'Hệ thống',
+          systemId: loggedInUser?.systemId || asSystemId('SYSTEM'),
+        }}
+      />
+
+      {/* Export Dialog */}
+      <GenericExportDialogV2<PurchaseOrder>
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        config={purchaseOrderImportExportConfig}
+        allData={purchaseOrders}
+        filteredData={sortedData}
+        currentPageData={paginatedData}
+        selectedData={selectedOrders}
+        currentUser={{
+          name: loggedInUser?.fullName || 'Hệ thống', 
+          systemId: loggedInUser?.systemId || asSystemId('SYSTEM'),
+        }}
       />
       
     </div>

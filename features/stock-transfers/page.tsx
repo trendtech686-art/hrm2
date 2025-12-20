@@ -4,10 +4,14 @@ import { useStockTransferStore } from './store.ts';
 import { getColumns } from './columns.tsx';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table.tsx';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
 import { Button } from '../../components/ui/button.tsx';
-import { Plus, Printer } from 'lucide-react';
+import { Plus, Printer, FileSpreadsheet, Download } from 'lucide-react';
+import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2.tsx';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
+import { stockTransferImportExportConfig, flattenStockTransfersForExport } from '../../lib/import-export/configs/stock-transfer.config.ts';
+import { useAuth } from '../../contexts/auth-context.tsx';
+import { asSystemId } from '../../lib/id-types.ts';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
 import { usePageHeader } from '../../contexts/page-header-context.tsx';
 import { ROUTES } from '../../lib/router.ts';
@@ -58,11 +62,16 @@ export function StockTransfersPage() {
   const { data: branches } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
+  const { employee: currentUser } = useAuth();
   const isMobile = !useMediaQuery("(min-width: 768px)");
   
   // Print dialog state
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
   const [itemsToPrint, setItemsToPrint] = React.useState<StockTransfer[]>([]);
+  
+  // Import/Export dialog state
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
   
   // Table state
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -186,6 +195,67 @@ export function StockTransfersPage() {
       onSelect: handleBulkPrint,
     },
   ], [handleBulkPrint]);
+
+  // Import handler
+  const handleImport = React.useCallback(async (
+    importedTransfers: Partial<StockTransfer>[],
+    mode: 'insert-only' | 'update-only' | 'upsert',
+    _branchId?: string
+  ) => {
+    let addedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const errors: Array<{ row: number; message: string }> = [];
+    
+    const storeState = useStockTransferStore.getState();
+    
+    importedTransfers.forEach((transfer, index) => {
+      try {
+        const existing = transfers.find(t => 
+          t.id.toLowerCase() === (transfer.id || '').toLowerCase()
+        );
+        
+        if (existing) {
+          if (mode === 'update-only' || mode === 'upsert') {
+            storeState.update(asSystemId(existing.systemId), { ...existing, ...transfer, systemId: existing.systemId } as StockTransfer);
+            updatedCount++;
+          } else {
+            skippedCount++;
+          }
+        } else {
+          if (mode === 'insert-only' || mode === 'upsert') {
+            storeState.add(transfer as StockTransfer);
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        }
+      } catch (error) {
+        errors.push({ row: index + 1, message: (error as Error).message });
+      }
+    });
+    
+    if (addedCount > 0 || updatedCount > 0) {
+      const messages = [];
+      if (addedCount > 0) messages.push(`${addedCount} phiếu chuyển kho mới`);
+      if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
+      toast.success(`Đã import: ${messages.join(', ')}`);
+    }
+    
+    return {
+      success: addedCount + updatedCount,
+      failed: errors.length,
+      inserted: addedCount,
+      updated: updatedCount,
+      skipped: skippedCount,
+      errors,
+    };
+  }, [transfers]);
+
+  // Selected transfers for export
+  const selectedTransfers = React.useMemo(() => {
+    return transfers.filter(t => rowSelection[t.systemId]);
+  }, [transfers, rowSelection]);
 
   // Columns
   const columns = React.useMemo(() => getColumns(handlePrint), [handlePrint]);
@@ -335,12 +405,6 @@ export function StockTransfersPage() {
     { value: 'cancelled', label: 'Đã hủy' },
   ], []);
 
-  // Export config
-  const exportConfig = {
-    fileName: 'Danh_sach_chuyen_kho',
-    columns,
-  };
-
   // Row click handler
   const handleRowClick = (row: StockTransfer) => {
     navigate(`/stock-transfers/${row.systemId}`);
@@ -352,12 +416,16 @@ export function StockTransfersPage() {
       {!isMobile && (
         <PageToolbar
           leftActions={
-            <DataTableExportDialog
-              allData={transfers}
-              filteredData={sortedData}
-              pageData={paginatedData}
-              config={exportConfig}
-            />
+            <>
+              <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Nhập file
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Xuất Excel
+              </Button>
+            </>
           }
           rightActions={
             <DataTableColumnCustomizer
@@ -449,6 +517,35 @@ export function StockTransfersPage() {
         onConfirm={handlePrintConfirm}
         selectedCount={itemsToPrint.length}
         title="In phiếu chuyển kho"
+      />
+
+      {/* Import Dialog */}
+      <GenericImportDialogV2<StockTransfer>
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        config={stockTransferImportExportConfig}
+        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
+        existingData={transfers}
+        onImport={handleImport}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
+      />
+
+      {/* Export Dialog */}
+      <GenericExportDialogV2<StockTransfer>
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        config={stockTransferImportExportConfig}
+        allData={transfers}
+        filteredData={sortedData}
+        currentPageData={paginatedData}
+        selectedData={selectedTransfers}
+        currentUser={{
+          name: currentUser?.fullName || 'Hệ thống',
+          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
+        }}
       />
     </div>
   );

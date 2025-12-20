@@ -190,6 +190,10 @@ export interface ImportExportConfig<T> {
   // HOOKS
   // ============================================
   findExisting?: (row: T, existingData: T[]) => T | null;
+  
+  // Pre-process all rows before validation (useful for multi-row grouping, fill-down logic)
+  preProcessRows?: (rows: unknown[]) => unknown[];
+  
   beforeImport?: (data: T[]) => Promise<T[]> | T[];
   afterImport?: (results: ImportResult<T>) => void;
   

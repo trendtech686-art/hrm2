@@ -39,7 +39,13 @@ export function previewImportData<T>(
   let errorCount = 0;
   let duplicateCount = 0;
 
-  rawRows.forEach((rawData, index) => {
+  // 0. Pre-process all rows if defined (for fill-down logic, multi-row grouping)
+  let processedRawRows = rawRows;
+  if (config.preProcessRows) {
+    processedRawRows = config.preProcessRows(rawRows) as Record<string, unknown>[];
+  }
+
+  processedRawRows.forEach((rawData, index) => {
     const rowErrors: Array<{ field?: string; message: string }> = [];
     const rowWarnings: Array<{ field?: string; message: string }> = [];
 

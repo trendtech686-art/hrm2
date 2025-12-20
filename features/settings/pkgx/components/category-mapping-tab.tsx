@@ -5,21 +5,23 @@ import { Input } from '../../../../components/ui/input.tsx';
 import { Badge } from '../../../../components/ui/badge.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
 import { Label } from '../../../../components/ui/label.tsx';
 import { ScrollArea } from '../../../../components/ui/scroll-area.tsx';
-import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert.tsx';
-import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, Eye, AlertCircle, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, FolderEdit, Link2 } from 'lucide-react';
+import { Checkbox } from '../../../../components/ui/checkbox.tsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu.tsx';
+import { getCategoryById, updateCategory } from '../../../../lib/pkgx/api-service';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
 import { useProductCategoryStore } from '../../inventory/product-category-store';
-import { getCategoryById, updateCategory } from '../../../../lib/pkgx/api-service';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import type { PkgxCategoryMapping, PkgxCategory, PkgxCategoryFromApi } from '../types';
-import { useCategoryMappingValidation } from '../hooks';
+import { useCategoryMappingValidation, usePkgxEntitySync } from '../hooks';
+import type { HrmCategoryData } from '../hooks';
 import type { CategoryMappingInput } from '../validation';
+import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-dialog';
+import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 
 // Extended type for PKGX categories table
 interface PkgxCategoryRow extends PkgxCategory {
@@ -58,11 +60,18 @@ export function CategoryMappingTab() {
   // Table state
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'id', desc: false });
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   
   // Form state
   const [selectedHrmCategory, setSelectedHrmCategory] = React.useState('');
   const [selectedPkgxCategory, setSelectedPkgxCategory] = React.useState('');
   const [showWarningConfirm, setShowWarningConfirm] = React.useState(false);
+  
+  // Use shared PKGX entity sync hook
+  const entitySync = usePkgxEntitySync({
+    entityType: 'category',
+    onLog: addLog,
+  });
   
   const hrmCategories = React.useMemo(
     () => productCategories.getActive().sort((a, b) => (a.path || '').localeCompare(b.path || '')),
@@ -127,8 +136,69 @@ export function CategoryMappingTab() {
     return mappingsData.slice(start, start + pagination.pageSize);
   }, [mappingsData, pagination]);
   
+  // All selected rows and bulk actions for PKGX categories table
+  const allSelectedPkgxRows = React.useMemo(() => 
+    paginatedPkgxData.filter(p => rowSelection[p.systemId]),
+  [paginatedPkgxData, rowSelection]);
+  
+  // Get selected PKGX categories that are NOT mapped (for bulk mapping)
+  const selectedUnmappedCategories = React.useMemo(() => 
+    allSelectedPkgxRows.filter(c => !c.mappedToHrm),
+  [allSelectedPkgxRows]);
+  
+  // Get selected PKGX categories that ARE mapped (for bulk unlink)
+  const selectedMappedCategories = React.useMemo(() => 
+    allSelectedPkgxRows.filter(c => c.mappedToHrm),
+  [allSelectedPkgxRows]);
+  
+  // Bulk actions for PKGX categories table
+  const pkgxBulkActions = React.useMemo(() => [
+    {
+      label: `Hủy liên kết (${selectedMappedCategories.length})`,
+      icon: Unlink,
+      variant: 'destructive' as const,
+      disabled: selectedMappedCategories.length === 0,
+      onSelect: () => {
+        if (selectedMappedCategories.length === 0) {
+          toast.error('Không có danh mục đã liên kết nào được chọn');
+          return;
+        }
+        // Bulk delete mappings
+        selectedMappedCategories.forEach(category => {
+          const mapping = findMapping(category.id);
+          if (mapping) {
+            deleteCategoryMapping(mapping.id);
+          }
+        });
+        toast.success(`Đã hủy liên kết ${selectedMappedCategories.length} danh mục`);
+        setRowSelection({});
+      },
+    },
+  ], [selectedMappedCategories, findMapping, deleteCategoryMapping]);
+  
   // PKGX Categories columns
   const pkgxColumns: ColumnDef<PkgxCategoryRow>[] = React.useMemo(() => [
+    {
+      id: 'select',
+      header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
+        <Checkbox
+          checked={isAllPageRowsSelected ? true : isSomePageRowsSelected ? 'indeterminate' : false}
+          onCheckedChange={onToggleAll}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row, isSelected, onToggleSelect }) => (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={onToggleSelect}
+          aria-label="Select row"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      size: 48,
+      enableSorting: false,
+      meta: { sticky: 'left', displayName: '' },
+    },
     {
       id: 'id',
       accessorKey: 'id',
@@ -166,7 +236,7 @@ export function CategoryMappingTab() {
             {row.mappedToHrm}
           </Badge>
         ) : (
-          <Badge variant="secondary">Chưa mapping</Badge>
+          <Badge variant="secondary">Chưa liên kết</Badge>
         )
       ),
     },
@@ -174,45 +244,110 @@ export function CategoryMappingTab() {
       id: 'actions',
       header: '',
       size: 50,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleViewDetail(row.id)}>
-              <Eye className="h-4 w-4 mr-2" />
-              Xem chi tiết
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleQuickMap(row)} disabled={!!row.mappedToHrm}>
-              <Link className="h-4 w-4 mr-2" />
-              {row.mappedToHrm ? 'Đã mapping' : 'Mapping nhanh'}
-            </DropdownMenuItem>
-            {row.mappedToHrm && (
-              <>
-                <DropdownMenuItem onClick={() => handlePushCategory(row.id)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Đẩy HRM → PKGX
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleUnlinkCategory(row.id)}>
-                  <Unlink className="h-4 w-4 mr-2" />
-                  Hủy liên kết
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => window.open(`https://phukiengiaxuong.com.vn/admin/category.php?act=edit&cat_id=${row.id}`, '_blank')}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Xem trên PKGX
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        // Get HRM category for sync actions
+        const mapping = findMapping(row.id);
+        const hrmCategory = mapping ? hrmCategories.find(c => c.systemId === mapping.hrmCategorySystemId) : null;
+        
+        // Helper to trigger sync with proper HRM data
+        const triggerSync = (actionKey: 'sync_all' | 'sync_basic' | 'sync_seo' | 'sync_description') => {
+          if (!mapping || !hrmCategory) {
+            toast.error('Danh mục chưa được liên kết với HRM');
+            return;
+          }
+          const hrmData: HrmCategoryData = {
+            systemId: hrmCategory.systemId,
+            name: hrmCategory.name,
+            isActive: hrmCategory.isActive,
+            seoKeywords: hrmCategory.seoKeywords,
+            seoTitle: hrmCategory.seoTitle,
+            metaDescription: hrmCategory.metaDescription,
+            shortDescription: hrmCategory.shortDescription,
+            longDescription: hrmCategory.longDescription,
+            websiteSeo: hrmCategory.websiteSeo,
+          };
+          entitySync.triggerSyncAction(actionKey, row.id, hrmData, row.name);
+        };
+        
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {row.mappedToHrm ? (
+                <>
+                  {/* Sync All */}
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_all')}
+                    className="font-medium"
+                    title="Đồng bộ: Tên, Keywords, Meta Title, Meta Desc, Mô tả ngắn, Mô tả dài"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Đồng bộ tất cả
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  
+                  {/* Individual sync actions */}
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_seo')}
+                    title="Đồng bộ: Keywords, Meta Title, Meta Desc"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    SEO
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_description')}
+                    title="Đồng bộ: Mô tả ngắn (Short Desc), Mô tả dài (Long Desc)"
+                  >
+                    <AlignLeft className="h-4 w-4 mr-2" />
+                    Mô tả
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => triggerSync('sync_basic')}
+                    title="Đồng bộ: Tên danh mục, Trạng thái hiển thị"
+                  >
+                    <FolderEdit className="h-4 w-4 mr-2" />
+                    Thông tin cơ bản
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => window.open(`https://phukiengiaxuong.com.vn/admin/category.php?act=edit&cat_id=${row.id}`, '_blank')}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Xem trên PKGX
+                  </DropdownMenuItem>
+                  
+                  {/* Hủy liên kết */}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => entitySync.handleConfirm(
+                      'Hủy liên kết PKGX',
+                      `Bạn có chắc muốn hủy liên kết danh mục "${row.name}" với PKGX?`,
+                      () => handleUnlinkCategory(row.id)
+                    )}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Unlink className="h-4 w-4 mr-2" />
+                    Hủy liên kết
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                /* Not linked - show link option */
+                <>
+                  <DropdownMenuItem onClick={() => handleQuickMap(row)}>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Liên kết với HRM
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
-  ], [settings.categories]);
+  ], [settings.categories, hrmCategories, findMapping, entitySync]);
   
   // Mappings columns
   const mappingColumns: ColumnDef<MappingRow>[] = React.useMemo(() => [
@@ -596,6 +731,10 @@ export function CategoryMappingTab() {
                     rowCount={pkgxCategoriesData.length}
                     sorting={sorting}
                     setSorting={setSorting}
+                    rowSelection={rowSelection}
+                    setRowSelection={setRowSelection}
+                    bulkActions={pkgxBulkActions}
+                    allSelectedRows={allSelectedPkgxRows}
                     emptyTitle="Không tìm thấy danh mục"
                   />
                 )}
@@ -628,150 +767,36 @@ export function CategoryMappingTab() {
         </CardContent>
       </Card>
       
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingMapping ? 'Sửa mapping' : 'Thêm mapping'} danh mục</DialogTitle>
-            <DialogDescription>
-              Chọn danh mục HRM và danh mục PKGX tương ứng
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* HRM Category Select */}
-            <div className="space-y-2">
-              <Label htmlFor="hrmCategory">Danh mục HRM</Label>
-              <Select value={selectedHrmCategory} onValueChange={setSelectedHrmCategory}>
-                <SelectTrigger id="hrmCategory" className={validation.getFieldError('hrmCategorySystemId') ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Chọn danh mục HRM..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {hrmCategories.map((cat) => (
-                    <SelectItem key={cat.systemId} value={cat.systemId}>
-                      {cat.path || cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {validation.getFieldError('hrmCategorySystemId') && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {validation.getFieldError('hrmCategorySystemId')}
-                </p>
-              )}
-            </div>
-            
-            {/* PKGX Category Select */}
-            <div className="space-y-2">
-              <Label htmlFor="pkgxCategory">Danh mục PKGX</Label>
-              <Select value={selectedPkgxCategory} onValueChange={setSelectedPkgxCategory}>
-                <SelectTrigger id="pkgxCategory" className={validation.getFieldError('pkgxCatId') ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Chọn danh mục PKGX..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {settings.categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id.toString()}>
-                      {cat.name} (ID: {cat.id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {validation.getFieldError('pkgxCatId') && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {validation.getFieldError('pkgxCatId')}
-                </p>
-              )}
-            </div>
-            
-            {/* Suggestions */}
-            {validation.suggestions.length > 0 && selectedHrmCategory && !selectedPkgxCategory && (
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Lightbulb className="h-3 w-3" />
-                  Gợi ý danh mục PKGX phù hợp:
-                </Label>
-                <div className="flex flex-wrap gap-2">
-                  {validation.suggestions.slice(0, 3).map((s) => (
-                    <Button
-                      key={s.category.id}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => setSelectedPkgxCategory(s.category.id.toString())}
-                    >
-                      {s.category.name}
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {Math.round(s.score * 100)}%
-                      </Badge>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Validation Errors */}
-            {validation.validationResult && validation.validationResult.errors.length > 0 && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Lỗi validation</AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc list-inside space-y-1 mt-2">
-                    {validation.validationResult.errors.map((err, i) => (
-                      <li key={i}>{err.message}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {/* Validation Warnings */}
-            {validation.validationResult && validation.validationResult.warnings.length > 0 && validation.validationResult.errors.length === 0 && (
-              <Alert variant="default" className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <AlertTitle className="text-yellow-700 dark:text-yellow-400">Cảnh báo</AlertTitle>
-                <AlertDescription className="text-yellow-600 dark:text-yellow-300">
-                  <ul className="list-disc list-inside space-y-1 mt-2">
-                    {validation.validationResult.warnings.map((warn, i) => (
-                      <li key={i}>
-                        {warn.message}
-                        {warn.details?.suggestedCategory && (
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 ml-1 text-yellow-700"
-                            onClick={() => setSelectedPkgxCategory(warn.details!.suggestedCategory.id.toString())}
-                          >
-                            → Chọn "{warn.details.suggestedCategory.name}"
-                          </Button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  {showWarningConfirm && (
-                    <p className="mt-3 font-medium">Bấm "{editingMapping ? 'Cập nhật' : 'Thêm'}" lần nữa để xác nhận.</p>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Hủy
-            </Button>
-            <Button 
-              onClick={handleSave}
-              disabled={validation.hasErrors || validation.isValidating}
-            >
-              {validation.isValidating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {showWarningConfirm ? 'Xác nhận ' : ''}{editingMapping ? 'Cập nhật' : 'Thêm'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Mapping Dialog - Using shared PkgxMappingDialog component */}
+      <PkgxMappingDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        type="category"
+        isEditing={!!editingMapping}
+        hrmItems={hrmCategories.map((c) => ({
+          id: c.systemId,
+          name: c.path || c.name,
+        }))}
+        selectedHrmId={selectedHrmCategory}
+        onSelectHrmId={setSelectedHrmCategory}
+        pkgxItems={settings.categories.map((c) => ({
+          id: c.id.toString(),
+          name: c.name,
+          subText: `ID: ${c.id}`,
+        }))}
+        selectedPkgxId={selectedPkgxCategory}
+        onSelectPkgxId={setSelectedPkgxCategory}
+        pkgxSuggestions={validation.suggestions.map(s => ({
+          item: { id: s.category.id.toString(), name: s.category.name },
+          score: s.score,
+        }))}
+        validation={validation.validationResult}
+        hasErrors={validation.hasErrors}
+        isValidating={validation.isValidating}
+        showWarningConfirm={showWarningConfirm}
+        onConfirm={handleSave}
+        onCancel={handleCloseDialog}
+      />
       
       {/* Category Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
@@ -865,15 +890,6 @@ export function CategoryMappingTab() {
           <DialogFooter className="gap-2">
             {selectedCategoryForDetail && (
               <>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleViewDetail(selectedCategoryForDetail.cat_id)}
-                  disabled={isLoadingDetail}
-                >
-                  {isLoadingDetail ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                  Tải lại
-                </Button>
                 {findMapping(selectedCategoryForDetail.cat_id) && (
                   <Button 
                     variant="outline" 
@@ -901,6 +917,14 @@ export function CategoryMappingTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Confirmation Dialog for sync actions - using shared component */}
+      <PkgxSyncConfirmDialog
+        confirmAction={entitySync.confirmAction}
+        isSyncing={entitySync.isSyncing}
+        onConfirm={entitySync.executeAction}
+        onCancel={entitySync.cancelConfirm}
+      />
     </div>
   );
 }
