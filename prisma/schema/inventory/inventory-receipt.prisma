@@ -1,0 +1,60 @@
+// ═══════════════════════════════════════════════════════════════
+// INVENTORY RECEIPT MODEL (Phiếu nhập kho)
+// ═══════════════════════════════════════════════════════════════
+// SystemId: IREC0000000001 (English, 10 digits)
+// BusinessId: PNK0000000001 (Vietnamese - Phiếu nhập kho, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model InventoryReceipt {
+  systemId          String                @id           // IREC0000000001
+  id                String                @unique       // PNK0000000001
+  
+  // Branch
+  branchId          String?
+  branch            Branch?               @relation(fields: [branchId], references: [systemId])
+  
+  // Location
+  locationId        String?
+  
+  // Receipt type
+  receiptType       String                // purchase, return, transfer, adjustment, production
+  
+  // Reference
+  referenceType     String?               // purchase_order, sales_return, stock_transfer
+  referenceId       String?
+  
+  // Supplier (for purchase)
+  supplierId        String?
+  supplierName      String?
+  
+  // Receipt details
+  receiptDate       DateTime              @default(now())
+  
+  // Status
+  status            String                @default("draft") // draft, pending, completed, cancelled
+  
+  // Totals
+  totalItems        Int                   @default(0)
+  totalQuantity     Int                   @default(0)
+  totalValue        Decimal               @default(0) @db.Decimal(15, 2)
+  
+  // Notes
+  notes             String?
+  
+  // Relations
+  items             InventoryReceiptItem[]
+  
+  // Soft delete
+  isDeleted         Boolean               @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  @@map("inventory_receipts")
+}

@@ -1,6 +1,6 @@
-import { createCrudStore } from '../../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { ShippingPartner } from './types.ts';
+import { createCrudStore } from '../../../lib/store-factory';
+import { data as initialData } from './data';
+import type { ShippingPartner } from './types';
 import Fuse from 'fuse.js';
 import type { SystemId } from '@/lib/id-types';
 

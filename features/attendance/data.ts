@@ -1,9 +1,9 @@
-import type { Employee } from '../employees/types.ts';
-import type { DailyRecord, AttendanceDataRow, AnyAttendanceDataRow } from './types.ts';
-import { getCurrentDate, getDayOfWeek } from '../../lib/date-utils.ts';
-import type { EmployeeSettings } from '../settings/employees/types.ts';
-import { recalculateSummary } from './utils.ts';
-import { asSystemId } from '../../lib/id-types.ts';
+import type { Employee } from '../employees/types';
+import type { DailyRecord, AttendanceDataRow, AnyAttendanceDataRow } from './types';
+import { getCurrentDate, getDayOfWeek } from '../../lib/date-utils';
+import type { EmployeeSettings } from '../settings/employees/types';
+import { recalculateSummary } from './utils';
+import { asSystemId } from '../../lib/id-types';
 
 const DEFAULT_AUDIT_TIMESTAMP = '2025-01-01T08:00:00Z';
 const DEFAULT_AUDIT_AUTHOR = asSystemId('EMP000001');

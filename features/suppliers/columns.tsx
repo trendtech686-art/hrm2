@@ -1,12 +1,12 @@
 import * as React from "react";
-import type { Supplier, SupplierStatus } from './types.ts'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import type { Supplier, SupplierStatus } from './types'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
-import { Checkbox } from "../../components/ui/checkbox.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
+import { Checkbox } from "../../components/ui/checkbox"
+import { Badge } from "../../components/ui/badge"
 import { formatDateForDisplay } from '@/lib/date-utils';
-import type { ColumnDef } from '../../components/data-table/types.ts';
+import type { ColumnDef } from '../../components/data-table/types';
 import type { SystemId } from '@/lib/id-types';
 
 const statusVariants: Record<SupplierStatus, "success" | "secondary"> = {

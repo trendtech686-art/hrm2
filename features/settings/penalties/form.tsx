@@ -1,19 +1,19 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../../lib/date-utils.ts';
-import type { Penalty, PenaltyStatus, PenaltyType } from './types.ts';
-import { penaltyCategoryLabels } from './types.ts';
-import { useEmployeeStore } from '../../employees/store.ts';
-import { usePenaltyStore, usePenaltyTypeStore } from './store.ts';
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../../lib/date-utils';
+import type { Penalty, PenaltyStatus, PenaltyType } from './types';
+import { penaltyCategoryLabels } from './types';
+import { useEmployeeStore } from '../../employees/store';
+import { usePenaltyStore, usePenaltyTypeStore } from './store';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
-import { Button } from '../../../components/ui/button.tsx';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { CurrencyInput } from "../../../components/ui/currency-input.tsx";
-import { Textarea } from '../../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { DatePicker } from '../../../components/ui/date-picker.tsx';
-import { DialogFooter } from '../../../components/ui/dialog.tsx';
+import { Button } from '../../../components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
+import { Input } from '../../../components/ui/input';
+import { CurrencyInput } from "../../../components/ui/currency-input";
+import { Textarea } from '../../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { DatePicker } from '../../../components/ui/date-picker';
+import { DialogFooter } from '../../../components/ui/dialog';
 import { Trash2 } from 'lucide-react';
 
 type PenaltyFormValues = Omit<Penalty, 'systemId' | 'employeeName' | 'issueDate'> & {

@@ -1,9 +1,9 @@
 import React from 'react';
-import { usePageHeader } from "../../../contexts/page-header-context.tsx";
-import { StatusBadge, COMPLAINT_STATUS_MAP } from "../../../components/StatusBadge.tsx";
-import { Badge } from "../../../components/ui/badge.tsx";
-import { cn } from "../../../lib/utils.ts";
-import type { Complaint } from '../types.ts';
+import { usePageHeader } from "../../../contexts/page-header-context";
+import { StatusBadge, COMPLAINT_STATUS_MAP } from "../../../components/StatusBadge";
+import { Badge } from "../../../components/ui/badge";
+import { cn } from "../../../lib/utils";
+import type { Complaint } from '../types';
 import {
   complaintPriorityColors,
   complaintPriorityLabels,
@@ -11,9 +11,9 @@ import {
   complaintVerificationLabels,
   complaintTypeColors,
   complaintTypeLabels,
-} from '../types.ts';
-import { getSLAStatusLabel } from '../hooks/use-complaint-time-tracking.ts';
-import { ROUTES, generatePath } from "../../../lib/router.ts";
+} from '../types';
+import { getSLAStatusLabel } from '../hooks/use-complaint-time-tracking';
+import { ROUTES, generatePath } from "../../../lib/router";
 
 interface Props {
   complaint: Complaint;

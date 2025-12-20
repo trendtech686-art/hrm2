@@ -1,15 +1,16 @@
+'use client'
+
 import * as React from 'react';
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { Outlet } from 'react-router-dom';
-import { Sidebar } from './sidebar.tsx';
-import { Header } from './header.tsx';
-import { useUiStore } from '../../lib/ui-store.ts';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
-import { cn } from '../../lib/utils.ts';
-import { ModalProvider } from '../../contexts/modal-context.tsx';
-import { ResponsiveContainer } from '../ui/responsive-container.tsx';
-import { PageHeader } from './page-header.tsx';
-import { useIdlePreload } from '../../hooks/use-route-prefetch.ts';
+import { Outlet } from '@/lib/next-compat';
+import { Sidebar } from './sidebar';
+import { Header } from './header';
+import { useUiStore } from '../../lib/ui-store';
+import { useMediaQuery } from '../../lib/use-media-query';
+import { cn } from '../../lib/utils';
+import { ModalProvider } from '../../contexts/modal-context';
+import { ResponsiveContainer } from '../ui/responsive-container';
+import { PageHeader } from './page-header';
+import { useIdlePreload } from '../../hooks/use-route-prefetch';
 
 // Component to initialize UI store state based on media query
 function UiStateInitializer() {
@@ -24,10 +25,12 @@ function UiStateInitializer() {
     return null;
 }
 
+interface MainLayoutProps {
+  children?: React.ReactNode;
+}
 
 
-
-export function MainLayout() {
+export function MainLayout({ children }: MainLayoutProps) {
   const { isSidebarOpen, setSidebarOpen, isSidebarCollapsed } = useUiStore();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   
@@ -50,7 +53,8 @@ export function MainLayout() {
               <main className="flex-1 w-full">
                 {/* Content area with vertical padding only */}
                 <div className="py-4 mobile:py-3">
-                  <Outlet />
+                  {/* Support both Next.js children and react-router Outlet */}
+                  {children || <Outlet />}
                 </div>
               </main>
             </div>

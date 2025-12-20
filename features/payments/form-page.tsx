@@ -1,24 +1,24 @@
-import * as React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { usePaymentStore } from './store.ts';
-import { PaymentForm, type PaymentFormValues } from './payment-form.tsx';
-import type { Payment } from './types.ts';
-import { useCashbookStore } from '../cashbook/store';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useRouteMeta } from '../../hooks/use-route-meta.ts';
-import { ROUTES } from '../../lib/router.ts';
-import { toast } from 'sonner';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
+'use client'
 
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import * as React from 'react';
+import { useParams, useNavigate } from '@/lib/next-compat';
+import { usePaymentStore } from './store';
+import { PaymentForm, type PaymentFormValues } from './payment-form';
+import type { Payment } from './types';
+import { useCashbookStore } from '../cashbook/store';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { toast } from 'sonner';
+import { useAuth } from '../../contexts/auth-context';
+import { asBusinessId, asSystemId } from '../../lib/id-types';
+
+import { Card, CardContent } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export function PaymentFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const navigate = useNavigate();
-  const routeMeta = useRouteMeta();
   const paymentStore = usePaymentStore();
   const { findById, add, update } = paymentStore;
   const payments: Payment[] = paymentStore.data ?? [];
@@ -59,7 +59,7 @@ export function PaymentFormPage() {
     title: isEditing ? `Chỉnh sửa Phiếu Chi ${payment?.id || ''}` : 'Thêm mới Phiếu Chi',
     subtitle: isEditing ? 'Cập nhật thông tin chi phí, tài khoản nguồn và đối tượng nhận tiền' : 'Tạo phiếu chi mới và ghi nhận dòng tiền ra',
     actions: headerActions,
-    breadcrumb: (routeMeta?.breadcrumb as any) ?? fallbackBreadcrumb,
+    breadcrumb: fallbackBreadcrumb,
     showBackButton: true,
     backPath: ROUTES.FINANCE.PAYMENTS
   });

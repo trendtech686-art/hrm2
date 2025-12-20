@@ -1,14 +1,14 @@
 import * as React from 'react';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, isDateSame } from '@/lib/date-utils';
-import type { AttendanceDataRow, DailyRecord } from './types.ts';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DataTableColumnHeader } from '../../components/data-table/data-table-column-header.tsx';
-import { DailyStatusCell } from './components/daily-status-cell.tsx';
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { cn } from '../../lib/utils.ts';
-import type { EmployeeSettings } from '../settings/employees/types.ts';
-import { SummaryStat } from './components/summary-stat.tsx';
-import type { SystemId } from '../../lib/id-types.ts';
+import type { AttendanceDataRow, DailyRecord } from './types';
+import type { ColumnDef } from '../../components/data-table/types';
+import { DataTableColumnHeader } from '../../components/data-table/data-table-column-header';
+import { DailyStatusCell } from './components/daily-status-cell';
+import { Checkbox } from "../../components/ui/checkbox";
+import { cn } from '../../lib/utils';
+import type { EmployeeSettings } from '../settings/employees/types';
+import { SummaryStat } from './components/summary-stat';
+import type { SystemId } from '../../lib/id-types';
 export const getColumns = (
     year: number, 
     month: number, 

@@ -1,0 +1,92 @@
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PROD000001 (English, 6 digits)
+// BusinessId: SP000001 (Vietnamese - Sản phẩm, 6 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Product {
+  systemId          String              @id           // PROD000001
+  id                String              @unique       // SP000001
+  
+  // Basic info
+  name              String
+  sku               String              @unique
+  barcode           String?
+  description       String?
+  shortDescription  String?
+  
+  // Category & Brand
+  categoryId        String?
+  category          Category?           @relation(fields: [categoryId], references: [systemId])
+  brandId           String?
+  brand             Brand?              @relation(fields: [brandId], references: [systemId])
+  
+  // Pricing
+  costPrice         Decimal             @default(0) @db.Decimal(15, 2)
+  sellingPrice      Decimal             @default(0) @db.Decimal(15, 2)
+  wholesalePrice    Decimal             @default(0) @db.Decimal(15, 2)
+  minPrice          Decimal             @default(0) @db.Decimal(15, 2)
+  
+  // Tax
+  taxable           Boolean             @default(true)
+  taxRate           Decimal             @default(0) @db.Decimal(5, 2)
+  
+  // Inventory
+  unit              String?
+  weight            Decimal?            @db.Decimal(10, 3)
+  dimensions        String?
+  minStock          Int                 @default(0)
+  maxStock          Int?
+  
+  // Status
+  status            ProductStatus       @default(ACTIVE)
+  isActive          Boolean             @default(true)
+  isFeatured        Boolean             @default(false)
+  isService         Boolean             @default(false)
+  isCombo           Boolean             @default(false)
+  
+  // Images
+  imageUrl          String?
+  images            String[]
+  
+  // Warranty
+  warrantyMonths    Int?
+  warrantyTerms     String?
+  
+  // SEO
+  slug              String?
+  metaTitle         String?
+  metaDescription   String?
+  
+  // Supplier
+  supplierId        String?
+  supplier          Supplier?           @relation(fields: [supplierId], references: [systemId])
+  
+  // Relations
+  orderItems        OrderItem[]
+  purchaseItems     PurchaseOrderItem[]
+  inventories       Inventory[]
+  productInventory  ProductInventory[]
+  comboItems        ComboItem[]         @relation("combo")
+  inCombos          ComboItem[]         @relation("component")
+  stockTransferItems StockTransferItem[]
+  warranties        Warranty[]
+  prices            ProductPrice[]
+  categories        ProductCategory[]
+  
+  // Custom fields
+  customFields      Json?
+  
+  // Soft delete
+  isDeleted         Boolean             @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("products")
+}

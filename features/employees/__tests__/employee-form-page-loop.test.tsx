@@ -1,8 +1,8 @@
 import { describe, it } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { PageHeaderProvider } from '../../../contexts/page-header-context.tsx';
+import { MemoryRouter, Routes, Route } from '@/lib/next-compat';
+import { PageHeaderProvider } from '../../../contexts/page-header-context';
 import { EmployeeFormPage } from '../employee-form-page';
 
 describe('EmployeeFormPage render', () => {

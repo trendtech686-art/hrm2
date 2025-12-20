@@ -1,20 +1,22 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../lib/router.ts';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils.ts';
-import { usePurchaseOrderStore } from "./store.ts"
-import { sumPaymentsForPurchaseOrder } from "./payment-utils.ts"
-import { useBranchStore } from '../settings/branches/store.ts';
-import { getColumns } from "./columns.tsx"
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx"
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
-import { PageFilters } from "../../components/layout/page-filters.tsx"
-import { Input } from "../../components/ui/input.tsx"
-import { PurchaseOrderCard } from "./purchase-order-card.tsx"
-import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
-import { Card, CardContent } from "../../components/ui/card.tsx"
+import { useNavigate } from '@/lib/next-compat';
+import { ROUTES } from '../../lib/router';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils';
+import { usePurchaseOrderStore } from "./store"
+import { sumPaymentsForPurchaseOrder } from "./payment-utils"
+import { useBranchStore } from '../settings/branches/store';
+import { getColumns } from "./columns"
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
+import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter"
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { PageToolbar } from "../../components/layout/page-toolbar"
+import { PageFilters } from "../../components/layout/page-filters"
+import { Input } from "../../components/ui/input"
+import { PurchaseOrderCard } from "./purchase-order-card"
+import { useBreakpoint } from "../../contexts/breakpoint-context";
+import { Card, CardContent } from "../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,47 +26,47 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx"
-import { Button } from "../../components/ui/button.tsx"
+} from "../../components/ui/alert-dialog"
+import { Button } from "../../components/ui/button"
 import { PlusCircle, Printer, XCircle, CreditCard, PackageCheck } from "lucide-react"
 import Fuse from "fuse.js"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import type { PurchaseOrder } from "./types.ts";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
+import { usePageHeader } from "../../contexts/page-header-context";
+import type { PurchaseOrder } from "./types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 // REMOVED: Voucher store no longer exists
-// import { useVoucherStore } from '../vouchers/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import type { Payment } from '../payments/types.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
+// import { useVoucherStore } from '../vouchers/store';
+import { usePaymentStore } from '../payments/store';
+import type { Payment } from '../payments/types';
+import { useSupplierStore } from '../suppliers/store';
+import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { useProductStore } from '../products/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { useCashbookStore } from '../cashbook/store';
+import { usePaymentTypeStore } from '../settings/payments/types/store';
 // REMOVED: Voucher type no longer exists
-// import type { Voucher } from '../vouchers/types.ts';
-import { usePurchaseReturnStore } from "../purchase-returns/store.ts";
-import type { PurchaseReturnLineItem } from "../purchase-returns/types.ts";
+// import type { Voucher } from '../vouchers/types';
+import { usePurchaseReturnStore } from "../purchase-returns/store";
+import type { PurchaseReturnLineItem } from "../purchase-returns/types";
 import { toast } from 'sonner';
-import { useAuth } from "../../contexts/auth-context.tsx";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog.tsx";
-import { Label } from "../../components/ui/label.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table.tsx";
+import { useAuth } from "../../contexts/auth-context";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { asBusinessId, asSystemId } from "@/lib/id-types";
 import type { SystemId } from "@/lib/id-types";
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertPurchaseOrderForPrint,
   mapPurchaseOrderToPrintData,
   mapPurchaseOrderLineItems,
   createStoreSettings,
-} from '../../lib/print/purchase-order-print-helper.ts';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { purchaseOrderImportExportConfig, flattenPurchaseOrdersForExport } from "../../lib/import-export/configs/purchase-order.config.ts";
+} from '../../lib/print/purchase-order-print-helper';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { purchaseOrderImportExportConfig, flattenPurchaseOrdersForExport } from "../../lib/import-export/configs/purchase-order.config";
 import { FileSpreadsheet, Download } from "lucide-react";
 
 const formatCurrency = (value?: number) => {

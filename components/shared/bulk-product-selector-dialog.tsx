@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useProductStore } from "../../features/products/store.ts";
+import { useProductStore } from "../../features/products/store";
 import { Package, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import {
   Dialog,
@@ -8,13 +8,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../ui/dialog.tsx";
-import { Button } from "../ui/button.tsx";
-import { Input } from "../ui/input.tsx";
-import { Checkbox } from "../ui/checkbox.tsx";
-import { ScrollArea } from "../ui/scroll-area.tsx";
-import { cn } from "../../lib/utils.ts";
-import type { Product } from "../../features/products/types.ts";
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Checkbox } from "../ui/checkbox";
+import { ScrollArea } from "../ui/scroll-area";
+import { cn } from "../../lib/utils";
+import type { Product } from "../../features/products/types";
 
 interface BulkProductSelectorDialogProps {
   open: boolean;

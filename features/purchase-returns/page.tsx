@@ -1,39 +1,41 @@
+'use client'
+
 import * as React from "react";
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../lib/router.ts';
-import { formatDateCustom, parseDate, isDateAfter, isDateBefore } from '../../lib/date-utils.ts';
-import { usePurchaseReturnStore } from "./store.ts";
-import { usePurchaseOrderStore } from "../purchase-orders/store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useStoreInfoStore } from "../settings/store-info/store-info-store.ts";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { usePrint } from "../../lib/use-print.ts";
+import { useNavigate } from '@/lib/next-compat';
+import { ROUTES } from '../../lib/router';
+import { formatDateCustom, parseDate, isDateAfter, isDateBefore } from '../../lib/date-utils';
+import { usePurchaseReturnStore } from "./store";
+import { usePurchaseOrderStore } from "../purchase-orders/store";
+import { useBranchStore } from "../settings/branches/store";
+import { useStoreInfoStore } from "../settings/store-info/store-info-store";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { usePrint } from "../../lib/use-print";
 import { 
   convertSupplierReturnForPrint,
   mapSupplierReturnToPrintData,
   mapSupplierReturnLineItems,
   createStoreSettings
-} from "../../lib/print/supplier-return-print-helper.ts";
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
-import { Card, CardContent } from "../../components/ui/card.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
+} from "../../lib/print/supplier-return-print-helper";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
+import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
+import { PageFilters } from "../../components/layout/page-filters";
+import { PageToolbar } from "../../components/layout/page-toolbar";
+import { Card, CardContent } from "../../components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Button } from "../../components/ui/button";
+import { Avatar, AvatarFallback } from "../../components/ui/avatar";
+import { useMediaQuery } from "../../lib/use-media-query";
 import { PackageX, Building2, User, Calendar, FileText, Plus, Printer, Download } from "lucide-react";
 import Fuse from "fuse.js";
-import type { ColumnDef } from "../../components/data-table/types.ts";
-import type { PurchaseReturn } from "./types.ts";
-import { Checkbox } from "../../components/ui/checkbox.tsx";
+import type { ColumnDef } from "../../components/data-table/types";
+import type { PurchaseReturn } from "./types";
+import { Checkbox } from "../../components/ui/checkbox";
 import { toast } from 'sonner';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { purchaseReturnConfig } from "../../lib/import-export/configs/purchase-return.config.ts";
-import { useAuth } from "../../contexts/auth-context.tsx";
-import { asSystemId } from "../../lib/id-types.ts";
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { purchaseReturnConfig } from "../../lib/import-export/configs/purchase-return.config";
+import { useAuth } from "../../contexts/auth-context";
+import { asSystemId } from "../../lib/id-types";
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0 ₫';

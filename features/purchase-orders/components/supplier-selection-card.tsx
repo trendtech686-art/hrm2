@@ -1,12 +1,12 @@
 import * as React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { SupplierCombobox } from "./supplier-combobox.tsx";
-import { useSupplierStore } from "../../suppliers/store.ts";
-import { usePurchaseOrderStore } from "../store.ts";
-import { usePurchaseReturnStore } from "../../purchase-returns/store.ts";
-import { Separator } from "../../../components/ui/separator.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Label } from "../../../components/ui/label";
+import { Button } from "../../../components/ui/button";
+import { SupplierCombobox } from "./supplier-combobox";
+import { useSupplierStore } from "../../suppliers/store";
+import { usePurchaseOrderStore } from "../store";
+import { usePurchaseReturnStore } from "../../purchase-returns/store";
+import { Separator } from "../../../components/ui/separator";
 import { X } from "lucide-react";
 import type { SystemId } from "@/lib/id-types";
 

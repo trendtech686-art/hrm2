@@ -1,5 +1,5 @@
-export { CostAdjustmentListPage } from './page.tsx';
-export { CostAdjustmentFormPage } from './form-page.tsx';
-export { CostAdjustmentDetailPage } from './detail-page.tsx';
-export { useCostAdjustmentStore } from './store.ts';
-export type { CostAdjustment, CostAdjustmentItem, CostAdjustmentType, CostAdjustmentStatus } from './types.ts';
+export { CostAdjustmentListPage } from './page';
+export { CostAdjustmentFormPage } from './form-page';
+export { CostAdjustmentDetailPage } from './detail-page';
+export { useCostAdjustmentStore } from './store';
+export type { CostAdjustment, CostAdjustmentItem, CostAdjustmentType, CostAdjustmentStatus } from './types';

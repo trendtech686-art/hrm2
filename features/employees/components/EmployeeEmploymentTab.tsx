@@ -7,20 +7,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { CurrencyInput } from "../../../components/ui/currency-input.tsx";
+} from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { CurrencyInput } from "../../../components/ui/currency-input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select.tsx";
-import { DatePicker } from "../../../components/ui/date-picker.tsx";
-import type { EmployeeFormValues } from "../employee-form.tsx";
-import type { JobTitle } from "../../settings/job-titles/types.ts";
-import type { Branch } from "../../settings/branches/types.ts";
+} from "../../../components/ui/select";
+import { DatePicker } from "../../../components/ui/date-picker";
+import type { EmployeeFormValues } from "../employee-form";
+import type { JobTitle } from "../../settings/job-titles/types";
+import type { Branch } from "../../settings/branches/types";
 
 interface EmployeeEmploymentTabProps {
   form: UseFormReturn<EmployeeFormValues, any, EmployeeFormValues>;

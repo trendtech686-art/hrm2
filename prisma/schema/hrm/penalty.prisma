@@ -1,0 +1,51 @@
+// ═══════════════════════════════════════════════════════════════
+// PENALTY MODEL (Phạt nhân viên)
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PEN0000000001 (English, 10 digits)
+// BusinessId: PH0000000001 (Vietnamese - Phạt, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Penalty {
+  systemId          String        @id           // PEN0000000001
+  id                String        @unique       // PH0000000001
+  
+  // Employee
+  employeeId        String
+  employee          Employee      @relation(fields: [employeeId], references: [systemId])
+  
+  // Branch
+  branchId          String?
+  branch            Branch?       @relation(fields: [branchId], references: [systemId])
+  
+  // Penalty details
+  penaltyDate       DateTime      @default(now())
+  reason            String
+  category          String?       // attendance, performance, behavior, policy_violation
+  
+  // Amount
+  amount            Decimal       @db.Decimal(15, 2)
+  
+  // Status
+  status            String        @default("pending") // pending, approved, applied, cancelled
+  
+  // Linked to payroll
+  payrollId         String?
+  
+  // Notes
+  notes             String?
+  attachments       String[]
+  
+  // Soft delete
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  @@map("penalties")
+}

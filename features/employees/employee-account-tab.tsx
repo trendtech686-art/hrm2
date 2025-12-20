@@ -1,17 +1,17 @@
 ﻿import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
 import { Eye, EyeOff, RefreshCw, Copy, ShieldAlert } from 'lucide-react';
-import type { Employee } from './types.ts';
-import type { EmployeeRole } from './roles.ts';
-import { useEmployeeStore } from './store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
+import type { Employee } from './types';
+import type { EmployeeRole } from './roles';
+import { useEmployeeStore } from './store';
+import { useAuth } from '../../contexts/auth-context';
 import { toast } from 'sonner';
-import { hashPassword, validatePasswordStrength, sanitizeInput } from '../../lib/security-utils.ts';
+import { hashPassword, validatePasswordStrength, sanitizeInput } from '../../lib/security-utils';
 
 interface EmployeeAccountTabProps {
   employee: Employee;

@@ -14,12 +14,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../../components/ui/alert-dialog.tsx';
-import { Textarea } from '../../../../components/ui/textarea.tsx';
-import type { WarrantyTicket } from '../../types.ts';
-import { WARRANTY_STATUS_LABELS } from '../../types.ts';
-import { useWarrantyStore } from '../../store.ts';
-import { useAuth } from '../../../../contexts/auth-context.tsx';
+} from '../../../../components/ui/alert-dialog';
+import { Textarea } from '../../../../components/ui/textarea';
+import type { WarrantyTicket } from '../../types';
+import { WARRANTY_STATUS_LABELS } from '../../types';
+import { useWarrantyStore } from '../../store';
+import { useAuth } from '../../../../contexts/auth-context';
 
 interface WarrantyReopenFromReturnedDialogProps {
   open: boolean;

@@ -1,12 +1,12 @@
-import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
-import type { InventoryCheck } from './types.ts';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { data as initialData } from './data.ts';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
-import { asSystemId } from '../../lib/id-types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
-import { registerBreadcrumbStore } from '../../lib/breadcrumb-generator.ts';
-import { useEmployeeStore } from '../employees/store.ts';
+import { createCrudStore, CrudState } from '../../lib/store-factory';
+import type { InventoryCheck } from './types';
+import type { HistoryEntry } from '../../components/ActivityHistory';
+import { data as initialData } from './data';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
+import { asSystemId } from '../../lib/id-types';
+import type { SystemId } from '../../lib/id-types';
+import { registerBreadcrumbStore } from '../../lib/breadcrumb-generator';
+import { useEmployeeStore } from '../employees/store';
 
 // Helper to get current user info
 const getCurrentUserInfo = () => {
@@ -60,8 +60,8 @@ const augmentedMethods = {
     // Update inventory for each item
     if (check.items && check.items.length > 0) {
       const [{ useProductStore }, { useStockHistoryStore }] = await Promise.all([
-        import('../products/store.ts'),
-        import('../stock-history/store.ts')
+        import('../products/store'),
+        import('../stock-history/store')
       ]);
 
       const productStore = useProductStore.getState();

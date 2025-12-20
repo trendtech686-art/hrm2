@@ -5,12 +5,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../../../components/ui/dialog.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { ScrollArea } from '../../../components/ui/scroll-area.tsx';
+} from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Separator } from '../../../components/ui/separator';
+import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Printer, Pencil, User, Building2, Briefcase, Calendar, Clock } from 'lucide-react';
-import type { PayslipRow } from './payslip-columns.tsx';
+import type { PayslipRow } from './payslip-columns';
 
 // =============================================
 // TYPES

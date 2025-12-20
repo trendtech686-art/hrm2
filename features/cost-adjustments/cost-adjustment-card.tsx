@@ -1,12 +1,14 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import type { CostAdjustment } from './types.ts';
-import { Card, CardContent, CardTitle } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import type { CostAdjustment } from './types';
+import { Card, CardContent, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { TrendingUp, TrendingDown, Package, Calendar, User, MoreHorizontal, Eye, CheckCircle, XCircle, Printer } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
   switch (status) {

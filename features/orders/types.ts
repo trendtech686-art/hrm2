@@ -1,6 +1,6 @@
-import type { Branch } from '../settings/branches/types.ts';
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
-import type { HistoryEntry } from '../../lib/activity-history-helper.ts';
+import type { Branch } from '../settings/branches/types';
+import type { SystemId, BusinessId } from '../../lib/id-types';
+import type { HistoryEntry } from '../../lib/activity-history-helper';
 
 // New types for statuses
 export type OrderMainStatus = 'Đặt hàng' | 'Đang giao dịch' | 'Hoàn thành' | 'Đã hủy';

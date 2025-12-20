@@ -1,6 +1,6 @@
 import * as React from "react";
 import { asBusinessId } from "@/lib/id-types";
-import { useProductStore } from "../store.ts";
+import { useProductStore } from "../store";
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -9,11 +9,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { CurrencyInput } from "../../../components/ui/currency-input.tsx";
+} from "../../../components/ui/dialog";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { CurrencyInput } from "../../../components/ui/currency-input";
 
 interface QuickAddProductDialogProps {
   open: boolean;

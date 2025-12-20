@@ -1,18 +1,18 @@
 import * as React from 'react';
 import { Bell, X, Check, CheckCheck } from 'lucide-react';
-import { Badge } from './badge.tsx';
-import { Button } from './button.tsx';
-import { ScrollArea } from './scroll-area.tsx';
+import { Badge } from './badge';
+import { Button } from './button';
+import { ScrollArea } from './scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './dropdown-menu.tsx';
-import { formatDateTime } from '../../lib/date-utils.ts';
-import { useNavigate } from 'react-router-dom';
-import { cn } from '../../lib/utils.ts';
+} from './dropdown-menu';
+import { formatDateTime } from '../../lib/date-utils';
+import { useNavigate } from '@/lib/next-compat';
+import { cn } from '../../lib/utils';
 
 /**
  * Notification Center - Trung tâm thông báo toàn hệ thống

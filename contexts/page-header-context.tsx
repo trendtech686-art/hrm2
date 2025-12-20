@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { usePathname, useRouter } from 'next/navigation';
 import type { BreadcrumbItem } from '../lib/breadcrumb-system';
 import { generateBreadcrumb, generatePageTitle } from '../lib/breadcrumb-system';
 
@@ -42,22 +42,22 @@ const PageHeaderDispatchContext = React.createContext<Omit<PageHeaderContextValu
  * Wrap your app with this provider to enable page header functionality
  */
 export function PageHeaderProvider({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
   const [pageHeader, setPageHeaderState] = React.useState<PageHeaderState>({});
 
   // Auto-clear on route change (optional - can be disabled)
   React.useEffect(() => {
     // Don't auto-clear, let pages set their own headers
     // setPageHeaderState({});
-  }, [location.pathname]);
+  }, [pathname]);
 
   const setPageHeader = React.useCallback((state: PageHeaderState) => {
     setPageHeaderState(prev => {
       // Auto-generate breadcrumb if not provided
       let breadcrumb = state.breadcrumb;
       if (!breadcrumb) {
-        breadcrumb = generateBreadcrumb(location.pathname, state.context);
+        breadcrumb = generateBreadcrumb(pathname, state.context);
       } else {
         // ✨ Transform route metadata breadcrumb format
         // Convert: ['Nhân viên', 'Chi tiết'] or [{ label: 'Nhân viên', href: '/employees' }, 'Chi tiết']
@@ -66,7 +66,7 @@ export function PageHeaderProvider({ children }: { children: React.ReactNode }) 
           if (typeof item === 'string') {
             return {
               label: item,
-              href: location.pathname,
+              href: pathname,
               isCurrent: index === breadcrumb!.length - 1
             };
           }
@@ -80,7 +80,7 @@ export function PageHeaderProvider({ children }: { children: React.ReactNode }) 
       // Auto-generate title if not provided
       let title = state.title;
       if (!title) {
-        const pageTitle = generatePageTitle(location.pathname, state.context);
+        const pageTitle = generatePageTitle(pathname, state.context);
         title = pageTitle.title;
       }
 
@@ -89,9 +89,9 @@ export function PageHeaderProvider({ children }: { children: React.ReactNode }) 
       if (!onBack && state.showBackButton !== false) {
         onBack = () => {
           if (state.backPath) {
-            navigate(state.backPath);
+            router.push(state.backPath);
           } else {
-            navigate(-1);
+            router.back();
           }
         };
       }
@@ -104,7 +104,7 @@ export function PageHeaderProvider({ children }: { children: React.ReactNode }) 
         onBack,
       };
     });
-  }, [location.pathname, navigate]);
+  }, [pathname, router]);
 
   const clearPageHeader = React.useCallback(() => {
     setPageHeaderState({});

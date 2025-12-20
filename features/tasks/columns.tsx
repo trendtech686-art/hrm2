@@ -1,14 +1,14 @@
 import * as React from "react";
-import * as ReactRouterDOM from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
-import type { Task, TaskPriority, TaskStatus } from './types.ts'
-import type { SystemId } from '../../lib/id-types.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
-import { Progress } from "../../components/ui/progress.tsx"
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import type { Task, TaskPriority, TaskStatus } from './types'
+import type { SystemId } from '../../lib/id-types';
+import { Checkbox } from "../../components/ui/checkbox"
+import { Badge } from "../../components/ui/badge"
+import { Progress } from "../../components/ui/progress"
+import type { ColumnDef } from '../../components/data-table/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
 
 const priorityVariants: Record<TaskPriority, "default" | "secondary" | "warning" | "destructive"> = {

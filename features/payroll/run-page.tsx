@@ -1,36 +1,38 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { Users, Wallet, Calendar as CalendarIcon, CheckCircle2, Check } from 'lucide-react';
-import { Button } from '../../components/ui/button.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select.tsx';
-import { Alert, AlertTitle, AlertDescription } from '../../components/ui/alert.tsx';
-import { Skeleton } from '../../components/ui/skeleton.tsx';
-import { MonthPicker } from '../../components/ui/month-picker.tsx';
-import { DatePicker } from '../../components/ui/date-picker.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useLeaveStore } from '../leaves/store.ts';
-import { useAttendanceStore } from '../attendance/store.ts';
-import { usePayrollTemplateStore } from './payroll-template-store.ts';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import { usePayrollBatchStore, type GeneratedPayslipPayload } from './payroll-batch-store.ts';
-import { usePenaltyStore } from '../settings/penalties/store.ts';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import type { Employee } from '../employees/types.ts';
-import { PayrollSummaryCards } from './components/summary-cards.tsx';
-import { payrollEngine, type CalculatedPayslip, type PayrollCalculationResult } from '../../lib/payroll-engine.ts';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+import { Alert, AlertTitle, AlertDescription } from '../../components/ui/alert';
+import { Skeleton } from '../../components/ui/skeleton';
+import { MonthPicker } from '../../components/ui/month-picker';
+import { DatePicker } from '../../components/ui/date-picker';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { useEmployeeStore } from '../employees/store';
+import { useLeaveStore } from '../leaves/store';
+import { useAttendanceStore } from '../attendance/store';
+import { usePayrollTemplateStore } from './payroll-template-store';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { usePayrollBatchStore, type GeneratedPayslipPayload } from './payroll-batch-store';
+import { usePenaltyStore } from '../settings/penalties/store';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { Checkbox } from '../../components/ui/checkbox';
+import type { ColumnDef } from '../../components/data-table/types';
+import type { Employee } from '../employees/types';
+import { PayrollSummaryCards } from './components/summary-cards';
+import { payrollEngine, type CalculatedPayslip, type PayrollCalculationResult } from '../../lib/payroll-engine';
 import { toast } from 'sonner';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
-import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service.ts';
-import { cn } from '../../lib/utils.ts';
-import { buildPayPeriodFromMonthKey, getCurrentDateInTimezone, formatLocalDateString } from '../../lib/date-utils.ts';
+import { asSystemId, type SystemId } from '../../lib/id-types';
+import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
+import { cn } from '../../lib/utils';
+import { buildPayPeriodFromMonthKey, getCurrentDateInTimezone, formatLocalDateString } from '../../lib/date-utils';
 
 const STEPS = [
   { id: 'period', name: 'Kỳ lương', description: 'Chọn tháng, ngày chi trả và template mặc định.' },

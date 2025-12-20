@@ -2,9 +2,9 @@ import * as React from "react";
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import type { Supplier } from "./types.ts"
-import { useEmployeeStore } from "../employees/store.ts"
-import { useSupplierStore } from "./store.ts";
+import type { Supplier } from "./types"
+import { useEmployeeStore } from "../employees/store"
+import { useSupplierStore } from "./store";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import {
   Form,
@@ -13,20 +13,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../components/ui/form.tsx"
-import { Input } from "../../components/ui/input.tsx"
+} from "../../components/ui/form"
+import { Input } from "../../components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx"
-import { CurrencyInput } from "../../components/ui/currency-input.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { VirtualizedCombobox } from "../../components/ui/virtualized-combobox.tsx";
-import { Switch } from "../../components/ui/switch.tsx";
-import { Label } from "../../components/ui/label.tsx";
+} from "../../components/ui/select"
+import { CurrencyInput } from "../../components/ui/currency-input";
+import { Textarea } from "../../components/ui/textarea";
+import { VirtualizedCombobox } from "../../components/ui/virtualized-combobox";
+import { Switch } from "../../components/ui/switch";
+import { Label } from "../../components/ui/label";
 
 const supplierFormSchema = z.object({
   id: z.string().min(1, "Mã nhà cung cấp là bắt buộc"),

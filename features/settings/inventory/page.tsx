@@ -1,51 +1,51 @@
 import * as React from "react";
 import { Plus, Save } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { useSettingsPageHeader } from "../use-settings-page-header.tsx";
-import { useUnitStore } from "../units/store.ts";
-import { useProductTypeStore } from "./product-type-store.ts";
-import { useStorageLocationStore } from "./storage-location-store.ts";
-import { useSlaSettingsStore } from "./sla-settings-store.ts";
-import { useProductLogisticsSettingsStore } from "./logistics-settings-store.ts";
-import { useWarrantySettingsStore, type WarrantySettings } from "./warranty-settings-store.ts";
-import type { Unit } from "../units/types.ts";
-import type { ProductType, ProductSlaSettings, ProductLogisticsSettings } from "./types.ts";
-import type { StorageLocation } from "./storage-location-types.ts";
-import { UnitForm, type UnitFormValues } from "../units/form.tsx";
+import { useSettingsPageHeader } from "../use-settings-page-header";
+import { useUnitStore } from "../units/store";
+import { useProductTypeStore } from "./product-type-store";
+import { useStorageLocationStore } from "./storage-location-store";
+import { useSlaSettingsStore } from "./sla-settings-store";
+import { useProductLogisticsSettingsStore } from "./logistics-settings-store";
+import { useWarrantySettingsStore, type WarrantySettings } from "./warranty-settings-store";
+import type { Unit } from "../units/types";
+import type { ProductType, ProductSlaSettings, ProductLogisticsSettings } from "./types";
+import type { StorageLocation } from "./storage-location-types";
+import { UnitForm, type UnitFormValues } from "../units/form";
 import {
   ProductTypeFormDialog,
   type ProductTypeFormValues,
-} from "./setting-form-dialogs.tsx";
-import { StorageLocationFormDialog, type StorageLocationFormValues } from "./storage-location-form-dialog.tsx";
-import { getUnitColumns } from "../units/columns.tsx";
-import { getProductTypeColumns } from "./product-type-columns.tsx";
-import { getStorageLocationColumns } from "./storage-location-columns.tsx";
-import { TabsContent } from "../../../components/ui/tabs.tsx";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select.tsx";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
+} from "./setting-form-dialogs";
+import { StorageLocationFormDialog, type StorageLocationFormValues } from "./storage-location-form-dialog";
+import { getUnitColumns } from "../units/columns";
+import { getProductTypeColumns } from "./product-type-columns";
+import { getStorageLocationColumns } from "./storage-location-columns";
+import { TabsContent } from "../../../components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Switch } from "../../../components/ui/switch";
+import { Label } from "../../../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 import { toast } from "sonner";
-import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable.tsx";
-import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
-import { SettingsVerticalTabs } from "../../../components/settings/SettingsVerticalTabs.tsx";
-import { useTabActionRegistry, type RegisterTabActions } from "../use-tab-action-registry.ts";
+import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
+import { SettingsVerticalTabs } from "../../../components/settings/SettingsVerticalTabs";
+import { useTabActionRegistry, type RegisterTabActions } from "../use-tab-action-registry";
 
 type TabContentProps = {
   isActive: boolean;
   onRegisterActions: RegisterTabActions;
 };
 
-import type { Importer } from "./types.ts";
+import type { Importer } from "./types";
 
 // Importer imports
-import { useImporterStore } from "./importer-store.ts";
-import { ImporterFormDialog, type ImporterFormValues } from "./importer-form-dialog.tsx";
-import { getImporterColumns } from "./importer-columns.tsx";
+import { useImporterStore } from "./importer-store";
+import { ImporterFormDialog, type ImporterFormValues } from "./importer-form-dialog";
+import { getImporterColumns } from "./importer-columns";
 
 function ImportersTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const { data, add, update, remove, setDefault } = useImporterStore();

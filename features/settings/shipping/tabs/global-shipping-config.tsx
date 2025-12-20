@@ -21,8 +21,8 @@ import { Save } from 'lucide-react';
 import type { GlobalShippingConfig, WeightMode, DeliveryRequirement } from '@/lib/types/shipping-config';
 import { loadShippingConfig, updateGlobalConfig } from '@/lib/utils/shipping-config-migration';
 import { toast } from 'sonner';
-import { SettingsActionButton } from '@/components/settings/SettingsActionButton.tsx';
-import type { RegisterTabActions } from '../../use-tab-action-registry.ts';
+import { SettingsActionButton } from '@/components/settings/SettingsActionButton';
+import type { RegisterTabActions } from '../../use-tab-action-registry';
 
 type GlobalShippingConfigTabProps = {
   isActive: boolean;

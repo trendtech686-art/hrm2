@@ -1,11 +1,11 @@
 import * as React from "react";
-import { formatDateCustom } from '../../lib/date-utils.ts';
-import type { Payment } from './types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
-import { Card, CardContent, CardTitle } from "../../components/ui/card.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { TouchButton } from "../../components/mobile/touch-button.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import { formatDateCustom } from '../../lib/date-utils';
+import type { Payment } from './types';
+import type { SystemId } from '../../lib/id-types';
+import { Card, CardContent, CardTitle } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
+import { TouchButton } from "../../components/mobile/touch-button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { MoreHorizontal, Calendar, User, Building2, FileText, XCircle, Eye, Pencil } from "lucide-react";
 
 const formatCurrency = (value?: number) => {

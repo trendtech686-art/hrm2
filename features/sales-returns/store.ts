@@ -1,21 +1,21 @@
 ﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import { createCrudStore } from '../../lib/store-factory.ts';
-import type { SalesReturn, ReturnLineItem } from './types.ts';
-import { data as initialData } from './data.ts';
+import { createCrudStore } from '../../lib/store-factory';
+import type { SalesReturn, ReturnLineItem } from './types';
+import { data as initialData } from './data';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
 import { toast } from 'sonner';
 
 // Other stores
-import { useOrderStore } from '../orders/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { createPaymentDocument, createReceiptDocument } from '../finance/document-helpers.ts';
-import { useShippingPartnerStore } from '../settings/shipping/store.ts';
-import { asBusinessId, asSystemId, type SystemId } from '../../lib/id-types.ts';
-import { isComboProduct } from '../products/combo-utils.ts';
-import { generateSystemId, getMaxSystemIdCounter } from '../../lib/id-utils.ts';
+import { useOrderStore } from '../orders/store';
+import { useProductStore } from '../products/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { useCustomerStore } from '../customers/store';
+import { createPaymentDocument, createReceiptDocument } from '../finance/document-helpers';
+import { useShippingPartnerStore } from '../settings/shipping/store';
+import { asBusinessId, asSystemId, type SystemId } from '../../lib/id-types';
+import { isComboProduct } from '../products/combo-utils';
+import { generateSystemId, getMaxSystemIdCounter } from '../../lib/id-utils';
 
 /**
  * ✅ Helper: Expand combo return items to child products

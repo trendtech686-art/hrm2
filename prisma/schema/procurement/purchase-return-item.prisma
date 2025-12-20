@@ -1,0 +1,40 @@
+// ═══════════════════════════════════════════════════════════════
+// PURCHASE RETURN ITEM MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PRITEM0000000001 (English, 10 digits)
+// BusinessId: CTTHNCC0000000001 (Vietnamese - Chi tiết TH NCC, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model PurchaseReturnItem {
+  systemId          String          @id           // PRITEM0000000001
+  id                String          @unique       // CTTHNCC0000000001
+  
+  // Parent Return
+  returnId          String
+  purchaseReturn    PurchaseReturn  @relation(fields: [returnId], references: [systemId])
+  
+  // Product
+  productId         String?
+  productName       String
+  productSku        String?
+  
+  // Quantity
+  quantity          Int             @default(1)
+  unitPrice         Decimal         @db.Decimal(15, 2)
+  
+  // Total
+  lineTotal         Decimal         @db.Decimal(15, 2)
+  
+  // Reason
+  reason            String?
+  condition         String?
+  
+  // Notes
+  notes             String?
+  
+  // Audit
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  @@map("purchase_return_items")
+}

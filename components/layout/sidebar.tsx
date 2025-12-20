@@ -1,6 +1,7 @@
+'use client'
+
 import * as React from 'react';
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from '@/lib/next-compat';
 import {
   Users, Command, FileText, Building2, UserCog, Clock, CalendarOff, Landmark, Target,
   Briefcase, Package, ShoppingCart, Truck, History, Banknote, BookUser, Wrench,
@@ -9,9 +10,9 @@ import {
   Inbox, Home, Warehouse, Wallet, Undo2, PanelLeftClose, PanelLeftOpen, User, Heart,
   ListTodo, ClipboardCheck, CheckSquare, ArrowLeftRight, CircleDollarSign, Tags, FolderTree,
 } from 'lucide-react';
-import { cn } from '../../lib/utils.ts';
-import { Input } from '../ui/input.tsx';
-import { Button } from '../ui/button.tsx';
+import { cn } from '../../lib/utils';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 import { 
   Sidebar as SidebarPrimitive, 
   SidebarHeader, 
@@ -20,16 +21,16 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-} from '../ui/sidebar.tsx';
+} from '../ui/sidebar';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '../ui/tooltip.tsx';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { useUiStore } from '../../lib/ui-store.ts';
+} from '../ui/tooltip';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { useAuth } from '../../contexts/auth-context';
+import { useUiStore } from '../../lib/ui-store';
 
 type NavLinkInfo = {
   href: string;

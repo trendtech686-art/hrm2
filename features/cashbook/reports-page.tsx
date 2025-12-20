@@ -1,22 +1,24 @@
+'use client'
+
 import * as React from 'react';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../lib/router.ts';
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { useNavigate } from '@/lib/next-compat';
+import { ROUTES } from '../../lib/router';
 import { startOfMonth, endOfMonth, isAfter, isBefore, isWithinInterval, isSameDay, differenceInMilliseconds, parse as dateParse } from 'date-fns';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useReceiptTypeStore } from '../settings/receipt-types/store.ts';
-import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { DataTableDateFilter } from '../../components/data-table/data-table-date-filter.tsx';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useReceiptStore } from '../receipts/store';
+import { usePaymentStore } from '../payments/store';
+import { useBranchStore } from '../settings/branches/store';
+import { useCustomerStore } from '../customers/store';
+import { useReceiptTypeStore } from '../settings/receipt-types/store';
+import { usePaymentTypeStore } from '../settings/payments/types/store';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { DataTableDateFilter } from '../../components/data-table/data-table-date-filter';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, CreditCard, Users, FileText } from 'lucide-react';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
-import { Button } from '../../components/ui/button.tsx';
+import { useMediaQuery } from '../../lib/use-media-query';
+import { Button } from '../../components/ui/button';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 

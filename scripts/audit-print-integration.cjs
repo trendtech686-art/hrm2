@@ -18,117 +18,117 @@ const FEATURES_DIR = path.join(__dirname, '../features');
 // Template type mapping
 const TEMPLATE_CONFIG = {
   'order': {
-    variableFile: 'don-ban-hang.ts',
-    mapperFile: 'order.mapper.ts',
-    detailPage: 'features/orders/order-detail-page.tsx',
+    variableFile: 'don-ban-hang',
+    mapperFile: 'order.mapper',
+    detailPage: 'features/orders/order-detail-page',
     mapperFn: 'mapOrderToPrintData'
   },
   'sales-return': {
-    variableFile: 'don-doi-tra-hang.ts',
-    mapperFile: 'sales-return.mapper.ts',
-    detailPage: 'features/sales-returns/detail-page.tsx',
+    variableFile: 'don-doi-tra-hang',
+    mapperFile: 'sales-return.mapper',
+    detailPage: 'features/sales-returns/detail-page',
     mapperFn: 'mapSalesReturnToPrintData'
   },
   'don-tra-hang': {
-    variableFile: 'don-tra-hang.ts',
-    mapperFile: 'return-order.mapper.ts',
+    variableFile: 'don-tra-hang',
+    mapperFile: 'return-order.mapper',
     detailPage: null, // Không có trang riêng - BUG!
     mapperFn: 'mapReturnOrderToPrintData'
   },
   'receipt': {
-    variableFile: 'phieu-thu.ts',
-    mapperFile: 'receipt.mapper.ts',
-    detailPage: 'features/orders/components/payment-info.tsx',
+    variableFile: 'phieu-thu',
+    mapperFile: 'receipt.mapper',
+    detailPage: 'features/orders/components/payment-info',
     mapperFn: 'mapReceiptToPrintData'
   },
   'payment': {
-    variableFile: 'phieu-chi.ts',
-    mapperFile: 'payment.mapper.ts',
-    detailPage: 'features/orders/components/payment-info.tsx',
+    variableFile: 'phieu-chi',
+    mapperFile: 'payment.mapper',
+    detailPage: 'features/orders/components/payment-info',
     mapperFn: 'mapPaymentToPrintData'
   },
   'warranty': {
-    variableFile: 'phieu-bao-hanh.ts',
-    mapperFile: 'warranty.mapper.ts',
-    detailPage: 'features/warranty/warranty-detail-page.tsx',
+    variableFile: 'phieu-bao-hanh',
+    mapperFile: 'warranty.mapper',
+    detailPage: 'features/warranty/warranty-detail-page',
     mapperFn: 'mapWarrantyToPrintData'
   },
   'stock-transfer': {
-    variableFile: 'phieu-chuyen-hang.ts',
-    mapperFile: 'stock-transfer.mapper.ts',
-    detailPage: 'features/stock-transfers/detail-page.tsx',
+    variableFile: 'phieu-chuyen-hang',
+    mapperFile: 'stock-transfer.mapper',
+    detailPage: 'features/stock-transfers/detail-page',
     mapperFn: 'mapStockTransferToPrintData'
   },
   'stock-in': {
-    variableFile: 'phieu-nhap-kho.ts',
-    mapperFile: 'stock-in.mapper.ts',
-    detailPage: 'features/inventory-receipts/detail-page.tsx',
+    variableFile: 'phieu-nhap-kho',
+    mapperFile: 'stock-in.mapper',
+    detailPage: 'features/inventory-receipts/detail-page',
     mapperFn: 'mapStockInToPrintData'
   },
   'inventory-check': {
-    variableFile: 'phieu-kiem-hang.ts',
-    mapperFile: 'inventory-check.mapper.ts',
-    detailPage: 'features/inventory-checks/detail-page.tsx',
+    variableFile: 'phieu-kiem-hang',
+    mapperFile: 'inventory-check.mapper',
+    detailPage: 'features/inventory-checks/detail-page',
     mapperFn: 'mapInventoryCheckToPrintData'
   },
   'purchase-order': {
-    variableFile: 'don-dat-hang-nhap.ts',
-    mapperFile: 'purchase-order.mapper.ts',
-    detailPage: 'features/purchase-orders/detail-page.tsx',
+    variableFile: 'don-dat-hang-nhap',
+    mapperFile: 'purchase-order.mapper',
+    detailPage: 'features/purchase-orders/detail-page',
     mapperFn: 'mapPurchaseOrderToPrintData'
   },
   'supplier-return': {
-    variableFile: 'phieu-tra-hang-ncc.ts',
-    mapperFile: 'supplier-return.mapper.ts',
-    detailPage: 'features/purchase-returns/detail-page.tsx',
+    variableFile: 'phieu-tra-hang-ncc',
+    mapperFile: 'supplier-return.mapper',
+    detailPage: 'features/purchase-returns/detail-page',
     mapperFn: 'mapSupplierReturnToPrintData'
   },
   'packing': {
-    variableFile: 'phieu-dong-goi.ts',
-    mapperFile: 'packing.mapper.ts',
-    detailPage: 'features/packaging/detail-page.tsx',
+    variableFile: 'phieu-dong-goi',
+    mapperFile: 'packing.mapper',
+    detailPage: 'features/packaging/detail-page',
     mapperFn: 'mapPackingToPrintData'
   },
   'delivery': {
-    variableFile: 'phieu-giao-hang.ts',
-    mapperFile: 'delivery.mapper.ts',
-    detailPage: 'features/shipments/detail-page.tsx',
+    variableFile: 'phieu-giao-hang',
+    mapperFile: 'delivery.mapper',
+    detailPage: 'features/shipments/detail-page',
     mapperFn: 'mapDeliveryToPrintData'
   },
   'shipping-label': {
-    variableFile: 'nhan-giao-hang.ts',
-    mapperFile: 'shipping-label.mapper.ts',
-    detailPage: 'features/shipments/detail-page.tsx',
+    variableFile: 'nhan-giao-hang',
+    mapperFile: 'shipping-label.mapper',
+    detailPage: 'features/shipments/detail-page',
     mapperFn: 'mapShippingLabelToPrintData'
   },
   'complaint': {
-    variableFile: 'phieu-khieu-nai.ts',
-    mapperFile: 'complaint.mapper.ts',
-    detailPage: 'features/complaints/detail-page.tsx',
+    variableFile: 'phieu-khieu-nai',
+    mapperFile: 'complaint.mapper',
+    detailPage: 'features/complaints/detail-page',
     mapperFn: 'mapComplaintToPrintData'
   },
   'quote': {
-    variableFile: 'phieu-don-tam-tinh.ts',
-    mapperFile: 'quote.mapper.ts',
+    variableFile: 'phieu-don-tam-tinh',
+    mapperFile: 'quote.mapper',
     detailPage: null, // Chưa có - cần tạo
     mapperFn: 'mapQuoteToPrintData'
   },
   'penalty': {
-    variableFile: 'phieu-phat.ts',
-    mapperFile: 'penalty.mapper.ts',
+    variableFile: 'phieu-phat',
+    mapperFile: 'penalty.mapper',
     detailPage: null, // Chưa có
     mapperFn: 'mapPenaltyToPrintData'
   },
   'handover': {
-    variableFile: 'phieu-ban-giao.ts',
-    mapperFile: 'handover.mapper.ts',
+    variableFile: 'phieu-ban-giao',
+    mapperFile: 'handover.mapper',
     detailPage: null, // Chưa có
     mapperFn: 'mapHandoverToPrintData'
   },
   'product-label': {
-    variableFile: 'tem-phu-san-pham.ts',
-    mapperFile: 'product-label.mapper.ts',
-    detailPage: 'features/products/page.tsx',
+    variableFile: 'tem-phu-san-pham',
+    mapperFile: 'product-label.mapper',
+    detailPage: 'features/products/page',
     mapperFn: 'mapProductLabelToPrintData'
   },
 };

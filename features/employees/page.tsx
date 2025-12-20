@@ -1,23 +1,24 @@
+'use client'
+
 import * as React from "react"
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { ROUTES } from '../../lib/router';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils.ts'
-import { useEmployeeStore } from "./store.ts"
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useDefaultPageSize } from "../settings/global-settings-store.ts";
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils'
+import { useEmployeeStore } from "./store"
+import { useBranchStore } from "../settings/branches/store";
+import { useDefaultPageSize } from "../settings/global-settings-store";
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { getColumns } from "./columns.tsx"
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx"
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx"
+import { getColumns } from "./columns"
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
+import { DataTableToolbar } from "../../components/data-table/data-table-toolbar"
+import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter"
 import { toast } from "sonner"
 import { 
   Card, 
   CardContent,
   CardHeader,
   CardTitle,
-} from "../../components/ui/card.tsx"
+} from "../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,34 +28,34 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx"
-import { Button } from "../../components/ui/button.tsx"
+} from "../../components/ui/alert-dialog"
+import { Button } from "../../components/ui/button"
 import { PlusCircle, Phone, Mail, Building2, Calendar, MoreHorizontal, Trash2, Upload, Download } from "lucide-react"
-import type { Employee } from "./types.ts"
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx";
-import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog.tsx";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { employeeImportExportConfig } from "../../lib/import-export/configs/employee.config.ts";
+import type { Employee } from "./types"
+import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
+import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { employeeImportExportConfig } from "../../lib/import-export/configs/employee.config";
 import Fuse from "fuse.js"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { ResponsiveContainer } from "../../components/ui/responsive-container.tsx";
-import { MobileSearchBar } from "../../components/mobile/mobile-search-bar.tsx";
-import { TouchButton } from "../../components/mobile/touch-button.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { ResponsiveContainer } from "../../components/ui/responsive-container";
+import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
+import { TouchButton } from "../../components/mobile/touch-button";
+import { Badge } from "../../components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+import { useMediaQuery } from "../../lib/use-media-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { cn } from "../../lib/utils.ts";
+} from "../../components/ui/dropdown-menu";
+import { PageToolbar } from "../../components/layout/page-toolbar";
+import { PageFilters } from "../../components/layout/page-filters";
+import { cn } from "../../lib/utils";
 
 const COLUMN_LAYOUT_STORAGE_KEY = 'employees-column-layout';
 

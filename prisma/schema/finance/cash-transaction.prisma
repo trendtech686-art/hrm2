@@ -1,0 +1,41 @@
+// ═══════════════════════════════════════════════════════════════
+// CASH TRANSACTION MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: CTRANS0000000001 (English, 10 digits)
+// BusinessId: GD0000000001 (Vietnamese - Giao dịch, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model CashTransaction {
+  systemId          String        @id           // CTRANS0000000001
+  id                String        @unique       // GD0000000001
+  
+  // Cash Account
+  cashAccountId     String
+  cashAccount       CashAccount   @relation(fields: [cashAccountId], references: [systemId])
+  
+  // Transaction details
+  transactionDate   DateTime      @default(now())
+  transactionType   String        // receipt, payment, transfer_in, transfer_out, adjustment
+  
+  // Amount
+  amount            Decimal       @db.Decimal(15, 2)
+  balanceBefore     Decimal       @db.Decimal(15, 2)
+  balanceAfter      Decimal       @db.Decimal(15, 2)
+  
+  // Reference
+  referenceType     String?       // order, purchase_order, receipt, payment
+  referenceId       String?
+  reference         String?
+  
+  // Notes
+  description       String?
+  notes             String?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  
+  @@index([cashAccountId, transactionDate])
+  @@map("cash_transactions")
+}

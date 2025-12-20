@@ -1,13 +1,13 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Calendar } from '../../../components/ui/calendar.tsx';
-import { ChartBar } from '../../../components/ui/chart.tsx';
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Progress } from '../../../components/ui/progress.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Slider } from '../../../components/ui/slider.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Calendar } from '../../../components/ui/calendar';
+import { ChartBar } from '../../../components/ui/chart';
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
+import { Badge } from '../../../components/ui/badge';
+import { Progress } from '../../../components/ui/progress';
+import { Input } from '../../../components/ui/input';
+import { Slider } from '../../../components/ui/slider';
 import { ArrowUpRight, ArrowDownRight, Users, CreditCard, Activity, DollarSign, Plus, Minus, Send } from 'lucide-react';
 
 export function PreviewDashboard() {

@@ -1,8 +1,48 @@
 # 🚀 KẾ HOẠCH CHUYỂN ĐỔI SANG NEXT.JS
 
-> **Cập nhật:** 19/12/2025  
-> **Trạng thái:** ✅ Approved - Sẵn sàng triển khai  
-> **Mục tiêu:** shadcn + mobile-first + Prisma/PostgreSQL + Next.js 15 + VPS deployment
+> **Cập nhật:** 21/12/2025  
+> **Trạng thái:** ✅ Phase 3 + 5 COMPLETE (Database + React Query hoàn tất!)  
+> **Mục tiêu:** shadcn + mobile-first + Prisma/PostgreSQL + Next.js 16 + VPS deployment
+
+---
+
+## 🎯 PHƯƠNG PHÁP MIGRATION ĐÃ CHỌN
+
+### Cách 1: In-place Migration (✅ ĐANG DÙNG)
+
+Thay vì tạo project mới `erp-nextjs`, chúng ta **migrate trực tiếp trong `hrm2`**:
+
+```
+D:\hrm2/
+├── app/                    # ✅ NEW: Next.js App Router
+│   ├── (authenticated)/    # Protected routes (105 pages)
+│   ├── (public)/           # Public routes (login, signup)
+│   ├── layout.tsx          # Root layout
+│   ├── providers.tsx       # All providers
+│   └── globals.css         # Global styles
+├── features/               # ✅ KEEP: Existing feature code
+├── components/             # ✅ KEEP: Existing components
+├── lib/
+│   ├── next-compat.tsx     # ✅ NEW: react-router-dom → next/navigation
+│   └── ...
+├── next.config.ts          # ✅ NEW: Next.js config
+├── postcss.config.mjs      # ✅ NEW: Tailwind v4
+└── package.json            # ✅ UPDATED: Next.js 16 deps
+```
+
+### Lý do chọn cách này:
+1. **Không cần copy 150k+ lines code** - Giữ nguyên features/, components/
+2. **Giảm rủi ro** - Code đang hoạt động, chỉ thêm routing layer
+3. **Nhanh hơn** - Chỉ cần tạo page wrappers + fix imports
+4. **Rollback dễ** - Xóa app/ folder là quay về Vite
+
+### Wrapper Pattern:
+```tsx
+// app/(authenticated)/employees/page.tsx - CHỈ 3 DÒNG
+"use client"
+import { EmployeesPage } from '@/features/employees/page'
+export default EmployeesPage
+```
 
 ---
 
@@ -39,7 +79,7 @@ Vì hệ thống này có nhiều modules (không chỉ HR), nên dùng `erp` ch
 | **Routes** | 95+ | Định nghĩa trong `lib/router.ts` |
 | **Features/Modules** | 37 | Trong folder `features/` |
 | **Zustand Stores** | 50+ | localStorage persistence |
-| **API Endpoints** | 51 | Express server (file upload, GHTK) |
+| **API Endpoints** | 51 | Prisma + REST APIs |
 | **Components UI** | 100+ | shadcn/ui + custom |
 | **Lines of Code** | ~150,000+ | TypeScript + React |
 
@@ -1026,157 +1066,199 @@ model File {
 
 ---
 
-## 4. CHIẾN LƯỢC MIGRATION
+## 4. CHIẾN LƯỢC MIGRATION (CẬP NHẬT 20/12/2025)
 
-### Phase 1: Setup Foundation (1 tuần)
+### ✅ Phase 1: In-place Setup (HOÀN THÀNH)
 
 ```
-Week 1:
-├── Day 1-2: Setup Next.js project
-│   ├── npx create-next-app@latest erp-nextjs --typescript --tailwind --app
-│   ├── Copy shadcn components
-│   ├── Setup Prisma + PostgreSQL (Docker local)
-│   └── Basic layout structure
+Ngày 20/12/2025:
+├── ✅ Cài đặt Next.js 16.1.0 + Turbopack
+│   ├── npm install next@16 react@19 react-dom@19
+│   ├── Tạo next.config.ts với turbopack: {}
+│   └── Cập nhật package.json scripts
 │
-├── Day 3-4: Authentication
-│   ├── NextAuth.js setup
-│   ├── Login/Register pages
-│   ├── Middleware auth guard
-│   └── Session management
+├── ✅ Cấu hình Tailwind CSS v4
+│   ├── npm install tailwindcss @tailwindcss/postcss postcss
+│   ├── Tạo postcss.config.mjs
+│   └── Giữ nguyên globals.css
 │
-└── Day 5: API Routes foundation
-    ├── /api/auth/[...nextauth]
-    ├── /api/health
-    └── Test Prisma connection
-```
-
-### Phase 2: Core Modules Migration (2 tuần)
-
-```
-Week 2-3:
-├── Week 2: HRM + Settings
-│   ├── Employees CRUD + API
-│   ├── Departments, Job Titles
-│   ├── Branches
-│   └── Basic settings pages
+├── ✅ Tạo App Router structure (105 pages)
+│   ├── app/(authenticated)/ - 32 feature folders
+│   ├── app/(public)/ - login, signup, verify-otp
+│   ├── app/layout.tsx - Root layout
+│   └── app/providers.tsx - All providers
 │
-└── Week 3: Sales Core
-    ├── Customers CRUD + API
-    ├── Products CRUD + API
-    ├── Categories, Brands
-    └── File upload migration
-```
-
-### Phase 3: Business Modules (2 tuần)
-
-```
-Week 4-5:
-├── Week 4: Orders + Inventory
-│   ├── Orders CRUD
-│   ├── Order Items
-│   ├── Stock management
-│   └── Stock transfers
+├── ✅ Tạo Compatibility Layer
+│   ├── lib/next-compat.tsx - Wrap next/navigation
+│   ├── Exports: useNavigate, useLocation, useParams, Link, Navigate
+│   └── matchPath, BrowserRouter, MemoryRouter stubs
 │
-└── Week 5: Finance + Operations
-    ├── Cashbook
-    ├── Receipts/Payments
-    ├── Tasks
-    └── Warranties
+└── ✅ Migrate react-router-dom imports (103+ files)
+    ├── Thay 'react-router-dom' → '@/lib/next-compat'
+    ├── Thêm 'use client' directive
+    └── Giữ nguyên logic, chỉ đổi imports
 ```
 
-### Phase 4: Reports + Polish (1 tuần)
+### ✅ Phase 2: Fix & Polish (HOÀN THÀNH - 20/12/2025)
 
 ```
-Week 6:
-├── Reports module
-├── Dashboard
-├── Mobile optimization
-├── Performance tuning
-└── Bug fixes
+Ngày 20/12/2025:
+├── ✅ Xóa .ts/.tsx extensions trong imports
+│   └── Fixed 2 files trong repositories/
+│
+├── ✅ Clean up legacy files
+│   └── Xóa 2 .bak files không cần
+│
+└── ✅ Build production thành công
+    └── npm run build --webpack → 70 pages generated
 ```
 
-### Phase 5: Deployment (1 tuần)
+### ✅ Phase 3: Database Migration (ĐANG TIẾN HÀNH - 20/12/2025)
 
 ```
-Week 7:
-├── VPS setup (DigitalOcean/Vultr/Contabo)
-├── PostgreSQL production
-├── Domain + SSL
+Ngày 20/12/2025:
+├── ✅ Setup PostgreSQL Docker (port 5433)
+│   └── Container: erp-postgres, DB: erp_db, User: erp_user
+│
+├── ✅ Prisma 7 với Driver Adapter
+│   ├── @prisma/adapter-pg cho PostgreSQL
+│   ├── prisma-client generator với output ../generated/prisma
+│   └── next.config.ts: serverExternalPackages cho Prisma
+│
+├── ✅ Prisma Schema đầy đủ (53 models!)
+│   ├── HRM: User, Employee, AttendanceRecord, Leave
+│   ├── Sales: Customer, Product, Order, OrderLineItem, OrderPayment
+│   ├── Procurement: Supplier, PurchaseOrder, PurchaseReturn
+│   ├── Inventory: StockLocation, StockTransfer, InventoryCheck, InventoryReceipt, CostAdjustment
+│   ├── Shipping: Shipment, Packaging, SalesReturn
+│   ├── Finance: CashAccount, CashTransaction, Receipt, Payment
+│   ├── Payroll: Payroll, PayrollItem, Penalty
+│   ├── Operations: Task, Warranty, Complaint, Wiki
+│   └── System: Setting, IdCounter, File, AuditLog
+│
+├── ✅ Migrations applied
+│   ├── 20251220065243_init
+│   └── 20251220081043_add_all_modules
+│
+├── ✅ API Routes đầy đủ (49 routes!)
+│   ├── /api/health
+│   ├── /api/auth/login, /api/auth/me
+│   ├── /api/users, /api/users/[systemId]
+│   ├── /api/employees, /api/employees/[systemId]
+│   ├── /api/customers, /api/customers/[systemId]
+│   ├── /api/products
+│   ├── /api/orders
+│   ├── /api/departments, /api/departments/[systemId]
+│   ├── /api/branches, /api/branches/[systemId]
+│   ├── /api/job-titles, /api/job-titles/[systemId]
+│   ├── /api/brands, /api/brands/[systemId]
+│   ├── /api/categories, /api/categories/[systemId]
+│   ├── /api/inventory
+│   ├── /api/stock-locations, /api/stock-locations/[systemId]
+│   ├── /api/suppliers, /api/suppliers/[systemId]
+│   ├── /api/purchase-orders, /api/purchase-orders/[systemId]
+│   ├── /api/shipments, /api/shipments/[systemId]
+│   ├── /api/cash-accounts, /api/cash-accounts/[systemId]
+│   ├── /api/cash-transactions
+│   ├── /api/receipts, /api/receipts/[systemId]
+│   ├── /api/payments, /api/payments/[systemId]
+│   ├── /api/payroll, /api/payroll/[systemId]
+│   ├── /api/attendance, /api/attendance/[systemId]
+│   ├── /api/warranties, /api/warranties/[systemId]
+│   ├── /api/complaints, /api/complaints/[systemId]
+│   ├── /api/wiki, /api/wiki/[systemId]
+│   ├── /api/settings
+│   └── /api/audit-logs
+│
+├── ⏳ NextAuth.js
+│   └── ✅ Setup hoàn tất - JWT auth với Prisma
+│
+├── ⏳ React Query Migration (chưa bắt đầu)
+    └── Chưa có export localStorage → import PostgreSQL
+```
+
+### 📋 Phase 4: Deployment (CHƯA BẮT ĐẦU)
+
+```
+Kế hoạch:
+├── VPS setup
+├── Docker compose
 ├── CI/CD pipeline
-└── Monitoring setup
-
-Week 8 (Buffer):
-├── Testing (Unit + E2E)
-├── Bug fixes
-├── Documentation
-└── User training
+└── Domain + SSL
 ```
 
 ---
 
-## 5. MIGRATION CHECKLIST
+## 5. MIGRATION CHECKLIST (CẬP NHẬT 20/12/2025)
 
-### Pre-Migration
-- [x] Backup localStorage data to JSON *(Skipped - using hrm2/features/*/data.ts mock data instead)*
-- [ ] Document all current routes
-- [x] List all Zustand stores and their structure *(45 stores identified)*
-- [x] Export component dependencies *(Copied to erp-nextjs)*
+### ✅ Phase 1 - In-place Setup (HOÀN THÀNH)
+- [x] Next.js 16.1.0 cài đặt trong hrm2
+- [x] Webpack bundler (Turbopack incompatible với Prisma 7)
+- [x] Tailwind CSS v4 với @tailwindcss/postcss
+- [x] App Router structure (105 page wrappers)
+- [x] Compatibility layer (lib/next-compat.tsx)
+- [x] Migrate react-router-dom imports (103+ files)
+- [x] Dev server chạy thành công (localhost:3000)
+- [x] Test basic routes (dashboard, employees, orders, products)
 
-### Phase 1 Checklist
-- [x] Next.js 15 project created *(D:\erp-nextjs)*
-- [x] TypeScript configured
-- [x] Tailwind CSS working
-- [x] shadcn/ui components copied *(182 files)*
-- [x] Prisma schema created *(13 models)*
-- [x] PostgreSQL connected *(Docker erp_db)*
-- [x] Database seeded *(Mock data from hrm2)*
-- [ ] NextAuth configured
-- [ ] Basic auth working
+### ✅ Phase 2 - Fix & Polish (HOÀN THÀNH)
+- [x] Remove .ts/.tsx extensions from imports (2 files fixed)
+- [x] Clean up .bak files (2 files deleted)
+- [x] Build production thành công (70 pages)
 
-### Phase 2 Checklist
-- [ ] Employee API (CRUD)
-- [ ] Customer API (CRUD)
-- [ ] Product API (CRUD)
-- [ ] File upload working
-- [ ] React Query hooks created
-- [ ] Data migration scripts ready
+### ✅ Phase 3 - Database (HOÀN THÀNH)
+- [x] PostgreSQL Docker container (port 5433)
+- [x] Prisma 7 với driver adapter pattern
+- [x] Prisma Schema đầy đủ (54 models!)
+- [x] Migrations applied (2 migrations)
+- [x] API Routes đầy đủ (51 routes!) ✅ 20/12/2025
+- [x] NextAuth.js authentication ✅ 20/12/2025
+- [x] TypeScript errors fixed (0 errors) ✅ 21/12/2025
+- [x] Data migration scripts ✅ 21/12/2025
+    - scripts/migration/export-localstorage.js (browser)
+    - scripts/migration/seed.ts (sample data)
+    - scripts/migration/import-to-postgres.ts (JSON import)
 
-### Phase 3 Checklist
-- [ ] Orders API (CRUD)
-- [ ] Inventory APIs
-- [ ] Finance APIs
-- [ ] All business logic migrated
+### ✅ Phase 5 - React Query Migration (HOÀN THÀNH) ✅ 21/12/2025
+- [x] React Query hooks cho core entities
+    - hooks/api/use-employees.ts
+    - hooks/api/use-products.ts
+    - hooks/api/use-customers.ts
+    - hooks/api/use-orders.ts
+    - hooks/api/use-suppliers.ts
+    - hooks/api/use-branches.ts
+    - hooks/api/use-entity.ts (generic factory)
+- [x] Store Adapters (bridge zustand → React Query)
+    - hooks/api/adapters/employee-adapter.ts
+    - hooks/api/adapters/product-adapter.ts
+    - hooks/api/adapters/customer-adapter.ts
+    - hooks/api/adapters/order-adapter.ts
+- [x] API Connection tested ✅ (4 employees from PostgreSQL)
+- [x] Middleware fixed (exclude /api routes)
 
-### Phase 4 Checklist
-- [ ] All reports working
-- [ ] Dashboard complete
-- [ ] Mobile responsive
-- [ ] Performance optimized
-
-### Phase 5 Checklist
-- [ ] VPS configured
-- [ ] Database production ready
-- [ ] SSL certificate
-- [ ] Domain configured
-- [ ] Monitoring active
-- [ ] Backup scheduled
+### 📋 Phase 4 - Deployment (Not Started)
+- [ ] VPS setup
+- [ ] Docker configuration
+- [ ] CI/CD pipeline
+- [ ] Domain + SSL
 
 ---
 
-## 6. TECH STACK SAU MIGRATION
+## 6. TECH STACK HIỆN TẠI (20/12/2025)
 
 ```json
 {
-  "framework": "Next.js 15",
+  "framework": "Next.js 16.1.0",
+  "bundler": "Turbopack (default)",
   "language": "TypeScript 5.x",
-  "styling": "Tailwind CSS 3.x",
+  "styling": "Tailwind CSS 4.x",
   "ui": "shadcn/ui",
-  "database": "PostgreSQL 16",
-  "orm": "Prisma 5.x",
-  "auth": "NextAuth.js 5.x",
+  "database": "localStorage (tạm) → PostgreSQL (planned)",
+  "orm": "Prisma (planned)",
+  "auth": "Custom auth-context → NextAuth.js (planned)",
   "state": {
     "server": "@tanstack/react-query 5.x",
-    "client": "zustand 4.x (chỉ UI state)"
+    "client": "zustand 4.x"
   },
   "forms": "react-hook-form + zod",
   "charts": "recharts",

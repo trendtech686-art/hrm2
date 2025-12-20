@@ -1,37 +1,39 @@
-﻿import * as React from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+﻿'use client'
+
+import * as React from 'react';
+import { Link, useNavigate, useParams } from '@/lib/next-compat';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useInventoryReceiptStore } from './store.ts';
-import { usePurchaseOrderStore } from '../purchase-orders/store.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { useInventoryReceiptStore } from './store';
+import { usePurchaseOrderStore } from '../purchase-orders/store';
+import { useSupplierStore } from '../suppliers/store';
+import { useEmployeeStore } from '../employees/store';
+import { useProductStore } from '../products/store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertStockInForPrint,
   mapStockInToPrintData, 
   mapStockInLineItems,
   createStoreSettings,
-} from '../../lib/print/stock-in-print-helper.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { numberToWords } from '../../lib/print-mappers/types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { formatDateCustom, parseDate } from '../../lib/date-utils.ts';
+} from '../../lib/print/stock-in-print-helper';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { numberToWords } from '../../lib/print-mappers/types';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { formatDateCustom, parseDate } from '../../lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { useAuth } from '../../contexts/auth-context';
+import { Card, CardContent } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { DetailField } from '../../components/ui/detail-field';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 
 const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',

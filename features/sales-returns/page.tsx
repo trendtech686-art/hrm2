@@ -1,41 +1,43 @@
-﻿import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { formatDate } from '../../lib/date-utils.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useSalesReturnStore } from './store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+﻿'use client'
+
+import * as React from 'react';
+import { useNavigate } from '@/lib/next-compat';
+import { formatDate } from '../../lib/date-utils';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useSalesReturnStore } from './store';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertSalesReturnForPrint,
   mapSalesReturnToPrintData,
   mapSalesReturnLineItems,
   createStoreSettingsFromBranch,
-} from '../../lib/print/sales-return-print-helper.ts';
-import { getColumns } from './columns.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
-import { salesReturnConfig } from '../../lib/import-export/configs/sales-return.config.ts';
-import { asSystemId } from '../../lib/id-types.ts';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
-import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
-import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Avatar, AvatarFallback } from '../../components/ui/avatar.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+} from '../../lib/print/sales-return-print-helper';
+import { getColumns } from './columns';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
+import { salesReturnConfig } from '../../lib/import-export/configs/sales-return.config';
+import { asSystemId } from '../../lib/id-types';
+import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
+import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { PageToolbar } from '../../components/layout/page-toolbar';
+import { PageFilters } from '../../components/layout/page-filters';
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
+import { Card, CardContent } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Avatar, AvatarFallback } from '../../components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer, Download } from 'lucide-react';
-import { TouchButton } from '../../components/mobile/touch-button.tsx';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
+import { TouchButton } from '../../components/mobile/touch-button';
+import { useMediaQuery } from '../../lib/use-media-query';
+import { useAuth } from '../../contexts/auth-context';
 import { toast } from 'sonner';
-import type { SalesReturn } from './types.ts';
+import type { SalesReturn } from './types';
 import Fuse from 'fuse.js';
-import { ROUTES } from '../../lib/router.ts';
+import { ROUTES } from '../../lib/router';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '0';

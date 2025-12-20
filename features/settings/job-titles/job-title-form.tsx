@@ -1,9 +1,9 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
-import type { JobTitle } from "./types.ts"
-import { useJobTitleStore } from "./store.ts";
+import type { JobTitle } from "./types"
+import { useJobTitleStore } from "./store";
 
-import { Button } from "../../../components/ui/button.tsx"
+import { Button } from "../../../components/ui/button"
 import {
   Form,
   FormControl,
@@ -11,9 +11,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form.tsx"
-import { Input } from "../../../components/ui/input.tsx"
-import { Textarea } from "../../../components/ui/textarea.tsx";
+} from "../../../components/ui/form"
+import { Input } from "../../../components/ui/input"
+import { Textarea } from "../../../components/ui/textarea";
 
 export type JobTitleFormValues = Omit<JobTitle, 'systemId'>;
 

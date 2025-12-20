@@ -6,8 +6,8 @@
  */
 
 import * as React from 'react';
-import { WarrantyTicket } from '../types.ts';
-import { WARRANTY_SLA_TARGETS, formatTimeLeft, getUrgencyLevel } from '../warranty-sla-utils.ts';
+import { WarrantyTicket } from '../types';
+import { WARRANTY_SLA_TARGETS, formatTimeLeft, getUrgencyLevel } from '../warranty-sla-utils';
 
 export interface WarrantyTimeTrackingMetrics {
   // Response time (new -> pending)

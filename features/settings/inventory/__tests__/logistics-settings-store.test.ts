@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const STORE_PATH = '../logistics-settings-store.ts';
 
-type LogisticsStoreModule = typeof import('../logistics-settings-store.ts');
+type LogisticsStoreModule = typeof import('../logistics-settings-store');
 
 async function loadStore() {
   const mod: LogisticsStoreModule = await import(STORE_PATH);

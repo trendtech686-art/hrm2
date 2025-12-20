@@ -1,43 +1,45 @@
-﻿import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+﻿'use client'
+
+import * as React from 'react';
+import { useNavigate } from '@/lib/next-compat';
 import { formatDate } from '@/lib/date-utils';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useOrderStore } from '../orders/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import type { PackagingSlip } from './types.ts';
-import { getColumns } from './columns.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
-import { packagingConfig } from '../../lib/import-export/configs/packaging.config.ts';
-import { asSystemId } from '../../lib/id-types.ts';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
-import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
-import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
-import { Card, CardContent, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Avatar, AvatarFallback } from '../../components/ui/avatar.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useOrderStore } from '../orders/store';
+import { useBranchStore } from '../settings/branches/store';
+import type { PackagingSlip } from './types';
+import { getColumns } from './columns';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
+import { packagingConfig } from '../../lib/import-export/configs/packaging.config';
+import { asSystemId } from '../../lib/id-types';
+import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { PageToolbar } from '../../components/layout/page-toolbar';
+import { PageFilters } from '../../components/layout/page-filters';
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
+import { Card, CardContent, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Avatar, AvatarFallback } from '../../components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
+import { Textarea } from '../../components/ui/textarea';
+import { Label } from '../../components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Package, MoreHorizontal, Calendar, User, Inbox, Printer, Download } from 'lucide-react';
-import { TouchButton } from '../../components/mobile/touch-button.tsx';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { TouchButton } from '../../components/mobile/touch-button';
+import { useMediaQuery } from '../../lib/use-media-query';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { useAuth } from '../../contexts/auth-context';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertToPackingForPrint,
   mapPackingToPrintData,
   mapPackingLineItems,
   createStoreSettings,
-} from '../../lib/print/order-print-helper.ts';
-import { useCustomerStore } from '../customers/store.ts';
+} from '../../lib/print/order-print-helper';
+import { useCustomerStore } from '../customers/store';
 
 function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onConfirm: (reason: string) => void }) {
   const [reason, setReason] = React.useState('');

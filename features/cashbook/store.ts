@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { data as initialData } from './data.ts';
-import type { CashAccount } from './types.ts';
-import { findNextAvailableBusinessId, generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, type EntityType } from '../../lib/id-utils.ts';
-import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
+import { data as initialData } from './data';
+import type { CashAccount } from './types';
+import { findNextAvailableBusinessId, generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, type EntityType } from '../../lib/id-utils';
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 
 const CASH_ACCOUNT_ENTITY: EntityType = 'cash-accounts';
 const SYSTEM_ID_PREFIX = 'ACCOUNT';

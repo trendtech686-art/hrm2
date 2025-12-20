@@ -6,18 +6,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { CurrencyInput } from '../../../components/ui/currency-input.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { Alert, AlertDescription } from '../../../components/ui/alert.tsx';
-import { ScrollArea } from '../../../components/ui/scroll-area.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs.tsx';
-import { Card, CardContent } from '../../../components/ui/card.tsx';
+} from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { CurrencyInput } from '../../../components/ui/currency-input';
+import { Label } from '../../../components/ui/label';
+import { Separator } from '../../../components/ui/separator';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { ScrollArea } from '../../../components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Card, CardContent } from '../../../components/ui/card';
 import { AlertTriangle, Calculator, Save, X, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
-import type { Payslip, PayrollComponentEntry, PayrollTotals } from '../../../lib/payroll-types.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
+import type { Payslip, PayrollComponentEntry, PayrollTotals } from '../../../lib/payroll-types';
+import type { SystemId } from '../../../lib/id-types';
 
 // =============================================
 // TYPES

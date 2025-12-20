@@ -3,17 +3,17 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useSortable } from '@dnd-kit/sortable';
-import { Card } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Progress } from '../../components/ui/progress.tsx';
-import { SlaTimer } from '../../components/SlaTimer.tsx';
-import { AssigneeAvatarGroup } from './components/AssigneeAvatarGroup.tsx';
-import { loadCardColorSettings } from '../../features/settings/tasks/tasks-settings-page.tsx';
-import { cn } from '../../lib/utils.ts';
+import { Card } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
+import { Progress } from '../../components/ui/progress';
+import { SlaTimer } from '../../components/SlaTimer';
+import { AssigneeAvatarGroup } from './components/AssigneeAvatarGroup';
+import { loadCardColorSettings } from '../../features/settings/tasks/tasks-settings-page';
+import { cn } from '../../lib/utils';
 import { formatDate } from '@/lib/date-utils';
 import { Clock, AlertCircle, Play, FileCheck, CheckCircle2, XCircle, Pause, GripVertical } from 'lucide-react';
-import type { Task, TaskStatus, TaskPriority } from './types.ts';
+import type { Task, TaskStatus, TaskPriority } from './types';
 import { toast } from 'sonner';
 
 const taskStatusColumns: TaskStatus[] = [

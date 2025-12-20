@@ -19,7 +19,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import { cn } from '../../lib/utils';
-import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api.ts';
+import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
 import { Bold, Italic, Image as ImageIcon, Upload, Loader2, List, ListOrdered, Heading2 } from 'lucide-react';
 import { Button } from './button';
 import { toast } from 'sonner';

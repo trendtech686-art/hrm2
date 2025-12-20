@@ -1,30 +1,32 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import { useInventoryCheckStore } from './store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { BulkProductSelectorDialog } from '../../components/shared/bulk-product-selector-dialog.tsx';
-import { ProductSearchCombobox } from '../../components/shared/product-search-combobox.tsx';
-import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
+import { useNavigate, useParams, Link } from '@/lib/next-compat';
+import { useInventoryCheckStore } from './store';
+import { useBranchStore } from '../settings/branches/store';
+import { useProductStore } from '../products/store';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { BulkProductSelectorDialog } from '../../components/shared/bulk-product-selector-dialog';
+import { ProductSearchCombobox } from '../../components/shared/product-search-combobox';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { Package, Trash2, AlertCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
-import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card.tsx';
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
-import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from './types.ts';
-import type { Product } from '../products/types.ts';
+import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
+import type { Subtask } from '../../components/shared/subtask-list';
+import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from './types';
+import type { Product } from '../products/types';
 
 const DIFFERENCE_REASONS: { value: DifferenceReason; label: string }[] = [
   { value: 'other', label: 'Khác' },
@@ -102,7 +104,7 @@ export function InventoryCheckFormPage() {
         setItems(existing.items || []);
         
         // Load employee name for edit mode (người tạo ban đầu)
-        import('../employees/store.ts').then(({ useEmployeeStore }) => {
+        import('../employees/store').then(({ useEmployeeStore }) => {
           const employeeList = useEmployeeStore.getState().data;
           const creator = employeeList.find(emp => emp.systemId === existing.createdBy);
           if (creator) {

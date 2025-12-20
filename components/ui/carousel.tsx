@@ -1,8 +1,8 @@
 import * as React from "react"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 
-import { cn } from "../../lib/utils.ts"
-import { Button } from "./button.tsx"
+import { cn } from "../../lib/utils"
+import { Button } from "./button"
 
 type CarouselContextProps = {
   carouselRef: React.RefObject<HTMLDivElement | null>;

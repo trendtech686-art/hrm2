@@ -5,11 +5,13 @@
  * UI theo mẫu: biểu đồ combo (cột + đường) + bảng dữ liệu
  */
 
+'use client'
+
 import * as React from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
-import { usePageHeader } from '@/contexts/page-header-context.tsx';
-import { ROUTES } from '@/lib/router.ts';
+import { useNavigate } from '@/lib/next-compat';
+import { usePageHeader } from '@/contexts/page-header-context';
+import { ROUTES } from '@/lib/router';
 import { 
   ReportChart, 
   ReportFilters, 
@@ -17,20 +19,20 @@ import {
   ReportHeaderActions,
   SALES_REPORT_GLOSSARY,
   formatCurrency,
-} from '../components/index.ts';
-import { useSalesTimeReport } from '../hooks/index.ts';
-import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
-import { Badge } from '@/components/ui/badge.tsx';
-import { Button } from '@/components/ui/button.tsx';
-import type { ColumnDef } from '@/components/data-table/types.ts';
+} from '../components/index';
+import { useSalesTimeReport } from '../hooks/index';
+import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import type { ColumnDef } from '@/components/data-table/types';
 import type { 
   ReportDateRange, 
   TimeGrouping, 
   GroupByOption,
   SalesTimeReportRow,
   ChartType,
-} from '../types.ts';
+} from '../types';
 import { 
   ShoppingCart, 
   DollarSign, 

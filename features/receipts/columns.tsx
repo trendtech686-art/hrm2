@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import type { ColumnDef } from '@/components/data-table/types';
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, RotateCcw, Eye, MoreHorizontal, CheckCircle, XCircle, Printer } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip.tsx";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { SystemId } from '@/lib/id-types';
 

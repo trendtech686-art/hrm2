@@ -1,35 +1,37 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { formatDateCustom, parseDate, getCurrentDate, toISODate } from '@/lib/date-utils';
 import { ArrowLeft, InfoIcon, AlertCircle } from 'lucide-react';
 
-import { usePurchaseOrderStore } from '../purchase-orders/store.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { usePurchaseReturnStore } from './store.ts';
-import type { PurchaseReturnLineItem } from './types.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
+import { usePurchaseOrderStore } from '../purchase-orders/store';
+import { useSupplierStore } from '../suppliers/store';
+import { useBranchStore } from '../settings/branches/store';
+import { usePurchaseReturnStore } from './store';
+import type { PurchaseReturnLineItem } from './types';
+import { useAuth } from '../../contexts/auth-context';
+import { useCashbookStore } from '../cashbook/store';
+import { usePaymentStore } from '../payments/store';
 
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../components/ui/form.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { NumberInput } from '../../components/ui/number-input.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import type { Payment } from '../payments/types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../components/ui/form';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { NumberInput } from '../../components/ui/number-input';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Textarea } from '../../components/ui/textarea';
+import { Input } from '../../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { usePageHeader } from '../../contexts/page-header-context';
+import type { Payment } from '../payments/types';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 // REMOVED: Voucher store no longer exists
-// import { useVoucherStore } from '../vouchers/store.ts';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip.tsx';
-import { Alert, AlertDescription } from '../../components/ui/alert.tsx';
+// import { useVoucherStore } from '../vouchers/store';
+import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,9 +41,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
+} from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { ROUTES } from '../../lib/router.ts';
+import { ROUTES } from '../../lib/router';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

@@ -1,0 +1,48 @@
+// ═══════════════════════════════════════════════════════════════
+// PACKAGING MODEL (Đóng gói)
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PKG0000000001 (English, 10 digits)
+// BusinessId: DG0000000001 (Vietnamese - Đóng gói, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Packaging {
+  systemId          String          @id           // PKG0000000001
+  id                String          @unique       // DG0000000001
+  
+  // Related Order
+  orderId           String?
+  order             Order?          @relation(fields: [orderId], references: [systemId])
+  
+  // Branch
+  branchId          String?
+  branch            Branch?         @relation(fields: [branchId], references: [systemId])
+  
+  // Packaging details
+  packagingDate     DateTime        @default(now())
+  
+  // Status
+  status            String          @default("pending") // pending, in_progress, completed, cancelled
+  
+  // Package info
+  packageCount      Int             @default(1)
+  totalWeight       Decimal?        @db.Decimal(10, 3)
+  dimensions        String?
+  
+  // Notes
+  notes             String?
+  
+  // Relations
+  items             PackagingItem[]
+  
+  // Soft delete
+  isDeleted         Boolean         @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("packagings")
+}

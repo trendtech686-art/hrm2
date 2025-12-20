@@ -1,6 +1,6 @@
 import * as React from "react";
-import type { ReceiptType } from "./types.ts";
-import type { ColumnDef } from "../../../components/data-table/types.ts";
+import type { ReceiptType } from "./types";
+import type { ColumnDef } from "../../../components/data-table/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,9 +8,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
+} from "../../../components/ui/dropdown-menu";
+import { Button } from "../../../components/ui/button";
+import { Switch } from "../../../components/ui/switch";
 import { MoreHorizontal } from "lucide-react";
 
 interface ColumnOptions {

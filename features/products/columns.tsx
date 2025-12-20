@@ -1,25 +1,27 @@
+'use client'
+
 import * as React from "react";
-import * as ReactRouterDOM from "react-router-dom";
-import type { Product } from './types.ts'
-import { Checkbox } from "../../components/ui/checkbox.tsx"
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
-import { Switch } from "../../components/ui/switch.tsx"
-import { DatePicker } from "../../components/ui/date-picker.tsx"
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import * as ReactRouterDOM from '@/lib/next-compat';
+import type { Product } from './types'
+import { Checkbox } from "../../components/ui/checkbox"
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
+import { Badge } from "../../components/ui/badge"
+import { Switch } from "../../components/ui/switch"
+import { DatePicker } from "../../components/ui/date-picker"
+import type { ColumnDef } from '../../components/data-table/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal, RotateCcw, Globe, ShoppingCart, Wrench, FileDigit, Layers, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
-import { usePricingPolicyStore } from '../settings/pricing/store.ts';
-import { useProductCategoryStore } from '../settings/inventory/product-category-store.ts';
+import { usePricingPolicyStore } from '../settings/pricing/store';
+import { useProductCategoryStore } from '../settings/inventory/product-category-store';
 import { PkgxProductActionsCell } from './pkgx-product-actions-cell';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import { useBrandStore } from '../settings/inventory/brand-store.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { StockAlertBadge } from './components/stock-alert-badges.tsx';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useBrandStore } from '../settings/inventory/brand-store';
+import { useSupplierStore } from '../suppliers/store';
+import { useEmployeeStore } from '../employees/store';
+import { StockAlertBadge } from './components/stock-alert-badges';
 import { formatDateForDisplay } from '@/lib/date-utils';
-import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell.tsx';
+import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +31,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx";
+} from "../../components/ui/alert-dialog";
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
@@ -69,7 +71,7 @@ const getStatusLabel = (status?: 'active' | 'inactive' | 'discontinued'): string
 // ═══════════════════════════════════════════════════════════════
 // SEO SCORE HELPERS - Tính điểm SEO cho từng website
 // ═══════════════════════════════════════════════════════════════
-import type { WebsiteSeoData } from './types.ts';
+import type { WebsiteSeoData } from './types';
 
 const calculateSeoScore = (seo: WebsiteSeoData | undefined): number => {
   if (!seo) return 0;

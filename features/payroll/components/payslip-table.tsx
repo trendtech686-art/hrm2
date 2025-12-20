@@ -7,20 +7,20 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table.tsx';
-import { Skeleton } from '../../../components/ui/skeleton.tsx';
-import { Button } from '../../../components/ui/button.tsx';
+} from '../../../components/ui/table';
+import { Skeleton } from '../../../components/ui/skeleton';
+import { Button } from '../../../components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
+} from '../../../components/ui/dropdown-menu';
 import { MoreHorizontal, Pencil, Printer, Trash2, Calculator } from 'lucide-react';
-import type { PayrollTotals } from '../../../lib/payroll-types.ts';
-import { cn } from '../../../lib/utils.ts';
-import type { BusinessId, SystemId } from '../../../lib/id-types.ts';
+import type { PayrollTotals } from '../../../lib/payroll-types';
+import { cn } from '../../../lib/utils';
+import type { BusinessId, SystemId } from '../../../lib/id-types';
 
 export type PayslipTableRow = {
   systemId: SystemId;

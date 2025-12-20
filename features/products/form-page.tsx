@@ -1,30 +1,30 @@
+'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { useProductStore } from './store.ts';
-import { ProductFormComplete, type ProductFormCompleteValues } from './product-form-complete.tsx';
+import { useParams, useSearchParamsWithSetter, useNavigate } from '@/lib/next-compat';
+import { useProductStore } from './store';
+import { ProductFormComplete, type ProductFormCompleteValues } from './product-form-complete';
 import {
   Card,
   CardContent,
-} from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import type { Product } from './types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useRouteMeta } from '../../hooks/use-route-meta';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
+} from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import type { Product } from './types';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useBranchStore } from '../settings/branches/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { useAuth } from '../../contexts/auth-context';
 import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
-import { useImageStore } from './image-store.ts';
-import { FileUploadAPI } from '@/lib/file-upload-api.ts';
-import { calculateComboStock } from './combo-utils.ts';
+import { useImageStore } from './image-store';
+import { FileUploadAPI } from '@/lib/file-upload-api';
+import { calculateComboStock } from './combo-utils';
 
 export function ProductFormPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const [searchParams] = ReactRouterDOM.useSearchParams();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const [searchParams] = useSearchParamsWithSetter();
+  const navigate = useNavigate();
   const { findById, add, update, data: allProducts } = useProductStore();
   const { data: branches } = useBranchStore();
   const imageStore = useImageStore();
@@ -35,7 +35,6 @@ export function ProductFormPage() {
 
   const isEditing = !!systemId;
   const product = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
-  const routeMeta = useRouteMeta();
   
   // Check if creating a combo from query param
   const isComboMode = searchParams.get('type') === 'combo';
@@ -93,7 +92,7 @@ export function ProductFormPage() {
         ? 'Tạo combo từ nhiều sản phẩm đơn lẻ với giá ưu đãi'
         : 'Hoàn tất thông tin sản phẩm để bắt đầu quản lý tồn kho',
     actions: headerActions,
-    breadcrumb: (routeMeta?.breadcrumb as any) ?? fallbackBreadcrumb,
+    breadcrumb: fallbackBreadcrumb,
     showBackButton: true,
     backPath: product ? `/products/${product.systemId}` : '/products'
   });

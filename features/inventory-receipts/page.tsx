@@ -1,39 +1,41 @@
-﻿import * as React from "react";
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../lib/router.ts';
-import { formatDate, formatDateCustom, parseDate, isDateAfter, isDateBefore, getDaysDiff } from '../../lib/date-utils.ts';
-import { useInventoryReceiptStore } from "./store.ts";
-import { usePurchaseOrderStore } from "../purchase-orders/store.ts";
-import { useSupplierStore } from "../suppliers/store.ts";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
-import { Card, CardContent } from "../../components/ui/card.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
+﻿'use client'
+
+import * as React from "react";
+import { useNavigate } from '@/lib/next-compat';
+import { ROUTES } from '../../lib/router';
+import { formatDate, formatDateCustom, parseDate, isDateAfter, isDateBefore, getDaysDiff } from '../../lib/date-utils';
+import { useInventoryReceiptStore } from "./store";
+import { usePurchaseOrderStore } from "../purchase-orders/store";
+import { useSupplierStore } from "../suppliers/store";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
+import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
+import { PageFilters } from "../../components/layout/page-filters";
+import { PageToolbar } from "../../components/layout/page-toolbar";
+import { Card, CardContent } from "../../components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Button } from "../../components/ui/button";
+import { useMediaQuery } from "../../lib/use-media-query";
 import { Package, Calendar as CalendarIcon, Users, FileText, Printer, Download } from "lucide-react";
 import Fuse from "fuse.js";
-import type { ColumnDef } from "../../components/data-table/types.ts";
-import type { InventoryReceipt } from "./types.ts";
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useStoreInfoStore } from "../settings/store-info/store-info-store.ts";
-import { usePrint } from "../../lib/use-print.ts";
+import type { ColumnDef } from "../../components/data-table/types";
+import type { InventoryReceipt } from "./types";
+import { Checkbox } from "../../components/ui/checkbox";
+import { useBranchStore } from "../settings/branches/store";
+import { useStoreInfoStore } from "../settings/store-info/store-info-store";
+import { usePrint } from "../../lib/use-print";
 import { 
   convertStockInForPrint,
   mapStockInToPrintData,
   mapStockInLineItems,
   createStoreSettings,
-} from "../../lib/print/stock-in-print-helper.ts";
+} from "../../lib/print/stock-in-print-helper";
 import { toast } from "sonner";
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { inventoryReceiptConfig } from "../../lib/import-export/configs/inventory-receipt.config.ts";
-import { useAuth } from "../../contexts/auth-context.tsx";
-import { asSystemId } from "../../lib/id-types.ts";
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { inventoryReceiptConfig } from "../../lib/import-export/configs/inventory-receipt.config";
+import { useAuth } from "../../contexts/auth-context";
+import { asSystemId } from "../../lib/id-types";
 
 const getColumns = (
   handlers: {

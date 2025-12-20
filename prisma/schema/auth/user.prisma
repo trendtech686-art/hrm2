@@ -1,0 +1,27 @@
+// ═══════════════════════════════════════════════════════════════
+// USER MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: USER000001 (English)
+// BusinessId: USER000001 (same)
+// ═══════════════════════════════════════════════════════════════
+
+model User {
+  systemId    String   @id           // USER000001
+  email       String   @unique
+  password    String                 // bcrypt hashed
+  role        UserRole @default(STAFF)
+  isActive    Boolean  @default(true)
+  lastLogin   DateTime?
+  
+  employeeId  String?  @unique
+  employee    Employee? @relation(fields: [employeeId], references: [systemId])
+  
+  // Relations
+  notifications Notification[]
+  
+  // Audit
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("users")
+}

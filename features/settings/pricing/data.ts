@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { PricingPolicy } from './types.ts';
+import type { PricingPolicy } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: PricingPolicy[] = [

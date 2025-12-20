@@ -1,6 +1,6 @@
-import { EmployeeRole } from "./roles.ts";
-import { type SystemId, type BusinessId } from "../../lib/id-types.ts";
-import type { HistoryEntry } from "../../components/ActivityHistory.tsx";
+import { EmployeeRole } from "./roles";
+import { type SystemId, type BusinessId } from "../../lib/id-types";
+import type { HistoryEntry } from "../../components/ActivityHistory";
 
 /**
  * Address input level - Determines whether address uses 2-level or 3-level format

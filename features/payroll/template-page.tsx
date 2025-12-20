@@ -1,8 +1,8 @@
 import * as React from 'react';
 import Fuse from 'fuse.js';
 import { Plus, CheckCircle2, RotateCcw, Trash2, Search, X } from 'lucide-react';
-import { Button } from '../../components/ui/button.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+} from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,18 +25,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
-import { usePayrollTemplateStore } from './payroll-template-store.ts';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import { getTemplateColumns } from './template-columns.tsx';
-import { TemplateCard } from './template-card.tsx';
+} from '../../components/ui/alert-dialog';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useBreakpoint } from '../../contexts/breakpoint-context';
+import { usePayrollTemplateStore } from './payroll-template-store';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { getTemplateColumns } from './template-columns';
+import { TemplateCard } from './template-card';
 import { toast } from 'sonner';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
-import type { PayrollTemplate } from '../../lib/payroll-types.ts';
+import { asSystemId, type SystemId } from '../../lib/id-types';
+import type { PayrollTemplate } from '../../lib/payroll-types';
 
 export function PayrollTemplatePage() {
   const templateStore = usePayrollTemplateStore();

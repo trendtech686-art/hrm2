@@ -1,19 +1,19 @@
 import { create } from 'zustand';
-import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { Customer } from './types.ts';
-import { SystemId, BusinessId } from '../../lib/id-types.ts';
-import { calculateLifecycleStage } from './lifecycle-utils.ts';
-import { getHighRiskDebtCustomers } from './credit-utils.ts';
+import { createCrudStore, CrudState } from '../../lib/store-factory';
+import { data as initialData } from './data';
+import type { Customer } from './types';
+import { SystemId, BusinessId } from '../../lib/id-types';
+import { calculateLifecycleStage } from './lifecycle-utils';
+import { getHighRiskDebtCustomers } from './credit-utils';
 import { 
   calculateRFMScores, 
   getCustomerSegment, 
   calculateHealthScore,
   calculateChurnRisk 
-} from './intelligence-utils.ts';
-import { getOverdueDebtCustomers, getDueSoonCustomers } from './debt-tracking-utils.ts';
+} from './intelligence-utils';
+import { getOverdueDebtCustomers, getDueSoonCustomers } from './debt-tracking-utils';
 import Fuse from 'fuse.js';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
 import {
   getCurrentUserInfo,
   createCreatedEntry,
@@ -21,7 +21,7 @@ import {
   createStatusChangedEntry,
   appendHistoryEntry,
   type HistoryEntry
-} from '../../lib/activity-history-helper.ts';
+} from '../../lib/activity-history-helper';
 
 const baseStore = createCrudStore<Customer>(initialData, 'customers', {
   businessIdField: 'id',

@@ -6,17 +6,17 @@
  */
 
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
-import { Badge } from '../../../../components/ui/badge.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Button } from '../../../../components/ui/button';
+import { Badge } from '../../../../components/ui/badge';
 import { FileText, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { usePaymentStore } from '../../../payments/store.ts';
-import { useReceiptStore } from '../../../receipts/store.ts';
-import type { Payment } from '../../../payments/types.ts';
-import { useWarrantySettlement } from '../../hooks/use-warranty-settlement.ts';
-import type { SettlementMethod } from '../../types.ts';
-import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types.ts';
+import { useNavigate } from '@/lib/next-compat';
+import { usePaymentStore } from '../../../payments/store';
+import { useReceiptStore } from '../../../receipts/store';
+import type { Payment } from '../../../payments/types';
+import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
+import type { SettlementMethod } from '../../types';
+import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface WarrantyPaymentHistoryCardProps {

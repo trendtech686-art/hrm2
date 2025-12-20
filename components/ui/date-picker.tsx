@@ -2,9 +2,9 @@ import * as React from "react"
 import { Calendar as CalendarIcon } from "lucide-react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 
-import { cn } from "../../lib/utils.ts"
-import { Button } from "./button.tsx"
-import { Calendar } from "./calendar.tsx"
+import { cn } from "../../lib/utils"
+import { Button } from "./button"
+import { Calendar } from "./calendar"
 import { useModal } from "../../contexts/modal-context"
 
 // Format date as dd/MM/yyyy

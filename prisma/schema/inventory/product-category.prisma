@@ -1,0 +1,21 @@
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT CATEGORY (Many-to-Many)
+// ═══════════════════════════════════════════════════════════════
+// Links products to multiple categories
+// ═══════════════════════════════════════════════════════════════
+
+model ProductCategory {
+  productId   String
+  product     Product   @relation(fields: [productId], references: [systemId])
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [systemId])
+  
+  // Sort order within category
+  sortOrder   Int       @default(0)
+  
+  // Audit
+  createdAt   DateTime  @default(now())
+  
+  @@id([productId, categoryId])
+  @@map("product_categories")
+}

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
-import type { Department } from "./types.ts"
-import { useDepartmentStore } from "./store.ts";
+import type { Department } from "./types"
+import { useDepartmentStore } from "./store";
 
 import {
   Form,
@@ -10,8 +10,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form.tsx"
-import { Input } from "../../../components/ui/input.tsx"
+} from "../../../components/ui/form"
+import { Input } from "../../../components/ui/input"
 
 export type DepartmentFormValues = Omit<Department, 'systemId' | 'jobTitleIds' | 'managerId'> & { name: string; id: string };
 

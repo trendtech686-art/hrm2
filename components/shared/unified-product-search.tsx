@@ -13,26 +13,26 @@
 
 import * as React from 'react';
 import { Package, AlertTriangle, Plus, X, Info } from 'lucide-react';
-import type { Product, ProductType as ProductTypeEnum } from '../../features/products/types.ts';
-import { useProductStore } from '../../features/products/store.ts';
-import { usePricingPolicyStore } from '../../features/settings/pricing/store.ts';
-import { useBranchStore } from '../../features/settings/branches/store.ts';
-import { useProductTypeStore } from '../../features/settings/inventory/product-type-store.ts';
-import { useUnitStore } from '../../features/settings/units/store.ts';
-import { useImageStore } from '../../features/products/image-store.ts';
-import { FileUploadAPI } from '../../lib/file-upload-api.ts';
-import { LazyImage } from '../ui/lazy-image.tsx';
-import { VirtualizedCombobox, type ComboboxOption } from '../ui/virtualized-combobox.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog.tsx';
-import { Button } from '../ui/button.tsx';
-import { Input } from '../ui/input.tsx';
-import { Label } from '../ui/label.tsx';
-import { CurrencyInput } from '../ui/currency-input.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select.tsx';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip.tsx';
+import type { Product, ProductType as ProductTypeEnum } from '../../features/products/types';
+import { useProductStore } from '../../features/products/store';
+import { usePricingPolicyStore } from '../../features/settings/pricing/store';
+import { useBranchStore } from '../../features/settings/branches/store';
+import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
+import { useUnitStore } from '../../features/settings/units/store';
+import { useImageStore } from '../../features/products/image-store';
+import { FileUploadAPI } from '../../lib/file-upload-api';
+import { LazyImage } from '../ui/lazy-image';
+import { VirtualizedCombobox, type ComboboxOption } from '../ui/virtualized-combobox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { CurrencyInput } from '../ui/currency-input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { toast } from 'sonner';
-import type { SystemId, BusinessId } from '@/lib/id-types.ts';
-import { asBusinessId } from '@/lib/id-types.ts';
+import type { SystemId, BusinessId } from '@/lib/id-types';
+import { asBusinessId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

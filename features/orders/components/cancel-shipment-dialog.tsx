@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog.tsx';
-import { Button } from '../../../components/ui/button.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 
 interface CancelShipmentDialogProps {

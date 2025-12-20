@@ -1,60 +1,61 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParamsWithSetter } from '@/lib/next-compat';
 import { useForm, FormProvider, useWatch, useFieldArray, useFormContext } from 'react-hook-form';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODateTime } from '@/lib/date-utils';
 import { ArrowLeft, PackageOpen } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRouteMeta } from '../../hooks/use-route-meta';
 
 // types
-import type { Product } from '../products/types.ts';
-import type { ProductFormValues } from '../products/validation.ts';
-import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress } from './types.ts';
+import type { Product } from '../products/types';
+import type { ProductFormValues } from '../products/validation';
+import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress } from './types';
 
 // stores
-import { useProductStore } from '../products/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useOrderStore } from './store.ts';
-import { usePaymentMethodStore } from '../settings/payments/methods/store.ts';
-import { useSalesChannelStore } from '../settings/sales-channels/store.ts';
+import { useProductStore } from '../products/store';
+import { useEmployeeStore } from '../employees/store';
+import { useBranchStore } from '../settings/branches/store';
+import { useOrderStore } from './store';
+import { usePaymentMethodStore } from '../settings/payments/methods/store';
+import { useSalesChannelStore } from '../settings/sales-channels/store';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
-import { useSalesManagementSettingsStore } from '../settings/sales/sales-management-store.ts';
-import { usePricingPolicyStore } from '../settings/pricing/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useShippingPartnerStore } from '../settings/shipping/store.ts';
-import { useTaxStore } from '../settings/taxes/store.ts';
-import { SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId } from './shipping-partners-config.ts';
+import { useSalesManagementSettingsStore } from '../settings/sales/sales-management-store';
+import { usePricingPolicyStore } from '../settings/pricing/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { useCustomerStore } from '../customers/store';
+import { useShippingPartnerStore } from '../settings/shipping/store';
+import { useTaxStore } from '../settings/taxes/store';
+import { SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId } from './shipping-partners-config';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { generateSystemId, getMaxSystemIdCounter } from '@/lib/id-utils';
 
 // UI components
-import { Button } from '../../components/ui/button.tsx';
-import { ScrollArea } from '../../components/ui/scroll-area.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { ProductSelectionDialog } from '../shared/product-selection-dialog.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
+import { Button } from '../../components/ui/button';
+import { ScrollArea } from '../../components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { ProductSelectionDialog } from '../shared/product-selection-dialog';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useAuth } from '../../contexts/auth-context';
 
 // Refactored Components
-import { CustomerSelector } from './components/customer-selector.tsx';
-import { OrderInfoCard } from './components/order-info-card.tsx';
-import { OrderProductSearch } from '../../components/shared/unified-product-search.tsx';
-import { LineItemsTable } from './components/line-items-table.tsx';
-import { OrderSummary } from './components/order-summary.tsx';
-import { OrderNotes } from './components/order-notes.tsx';
-import { OrderTags } from './components/order-tags.tsx';
-import { AddServiceDialog } from './components/add-service-dialog.tsx';
-import { ApplyPromotionDialog } from './components/apply-promotion-dialog.tsx';
-import { ProductTableToolbar } from './components/product-table-toolbar.tsx';
-import type { ProductTableSettings } from './components/product-table-toolbar.tsx';
-import { ProductTableBottomToolbar } from './components/product-table-bottom-toolbar.tsx';
-import { ShippingCard } from './components/shipping-card.tsx';
+import { CustomerSelector } from './components/customer-selector';
+import { OrderInfoCard } from './components/order-info-card';
+import { OrderProductSearch } from '../../components/shared/unified-product-search';
+import { LineItemsTable } from './components/line-items-table';
+import { OrderSummary } from './components/order-summary';
+import { OrderNotes } from './components/order-notes';
+import { OrderTags } from './components/order-tags';
+import { AddServiceDialog } from './components/add-service-dialog';
+import { ApplyPromotionDialog } from './components/apply-promotion-dialog';
+import { ProductTableToolbar } from './components/product-table-toolbar';
+import type { ProductTableSettings } from './components/product-table-toolbar';
+import { ProductTableBottomToolbar } from './components/product-table-bottom-toolbar';
+import { ShippingCard } from './components/shipping-card';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
-import { cloneOrderAddress } from './address-utils.ts';
+import { cloneOrderAddress } from './address-utils';
 // Form-specific types
 type FormLineItem = {
   id: string; 
@@ -215,7 +216,7 @@ const OrderCalculations = () => {
 export function OrderFormPage() {
     const { systemId } = useParams();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams] = useSearchParamsWithSetter();
     const { findById, add, update, addPayment: addOrderPayment, data: allOrders } = useOrderStore();
     const { data: employees } = useEmployeeStore();
     const { data: branches } = useBranchStore();
@@ -1215,8 +1216,6 @@ export function OrderFormPage() {
         ] : [])
     ];
 
-    const routeMeta = useRouteMeta();
-
     usePageHeader({ 
         actions,
         breadcrumb: order ? [
@@ -1224,7 +1223,11 @@ export function OrderFormPage() {
             { label: 'Đơn hàng', href: '/orders', isCurrent: false },
             { label: order.id, href: `/orders/${order.systemId}`, isCurrent: false },
             { label: isEditing ? 'Chỉnh sửa' : 'Chi tiết', href: '', isCurrent: true }
-        ] : routeMeta?.breadcrumb as any,
+        ] : [
+            { label: 'Trang chủ', href: '/', isCurrent: false },
+            { label: 'Đơn hàng', href: '/orders', isCurrent: false },
+            { label: 'Tạo mới', href: '', isCurrent: true }
+        ],
         // ✅ FIX: Pass order context so title shows businessId (DH000007) instead of systemId (ORDER000002)
         context: order ? { id: order.id } : undefined
     });

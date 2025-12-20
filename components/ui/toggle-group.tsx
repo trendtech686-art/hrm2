@@ -1,8 +1,8 @@
 import * as React from "react"
 import { type VariantProps } from "class-variance-authority"
 
-import { cn } from "../../lib/utils.ts"
-import { Toggle, toggleVariants } from "./toggle.tsx"
+import { cn } from "../../lib/utils"
+import { Toggle, toggleVariants } from "./toggle"
 
 type ToggleGroupContextType = VariantProps<typeof toggleVariants> & {
     value: string | string[];

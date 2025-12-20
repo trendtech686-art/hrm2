@@ -4,12 +4,12 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import { useTaskStore } from './store.ts';
-import type { Task, TaskPriority } from './types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { useTaskStore } from './store';
+import type { Task, TaskPriority } from './types';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useNavigate } from '@/lib/next-compat';
+import { Card, CardContent } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { List, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 

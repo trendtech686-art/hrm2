@@ -1,18 +1,18 @@
 import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
-import { usePaymentTypeStore } from "./store.ts";
-import type { PaymentType } from "./types.ts";
-import { PaymentTypeForm, type PaymentTypeFormValues } from "./form.tsx";
-import { Button } from "../../../../components/ui/button.tsx";
-import { Switch } from "../../../../components/ui/switch.tsx";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../../components/ui/alert-dialog.tsx";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../../components/ui/table.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../../components/ui/dropdown-menu.tsx";
+import { usePaymentTypeStore } from "./store";
+import type { PaymentType } from "./types";
+import { PaymentTypeForm, type PaymentTypeFormValues } from "./form";
+import { Button } from "../../../../components/ui/button";
+import { Switch } from "../../../../components/ui/switch";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../../components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../../components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { SettingsActionButton } from "../../../../components/settings/SettingsActionButton.tsx";
-import type { RegisterTabActions } from "../../use-tab-action-registry.ts";
+import { SettingsActionButton } from "../../../../components/settings/SettingsActionButton";
+import type { RegisterTabActions } from "../../use-tab-action-registry";
 
 type PaymentTypesPageContentProps = {
   isActive: boolean;

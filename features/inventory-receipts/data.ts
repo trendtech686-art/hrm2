@@ -1,4 +1,4 @@
-import type { InventoryReceipt } from './types.ts';
+import type { InventoryReceipt } from './types';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 
 function daysAgo(days: number): string {

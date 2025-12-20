@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActivityHistory, type HistoryEntry } from '../../../components/ActivityHistory.tsx';
-import type { Complaint } from '../types.ts';
+import { ActivityHistory, type HistoryEntry } from '../../../components/ActivityHistory';
+import type { Complaint } from '../types';
 
 interface Props {
   complaint: Complaint;

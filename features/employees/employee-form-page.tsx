@@ -1,15 +1,14 @@
+'use client'
 
 import * as React from 'react';
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/next-compat';
 import { ArrowLeft, Edit } from 'lucide-react';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useRouteMeta } from '../../hooks/use-route-meta';
-import { useEmployeeStore } from './store.ts';
-import { useDocumentStore } from './document-store.ts';
-import { EmployeeForm, type EmployeeFormSubmitPayload } from './employee-form.tsx';
-import { FileUploadAPI } from '../../lib/file-upload-api.ts';
-import type { UploadedFile } from '../../lib/file-upload-api.ts';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useEmployeeStore } from './store';
+import { useDocumentStore } from './document-store';
+import { EmployeeForm, type EmployeeFormSubmitPayload } from './employee-form';
+import { FileUploadAPI } from '../../lib/file-upload-api';
+import type { UploadedFile } from '../../lib/file-upload-api';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import {
   Card,
@@ -17,17 +16,16 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import type { Employee } from './types.ts';
+} from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import type { Employee } from './types';
 import { toast } from 'sonner';
-import { useEmployeeCompStore } from './employee-comp-store.ts';
+import { useEmployeeCompStore } from './employee-comp-store';
 import { useShallow } from 'zustand/react/shallow';
 
 export function EmployeeFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const navigate = useNavigate();
-  const routeMeta = useRouteMeta();
   const { findById, persistence } = useEmployeeStore();
   const { updateDocumentFiles, clearStagingDocuments } = useDocumentStore();
   const { assignComponents, removeProfile } = useEmployeeCompStore(

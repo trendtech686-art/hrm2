@@ -1,17 +1,17 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
-import { useReceiptTypeStore } from "./store.ts";
-import type { ReceiptType } from "./types.ts";
-import { ReceiptTypeForm, type ReceiptTypeFormValues } from "./form.tsx";
-import { Button } from "../../../components/ui/button.tsx";
+import { useReceiptTypeStore } from "./store";
+import type { ReceiptType } from "./types";
+import { ReceiptTypeForm, type ReceiptTypeFormValues } from "./form";
+import { Button } from "../../../components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog.tsx";
+} from "../../../components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,12 +21,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../../components/ui/alert-dialog.tsx";
-import { getReceiptTypeColumns } from "./columns.tsx";
+} from "../../../components/ui/alert-dialog";
+import { getReceiptTypeColumns } from "./columns";
 import { toast } from "sonner";
-import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable.tsx";
-import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
-import type { RegisterTabActions } from "../use-tab-action-registry.ts";
+import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
+import type { RegisterTabActions } from "../use-tab-action-registry";
 
 type ReceiptTypesPageContentProps = {
   isActive: boolean;

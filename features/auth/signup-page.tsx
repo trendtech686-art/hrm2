@@ -1,10 +1,12 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '../../components/ui/button.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 
 export function SignupPage() {

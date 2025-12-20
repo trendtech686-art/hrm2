@@ -1,4 +1,4 @@
-import type { PurchaseReturn } from './types.ts';
+import type { PurchaseReturn } from './types';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 function addDays(days: number): string {

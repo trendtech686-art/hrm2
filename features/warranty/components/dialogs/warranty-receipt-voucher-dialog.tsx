@@ -8,7 +8,7 @@
 
 import * as React from 'react';
 import { useForm, Controller, type RegisterOptions } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import {
   Dialog,
   DialogContent,
@@ -16,26 +16,26 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
-} from '../../../../components/ui/dialog.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
-import { Label } from '../../../../components/ui/label.tsx';
-import { Textarea } from '../../../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
-import { Alert, AlertDescription } from '../../../../components/ui/alert.tsx';
+} from '../../../../components/ui/dialog';
+import { Button } from '../../../../components/ui/button';
+import { Label } from '../../../../components/ui/label';
+import { Textarea } from '../../../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
+import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePaymentStore } from '../../../payments/store.ts';
-import { useReceiptStore } from '../../../receipts/store.ts';
-import { useWarrantyStore } from '../../store.ts';
-import type { WarrantyVoucherDialogBaseProps } from '../../types.ts';
-import { useAuth } from '../../../../contexts/auth-context.tsx';
-import { toISODateTime } from '../../../../lib/date-utils.ts';
-import type { Receipt } from '../../../receipts/types.ts';
-import { asBusinessId, asSystemId } from '../../../../lib/id-types.ts';
-import { calculateWarrantyProcessingState } from '../logic/processing.ts';
-import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations.ts';
-import { useWarrantySettlement } from '../../hooks/use-warranty-settlement.ts';
-import { CurrencyInput } from '../../../../components/ui/currency-input.tsx';
+import { usePaymentStore } from '../../../payments/store';
+import { useReceiptStore } from '../../../receipts/store';
+import { useWarrantyStore } from '../../store';
+import type { WarrantyVoucherDialogBaseProps } from '../../types';
+import { useAuth } from '../../../../contexts/auth-context';
+import { toISODateTime } from '../../../../lib/date-utils';
+import type { Receipt } from '../../../receipts/types';
+import { asBusinessId, asSystemId } from '../../../../lib/id-types';
+import { calculateWarrantyProcessingState } from '../logic/processing';
+import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations';
+import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
+import { CurrencyInput } from '../../../../components/ui/currency-input';
 
 interface WarrantyReceiptVoucherDialogProps extends WarrantyVoucherDialogBaseProps {
   existingReceipts?: Receipt[] | undefined;

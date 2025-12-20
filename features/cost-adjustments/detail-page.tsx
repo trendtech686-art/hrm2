@@ -1,23 +1,25 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { useCostAdjustmentStore } from './store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useCostAdjustmentStore } from './store';
+import { useProductStore } from '../products/store';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useEmployeeStore } from '../employees/store';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { asSystemId, type SystemId } from '../../lib/id-types';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Separator } from '../../components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { DetailField } from '../../components/ui/detail-field';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -27,17 +29,17 @@ import {
   AlertDialogFooter, 
   AlertDialogHeader, 
   AlertDialogTitle 
-} from '../../components/ui/alert-dialog.tsx';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Label } from '../../components/ui/label.tsx';
+} from '../../components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Textarea } from '../../components/ui/textarea';
+import { Label } from '../../components/ui/label';
 import { CheckCircle, XCircle, Printer, Package, TrendingUp, TrendingDown, ArrowRight, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import type { CostAdjustmentStatus, CostAdjustment } from './types.ts';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import type { CostAdjustmentStatus, CostAdjustment } from './types';
 import { usePrint } from '../../lib/use-print';
-import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper.ts';
+import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 

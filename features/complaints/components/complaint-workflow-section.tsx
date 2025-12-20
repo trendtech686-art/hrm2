@@ -1,10 +1,10 @@
 import React from 'react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { SubtaskList } from '../../../components/shared/subtask-list.tsx';
-import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page.tsx';
-import { complaintStatusLabels } from '../types.ts';
-import type { Complaint, ComplaintAction } from '../types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { SubtaskList } from '../../../components/shared/subtask-list';
+import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
+import { complaintStatusLabels } from '../types';
+import type { Complaint, ComplaintAction } from '../types';
 import { asSystemId } from '@/lib/id-types';
 
 interface Props {

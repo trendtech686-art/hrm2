@@ -1,14 +1,14 @@
 ﻿import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { PackagingSlip } from './types.ts';
-import type { PackagingStatus } from '../orders/types.ts';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
+import type { PackagingSlip } from './types';
+import type { PackagingStatus } from '../orders/types';
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Checkbox } from '../../components/ui/checkbox';
 import { MoreHorizontal, PackageCheck, Printer, Ban } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 
 
 const statusVariants: Record<PackagingStatus, "warning" | "success" | "destructive"> = {

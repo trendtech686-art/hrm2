@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Badge } from '../../../components/ui/badge.tsx';
-import type { PayrollBatchStatus } from '../../../lib/payroll-types.ts';
-import { cn } from '../../../lib/utils.ts';
+import { Badge } from '../../../components/ui/badge';
+import type { PayrollBatchStatus } from '../../../lib/payroll-types';
+import { cn } from '../../../lib/utils';
 
 type PayrollStatusBadgeProps = {
   status: PayrollBatchStatus;

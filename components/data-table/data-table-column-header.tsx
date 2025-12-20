@@ -1,7 +1,7 @@
 import * as React from "react"
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react"
-import { cn } from "../../lib/utils.ts"
-import { Button } from "../ui/button.tsx"
+import { cn } from "../../lib/utils"
+import { Button } from "../ui/button"
 
 type SortDirection = 'asc' | 'desc';
 

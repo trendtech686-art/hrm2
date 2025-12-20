@@ -1,0 +1,50 @@
+// ═══════════════════════════════════════════════════════════════
+// STOCK TRANSFER MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: STRANS0000000001 (English, 10 digits)
+// BusinessId: CK0000000001 (Vietnamese - Chuyển kho, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model StockTransfer {
+  systemId          String              @id           // STRANS0000000001
+  id                String              @unique       // CK0000000001
+  
+  // Source
+  fromBranchId      String?
+  fromBranch        Branch?             @relation("TransferFrom", fields: [fromBranchId], references: [systemId])
+  fromLocationId    String?
+  
+  // Destination
+  toBranchId        String?
+  toBranch          Branch?             @relation("TransferTo", fields: [toBranchId], references: [systemId])
+  toLocationId      String?
+  
+  // Transfer details
+  transferDate      DateTime            @default(now())
+  expectedDate      DateTime?
+  completedDate     DateTime?
+  
+  // Status
+  status            TransferStatus      @default(PENDING)
+  
+  // Notes
+  reason            String?
+  notes             String?
+  
+  // Relations
+  items             StockTransferItem[]
+  
+  // Soft delete
+  isDeleted         Boolean             @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  @@map("stock_transfers")
+}

@@ -7,17 +7,17 @@
  * - Ghi log lịch sử thao tác
  */
 
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
-import type { Customer } from '../customers/types.ts';
-import type { WarrantyCustomerInfo } from './types/ui.ts';
+import type { Subtask } from '../../components/shared/subtask-list';
+import type { SystemId, BusinessId } from '../../lib/id-types';
+import type { Customer } from '../customers/types';
+import type { WarrantyCustomerInfo } from './types/ui';
 
 export type {
   WarrantyCustomerInfo,
   WarrantyBranchContext,
   WarrantyVoucherDialogBaseProps,
-} from './types/ui.ts';
-export type { WarrantyStore } from './types/store.ts';
+} from './types/ui';
+export type { WarrantyStore } from './types/store';
 
 // ====================================
 // Trạng thái phiếu bảo hành

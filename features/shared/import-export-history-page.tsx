@@ -1,36 +1,38 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, subtractDays } from '../../lib/date-utils.ts';
+import { useNavigate } from '@/lib/next-compat';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, subtractDays } from '../../lib/date-utils';
 import { FileSpreadsheet, Download, Upload, Eye, Trash2, Filter, RefreshCw } from "lucide-react"
-import { usePageHeader } from "../../contexts/page-header-context.tsx"
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
-import { Button } from "../../components/ui/button.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
+import { usePageHeader } from "../../contexts/page-header-context"
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
+import { Button } from "../../components/ui/button"
+import { Badge } from "../../components/ui/badge"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "../../components/ui/card.tsx"
+} from "../../components/ui/card"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx"
-import { Input } from "../../components/ui/input.tsx"
-import { Label } from "../../components/ui/label.tsx"
-import { Separator } from "../../components/ui/separator.tsx"
-import type { ColumnDef } from '../../components/data-table/types.ts';
+} from "../../components/ui/select"
+import { Input } from "../../components/ui/input"
+import { Label } from "../../components/ui/label"
+import { Separator } from "../../components/ui/separator"
+import type { ColumnDef } from '../../components/data-table/types';
 import { toast } from "sonner"
 import { 
   useImportExportStore,
   type ImportLogEntry,
   type ExportLogEntry,
   formatFileSize,
-} from '../../lib/import-export/index.ts';
+} from '../../lib/import-export/index';
 
 // Unified log type for display (combines import and export logs)
 export interface ImportExportLog {

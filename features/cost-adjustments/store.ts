@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types.ts';
-import type { CostAdjustment, CostAdjustmentItem, CostAdjustmentType, CostAdjustmentStatus } from './types.ts';
-import { useProductStore } from '../products/store.ts';
-import type { Product } from '../products/types.ts';
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
+import type { CostAdjustment, CostAdjustmentItem, CostAdjustmentType, CostAdjustmentStatus } from './types';
+import { useProductStore } from '../products/store';
+import type { Product } from '../products/types';
 
 const PREFIX = 'DCGV'; // Điều chỉnh giá vốn
 const SEED_AUTHOR = asSystemId('EMP000001');

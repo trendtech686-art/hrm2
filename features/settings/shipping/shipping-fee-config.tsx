@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { Plus, Upload } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SettingsActionButton } from '@/components/settings/SettingsActionButton.tsx';
+import { SettingsActionButton } from '@/components/settings/SettingsActionButton';
 import { toast } from 'sonner';
-import type { RegisterTabActions } from '../use-tab-action-registry.ts';
+import type { RegisterTabActions } from '../use-tab-action-registry';
 
 type ShippingFeeConfigPageContentProps = {
   isActive: boolean;

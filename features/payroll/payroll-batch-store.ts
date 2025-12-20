@@ -9,12 +9,12 @@ import type {
   PayrollComponentEntry,
   PayrollTotals,
   PayrollPeriod,
-} from '../../lib/payroll-types.ts';
-import { generateSystemId, findNextAvailableBusinessId } from '../../lib/id-utils.ts';
-import { getPrefix, type EntityType } from '../../lib/smart-prefix.ts';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
-import { useAttendanceStore } from '../attendance/store.ts';
-import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
+} from '../../lib/payroll-types';
+import { generateSystemId, findNextAvailableBusinessId } from '../../lib/id-utils';
+import { getPrefix, type EntityType } from '../../lib/smart-prefix';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
+import { useAttendanceStore } from '../attendance/store';
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 
 // Type for payslip updates
 export type PayslipUpdatePayload = {

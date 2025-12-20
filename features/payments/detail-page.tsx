@@ -1,17 +1,19 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { usePaymentStore } from './store.ts';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { usePaymentStore } from './store';
+import { ROUTES, generatePath } from '../../lib/router';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Edit, Printer } from 'lucide-react';
-import { formatDateCustom } from '../../lib/date-utils.ts';
-import { asSystemId } from '../../lib/id-types.ts';
-import { ActivityHistory } from '../../components/ActivityHistory.tsx';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { useEmployeeStore } from '../employees/store.ts';
+import { formatDateCustom } from '../../lib/date-utils';
+import { asSystemId } from '../../lib/id-types';
+import { ActivityHistory } from '../../components/ActivityHistory';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { useEmployeeStore } from '../employees/store';
 import { usePrint } from '../../lib/use-print';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { 

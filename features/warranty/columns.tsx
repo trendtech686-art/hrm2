@@ -1,21 +1,21 @@
 import * as React from "react";
 import { toast } from 'sonner';
-import { formatDate, formatDateTime } from '../../lib/date-utils.ts';
-import type { WarrantyTicket } from './types.ts';
-import type { Order } from '../orders/types.ts';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, WARRANTY_SETTLEMENT_STATUS_LABELS, WARRANTY_SETTLEMENT_STATUS_COLORS } from './types.ts';
-import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from "../../components/ui/button.tsx";
+import { formatDate, formatDateTime } from '../../lib/date-utils';
+import type { WarrantyTicket } from './types';
+import type { Order } from '../orders/types';
+import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, WARRANTY_SETTLEMENT_STATUS_LABELS, WARRANTY_SETTLEMENT_STATUS_COLORS } from './types';
+import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils';
+import { Checkbox } from "../../components/ui/checkbox";
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
+import { Badge } from "../../components/ui/badge";
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from "../../components/ui/button";
 import { Pencil, Trash2, MoreHorizontal, Package, Printer, Link as LinkIcon, AlertTriangle } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { useWarrantyStore } from './store.ts';
-import { ROUTES, generatePath } from '../../lib/router.ts';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { useWarrantyStore } from './store';
+import { ROUTES, generatePath } from '../../lib/router';
 // REMOVED: Voucher store no longer exists
-// import { useVoucherStore } from '../vouchers/store.ts';
+// import { useVoucherStore } from '../vouchers/store';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';

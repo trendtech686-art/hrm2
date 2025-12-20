@@ -1,13 +1,13 @@
 ﻿import * as React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { ShipmentView } from './types.ts';
-import type { OrderDeliveryStatus, OrderPrintStatus } from '../orders/types.ts';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import type { ShipmentView } from './types';
+import type { OrderDeliveryStatus, OrderPrintStatus } from '../orders/types';
+import type { ColumnDef } from '../../components/data-table/types';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { MoreHorizontal, Printer, FileText } from 'lucide-react';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';

@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { formatDate } from '@/lib/date-utils';
 import type { Penalty, PenaltyStatus } from './types';
 import { Card, CardContent } from '../../../components/ui/card';

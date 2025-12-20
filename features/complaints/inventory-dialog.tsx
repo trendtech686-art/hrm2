@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import type { Complaint } from "./types.ts";
+import type { Complaint } from "./types";
 import type { SystemId } from "@/lib/id-types";
 
 interface InventoryDialogProps {

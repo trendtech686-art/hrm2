@@ -1,23 +1,23 @@
 import { create } from 'zustand';
-import { data as initialDataOmit } from './data.ts';
-import type { PurchaseOrder, PurchaseOrderPayment, PurchaseOrderStatus, DeliveryStatus, PaymentStatus, PurchaseOrderReturnStatus, PurchaseOrderRefundStatus } from './types.ts';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { data as initialDataOmit } from './data';
+import type { PurchaseOrder, PurchaseOrderPayment, PurchaseOrderStatus, DeliveryStatus, PaymentStatus, PurchaseOrderReturnStatus, PurchaseOrderRefundStatus } from './types';
+import type { HistoryEntry } from '../../components/ActivityHistory';
 // REMOVED: Voucher store no longer exists
-// import { useVoucherStore } from '../vouchers/store.ts';
-import { useInventoryReceiptStore, syncInventoryReceiptsWithPurchaseOrders } from '../inventory-receipts/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import type { Payment } from '../payments/types.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import type { Receipt } from '../receipts/types.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { usePurchaseReturnStore } from '../purchase-returns/store.ts';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { useReceiptTypeStore } from '../settings/receipt-types/store.ts';
-import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
-import { createCrudStore } from '../../lib/store-factory.ts';
-import { sumPaymentsForPurchaseOrder } from './payment-utils.ts';
-import { useProductStore } from '../products/store.ts';
+// import { useVoucherStore } from '../vouchers/store';
+import { useInventoryReceiptStore, syncInventoryReceiptsWithPurchaseOrders } from '../inventory-receipts/store';
+import { usePaymentStore } from '../payments/store';
+import type { Payment } from '../payments/types';
+import { useReceiptStore } from '../receipts/store';
+import type { Receipt } from '../receipts/types';
+import { useEmployeeStore } from '../employees/store';
+import { usePurchaseReturnStore } from '../purchase-returns/store';
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { useCashbookStore } from '../cashbook/store';
+import { useReceiptTypeStore } from '../settings/receipt-types/store';
+import { usePaymentTypeStore } from '../settings/payments/types/store';
+import { createCrudStore } from '../../lib/store-factory';
+import { sumPaymentsForPurchaseOrder } from './payment-utils';
+import { useProductStore } from '../products/store';
 import { asSystemId } from '@/lib/id-types';
 
 const initialData: PurchaseOrder[] = initialDataOmit.map((po, index) => ({

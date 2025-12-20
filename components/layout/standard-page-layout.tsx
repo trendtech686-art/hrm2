@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { DataTableHeaderActions } from '../data-table/data-table-header-actions.tsx';
-import type { DataTableToolbarProps } from '../data-table/data-table-toolbar.tsx';
-import type { ColumnDef } from '../data-table/types.ts';
-import { Button } from '../ui/button.tsx';
+import { DataTableHeaderActions } from '../data-table/data-table-header-actions';
+import type { DataTableToolbarProps } from '../data-table/data-table-toolbar';
+import type { ColumnDef } from '../data-table/types';
+import { Button } from '../ui/button';
 import { PlusCircle } from 'lucide-react';
 
 interface StandardPageLayoutProps<TData> extends React.HTMLAttributes<HTMLDivElement> {

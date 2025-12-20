@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
-import { Switch } from '../../../../components/ui/switch.tsx';
-import { Label } from '../../../../components/ui/label.tsx';
-import { Badge } from '../../../../components/ui/badge.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Button } from '../../../../components/ui/button';
+import { Switch } from '../../../../components/ui/switch';
+import { Label } from '../../../../components/ui/label';
+import { Badge } from '../../../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Play, Pause, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';

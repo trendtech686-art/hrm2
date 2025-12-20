@@ -1,29 +1,31 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { useTaskStore } from './store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useTaskStore } from './store';
+import { useEmployeeStore } from '../employees/store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
 import { formatDate, formatDateTime, formatDateTimeForDisplay } from '@/lib/date-utils';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Progress } from '../../components/ui/progress.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Comments } from '../../components/Comments.tsx';
-import { SubtaskList } from '../../components/shared/subtask-list.tsx';
-import { TimeTracker } from '../../components/TimeTracker.tsx';
-import { ActivityTimeline } from '../../components/ActivityTimeline.tsx';
-import { ApprovalDialog } from './components/ApprovalDialog.tsx';
-import { EvidenceViewer } from './components/EvidenceViewer.tsx';
-import { EvidenceThumbnailGrid } from './components/EvidenceThumbnailGrid.tsx';
-import { SlaTimer } from '../../components/SlaTimer.tsx';
-import { loadSLASettings } from '../../features/settings/tasks/tasks-settings-page.tsx';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Progress } from '../../components/ui/progress';
+import { Separator } from '../../components/ui/separator';
+import { Comments } from '../../components/Comments';
+import { SubtaskList } from '../../components/shared/subtask-list';
+import { TimeTracker } from '../../components/TimeTracker';
+import { ActivityTimeline } from '../../components/ActivityTimeline';
+import { ApprovalDialog } from './components/ApprovalDialog';
+import { EvidenceViewer } from './components/EvidenceViewer';
+import { EvidenceThumbnailGrid } from './components/EvidenceThumbnailGrid';
+import { SlaTimer } from '../../components/SlaTimer';
+import { loadSLASettings } from '../../features/settings/tasks/tasks-settings-page';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { ArrowLeft, Edit, Trash2, Calendar, Clock, User, Flag, CheckCircle, XCircle, Eye, AlertCircle } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
-import type { TaskPriority, TaskStatus } from './types.ts';
+import type { TaskPriority, TaskStatus } from './types';
 
 // Helper functions - defined outside component to avoid hoisting issues
 const getPriorityVariant = (priority: TaskPriority): "default" | "secondary" | "warning" | "destructive" => {

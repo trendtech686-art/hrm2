@@ -1,40 +1,40 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
-import { getApiUrl } from '../../lib/api-config.ts';
-import { createCrudStore } from '../../lib/store-factory.ts';
-import { data as initialDataOmit } from './data.ts';
-import type { Order, OrderPayment, Packaging, OrderMainStatus, OrderDeliveryStatus, PackagingStatus, OrderPaymentStatus, OrderDeliveryMethod } from './types.ts';
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
-import { generateSystemId, getMaxSystemIdCounter } from '../../lib/id-utils.ts';
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { getApiUrl } from '../../lib/api-config';
+import { createCrudStore } from '../../lib/store-factory';
+import { data as initialDataOmit } from './data';
+import type { Order, OrderPayment, Packaging, OrderMainStatus, OrderDeliveryStatus, PackagingStatus, OrderPaymentStatus, OrderDeliveryMethod } from './types';
+import type { SystemId, BusinessId } from '../../lib/id-types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { generateSystemId, getMaxSystemIdCounter } from '../../lib/id-utils';
 
-import { useEmployeeStore } from '../employees/store.ts';
+import { useEmployeeStore } from '../employees/store';
 // REMOVED: Voucher store no longer exists - using Payment/Receipt stores instead
-import { useProductStore } from '../products/store.ts';
-import { isComboProduct } from '../products/combo-utils.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useReceiptTypeStore } from '../settings/receipt-types/store.ts';
-// REMOVED: import type { Voucher } from '../vouchers/types.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import type { Receipt, ReceiptOrderAllocation } from '../receipts/types.ts';
-import { useSalesReturnStore } from '../sales-returns/store.ts';
-import { createPaymentDocument, createReceiptDocument } from '../finance/document-helpers.ts';
-import { useShipmentStore } from '../shipments/store.ts';
-import type { Shipment } from '../shipments/types.ts';
+import { useProductStore } from '../products/store';
+import { isComboProduct } from '../products/combo-utils';
+import { useStockHistoryStore } from '../stock-history/store';
+import { useCustomerStore } from '../customers/store';
+import { useReceiptTypeStore } from '../settings/receipt-types/store';
+// REMOVED: import type { Voucher } from '../vouchers/types';
+import { useCashbookStore } from '../cashbook/store';
+import { useReceiptStore } from '../receipts/store';
+import type { Receipt, ReceiptOrderAllocation } from '../receipts/types';
+import { useSalesReturnStore } from '../sales-returns/store';
+import { createPaymentDocument, createReceiptDocument } from '../finance/document-helpers';
+import { useShipmentStore } from '../shipments/store';
+import type { Shipment } from '../shipments/types';
 
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
 
-import { useSalesManagementSettingsStore } from '../settings/sales/sales-management-store.ts';
+import { useSalesManagementSettingsStore } from '../settings/sales/sales-management-store';
 import {
   getCurrentUserInfo,
   createCreatedEntry,
   createHistoryEntry,
   appendHistoryEntry,
   type HistoryEntry
-} from '../../lib/activity-history-helper.ts';
+} from '../../lib/activity-history-helper';
 
 // ✅ Helper to get branch systemId
 const getBranchId = (order: Order) => order.branchSystemId;

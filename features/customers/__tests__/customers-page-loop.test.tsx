@@ -2,10 +2,10 @@ import { describe, it, afterEach, beforeAll, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { PageHeaderProvider } from '../../../contexts/page-header-context.tsx';
-import { BreakpointProvider } from '../../../contexts/breakpoint-context.tsx';
-import { CustomersPage } from '../page.tsx';
+import { MemoryRouter, Routes, Route } from '@/lib/next-compat';
+import { PageHeaderProvider } from '../../../contexts/page-header-context';
+import { BreakpointProvider } from '../../../contexts/breakpoint-context';
+import { CustomersPage } from '../page';
 
 // Basic smoke test to reproduce the reported maximum update depth error
 

@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { Input } from './input.tsx';
-import { Button } from './button.tsx';
-import { cn } from '../../lib/utils.ts';
+import { Input } from './input';
+import { Button } from './button';
+import { cn } from '../../lib/utils';
 
 export interface NumberInputProps extends Omit<React.ComponentProps<"input">, 'onChange' | 'value'> {
   value?: number;

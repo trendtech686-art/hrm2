@@ -1,0 +1,31 @@
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT INVENTORY MODEL
+// ═══════════════════════════════════════════════════════════════
+// Stock levels per product per branch
+// ═══════════════════════════════════════════════════════════════
+
+model ProductInventory {
+  productId   String
+  product     Product   @relation(fields: [productId], references: [systemId])
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [systemId])
+  
+  // Stock levels
+  onHand      Int       @default(0)   // Tồn kho hiện tại
+  committed   Int       @default(0)   // Đã đặt trong đơn hàng (chờ xuất)
+  inTransit   Int       @default(0)   // Đang vận chuyển
+  available   Int       @default(0)   // = onHand - committed
+  
+  // Reorder
+  reorderPoint Int      @default(0)
+  reorderQty   Int      @default(0)
+  
+  // Cost
+  averageCost Decimal   @default(0) @db.Decimal(15, 2)
+  
+  // Audit
+  updatedAt   DateTime  @updatedAt
+  
+  @@id([productId, branchId])
+  @@map("product_inventory")
+}

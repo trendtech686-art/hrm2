@@ -1,56 +1,57 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { Link } from '@/lib/next-compat';
 import { Printer, FileSpreadsheet, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
-import { formatDate, formatDateCustom, toISODate, toISODateTime, getMonthsDiff } from '../../lib/date-utils.ts';
-import { useEmployeeStore } from './store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useRouteMeta } from '../../hooks/use-route-meta';
+import { formatDate, formatDateCustom, toISODate, toISODateTime, getMonthsDiff } from '../../lib/date-utils';
+import { useEmployeeStore } from './store';
+import { useBranchStore } from '../settings/branches/store';
+import { usePageHeader } from '../../contexts/page-header-context';
 import { generateDetailBreadcrumb } from '../../lib/breadcrumb-generator'; // ✅ NEW
 import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
-import { useEmployeeCompStore } from './employee-comp-store.ts';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service.ts';
-import { useAttendanceStore } from '../attendance/store.ts';
-import { usePayrollBatchStore } from '../payroll/payroll-batch-store.ts';
-import type { Payslip, PayrollBatch } from '../../lib/payroll-types.ts';
-import { PayrollStatusBadge } from '../payroll/components/status-badge.tsx';
-import { PayslipPrintButton } from '../payroll/components/payslip-print-button.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePrint } from '../../lib/use-print.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { useDepartmentStore } from '../settings/departments/store.ts';
+import { useEmployeeCompStore } from './employee-comp-store';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
+import { useAttendanceStore } from '../attendance/store';
+import { usePayrollBatchStore } from '../payroll/payroll-batch-store';
+import type { Payslip, PayrollBatch } from '../../lib/payroll-types';
+import { PayrollStatusBadge } from '../payroll/components/status-badge';
+import { PayslipPrintButton } from '../payroll/components/payslip-print-button';
+import { ROUTES } from '../../lib/router';
+import { useAuth } from '../../contexts/auth-context';
+import { usePrint } from '../../lib/use-print';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useDepartmentStore } from '../settings/departments/store';
 import {
   convertPayslipForPrint,
   mapPayslipToPrintData,
   mapPayslipComponentLineItems,
   createStoreSettings,
-} from '../../lib/print/payroll-print-helper.ts';
+} from '../../lib/print/payroll-print-helper';
 import {
   convertAttendanceDetailForPrint,
   mapAttendanceDetailToPrintData,
   mapAttendanceDetailLineItems,
   createStoreSettings as createAttendanceStoreSettings,
-} from '../../lib/print/attendance-print-helper.ts';
+} from '../../lib/print/attendance-print-helper';
 import {
   convertPenaltyForPrint,
   mapPenaltyToPrintData,
   createStoreSettings as createPenaltyStoreSettings,
-} from '../../lib/print/penalty-print-helper.ts';
+} from '../../lib/print/penalty-print-helper';
 import {
   convertLeaveForPrint,
   mapLeaveToPrintData,
   createStoreSettings as createLeaveStoreSettings,
-} from '../../lib/print/leave-print-helper.ts';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import type { Employee, EmployeeAddress } from './types.ts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+} from '../../lib/print/leave-print-helper';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import type { Employee, EmployeeAddress } from './types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { 
   ArrowLeft, 
   Edit, 
@@ -68,36 +69,36 @@ import {
   MoreHorizontal,
   ExternalLink
 } from 'lucide-react';
-import { InfoItem } from '../../components/ui/info-card.tsx';
-import { StatsCard } from '../../components/ui/stats-card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs.tsx';
-import { RelatedDataTable } from '../../components/data-table/related-data-table.tsx';
+import { InfoItem } from '../../components/ui/info-card';
+import { StatsCard } from '../../components/ui/stats-card';
+import { Badge } from '../../components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog.tsx';
+} from '../../components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu.tsx';
-import type { ColumnDef } from '../../components/data-table/types.ts';
+} from '../../components/ui/dropdown-menu';
+import type { ColumnDef } from '../../components/data-table/types';
 
-import { usePenaltyStore } from '../settings/penalties/store.ts';
-import { useDocumentStore } from './document-store.ts';
-import { useLeaveStore } from '../leaves/store.ts';
-import { useTaskStore } from '../tasks/store.ts';
-import { EmployeeDocuments } from './employee-documents.tsx';
-import { EmployeeAccountTab } from './employee-account-tab.tsx';
+import { usePenaltyStore } from '../settings/penalties/store';
+import { useDocumentStore } from './document-store';
+import { useLeaveStore } from '../leaves/store';
+import { useTaskStore } from '../tasks/store';
+import { EmployeeDocuments } from './employee-documents';
+import { EmployeeAccountTab } from './employee-account-tab';
 
-import type { Penalty, PenaltyStatus } from '../settings/penalties/types.ts';
-import type { LeaveRequest, LeaveStatus } from '../leaves/types.ts';
+import type { Penalty, PenaltyStatus } from '../settings/penalties/types';
+import type { LeaveRequest, LeaveStatus } from '../leaves/types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '-';
@@ -205,7 +206,6 @@ interface PayrollHistoryRow {
 export function EmployeeDetailPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
-  const routeMeta = useRouteMeta();
   const { findById } = useEmployeeStore();
   const { data: branches } = useBranchStore();
   const { employee: authEmployee } = useAuth();
@@ -1123,13 +1123,17 @@ export function EmployeeDetailPage() {
 
   // ✅ Auto-generate breadcrumb
   const breadcrumb = React.useMemo(() => {
-    if (!employee) return routeMeta?.breadcrumb as any;
+    if (!employee) return [
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Nhân viên', href: '/employees', isCurrent: false },
+      { label: 'Chi tiết', href: '', isCurrent: true }
+    ];
     return [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Nhân viên', href: '/employees', isCurrent: false },
             { label: employee.fullName, href: '', isCurrent: true }
     ];
-  }, [employee, routeMeta]);
+  }, [employee]);
 
     const headerBadge = React.useMemo(() => renderEmploymentStatusBadge(employee?.employmentStatus), [employee?.employmentStatus]);
 

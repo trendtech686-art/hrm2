@@ -1,15 +1,15 @@
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
-import type { WarrantyTicket, WarrantyStatus } from '../types.ts';
-import { baseStore, originalUpdate, getCurrentUserName } from './base-store.ts';
-import { addHistory } from './product-management.ts';
-import { deductWarrantyStock, rollbackWarrantyStock } from './stock-management.ts';
+import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
+import type { SystemId } from '../../../lib/id-types';
+import type { WarrantyTicket, WarrantyStatus } from '../types';
+import { baseStore, originalUpdate, getCurrentUserName } from './base-store';
+import { addHistory } from './product-management';
+import { deductWarrantyStock, rollbackWarrantyStock } from './stock-management';
 import {
   notifyWarrantyProcessing,
   notifyWarrantyProcessed,
   notifyWarrantyReturned,
-} from '../notification-utils.ts';
-import { triggerWarrantyDataUpdate } from '../use-realtime-updates.ts';
+} from '../notification-utils';
+import { triggerWarrantyDataUpdate } from '../use-realtime-updates';
 
 type TimestampKey = 'processingStartedAt' | 'processedAt' | 'returnedAt' | 'completedAt';
 

@@ -1,8 +1,8 @@
 import * as React from "react";
-import type { PaymentMethod } from "./types.ts";
-import type { ColumnDef } from "../../../../components/data-table/types.ts";
-import { Badge } from "../../../../components/ui/badge.tsx";
-import { Button } from "../../../../components/ui/button.tsx";
+import type { PaymentMethod } from "./types";
+import type { ColumnDef } from "../../../../components/data-table/types";
+import { Badge } from "../../../../components/ui/badge";
+import { Button } from "../../../../components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../../../components/ui/dropdown-menu.tsx";
+} from "../../../../components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Power, PowerOff, Star, Trash2 } from "lucide-react";
 import * as Icons from "lucide-react";
 

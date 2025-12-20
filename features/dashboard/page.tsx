@@ -1,22 +1,24 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateAfter, isDateBefore, addDays, subtractDays } from '../../lib/date-utils.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useOrderStore } from '../orders/store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { ChartBar, ChartLine, ChartArea, ChartPie } from '../../components/ui/chart.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateAfter, isDateBefore, addDays, subtractDays } from '../../lib/date-utils';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useOrderStore } from '../orders/store';
+import { useCustomerStore } from '../customers/store';
+import { useEmployeeStore } from '../employees/store';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { ChartBar, ChartLine, ChartArea, ChartPie } from '../../components/ui/chart';
 import { Package, Truck, DollarSign, Users, ChevronRight, UserCheck, TrendingUp, AlertCircle } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { ResponsiveContainer } from '../../components/ui/responsive-container.tsx';
-import { MobileGrid } from '../../components/mobile/mobile-grid.tsx';
-import { TouchButton } from '../../components/mobile/touch-button.tsx';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
-import { DebtAlertWidget } from './debt-alert-widget.tsx';
-import type { OrderMainStatus } from '../orders/types.ts';
-import { Button } from '../../components/ui/button.tsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Badge } from '../../components/ui/badge';
+import { ResponsiveContainer } from '../../components/ui/responsive-container';
+import { MobileGrid } from '../../components/mobile/mobile-grid';
+import { TouchButton } from '../../components/mobile/touch-button';
+import { useMediaQuery } from '../../lib/use-media-query';
+import { DebtAlertWidget } from './debt-alert-widget';
+import type { OrderMainStatus } from '../orders/types';
+import { Button } from '../../components/ui/button';
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
 const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {

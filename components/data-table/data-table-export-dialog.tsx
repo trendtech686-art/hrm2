@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Download, ArrowLeft } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Button } from '../ui/button.tsx';
+import { Button } from '../ui/button';
 import {
   Dialog,
   DialogContent,
@@ -10,11 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../ui/dialog.tsx';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group.tsx';
-import { Label } from '../ui/label.tsx';
-import { Checkbox } from '../ui/checkbox.tsx';
-import type { ColumnDef } from './types.ts';
+} from '../ui/dialog';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Label } from '../ui/label';
+import { Checkbox } from '../ui/checkbox';
+import type { ColumnDef } from './types';
 
 export type ExportConfig<TData> = {
   fileName: string;

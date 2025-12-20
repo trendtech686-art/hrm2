@@ -1,8 +1,8 @@
-import type { ColumnDef } from '../../../components/data-table/types.ts';
-import type { StockAlertReportRow } from './types.ts';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Link } from 'react-router-dom';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip.tsx';
+import type { ColumnDef } from '../../../components/data-table/types';
+import type { StockAlertReportRow } from './types';
+import { Badge } from '../../../components/ui/badge';
+import { Link } from '@/lib/next-compat';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip';
 import { PackageX, AlertTriangle, TrendingUp, ShoppingCart } from 'lucide-react';
 import { formatDateForDisplay } from '@/lib/date-utils';
 

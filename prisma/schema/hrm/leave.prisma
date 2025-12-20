@@ -1,0 +1,42 @@
+// ═══════════════════════════════════════════════════════════════
+// LEAVE MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: LEAVE000001 (English)
+// BusinessId: PN000001 (Vietnamese - Phép nghỉ)
+// ═══════════════════════════════════════════════════════════════
+
+model Leave {
+  systemId      String      @id           // LEAVE000001
+  id            String      @unique       // PN000001
+  
+  // Employee
+  employeeId    String
+  employee      Employee    @relation(fields: [employeeId], references: [systemId])
+  
+  // Leave details
+  leaveType     LeaveType   @default(ANNUAL)
+  startDate     DateTime
+  endDate       DateTime
+  totalDays     Decimal     @db.Decimal(4, 1)
+  reason        String?
+  
+  // Status
+  status        LeaveStatus @default(PENDING)
+  approvedBy    String?
+  approvedAt    DateTime?
+  rejectedBy    String?
+  rejectedAt    DateTime?
+  rejectionReason String?
+  
+  // Soft delete
+  isDeleted     Boolean     @default(false)
+  deletedAt     DateTime?
+  
+  // Audit
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  
+  @@map("leaves")
+}

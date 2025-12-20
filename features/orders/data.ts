@@ -1,5 +1,5 @@
-import type { Order } from './types.ts';
-import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
+import type { Order } from './types';
+import { asBusinessId, asSystemId } from '../../lib/id-types';
 
 const zeroDiscountLine = (productSystemId: ReturnType<typeof asSystemId>, productId: ReturnType<typeof asBusinessId>, productName: string, quantity: number, unitPrice: number) => ({
   productSystemId,

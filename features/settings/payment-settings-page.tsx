@@ -1,14 +1,14 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { TabsContent } from '../../components/ui/tabs.tsx';
-import { useSettingsPageHeader } from './use-settings-page-header.tsx';
-import { ReceiptTypesPageContent } from './receipt-types/page-content.tsx';
-import { PaymentTypesPageContent } from './payments/types/page-content.tsx';
-import { PaymentMethodsPageContent } from './payments/methods/page-content.tsx';
-import { TargetGroupsPageContent } from './target-groups/page-content.tsx';
-import { CashAccountsPageContent } from './cash-accounts/page-content.tsx';
-import { useTabActionRegistry } from './use-tab-action-registry.ts';
-import { SettingsVerticalTabs } from '../../components/settings/SettingsVerticalTabs.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { TabsContent } from '../../components/ui/tabs';
+import { useSettingsPageHeader } from './use-settings-page-header';
+import { ReceiptTypesPageContent } from './receipt-types/page-content';
+import { PaymentTypesPageContent } from './payments/types/page-content';
+import { PaymentMethodsPageContent } from './payments/methods/page-content';
+import { TargetGroupsPageContent } from './target-groups/page-content';
+import { CashAccountsPageContent } from './cash-accounts/page-content';
+import { useTabActionRegistry } from './use-tab-action-registry';
+import { SettingsVerticalTabs } from '../../components/settings/SettingsVerticalTabs';
 
 export function PaymentSettingsPage() {
   const [activeTab, setActiveTab] = React.useState('receipt-types');

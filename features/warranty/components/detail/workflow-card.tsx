@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { SubtaskList, type Subtask } from '../../../../components/shared/subtask-list.tsx';
-import type { WarrantyTicket } from '../../types.ts';
-import { getWorkflowTemplate } from '../../../settings/printer/workflow-templates-page.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { SubtaskList, type Subtask } from '../../../../components/shared/subtask-list';
+import type { WarrantyTicket } from '../../types';
+import { getWorkflowTemplate } from '../../../settings/printer/workflow-templates-page';
 
 interface WarrantyWorkflowCardProps {
   ticket: WarrantyTicket;

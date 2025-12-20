@@ -1,23 +1,25 @@
+'use client'
+
 import * as React from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from '@/lib/next-compat';
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
 import type { BusinessId, SystemId } from '@/lib/id-types';
-import { cn } from "../../lib/utils.ts";
-import { FileUploadAPI } from "../../lib/file-upload-api.ts";
-import { showNotification, complaintNotifications } from "./notification-utils.ts";
-import { useAuth } from "../../contexts/auth-context.tsx";
-import { useComplaintPermissions } from "./hooks/use-complaint-permissions.ts";
-import { useComplaintTimeTracking } from "./hooks/use-complaint-time-tracking.ts";
-import { useComplaintStatistics } from "./hooks/use-complaint-statistics.ts";
-import { useComplaintReminders } from "./hooks/use-complaint-reminders.ts";
+import { cn } from "../../lib/utils";
+import { FileUploadAPI } from "../../lib/file-upload-api";
+import { showNotification, complaintNotifications } from "./notification-utils";
+import { useAuth } from "../../contexts/auth-context";
+import { useComplaintPermissions } from "./hooks/use-complaint-permissions";
+import { useComplaintTimeTracking } from "./hooks/use-complaint-time-tracking";
+import { useComplaintStatistics } from "./hooks/use-complaint-statistics";
+import { useComplaintReminders } from "./hooks/use-complaint-reminders";
 import { cancelPaymentsReceiptsAndInventoryChecks } from './utils/payment-receipt-reversal';
 import { COMPLAINT_TOAST_MESSAGES as MSG } from './constants/toast-messages';
 import { handleCancelComplaint as cancelComplaintHandler } from './handlers/cancel-handler';
 import { handleReopenComplaint as reopenComplaintHandler } from './handlers/reopen-handler';
-import { complaintResolutionLabels } from './types.ts';
-import type { Payment } from '../payments/types.ts';
-import type { Receipt } from '../receipts/types.ts';
+import { complaintResolutionLabels } from './types';
+import type { Payment } from '../payments/types';
+import type { Receipt } from '../receipts/types';
 
 // Response template interface
 interface ResponseTemplate {
@@ -63,63 +65,63 @@ function loadTemplates(): ResponseTemplate[] {
 }
 
 // Types & Store
-import type { Complaint, ComplaintAction } from "./types.ts";
-import { useComplaintStore } from "./store.ts";
-import type { StagingFile } from "../../lib/file-upload-api.ts";
-import { useProductStore } from "../products/store.ts";
+import type { Complaint, ComplaintAction } from "./types";
+import { useComplaintStore } from "./store";
+import type { StagingFile } from "../../lib/file-upload-api";
+import { useProductStore } from "../products/store";
 
 // UI Components
-import { Button } from "../../components/ui/button.tsx";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card.tsx";
-import { ImagePreviewDialog } from "../../components/ui/image-preview-dialog.tsx";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { ImagePreviewDialog } from "../../components/ui/image-preview-dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { Label } from "../../components/ui/label.tsx";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group.tsx";
-import { ConfirmCorrectDialog } from "./confirm-correct-dialog.tsx";
-import { CompensationPaymentReceiptWizard, type CompensationResult } from "./compensation-payment-receipt-wizard.tsx";
-import { InventoryDialog } from "./inventory-dialog.tsx";
-import { VerificationDialog } from "./verification-dialog.tsx";
-import { ComplaintHeaderSection } from "./components/complaint-header-section.tsx";
-import { ComplaintTimelineSection } from "./components/complaint-timeline-section.tsx";
-import { ComplaintAffectedProducts } from "./components/complaint-affected-products.tsx";
-import { ComplaintOrderInfo } from "./components/complaint-order-info.tsx";
-import { ComplaintImagesSection } from "./components/complaint-images-section.tsx";
-import { ComplaintDetailsCard } from "./components/complaint-details-card.tsx";
-import { ComplaintWorkflowSection } from "./components/complaint-workflow-section.tsx";
-import { ComplaintProcessingCard } from "./components/complaint-processing-card.tsx";
-import { TemplateDialog } from "./components/template-dialog.tsx";
-import { Comments } from '../../components/Comments.tsx';
-import type { WarrantyComment } from '../warranty/types.ts';
-import { ConfirmDialog } from "../../components/ui/confirm-dialog.tsx";
+} from "../../components/ui/select";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { Label } from "../../components/ui/label";
+import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
+import { ConfirmCorrectDialog } from "./confirm-correct-dialog";
+import { CompensationPaymentReceiptWizard, type CompensationResult } from "./compensation-payment-receipt-wizard";
+import { InventoryDialog } from "./inventory-dialog";
+import { VerificationDialog } from "./verification-dialog";
+import { ComplaintHeaderSection } from "./components/complaint-header-section";
+import { ComplaintTimelineSection } from "./components/complaint-timeline-section";
+import { ComplaintAffectedProducts } from "./components/complaint-affected-products";
+import { ComplaintOrderInfo } from "./components/complaint-order-info";
+import { ComplaintImagesSection } from "./components/complaint-images-section";
+import { ComplaintDetailsCard } from "./components/complaint-details-card";
+import { ComplaintWorkflowSection } from "./components/complaint-workflow-section";
+import { ComplaintProcessingCard } from "./components/complaint-processing-card";
+import { TemplateDialog } from "./components/template-dialog";
+import { Comments } from '../../components/Comments';
+import type { WarrantyComment } from '../warranty/types';
+import { ConfirmDialog } from "../../components/ui/confirm-dialog";
 import { Printer } from 'lucide-react';
-import { usePrint } from '../../lib/use-print.ts';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertComplaintForPrint,
   mapComplaintToPrintData, 
   mapComplaintLineItems,
   createStoreSettings,
-} from '../../lib/print/complaint-print-helper.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+} from '../../lib/print/complaint-print-helper';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 
 // Hooks & Context
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useEmployeeStore } from "../employees/store.ts";
-import { useOrderStore } from "../orders/store.ts";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useEmployeeStore } from "../employees/store";
+import { useOrderStore } from "../orders/store";
 import {
   useComplaintHandlers,
   useVerificationHandlers,
   useCompensationHandlers,
   useInventoryHandlers,
-} from "./hooks/index.ts";
+} from "./hooks/index";
 
 /**
  * MAIN PAGE COMPONENT - Complaint Detail (VIEW ONLY)
@@ -418,12 +420,12 @@ export function ComplaintDetailPage() {
     // TAO 2 PHIEU: CHI (bu tru khach - CHI KHI HOAN TIEN) + THU (phat nhan vien)
     try {
       // LAZY LOAD: Only import stores when actually creating payments/receipts
-      const { useCashbookStore } = await import('../cashbook/store.ts');
-      const { usePaymentTypeStore } = await import('../settings/payments/types/store.ts');
-      const { useReceiptTypeStore } = await import('../settings/receipt-types/store.ts');
-      const { usePaymentStore } = await import('../payments/store.ts');
-      const { useReceiptStore } = await import('../receipts/store.ts');
-      const { useProductStore } = await import('../products/store.ts');
+      const { useCashbookStore } = await import('../cashbook/store');
+      const { usePaymentTypeStore } = await import('../settings/payments/types/store');
+      const { useReceiptTypeStore } = await import('../settings/receipt-types/store');
+      const { usePaymentStore } = await import('../payments/store');
+      const { useReceiptStore } = await import('../receipts/store');
+      const { useProductStore } = await import('../products/store');
       
       const accounts = useCashbookStore.getState().accounts;
       const paymentTypes = usePaymentTypeStore.getState().data;

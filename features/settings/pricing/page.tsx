@@ -1,11 +1,11 @@
 import * as React from "react";
-import { useSettingsPageHeader } from "../use-settings-page-header.tsx";
-import { useTabActionRegistry } from "../use-tab-action-registry.ts";
-import { SettingsVerticalTabs } from "../../../components/settings/SettingsVerticalTabs.tsx";
-import { TabsContent } from "../../../components/ui/tabs.tsx";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { PricingPolicyContent } from "./pricing-policy-content.tsx";
-import { TaxContent } from "./tax-content.tsx";
+import { useSettingsPageHeader } from "../use-settings-page-header";
+import { useTabActionRegistry } from "../use-tab-action-registry";
+import { SettingsVerticalTabs } from "../../../components/settings/SettingsVerticalTabs";
+import { TabsContent } from "../../../components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { PricingPolicyContent } from "./pricing-policy-content";
+import { TaxContent } from "./tax-content";
 
 export function PricingSettingsPage() {
     const [activeTab, setActiveTab] = React.useState('pricing-policy');

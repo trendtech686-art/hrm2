@@ -1,11 +1,11 @@
 ﻿import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { createCrudStore } from '../../lib/store-factory.ts';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils.ts';
-import { data as initialData } from './data.ts';
-import type { WikiArticle } from './types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
+import { createCrudStore } from '../../lib/store-factory';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils';
+import { data as initialData } from './data';
+import type { WikiArticle } from './types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import type { SystemId } from '../../lib/id-types';
 type WikiState = {
   data: WikiArticle[];
   add: (item: Omit<WikiArticle, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>) => void;

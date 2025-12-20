@@ -1,16 +1,16 @@
 import * as React from 'react';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { PAYROLL_BATCH_STATUSES, type PayrollBatchStatus } from '../../../lib/payroll-types.ts';
-import { Button } from '../../../components/ui/button.tsx';
-import { Input } from '../../../components/ui/input.tsx';
+import { PAYROLL_BATCH_STATUSES, type PayrollBatchStatus } from '../../../lib/payroll-types';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select.tsx';
-import { Label } from '../../../components/ui/label.tsx';
+} from '../../../components/ui/select';
+import { Label } from '../../../components/ui/label';
 
 export type PayrollBatchFiltersValue = {
   status: PayrollBatchStatus | 'all';

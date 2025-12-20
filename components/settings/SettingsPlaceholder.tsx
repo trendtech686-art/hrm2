@@ -1,8 +1,8 @@
 import * as React from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Inbox } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card.tsx';
-import { cn } from '../../lib/utils.ts';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { cn } from '../../lib/utils';
 
 export type SettingsPlaceholderProps = {
   title: string;

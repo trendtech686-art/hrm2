@@ -1,6 +1,6 @@
-import { useAttendanceStore } from '../features/attendance/store.ts';
-import type { AttendanceDataRow } from '../features/attendance/types.ts';
-import type { SystemId, BusinessId } from './id-types.ts';
+import { useAttendanceStore } from '../features/attendance/store';
+import type { AttendanceDataRow } from '../features/attendance/types';
+import type { SystemId, BusinessId } from './id-types';
 
 type SnapshotQuery = {
   monthKey: string;

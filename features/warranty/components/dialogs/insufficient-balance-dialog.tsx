@@ -6,10 +6,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../../components/ui/dialog.tsx';
-import { Alert, AlertDescription } from '../../../../components/ui/alert.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
-import { Badge } from '../../../../components/ui/badge.tsx';
+} from '../../../../components/ui/dialog';
+import { Alert, AlertDescription } from '../../../../components/ui/alert';
+import { Button } from '../../../../components/ui/button';
+import { Badge } from '../../../../components/ui/badge';
 
 interface InsufficientBalanceDialogProps {
   open: boolean;

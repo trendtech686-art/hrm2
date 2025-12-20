@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Users, Calendar, AlertTriangle, Clock, TrendingUp, Award } from 'lucide-react';
-import type { AttendanceDataRow } from '../types.ts';
-import { cn } from '../../../lib/utils.ts';
+import type { AttendanceDataRow } from '../types';
+import { cn } from '../../../lib/utils';
 
 interface StatisticsDashboardProps {
   data: AttendanceDataRow[];

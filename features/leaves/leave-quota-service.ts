@@ -1,8 +1,8 @@
-import type { LeaveRequest } from './types.ts';
-import type { LeaveType } from '../settings/employees/types.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import { getCurrentDate } from '../../lib/date-utils.ts';
+import type { LeaveRequest } from './types';
+import type { LeaveType } from '../settings/employees/types';
+import { useEmployeeStore } from '../employees/store';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { getCurrentDate } from '../../lib/date-utils';
 
 const clampNonNegative = (value: number) => (Number.isFinite(value) && value > 0 ? value : 0);
 

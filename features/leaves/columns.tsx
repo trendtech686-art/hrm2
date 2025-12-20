@@ -1,12 +1,12 @@
 ﻿import * as React from "react";
 import { formatDate } from '@/lib/date-utils';
-import type { LeaveRequest, LeaveStatus } from './types.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import type { LeaveRequest, LeaveStatus } from './types';
+import { Checkbox } from "../../components/ui/checkbox";
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
+import { Badge } from "../../components/ui/badge";
+import type { ColumnDef } from '../../components/data-table/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
 import type { SystemId } from '@/lib/id-types';
 

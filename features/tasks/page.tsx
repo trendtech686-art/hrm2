@@ -1,28 +1,30 @@
+'use client'
+
 import * as React from "react"
-import * as ReactRouterDOM from 'react-router-dom';
-import { useTaskStore } from "./store.ts"
-import { getColumns } from "./columns.tsx"
-import type { Task, TaskStatus, TaskPriority } from "./types.ts"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
-import { useAuth } from "../../contexts/auth-context.tsx";
-import { useEmployeeStore } from "../employees/store.ts";
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { PageFilters } from "../../components/layout/page-filters.tsx"
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
-import { Button } from "../../components/ui/button.tsx"
-import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx"
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useTaskStore } from "./store"
+import { getColumns } from "./columns"
+import type { Task, TaskStatus, TaskPriority } from "./types"
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useBreakpoint } from "../../contexts/breakpoint-context";
+import { useAuth } from "../../contexts/auth-context";
+import { useEmployeeStore } from "../employees/store";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
+import { PageFilters } from "../../components/layout/page-filters"
+import { PageToolbar } from "../../components/layout/page-toolbar"
+import { Button } from "../../components/ui/button"
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Repeat, Settings } from "lucide-react"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { TaskCard } from "./task-card.tsx";
-import { TaskKanbanView } from "./kanban-view.tsx";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { TaskCard } from "./task-card";
+import { TaskKanbanView } from "./kanban-view";
 import Fuse from "fuse.js"
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { toast } from "sonner";
-import { QuickFilters, QuickFiltersCompact } from "./components/QuickFilters.tsx";
-import { QUICK_FILTERS } from "./types-filter.ts";
-import type { SystemId } from '../../lib/id-types.ts';
+import { QuickFilters, QuickFiltersCompact } from "./components/QuickFilters";
+import { QUICK_FILTERS } from "./types-filter";
+import type { SystemId } from '../../lib/id-types';
 
 export function TasksPage() {
   const store = useTaskStore();

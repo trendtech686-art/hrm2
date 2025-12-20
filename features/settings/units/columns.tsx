@@ -1,11 +1,11 @@
 import * as React from "react";
-import type { Unit } from './types.ts'
+import type { Unit } from './types'
 import type { SystemId } from '@/lib/id-types';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
+import { Button } from "../../../components/ui/button";
+import { Switch } from "../../../components/ui/switch";
 import { MoreHorizontal } from "lucide-react";
-import type { ColumnDef } from '../../../components/data-table/types.ts';
+import type { ColumnDef } from '../../../components/data-table/types';
 
 interface ColumnOptions {
   onEdit: (unit: Unit) => void;

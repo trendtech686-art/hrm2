@@ -1,10 +1,10 @@
 import * as React from "react"
 import { Settings2, Search, X, Pin, GripVertical } from "lucide-react"
 
-import { Button } from "../ui/button.tsx"
-import { Checkbox } from "../ui/checkbox.tsx"
-import { Input } from "../ui/input.tsx"
-import { Label } from "../ui/label.tsx"
+import { Button } from "../ui/button"
+import { Checkbox } from "../ui/checkbox"
+import { Input } from "../ui/input"
+import { Label } from "../ui/label"
 import {
   Dialog,
   DialogContent,
@@ -13,11 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../ui/dialog.tsx"
-import { ScrollArea } from "../ui/scroll-area.tsx"
-import { cn } from "../../lib/utils.ts"
-import type { ColumnDef } from './types.ts'
-import { Separator } from "../ui/separator.tsx"
+} from "../ui/dialog"
+import { ScrollArea } from "../ui/scroll-area"
+import { cn } from "../../lib/utils"
+import type { ColumnDef } from './types'
+import { Separator } from "../ui/separator"
 import {
   DndContext,
   closestCenter,

@@ -1,9 +1,9 @@
 import * as React from "react"
 import { Check, PlusCircle } from "lucide-react"
 
-import { cn } from "../../lib/utils.ts"
-import { Badge } from "../ui/badge.tsx"
-import { Button } from "../ui/button.tsx"
+import { cn } from "../../lib/utils"
+import { Badge } from "../ui/badge"
+import { Button } from "../ui/button"
 import {
   Command,
   CommandEmpty,
@@ -12,14 +12,14 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "../ui/command.tsx"
+} from "../ui/command"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "../ui/popover.tsx"
-import { Separator } from "../ui/separator.tsx"
-import { useModal } from "../../contexts/modal-context.tsx"
+} from "../ui/popover"
+import { Separator } from "../ui/separator"
+import { useModal } from "../../contexts/modal-context"
 
 interface DataTableFacetedFilterProps {
   title?: string

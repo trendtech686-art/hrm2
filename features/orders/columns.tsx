@@ -1,14 +1,16 @@
-﻿import * as React from "react";
-import * as ReactRouterDOM from "react-router-dom";
-import { Link } from "react-router-dom";
+﻿'use client'
+
+import * as React from "react";
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { Link } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, Packaging } from './types.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, Packaging } from './types';
+import { Checkbox } from "../../components/ui/checkbox";
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
+import { Badge } from "../../components/ui/badge";
+import type { ColumnDef } from '../../components/data-table/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
 
 // This is a temporary type for the column until the Order type is fully updated.

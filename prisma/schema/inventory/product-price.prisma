@@ -1,0 +1,44 @@
+// ═══════════════════════════════════════════════════════════════
+// PRODUCT PRICE MODEL
+// ═══════════════════════════════════════════════════════════════
+// Price by branch, time period, customer group, pricing policy
+// ═══════════════════════════════════════════════════════════════
+
+model ProductPrice {
+  systemId          String         @id @default(uuid())
+  
+  // Product
+  productId         String
+  product           Product        @relation(fields: [productId], references: [systemId])
+  
+  // Pricing Policy
+  pricingPolicyId   String?
+  pricingPolicy     PricingPolicy? @relation(fields: [pricingPolicyId], references: [systemId])
+  
+  // Branch specific
+  branchId          String?
+  
+  // Pricing
+  costPrice         Decimal        @db.Decimal(15, 2)
+  sellingPrice      Decimal        @db.Decimal(15, 2)
+  wholesalePrice    Decimal?       @db.Decimal(15, 2)
+  minPrice          Decimal?       @db.Decimal(15, 2)
+  
+  // Validity
+  startDate         DateTime?
+  endDate           DateTime?
+  
+  // Customer group
+  customerGroup     String?
+  
+  // Status
+  isActive          Boolean        @default(true)
+  isDefault         Boolean        @default(false)
+  
+  // Audit
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  @@unique([productId, branchId, pricingPolicyId, customerGroup, startDate])
+  @@map("product_prices")
+}

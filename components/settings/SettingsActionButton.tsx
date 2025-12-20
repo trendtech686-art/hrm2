@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Button, type ButtonProps } from '../ui/button.tsx';
-import { cn } from '../../lib/utils.ts';
+import { Button, type ButtonProps } from '../ui/button';
+import { cn } from '../../lib/utils';
 
 /**
  * SettingsActionButton chuẩn hóa các nút hành động của module Cài đặt

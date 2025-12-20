@@ -1,6 +1,6 @@
 import * as React from 'react';
-import type { HistoryEntry } from '../../../components/ActivityHistory.tsx';
-import type { WarrantyHistory, WarrantyTicket } from '../types.ts';
+import type { HistoryEntry } from '../../../components/ActivityHistory';
+import type { WarrantyHistory, WarrantyTicket } from '../types';
 
 const ACTION_MAP: Record<string, HistoryEntry['action']> = {
   created: 'created',

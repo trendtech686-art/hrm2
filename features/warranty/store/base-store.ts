@@ -1,8 +1,8 @@
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
-import { createCrudStore } from '../../../lib/store-factory.ts';
-import type { WarrantyTicket } from '../types.ts';
-import { warrantyInitialData } from '../initial-data.ts';
-import { getCurrentUserInfo, getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
+import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
+import { createCrudStore } from '../../../lib/store-factory';
+import type { WarrantyTicket } from '../types';
+import { warrantyInitialData } from '../initial-data';
+import { getCurrentUserInfo, getCurrentUserSystemId } from '../../../contexts/auth-context';
 
 // Utility: Get Current User Info
 export function getCurrentUserName(): string {

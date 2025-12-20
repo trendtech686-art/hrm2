@@ -1,16 +1,16 @@
 import * as React from "react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
-import { usePricingPolicyStore } from "./store.ts";
-import type { PricingPolicy } from "./types.ts";
-import { PricingPolicyForm, type PricingPolicyFormValues } from "./form.tsx";
-import { PricingTable } from "./pricing-table.tsx";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs.tsx";
+import { usePricingPolicyStore } from "./store";
+import type { PricingPolicy } from "./types";
+import { PricingPolicyForm, type PricingPolicyFormValues } from "./form";
+import { PricingTable } from "./pricing-table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { toast } from 'sonner';
-import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import { PlusCircle } from "lucide-react";
 
 interface PricingPolicyContentProps {

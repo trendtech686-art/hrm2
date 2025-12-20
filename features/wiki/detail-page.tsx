@@ -1,14 +1,16 @@
-﻿import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+﻿'use client'
+
+import * as React from 'react';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import { useWikiStore } from './store.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+import { useWikiStore } from './store';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Edit, User, Calendar, Tag } from 'lucide-react';
-import { MarkdownRenderer } from './components/markdown-renderer.tsx';
+import { MarkdownRenderer } from './components/markdown-renderer';
 
 export function WikiDetailPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();

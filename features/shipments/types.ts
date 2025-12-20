@@ -6,8 +6,8 @@
  * BusinessId format: VC000001
  */
 
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
-import type { OrderDeliveryStatus, OrderPrintStatus } from '../orders/types.ts';
+import type { SystemId, BusinessId } from '../../lib/id-types';
+import type { OrderDeliveryStatus, OrderPrintStatus } from '../orders/types';
 import type { HistoryEntry } from '@/lib/activity-history-helper';
 
 export type ShipmentReconciliationStatus = 'Chưa đối soát' | 'Đã đối soát';

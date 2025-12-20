@@ -1,19 +1,19 @@
 import * as React from "react";
-import type { Brand } from '../settings/inventory/types.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from "../../components/ui/button.tsx";
+import type { Brand } from '../settings/inventory/types';
+import { Checkbox } from "../../components/ui/checkbox";
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
+import { Badge } from "../../components/ui/badge";
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal, Globe, Image as ImageIcon, Eye, Trash2, Package, Pencil, CheckCircle, AlertTriangle, XCircle, ExternalLink } from "lucide-react";
-import { Switch } from "../../components/ui/switch.tsx";
+import { Switch } from "../../components/ui/switch";
 import { PkgxBrandActionsCell } from './pkgx-brand-actions-cell';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx";
-import { InlineEditableCell } from '../../components/shared/inline-editable-cell.tsx';
-import { useProductStore } from '../products/store.ts';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog.tsx";
-import { ScrollArea } from "../../components/ui/scroll-area.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+import { InlineEditableCell } from '../../components/shared/inline-editable-cell';
+import { useProductStore } from '../products/store';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { ScrollArea } from "../../components/ui/scroll-area";
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return '';

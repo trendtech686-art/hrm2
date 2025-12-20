@@ -1,7 +1,7 @@
 import * as React from "react"
-import { cn } from "../../lib/utils.ts"
-import { Input, type InputProps } from "./input.tsx"
-import { Popover, PopoverContent, PopoverTrigger } from "./popover.tsx"
+import { cn } from "../../lib/utils"
+import { Input, type InputProps } from "./input"
+import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 
 // FIX: Rename `onSelect` to `onOptionSelect` to avoid conflict with native React `onSelect` event handler.
 export interface AutocompleteProps extends Omit<InputProps, 'onChange'> {

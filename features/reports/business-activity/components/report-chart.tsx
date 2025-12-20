@@ -21,11 +21,11 @@ import {
   BarChart,
   LineChart,
 } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx';
-import { Button } from '@/components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import type { ChartType, ChartDataPoint, ComboChartConfig } from '../types.ts';
+import type { ChartType, ChartDataPoint, ComboChartConfig } from '../types';
 
 // Chart colors - using shadcn CSS variables
 const CHART_COLORS = {

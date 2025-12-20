@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Button } from '../../../../components/ui/button';
 import { Copy, Plus } from 'lucide-react';
-import type { WarrantyTicket } from '../../types.ts';
-import { formatDateTime } from '../../../../lib/date-utils.ts';
+import type { WarrantyTicket } from '../../types';
+import { formatDateTime } from '../../../../lib/date-utils';
 
 interface TicketInfoCardProps {
   ticket: WarrantyTicket;

@@ -1,0 +1,38 @@
+// ═══════════════════════════════════════════════════════════════
+// FILE UPLOAD MODEL
+// ═══════════════════════════════════════════════════════════════
+
+model FileUpload {
+  systemId          String        @id @default(uuid())
+  
+  // File info
+  fileName          String
+  originalName      String
+  mimeType          String
+  fileSize          Int
+  
+  // Storage
+  storagePath       String
+  publicUrl         String?
+  
+  // Reference
+  entityType        String?       // product, employee, etc.
+  entityId          String?
+  
+  // Metadata
+  metadata          Json?
+  
+  // Status
+  isPublic          Boolean       @default(false)
+  
+  // Soft delete
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  
+  @@map("file_uploads")
+}

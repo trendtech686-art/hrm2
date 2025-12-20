@@ -1,8 +1,8 @@
 import * as React from "react";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isValidDate, getDaysDiff } from '@/lib/date-utils';
-import type { Customer } from './types.ts'
-import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils.ts';
-import { getCreditAlertLevel, getCreditAlertBadgeVariant, getCreditAlertText } from './credit-utils.ts';
+import type { Customer } from './types'
+import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
+import { getCreditAlertLevel, getCreditAlertBadgeVariant, getCreditAlertText } from './credit-utils';
 import { 
   calculateHealthScore, 
   getHealthScoreLevel,
@@ -11,19 +11,19 @@ import {
   getSegmentLabel,
   getSegmentBadgeVariant,
   calculateChurnRisk
-} from './intelligence-utils.ts';
+} from './intelligence-utils';
 import { 
   calculateDebtTrackingInfo, 
   getDebtStatusVariant,
   formatDebtDate 
-} from './debt-tracking-utils.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx"
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
-import { Progress } from "../../components/ui/progress.tsx"
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../components/ui/button.tsx";
+} from './debt-tracking-utils';
+import { Checkbox } from "../../components/ui/checkbox"
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
+import { Badge } from "../../components/ui/badge"
+import { Progress } from "../../components/ui/progress"
+import type { ColumnDef } from '../../components/data-table/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal, RotateCcw, AlertTriangle } from "lucide-react";
 import type { CustomerSlaIndex } from './sla/types';
 import { SLA_TYPE_BADGES } from './sla/constants';

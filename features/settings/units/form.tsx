@@ -1,11 +1,11 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
-import type { Unit } from "./types.ts";
-import { useUnitStore } from "./store.ts";
-import { Button } from "../../../components/ui/button.tsx";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Textarea } from "../../../components/ui/textarea.tsx";
+import type { Unit } from "./types";
+import { useUnitStore } from "./store";
+import { Button } from "../../../components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { Textarea } from "../../../components/ui/textarea";
 
 export type UnitFormValues = Omit<Unit, 'systemId'>;
 

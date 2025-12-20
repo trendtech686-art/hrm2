@@ -1,4 +1,4 @@
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
+import type { SystemId, BusinessId } from '../../lib/id-types';
 
 export type AttendanceStatus = 'present' | 'absent' | 'leave' | 'half-day' | 'weekend' | 'holiday' | 'future';
 

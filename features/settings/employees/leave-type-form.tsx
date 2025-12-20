@@ -1,12 +1,12 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
-import type { LeaveType } from "./types.ts";
-import { Button } from "../../../components/ui/button.tsx";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
-import { DialogFooter } from "../../../components/ui/dialog.tsx";
-import { NumberInput } from "../../../components/ui/number-input.tsx";
+import type { LeaveType } from "./types";
+import { Button } from "../../../components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { Switch } from "../../../components/ui/switch";
+import { DialogFooter } from "../../../components/ui/dialog";
+import { NumberInput } from "../../../components/ui/number-input";
 
 export type LeaveTypeFormValues = Omit<LeaveType, 'systemId' | 'id' | 'applicableGender' | 'applicableDepartmentSystemIds' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>;
 

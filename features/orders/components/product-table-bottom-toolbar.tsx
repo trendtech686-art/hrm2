@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { PlusCircle, Gift } from 'lucide-react';
-import { Button } from '../../../components/ui/button.tsx';
+import { Button } from '../../../components/ui/button';
 
 interface ProductTableBottomToolbarProps {
     onAddService?: (() => void) | undefined;

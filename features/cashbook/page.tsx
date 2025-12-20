@@ -1,30 +1,32 @@
-import * as React from "react";
-import { useNavigate } from 'react-router-dom';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
+'use client'
+
+import * as React from 'react';
+import { Link, useLocation, useNavigate } from '@/lib/next-compat';
+import { ROUTES, generatePath } from '../../lib/router';
+import { asSystemId, type SystemId } from '../../lib/id-types';
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { useCashbookStore } from './store.ts';
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useReceiptTypeStore } from "../settings/receipt-types/store.ts";
-import { usePaymentTypeStore } from "../settings/payments/types/store.ts";
-import { getColumns } from "./columns.tsx";
-import type { CashbookTransaction } from "./columns.tsx";
-import type { Receipt } from "../receipts/types.ts";
-import type { Payment } from "../payments/types.ts";
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx";
+import { useReceiptStore } from '../receipts/store';
+import { usePaymentStore } from '../payments/store';
+import { useCashbookStore } from './store';
+import { useBranchStore } from "../settings/branches/store";
+import { useReceiptTypeStore } from "../settings/receipt-types/store";
+import { usePaymentTypeStore } from "../settings/payments/types/store";
+import { getColumns } from "./columns";
+import type { CashbookTransaction } from "./columns";
+import type { Receipt } from "../receipts/types";
+import type { Payment } from "../payments/types";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
+import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter";
+import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
 import { toast } from "sonner";
 import {
   Card,
   CardContent,
   CardTitle,
-} from "../../components/ui/card.tsx";
+} from "../../components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,28 +36,28 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx";
-import { Button } from "../../components/ui/button.tsx";
+} from "../../components/ui/alert-dialog";
+import { Button } from "../../components/ui/button";
 import { Plus, Minus, DollarSign, CreditCard, Calendar, User, Building2, FileText, MoreHorizontal, Trash, Edit, Eye, BarChart3, Download, Upload } from "lucide-react";
 // REMOVED: Voucher type no longer exists
-// import type { Voucher } from "../vouchers/types.ts";
+// import type { Voucher } from "../vouchers/types";
 import Fuse from "fuse.js";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { MobileSearchBar } from "../../components/mobile/mobile-search-bar.tsx";
-import { TouchButton } from "../../components/mobile/touch-button.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
+import { TouchButton } from "../../components/mobile/touch-button";
+import { Badge } from "../../components/ui/badge";
+import { Avatar, AvatarFallback } from "../../components/ui/avatar";
+import { useMediaQuery } from "../../lib/use-media-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
+} from "../../components/ui/dropdown-menu";
+import { PageToolbar } from "../../components/layout/page-toolbar";
+import { PageFilters } from "../../components/layout/page-filters";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 

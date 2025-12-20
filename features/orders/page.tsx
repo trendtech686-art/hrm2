@@ -1,21 +1,22 @@
+'use client'
+
 import * as React from "react"
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useOrderStore } from "./store.ts"
-import { getColumns } from "./columns.tsx"
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx"
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx"
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx"
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx"
-import { orderImportExportConfig, flattenOrdersForExport } from "../../lib/import-export/configs/order.config.ts"
-import { sapoOrderImportConfig } from "../../lib/import-export/configs/order-sapo.config.ts"
-import type { TemplateType, PaperSize } from "../settings/printer/types.ts"
-import type { PrintOptions } from "../../lib/use-print.ts"
+import { useNavigate, useLocation } from '@/lib/next-compat';
+import { useOrderStore } from "./store"
+import { getColumns } from "./columns"
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
+import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter"
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle"
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2"
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2"
+import { orderImportExportConfig, flattenOrdersForExport } from "../../lib/import-export/configs/order.config"
+import { sapoOrderImportConfig } from "../../lib/import-export/configs/order-sapo.config"
+import type { TemplateType, PaperSize } from "../settings/printer/types"
+import type { PrintOptions } from "../../lib/use-print"
 import { 
   Card, 
   CardContent, 
-} from "../../components/ui/card.tsx"
+} from "../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,31 +26,31 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx"
-import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus } from "./types.ts"
-import { Button } from "../../components/ui/button.tsx"
-import { Label } from "../../components/ui/label.tsx"
-import { Checkbox } from "../../components/ui/checkbox.tsx"
-import { Textarea } from "../../components/ui/textarea.tsx"
+} from "../../components/ui/alert-dialog"
+import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus } from "./types"
+import { Button } from "../../components/ui/button"
+import { Label } from "../../components/ui/label"
+import { Checkbox } from "../../components/ui/checkbox"
+import { Textarea } from "../../components/ui/textarea"
 import { PlusCircle, FileText, FileUp, Download } from "lucide-react"
-import { PrintOptionsDialog, type PrintOptionsResult, type OrderPrintTemplateType } from "../../components/shared/print-options-dialog.tsx"
+import { PrintOptionsDialog, type PrintOptionsResult, type OrderPrintTemplateType } from "../../components/shared/print-options-dialog"
 import Fuse from "fuse.js"
-import { usePageHeader } from "../../contexts/page-header-context.tsx"
-import { useMediaQuery } from "../../lib/use-media-query.ts"
-import { OrderCard } from "./order-card.tsx"
-import { PageFilters } from "../../components/layout/page-filters.tsx"
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
+import { usePageHeader } from "../../contexts/page-header-context"
+import { useMediaQuery } from "../../lib/use-media-query"
+import { OrderCard } from "./order-card"
+import { PageFilters } from "../../components/layout/page-filters"
+import { PageToolbar } from "../../components/layout/page-toolbar"
 // ✅ REMOVED: import { generateNextId } - not used in this file
 // ✅ REMOVED: Unused imports - ProductQuickViewCard and OrderFormDialog (components don't exist and are never used)
 import { toast } from "sonner"
-import { useAuth } from "../../contexts/auth-context.tsx"
-import { asBusinessId, asSystemId, type SystemId } from "../../lib/id-types.ts"
+import { useAuth } from "../../contexts/auth-context"
+import { asBusinessId, asSystemId, type SystemId } from "../../lib/id-types"
 // Print imports
-import { usePrint } from "../../lib/use-print.ts"
-import { useCustomerStore } from "../customers/store.ts"
-import { useBranchStore } from "../settings/branches/store.ts"
-import { useProductStore } from "../products/store.ts"
-import { useEmployeeStore } from "../employees/store.ts"
+import { usePrint } from "../../lib/use-print"
+import { useCustomerStore } from "../customers/store"
+import { useBranchStore } from "../settings/branches/store"
+import { useProductStore } from "../products/store"
+import { useEmployeeStore } from "../employees/store"
 import { 
   convertOrderForPrint,
   convertPackagingToDeliveryForPrint,
@@ -63,7 +64,7 @@ import {
   mapPackingToPrintData,
   mapPackingLineItems,
   createStoreSettings,
-} from "../../lib/print/order-print-helper.ts"
+} from "../../lib/print/order-print-helper"
 
 
 const statusOptions = (Object.keys({

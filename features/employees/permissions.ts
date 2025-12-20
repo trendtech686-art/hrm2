@@ -1,4 +1,4 @@
-import type { EmployeeRole } from './roles.ts';
+import type { EmployeeRole } from './roles';
 
 /**
  * Permission types for role-based access control

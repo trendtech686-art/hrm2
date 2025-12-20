@@ -1,33 +1,35 @@
+'use client'
+
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from '@/lib/next-compat';
 import { useShallow } from 'zustand/react/shallow';
 import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, Link2, FolderEdit, FileUp, Download } from "lucide-react";
 import { asSystemId, asBusinessId, type SystemId } from "@/lib/id-types";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts";
-import type { ProductCategory } from "../settings/inventory/types.ts";
-import { Button } from "../../components/ui/button.tsx";
-import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table.tsx";
-import { Card, CardContent } from "@/components/ui/card.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog.tsx";
-import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle.tsx";
-import { DataTableExportDialog } from "@/components/data-table/data-table-export-dialog.tsx";
-import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter.tsx";
-import { PageToolbar } from "@/components/layout/page-toolbar.tsx";
-import { PageFilters } from "@/components/layout/page-filters.tsx";
-import { useMediaQuery } from "@/lib/use-media-query.ts";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useProductCategoryStore } from "../settings/inventory/product-category-store";
+import type { ProductCategory } from "../settings/inventory/types";
+import { Button } from "../../components/ui/button";
+import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
+import { Card, CardContent } from "@/components/ui/card";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
+import { DataTableExportDialog } from "@/components/data-table/data-table-export-dialog";
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
+import { PageToolbar } from "@/components/layout/page-toolbar";
+import { PageFilters } from "@/components/layout/page-filters";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { toast } from "sonner";
 import Fuse from "fuse.js";
-import { getColumns } from "./columns.tsx";
-import { MobileCategoryCard } from "./card.tsx";
-import { usePkgxCategorySync } from "./hooks/use-pkgx-category-sync.ts";
-import { usePkgxSettingsStore } from "../settings/pkgx/store.ts";
-import { updateCategory, updateCategoryBasic } from "@/lib/pkgx/api-service.ts";
-import { PkgxCategoryLinkDialog } from "./components/pkgx-link-dialog.tsx";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
+import { getColumns } from "./columns";
+import { MobileCategoryCard } from "./card";
+import { usePkgxCategorySync } from "./hooks/use-pkgx-category-sync";
+import { usePkgxSettingsStore } from "../settings/pkgx/store";
+import { updateCategory, updateCategoryBasic } from "@/lib/pkgx/api-service";
+import { PkgxCategoryLinkDialog } from "./components/pkgx-link-dialog";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
 import { categoryImportExportConfig } from "@/lib/import-export/configs/category.config";
-import { useAuth } from "@/contexts/auth-context.tsx";
+import { useAuth } from "@/contexts/auth-context";
 
 export function ProductCategoriesPage() {
   const navigate = useNavigate();

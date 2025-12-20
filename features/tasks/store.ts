@@ -1,7 +1,7 @@
-import { createCrudStore } from '../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { Task, TaskActivity, TaskStatus, TaskPriority, TaskAssignee, AssigneeRole } from './types.ts';
-import { getCurrentUserInfo } from '../../contexts/auth-context.tsx';
+import { createCrudStore } from '../../lib/store-factory';
+import { data as initialData } from './data';
+import type { Task, TaskActivity, TaskStatus, TaskPriority, TaskAssignee, AssigneeRole } from './types';
+import { getCurrentUserInfo } from '../../contexts/auth-context';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 
 const baseStore = createCrudStore<Task>(initialData, 'internal-tasks');

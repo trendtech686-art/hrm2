@@ -24,7 +24,7 @@ import {
 import type { StagingFile } from "@/lib/file-upload-api";
 import { CheckCircle, XCircle, Upload, MessageSquare, AlertCircle, Info } from "lucide-react";
 import { toast } from "sonner";
-import type { Complaint } from "./types.ts";
+import type { Complaint } from "./types";
 import type { SystemId } from "@/lib/id-types";
 
 // Response template interface

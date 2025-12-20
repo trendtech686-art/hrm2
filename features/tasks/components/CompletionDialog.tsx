@@ -7,8 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Upload, X, CheckCircle2 } from 'lucide-react';
 import type { Task } from '../types';
 import { cn } from '@/lib/utils';
-import { FileUploadAPI, type UploadedAsset } from '@/lib/file-upload-api.ts';
-import { loadEvidenceSettings } from '@/features/settings/tasks/tasks-settings-page.tsx';
+import { FileUploadAPI, type UploadedAsset } from '@/lib/file-upload-api';
+import { loadEvidenceSettings } from '@/features/settings/tasks/tasks-settings-page';
 
 interface CompletionDialogProps {
   task: Task;

@@ -5,8 +5,8 @@
  * ReconciliationItem = Packaging + order info
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types.ts';
-import type { ReconciliationItem } from '../../../features/reconciliation/page.tsx';
+import type { ImportExportConfig, FieldConfig } from '../types';
+import type { ReconciliationItem } from '../../../features/reconciliation/page';
 
 const fields: FieldConfig<ReconciliationItem>[] = [
   // Group: Thông tin chung

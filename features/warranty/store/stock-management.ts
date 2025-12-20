@@ -1,9 +1,9 @@
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
-import { useProductStore } from '../../products/store.ts';
-import { useStockHistoryStore } from '../../stock-history/store.ts';
+import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
+import { useProductStore } from '../../products/store';
+import { useStockHistoryStore } from '../../stock-history/store';
 import { toast } from 'sonner';
-import type { WarrantyTicket } from '../types.ts';
-import { getCurrentUserName } from './base-store.ts';
+import type { WarrantyTicket } from '../types';
+import { getCurrentUserName } from './base-store';
 
 /**
  * Commit stock khi tạo warranty (reserve hàng cho đổi mới)

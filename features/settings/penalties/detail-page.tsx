@@ -1,19 +1,21 @@
-﻿import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+﻿'use client'
+
+import * as React from 'react';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
-import { usePenaltyStore, usePenaltyTypeStore } from './store.ts';
-import { useEmployeeStore } from '../../employees/store.ts';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
+import { usePenaltyStore, usePenaltyTypeStore } from './store';
+import { useEmployeeStore } from '../../employees/store';
+import { usePageHeader } from '../../../contexts/page-header-context';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
 import { ArrowLeft, Edit } from 'lucide-react';
-import { Badge } from '../../../components/ui/badge.tsx';
-import type { PenaltyStatus } from './types.ts';
-import { penaltyCategoryLabels, penaltyCategoryColors } from './types.ts';
-import { Comments, type Comment as CommentType } from '../../../components/Comments.tsx';
-import { ActivityHistory } from '../../../components/ActivityHistory.tsx';
+import { Badge } from '../../../components/ui/badge';
+import type { PenaltyStatus } from './types';
+import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
+import { Comments, type Comment as CommentType } from '../../../components/Comments';
+import { ActivityHistory } from '../../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { useAuth } from '../../../contexts/auth-context.tsx';
+import { useAuth } from '../../../contexts/auth-context';
 import { usePrint } from '../../../lib/use-print';
 import { 
   convertPenaltyForPrint,

@@ -1,5 +1,5 @@
-import type { SystemId } from '../../../lib/id-types.ts';
-import type { WarrantyTicket, WarrantyProduct } from '../types.ts';
+import type { SystemId } from '../../../lib/id-types';
+import type { WarrantyTicket, WarrantyProduct } from '../types';
 
 export interface WarrantyStore {
   data: WarrantyTicket[];

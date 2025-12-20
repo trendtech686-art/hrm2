@@ -1,9 +1,9 @@
-import type { LeaveRequest } from './types.ts';
-import type { AttendanceDayKey, AttendanceDataRow, AnyAttendanceDataRow, DailyRecord } from '../attendance/types.ts';
-import { useAttendanceStore } from '../attendance/store.ts';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import { recalculateSummary } from '../attendance/utils.ts';
-import { getCurrentDate } from '../../lib/date-utils.ts';
+import type { LeaveRequest } from './types';
+import type { AttendanceDayKey, AttendanceDataRow, AnyAttendanceDataRow, DailyRecord } from '../attendance/types';
+import { useAttendanceStore } from '../attendance/store';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { recalculateSummary } from '../attendance/utils';
+import { getCurrentDate } from '../../lib/date-utils';
 
 const LEAVE_NOTE_PREFIX = '[LEAVE:';
 

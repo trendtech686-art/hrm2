@@ -1,6 +1,8 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { Link } from '@/lib/next-compat';
 import { formatDate as formatDateUtil, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff, parseDate } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { sanitizeToText } from '@/lib/sanitize';
@@ -14,23 +16,23 @@ import {
   getHealthScoreLevel
 } from './intelligence-utils';
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
-import { useCustomerStore } from './store.ts';
-import type { Customer, CustomerAddress } from './types.ts';
-import { useOrderStore } from '../orders/store.ts';
-import { useWarrantyStore } from '../warranty/store.ts';
-import { useComplaintStore } from '../complaints/store.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
+import { useCustomerStore } from './store';
+import type { Customer, CustomerAddress } from './types';
+import { useOrderStore } from '../orders/store';
+import { useWarrantyStore } from '../warranty/store';
+import { useComplaintStore } from '../complaints/store';
+import { useReceiptStore } from '../receipts/store';
+import { usePaymentStore } from '../payments/store';
+import { useEmployeeStore } from '../employees/store';
 import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
 import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
 import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
 import { usePaymentTermStore } from '../settings/customers/payment-terms-store';
 import { useCreditRatingStore } from '../settings/customers/credit-ratings-store';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Switch } from '../../components/ui/switch.tsx';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Switch } from '../../components/ui/switch';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -42,38 +44,38 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '../../components/ui/alert-dialog.tsx';
+} from '../../components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu.tsx';
+} from '../../components/ui/dropdown-menu';
 import { ArrowLeft, Edit, Phone, Mail, ExternalLink, Trash2, AlertTriangle, Clock, CreditCard, TrendingDown, Plus, Eye, MoreHorizontal, Printer, FileSpreadsheet, FileText, HelpCircle, Copy, Link as LinkIcon } from 'lucide-react';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs.tsx';
-import { ProgressiveImage } from '../../components/ui/progressive-image.tsx';
-import { RelatedDataTable } from '../../components/data-table/related-data-table.tsx';
-import { CustomerAddresses } from './customer-addresses.tsx';
-import { CopyableText } from '../../components/shared/copy-button.tsx';
-import { useProductStore } from '../products/store.ts';
-import { useSalesReturnStore } from '../sales-returns/store.ts';
-import { calculateWarrantyExpiry, calculateDaysRemaining, getWarrantyStatusBadge } from '../warranty/utils/warranty-checker.ts';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import type { Order, OrderMainStatus } from '../orders/types.ts';
-import type { WarrantyTicket } from '../warranty/types.ts';
-import type { Complaint } from '../complaints/types.ts';
+import { Badge } from '../../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { ProgressiveImage } from '../../components/ui/progressive-image';
+import { RelatedDataTable } from '../../components/data-table/related-data-table';
+import { CustomerAddresses } from './customer-addresses';
+import { CopyableText } from '../../components/shared/copy-button';
+import { useProductStore } from '../products/store';
+import { useSalesReturnStore } from '../sales-returns/store';
+import { calculateWarrantyExpiry, calculateDaysRemaining, getWarrantyStatusBadge } from '../warranty/utils/warranty-checker';
+import type { ColumnDef } from '../../components/data-table/types';
+import type { Order, OrderMainStatus } from '../orders/types';
+import type { WarrantyTicket } from '../warranty/types';
+import type { Complaint } from '../complaints/types';
 import { CustomerSlaStatusCard } from './components/sla-status-card';
 import { useCustomerSlaEvaluation } from './sla/hooks';
 import { useCustomerSlaEngineStore } from './sla/store';
 import { getActivityLogs, SLA_LOG_UPDATED_EVENT } from './sla/ack-storage';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from '../warranty/types.ts';
-import { complaintStatusLabels, complaintStatusColors, complaintTypeLabels } from '../complaints/types.ts';
+import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from '../warranty/types';
+import { complaintStatusLabels, complaintStatusColors, complaintTypeLabels } from '../complaints/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { useAuth } from '../../contexts/auth-context';
 
 const normalizeCurrencyValue = (value?: number) => {
   if (typeof value !== 'number' || Number.isNaN(value)) return 0;

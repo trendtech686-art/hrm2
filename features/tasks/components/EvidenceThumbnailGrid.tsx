@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Card, CardContent } from '../../../components/ui/card.tsx';
+import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent } from '../../../components/ui/card';
 import { Image, Eye, AlertCircle } from 'lucide-react';
-import { cn } from '../../../lib/utils.ts';
-import type { CompletionEvidence, ApprovalStatus } from '../types.ts';
+import { cn } from '../../../lib/utils';
+import type { CompletionEvidence, ApprovalStatus } from '../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface EvidenceThumbnailGridProps {

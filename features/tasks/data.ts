@@ -1,4 +1,4 @@
-import type { Task } from './types.ts';
+import type { Task } from './types';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 // Dữ liệu mẫu để test

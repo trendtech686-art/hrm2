@@ -60,8 +60,8 @@ export function useInventoryHandlers({
       }
 
       // LAZY LOAD: Import InventoryCheckStore instead of ProductStore
-      const { useInventoryCheckStore } = await import('../../inventory-checks/store.ts');
-      const { useProductStore } = await import('../../products/store.ts');
+      const { useInventoryCheckStore } = await import('../../inventory-checks/store');
+      const { useProductStore } = await import('../../products/store');
       const addInventoryCheck = useInventoryCheckStore.getState().add;
       const products = useProductStore.getState().data;
       

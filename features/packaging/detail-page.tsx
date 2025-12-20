@@ -1,36 +1,38 @@
-﻿import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+﻿'use client'
+
+import * as React from 'react';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { formatDate } from '@/lib/date-utils';
-import { useOrderStore } from '../orders/store.ts';
-import type { Order, Packaging, PackagingStatus } from '../orders/types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { useOrderStore } from '../orders/store';
+import type { Order, Packaging, PackagingStatus } from '../orders/types';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { usePrint } from '../../lib/use-print.ts';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertToPackingForPrint,
   mapPackingToPrintData, 
   mapPackingLineItems,
   createStoreSettings,
-} from '../../lib/print/order-print-helper.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useStorageLocationStore } from '../settings/inventory/storage-location-store.ts';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table.tsx';
-import type { Product } from '../products/types.ts';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
+} from '../../lib/print/order-print-helper';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useCustomerStore } from '../customers/store';
+import { useEmployeeStore } from '../employees/store';
+import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
+import { Badge } from '../../components/ui/badge';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Separator } from '../../components/ui/separator';
+import { DetailField } from '../../components/ui/detail-field';
+import { useAuth } from '../../contexts/auth-context';
+import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
+import type { Product } from '../products/types';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { asSystemId, type SystemId } from '../../lib/id-types';
 
 const packagingStatusVariants: Record<PackagingStatus, "warning" | "success" | "destructive"> = {
     "Chờ đóng gói": "warning",

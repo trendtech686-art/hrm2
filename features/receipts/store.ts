@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
 import type { Receipt } from './types';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
+import type { HistoryEntry } from '../../components/ActivityHistory';
 import { 
   findNextAvailableBusinessId, 
   generateSystemId, 

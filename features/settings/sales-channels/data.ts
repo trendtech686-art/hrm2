@@ -1,5 +1,5 @@
 ﻿import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { SalesChannel } from './types.ts';
+import type { SalesChannel } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: SalesChannel[] = [

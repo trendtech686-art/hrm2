@@ -1,4 +1,4 @@
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
+import type { SystemId, BusinessId } from '../../lib/id-types';
 
 export type WikiArticle = {
   systemId: SystemId; // Unique system ID for routing

@@ -2,8 +2,8 @@ import * as React from 'react';
 import Fuse from 'fuse.js';
 import { Plus, RotateCcw, Trash2, Search, X, Edit, MoreHorizontal } from 'lucide-react';
 import { formatDateForDisplay } from '@/lib/date-utils';
-import { Button } from '../../../components/ui/button.tsx';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -11,13 +11,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Textarea } from '../../../components/ui/textarea.tsx';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
+} from '../../../components/ui/dialog';
+import { Input } from '../../../components/ui/input';
+import { Textarea } from '../../../components/ui/textarea';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { Label } from '../../../components/ui/label';
+import { Badge } from '../../../components/ui/badge';
+import { Switch } from '../../../components/ui/switch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,20 +27,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../components/ui/alert-dialog.tsx';
+} from '../../../components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
-import { usePayrollTemplateStore } from '../../payroll/payroll-template-store.ts';
-import { useEmployeeSettingsStore } from './employee-settings-store.ts';
+} from '../../../components/ui/dropdown-menu';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { usePayrollTemplateStore } from '../../payroll/payroll-template-store';
+import { useEmployeeSettingsStore } from './employee-settings-store';
 import { toast } from 'sonner';
-import { asSystemId, type SystemId } from '../../../lib/id-types.ts';
-import type { PayrollTemplate } from '../../../lib/payroll-types.ts';
+import { asSystemId, type SystemId } from '../../../lib/id-types';
+import type { PayrollTemplate } from '../../../lib/payroll-types';
 
 export function PayrollTemplatesSettingsContent() {
   const templateStore = usePayrollTemplateStore();

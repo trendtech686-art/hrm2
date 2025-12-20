@@ -1,15 +1,15 @@
 import { create } from 'zustand';
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
-import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page.tsx';
+import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
+import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
 import { toast } from 'sonner';
-import { asSystemId } from '../../../lib/id-types.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
+import { asSystemId } from '../../../lib/id-types';
+import type { SystemId } from '../../../lib/id-types';
 import {
   notifyWarrantyCreated,
-} from '../notification-utils.ts';
-import { triggerWarrantyDataUpdate } from '../use-realtime-updates.ts';
-import type { WarrantyTicket, WarrantyProduct } from '../types.ts';
-import type { WarrantyStore } from '../types.ts';
+} from '../notification-utils';
+import { triggerWarrantyDataUpdate } from '../use-realtime-updates';
+import type { WarrantyTicket, WarrantyProduct } from '../types';
+import type { WarrantyStore } from '../types';
 
 // Import base store và các modules
 import {
@@ -19,12 +19,12 @@ import {
   originalRemove,
   generatePublicTrackingCode,
   getCurrentUserName,
-} from './base-store.ts';
+} from './base-store';
 
 import {
   commitWarrantyStock,
   uncommitWarrantyStock,
-} from './stock-management.ts';
+} from './stock-management';
 
 import {
   addProduct,
@@ -34,11 +34,11 @@ import {
   calculateSummary,
   calculateSettlementStatus,
   addHistory,
-} from './product-management.ts';
+} from './product-management';
 
 import {
   updateStatus,
-} from './status-management.ts';
+} from './status-management';
 
 // Override add() for custom logic
 baseStore.setState({

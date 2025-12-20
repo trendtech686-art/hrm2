@@ -1,16 +1,16 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useEmployeeStore } from '../../employees/store.ts';
-import { useBranchStore } from '../../settings/branches/store.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '../../../components/ui/form.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { Combobox } from '../../../components/ui/combobox.tsx';
-import { DatePicker } from '../../../components/ui/date-picker.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { useSalesChannelStore } from '../../settings/sales-channels/store.ts';
-import { usePaymentMethodStore } from '../../settings/payments/methods/store.ts';
+import { useEmployeeStore } from '../../employees/store';
+import { useBranchStore } from '../../settings/branches/store';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '../../../components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Combobox } from '../../../components/ui/combobox';
+import { DatePicker } from '../../../components/ui/date-picker';
+import { Input } from '../../../components/ui/input';
+import { Separator } from '../../../components/ui/separator';
+import { useSalesChannelStore } from '../../settings/sales-channels/store';
+import { usePaymentMethodStore } from '../../settings/payments/methods/store';
 
 export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnlyMode = false }: { disabled: boolean; isBranchLocked?: boolean; isMetadataOnlyMode?: boolean }) {
     const { control } = useFormContext();

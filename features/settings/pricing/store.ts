@@ -1,9 +1,9 @@
 import type { SystemId } from '@/lib/id-types';
 import type { UseBoundStore, StoreApi } from 'zustand';
-import { data as initialData } from './data.ts';
-import type { PricingPolicy } from './types.ts';
-import { createCrudStore, type CrudState } from '../../../lib/store-factory.ts';
-import { getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
+import { data as initialData } from './data';
+import type { PricingPolicy } from './types';
+import { createCrudStore, type CrudState } from '../../../lib/store-factory';
+import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 
 type PricingPolicyStore = CrudState<PricingPolicy> & {
   setDefault: (systemId: SystemId) => void;

@@ -1,31 +1,33 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useStockTransferStore } from './store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { ProductImage } from '../products/components/product-image.tsx';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+import { useStockTransferStore } from './store';
+import { useBranchStore } from '../settings/branches/store';
+import { useProductStore } from '../products/store';
+import { ProductImage } from '../products/components/product-image';
+import { useEmployeeStore } from '../employees/store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Badge } from '../../components/ui/badge';
 import { Plus, Trash2, Package, Save, X, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '../../components/ui/alert.tsx';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { toast } from 'sonner';
-import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types.ts';
+import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
-import { ProductSelectionDialog } from '../shared/product-selection-dialog.tsx';
-import type { StockTransfer, StockTransferStatus } from './types.ts';
+import { ProductSelectionDialog } from '../shared/product-selection-dialog';
+import type { StockTransfer, StockTransferStatus } from './types';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 

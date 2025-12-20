@@ -1,9 +1,9 @@
-import type { ColumnDef } from '../../../components/data-table/types.ts';
-import type { InventoryReportRow } from './types.ts';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Link } from 'react-router-dom';
-import { ROUTES, generatePath } from '../../../lib/router.ts';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip.tsx';
+import type { ColumnDef } from '../../../components/data-table/types';
+import type { InventoryReportRow } from './types';
+import { Badge } from '../../../components/ui/badge';
+import { Link } from '@/lib/next-compat';
+import { ROUTES, generatePath } from '../../../lib/router';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip';
 import { AlertTriangle } from 'lucide-react';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);

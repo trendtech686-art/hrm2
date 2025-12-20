@@ -1,6 +1,6 @@
-import type { Product } from './types.ts';
+import type { Product } from './types';
 import type { SystemId } from '@/lib/id-types';
-import { useSlaSettingsStore } from '../settings/inventory/sla-settings-store.ts';
+import { useSlaSettingsStore } from '../settings/inventory/sla-settings-store';
 
 /**
  * Stock Alert Types for Products

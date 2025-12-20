@@ -1,16 +1,16 @@
 import * as React from "react"
 import { Calendar as CalendarIcon, X } from "lucide-react"
 
-import { cn } from "../../lib/utils.ts"
-import { Button } from "../ui/button.tsx"
+import { cn } from "../../lib/utils"
+import { Button } from "../ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.tsx"
-import { Calendar } from "../ui/calendar.tsx"
-import { Input } from "../ui/input.tsx"
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, getDaysDiff, getMonthsDiff, addDays, addMonths, subtractDays, subtractMonths, getStartOfDay, getEndOfDay, getStartOfMonth, getEndOfMonth, getStartOfWeek, getEndOfWeek, toISODate, toISODateTime, isValidDate } from '../../lib/date-utils.ts';
+} from "../ui/dropdown-menu"
+import { Calendar } from "../ui/calendar"
+import { Input } from "../ui/input"
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, getDaysDiff, getMonthsDiff, addDays, addMonths, subtractDays, subtractMonths, getStartOfDay, getEndOfDay, getStartOfMonth, getEndOfMonth, getStartOfWeek, getEndOfWeek, toISODate, toISODateTime, isValidDate } from '../../lib/date-utils';
 const presets = [
     { key: 'today', label: 'Hôm nay', getRange: () => [getStartOfDay(getCurrentDate()), getEndOfDay(getCurrentDate())] },
     { key: 'yesterday', label: 'Hôm qua', getRange: () => [getStartOfDay(subtractDays(getCurrentDate(), 1)), getEndOfDay(subtractDays(getCurrentDate(), 1))] },

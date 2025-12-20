@@ -4,19 +4,19 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "../../../components/ui/card.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { CurrencyInput } from "../../../components/ui/currency-input.tsx";
-import { Separator } from "../../../components/ui/separator.tsx";
-import { Button } from "../../../components/ui/button.tsx";
+} from "../../../components/ui/card";
+import { Label } from "../../../components/ui/label";
+import { Input } from "../../../components/ui/input";
+import { CurrencyInput } from "../../../components/ui/currency-input";
+import { Separator } from "../../../components/ui/separator";
+import { Button } from "../../../components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select.tsx";
+} from "../../../components/ui/select";
 import {
   Table,
   TableBody,
@@ -24,9 +24,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../../components/ui/table.tsx";
+} from "../../../components/ui/table";
 import { Plus, X } from "lucide-react";
-import { usePaymentMethodStore } from "../../settings/payments/methods/store.ts";
+import { usePaymentMethodStore } from "../../settings/payments/methods/store";
 
 export type DiscountType = "percentage" | "fixed";
 

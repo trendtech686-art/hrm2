@@ -2,14 +2,14 @@ import * as React from 'react';
 import Fuse from 'fuse.js';
 import * as XLSX from 'xlsx';
 import { Printer, FileSpreadsheet, FileText } from 'lucide-react';
-import { ResponsiveDataTable, type BulkAction } from './responsive-data-table.tsx';
-import { DataTableToolbar } from './data-table-toolbar.tsx';
-import { DataTableExportDialog } from './data-table-export-dialog.tsx';
-import type { ColumnDef } from './types.ts';
-import { DataTableColumnCustomizer } from './data-table-column-toggle.tsx';
-import { Checkbox } from '../ui/checkbox.tsx';
-import { useDefaultPageSize } from '../../features/settings/global-settings-store.ts';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, getDaysDiff, getMonthsDiff, addDays, addMonths, subtractDays, subtractMonths, getStartOfDay, getEndOfDay, getStartOfMonth, getEndOfMonth, getStartOfWeek, getEndOfWeek, toISODate, toISODateTime, isValidDate, parseDate } from '../../lib/date-utils.ts';
+import { ResponsiveDataTable, type BulkAction } from './responsive-data-table';
+import { DataTableToolbar } from './data-table-toolbar';
+import { DataTableExportDialog } from './data-table-export-dialog';
+import type { ColumnDef } from './types';
+import { DataTableColumnCustomizer } from './data-table-column-toggle';
+import { Checkbox } from '../ui/checkbox';
+import { useDefaultPageSize } from '../../features/settings/global-settings-store';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, getDaysDiff, getMonthsDiff, addDays, addMonths, subtractDays, subtractMonths, getStartOfDay, getEndOfDay, getStartOfMonth, getEndOfMonth, getStartOfWeek, getEndOfWeek, toISODate, toISODateTime, isValidDate, parseDate } from '../../lib/date-utils';
 // FIX: Changed generic constraint from `id` to `systemId` to match application data structure
 interface DrilldownSearchState {
   query: string;

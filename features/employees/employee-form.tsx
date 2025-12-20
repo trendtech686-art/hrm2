@@ -2,25 +2,25 @@
 import { flushSync } from 'react-dom';
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { employeeFormSchema, validateUniqueId } from "./validation.ts";
-import type { Employee, EmployeeAddress } from "./types.ts";
+import { employeeFormSchema, validateUniqueId } from "./validation";
+import type { Employee, EmployeeAddress } from "./types";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { SystemId, BusinessId } from '@/lib/id-types';
 import { Upload, Search, Eye, EyeOff, RefreshCw, Copy } from "lucide-react";
 import { toast } from 'sonner';
-import { useJobTitleStore } from '../settings/job-titles/store.ts';
-import { useEmployeeStore } from './store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useProvinceStore } from "../settings/provinces/store.ts";
-import { useDocumentStore } from './document-store.ts';
+import { useJobTitleStore } from '../settings/job-titles/store';
+import { useEmployeeStore } from './store';
+import { useBranchStore } from '../settings/branches/store';
+import { useProvinceStore } from "../settings/provinces/store";
+import { useDocumentStore } from './document-store';
 import { useShallow } from 'zustand/react/shallow';
-import { NewDocumentsUpload } from '../../components/ui/new-documents-upload.tsx';
-import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer.tsx';
-import { FileUploadAPI } from '../../lib/file-upload-api.ts';
-import type { StagingFile, UploadedFile } from '../../lib/file-upload-api.ts';
-import { AddressFormDialog } from '../customers/components/address-form-dialog.tsx';
-import type { CustomerAddress } from '../customers/types.ts';
+import { NewDocumentsUpload } from '../../components/ui/new-documents-upload';
+import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer';
+import { FileUploadAPI } from '../../lib/file-upload-api';
+import type { StagingFile, UploadedFile } from '../../lib/file-upload-api';
+import { AddressFormDialog } from '../customers/components/address-form-dialog';
+import type { CustomerAddress } from '../customers/types';
 
 import {
   Form,
@@ -29,26 +29,26 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../components/ui/form.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { Label } from "../../components/ui/label.tsx";
-import { CurrencyInput } from "../../components/ui/currency-input.tsx";
+} from "../../components/ui/form";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { CurrencyInput } from "../../components/ui/currency-input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx";
-import { DatePicker } from "../../components/ui/date-picker.tsx";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion.tsx";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group.tsx";
-import { useEmployeeSettingsStore } from "../settings/employees/employee-settings-store.ts";
-import { useEmployeeCompStore, type EmployeePayrollProfileInput } from "./employee-comp-store.ts";
+} from "../../components/ui/select";
+import { DatePicker } from "../../components/ui/date-picker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
+import { useEmployeeSettingsStore } from "../settings/employees/employee-settings-store";
+import { useEmployeeCompStore, type EmployeePayrollProfileInput } from "./employee-comp-store";
 // Helper type for local form state for addresses
 type AddressParts = {
   label: string;

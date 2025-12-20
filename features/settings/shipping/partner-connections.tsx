@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { Check, Settings2, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -7,8 +9,8 @@ import { Badge } from '../../../components/ui/badge';
 import { useMediaQuery } from '../../../lib/use-media-query';
 import { ShippingPartner } from './partner-config-dialog';
 import { loadShippingConfig } from '@/lib/utils/shipping-config-migration';
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
-import type { RegisterTabActions } from '../use-tab-action-registry.ts';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
+import type { RegisterTabActions } from '../use-tab-action-registry';
 
 type PartnerConnectionsPageContentProps = {
   isActive: boolean;

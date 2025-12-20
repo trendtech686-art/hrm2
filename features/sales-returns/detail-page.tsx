@@ -1,50 +1,52 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { formatDateTime as formatDateTimeUtil } from '../../lib/date-utils.ts';
-import { useSalesReturnStore } from './store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { usePrint } from '../../lib/use-print.ts';
-import { StoreSettings, numberToWords, formatTime } from '../../lib/print-service.ts';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { formatDateTime as formatDateTimeUtil } from '../../lib/date-utils';
+import { useSalesReturnStore } from './store';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useAuth } from '../../contexts/auth-context';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { usePrint } from '../../lib/use-print';
+import { StoreSettings, numberToWords, formatTime } from '../../lib/print-service';
 import { 
   convertSalesReturnForPrint,
   mapSalesReturnToPrintData, 
   mapSalesReturnLineItems, 
   createStoreSettingsFromBranch 
-} from '../../lib/print/sales-return-print-helper.ts';
+} from '../../lib/print/sales-return-print-helper';
 import { 
   convertReceiptForPrint,
   mapReceiptToPrintData,
   createStoreSettings as createReceiptStoreSettings,
-} from '../../lib/print/receipt-print-helper.ts';
+} from '../../lib/print/receipt-print-helper';
 import { 
   convertPaymentForPrint,
   mapPaymentToPrintData,
   createStoreSettings as createPaymentStoreSettings,
-} from '../../lib/print/payment-print-helper.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+} from '../../lib/print/payment-print-helper';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Printer } from 'lucide-react';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import type { SalesReturn } from './types.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import type { Receipt } from '../receipts/types.ts';
-import type { Payment } from '../payments/types.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import type { BreadcrumbItem } from '../../lib/breadcrumb-system.ts';
-import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card.tsx';
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
-import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table.tsx';
+import { DetailField } from '../../components/ui/detail-field';
+import { Separator } from '../../components/ui/separator';
+import type { SalesReturn } from './types';
+import { useReceiptStore } from '../receipts/store';
+import { usePaymentStore } from '../payments/store';
+import type { Receipt } from '../receipts/types';
+import type { Payment } from '../payments/types';
+import { useCustomerStore } from '../customers/store';
+import { useEmployeeStore } from '../employees/store';
+import { ROUTES, generatePath } from '../../lib/router';
+import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
+import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card';
+import type { Subtask } from '../../components/shared/subtask-list';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { asSystemId, type SystemId } from '../../lib/id-types';
+import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

@@ -11,7 +11,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import type { Complaint } from '../types';
-import { useNotificationStore } from '../../../components/ui/notification-center.tsx';
+import { useNotificationStore } from '../../../components/ui/notification-center';
 
 export interface ReminderSettings {
   enabled: boolean;

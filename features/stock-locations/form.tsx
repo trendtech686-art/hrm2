@@ -1,11 +1,11 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
-import type { StockLocation } from "./types.ts";
-import { useStockLocationStore } from "./store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
+import type { StockLocation } from "./types";
+import { useStockLocationStore } from "./store";
+import { useBranchStore } from "../settings/branches/store";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form";
+import { Input } from "../../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 export type StockLocationFormValues = Omit<StockLocation, 'systemId'>;
 

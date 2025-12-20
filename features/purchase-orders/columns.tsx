@@ -1,13 +1,13 @@
 ﻿import * as React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { PurchaseOrder, PurchaseOrderStatus } from './types.ts'
-import type { Branch } from '../settings/branches/types.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from "../../components/ui/button.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu.tsx";
+import type { PurchaseOrder, PurchaseOrderStatus } from './types'
+import type { Branch } from '../settings/branches/types';
+import { Checkbox } from "../../components/ui/checkbox"
+import { Badge } from "../../components/ui/badge"
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from "../../components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu";
 import { MoreHorizontal, Printer, CreditCard, PackageCheck, XCircle } from "lucide-react";
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ₫';

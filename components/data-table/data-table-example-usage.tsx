@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { DataTableActions } from './data-table-actions.tsx';
-import { DataTableToolbar } from './data-table-toolbar.tsx';
-import type { ColumnDef } from './types.ts';
+import { DataTableActions } from './data-table-actions';
+import { DataTableToolbar } from './data-table-toolbar';
+import type { ColumnDef } from './types';
 
 interface ExampleProps {
   // This is just an example component to demonstrate usage

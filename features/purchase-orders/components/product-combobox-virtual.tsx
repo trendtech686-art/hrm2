@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Plus, Package } from "lucide-react";
-import { useProductStore } from "../../products/store.ts";
-import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox.tsx";
-import { QuickAddProductDialog } from "../../products/components/quick-add-product-dialog.tsx";
+import { useProductStore } from "../../products/store";
+import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
+import { QuickAddProductDialog } from "../../products/components/quick-add-product-dialog";
 
 interface ProductComboboxProps {
   value?: string; // product systemId

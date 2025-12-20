@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { Banknote, Printer, ChevronRight, ChevronDown } from 'lucide-react';

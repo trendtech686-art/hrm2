@@ -7,8 +7,8 @@
 
 import * as React from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { cn } from '../../lib/utils.ts';
-import { Avatar, AvatarFallback } from './avatar.tsx';
+import { cn } from '../../lib/utils';
+import { Avatar, AvatarFallback } from './avatar';
 import { Check } from 'lucide-react';
 
 export interface MentionOption {

@@ -1,0 +1,60 @@
+// ═══════════════════════════════════════════════════════════════
+// CUSTOMER MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: CUSTOMER000001 (English)
+// BusinessId: KH000001 (Vietnamese - Khách hàng)
+// ═══════════════════════════════════════════════════════════════
+
+model Customer {
+  systemId          String    @id           // CUSTOMER000001
+  id                String    @unique       // KH000001
+  name              String
+  
+  // Contact
+  phone             String?
+  email             String?
+  contactPerson     String?
+  
+  // Address
+  address           String?
+  province          String?
+  provinceId        String?
+  district          String?
+  districtId        Int?
+  ward              String?
+  wardCode          String?
+  
+  // Business info
+  taxCode           String?
+  companyName       String?
+  
+  // Classification
+  customerType      String?   // B2B, B2C, VIP, etc.
+  customerGroup     String?
+  source            String?
+  
+  // Credit
+  creditLimit       Decimal?  @db.Decimal(15, 2)
+  currentDebt       Decimal   @default(0) @db.Decimal(15, 2)
+  
+  // Notes
+  notes             String?
+  tags              String[]
+  
+  // Relations
+  orders            Order[]
+  complaints        Complaint[]
+  salesReturns      SalesReturn[]
+  
+  // Soft delete
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("customers")
+}

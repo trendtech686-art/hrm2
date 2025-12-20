@@ -1,7 +1,7 @@
 import * as React from "react"
 import { GripVertical } from "lucide-react"
 
-import { cn } from "../../lib/utils.ts"
+import { cn } from "../../lib/utils"
 
 // --- Context ---
 type ResizablePanelGroupContextType = {

@@ -2,20 +2,20 @@
  * WarrantyProcessingCard
  * 
  * Card xử lý bảo hành - Hiển thị các action và lịch sử thanh toán
- * REFACTORED: Logic tách ra warranty-processing-logic.ts
+ * REFACTORED: Logic tách ra warranty-processing-logic
  */
 
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { WarrantyPaymentVoucherDialog, WarrantyReceiptVoucherDialog } from '../dialogs/index.ts';
-import { useAuth } from '../../../../contexts/auth-context.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { WarrantyPaymentVoucherDialog, WarrantyReceiptVoucherDialog } from '../dialogs/index';
+import { useAuth } from '../../../../contexts/auth-context';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
-import type { WarrantyTicket } from '../../types.ts';
-import { useWarrantyTransactionGroups } from '../../hooks/use-warranty-transaction-groups.ts';
-import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement.ts';
-import { WarrantyTransactionGroups } from '../sections/index.ts';
-import type { Order } from '../../../orders/types.ts';
-import type { WarrantyCustomerInfo } from '../../types.ts';
+import type { WarrantyTicket } from '../../types';
+import { useWarrantyTransactionGroups } from '../../hooks/use-warranty-transaction-groups';
+import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement';
+import { WarrantyTransactionGroups } from '../sections/index';
+import type { Order } from '../../../orders/types';
+import type { WarrantyCustomerInfo } from '../../types';
 
 interface WarrantyProcessingCardProps {
   warrantyId: string;

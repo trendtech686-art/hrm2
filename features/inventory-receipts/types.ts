@@ -1,5 +1,5 @@
-import type { PurchaseOrderLineItem } from '../purchase-orders/types.ts';
-import { SystemId, BusinessId } from '../../lib/id-types.ts';
+import type { PurchaseOrderLineItem } from '../purchase-orders/types';
+import { SystemId, BusinessId } from '../../lib/id-types';
 
 export type InventoryReceiptLineItem = {
   productSystemId: SystemId;

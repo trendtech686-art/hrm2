@@ -1,20 +1,20 @@
 import * as React from "react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { useTaxStore } from "../taxes/store.ts";
-import type { Tax } from "../taxes/types.ts";
-import { TaxTable } from "./tax-table.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
-import { Textarea } from "../../../components/ui/textarea.tsx";
+import { useTaxStore } from "../taxes/store";
+import type { Tax } from "../taxes/types";
+import { TaxTable } from "./tax-table";
+import { Button } from "../../../components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "../../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
+import { Input } from "../../../components/ui/input";
+import { Switch } from "../../../components/ui/switch";
+import { Textarea } from "../../../components/ui/textarea";
 import { toast } from 'sonner';
-import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import { PlusCircle, Percent } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form.tsx";
-import { NumberInput } from "../../../components/ui/number-input.tsx";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form";
+import { NumberInput } from "../../../components/ui/number-input";
 
 interface TaxContentProps {
     isActive: boolean;

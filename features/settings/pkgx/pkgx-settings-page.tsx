@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { TabsContent } from '../../../components/ui/tabs.tsx';
+import { TabsContent } from '../../../components/ui/tabs';
 import { Globe } from 'lucide-react';
-import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { useSettingsPageHeader } from '../use-settings-page-header';
 import {
   GeneralConfigTab,
   CategoryMappingTab,

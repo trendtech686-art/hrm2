@@ -1,9 +1,9 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { ComplaintVerificationHistory } from "./complaint-verification-history.tsx";
-import type { Complaint } from '../types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Label } from "../../../components/ui/label";
+import { ComplaintVerificationHistory } from "./complaint-verification-history";
+import type { Complaint } from '../types';
 
 interface Props {
   complaint: Complaint;

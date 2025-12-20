@@ -1,15 +1,15 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { Slider } from '../../../components/ui/slider.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { Progress } from '../../../components/ui/progress.tsx';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Switch } from '../../../components/ui/switch';
+import { Slider } from '../../../components/ui/slider';
+import { Badge } from '../../../components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
+import { Separator } from '../../../components/ui/separator';
+import { Progress } from '../../../components/ui/progress';
 import { Check, CreditCard, Star } from 'lucide-react';
 
 export function PreviewCards() {

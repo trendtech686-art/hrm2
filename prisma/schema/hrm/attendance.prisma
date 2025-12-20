@@ -1,0 +1,43 @@
+// ═══════════════════════════════════════════════════════════════
+// ATTENDANCE RECORD MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: ATTEND000001 (English)
+// BusinessId: CC000001 (Vietnamese - Chấm công)
+// ═══════════════════════════════════════════════════════════════
+
+model AttendanceRecord {
+  systemId      String    @id           // ATTEND000001
+  id            String    @unique       // CC000001
+  
+  // Employee
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [systemId])
+  
+  // Attendance details
+  date          DateTime  @db.Date
+  checkIn       DateTime?
+  checkOut      DateTime?
+  workHours     Decimal?  @db.Decimal(4, 2)
+  overtimeHours Decimal?  @db.Decimal(4, 2)
+  
+  // Status
+  status        String    @default("PRESENT") // PRESENT, ABSENT, LATE, EARLY_LEAVE, HALF_DAY
+  notes         String?
+  
+  // Location (for mobile check-in)
+  checkInLocation  String?
+  checkOutLocation String?
+  
+  // Soft delete
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime?
+  
+  // Audit
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  
+  @@unique([employeeId, date])
+  @@map("attendance_records")
+}

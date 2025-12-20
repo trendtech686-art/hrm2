@@ -1,4 +1,4 @@
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
+import type { SystemId, BusinessId } from '../../lib/id-types';
 import type { HistoryEntry } from '@/lib/activity-history-helper';
 
 export type SupplierStatus = "Đang Giao Dịch" | "Ngừng Giao Dịch";

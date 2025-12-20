@@ -1,4 +1,4 @@
-import type { PackagingStatus, OrderPrintStatus } from '../orders/types.ts';
+import type { PackagingStatus, OrderPrintStatus } from '../orders/types';
 
 export type PackagingSlip = {
   // From Packaging object

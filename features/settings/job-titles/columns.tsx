@@ -1,10 +1,10 @@
 import * as React from "react";
-import type { JobTitle } from './types.ts'
+import type { JobTitle } from './types'
 // FIX: Replaced missing `DataTableRowActions` component with an inline `DropdownMenu` implementation to resolve module error.
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../../components/ui/button.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
+import { Button } from "../../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
-import type { ColumnDef } from '../../../components/data-table/types.ts';
+import type { ColumnDef } from '../../../components/data-table/types';
 
 export const getColumns = (
   onDelete: (systemId: string) => void,

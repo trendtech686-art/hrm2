@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import React from 'react';
-import { useSalesManagementSettingsStore } from '../sales-management-store.ts';
+import { useSalesManagementSettingsStore } from '../sales-management-store';
 
 function Harness() {
   const printCopies = useSalesManagementSettingsStore((state) => state.printCopies);

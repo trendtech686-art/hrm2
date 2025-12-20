@@ -1,8 +1,8 @@
-import { createCrudStore, type CrudState } from '../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { LeaveRequest } from './types.ts';
-import { leaveAttendanceSync } from './leave-sync-service.ts';
-import { leaveQuotaSync } from './leave-quota-service.ts';
+import { createCrudStore, type CrudState } from '../../lib/store-factory';
+import { data as initialData } from './data';
+import type { LeaveRequest } from './types';
+import { leaveAttendanceSync } from './leave-sync-service';
+import { leaveQuotaSync } from './leave-quota-service';
 
 export type LeaveStoreState = CrudState<LeaveRequest>;
 

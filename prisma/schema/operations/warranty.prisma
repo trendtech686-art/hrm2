@@ -1,0 +1,57 @@
+// ═══════════════════════════════════════════════════════════════
+// WARRANTY MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: WAR0000000001 (English, 10 digits)
+// BusinessId: BH0000000001 (Vietnamese - Bảo hành, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Warranty {
+  systemId          String          @id           // WAR0000000001
+  id                String          @unique       // BH0000000001
+  
+  // Related Order
+  orderId           String?
+  order             Order?          @relation(fields: [orderId], references: [systemId])
+  
+  // Product
+  productId         String?
+  product           Product?        @relation(fields: [productId], references: [systemId])
+  productName       String?
+  serialNumber      String?
+  
+  // Customer
+  customerId        String?
+  customerName      String?
+  customerPhone     String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?         @relation(fields: [branchId], references: [systemId])
+  
+  // Warranty period
+  startDate         DateTime
+  endDate           DateTime
+  warrantyMonths    Int
+  
+  // Status
+  status            WarrantyStatus  @default(PENDING)
+  
+  // Claims
+  warrantyActivities WarrantyActivity[]
+  
+  // Notes
+  notes             String?
+  terms             String?
+  
+  // Soft delete
+  isDeleted         Boolean         @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("warranties")
+}

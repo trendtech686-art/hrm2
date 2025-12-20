@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Button } from '../ui/button.tsx';
-import { Label } from '../ui/label.tsx';
-import { Input } from '../ui/input.tsx';
+import { Button } from '../ui/button';
+import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 import {
   Sheet,
   SheetContent,
@@ -10,24 +10,24 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetFooter,
-} from '../ui/sheet.tsx';
+} from '../ui/sheet';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select.tsx';
+} from '../ui/select';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '../ui/popover.tsx';
-import { Calendar } from '../ui/calendar.tsx';
-import { Checkbox } from '../ui/checkbox.tsx';
-import { Badge } from '../ui/badge.tsx';
-import { ScrollArea } from '../ui/scroll-area.tsx';
-import { Separator } from '../ui/separator.tsx';
+} from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { Checkbox } from '../ui/checkbox';
+import { Badge } from '../ui/badge';
+import { ScrollArea } from '../ui/scroll-area';
+import { Separator } from '../ui/separator';
 import { 
   Filter, 
   X, 
@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { cn } from '../../lib/utils.ts';
+import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 
 /**

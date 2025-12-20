@@ -1,15 +1,16 @@
-﻿
+﻿'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import Fuse from 'fuse.js';
-import { useWikiStore } from './store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
+import { useWikiStore } from './store';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 import { Search, PlusCircle, User, Calendar } from 'lucide-react';
-import { Badge } from '../../components/ui/badge.tsx';
-import type { WikiArticle } from './types.ts';
+import { Badge } from '../../components/ui/badge';
+import type { WikiArticle } from './types';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 
 function ArticleCard({ article }: { article: WikiArticle }) {

@@ -4,8 +4,10 @@
  * Trang tổng quan báo cáo - hiển thị danh sách các nhóm báo cáo
  */
 
+'use client'
+
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { 
   AreaChart, 
   TrendingUp, 
@@ -20,11 +22,11 @@ import {
   FileBarChart,
   ChevronRight,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.tsx';
-import { Button } from '@/components/ui/button.tsx';
-import { Badge } from '@/components/ui/badge.tsx';
-import { ROUTES } from '@/lib/router.ts';
-import { usePageHeader } from '@/contexts/page-header-context.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ROUTES } from '@/lib/router';
+import { usePageHeader } from '@/contexts/page-header-context';
 
 type ReportItem = {
   title: string;

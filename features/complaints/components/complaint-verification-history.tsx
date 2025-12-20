@@ -1,7 +1,7 @@
 import React from "react";
-import { ComplaintCompensationSection } from "./complaint-compensation-section.tsx";
-import { ComplaintVerifiedIncorrectSection } from "./complaint-verified-incorrect-section.tsx";
-import type { Complaint } from "../types.ts";
+import { ComplaintCompensationSection } from "./complaint-compensation-section";
+import { ComplaintVerifiedIncorrectSection } from "./complaint-verified-incorrect-section";
+import type { Complaint } from "../types";
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface Props {

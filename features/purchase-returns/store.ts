@@ -1,16 +1,16 @@
-import { formatDateCustom, getCurrentDate } from '../../lib/date-utils.ts';
-import { createCrudStore, type CrudState } from '../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { PurchaseReturn } from './types.ts';
-import { useProductStore } from '../products/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePurchaseOrderStore } from '../purchase-orders/store.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { useReceiptTypeStore } from '../settings/receipt-types/store.ts';
-import type { Receipt } from '../receipts/types.ts';
-import type { PurchaseOrderRefundStatus } from '../purchase-orders/types.ts';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
+import { formatDateCustom, getCurrentDate } from '../../lib/date-utils';
+import { createCrudStore, type CrudState } from '../../lib/store-factory';
+import { data as initialData } from './data';
+import type { PurchaseReturn } from './types';
+import { useProductStore } from '../products/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { useReceiptStore } from '../receipts/store';
+import { usePurchaseOrderStore } from '../purchase-orders/store';
+import { useCashbookStore } from '../cashbook/store';
+import { useReceiptTypeStore } from '../settings/receipt-types/store';
+import type { Receipt } from '../receipts/types';
+import type { PurchaseOrderRefundStatus } from '../purchase-orders/types';
+import { useInventoryReceiptStore } from '../inventory-receipts/store';
 import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
 
 const baseStore = createCrudStore<PurchaseReturn>(

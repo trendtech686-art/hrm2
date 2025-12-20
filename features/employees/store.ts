@@ -1,17 +1,17 @@
-import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { Employee } from './types.ts';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { createCrudStore, CrudState } from '../../lib/store-factory';
+import { data as initialData } from './data';
+import type { Employee } from './types';
+import type { HistoryEntry } from '../../components/ActivityHistory';
 import Fuse from 'fuse.js';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
 import { registerBreadcrumbStore } from '../../lib/breadcrumb-generator'; // ✅ NEW
-import { type SystemId } from '../../lib/id-types.ts';
-import { createInMemoryRepository } from '../../repositories/in-memory-repository.ts';
+import { type SystemId } from '../../lib/id-types';
+import { createInMemoryRepository } from '../../repositories/in-memory-repository';
 import { 
   createHistoryEntry, 
   getCurrentUserInfo,
   appendHistoryEntry 
-} from '../../lib/activity-history-helper.ts';
+} from '../../lib/activity-history-helper';
 
 type EmployeePersistenceAdapter = {
   create: (payload: Omit<Employee, 'systemId'>) => Promise<Employee>;

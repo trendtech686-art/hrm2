@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Trash2, ChevronDown, ChevronsRight } from "lucide-react"
-import { cn } from "../../lib/utils.ts"
+import { cn } from "../../lib/utils"
 import {
   Table,
   TableBody,
@@ -8,16 +8,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table.tsx"
-import { DataTablePagination } from "./data-table-pagination.tsx"
-import { Button } from "../ui/button.tsx"
+} from "../ui/table"
+import { DataTablePagination } from "./data-table-pagination"
+import { Button } from "../ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.tsx"
-import type { ColumnDef } from './types.ts';
+} from "../ui/dropdown-menu"
+import type { ColumnDef } from './types';
 
 interface BulkAction<TData> {
   label: string;

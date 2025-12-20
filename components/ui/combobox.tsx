@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { Check, ChevronsUpDown, User, Edit } from 'lucide-react';
-import { useDebounce } from '../../hooks/use-debounce.ts';
+import { useDebounce } from '../../hooks/use-debounce';
 
-import { cn } from '../../lib/utils.ts';
-import { Button } from './button.tsx';
+import { cn } from '../../lib/utils';
+import { Button } from './button';
 import {
   Command,
   CommandEmpty,
@@ -11,9 +11,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from './command.tsx';
-import { Popover, PopoverContent, PopoverTrigger } from './popover.tsx';
-import { Spinner } from './spinner.tsx';
+} from './command';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { Spinner } from './spinner';
 
 export type ComboboxOption = {
   value: string;

@@ -1,0 +1,52 @@
+// ═══════════════════════════════════════════════════════════════
+// CATEGORY MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: CAT000001 (English, 6 digits)
+// BusinessId: DM000001 (Vietnamese - Danh mục, 6 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Category {
+  systemId          String        @id           // CAT000001
+  id                String        @unique       // DM000001
+  
+  // Basic info
+  name              String
+  description       String?
+  
+  // Hierarchy
+  parentId          String?
+  parent            Category?     @relation("CategoryHierarchy", fields: [parentId], references: [systemId])
+  children          Category[]    @relation("CategoryHierarchy")
+  level             Int           @default(0)
+  path              String?       // /parent/child/grandchild
+  
+  // Display
+  sortOrder         Int           @default(0)
+  imageUrl          String?
+  iconName          String?
+  color             String?
+  
+  // SEO
+  slug              String?       @unique
+  metaTitle         String?
+  metaDescription   String?
+  
+  // Status
+  isActive          Boolean       @default(true)
+  
+  // Relations
+  products          Product[]
+  productCategories ProductCategory[]
+  
+  // Soft delete
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("categories")
+}

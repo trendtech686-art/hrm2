@@ -1,7 +1,9 @@
+'use client'
+
 import * as React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from '@/lib/next-compat';
 import { ROUTES } from '../lib/router';
-import { useAuth } from '../contexts/auth-context.tsx';
+import { useAuth } from '../contexts/auth-context';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
-import type { Branch } from './types.ts';
-import { useBranchStore } from './store.ts';
-import { useEmployeeStore } from '../../employees/store.ts';
-import { useProvinceStore } from '../provinces/store.ts';
-import { Button } from '../../../components/ui/button.tsx';
+import type { Branch } from './types';
+import { useBranchStore } from './store';
+import { useEmployeeStore } from '../../employees/store';
+import { useProvinceStore } from '../provinces/store';
+import { Button } from '../../../components/ui/button';
 import {
   Form,
   FormControl,
@@ -13,14 +13,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../components/ui/form.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Combobox } from '../../../components/ui/combobox.tsx';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
-import { DialogFooter } from '../../../components/ui/dialog.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group.tsx';
-import { Label } from '../../../components/ui/label.tsx';
+} from '../../../components/ui/form';
+import { Input } from '../../../components/ui/input';
+import { Combobox } from '../../../components/ui/combobox';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { DialogFooter } from '../../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
+import { Label } from '../../../components/ui/label';
 
 export type BranchFormValues = Omit<Branch, 'systemId'>;
 

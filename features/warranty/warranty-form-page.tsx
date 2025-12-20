@@ -1,39 +1,41 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/next-compat';
 import { useForm, FormProvider } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import { useAuth } from '../../contexts/auth-context';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 // Types & Store
-import type { WarrantyFormValues, WarrantySettlement, WarrantyProduct, SettlementType } from './types.ts';
-import { useWarrantyStore } from './store.ts';
-import { getCurrentDate, toISODateTime } from '../../lib/date-utils.ts';
-import { canTransitionStatus } from './types.ts';
+import type { WarrantyFormValues, WarrantySettlement, WarrantyProduct, SettlementType } from './types';
+import { useWarrantyStore } from './store';
+import { getCurrentDate, toISODateTime } from '../../lib/date-utils';
+import { canTransitionStatus } from './types';
 
 // UI Components
-import { Button } from '../../components/ui/button.tsx';
-import { ScrollArea } from '../../components/ui/scroll-area.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer.tsx';
-import { NewDocumentsUpload } from '../../components/ui/new-documents-upload.tsx';
-import type { StagingFile } from '../../lib/file-upload-api.ts';
-import { FileUploadAPI } from '../../lib/file-upload-api.ts';
+import { Button } from '../../components/ui/button';
+import { ScrollArea } from '../../components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer';
+import { NewDocumentsUpload } from '../../components/ui/new-documents-upload';
+import type { StagingFile } from '../../lib/file-upload-api';
+import { FileUploadAPI } from '../../lib/file-upload-api';
 
 // REUSE from orders module
-import { CustomerSelector } from '../orders/components/customer-selector.tsx';
-import { OrderNotes } from '../orders/components/order-notes.tsx';
+import { CustomerSelector } from '../orders/components/customer-selector';
+import { OrderNotes } from '../orders/components/order-notes';
 
 // Warranty-specific adapters
-import { WarrantyFormInfoCard } from './components/index.ts';
-import { WarrantyProductsSection } from './components/warranty-products-section.tsx';
-import { WarrantySummary } from './components/warranty-summary.tsx';
+import { WarrantyFormInfoCard } from './components/index';
+import { WarrantyProductsSection } from './components/warranty-products-section';
+import { WarrantySummary } from './components/warranty-summary';
 
 // Stores for lookup
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
+import { useBranchStore } from '../settings/branches/store';
+import { useEmployeeStore } from '../employees/store';
 
 /**
  * Trang tạo/sửa phiếu bảo hành

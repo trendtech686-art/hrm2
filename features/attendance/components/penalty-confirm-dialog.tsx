@@ -1,16 +1,16 @@
 import * as React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
-import { ScrollArea } from '../../../components/ui/scroll-area.tsx';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { ScrollArea } from '../../../components/ui/scroll-area';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { Badge } from '../../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { AlertTriangle, AlertCircle, CheckCircle2, Clock, User, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '../../../lib/utils.ts';
-import { formatCurrency } from '../../employees/shared-columns.tsx';
-import type { PenaltyPreviewItem } from '../penalty-sync-service.ts';
-import type { Penalty } from '../../settings/penalties/types.ts';
+import { cn } from '../../../lib/utils';
+import { formatCurrency } from '../../employees/shared-columns';
+import type { PenaltyPreviewItem } from '../penalty-sync-service';
+import type { Penalty } from '../../settings/penalties/types';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 

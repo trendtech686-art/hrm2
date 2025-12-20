@@ -1,7 +1,7 @@
 import * as React from "react"
-import { useJobTitleStore } from "./store.ts"
-import { getColumns } from "./columns.tsx"
-import { Card, CardContent } from "../../../components/ui/card.tsx"
+import { useJobTitleStore } from "./store"
+import { getColumns } from "./columns"
+import { Card, CardContent } from "../../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,22 +11,22 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../../components/ui/alert-dialog.tsx"
+} from "../../../components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog.tsx"
-import { JobTitleForm, type JobTitleFormValues } from "./job-title-form.tsx"
-import type { JobTitle } from "./types.ts"
-import { Button } from "../../../components/ui/button.tsx"
+} from "../../../components/ui/dialog"
+import { JobTitleForm, type JobTitleFormValues } from "./job-title-form"
+import type { JobTitle } from "./types"
+import { Button } from "../../../components/ui/button"
 import { PlusCircle } from "lucide-react"
 import Fuse from "fuse.js"
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types"
-import { Input } from "../../../components/ui/input.tsx"
-import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable.tsx"
+import { Input } from "../../../components/ui/input"
+import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable"
 
 export function JobTitlesPageContent() {
   const { data: jobTitles, remove, add, update } = useJobTitleStore();

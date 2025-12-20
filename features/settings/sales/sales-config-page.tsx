@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { TabsContent } from '../../../components/ui/tabs.tsx';
-import { SalesChannelsPageContent } from '../sales-channels/page-content.tsx';
-import { SalesManagementSettings } from './sales-management-settings.tsx';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
-import { useTabActionRegistry } from '../use-tab-action-registry.ts';
-import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { TabsContent } from '../../../components/ui/tabs';
+import { SalesChannelsPageContent } from '../sales-channels/page-content';
+import { SalesManagementSettings } from './sales-management-settings';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { useTabActionRegistry } from '../use-tab-action-registry';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 
 export function SalesConfigPage() {
   const [activeTab, setActiveTab] = React.useState('sales-management-settings');

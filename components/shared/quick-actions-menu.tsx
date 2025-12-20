@@ -5,7 +5,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '../ui/context-menu.tsx';
+} from '../ui/context-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +16,10 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu.tsx';
-import { Button } from '../ui/button.tsx';
+} from '../ui/dropdown-menu';
+import { Button } from '../ui/button';
 import { MoreHorizontal } from 'lucide-react';
-import { cn } from '../../lib/utils.ts';
+import { cn } from '../../lib/utils';
 
 /**
  * Quick action configuration

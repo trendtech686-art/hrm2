@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Button } from '../../components/ui/button.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Switch } from '../../components/ui/switch.tsx';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Switch } from '../../components/ui/switch';
 import { MapPin, Plus, Edit, Trash2, Check, ArrowLeftRight, X, MoreHorizontal, Eye } from 'lucide-react';
 import {
   Table,
@@ -11,14 +11,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../components/ui/table.tsx';
+} from '../../components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu.tsx';
+} from '../../components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -26,12 +26,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog.tsx';
+} from '../../components/ui/dialog';
 import { toast } from 'sonner';
-import { cn } from '../../lib/utils.ts';
-import { AddressBidirectionalConverter } from './components/address-bidirectional-converter.tsx';
-import { AddressFormDialog } from './components/address-form-dialog.tsx';
-import type { EnhancedCustomerAddress } from './types/enhanced-address.ts';
+import { cn } from '../../lib/utils';
+import { AddressBidirectionalConverter } from './components/address-bidirectional-converter';
+import { AddressFormDialog } from './components/address-form-dialog';
+import type { EnhancedCustomerAddress } from './types/enhanced-address';
 
 // Use EnhancedCustomerAddress as CustomerAddress
 export type CustomerAddress = EnhancedCustomerAddress;

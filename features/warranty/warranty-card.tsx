@@ -1,16 +1,18 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { formatDateTime } from '../../lib/date-utils.ts';
-import type { WarrantyTicket } from './types.ts';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types.ts';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { formatDateTime } from '../../lib/date-utils';
+import type { WarrantyTicket } from './types';
+import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
+import { Card, CardContent } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Package, Phone, Truck, User, AlertTriangle } from 'lucide-react';
-import { cn } from '../../lib/utils.ts';
-import { checkWarrantyOverdue } from './warranty-sla-utils.ts';
-import { SlaTimer, WARRANTY_SLA_CONFIGS } from '../../components/SlaTimer.tsx';
-import { loadCardColorSettings } from '../settings/warranty/warranty-settings-page.tsx';
+import { cn } from '../../lib/utils';
+import { checkWarrantyOverdue } from './warranty-sla-utils';
+import { SlaTimer, WARRANTY_SLA_CONFIGS } from '../../components/SlaTimer';
+import { loadCardColorSettings } from '../settings/warranty/warranty-settings-page';
 
 interface WarrantyCardProps {
   ticket: WarrantyTicket;

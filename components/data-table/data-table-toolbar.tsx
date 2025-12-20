@@ -1,9 +1,9 @@
 import * as React from "react";
 import { Search } from "lucide-react"
-import { Input } from "../ui/input.tsx"
-import { DataTableFacetedFilter } from './data-table-faceted-filter.tsx';
-import { DataTableDateFilter } from './data-table-date-filter.tsx';
-import type { ColumnDef } from './types.ts'
+import { Input } from "../ui/input"
+import { DataTableFacetedFilter } from './data-table-faceted-filter';
+import { DataTableDateFilter } from './data-table-date-filter';
+import type { ColumnDef } from './types'
 
 export interface DataTableToolbarProps<TData> {
   search: string;

@@ -1,4 +1,4 @@
-import { SystemId, BusinessId } from '../../../lib/id-types.ts';
+import { SystemId, BusinessId } from '../../../lib/id-types';
 
 export type Branch = {
   systemId: SystemId;

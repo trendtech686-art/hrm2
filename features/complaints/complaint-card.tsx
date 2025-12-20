@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { Phone, Package, Calendar, User, Clock, AlertCircle, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { Badge } from '../../components/ui/badge.tsx';
-import { StatusBadge, COMPLAINT_STATUS_MAP } from '../../components/StatusBadge.tsx';
-import { Card } from '../../components/ui/card.tsx';
-import { cn } from '../../lib/utils.ts';
-import { formatDate } from '../../lib/date-utils.ts';
-import { Complaint, complaintStatusLabels, complaintStatusColors, complaintTypeLabels, complaintTypeColors } from './types.ts';
-import { checkOverdue } from './sla-utils.ts';
+import { Badge } from '../../components/ui/badge';
+import { StatusBadge, COMPLAINT_STATUS_MAP } from '../../components/StatusBadge';
+import { Card } from '../../components/ui/card';
+import { cn } from '../../lib/utils';
+import { formatDate } from '../../lib/date-utils';
+import { Complaint, complaintStatusLabels, complaintStatusColors, complaintTypeLabels, complaintTypeColors } from './types';
+import { checkOverdue } from './sla-utils';
 
 interface ComplaintCardProps {
   complaint: Complaint;

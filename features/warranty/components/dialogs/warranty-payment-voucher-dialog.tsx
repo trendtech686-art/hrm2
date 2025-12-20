@@ -9,7 +9,7 @@
 
 import * as React from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import {
   Dialog,
   DialogContent,
@@ -17,35 +17,35 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
-} from '../../../../components/ui/dialog.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
-import { Label } from '../../../../components/ui/label.tsx';
-import { Input } from '../../../../components/ui/input.tsx';
-import { CurrencyInput } from '../../../../components/ui/currency-input.tsx';
-import { Textarea } from '../../../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
-import { Alert, AlertDescription } from '../../../../components/ui/alert.tsx';
+} from '../../../../components/ui/dialog';
+import { Button } from '../../../../components/ui/button';
+import { Label } from '../../../../components/ui/label';
+import { Input } from '../../../../components/ui/input';
+import { CurrencyInput } from '../../../../components/ui/currency-input';
+import { Textarea } from '../../../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
+import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePaymentStore } from '../../../payments/store.ts';
-import { useReceiptStore } from '../../../receipts/store.ts';
-import { useOrderStore } from '../../../orders/store.ts';
-import { useWarrantyStore } from '../../store.ts';
-import type { SettlementType, WarrantyVoucherDialogBaseProps } from '../../types.ts';
-import { usePaymentTypeStore } from '../../../settings/payments/types/store.ts';
-import { usePaymentMethodStore } from '../../../settings/payments/methods/store.ts';
-import { useCashbookStore } from '../../../cashbook/store.ts';
-import { toISODateTime } from '../../../../lib/date-utils.ts';
-import { searchOrders, type OrderSearchResult } from '../../../orders/order-search-api.ts';
-import { VirtualizedCombobox } from '../../../../components/ui/virtualized-combobox.tsx';
-import type { Payment } from '../../../payments/types.ts';
-import type { PaymentMethod } from '../../../settings/payments/methods/types.ts';
-import { useAuth } from '../../../../contexts/auth-context.tsx';
+import { usePaymentStore } from '../../../payments/store';
+import { useReceiptStore } from '../../../receipts/store';
+import { useOrderStore } from '../../../orders/store';
+import { useWarrantyStore } from '../../store';
+import type { SettlementType, WarrantyVoucherDialogBaseProps } from '../../types';
+import { usePaymentTypeStore } from '../../../settings/payments/types/store';
+import { usePaymentMethodStore } from '../../../settings/payments/methods/store';
+import { useCashbookStore } from '../../../cashbook/store';
+import { toISODateTime } from '../../../../lib/date-utils';
+import { searchOrders, type OrderSearchResult } from '../../../orders/order-search-api';
+import { VirtualizedCombobox } from '../../../../components/ui/virtualized-combobox';
+import type { Payment } from '../../../payments/types';
+import type { PaymentMethod } from '../../../settings/payments/methods/types';
+import { useAuth } from '../../../../contexts/auth-context';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
-import { calculateWarrantyProcessingState } from '../logic/processing.ts';
-import { InsufficientBalanceDialog } from './insufficient-balance-dialog.tsx';
-import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations.ts';
-import { recordWarrantySettlementMethods, type SettlementMethodInput } from '../../utils/settlement-store.ts';
+import { calculateWarrantyProcessingState } from '../logic/processing';
+import { InsufficientBalanceDialog } from './insufficient-balance-dialog';
+import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations';
+import { recordWarrantySettlementMethods, type SettlementMethodInput } from '../../utils/settlement-store';
 
 interface WarrantyPaymentVoucherDialogProps extends WarrantyVoucherDialogBaseProps {
   existingPayments?: Payment[] | undefined;
@@ -135,7 +135,7 @@ export function WarrantyPaymentVoucherDialog({
     [accounts]
   );
 
-  // ✅ Tính số tiền còn lại THỰC TẾ dùng warranty-processing-logic.ts
+  // ✅ Tính số tiền còn lại THỰC TẾ dùng warranty-processing-logic
   const ticket = React.useMemo(() => 
     findWarrantyById(asSystemId(warrantySystemId)),
     [findWarrantyById, warrantySystemId]

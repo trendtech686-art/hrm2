@@ -13,16 +13,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table.tsx";
-import { DataTablePagination } from "./data-table-pagination.tsx";
-import { Button } from "../ui/button.tsx";
+} from "../ui/table";
+import { DataTablePagination } from "./data-table-pagination";
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.tsx";
-import { StickyScrollbar } from "./sticky-scrollbar.tsx";
+} from "../ui/dropdown-menu";
+import { StickyScrollbar } from "./sticky-scrollbar";
 import type { ColumnDef } from './types';
 
 export interface BulkAction<TData> {

@@ -1,10 +1,11 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/next-compat';
 import { useReceiptStore, type ReceiptInput } from './store';
 import { ReceiptForm, type ReceiptFormValues } from './receipt-form';
 import { useCashbookStore } from '../cashbook/store';
 import { usePageHeader } from '@/contexts/page-header-context';
-import { useRouteMeta } from '@/hooks/use-route-meta';
 import { ROUTES, generatePath } from '@/lib/router';
 import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
@@ -19,7 +20,6 @@ type ReceiptUpsertPayload = Omit<ReceiptInput, 'createdAt'>;
 export function ReceiptFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const navigate = useNavigate();
-  const routeMeta = useRouteMeta();
   const { data, findById, add, update } = useReceiptStore();
   const { accounts } = useCashbookStore();
   const { employee: currentEmployee } = useAuth();
@@ -90,7 +90,7 @@ export function ReceiptFormPage() {
   usePageHeader({
     title: headerTitle,
     actions: headerActions,
-    breadcrumb: (routeMeta?.breadcrumb as any) ?? fallbackBreadcrumb,
+    breadcrumb: fallbackBreadcrumb,
     showBackButton: true,
     backPath: ROUTES.FINANCE.RECEIPTS
   });

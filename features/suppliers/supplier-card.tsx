@@ -1,10 +1,10 @@
 import * as React from 'react';
-import type { Supplier } from './types.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import type { Supplier } from './types';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { MoreHorizontal, Phone, Mail, MapPin, User, Building2, CreditCard, RotateCcw } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { formatDateForDisplay } from '@/lib/date-utils';
 import type { SystemId } from '@/lib/id-types';
 

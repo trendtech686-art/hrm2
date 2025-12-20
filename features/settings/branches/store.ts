@@ -1,7 +1,7 @@
-import { createCrudStore, CrudState } from '../../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { Branch } from './types.ts';
-import { SystemId } from '../../../lib/id-types.ts';
+import { createCrudStore, CrudState } from '../../../lib/store-factory';
+import { data as initialData } from './data';
+import type { Branch } from './types';
+import { SystemId } from '../../../lib/id-types';
 
 export interface BranchStoreState extends CrudState<Branch> {
   setDefault: (systemId: SystemId) => void;

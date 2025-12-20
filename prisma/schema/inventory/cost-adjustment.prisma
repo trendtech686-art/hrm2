@@ -1,0 +1,46 @@
+// ═══════════════════════════════════════════════════════════════
+// COST ADJUSTMENT MODEL (Điều chỉnh giá vốn)
+// ═══════════════════════════════════════════════════════════════
+// SystemId: CADJ0000000001 (English, 10 digits)
+// BusinessId: DCGV0000000001 (Vietnamese - Điều chỉnh giá vốn, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model CostAdjustment {
+  systemId          String              @id           // CADJ0000000001
+  id                String              @unique       // DCGV0000000001
+  
+  // Branch
+  branchId          String?
+  branch            Branch?             @relation(fields: [branchId], references: [systemId])
+  
+  // Adjustment details
+  adjustmentDate    DateTime            @default(now())
+  reason            String?
+  
+  // Status
+  status            String              @default("draft") // draft, pending, approved, cancelled
+  
+  // Totals
+  totalItems        Int                 @default(0)
+  totalAdjustment   Decimal             @default(0) @db.Decimal(15, 2)
+  
+  // Notes
+  notes             String?
+  
+  // Relations
+  items             CostAdjustmentItem[]
+  
+  // Soft delete
+  isDeleted         Boolean             @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  @@map("cost_adjustments")
+}

@@ -2,7 +2,7 @@
 // COMPLAINT TYPES & INTERFACES
 // =============================================
 
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
+import type { Subtask } from '../../components/shared/subtask-list';
 import { type SystemId, type BusinessId } from '../../lib/id-types';
 
 export type ComplaintType =

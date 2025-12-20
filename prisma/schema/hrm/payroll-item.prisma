@@ -1,0 +1,58 @@
+// ═══════════════════════════════════════════════════════════════
+// PAYROLL ITEM MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PAYSLIP000001 (English)
+// BusinessId: PL000001 (Vietnamese - Phiếu lương)
+// ═══════════════════════════════════════════════════════════════
+
+model PayrollItem {
+  systemId            String    @id           // PAYSLIP000001
+  id                  String    @unique       // PL000001
+  
+  // Relations
+  payrollId           String
+  payroll             Payroll   @relation(fields: [payrollId], references: [systemId])
+  employeeId          String
+  employee            Employee  @relation(fields: [employeeId], references: [systemId])
+  
+  // Earnings
+  baseSalary          Decimal   @db.Decimal(15, 2)
+  positionAllowance   Decimal   @default(0) @db.Decimal(15, 2)
+  mealAllowance       Decimal   @default(0) @db.Decimal(15, 2)
+  transportAllowance  Decimal   @default(0) @db.Decimal(15, 2)
+  otherAllowances     Decimal   @default(0) @db.Decimal(15, 2)
+  overtimePay         Decimal   @default(0) @db.Decimal(15, 2)
+  bonus               Decimal   @default(0) @db.Decimal(15, 2)
+  
+  // Work info
+  workDays            Decimal   @default(0) @db.Decimal(4, 1)
+  leaveDays           Decimal   @default(0) @db.Decimal(4, 1)
+  absentDays          Decimal   @default(0) @db.Decimal(4, 1)
+  overtimeHours       Decimal   @default(0) @db.Decimal(5, 2)
+  
+  // Deductions
+  socialInsurance     Decimal   @default(0) @db.Decimal(15, 2)
+  healthInsurance     Decimal   @default(0) @db.Decimal(15, 2)
+  unemploymentInsurance Decimal @default(0) @db.Decimal(15, 2)
+  personalIncomeTax   Decimal   @default(0) @db.Decimal(15, 2)
+  otherDeductions     Decimal   @default(0) @db.Decimal(15, 2)
+  
+  // Totals
+  grossSalary         Decimal   @db.Decimal(15, 2)
+  totalDeductions     Decimal   @db.Decimal(15, 2)
+  netSalary           Decimal   @db.Decimal(15, 2)
+  
+  // Status
+  status              String    @default("PENDING") // PENDING, APPROVED, PAID
+  paidAt              DateTime?
+  
+  // Notes
+  notes               String?
+  
+  // Audit
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  @@unique([payrollId, employeeId])
+  @@map("payroll_items")
+}

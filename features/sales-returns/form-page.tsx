@@ -1,64 +1,65 @@
+'use client'
 
 import * as React from 'react';
 // FIX: Use named imports for react-router-dom to fix module export errors.
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
 // FIX: Changed 'FieldArray as useFieldArray' to 'useFieldArray' to correctly import the hook from 'react-hook-form'.
 import { useForm, useFieldArray, Controller, useWatch, FormProvider, useFormContext } from 'react-hook-form';
-import { toISODateTime } from '../../lib/date-utils.ts';
+import { toISODateTime } from '../../lib/date-utils';
 import { ArrowLeft, PlusCircle, Trash2, CheckCircle2, AlertTriangle, PackageOpen, Package, ChevronDown, ChevronRight, Eye, StickyNote, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
-import { useProductImage } from '../products/components/product-image.tsx';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { useProductImage } from '../products/components/product-image';
 
 // types
-import type { Order } from '../orders/types.ts';
-import type { SalesReturn, ReturnLineItem, LineItem as ExchangeLineItem } from './types.ts';
-import type { Product } from '../products/types.ts';
+import type { Order } from '../orders/types';
+import type { SalesReturn, ReturnLineItem, LineItem as ExchangeLineItem } from './types';
+import type { Product } from '../products/types';
 
 // Stores
-import { useOrderStore } from '../orders/store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useSalesReturnStore } from './store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
+import { useOrderStore } from '../orders/store';
+import { useCustomerStore } from '../customers/store';
+import { useBranchStore } from '../settings/branches/store';
+import { useSalesReturnStore } from './store';
+import { useProductStore } from '../products/store';
+import { useCashbookStore } from '../cashbook/store';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
 
 // UI Components
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../components/ui/form.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table.tsx';
-import { NumberInput } from '../../components/ui/number-input.tsx';
-import { CurrencyInput } from '../../components/ui/currency-input.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog.tsx';
-import { OrderProductSearch } from '../../components/shared/unified-product-search.tsx';
-import { LineItemsTable } from '../orders/components/line-items-table.tsx';
-import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Alert, AlertDescription } from '../../components/ui/alert.tsx';
-import { usePaymentMethodStore } from '../settings/payments/methods/store.ts';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../components/ui/form';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
+import { NumberInput } from '../../components/ui/number-input';
+import { CurrencyInput } from '../../components/ui/currency-input';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Input } from '../../components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { OrderProductSearch } from '../../components/shared/unified-product-search';
+import { LineItemsTable } from '../orders/components/line-items-table';
+import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
+import { Separator } from '../../components/ui/separator';
+import { Alert, AlertDescription } from '../../components/ui/alert';
+import { usePaymentMethodStore } from '../settings/payments/methods/store';
 // REMOVED: Voucher store no longer exists
-// import { useVoucherStore } from '../vouchers/store.ts';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
-import { ProductSelectionDialog } from '../shared/product-selection-dialog.tsx';
-import { usePricingPolicyStore } from '../settings/pricing/store.ts';
+// import { useVoucherStore } from '../vouchers/store';
+import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { ProductSelectionDialog } from '../shared/product-selection-dialog';
+import { usePricingPolicyStore } from '../settings/pricing/store';
 // FIX: Add missing import for `Label` component.
-import { Label } from '../../components/ui/label.tsx';
-import { ShippingCard } from '../orders/components/shipping-card.tsx';
-import { ProductTableToolbar } from '../orders/components/product-table-toolbar.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import type { BreadcrumbItem } from '../../lib/breadcrumb-system.ts';
-import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card.tsx';
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
+import { Label } from '../../components/ui/label';
+import { ShippingCard } from '../orders/components/shipping-card';
+import { ProductTableToolbar } from '../orders/components/product-table-toolbar';
+import { useAuth } from '../../contexts/auth-context';
+import { ROUTES, generatePath } from '../../lib/router';
+import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
+import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card';
+import type { Subtask } from '../../components/shared/subtask-list';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

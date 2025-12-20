@@ -1,38 +1,40 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ROUTES } from '../../lib/router.ts';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '@/lib/date-utils';
-import { usePurchaseReturnStore } from './store.ts';
-import { usePurchaseOrderStore } from '../purchase-orders/store.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { usePurchaseReturnStore } from './store';
+import { usePurchaseOrderStore } from '../purchase-orders/store';
+import { useSupplierStore } from '../suppliers/store';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { ArrowLeft, Printer, PackageX } from 'lucide-react';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table.tsx';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
-import { ScrollArea } from '../../components/ui/scroll-area.tsx';
+import { useAuth } from '../../contexts/auth-context';
+import { DetailField } from '../../components/ui/detail-field';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { ScrollArea } from '../../components/ui/scroll-area';
 import { toast } from 'sonner';
-import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
-import { useProductStore } from '../products/store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { useProductStore } from '../products/store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertSupplierReturnForPrint,
   mapSupplierReturnToPrintData, 
   mapSupplierReturnLineItems,
   createStoreSettings,
-} from '../../lib/print/supplier-return-print-helper.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { numberToWords } from '../../lib/print-mappers/types.ts';
-import { PurchaseReturnWorkflowCard } from './components/purchase-return-workflow-card.tsx';
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
+} from '../../lib/print/supplier-return-print-helper';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { numberToWords } from '../../lib/print-mappers/types';
+import { PurchaseReturnWorkflowCard } from './components/purchase-return-workflow-card';
+import type { Subtask } from '../../components/shared/subtask-list';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0 ₫';

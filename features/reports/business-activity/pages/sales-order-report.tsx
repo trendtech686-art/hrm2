@@ -6,25 +6,25 @@
 
 import * as React from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { usePageHeader } from '@/contexts/page-header-context.tsx';
-import { ROUTES } from '@/lib/router.ts';
+import { usePageHeader } from '@/contexts/page-header-context';
+import { ROUTES } from '@/lib/router';
 import { 
   ReportFilters, 
   ReportSummaryCards,
   ReportHeaderActions,
   SALES_REPORT_GLOSSARY,
   formatCurrency,
-} from '../components/index.ts';
-import { useOrderStore } from '@/features/orders/store.ts';
-import { useCustomerStore } from '@/features/customers/store.ts';
-import { useEmployeeStore } from '@/features/employees/store.ts';
-import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.tsx';
-import { Badge } from '@/components/ui/badge.tsx';
-import { Button } from '@/components/ui/button.tsx';
-import type { ColumnDef } from '@/components/data-table/types.ts';
-import type { ReportDateRange, SalesOrderReportRow } from '../types.ts';
-import type { SystemId } from '@/lib/id-types.ts';
+} from '../components/index';
+import { useOrderStore } from '@/features/orders/store';
+import { useCustomerStore } from '@/features/customers/store';
+import { useEmployeeStore } from '@/features/employees/store';
+import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import type { ColumnDef } from '@/components/data-table/types';
+import type { ReportDateRange, SalesOrderReportRow } from '../types';
+import type { SystemId } from '@/lib/id-types';
 import { ShoppingCart, DollarSign, TrendingUp, Filter, FileText } from 'lucide-react';
 import { parseISO, isWithinInterval } from 'date-fns';
 

@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { cn } from '../../lib/utils.ts'
-import { Input } from './input.tsx'
-import { Label } from './label.tsx'
-import { Button } from './button.tsx'
+import { cn } from '../../lib/utils'
+import { Input } from './input'
+import { Label } from './label'
+import { Button } from './button'
 
 function hsvaToRgba(h: number, s: number, v: number, a: number) {
   s /= 100;

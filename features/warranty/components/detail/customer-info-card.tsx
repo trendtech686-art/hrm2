@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import type { WarrantyTicket } from '../../types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import type { WarrantyTicket } from '../../types';
 
 interface CustomerInfoCardProps {
   ticket: WarrantyTicket;

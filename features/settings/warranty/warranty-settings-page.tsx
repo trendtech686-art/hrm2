@@ -1,17 +1,17 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { TabsContent } from '../../../components/ui/tabs.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { SettingsFormGrid } from '../../../components/settings/forms/SettingsFormGrid.tsx';
-import { SettingsFormSection } from '../../../components/settings/forms/SettingsFormSection.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { Textarea } from '../../../components/ui/textarea.tsx';
-import { TailwindColorPicker } from '../../../components/ui/tailwind-color-picker.tsx';
-import { cn } from '../../../lib/utils.ts';
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
-import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { TabsContent } from '../../../components/ui/tabs';
+import { Label } from '../../../components/ui/label';
+import { Input } from '../../../components/ui/input';
+import { SettingsFormGrid } from '../../../components/settings/forms/SettingsFormGrid';
+import { SettingsFormSection } from '../../../components/settings/forms/SettingsFormSection';
+import { Button } from '../../../components/ui/button';
+import { Switch } from '../../../components/ui/switch';
+import { Textarea } from '../../../components/ui/textarea';
+import { TailwindColorPicker } from '../../../components/ui/tailwind-color-picker';
+import { cn } from '../../../lib/utils';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -20,14 +20,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog.tsx';
+} from '../../../components/ui/dialog';
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select.tsx';
+} from '../../../components/ui/select';
 import { 
   Table,
   TableBody,
@@ -35,7 +35,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table.tsx';
+} from '../../../components/ui/table';
 import { 
   AlertCircle,
   Bell,
@@ -49,11 +49,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
-import { ConfirmDialog } from '../../../components/ui/confirm-dialog.tsx';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { createSettingsConfigStore } from '../settings-config-store.ts';
-import { useTabActionRegistry } from '../use-tab-action-registry.ts';
+} from '../../../components/ui/dropdown-menu';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { createSettingsConfigStore } from '../settings-config-store';
+import { useTabActionRegistry } from '../use-tab-action-registry';
 
 // ============================================
 // INTERFACES

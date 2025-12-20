@@ -1,42 +1,44 @@
+'use client'
+
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from '@/lib/next-compat';
 import { Plus, Filter, X, LayoutGrid, Table, AlertCircle, CheckCircle2, Clock, XCircle, AlertTriangle, Settings, Settings2, BarChart3, CheckCircle, FolderOpen, Ban, Link2, RefreshCw, Printer } from "lucide-react";
 import Fuse from "fuse.js";
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { cn } from "../../lib/utils.ts";
+import { cn } from "../../lib/utils";
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 // Types & Store
-import type { Complaint, ComplaintStatus } from "./types.ts";
-import { useComplaintStore } from "./store.ts";
-import { useEmployeeStore } from "../employees/store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useStoreInfoStore } from "../settings/store-info/store-info-store.ts";
+import type { Complaint, ComplaintStatus } from "./types";
+import { useComplaintStore } from "./store";
+import { useEmployeeStore } from "../employees/store";
+import { useBranchStore } from "../settings/branches/store";
+import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import {
   complaintStatusLabels,
   complaintStatusColors,
   complaintTypeLabels,
   complaintTypeColors,
-} from "./types.ts";
-import { checkOverdue, formatTimeLeft } from "./sla-utils.ts";
+} from "./types";
+import { checkOverdue, formatTimeLeft } from "./sla-utils";
 
 // Print
-import { usePrint } from "../../lib/use-print.ts";
+import { usePrint } from "../../lib/use-print";
 import { 
   convertComplaintForPrint,
   mapComplaintToPrintData,
   mapComplaintLineItems,
   createStoreSettings,
-} from "../../lib/print/complaint-print-helper.ts";
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
+} from "../../lib/print/complaint-print-helper";
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
 
 // UI Components
-import { Button } from "../../components/ui/button.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Card } from "../../components/ui/card.tsx";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Badge } from "../../components/ui/badge";
+import { Card } from "../../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -44,24 +46,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  } from "../../components/ui/dialog.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { DataTableToolbar } from "../../components/data-table/data-table-toolbar.tsx";
-import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table.tsx";
-import { SlaTimer } from "../../components/SlaTimer.tsx";
-import { getColumns } from "./columns.tsx";
-import { ComplaintCard } from "./complaint-card.tsx";
-import { ComplaintCardContextMenu } from "./complaint-card-context-menu.tsx";// Hooks
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
-import { useRouteMeta } from "../../hooks/use-route-meta.ts";
-import { loadCardColorSettings } from "../settings/complaints/complaints-settings-page.tsx";
-import { useRealtimeUpdates, getDataVersion, triggerDataUpdate } from "./use-realtime-updates.ts";
-import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from "./tracking-utils.ts";
-import { ROUTES } from "../../lib/router.ts";
-import type { BreadcrumbItem } from "../../lib/breadcrumb-system.ts";
+  } from "../../components/ui/dialog";
+import { PageFilters } from "../../components/layout/page-filters";
+import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { DataTableToolbar } from "../../components/data-table/data-table-toolbar";
+import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table";
+import { SlaTimer } from "../../components/SlaTimer";
+import { getColumns } from "./columns";
+import { ComplaintCard } from "./complaint-card";
+import { ComplaintCardContextMenu } from "./complaint-card-context-menu";// Hooks
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useBreakpoint } from "../../contexts/breakpoint-context";
+
+import { loadCardColorSettings } from "../settings/complaints/complaints-settings-page";
+import { useRealtimeUpdates, getDataVersion, triggerDataUpdate } from "./use-realtime-updates";
+import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from "./tracking-utils";
+import { ROUTES } from "../../lib/router";
+import type { BreadcrumbItem } from "../../lib/breadcrumb-system";
 
 /**
  * Kanban Column Component - Unified neutral header with search
@@ -312,7 +314,6 @@ export function ComplaintsPage() {
   const navigate = useNavigate();
   const { isMobile } = useBreakpoint();
   const { setPageHeader } = usePageHeader();
-  const routeMeta = useRouteMeta();
 
   // Store
   const {
@@ -842,28 +843,10 @@ export function ComplaintsPage() {
     </Button>,
   ], [navigate, viewMode, isPolling, togglePolling]);
 
-  const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
-    if (routeMeta?.breadcrumb) {
-      return routeMeta.breadcrumb.map((item, index, arr) => {
-        if (typeof item === "string") {
-          return {
-            label: item,
-            href: ROUTES.INTERNAL.COMPLAINTS,
-            isCurrent: index === arr.length - 1,
-          } satisfies BreadcrumbItem;
-        }
-        return {
-          label: item.label,
-          href: item.href ?? ROUTES.ROOT,
-          isCurrent: index === arr.length - 1,
-        } satisfies BreadcrumbItem;
-      });
-    }
-    return [
-      { label: "Trang chủ", href: ROUTES.ROOT },
-      { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS, isCurrent: true },
-    ];
-  }, [routeMeta]);
+  const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => [
+    { label: "Trang chủ", href: ROUTES.ROOT },
+    { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS, isCurrent: true },
+  ], []);
 
   usePageHeader({
     title: "Quản lý Khiếu nại",

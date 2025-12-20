@@ -1,16 +1,18 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { toast } from "sonner"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useSupplierStore } from "./store.ts"
-import { getColumns } from "./trash-columns.tsx"
-import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
-import { Card, CardContent } from "../../components/ui/card.tsx"
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useSupplierStore } from "./store"
+import { getColumns } from "./trash-columns"
+import { GenericTrashPage } from "../../components/shared/generic-trash-page"
+import { Card, CardContent } from "../../components/ui/card"
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
-import type { Supplier } from "./types.ts"
+import type { Supplier } from "./types"
 import type { SystemId } from "@/lib/id-types";
-import { ROUTES } from "../../lib/router.ts";
-import type { BreadcrumbItem } from "../../lib/breadcrumb-system.ts";
+import { ROUTES } from "../../lib/router";
+import type { BreadcrumbItem } from "../../lib/breadcrumb-system";
 
 export function SuppliersTrashPage() {
   const { data, getDeleted, restore, remove } = useSupplierStore();

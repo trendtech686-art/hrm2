@@ -1,16 +1,18 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom'
-import { useEmployeeStore } from "./store.ts"
-import { useBranchStore } from "../settings/branches/store.ts";
-import { usePageHeader } from "../../contexts/page-header-context.tsx"
+import { useNavigate } from '@/lib/next-compat'
+import { useEmployeeStore } from "./store"
+import { useBranchStore } from "../settings/branches/store";
+import { usePageHeader } from "../../contexts/page-header-context"
 import { asSystemId } from '@/lib/id-types';
-import { VirtualizedDataTable } from "../../components/data-table/virtualized-data-table.tsx"
-import { getColumns } from "./columns.tsx"
-import { Button } from "../../components/ui/button.tsx"
+import { VirtualizedDataTable } from "../../components/data-table/virtualized-data-table"
+import { getColumns } from "./columns"
+import { Button } from "../../components/ui/button"
 import { Plus, Upload, Download, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import Fuse from 'fuse.js'
-import type { Employee } from "./types.ts"
+import type { Employee } from "./types"
 
 /**
  * 🚀 VIRTUALIZED EMPLOYEES PAGE

@@ -1,5 +1,5 @@
-import type { Supplier } from './types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import type { Supplier } from './types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export const data: Supplier[] = [
   {

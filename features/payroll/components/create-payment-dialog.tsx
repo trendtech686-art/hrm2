@@ -6,20 +6,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Alert, AlertDescription } from '../../../components/ui/alert.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
+} from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Label } from '../../../components/ui/label';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Banknote, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import type { PayrollBatch, Payslip } from '../../../lib/payroll-types.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
-import type { Employee } from '../../employees/types.ts';
-import { usePaymentStore } from '../../payments/store.ts';
-import { useCashbookStore } from '../../cashbook/store.ts';
-import { getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
-import { asSystemId } from '../../../lib/id-types.ts';
+import type { PayrollBatch, Payslip } from '../../../lib/payroll-types';
+import type { SystemId } from '../../../lib/id-types';
+import type { Employee } from '../../employees/types';
+import { usePaymentStore } from '../../payments/store';
+import { useCashbookStore } from '../../cashbook/store';
+import { getCurrentUserSystemId } from '../../../contexts/auth-context';
+import { asSystemId } from '../../../lib/id-types';
 
 // =============================================
 // TYPES

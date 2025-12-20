@@ -1,13 +1,13 @@
 ﻿import * as React from "react";
 import { formatDate } from '@/lib/date-utils';
 import type { SystemId } from '@/lib/id-types';
-import type { Penalty, PenaltyStatus, PenaltyCategory } from './types.ts';
-import { penaltyCategoryLabels, penaltyCategoryColors } from './types.ts';
-import { Badge } from "../../../components/ui/badge.tsx";
-import { Checkbox } from "../../../components/ui/checkbox.tsx";
-import type { ColumnDef } from '../../../components/data-table/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../../components/ui/button.tsx";
+import type { Penalty, PenaltyStatus, PenaltyCategory } from './types';
+import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
+import { Badge } from "../../../components/ui/badge";
+import { Checkbox } from "../../../components/ui/checkbox";
+import type { ColumnDef } from '../../../components/data-table/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
+import { Button } from "../../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
 
 const formatCurrency = (value?: number) => {

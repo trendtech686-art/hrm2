@@ -1,34 +1,35 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Link } from 'react-router-dom';
-import { useStockTransferStore } from './store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useStorageLocationStore } from '../settings/inventory/storage-location-store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useRouteMeta } from '../../hooks/use-route-meta.ts';
-import { ROUTES } from '../../lib/router.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
+import { Link } from '@/lib/next-compat';
+import { useStockTransferStore } from './store';
+import { useBranchStore } from '../settings/branches/store';
+import { useProductStore } from '../products/store';
+import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
+import { useEmployeeStore } from '../employees/store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Plus, Trash2, Package, Save, X, ChevronDown, ChevronRight, Eye } from 'lucide-react';
-import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { toast } from 'sonner';
-import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types.ts';
+import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
-import { ProductSelectionDialog } from '../shared/product-selection-dialog.tsx';
-import { StockTransferWorkflowCard } from './components/stock-transfer-workflow-card.tsx';
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
+import { ProductSelectionDialog } from '../shared/product-selection-dialog';
+import { StockTransferWorkflowCard } from './components/stock-transfer-workflow-card';
+import type { Subtask } from '../../components/shared/subtask-list';
 
 const formSchema = z.object({
   customId: z.string().optional(),
@@ -62,7 +63,6 @@ export function StockTransferFormPage() {
   const { findById: findEmployeeById } = useEmployeeStore();
   const { user } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
-  const routeMeta = useRouteMeta();
   
   const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
   

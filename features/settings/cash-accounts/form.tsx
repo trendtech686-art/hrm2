@@ -2,14 +2,14 @@ import * as React from "react";
 import { useForm, type ControllerProps, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { CashAccount } from "../../cashbook/types.ts";
-import { useBranchStore } from "../branches/store.ts";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { CurrencyInput } from "../../../components/ui/currency-input.tsx";
-import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
+import type { CashAccount } from "../../cashbook/types";
+import { useBranchStore } from "../branches/store";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { CurrencyInput } from "../../../components/ui/currency-input";
+import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { Switch } from "../../../components/ui/switch";
 
 const formSchema = z.object({
   id: z.string().min(1, "Mã tài khoản là bắt buộc"),

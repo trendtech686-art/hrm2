@@ -1,37 +1,39 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useOrderStore } from '../orders/store.ts';
-import { useCustomerStore } from '../customers/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useShipmentStore } from './store.ts';
-import { useStorageLocationStore } from '../settings/inventory/storage-location-store.ts';
-import type { Product } from '../products/types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useOrderStore } from '../orders/store';
+import { useCustomerStore } from '../customers/store';
+import { useProductStore } from '../products/store';
+import { useShipmentStore } from './store';
+import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
+import type { Product } from '../products/types';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { asSystemId, type SystemId } from '../../lib/id-types';
 import { Check, Truck, Package, Home, PackageCheck, PackageSearch, History, ArrowLeft, LifeBuoy, PackagePlus, Printer } from 'lucide-react';
-import { usePrint } from '../../lib/use-print.ts';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertShipmentToDeliveryForPrint,
   mapDeliveryToPrintData, 
   mapDeliveryLineItems,
   createStoreSettings,
-} from '../../lib/print/shipment-print-helper.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { numberToWords } from '../../lib/print-mappers/types.ts';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { Timeline, TimelineItem } from '../../components/ui/timeline.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { cn } from '../../lib/utils.ts';
-import type { OrderDeliveryStatus } from '../orders/types.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table.tsx';
+} from '../../lib/print/shipment-print-helper';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { numberToWords } from '../../lib/print-mappers/types';
+import { DetailField } from '../../components/ui/detail-field';
+import { Timeline, TimelineItem } from '../../components/ui/timeline';
+import { Badge } from '../../components/ui/badge';
+import { Separator } from '../../components/ui/separator';
+import { cn } from '../../lib/utils';
+import type { OrderDeliveryStatus } from '../orders/types';
+import { useAuth } from '../../contexts/auth-context';
+import { ROUTES, generatePath } from '../../lib/router';
+import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);

@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { StockTransfer, StockTransferStatus, StockTransferItem } from './types.ts';
-import { data as initialData } from './data.ts';
-import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types.ts';
-import { useProductStore } from '../products/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
+import type { StockTransfer, StockTransferStatus, StockTransferItem } from './types';
+import { data as initialData } from './data';
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
+import { useProductStore } from '../products/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { useEmployeeStore } from '../employees/store';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 
 interface StockTransferState {

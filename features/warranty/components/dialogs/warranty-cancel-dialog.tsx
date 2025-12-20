@@ -14,16 +14,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../../components/ui/alert-dialog.tsx';
-import { Textarea } from '../../../../components/ui/textarea.tsx';
-import type { WarrantyTicket, WarrantyHistory } from '../../types.ts';
-import { useWarrantyStore } from '../../store.ts';
-import { usePaymentStore } from '../../../payments/store.ts';
+} from '../../../../components/ui/alert-dialog';
+import { Textarea } from '../../../../components/ui/textarea';
+import type { WarrantyTicket, WarrantyHistory } from '../../types';
+import { useWarrantyStore } from '../../store';
+import { usePaymentStore } from '../../../payments/store';
 import { asSystemId } from '@/lib/id-types';
-import { useReceiptStore } from '../../../receipts/store.ts';
-import { useOrderStore } from '../../../orders/store.ts';
-import { useAuth } from '../../../../contexts/auth-context.tsx';
-import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils.ts';
+import { useReceiptStore } from '../../../receipts/store';
+import { useOrderStore } from '../../../orders/store';
+import { useAuth } from '../../../../contexts/auth-context';
+import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
 
 interface WarrantyCancelDialogProps {
   open: boolean;
@@ -60,7 +60,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
     try {
       const timestamp = toISODateTime(getCurrentDate());
       // ✅ ROLLBACK KHO khi hủy - Phân biệt theo trạng thái
-      const { rollbackWarrantyStock, uncommitWarrantyStock } = await import('../../store/stock-management.ts');
+      const { rollbackWarrantyStock, uncommitWarrantyStock } = await import('../../store/stock-management');
       
       // Check nếu đã xuất kho (completed hoặc returned sau khi completed)
       const hasDeductedStock = ticket.stockDeducted || ticket.status === 'completed';

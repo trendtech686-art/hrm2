@@ -1,6 +1,6 @@
-import { createCrudStore } from '../../../lib/store-factory.ts';
-import { data as initialData, penaltyTypesData } from './data.ts';
-import type { Penalty, PenaltyType } from './types.ts';
+import { createCrudStore } from '../../../lib/store-factory';
+import { data as initialData, penaltyTypesData } from './data';
+import type { Penalty, PenaltyType } from './types';
 
 export const usePenaltyStore = createCrudStore<Penalty>(initialData, 'penalties', {
   businessIdField: 'id',

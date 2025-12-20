@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+/* ============================================
+   CSS VARIABLES - Light Mode
+   ============================================ */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  
+  --chart-1: oklch(0.6 0.118 254.704);
+  --chart-2: oklch(0.55 0.13 142.1);
+  --chart-3: oklch(0.7 0.15 84.6);
+  --chart-4: oklch(0.65 0.2 12.5);
+  --chart-5: oklch(0.65 0.15 282.5);
+
+  --font-sans: "Inter";
+  --font-serif: "Source Serif 4";
+  --font-mono: "Geist Mono";
+
+  --font-size-h1: 2.5rem;
+  --font-size-h2: 2rem;
+  --font-size-h3: 1.75rem;
+  --font-size-h4: 1.5rem;
+  --font-size-h5: 1.25rem;
+  --font-size-h6: 1rem;
+  
+  --touch-target: 44px;
+  --touch-target-lg: 48px;
+  --mobile-header-height: 56px;
+  --mobile-footer-height: 64px;
+  
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* ============================================
+   CSS VARIABLES - Dark Mode
+   ============================================ */
+.dark {
+  --background: oklch(0.18 0.007 264.5);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.18 0.007 264.5);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.18 0.007 264.5);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.22 0.007 264.5);
+  --secondary: oklch(0.27 0.007 264.5);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.27 0.007 264.5);
+  --muted-foreground: oklch(0.68 0.007 264.5);
+  --accent: oklch(0.27 0.007 264.5);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.45 0.18 29.234);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.27 0.007 264.5);
+  --input: oklch(0.27 0.007 264.5);
+  --ring: oklch(0.98 0 0);
+  
+  --chart-1: oklch(0.7 0.118 254.704);
+  --chart-2: oklch(0.65 0.13 142.1);
+  --chart-3: oklch(0.8 0.15 84.6);
+  --chart-4: oklch(0.75 0.2 12.5);
+  --chart-5: oklch(0.75 0.15 282.5);
+}
+
+/* ============================================
+   Tailwind v4 Theme Extension
+   ============================================ */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+html, body { 
+  height: 100%; 
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Inter, sans-serif;
+  overflow-x: hidden;
+}
+
+h1 { font-size: var(--font-size-h1); }
+h2 { font-size: var(--font-size-h2); }
+h3 { font-size: var(--font-size-h3); }
+h4 { font-size: var(--font-size-h4); }
+h5 { font-size: var(--font-size-h5); }
+h6 { font-size: var(--font-size-h6); }
+
+html.font-size-sm { font-size: 14px; }
+html.font-size-base { font-size: 16px; }
+html.font-size-lg { font-size: 18px; }
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes enter { 
+  from { 
+    opacity: var(--tw-enter-opacity, 1); 
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0) scale(var(--tw-enter-scale, 1)); 
+  } 
+}
+
+@keyframes exit { 
+  to { 
+    opacity: var(--tw-exit-opacity, 1); 
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale(var(--tw-exit-scale, 1)); 
+  } 
+}
+
+.animate-in {
+  animation: enter 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --tw-enter-opacity: initial;
+  --tw-enter-scale: initial;
+  --tw-enter-translate-x: initial;
+  --tw-enter-translate-y: initial;
+}
+
+.animate-out {
+  animation: exit 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --tw-exit-opacity: initial;
+  --tw-exit-scale: initial;
+  --tw-exit-translate-x: initial;
+  --tw-exit-translate-y: initial;
+}
+
+/* Fade */
+.fade-in { --tw-enter-opacity: 0; }
+.fade-in-0 { --tw-enter-opacity: 0; }
+.fade-out { --tw-exit-opacity: 0; }
+.fade-out-0 { --tw-exit-opacity: 0; }
+
+/* Zoom */
+.zoom-in-95 { --tw-enter-scale: 0.95; }
+.zoom-out-95 { --tw-exit-scale: 0.95; }
+
+/* Slide */
+.slide-in-from-top-2 { --tw-enter-translate-y: -0.5rem; }
+.slide-in-from-bottom-2 { --tw-enter-translate-y: 0.5rem; }
+.slide-in-from-left-2 { --tw-enter-translate-x: -0.5rem; }
+.slide-in-from-right-2 { --tw-enter-translate-x: 0.5rem; }
+.slide-out-to-top-2 { --tw-exit-translate-y: -0.5rem; }
+.slide-out-to-bottom-2 { --tw-exit-translate-y: 0.5rem; }
+.slide-out-to-left-2 { --tw-exit-translate-x: -0.5rem; }
+.slide-out-to-right-2 { --tw-exit-translate-x: 0.5rem; }
+
+/* ============================================
+   Scrollbar
+   ============================================ */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.scrollbar-thin { scrollbar-width: thin; }
+.scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================
+   TipTap Editor
+   ============================================ */
+.tiptap { outline: none; }
+.tiptap p.is-editor-empty:first-child::before {
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.tiptap .mention {
+  background-color: oklch(from var(--primary) l c h / 0.1);
+  color: var(--primary);
+  padding: 0.125rem 0.375rem;
+  border-radius: calc(var(--radius) - 2px);
+  font-weight: 500;
+}
+.tiptap img { max-width: 100%; height: auto; border-radius: var(--radius); margin: 0.5rem 0; }
+.tiptap strong { font-weight: 600; }
+.tiptap em { font-style: italic; }
+.tiptap ul, .tiptap ol { padding: 0 1rem; margin: 0.5rem 0; }
+.tiptap blockquote { padding-left: 1rem; border-left: 2px solid var(--border); }
+.tiptap code {
+  background-color: var(--muted);
+  padding: 0.125rem 0.25rem;
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 0.875em;
+  font-family: var(--font-mono);
+}
+
+/* ============================================
+   Tippy/Mention dropdown
+   ============================================ */
+.tippy-box[data-theme~='mention'] { 
+  background-color: transparent !important; 
+  border: none !important; 
+  padding: 0 !important; 
+  box-shadow: none !important; 
+}
+.tippy-box[data-theme~='mention'] .tippy-content { padding: 0 !important; }
+
+/* ============================================
+   Kbd
+   ============================================ */
+kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--foreground);
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 4px);
+  box-shadow: 0 1px 0 var(--border);
+}

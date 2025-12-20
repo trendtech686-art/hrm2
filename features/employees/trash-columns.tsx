@@ -1,14 +1,14 @@
 ﻿import * as React from "react";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
-import type { Employee } from './types.ts'
-import type { Branch } from "../settings/branches/types.ts";
-import { Checkbox } from "../../components/ui/checkbox.tsx"
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from "../../components/ui/button.tsx";
+import type { Employee } from './types'
+import type { Branch } from "../settings/branches/types";
+import { Checkbox } from "../../components/ui/checkbox"
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
+import { Badge } from "../../components/ui/badge"
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from "../../components/ui/button";
 import { Trash2, RotateCcw } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip.tsx";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 
 
 export const getColumns = (

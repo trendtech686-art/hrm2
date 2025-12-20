@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { StatsCard } from '../../../components/ui/stats-card.tsx';
+import { StatsCard } from '../../../components/ui/stats-card';
 
 type SummaryTrend = {
   value: number;

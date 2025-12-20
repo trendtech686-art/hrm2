@@ -1,11 +1,11 @@
 ﻿import * as React from "react";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { SalesReturn } from './types.ts';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Link } from "react-router-dom";
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import type { SalesReturn } from './types';
+import type { ColumnDef } from '../../components/data-table/types';
+import { Link } from '@/lib/next-compat';
+import { Checkbox } from "../../components/ui/checkbox";
+import { Button } from "../../components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { MoreHorizontal, Printer } from "lucide-react";
 
 const formatCurrency = (value?: number) => {

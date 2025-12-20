@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { LeaveRequest } from './types.ts';
+import type { LeaveRequest } from './types';
 
 const SEED_AUTHOR = asSystemId('EMP000001');
 const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({

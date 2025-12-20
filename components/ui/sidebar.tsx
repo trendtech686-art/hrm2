@@ -1,7 +1,7 @@
 import * as React from "react"
-import { cn } from "../../lib/utils.ts"
-import { useUiStore } from '../../lib/ui-store.ts'
-import { ScrollArea } from "./scroll-area.tsx"
+import { cn } from "../../lib/utils"
+import { useUiStore } from '../../lib/ui-store'
+import { ScrollArea } from "./scroll-area"
 
 const Sidebar = React.forwardRef<
   HTMLElement,

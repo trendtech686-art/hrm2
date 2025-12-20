@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar.tsx';
-import { Badge } from '../ui/badge.tsx';
-import { ScrollArea } from '../ui/scroll-area.tsx';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Badge } from '../ui/badge';
+import { ScrollArea } from '../ui/scroll-area';
 import {
   FileText,
   MessageSquare,

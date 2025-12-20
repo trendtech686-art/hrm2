@@ -1,35 +1,37 @@
+'use client'
+
 import * as React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from '@/lib/next-compat';
 import { PlusCircle, Trash2, MoreVertical, Phone, Mail, Building2, Clock, UserX, CreditCard, HeartPulse, X, FileSpreadsheet, Download } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import Fuse from 'fuse.js';
 
-import { useCustomerStore } from "./store.ts";
-import { useCustomerTypeStore } from "../settings/customers/customer-types-store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { type Customer } from "./types.ts";
-import { getColumns } from "./columns.tsx";
-import { BulkActionConfirmDialog } from "./components/bulk-action-confirm-dialog.tsx";
-import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams, type CustomerSortKey } from "./customer-service.ts";
-import { usePersistentState } from "../../hooks/use-persistent-state.ts";
+import { useCustomerStore } from "./store";
+import { useCustomerTypeStore } from "../settings/customers/customer-types-store";
+import { useBranchStore } from "../settings/branches/store";
+import { type Customer } from "./types";
+import { getColumns } from "./columns";
+import { BulkActionConfirmDialog } from "./components/bulk-action-confirm-dialog";
+import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams, type CustomerSortKey } from "./customer-service";
+import { usePersistentState } from "../../hooks/use-persistent-state";
 import { asSystemId, asBusinessId, type SystemId } from "../../lib/id-types";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
-import { useDebounce } from "../../hooks/use-debounce.ts";
-import { isDateAfter, isDateBefore } from "../../lib/date-utils.ts";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useMediaQuery } from "../../lib/use-media-query";
+import { useDebounce } from "../../hooks/use-debounce";
+import { isDateAfter, isDateBefore } from "../../lib/date-utils";
 import {
   customerImportExportConfig,
-} from "../../lib/import-export/configs/customer.config.ts";
+} from "../../lib/import-export/configs/customer.config";
 
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { MobileSearchBar } from "../../components/mobile/mobile-search-bar.tsx";
-import { TouchButton } from "../../components/mobile/touch-button.tsx";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
+import { PageFilters } from "../../components/layout/page-filters";
+import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
+import { TouchButton } from "../../components/mobile/touch-button";
 import { useCustomerSlaEvaluation } from "./sla/hooks";
 import { useCustomersQuery } from "./hooks/use-customers-query";
 import { useCustomersWithComputedDebt } from "./hooks/use-computed-debt";
@@ -37,7 +39,7 @@ import { useCustomersWithComputedDebt } from "./hooks/use-computed-debt";
 import {
   Card,
   CardContent,
-} from "../../components/ui/card.tsx";
+} from "../../components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,23 +49,23 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx";
+} from "../../components/ui/alert-dialog";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu.tsx";
+} from "../../components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx";
+} from "../../components/ui/select";
 
 const TABLE_STATE_STORAGE_KEY = "customers-table-state";
 const MOBILE_ROW_HEIGHT = 190;

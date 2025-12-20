@@ -1,0 +1,39 @@
+// ═══════════════════════════════════════════════════════════════
+// WARRANTY ACTIVITY MODEL
+// ═══════════════════════════════════════════════════════════════
+// Tracks warranty claims and service activities
+// ═══════════════════════════════════════════════════════════════
+
+model WarrantyActivity {
+  systemId          String        @id @default(uuid())
+  
+  // Parent Warranty
+  warrantyId        String
+  warranty          Warranty      @relation(fields: [warrantyId], references: [systemId])
+  
+  // Activity details
+  activityDate      DateTime      @default(now())
+  activityType      String        // claim, repair, replacement, inspection
+  
+  // Problem & Solution
+  problem           String?
+  solution          String?
+  
+  // Cost
+  laborCost         Decimal       @default(0) @db.Decimal(15, 2)
+  partsCost         Decimal       @default(0) @db.Decimal(15, 2)
+  totalCost         Decimal       @default(0) @db.Decimal(15, 2)
+  
+  // Status
+  status            String        @default("pending") // pending, in_progress, completed
+  
+  // Notes
+  notes             String?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  
+  @@map("warranty_activities")
+}

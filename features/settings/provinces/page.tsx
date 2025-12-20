@@ -1,24 +1,24 @@
 import * as React from "react";
 import * as XLSX from "xlsx";
 import Fuse from "fuse.js";
-import { useProvinceStore } from "./store.ts";
+import { useProvinceStore } from "./store";
 import { asSystemId, asBusinessId } from "@/lib/id-types";
-import { ProvinceForm, type ProvinceFormValues } from "./form.tsx";
-import { WardForm, type WardFormValues } from "./ward-form.tsx";
-import { DistrictForm, type DistrictFormValues } from "./district-form.tsx";
-import type { Province, Ward, District } from "./types.ts";
-import { useSettingsPageHeader } from "../use-settings-page-header.tsx";
-import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import { ProvinceForm, type ProvinceFormValues } from "./form";
+import { WardForm, type WardFormValues } from "./ward-form";
+import { DistrictForm, type DistrictFormValues } from "./district-form";
+import type { Province, Ward, District } from "./types";
+import { useSettingsPageHeader } from "../use-settings-page-header";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../../../components/ui/card.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { ScrollArea } from "../../../components/ui/scroll-area.tsx";
+} from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { ScrollArea } from "../../../components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +26,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog.tsx";
+} from "../../../components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,12 +36,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../../components/ui/alert-dialog.tsx";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs.tsx";
+} from "../../../components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { PlusCircle, Search, Upload, Download, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "../../../lib/utils.ts";
+import { cn } from "../../../lib/utils";
 import { toast } from 'sonner';
-import { SortableCard } from "../../../components/settings/SortableCard.tsx";
+import { SortableCard } from "../../../components/settings/SortableCard";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 function useDebounce<T>(value: T, delay: number): T {

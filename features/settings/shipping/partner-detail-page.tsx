@@ -3,8 +3,10 @@
  * Full page for managing a single partner's configuration
  */
 
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/next-compat';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Button } from '../../../components/ui/button';
 import { Plus } from 'lucide-react';

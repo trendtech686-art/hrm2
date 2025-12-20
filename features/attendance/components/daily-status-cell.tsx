@@ -1,7 +1,7 @@
 import * as React from 'react';
-import type { DailyRecord, AttendanceStatus } from '../types.ts';
-import { cn } from '../../../lib/utils.ts';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip.tsx';
+import type { DailyRecord, AttendanceStatus } from '../types';
+import { cn } from '../../../lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
 
 const statusStyles: Record<AttendanceStatus, { symbol: string; className: string, description: string; }> = {
   present: { symbol: '✓', className: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300', description: 'Đi làm đủ' },

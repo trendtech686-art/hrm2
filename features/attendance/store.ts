@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AttendanceDataRow, AttendanceDayKey, DailyRecord } from './types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
+import type { AttendanceDataRow, AttendanceDayKey, DailyRecord } from './types';
+import type { SystemId } from '../../lib/id-types';
 
 type AttendanceStoreState = {
   lockedMonths: Record<string, boolean>; // key: "YYYY-MM"

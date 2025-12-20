@@ -12,17 +12,17 @@
  */
 
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { Package, Eye } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table.tsx';
-import { useProductStore } from '../../features/products/store.ts';
-import { useProductTypeStore } from '../../features/settings/inventory/product-type-store.ts';
-import { usePricingPolicyStore } from '../../features/settings/pricing/store.ts';
-import { useBranchStore } from '../../features/settings/branches/store.ts';
-import { useProductImage } from '../../features/products/components/product-image.tsx';
-import { ImagePreviewDialog } from '../ui/image-preview-dialog.tsx';
-import type { Product } from '../../features/products/types.ts';
-import type { SystemId } from '@/lib/id-types.ts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
+import { useProductStore } from '../../features/products/store';
+import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
+import { usePricingPolicyStore } from '../../features/settings/pricing/store';
+import { useBranchStore } from '../../features/settings/branches/store';
+import { useProductImage } from '../../features/products/components/product-image';
+import { ImagePreviewDialog } from '../ui/image-preview-dialog';
+import type { Product } from '../../features/products/types';
+import type { SystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

@@ -8,21 +8,21 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Checkbox } from "../../../components/ui/checkbox.tsx";
-import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group.tsx";
+} from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { Button } from "../../../components/ui/button";
+import { Checkbox } from "../../../components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select.tsx";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import type { EmployeeFormValues } from "../employee-form.tsx";
-import type { SalaryComponent, WorkShift } from "../../settings/employees/types.ts";
+} from "../../../components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import type { EmployeeFormValues } from "../employee-form";
+import type { SalaryComponent, WorkShift } from "../../settings/employees/types";
 
 interface EmployeePayrollTabProps {
   form: UseFormReturn<EmployeeFormValues, any, EmployeeFormValues>;

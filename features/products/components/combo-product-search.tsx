@@ -8,16 +8,16 @@
 
 import * as React from 'react';
 import { Package, AlertTriangle } from 'lucide-react';
-import type { Product } from '../types.ts';
-import { useProductStore } from '../store.ts';
-import { usePricingPolicyStore } from '../../settings/pricing/store.ts';
-import { useBranchStore } from '../../settings/branches/store.ts';
-import { useImageStore } from '../image-store.ts';
-import { FileUploadAPI } from '../../../lib/file-upload-api.ts';
-import { LazyImage } from '../../../components/ui/lazy-image.tsx';
-import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox.tsx';
-import { canAddToCombo } from '../combo-utils.ts';
-import type { SystemId } from '@/lib/id-types.ts';
+import type { Product } from '../types';
+import { useProductStore } from '../store';
+import { usePricingPolicyStore } from '../../settings/pricing/store';
+import { useBranchStore } from '../../settings/branches/store';
+import { useImageStore } from '../image-store';
+import { FileUploadAPI } from '../../../lib/file-upload-api';
+import { LazyImage } from '../../../components/ui/lazy-image';
+import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
+import { canAddToCombo } from '../combo-utils';
+import type { SystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

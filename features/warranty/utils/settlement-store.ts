@@ -1,5 +1,5 @@
-import type { SettlementMethod, SettlementStatus, SettlementType, WarrantySettlement, WarrantyTicket } from '../types.ts';
-import { useWarrantyStore } from '../store.ts';
+import type { SettlementMethod, SettlementStatus, SettlementType, WarrantySettlement, WarrantyTicket } from '../types';
+import { useWarrantyStore } from '../store';
 
 export interface SettlementMethodInput extends Partial<SettlementMethod> {
   type: SettlementMethod['type'];

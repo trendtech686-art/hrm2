@@ -1,20 +1,21 @@
+'use client'
+
 import * as React from 'react';
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, toISODate } from '@/lib/date-utils';
-import { useCustomerStore } from './store.ts';
+import { useCustomerStore } from './store';
 import { asSystemId } from '@/lib/id-types';
-import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form';
+import { usePageHeader } from '../../contexts/page-header-context';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import type { Customer } from './types.ts';
+} from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import type { Customer } from './types';
 export function CustomerFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const navigate = useNavigate();

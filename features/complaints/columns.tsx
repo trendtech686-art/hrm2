@@ -1,9 +1,11 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ColumnDef } from '../../components/data-table/types.ts';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { ColumnDef } from '../../components/data-table/types';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { 
   Clock,
   AlertCircle,
@@ -23,11 +25,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu.tsx';
-import { formatDate } from '../../lib/date-utils.ts';
-import { Complaint, complaintStatusLabels, complaintStatusColors, complaintTypeLabels, complaintTypeColors } from './types.ts';
-import { checkOverdue, formatTimeLeft } from './sla-utils.ts';
-import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from './tracking-utils.ts';
+} from '../../components/ui/dropdown-menu';
+import { formatDate } from '../../lib/date-utils';
+import { Complaint, complaintStatusLabels, complaintStatusColors, complaintTypeLabels, complaintTypeColors } from './types';
+import { checkOverdue, formatTimeLeft } from './sla-utils';
+import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from './tracking-utils';
 import { toast } from 'sonner';
 
 export const getColumns = (

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import type { WarrantyTicket } from '../types.ts';
+import type { WarrantyTicket } from '../types';
 
 interface CurrentUser {
   name: string;

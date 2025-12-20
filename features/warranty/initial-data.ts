@@ -1,5 +1,5 @@
-﻿import type { WarrantyTicket } from './types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+﻿import type { WarrantyTicket } from './types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 /**

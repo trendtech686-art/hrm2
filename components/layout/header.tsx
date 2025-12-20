@@ -1,8 +1,9 @@
+'use client'
+
 import * as React from 'react';
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from '@/lib/next-compat';
 import { ChevronRight, User, Menu, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
-import { Button } from '../ui/button.tsx';
+import { Button } from '../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,14 +11,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu.tsx"
-import { useUiStore } from '../../lib/ui-store.ts';
-import { ResponsiveContainer } from '../ui/responsive-container.tsx';
-import { usePageHeaderContext } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
+} from "../ui/dropdown-menu"
+import { useUiStore } from '../../lib/ui-store';
+import { ResponsiveContainer } from '../ui/responsive-container';
+import { usePageHeaderContext } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { NotificationCenter } from '../ui/notification-center.tsx';
+import { useAuth } from '../../contexts/auth-context';
+import { NotificationCenter } from '../ui/notification-center';
 
 export function Header() {
   const { toggleSidebar, toggleSidebarCollapse, isSidebarCollapsed } = useUiStore();

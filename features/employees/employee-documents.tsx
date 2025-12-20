@@ -1,13 +1,13 @@
 ﻿import * as React from 'react';
 import { formatDate } from '@/lib/date-utils';
-import { getBaseUrl, getFileUrl } from '../../lib/api-config.ts';
-import { useDocumentStore } from './document-store.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { ProgressiveImage } from '../../components/ui/progressive-image.tsx';
-import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog.tsx';
+import { getBaseUrl, getFileUrl } from '../../lib/api-config';
+import { useDocumentStore } from './document-store';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
+import { ProgressiveImage } from '../../components/ui/progressive-image';
+import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { 
   Download, 
@@ -22,7 +22,7 @@ import {
   Archive,
   X
 } from 'lucide-react';
-import type { EmployeeDocument, ServerFile } from './document-store.ts';
+import type { EmployeeDocument, ServerFile } from './document-store';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 

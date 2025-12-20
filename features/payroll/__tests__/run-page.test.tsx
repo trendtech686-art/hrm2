@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { PageHeaderProvider } from '../../../contexts/page-header-context.tsx';
-import { PayrollRunPage } from '../run-page.tsx';
+import { MemoryRouter } from '@/lib/next-compat';
+import { PageHeaderProvider } from '../../../contexts/page-header-context';
+import { PayrollRunPage } from '../run-page';
 
 function renderPage() {
   return render(

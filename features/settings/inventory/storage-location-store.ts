@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
-import type { StorageLocation } from './storage-location-types.ts';
+import type { StorageLocation } from './storage-location-types';
 
 interface StorageLocationStore {
   data: StorageLocation[];

@@ -2,14 +2,14 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { ReceiptType } from "./types.ts";
-import { useReceiptTypeStore } from "./store.ts";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Textarea } from "../../../components/ui/textarea.tsx";
-import { Checkbox } from "../../../components/ui/checkbox.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
+import type { ReceiptType } from "./types";
+import { useReceiptTypeStore } from "./store";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { Textarea } from "../../../components/ui/textarea";
+import { Checkbox } from "../../../components/ui/checkbox";
+import { Label } from "../../../components/ui/label";
+import { Switch } from "../../../components/ui/switch";
 
 const formSchema = z.object({
   id: z.string().min(1, "Mã loại là bắt buộc"),

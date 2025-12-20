@@ -10,7 +10,7 @@ export {
   useSalesProductReport,
   useSalesBranchReport,
   useSalesCustomerReport,
-} from './use-sales-report.ts';
+} from './use-sales-report';
 
 // TODO: Fix delivery report hooks to match Shipment types
 // export {
@@ -19,4 +19,4 @@ export {
 //   useDeliveryCarrierReport,
 //   useDeliveryBranchReport,
 //   useDeliveryCustomerReport,
-// } from './use-delivery-report.ts';
+// } from './use-delivery-report';

@@ -1,0 +1,31 @@
+// ═══════════════════════════════════════════════════════════════
+// ID COUNTER MODEL
+// ═══════════════════════════════════════════════════════════════
+// Tracks next ID number for each entity type
+// ═══════════════════════════════════════════════════════════════
+
+model IdCounter {
+  systemId          String        @id @default(uuid())
+  
+  // Entity type
+  entityType        String        // EMPLOYEE, ORDER, CUSTOMER, etc.
+  
+  // Counters
+  systemIdCounter   Int           @default(0)   // For EMP, ORDER prefix
+  businessIdCounter Int           @default(0)   // For NV, DH prefix
+  
+  // Format settings
+  systemPrefix      String                      // EMP, ORDER, CUSTOMER
+  businessPrefix    String                      // NV, DH, KH
+  digitCount        Int           @default(6)   // 6 or 10
+  
+  // Branch specific (optional)
+  branchId          String?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@unique([entityType, branchId])
+  @@map("id_counters")
+}

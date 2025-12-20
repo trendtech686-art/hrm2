@@ -3,21 +3,23 @@
  * Hiển thị thông tin batch ở mobile view
  */
 
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { Calendar, Users, Wallet, MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/card.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Button } from '../../../components/ui/button.tsx';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
-import type { PayrollBatch } from '../../../lib/payroll-types.ts';
-import { ROUTES } from '../../../lib/router.ts';
+} from '../../../components/ui/dropdown-menu';
+import type { PayrollBatch } from '../../../lib/payroll-types';
+import { ROUTES } from '../../../lib/router';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {

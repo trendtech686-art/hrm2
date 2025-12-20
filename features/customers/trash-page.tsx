@@ -1,17 +1,19 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { formatDate, formatDateTime } from '@/lib/date-utils'
 import { toast } from "sonner"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useCustomerStore } from "./store.ts"
-import { getColumns } from "./trash-columns.tsx"
-import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
-import { Card, CardContent } from "../../components/ui/card.tsx"
-import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
-import { Button } from "../../components/ui/button.tsx"
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useCustomerStore } from "./store"
+import { getColumns } from "./trash-columns"
+import { GenericTrashPage } from "../../components/shared/generic-trash-page"
+import { Card, CardContent } from "../../components/ui/card"
+import { Avatar, AvatarFallback } from "../../components/ui/avatar"
+import { Badge } from "../../components/ui/badge"
+import { Button } from "../../components/ui/button"
 import { ArrowLeft, RotateCcw, Trash2, Phone, Mail, Building2 } from "lucide-react"
-import type { Customer } from "./types.ts"
+import type { Customer } from "./types"
 import type { SystemId } from '@/lib/id-types'
 
 export function CustomersTrashPage() {

@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import {
   Store,
   MapPin,
@@ -31,13 +33,13 @@ import {
   ListTodo,
   Globe,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { SettingsActionButton } from '../../components/settings/SettingsActionButton.tsx';
-import { MobileSearchBar } from '../../components/mobile/mobile-search-bar.tsx';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
-import { useSettingsPageHeader } from './use-settings-page-header.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { SettingsActionButton } from '../../components/settings/SettingsActionButton';
+import { MobileSearchBar } from '../../components/mobile/mobile-search-bar';
+import { useMediaQuery } from '../../lib/use-media-query';
+import { useSettingsPageHeader } from './use-settings-page-header';
+import { Button } from '../../components/ui/button';
 
 type SettingsItem = {
   icon: React.ElementType;

@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import type { SalaryComponent, WorkShift } from '../settings/employees/types.ts';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import type { SalaryComponent, WorkShift } from '../settings/employees/types';
 
 export type PayrollBankAccount = {
   accountNumber?: string | undefined;

@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { Star, Pencil, Trash2 } from 'lucide-react';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import type { PayrollTemplate } from '../../lib/payroll-types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
+import { Card, CardContent } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import type { PayrollTemplate } from '../../lib/payroll-types';
+import type { SystemId } from '../../lib/id-types';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface TemplateCardProps {

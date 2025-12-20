@@ -1,0 +1,59 @@
+// ═══════════════════════════════════════════════════════════════
+// SHIPMENT MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: SHIP0000000001 (English, 10 digits)
+// BusinessId: VC0000000001 (Vietnamese - Vận chuyển, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Shipment {
+  systemId          String          @id           // SHIP0000000001
+  id                String          @unique       // VC0000000001
+  
+  // Related Order
+  orderId           String?
+  order             Order?          @relation(fields: [orderId], references: [systemId])
+  
+  // Branch
+  branchId          String?
+  branch            Branch?         @relation(fields: [branchId], references: [systemId])
+  
+  // Carrier
+  carrier           String?
+  trackingNumber    String?
+  
+  // Status
+  status            ShipmentStatus  @default(PENDING)
+  
+  // Dates
+  shipDate          DateTime?
+  expectedDelivery  DateTime?
+  actualDelivery    DateTime?
+  
+  // Shipping details
+  shippingFee       Decimal         @default(0) @db.Decimal(15, 2)
+  codAmount         Decimal         @default(0) @db.Decimal(15, 2)
+  weight            Decimal?        @db.Decimal(10, 3)
+  
+  // Recipient
+  recipientName     String?
+  recipientPhone    String?
+  recipientAddress  String?
+  recipientProvince String?
+  recipientDistrict String?
+  recipientWard     String?
+  
+  // Notes
+  notes             String?
+  
+  // Soft delete
+  isDeleted         Boolean         @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("shipments")
+}

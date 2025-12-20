@@ -1,0 +1,45 @@
+// ═══════════════════════════════════════════════════════════════
+// PAYMENT METHOD MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PM000001 (English, 6 digits)
+// BusinessId: HTTT000001 (Vietnamese - Hình thức thanh toán, 6 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model PaymentMethod {
+  systemId          String        @id           // PM000001
+  id                String        @unique       // HTTT000001
+  
+  // Basic info
+  name              String
+  code              String        @unique
+  description       String?
+  
+  // Type
+  type              String        // cash, card, bank_transfer, e_wallet, cod
+  
+  // Display
+  sortOrder         Int           @default(0)
+  icon              String?
+  
+  // Settings
+  isActive          Boolean       @default(true)
+  isDefault         Boolean       @default(false)
+  requiresReference Boolean       @default(false)
+  
+  // Fees
+  feeType           String?       // fixed, percentage
+  feeAmount         Decimal       @default(0) @db.Decimal(15, 2)
+  feePercent        Decimal       @default(0) @db.Decimal(5, 2)
+  
+  // Soft delete
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("payment_methods")
+}

@@ -4,8 +4,8 @@
  * Cấu hình xuất dữ liệu vận đơn
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types.ts';
-import type { ShipmentView } from '../../../features/shipments/types.ts';
+import type { ImportExportConfig, FieldConfig } from '../types';
+import type { ShipmentView } from '../../../features/shipments/types';
 
 const fields: FieldConfig<ShipmentView>[] = [
   // Group: Thông tin chung

@@ -1,13 +1,13 @@
 ﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import * as ReactRouterDOM from 'react-router-dom';
-import type { StockHistoryEntry } from './types.ts';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import type { PurchaseOrder } from '../purchase-orders/types.ts';
-import type { InventoryReceipt } from '../inventory-receipts/types.ts';
-import type { Order } from '../orders/types.ts';
-import type { WarrantyTicket } from '../warranty/types.ts';
-import type { InventoryCheck } from '../inventory-checks/types.ts';
-import type { StockTransfer } from '../stock-transfers/types.ts';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import type { StockHistoryEntry } from './types';
+import type { ColumnDef } from '../../components/data-table/types';
+import type { PurchaseOrder } from '../purchase-orders/types';
+import type { InventoryReceipt } from '../inventory-receipts/types';
+import type { Order } from '../orders/types';
+import type { WarrantyTicket } from '../warranty/types';
+import type { InventoryCheck } from '../inventory-checks/types';
+import type { StockTransfer } from '../stock-transfers/types';
 
 
 

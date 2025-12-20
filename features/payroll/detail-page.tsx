@@ -1,12 +1,14 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link } from '@/lib/next-compat';
 import { ArrowLeft, Printer, FileText, Download, Lock, Unlock, CheckCircle2, Banknote, ExternalLink } from 'lucide-react';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Separator } from '../../components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
+import { Textarea } from '../../components/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,24 +18,24 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
-import { Label } from '../../components/ui/label.tsx';
+} from '../../components/ui/alert-dialog';
+import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
-import { ROUTES } from '../../lib/router.ts';
-import { usePayrollBatchStore } from './payroll-batch-store.ts';
-import { usePayrollTemplateStore } from './payroll-template-store.ts';
-import { PayrollStatusBadge } from './components/status-badge.tsx';
-import { PayslipDataTable, type PayslipRow, type PayslipActions } from './components/payslip-data-table.tsx';
-import { PayslipEditDialog, type PayslipUpdatePayload } from './components/payslip-edit-dialog.tsx';
-import { CreatePaymentDialog } from './components/create-payment-dialog.tsx';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useDepartmentStore } from '../settings/departments/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { usePenaltyStore } from '../settings/penalties/store.ts';
-import type { PayrollAuditAction, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types.ts';
-import { ensureSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
-import { usePrint } from '../../lib/use-print.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { ROUTES } from '../../lib/router';
+import { usePayrollBatchStore } from './payroll-batch-store';
+import { usePayrollTemplateStore } from './payroll-template-store';
+import { PayrollStatusBadge } from './components/status-badge';
+import { PayslipDataTable, type PayslipRow, type PayslipActions } from './components/payslip-data-table';
+import { PayslipEditDialog, type PayslipUpdatePayload } from './components/payslip-edit-dialog';
+import { CreatePaymentDialog } from './components/create-payment-dialog';
+import { useEmployeeStore } from '../employees/store';
+import { useDepartmentStore } from '../settings/departments/store';
+import { usePaymentStore } from '../payments/store';
+import { usePenaltyStore } from '../settings/penalties/store';
+import type { PayrollAuditAction, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types';
+import { ensureSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
+import { usePrint } from '../../lib/use-print';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import {
   convertPayrollBatchForPrint,
   convertPayslipForPrint,
@@ -42,13 +44,13 @@ import {
   mapPayslipToPrintData,
   mapPayslipComponentLineItems,
   createStoreSettings,
-} from '../../lib/print/payroll-print-helper.ts';
-import { mapPaymentToPrintData, type PaymentForPrint } from '../../lib/print-mappers/payment.mapper.ts';
-import { convertPenaltyForPrint, createStoreSettings as createPenaltyStoreSettings } from '../../lib/print/penalty-print-helper.ts';
-import { mapPenaltyToPrintData } from '../../lib/print-mappers/penalty.mapper.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult, PaperSize } from '../../components/shared/simple-print-options-dialog.tsx';
+} from '../../lib/print/payroll-print-helper';
+import { mapPaymentToPrintData, type PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
+import { convertPenaltyForPrint, createStoreSettings as createPenaltyStoreSettings } from '../../lib/print/penalty-print-helper';
+import { mapPenaltyToPrintData } from '../../lib/print-mappers/penalty.mapper';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult, PaperSize } from '../../components/shared/simple-print-options-dialog';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 
 // =============================================
@@ -1154,7 +1156,7 @@ export function PayrollDetailPage() {
         onOpenChange={setIsCreatePaymentOpen}
         batch={batch}
         payslips={payslips}
-        employeeLookup={employeeLookup as Record<SystemId, import('../employees/types.ts').Employee | undefined>}
+        employeeLookup={employeeLookup as Record<SystemId, import('../employees/types').Employee | undefined>}
       />
 
       {/* Audit Logs - ActivityHistory */}

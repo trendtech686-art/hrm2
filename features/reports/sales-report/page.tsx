@@ -1,16 +1,16 @@
 import * as React from 'react';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
-import { useOrderStore } from '../../orders/store.ts';
-import { useProductStore } from '../../products/store.ts';
-import type { OrderWithProfit } from './types.ts';
-import { getColumns } from './columns.tsx';
-import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table.tsx';
-import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
+import { usePageHeader } from '../../../contexts/page-header-context';
+import { useOrderStore } from '../../orders/store';
+import { useProductStore } from '../../products/store';
+import type { OrderWithProfit } from './types';
+import { getColumns } from './columns';
+import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
+import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
 import Fuse from 'fuse.js';
 import { Download } from 'lucide-react';
-import { ROUTES } from '../../../lib/router.ts';
+import { ROUTES } from '../../../lib/router';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || Number.isNaN(value)) return '0';

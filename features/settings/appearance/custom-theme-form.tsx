@@ -1,13 +1,13 @@
 import * as React from 'react';
-import type { CustomThemeConfig, FontSize } from './store.ts';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../../components/ui/accordion.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Slider } from '../../../components/ui/slider.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover.tsx';
-import { ColorPicker } from '../../../components/ui/color-picker.tsx';
-import { ToggleGroup, ToggleGroupItem } from '../../../components/ui/toggle-group.tsx';
+import type { CustomThemeConfig, FontSize } from './store';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../../components/ui/accordion';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Slider } from '../../../components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
+import { ColorPicker } from '../../../components/ui/color-picker';
+import { ToggleGroup, ToggleGroupItem } from '../../../components/ui/toggle-group';
 
 
 const ColorInputWithPicker = ({ label, value, onChange }: { label: string, value: string, onChange: (value: string) => void }) => {

@@ -1,6 +1,6 @@
 import * as React from "react";
-import { Tabs, TabsList, TabsTrigger } from "../ui/tabs.tsx";
-import { cn } from "../../lib/utils.ts";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
+import { cn } from "../../lib/utils";
 
 type SettingsVerticalTabsItem = {
   value: string;

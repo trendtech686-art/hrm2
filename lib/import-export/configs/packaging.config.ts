@@ -4,8 +4,8 @@
  * Cấu hình xuất dữ liệu phiếu đóng gói
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types.ts';
-import type { PackagingSlip } from '../../../features/packaging/types.ts';
+import type { ImportExportConfig, FieldConfig } from '../types';
+import type { PackagingSlip } from '../../../features/packaging/types';
 
 const fields: FieldConfig<PackagingSlip>[] = [
   // Group: Thông tin chung

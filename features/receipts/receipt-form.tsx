@@ -1,6 +1,8 @@
+'use client'
+
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { useReceiptTypeStore } from '../settings/receipt-types/store';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
 import { useTargetGroupStore } from '../settings/target-groups/store';

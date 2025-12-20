@@ -1,10 +1,10 @@
 ﻿import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { ReconciliationItem } from './page.tsx';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
+import type { ReconciliationItem } from './page';
+import type { ColumnDef } from '../../components/data-table/types';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Badge } from '../../components/ui/badge';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
     return new Intl.NumberFormat('vi-VN').format(value);

@@ -1,18 +1,20 @@
-﻿import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+﻿'use client'
+
+import * as React from 'react';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import { useLeaveStore } from './store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { useLeaveStore } from './store';
+import { usePageHeader } from '../../contexts/page-header-context';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { Edit } from 'lucide-react';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import type { LeaveStatus } from './types.ts';
+import { DetailField } from '../../components/ui/detail-field';
+import { Badge } from '../../components/ui/badge';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { useAuth } from '../../contexts/auth-context';
+import type { LeaveStatus } from './types';
 
 const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = {
     "Chờ duyệt": "warning",

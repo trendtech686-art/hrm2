@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { NewDocumentsUpload } from './new-documents-upload.tsx';
-import type { StagingFile } from '../../lib/file-upload-api.ts';
+import { NewDocumentsUpload } from './new-documents-upload';
+import type { StagingFile } from '../../lib/file-upload-api';
 
 type ImageUploadManagerProps = {
   /**

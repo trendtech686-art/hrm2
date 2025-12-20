@@ -1,22 +1,22 @@
 import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
-import type { Product, WebsiteSeoData } from "./types.ts";
-import { useProductStore } from "./store.ts";
-import { usePricingPolicyStore } from '../settings/pricing/store.ts';
-import { useUnitStore } from "../settings/units/store.ts";
-import { useSupplierStore } from "../suppliers/store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useSlaSettingsStore } from "../settings/inventory/sla-settings-store.ts";
-import { useProductLogisticsSettingsStore } from "../settings/inventory/logistics-settings-store.ts";
-import { useStorageLocationStore } from "../settings/inventory/storage-location-store.ts";
-import { useBrandStore } from "../settings/inventory/brand-store.ts";
-import { useImporterStore } from "../settings/inventory/importer-store.ts";
-import { useProductTypeStore } from "../settings/inventory/product-type-store.ts";
-import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts";
-import { ImageUploadManager } from '../../components/ui/image-upload-manager.tsx';
-import { useImageUpload } from '../../hooks/use-image-upload.ts';
+import type { Product, WebsiteSeoData } from "./types";
+import { useProductStore } from "./store";
+import { usePricingPolicyStore } from '../settings/pricing/store';
+import { useUnitStore } from "../settings/units/store";
+import { useSupplierStore } from "../suppliers/store";
+import { useBranchStore } from "../settings/branches/store";
+import { useSlaSettingsStore } from "../settings/inventory/sla-settings-store";
+import { useProductLogisticsSettingsStore } from "../settings/inventory/logistics-settings-store";
+import { useStorageLocationStore } from "../settings/inventory/storage-location-store";
+import { useBrandStore } from "../settings/inventory/brand-store";
+import { useImporterStore } from "../settings/inventory/importer-store";
+import { useProductTypeStore } from "../settings/inventory/product-type-store";
+import { useProductCategoryStore } from "../settings/inventory/product-category-store";
+import { ImageUploadManager } from '../../components/ui/image-upload-manager';
+import { useImageUpload } from '../../hooks/use-image-upload';
 import { toast } from 'sonner';
-import { MIN_COMBO_ITEMS, MAX_COMBO_ITEMS } from './combo-utils.ts';
+import { MIN_COMBO_ITEMS, MAX_COMBO_ITEMS } from './combo-utils';
 import {
   Form,
   FormControl,
@@ -25,29 +25,29 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from "../../components/ui/form.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { TipTapEditor } from "../../components/ui/tiptap-editor.tsx";
-import { CurrencyInput } from "../../components/ui/currency-input.tsx";
+} from "../../components/ui/form";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { TipTapEditor } from "../../components/ui/tiptap-editor";
+import { CurrencyInput } from "../../components/ui/currency-input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { Combobox } from "../../components/ui/combobox.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Switch } from "../../components/ui/switch.tsx";
+} from "../../components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Combobox } from "../../components/ui/combobox";
+import { Badge } from "../../components/ui/badge";
+import { Switch } from "../../components/ui/switch";
 import { PlusCircle, X, Info, Globe } from "lucide-react";
-import { ComboSection } from './components/combo-section.tsx';
-import { calculateComboCostPrice, calculateFinalComboPricesByPolicy } from './combo-utils.ts';
+import { ComboSection } from './components/combo-section';
+import { calculateComboCostPrice, calculateFinalComboPricesByPolicy } from './combo-utils';
 import type { SystemId } from '@/lib/id-types';
-import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api.ts';
+import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
 
 // ═══════════════════════════════════════════════════════════════
 // VALIDATION HELPER

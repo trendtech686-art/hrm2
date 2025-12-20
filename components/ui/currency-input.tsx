@@ -1,6 +1,6 @@
 import * as React from "react";
-import { Input } from "./input.tsx";
-import { cn } from "../../lib/utils.ts";
+import { Input } from "./input";
+import { cn } from "../../lib/utils";
 
 export interface CurrencyInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {

@@ -1,21 +1,21 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { parseDate, getCurrentDate, getStartOfDay, addDays, isDateBefore, isDateSame, toISODate } from '../../lib/date-utils.ts';
-import type { LeaveRequest } from "./types.ts";
-import { useEmployeeStore } from "../employees/store.ts";
+import { parseDate, getCurrentDate, getStartOfDay, addDays, isDateBefore, isDateSame, toISODate } from '../../lib/date-utils';
+import type { LeaveRequest } from "./types";
+import { useEmployeeStore } from "../employees/store";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
-import { Button } from "../../components/ui/button.tsx";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { DatePicker } from "../../components/ui/date-picker.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { leaveFormSchema, type LeaveFormSchemaType } from "./leave-form-schema.ts";
+import { Button } from "../../components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form";
+import { Input } from "../../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { DatePicker } from "../../components/ui/date-picker";
+import { Textarea } from "../../components/ui/textarea";
+import { leaveFormSchema, type LeaveFormSchemaType } from "./leave-form-schema";
 import { toast } from "sonner";
-import { VirtualizedCombobox, type ComboboxOption } from "../../components/ui/virtualized-combobox.tsx";
-import { ensureBusinessId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
+import { VirtualizedCombobox, type ComboboxOption } from "../../components/ui/virtualized-combobox";
+import { ensureBusinessId, type BusinessId, type SystemId } from '../../lib/id-types';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
 
 type LeaveFormProps = {
   initialData?: LeaveRequest | null;

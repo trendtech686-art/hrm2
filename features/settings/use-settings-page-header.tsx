@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from '@/lib/next-compat';
 import { Settings2 } from 'lucide-react';
 import { usePageHeader, type PageHeaderState, type PageHeaderDocLink } from '../../contexts/page-header-context';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';

@@ -1,28 +1,30 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useCostAdjustmentStore } from './store.ts';
-import { getColumns, getStatusOptions } from './columns.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
-import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2.tsx';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
-import { costAdjustmentImportExportConfig, flattenCostAdjustmentsForExport } from '../../lib/import-export/configs/cost-adjustment.config.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { Button } from '../../components/ui/button.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { useCostAdjustmentStore } from './store';
+import { getColumns, getStatusOptions } from './columns';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
+import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog';
+import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
+import { costAdjustmentImportExportConfig, flattenCostAdjustmentsForExport } from '../../lib/import-export/configs/cost-adjustment.config';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { Button } from '../../components/ui/button';
 import { Plus, XCircle, CheckCircle, Printer, FileSpreadsheet, Download } from 'lucide-react';
-import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
-import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { PageToolbar } from '../../components/layout/page-toolbar';
+import { PageFilters } from '../../components/layout/page-filters';
+import { useMediaQuery } from '../../lib/use-media-query';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
-import { CostAdjustmentCard } from './cost-adjustment-card.tsx';
-import type { CostAdjustment, CostAdjustmentStatus } from './types.ts';
-import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { asSystemId } from '../../lib/id-types.ts';
+import { CostAdjustmentCard } from './cost-adjustment-card';
+import type { CostAdjustment, CostAdjustmentStatus } from './types';
+import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
+import { useAuth } from '../../contexts/auth-context';
+import { asSystemId } from '../../lib/id-types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,12 +34,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
-import { usePrint } from '../../lib/use-print.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+} from '../../components/ui/alert-dialog';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
+import { usePrint } from '../../lib/use-print';
+import { useBranchStore } from '../settings/branches/store';
+import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 
 const COLUMN_LAYOUT_STORAGE_KEY = 'cost-adjustments-column-layout';
 

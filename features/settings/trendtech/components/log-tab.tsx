@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
-import { Badge } from '../../../../components/ui/badge.tsx';
-import { ScrollArea } from '../../../../components/ui/scroll-area.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Button } from '../../../../components/ui/button';
+import { Badge } from '../../../../components/ui/badge';
+import { ScrollArea } from '../../../../components/ui/scroll-area';
 import { Trash2, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTrendtechSettingsStore } from '../store';

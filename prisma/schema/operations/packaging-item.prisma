@@ -1,0 +1,32 @@
+// ═══════════════════════════════════════════════════════════════
+// PACKAGING ITEM MODEL
+// ═══════════════════════════════════════════════════════════════
+
+model PackagingItem {
+  systemId          String        @id @default(uuid())
+  
+  // Parent Packaging
+  packagingId       String
+  packaging         Packaging     @relation(fields: [packagingId], references: [systemId])
+  
+  // Product
+  productId         String
+  productName       String
+  productSku        String?
+  
+  // Quantity
+  quantity          Int
+  packedQuantity    Int           @default(0)
+  
+  // Package number
+  packageNumber     Int           @default(1)
+  
+  // Notes
+  notes             String?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@map("packaging_items")
+}

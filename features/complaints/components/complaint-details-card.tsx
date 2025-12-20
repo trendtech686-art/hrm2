@@ -1,11 +1,13 @@
+'use client'
+
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { cn } from "../../../lib/utils.ts";
-import { formatTrackingInfo, isTrackingEnabled } from '../tracking-utils.ts';
-import { showNotification } from '../notification-utils.ts';
-import type { Complaint } from '../types.ts';
+import { useNavigate } from '@/lib/next-compat';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { cn } from "../../../lib/utils";
+import { formatTrackingInfo, isTrackingEnabled } from '../tracking-utils';
+import { showNotification } from '../notification-utils';
+import type { Complaint } from '../types';
 
 interface Props {
   complaint: Complaint;

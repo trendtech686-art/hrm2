@@ -1,7 +1,7 @@
 import * as React from "react";
-import { useSupplierStore } from "../store.ts";
+import { useSupplierStore } from "../store";
 import { toast } from 'sonner';
-import { useProvinceStore } from "../../settings/provinces/store.ts";
+import { useProvinceStore } from "../../settings/provinces/store";
 import {
   Dialog,
   DialogContent,
@@ -9,11 +9,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { VirtualizedCombobox } from "../../../components/ui/virtualized-combobox.tsx";
+} from "../../../components/ui/dialog";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { VirtualizedCombobox } from "../../../components/ui/virtualized-combobox";
 import { asBusinessId } from "@/lib/id-types";
 
 interface QuickAddSupplierDialogProps {

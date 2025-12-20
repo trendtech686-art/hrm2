@@ -1,5 +1,5 @@
-import { asBusinessId, asSystemId } from '../../lib/id-types.ts';
-import type { CashAccount } from './types.ts';
+import { asBusinessId, asSystemId } from '../../lib/id-types';
+import type { CashAccount } from './types';
 
 const SEED_AUTHOR = asSystemId('EMP000001');
 const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({

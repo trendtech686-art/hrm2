@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { data as initialData } from './data.ts';
-import type { PaymentMethod } from './types.ts';
+import { data as initialData } from './data';
+import type { PaymentMethod } from './types';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 
 interface PaymentMethodState {

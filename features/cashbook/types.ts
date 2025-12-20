@@ -1,4 +1,4 @@
-import type { BusinessId, SystemId } from '../../lib/id-types.ts';
+import type { BusinessId, SystemId } from '../../lib/id-types';
 
 export type CashAccount = {
   systemId: SystemId;

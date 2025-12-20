@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { Download, Eye, X } from 'lucide-react';
-import { Button } from './button.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './dialog.tsx';
-import { Badge } from './badge.tsx';
-import type { UploadedFile } from '../../lib/file-upload-api.ts';
+import { Button } from './button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './dialog';
+import { Badge } from './badge';
+import type { UploadedFile } from '../../lib/file-upload-api';
 
 type FilePreviewProps = {
   file: UploadedFile;

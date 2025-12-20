@@ -1,6 +1,6 @@
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate, isValidDate, isDateAfter, getStartOfDay, getEndOfDay, getDayOfWeek } from '../../lib/date-utils.ts';
-import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types.ts';
-import type { EmployeeSettings } from '../settings/employees/types.ts';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate, isValidDate, isDateAfter, getStartOfDay, getEndOfDay, getDayOfWeek } from '../../lib/date-utils';
+import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types';
+import type { EmployeeSettings } from '../settings/employees/types';
 // Function to convert Excel serial time number to HH:mm format
 export function excelSerialToTime(serial: any): string {
     if (typeof serial === 'string') {

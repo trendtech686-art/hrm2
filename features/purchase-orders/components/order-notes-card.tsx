@@ -1,8 +1,8 @@
 import * as React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { Label } from "../../../components/ui/label.tsx";
-import { Textarea } from "../../../components/ui/textarea.tsx";
-import { Input } from "../../../components/ui/input.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Label } from "../../../components/ui/label";
+import { Textarea } from "../../../components/ui/textarea";
+import { Input } from "../../../components/ui/input";
 
 interface OrderNotesCardProps {
   notes?: string;

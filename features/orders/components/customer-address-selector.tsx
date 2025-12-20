@@ -1,19 +1,19 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Plus, Edit2, Check, ArrowLeftRight, MoreHorizontal, Trash2 } from 'lucide-react';
-import type { Customer, CustomerAddress } from '../../customers/types.ts';
+import type { Customer, CustomerAddress } from '../../customers/types';
 import { asSystemId } from '@/lib/id-types';
-import { Card, CardContent } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog.tsx';
-import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { useCustomerStore } from '../../customers/store.ts';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { AddressBidirectionalConverter } from '../../customers/components/address-bidirectional-converter.tsx';
-import { AddressFormDialog } from '../../customers/components/address-form-dialog.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../../components/ui/dropdown-menu.tsx';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
+import { Switch } from '../../../components/ui/switch';
+import { useCustomerStore } from '../../customers/store';
+import { Badge } from '../../../components/ui/badge';
+import { AddressBidirectionalConverter } from '../../customers/components/address-bidirectional-converter';
+import { AddressFormDialog } from '../../customers/components/address-form-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../../components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 interface CustomerAddressSelectorProps {

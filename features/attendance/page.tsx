@@ -1,45 +1,45 @@
 import * as React from 'react';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getStartOfMonth, getEndOfMonth, addMonths, subtractMonths, toISODate, getDayOfWeek, formatMonthYear } from '../../lib/date-utils.ts';
-import { ROUTES } from '../../lib/router.ts';
+import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getStartOfMonth, getEndOfMonth, addMonths, subtractMonths, toISODate, getDayOfWeek, formatMonthYear } from '../../lib/date-utils';
+import { ROUTES } from '../../lib/router';
 import * as XLSX from 'xlsx';
 
-import { useEmployeeStore } from '../employees/store.ts';
-import { useDepartmentStore } from '../settings/departments/store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { generateMockAttendance } from './data.ts';
-import { getColumns } from './columns.tsx';
-import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow, ImportPreviewRow } from './types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Input } from '../../components/ui/input.tsx';
+import { useEmployeeStore } from '../employees/store';
+import { useDepartmentStore } from '../settings/departments/store';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { generateMockAttendance } from './data';
+import { getColumns } from './columns';
+import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow, ImportPreviewRow } from './types';
+import type { SystemId } from '../../lib/id-types';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { Card, CardContent } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Input } from '../../components/ui/input';
 import { Upload, Download, Lock, ChevronLeft, ChevronRight, Search, Edit2, Printer } from 'lucide-react';
 import Fuse from 'fuse.js';
-import { AttendanceEditDialog } from './components/attendance-edit-dialog.tsx';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import { useAttendanceStore } from './store.ts';
+import { AttendanceEditDialog } from './components/attendance-edit-dialog';
+import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { useAttendanceStore } from './store';
 import { useShallow } from 'zustand/react/shallow';
-import { recalculateSummary, excelSerialToTime } from './utils.ts';
-import { AttendanceImportDialog } from './components/attendance-import-dialog.tsx';
-import { BulkEditDialog } from './components/bulk-edit-dialog.tsx';
-import { StatisticsDashboard } from './components/statistics-dashboard.tsx';
-import { useDebounce } from '../../hooks/use-debounce.ts';
+import { recalculateSummary, excelSerialToTime } from './utils';
+import { AttendanceImportDialog } from './components/attendance-import-dialog';
+import { BulkEditDialog } from './components/bulk-edit-dialog';
+import { StatisticsDashboard } from './components/statistics-dashboard';
+import { useDebounce } from '../../hooks/use-debounce';
 import { toast } from 'sonner';
-import { useLeaveStore } from '../leaves/store.ts';
-import { leaveAttendanceSync } from '../leaves/leave-sync-service.ts';
-import { usePrint } from '../../lib/use-print.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { useLeaveStore } from '../leaves/store';
+import { leaveAttendanceSync } from '../leaves/leave-sync-service';
+import { usePrint } from '../../lib/use-print';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import {
   convertAttendanceSheetForPrint,
   mapAttendanceSheetToPrintData,
   mapAttendanceSheetLineItems,
   createStoreSettings,
-} from '../../lib/print/attendance-print-helper.ts';
-import { previewAttendancePenalties, confirmCreatePenalties, type PenaltyPreviewItem } from './penalty-sync-service.ts';
-import { PenaltyConfirmDialog } from './components/penalty-confirm-dialog.tsx';
+} from '../../lib/print/attendance-print-helper';
+import { previewAttendancePenalties, confirmCreatePenalties, type PenaltyPreviewItem } from './penalty-sync-service';
+import { PenaltyConfirmDialog } from './components/penalty-confirm-dialog';
 
 const MonthYearPicker = ({ value, onChange }: { value: Date, onChange: (date: Date) => void }) => {
     const displayText = formatDateCustom(value, 'MM/yyyy');
@@ -232,7 +232,7 @@ export function AttendancePage() {
     };
 
     // Handler khi user xác nhận tạo phiếu phạt
-    const handleConfirmPenalties = (selectedPenalties: Omit<import('../settings/penalties/types.ts').Penalty, 'systemId'>[]) => {
+    const handleConfirmPenalties = (selectedPenalties: Omit<import('../settings/penalties/types').Penalty, 'systemId'>[]) => {
         const created = confirmCreatePenalties(selectedPenalties);
         toast.success('Tạo phiếu phạt thành công', {
             description: `Đã tạo ${created} phiếu phạt từ dữ liệu chấm công.`,

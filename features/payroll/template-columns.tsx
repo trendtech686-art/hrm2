@@ -1,18 +1,18 @@
 import * as React from 'react';
 import { Pencil, Trash2, MoreHorizontal } from 'lucide-react';
-import { Button } from '../../components/ui/button.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { Switch } from '../../components/ui/switch.tsx';
+import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Switch } from '../../components/ui/switch';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu.tsx';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import type { PayrollTemplate } from '../../lib/payroll-types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
+} from '../../components/ui/dropdown-menu';
+import type { ColumnDef } from '../../components/data-table/types';
+import type { PayrollTemplate } from '../../lib/payroll-types';
+import type { SystemId } from '../../lib/id-types';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 const formatComponentCount = (count: number) => `${count} thành phần`;

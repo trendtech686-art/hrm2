@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { Package } from 'lucide-react';
-import type { Product } from '../../features/products/types.ts';
-import { useProductStore } from '../../features/products/store.ts';
-import { VirtualizedCombobox, type ComboboxOption } from '../ui/virtualized-combobox.tsx';
+import type { Product } from '../../features/products/types';
+import { useProductStore } from '../../features/products/store';
+import { VirtualizedCombobox, type ComboboxOption } from '../ui/virtualized-combobox';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0';

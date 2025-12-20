@@ -1,6 +1,6 @@
 import * as React from 'react'
-import { useAppearanceStore } from '../features/settings/appearance/store.ts'
-import type { CustomThemeConfig } from '../features/settings/appearance/store.ts'
+import { useAppearanceStore } from '../features/settings/appearance/store'
+import type { CustomThemeConfig } from '../features/settings/appearance/store'
 
 function applyTheme(customThemeConfig: CustomThemeConfig, colorMode: string, fontSize: string) {
   const root = window.document.documentElement;

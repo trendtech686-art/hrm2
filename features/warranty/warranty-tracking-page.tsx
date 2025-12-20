@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from '@/lib/next-compat';
 import { Package, Clock, CheckCircle, CheckCircle2, XCircle, AlertCircle, Phone, MapPin, Link as LinkIcon, Calendar, User, Image as ImageIcon, ExternalLink, Truck, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -16,13 +16,13 @@ import { formatDateTime } from '../../lib/date-utils';
 import { cn } from '../../lib/utils';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, SETTLEMENT_TYPE_LABELS, SETTLEMENT_STATUS_LABELS } from './types';
 import type { WarrantyStatus } from './types';
-import type { PublicWarrantyTicket } from './public-warranty-api.ts';
+import type { PublicWarrantyTicket } from './public-warranty-api';
 import { 
   loadTrackingSettings, 
   shouldShowEmployeeName,
   shouldShowTimeline,
 } from './tracking-utils';
-import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table.tsx';
+import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table';
 import { usePublicTracking } from './hooks/use-public-tracking';
 
 // Lazy load ImagePreviewDialog để giảm bundle size ban đầu

@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { TargetGroup } from './types.ts';
+import type { TargetGroup } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: TargetGroup[] = [

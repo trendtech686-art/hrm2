@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { Badge } from '../../../../components/ui/badge.tsx';
+import { Badge } from '../../../../components/ui/badge';
 import { ExternalLink } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import type { Order } from '../../../orders/types.ts';
-import type { WarrantyTransaction } from '../../types/transactions.ts';
-import type { SettlementMethod } from '../../types.ts';
-import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types.ts';
+import { Link } from '@/lib/next-compat';
+import type { Order } from '../../../orders/types';
+import type { WarrantyTransaction } from '../../types/transactions';
+import type { SettlementMethod } from '../../types';
+import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface WarrantyTransactionItemProps {

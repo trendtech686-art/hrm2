@@ -1,6 +1,6 @@
-import type { Payment } from '../payments/types.ts';
-import type { Receipt } from '../receipts/types.ts';
-import type { PurchaseOrder } from './types.ts';
+import type { Payment } from '../payments/types';
+import type { Receipt } from '../receipts/types';
+import type { PurchaseOrder } from './types';
 
 const SUPPLIER_TARGET_IDS = ['NHACUNGCAP', 'supplier'];
 const SUPPLIER_TARGET_LABELS = ['Nhà cung cấp'];

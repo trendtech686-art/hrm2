@@ -1,22 +1,22 @@
 import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
-import { useCashbookStore } from "../../cashbook/store.ts";
-import { useReceiptStore } from "../../receipts/store.ts";
-import { usePaymentStore } from "../../payments/store.ts";
-import { useBranchStore } from "../branches/store.ts";
-import type { CashAccount } from "../../cashbook/types.ts";
-import { CashAccountForm, type CashAccountFormValues } from "./form.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
-import { Badge } from "../../../components/ui/badge.tsx";
+import { useCashbookStore } from "../../cashbook/store";
+import { useReceiptStore } from "../../receipts/store";
+import { usePaymentStore } from "../../payments/store";
+import { useBranchStore } from "../branches/store";
+import type { CashAccount } from "../../cashbook/types";
+import { CashAccountForm, type CashAccountFormValues } from "./form";
+import { Button } from "../../../components/ui/button";
+import { Switch } from "../../../components/ui/switch";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
+import { Badge } from "../../../components/ui/badge";
 import { toast } from "sonner";
-import { asBusinessId, asSystemId, type SystemId } from "../../../lib/id-types.ts";
-import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
-import type { RegisterTabActions } from "../use-tab-action-registry.ts";
+import { asBusinessId, asSystemId, type SystemId } from "../../../lib/id-types";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
+import type { RegisterTabActions } from "../use-tab-action-registry";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 

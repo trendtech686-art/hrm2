@@ -1,12 +1,12 @@
-import type { WarrantyTicket, WarrantyProduct, WarrantyHistory, SettlementMethod } from './types.ts';
-import type { Payment } from '../payments/types.ts';
-import type { Receipt } from '../receipts/types.ts';
-import type { Order } from '../orders/types.ts';
-import { useWarrantyStore } from './store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import { useOrderStore } from '../orders/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
+import type { WarrantyTicket, WarrantyProduct, WarrantyHistory, SettlementMethod } from './types';
+import type { Payment } from '../payments/types';
+import type { Receipt } from '../receipts/types';
+import type { Order } from '../orders/types';
+import { useWarrantyStore } from './store';
+import { usePaymentStore } from '../payments/store';
+import { useReceiptStore } from '../receipts/store';
+import { useOrderStore } from '../orders/store';
+import { useBranchStore } from '../settings/branches/store';
 
 export interface PublicWarrantyProduct extends Pick<WarrantyProduct, 'systemId' | 'productName' | 'quantity' | 'resolution' | 'unitPrice' | 'deductionAmount' | 'issueDescription'> {
   productImages: string[];

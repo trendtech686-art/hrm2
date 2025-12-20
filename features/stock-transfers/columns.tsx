@@ -1,16 +1,16 @@
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import type { StockTransfer, StockTransferStatus } from './types.ts';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import type { StockTransfer, StockTransferStatus } from './types';
+import type { ColumnDef } from '../../components/data-table/types';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { MoreHorizontal, Printer } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
-import { useProductStore } from '../products/store.ts';
-import { useStockTransferStore } from './store.ts';
-import { asSystemId } from '../../lib/id-types.ts';
+import { useProductStore } from '../products/store';
+import { useStockTransferStore } from './store';
+import { asSystemId } from '../../lib/id-types';
 
 const getStatusVariant = (status: StockTransferStatus): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
   switch (status) {

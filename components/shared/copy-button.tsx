@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
-import { Button } from '../ui/button.tsx';
-import { cn } from '../../lib/utils.ts';
+import { Button } from '../ui/button';
+import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 
 interface CopyButtonProps {

@@ -1,5 +1,5 @@
-export { EmployeePersonalTab } from './EmployeePersonalTab.tsx';
-export { EmployeeEmploymentTab } from './EmployeeEmploymentTab.tsx';
-export { EmployeeAddressesTab, parseAddress, toEmployeeAddress, type AddressParts } from './EmployeeAddressesTab.tsx';
-export { EmployeeAccountFormTab } from './EmployeeAccountFormTab.tsx';
-export { EmployeePayrollTab } from './EmployeePayrollTab.tsx';
+export { EmployeePersonalTab } from './EmployeePersonalTab';
+export { EmployeeEmploymentTab } from './EmployeeEmploymentTab';
+export { EmployeeAddressesTab, parseAddress, toEmployeeAddress, type AddressParts } from './EmployeeAddressesTab';
+export { EmployeeAccountFormTab } from './EmployeeAccountFormTab';
+export { EmployeePayrollTab } from './EmployeePayrollTab';

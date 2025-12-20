@@ -1,13 +1,15 @@
+'use client'
+
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
+import { useNavigate } from '@/lib/next-compat';
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 import { AlertTriangle, Phone, MessageSquare, DollarSign, ShoppingBag, ChevronRight } from "lucide-react";
-import { useCustomerStore } from "../customers/store.ts";
-import { useCustomersWithComputedDebt } from "../customers/hooks/use-computed-debt.ts";
-import { calculateDebtTrackingInfo, formatDebtDate } from "../customers/debt-tracking-utils.ts";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
-import type { Customer } from "../customers/types.ts";
+import { useCustomerStore } from "../customers/store";
+import { useCustomersWithComputedDebt } from "../customers/hooks/use-computed-debt";
+import { calculateDebtTrackingInfo, formatDebtDate } from "../customers/debt-tracking-utils";
+import { useMediaQuery } from "../../lib/use-media-query";
+import type { Customer } from "../customers/types";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('vi-VN').format(value);

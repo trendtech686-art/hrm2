@@ -1,17 +1,17 @@
 import * as React from 'react';
 import { useFormContext, useWatch, useFieldArray, Controller } from 'react-hook-form';
 import { PlusCircle, X, RefreshCw } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { FormField, FormItem, FormLabel, FormControl } from '../../../components/ui/form.tsx';
-import { NumberInput } from '../../../components/ui/number-input.tsx';
-import { CurrencyInput } from '../../../components/ui/currency-input.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../components/ui/select.tsx';
-import { usePaymentMethodStore } from '../../settings/payments/methods/store.ts';
-import { useShippingPartnerStore } from '../../settings/shipping/store.ts';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
-import { useDebounce } from '../../../hooks/use-debounce.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { FormField, FormItem, FormLabel, FormControl } from '../../../components/ui/form';
+import { NumberInput } from '../../../components/ui/number-input';
+import { CurrencyInput } from '../../../components/ui/currency-input';
+import { Separator } from '../../../components/ui/separator';
+import { Button } from '../../../components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../components/ui/select';
+import { usePaymentMethodStore } from '../../settings/payments/methods/store';
+import { useShippingPartnerStore } from '../../settings/shipping/store';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { useDebounce } from '../../../hooks/use-debounce';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

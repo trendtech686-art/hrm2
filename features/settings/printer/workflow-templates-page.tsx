@@ -9,10 +9,10 @@
  */
 
 import * as React from 'react';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
 import { 
@@ -28,31 +28,31 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog.tsx';
+} from '../../../components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
+} from '../../../components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Textarea } from '../../../components/ui/textarea.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
-import { VirtualizedDataTable } from '../../../components/data-table/virtualized-data-table.tsx';
-import type { ColumnDef } from '../../../components/data-table/types.ts';
-import { ConfirmDialog } from '../../../components/ui/confirm-dialog.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
+} from '../../../components/ui/select';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Textarea } from '../../../components/ui/textarea';
+import { Badge } from '../../../components/ui/badge';
+import { Switch } from '../../../components/ui/switch';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { VirtualizedDataTable } from '../../../components/data-table/virtualized-data-table';
+import type { ColumnDef } from '../../../components/data-table/types';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
+import { Separator } from '../../../components/ui/separator';
 
 // ============================================================================
 // Types & Constants

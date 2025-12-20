@@ -1,4 +1,4 @@
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
+import type { HistoryEntry } from '../../components/ActivityHistory';
 
 export type PurchaseOrderStatus = "Đặt hàng" | "Đang giao dịch" | "Hoàn thành" | "Đã hủy" | "Kết thúc" | "Đã trả hàng";
 export type DeliveryStatus = "Chưa nhập" | "Đã nhập một phần" | "Đã nhập";

@@ -1,14 +1,14 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { PricingPolicy } from "./types.ts";
-import { pricingPolicySchema, validateUniqueId } from "./validation.ts";
-import { usePricingPolicyStore } from "./store.ts";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Textarea } from "../../../components/ui/textarea.tsx";
-import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
+import type { PricingPolicy } from "./types";
+import { pricingPolicySchema, validateUniqueId } from "./validation";
+import { usePricingPolicyStore } from "./store";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
+import { Textarea } from "../../../components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
+import { Switch } from "../../../components/ui/switch";
 import type * as z from "zod";
 
 export type PricingPolicyFormValues = z.infer<typeof pricingPolicySchema>;

@@ -1,14 +1,16 @@
+'use client'
+
 import * as React from "react"
-import * as ReactRouterDOM from 'react-router-dom';
-import { useSupplierStore } from "./store.ts"
-import { getColumns } from "./columns.tsx"
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
-import { PageFilters } from "../../components/layout/page-filters.tsx"
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useSupplierStore } from "./store"
+import { getColumns } from "./columns"
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
+import { PageToolbar } from "../../components/layout/page-toolbar"
+import { PageFilters } from "../../components/layout/page-filters"
 import {
   Card,
   CardContent,
-} from "../../components/ui/card.tsx"
+} from "../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,22 +20,22 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx"
-import type { Supplier } from "./types.ts"
-import { Button } from "../../components/ui/button.tsx"
+} from "../../components/ui/alert-dialog"
+import type { Supplier } from "./types"
+import { Button } from "../../components/ui/button"
 import { PlusCircle, Trash2, FileSpreadsheet, Download } from "lucide-react"
 import Fuse from "fuse.js"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { SupplierCard } from "./supplier-card.tsx";
-import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { SupplierCard } from "./supplier-card";
+import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from "@/lib/id-types";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { supplierImportExportConfig } from "../../lib/import-export/configs/supplier.config.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useAuth } from "../../contexts/auth-context.tsx";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { supplierImportExportConfig } from "../../lib/import-export/configs/supplier.config";
+import { useBranchStore } from "../settings/branches/store";
+import { useAuth } from "../../contexts/auth-context";
 
 export function SuppliersPage() {
   const { data: suppliersRaw, remove, restore, getActive, getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from '../../lib/utils.ts';
+import { cn } from '../../lib/utils';
 
 export const DetailField = ({ label, value, children, className }: { label: string, value?: React.ReactNode, children?: React.ReactNode, className?: string }) => {
     const content = value ?? children;

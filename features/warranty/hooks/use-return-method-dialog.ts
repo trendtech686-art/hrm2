@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { toast } from 'sonner';
-import { useDebounce } from '../../../hooks/use-debounce.ts';
-import { searchOrders, type OrderSearchResult } from '../../orders/order-search-api.ts';
-import type { ComboboxOption } from '../../../components/ui/virtualized-combobox.tsx';
-import type { WarrantyTicket } from '../types.ts';
-import type { Order } from '../../orders/types.ts';
-import { useWarrantyStore } from '../store.ts';
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
+import { useDebounce } from '../../../hooks/use-debounce';
+import { searchOrders, type OrderSearchResult } from '../../orders/order-search-api';
+import type { ComboboxOption } from '../../../components/ui/virtualized-combobox';
+import type { WarrantyTicket } from '../types';
+import type { Order } from '../../orders/types';
+import { useWarrantyStore } from '../store';
+import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
 
 type ReturnMethod = 'direct' | 'order' | null;
 

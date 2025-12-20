@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { FormField, FormItem, FormControl } from '../../../components/ui/form.tsx';
-import { Textarea } from '../../../components/ui/textarea.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { FormField, FormItem, FormControl } from '../../../components/ui/form';
+import { Textarea } from '../../../components/ui/textarea';
 
 export function OrderNotes({ disabled }: { disabled?: boolean }) {
     const { control } = useFormContext();

@@ -1,4 +1,4 @@
-import type { CustomThemeConfig } from './store.ts';
+import type { CustomThemeConfig } from './store';
 
 // Base light config shared across themes
 const baseLightConfig: Omit<CustomThemeConfig, '--primary' | '--primary-foreground' | '--ring' | '--sidebar-primary' | '--sidebar-primary-foreground'> = {

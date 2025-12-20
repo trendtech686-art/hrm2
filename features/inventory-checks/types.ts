@@ -3,8 +3,8 @@
  * Kiểm kê định kỳ hàng hóa
  */
 
-import { SystemId, BusinessId } from '../../lib/id-types.ts';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
+import { SystemId, BusinessId } from '../../lib/id-types';
+import type { HistoryEntry } from '../../components/ActivityHistory';
 
 export type InventoryCheckStatus = 'draft' | 'balanced' | 'cancelled';
 

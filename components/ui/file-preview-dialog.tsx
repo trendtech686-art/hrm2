@@ -1,8 +1,8 @@
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog.tsx";
-import { Button } from "./button.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
+import { Button } from "./button";
 import { Eye, Download, FileText, FileSpreadsheet, File, X } from "lucide-react";
-import { cn } from "../../lib/utils.ts";
+import { cn } from "../../lib/utils";
 
 interface FilePreviewDialogProps {
   file: {

@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { LazyImage } from '../../../../components/ui/lazy-image.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { LazyImage } from '../../../../components/ui/lazy-image';
 
 interface WarrantyImageGalleryCardProps {
   title: string;

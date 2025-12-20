@@ -1,4 +1,4 @@
-import type { Payment } from './types.ts';
+import type { Payment } from './types';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export const data: Payment[] = [

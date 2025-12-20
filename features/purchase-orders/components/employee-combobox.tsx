@@ -1,7 +1,7 @@
 import * as React from "react";
-import { useEmployeeStore } from "../../employees/store.ts";
-import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox.tsx";
-import { Avatar, AvatarFallback } from "../../../components/ui/avatar.tsx";
+import { useEmployeeStore } from "../../employees/store";
+import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
+import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 
 interface EmployeeComboboxProps {
   value?: string; // employee systemId

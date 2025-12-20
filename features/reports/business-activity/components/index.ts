@@ -4,15 +4,15 @@
  * Export tất cả components
  */
 
-export { ReportChart } from './report-chart.tsx';
-export { ReportFilters } from './report-filters.tsx';
-export { ReportSummaryCards, SummaryCard } from './report-summary-cards.tsx';
+export { ReportChart } from './report-chart';
+export { ReportFilters } from './report-filters';
+export { ReportSummaryCards, SummaryCard } from './report-summary-cards';
 export { 
   ReportHeaderActions, 
   SALES_REPORT_GLOSSARY,
   DELIVERY_REPORT_GLOSSARY,
   PAYMENT_REPORT_GLOSSARY,
-} from './report-header-actions.tsx';
+} from './report-header-actions';
 
 // Utility functions for formatting
 export const formatCurrency = (value?: number) => {

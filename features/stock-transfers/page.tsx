@@ -1,38 +1,40 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useStockTransferStore } from './store.ts';
-import { getColumns } from './columns.tsx';
-import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { useStockTransferStore } from './store';
+import { getColumns } from './columns';
+import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table';
+import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
+import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { Button } from '../../components/ui/button';
 import { Plus, Printer, FileSpreadsheet, Download } from 'lucide-react';
-import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2.tsx';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
-import { stockTransferImportExportConfig, flattenStockTransfersForExport } from '../../lib/import-export/configs/stock-transfer.config.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { asSystemId } from '../../lib/id-types.ts';
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
-import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { useMediaQuery } from '../../lib/use-media-query.ts';
+import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
+import { stockTransferImportExportConfig, flattenStockTransfersForExport } from '../../lib/import-export/configs/stock-transfer.config';
+import { useAuth } from '../../contexts/auth-context';
+import { asSystemId } from '../../lib/id-types';
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { useBranchStore } from '../settings/branches/store';
+import { PageToolbar } from '../../components/layout/page-toolbar';
+import { PageFilters } from '../../components/layout/page-filters';
+import { useMediaQuery } from '../../lib/use-media-query';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
-import { StockTransferCard } from './stock-transfer-card.tsx';
-import type { StockTransfer, StockTransferStatus } from './types.ts';
-import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { StockTransferCard } from './stock-transfer-card';
+import type { StockTransfer, StockTransferStatus } from './types';
+import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertStockTransferForPrint,
   mapStockTransferToPrintData,
   mapStockTransferLineItems,
   createStoreSettings,
-} from '../../lib/print/stock-transfer-print-helper.ts';
+} from '../../lib/print/stock-transfer-print-helper';
 
 const COLUMN_LAYOUT_STORAGE_KEY = 'stock-transfers-column-layout';
 

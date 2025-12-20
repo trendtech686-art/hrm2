@@ -1,0 +1,26 @@
+// ═══════════════════════════════════════════════════════════════
+// JOB TITLE MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: JOB000001 (English)
+// BusinessId: CV000001 (Vietnamese - Chức vụ)
+// ═══════════════════════════════════════════════════════════════
+
+model JobTitle {
+  systemId    String   @id           // JOB000001
+  id          String   @unique       // CV000001
+  name        String
+  description String?
+  
+  // Relations
+  employees   Employee[]
+  
+  // Soft delete
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  
+  // Audit
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("job_titles")
+}

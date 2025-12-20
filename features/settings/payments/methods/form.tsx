@@ -2,11 +2,11 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { PaymentMethod } from "./types.ts";
-import { usePaymentMethodStore } from "./store.ts";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../../components/ui/form.tsx";
-import { Input } from "../../../../components/ui/input.tsx";
-import { Switch } from "../../../../components/ui/switch.tsx";
+import type { PaymentMethod } from "./types";
+import { usePaymentMethodStore } from "./store";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../../components/ui/form";
+import { Input } from "../../../../components/ui/input";
+import { Switch } from "../../../../components/ui/switch";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên hình thức là bắt buộc").max(100, "Tên không được vượt quá 100 ký tự"),

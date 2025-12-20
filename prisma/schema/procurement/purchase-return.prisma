@@ -1,0 +1,50 @@
+// ═══════════════════════════════════════════════════════════════
+// PURCHASE RETURN MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PRET0000000001 (English, 10 digits)
+// BusinessId: THNCC0000000001 (Vietnamese - Trả hàng NCC, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model PurchaseReturn {
+  systemId          String                @id           // PRET0000000001
+  id                String                @unique       // THNCC0000000001
+  
+  // Original PO
+  purchaseOrderId   String?
+  purchaseOrder     PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [systemId])
+  
+  // Supplier
+  supplierId        String?
+  supplierName      String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?               @relation(fields: [branchId], references: [systemId])
+  
+  // Return details
+  returnDate        DateTime              @default(now())
+  reason            String?
+  status            ReturnStatus          @default(PENDING)
+  
+  // Amounts
+  subtotal          Decimal               @default(0) @db.Decimal(15, 2)
+  refundAmount      Decimal               @default(0) @db.Decimal(15, 2)
+  
+  // Notes
+  notes             String?
+  
+  // Relations
+  items             PurchaseReturnItem[]
+  
+  // Soft delete
+  isDeleted         Boolean               @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("purchase_returns")
+}

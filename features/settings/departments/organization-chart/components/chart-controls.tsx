@@ -15,8 +15,8 @@ import {
   Lock,
   Unlock
 } from 'lucide-react';
-import { Button } from '../../../../../components/ui/button.tsx';
-import { Separator } from '../../../../../components/ui/separator.tsx';
+import { Button } from '../../../../../components/ui/button';
+import { Separator } from '../../../../../components/ui/separator';
 import { toast } from 'sonner';
 import type { LayoutDirection } from '../utils/layout-calculator';
 

@@ -1,21 +1,21 @@
 import * as React from 'react';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table.tsx';
-import { PageFilters } from '../../../components/layout/page-filters.tsx';
-import type { ColumnDef } from '../../../components/data-table/types.ts';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Input } from '../../../components/ui/input';
+import { Badge } from '../../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
+import { PageFilters } from '../../../components/layout/page-filters';
+import type { ColumnDef } from '../../../components/data-table/types';
 import { 
   Search, CheckCircle2, XCircle, AlertCircle, 
   Upload, Download, FileSpreadsheet, Package, Users, 
   ShoppingCart, Truck, Receipt, CreditCard, Warehouse,
   ClipboardList, RotateCcw, User, FileText
 } from 'lucide-react';
-import { useImportExportStore } from '../../../lib/import-export/import-export-store.ts';
-import type { ImportLogEntry, ExportLogEntry } from '../../../lib/import-export/types.ts';
-import { formatBytes } from '../../../lib/format-utils.ts';
+import { useImportExportStore } from '../../../lib/import-export/import-export-store';
+import type { ImportLogEntry, ExportLogEntry } from '../../../lib/import-export/types';
+import { formatBytes } from '../../../lib/format-utils';
 
 type LogType = 'all' | 'import' | 'export';
 type LogStatus = 'all' | 'success' | 'partial' | 'failed';

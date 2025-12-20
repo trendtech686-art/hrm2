@@ -1,7 +1,7 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { ProgressiveImage } from "../../../components/ui/progressive-image.tsx";
-import type { Complaint } from '../types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { ProgressiveImage } from "../../../components/ui/progressive-image";
+import type { Complaint } from '../types';
 
 interface Props {
   complaint: Complaint;

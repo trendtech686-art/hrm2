@@ -1,17 +1,19 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { Printer, FileSpreadsheet, Trash2, AlertTriangle, Search } from 'lucide-react';
-import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table.tsx';
-import { DataTableColumnCustomizer } from '../../../components/data-table/data-table-column-toggle.tsx';
-import { DataTableExportDialog } from '../../../components/data-table/data-table-export-dialog.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Card, CardContent } from '../../../components/ui/card.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { useBreakpoint } from '../../../contexts/breakpoint-context.tsx';
-import { getPayslipColumns, type PayslipRow, type PayslipActions } from './payslip-columns.tsx';
-import { PayslipDetailDialog } from './payslip-detail-dialog.tsx';
-import { cn } from '../../../lib/utils.ts';
-import { ROUTES } from '../../../lib/router.ts';
+import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
+import { DataTableColumnCustomizer } from '../../../components/data-table/data-table-column-toggle';
+import { DataTableExportDialog } from '../../../components/data-table/data-table-export-dialog';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Input } from '../../../components/ui/input';
+import { useBreakpoint } from '../../../contexts/breakpoint-context';
+import { getPayslipColumns, type PayslipRow, type PayslipActions } from './payslip-columns';
+import { PayslipDetailDialog } from './payslip-detail-dialog';
+import { cn } from '../../../lib/utils';
+import { ROUTES } from '../../../lib/router';
 
 // =============================================
 // TYPES

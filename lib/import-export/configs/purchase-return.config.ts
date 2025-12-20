@@ -4,8 +4,8 @@
  * Cấu hình xuất dữ liệu phiếu trả hàng nhà cung cấp
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types.ts';
-import type { PurchaseReturn } from '../../../features/purchase-returns/types.ts';
+import type { ImportExportConfig, FieldConfig } from '../types';
+import type { PurchaseReturn } from '../../../features/purchase-returns/types';
 
 const fields: FieldConfig<PurchaseReturn>[] = [
   // Group: Thông tin chung

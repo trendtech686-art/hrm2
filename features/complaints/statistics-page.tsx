@@ -5,19 +5,21 @@
  * Dashboard thống kê và phân tích khiếu nại
  */
 
+'use client'
+
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useRouteMeta } from "../../hooks/use-route-meta.ts";
-import { useComplaintStore } from "./store.ts";
-import { useEmployeeStore } from "../employees/store.ts";
-import { useComplaintStatistics } from "./hooks/use-complaint-statistics.ts";
-import { cn } from "../../lib/utils.ts";
-import { ROUTES } from "../../lib/router.ts";
-import type { BreadcrumbItem } from "../../lib/breadcrumb-system.ts";
+import { useNavigate } from '@/lib/next-compat';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { usePageHeader } from "../../contexts/page-header-context";
+
+import { useComplaintStore } from "./store";
+import { useEmployeeStore } from "../employees/store";
+import { useComplaintStatistics } from "./hooks/use-complaint-statistics";
+import { cn } from "../../lib/utils";
+import { ROUTES } from "../../lib/router";
+import type { BreadcrumbItem } from "../../lib/breadcrumb-system";
 import {
   TrendingUp,
   TrendingDown,
@@ -104,7 +106,6 @@ function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }:
  */
 export function ComplaintStatisticsPage() {
   const navigate = useNavigate();
-  const routeMeta = useRouteMeta();
   const { complaints } = useComplaintStore();
   const { data: employees } = useEmployeeStore();
 
@@ -146,29 +147,11 @@ export function ComplaintStatisticsPage() {
     </Button>,
   ], [navigate]);
 
-  const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
-    if (routeMeta?.breadcrumb) {
-      return routeMeta.breadcrumb.map((item, index, arr) => {
-        if (typeof item === "string") {
-          return {
-            label: item,
-            href: "/complaints/statistics",
-            isCurrent: index === arr.length - 1,
-          } satisfies BreadcrumbItem;
-        }
-        return {
-          label: item.label,
-          href: item.href ?? ROUTES.ROOT,
-          isCurrent: index === arr.length - 1,
-        } satisfies BreadcrumbItem;
-      });
-    }
-    return [
-      { label: "Trang chủ", href: ROUTES.ROOT },
-      { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS },
-      { label: "Thống kê khiếu nại", href: "/complaints/statistics", isCurrent: true },
-    ];
-  }, [routeMeta]);
+  const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => [
+    { label: "Trang chủ", href: ROUTES.ROOT },
+    { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS },
+    { label: "Thống kê khiếu nại", href: "/complaints/statistics", isCurrent: true },
+  ], []);
 
   usePageHeader({
     title: "Thống kê khiếu nại",

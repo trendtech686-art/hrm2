@@ -1,0 +1,50 @@
+// ═══════════════════════════════════════════════════════════════
+// INVENTORY CHECK MODEL (Kiểm kho)
+// ═══════════════════════════════════════════════════════════════
+// SystemId: ICHK0000000001 (English, 10 digits)
+// BusinessId: KK0000000001 (Vietnamese - Kiểm kho, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model InventoryCheck {
+  systemId          String              @id           // ICHK0000000001
+  id                String              @unique       // KK0000000001
+  
+  // Branch
+  branchId          String?
+  branch            Branch?             @relation(fields: [branchId], references: [systemId])
+  
+  // Location
+  locationId        String?
+  
+  // Check details
+  checkDate         DateTime            @default(now())
+  checkType         String              @default("full") // full, partial, cycle
+  
+  // Status
+  status            String              @default("draft") // draft, in_progress, completed, cancelled
+  
+  // Summary
+  totalItems        Int                 @default(0)
+  matchedItems      Int                 @default(0)
+  varianceItems     Int                 @default(0)
+  
+  // Notes
+  notes             String?
+  
+  // Relations
+  items             InventoryCheckItem[]
+  
+  // Soft delete
+  isDeleted         Boolean             @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  @@map("inventory_checks")
+}

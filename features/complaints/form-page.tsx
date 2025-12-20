@@ -1,59 +1,61 @@
+'use client'
+
 import * as React from "react";
-import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from '@/lib/next-compat';
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 // Types & Store
-import type { Complaint, ComplaintType } from "./types.ts";
-import { useComplaintStore } from "./store.ts";
-import { complaintTypeLabels } from "./types.ts";
-import type { StagingFile } from "../../lib/file-upload-api.ts";
-import { complaintNotifications } from "./notification-utils.ts";
+import type { Complaint, ComplaintType } from "./types";
+import { useComplaintStore } from "./store";
+import { complaintTypeLabels } from "./types";
+import type { StagingFile } from "../../lib/file-upload-api";
+import { complaintNotifications } from "./notification-utils";
 
 // Product image & type
-import { useProductImage } from '../products/components/product-image.tsx';
-import { useProductStore } from '../products/store.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
+import { useProductImage } from '../products/components/product-image';
+import { useProductStore } from '../products/store';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { Package, Eye, StickyNote } from 'lucide-react';
 
 // Settings
-import { loadComplaintTypes, type ComplaintType as ComplaintTypeSetting } from "../settings/complaints/complaints-settings-page.tsx";
+import { loadComplaintTypes, type ComplaintType as ComplaintTypeSetting } from "../settings/complaints/complaints-settings-page";
 
 // UI Components
-import { Button } from "../../components/ui/button.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { Label } from "../../components/ui/label.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card.tsx";
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { VirtualizedCombobox, type ComboboxOption } from "../../components/ui/virtualized-combobox.tsx";
-import { CurrencyInput } from "../../components/ui/currency-input.tsx";
-import { NewDocumentsUpload } from "../../components/ui/new-documents-upload.tsx";
-import { ExistingDocumentsViewer } from "../../components/ui/existing-documents-viewer.tsx";
-import { ImagePreviewDialog } from "../../components/ui/image-preview-dialog.tsx";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Checkbox } from "../../components/ui/checkbox";
+import { VirtualizedCombobox, type ComboboxOption } from "../../components/ui/virtualized-combobox";
+import { CurrencyInput } from "../../components/ui/currency-input";
+import { NewDocumentsUpload } from "../../components/ui/new-documents-upload";
+import { ExistingDocumentsViewer } from "../../components/ui/existing-documents-viewer";
+import { ImagePreviewDialog } from "../../components/ui/image-preview-dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx";
+} from "../../components/ui/select";
 
 // Hooks & Context
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useOrderStore } from "../orders/store.ts";
-import { useSalesReturnStore } from "../sales-returns/store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { useEmployeeStore } from "../employees/store.ts";
-import { useCustomerStore } from "../customers/store.ts";
-import { useNotificationStore } from "../../components/ui/notification-center.tsx";
-import { FileUploadAPI } from "../../lib/file-upload-api.ts";
-import { useAuth } from "../../contexts/auth-context.tsx";
-import { ROUTES, generatePath } from "../../lib/router.ts";
-import type { BreadcrumbItem } from "../../lib/breadcrumb-system.ts";
-import { useRouteMeta } from "../../hooks/use-route-meta.ts";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useOrderStore } from "../orders/store";
+import { useSalesReturnStore } from "../sales-returns/store";
+import { useBranchStore } from "../settings/branches/store";
+import { useEmployeeStore } from "../employees/store";
+import { useCustomerStore } from "../customers/store";
+import { useNotificationStore } from "../../components/ui/notification-center";
+import { FileUploadAPI } from "../../lib/file-upload-api";
+import { useAuth } from "../../contexts/auth-context";
+import { ROUTES, generatePath } from "../../lib/router";
+import type { BreadcrumbItem } from "../../lib/breadcrumb-system";
+
 
 interface ComplaintFormValues {
   id?: string; // Mã phiếu khiếu nại (optional - tự tạo nếu không điền)
@@ -131,7 +133,6 @@ export function ComplaintFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setPageHeader } = usePageHeader();
-  const routeMeta = useRouteMeta();
   
   const { getComplaintById, addComplaint, updateComplaint } = useComplaintStore();
   const { data: orders } = useOrderStore();
@@ -532,28 +533,12 @@ export function ComplaintFormPage() {
         { label: "Chỉnh sửa", href: editPath },
       ];
     }
-    if (routeMeta?.breadcrumb) {
-      return routeMeta.breadcrumb.map((item, index, arr) => {
-        if (typeof item === "string") {
-          return {
-            label: item,
-            href: location.pathname,
-            isCurrent: index === arr.length - 1,
-          } satisfies BreadcrumbItem;
-        }
-        return {
-          label: item.label,
-          href: item.href ?? location.pathname,
-          isCurrent: index === arr.length - 1,
-        } satisfies BreadcrumbItem;
-      });
-    }
     return [
       { label: "Trang chủ", href: ROUTES.ROOT },
       { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS },
       { label: "Tạo mới", href: ROUTES.INTERNAL.COMPLAINT_NEW },
     ];
-  }, [complaint, routeMeta, location.pathname]);
+  }, [complaint]);
 
   React.useEffect(() => {
     setPageHeader({

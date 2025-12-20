@@ -3,8 +3,8 @@
  * Server-side search for orders to handle large datasets
  */
 
-import type { Order } from './types.ts';
-import { formatOrderAddress } from './address-utils.ts';
+import type { Order } from './types';
+import { formatOrderAddress } from './address-utils';
 
 export interface OrderSearchResult {
   value: string;      // systemId

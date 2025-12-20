@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { Printer } from 'lucide-react';
-import { Button } from '../../../components/ui/button.tsx';
+import { Button } from '../../../components/ui/button';
 import { toast } from 'sonner';
-import { usePrint } from '../../../lib/use-print.ts';
-import { useStoreInfoStore } from '../../settings/store-info/store-info-store.ts';
-import { usePayrollBatchStore } from '../payroll-batch-store.ts';
-import { useEmployeeStore } from '../../employees/store.ts';
-import { useDepartmentStore } from '../../settings/departments/store.ts';
+import { usePrint } from '../../../lib/use-print';
+import { useStoreInfoStore } from '../../settings/store-info/store-info-store';
+import { usePayrollBatchStore } from '../payroll-batch-store';
+import { useEmployeeStore } from '../../employees/store';
+import { useDepartmentStore } from '../../settings/departments/store';
 import {
   convertPayrollBatchForPrint,
   convertPayslipForPrint,
@@ -15,9 +15,9 @@ import {
   mapPayslipToPrintData,
   mapPayslipComponentLineItems,
   createStoreSettings,
-} from '../../../lib/print/payroll-print-helper.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
-import type { Payslip, PayrollBatch } from '../../../lib/payroll-types.ts';
+} from '../../../lib/print/payroll-print-helper';
+import type { SystemId } from '../../../lib/id-types';
+import type { Payslip, PayrollBatch } from '../../../lib/payroll-types';
 
 // =============================================
 // TYPES

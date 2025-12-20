@@ -1,19 +1,19 @@
 import * as React from 'react';
-import { useSettingsPageHeader } from '../settings/use-settings-page-header.tsx';
-import { useStockLocationStore } from './store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import type { StockLocation } from './types.ts';
-import { asSystemId } from '../../lib/id-types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
-import { StockLocationForm, type StockLocationFormValues } from './form.tsx';
-import { getColumns } from './columns.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { useSettingsPageHeader } from '../settings/use-settings-page-header';
+import { useStockLocationStore } from './store';
+import { useBranchStore } from '../settings/branches/store';
+import type { StockLocation } from './types';
+import { asSystemId } from '../../lib/id-types';
+import type { SystemId } from '../../lib/id-types';
+import { StockLocationForm, type StockLocationFormValues } from './form';
+import { getColumns } from './columns';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { Button } from '../../components/ui/button';
 import { PlusCircle } from 'lucide-react';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { SettingsActionButton } from '../../components/settings/SettingsActionButton.tsx';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { SettingsActionButton } from '../../components/settings/SettingsActionButton';
 
 export function StockLocationsPage() {
   const { data, add, update, remove } = useStockLocationStore();

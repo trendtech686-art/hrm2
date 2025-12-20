@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list.tsx';
-import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
+import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
 import { toast } from 'sonner';
 
 interface InventoryCheckWorkflowCardProps {

@@ -1,44 +1,46 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { usePurchaseOrderStore } from './store.ts';
-import { ROUTES } from '../../lib/router.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { useProductStore } from '../products/store.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
+import { useNavigate, useParams, useSearchParamsWithSetter } from '@/lib/next-compat';
+import { usePurchaseOrderStore } from './store';
+import { ROUTES } from '../../lib/router';
+import { useBranchStore } from '../settings/branches/store';
+import { useEmployeeStore } from '../employees/store';
+import { useAuth } from '../../contexts/auth-context';
+import { useProductStore } from '../products/store';
+import { useSupplierStore } from '../suppliers/store';
+import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { useStockHistoryStore } from '../stock-history/store';
 // REMOVED: Voucher store no longer exists
-// import { useVoucherStore } from '../vouchers/store.ts';
-import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import type { Payment } from '../payments/types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+// import { useVoucherStore } from '../vouchers/store';
+import { usePaymentTypeStore } from '../settings/payments/types/store';
+import { useCashbookStore } from '../cashbook/store';
+import { usePaymentStore } from '../payments/store';
+import type { Payment } from '../payments/types';
+import { usePageHeader } from '../../contexts/page-header-context';
 import { toast } from 'sonner';
-import { getCurrentDate, toISODate, formatDateCustom } from '../../lib/date-utils.ts';
-import type { PurchaseOrder, PaymentStatus, PurchaseOrderStatus, DeliveryStatus } from './types.ts';
-import { Button } from '../../components/ui/button.tsx';
-import { SupplierSelectionCard } from './components/supplier-selection-card.tsx';
-import { OrderInfoCard } from './components/order-info-card.tsx';
+import { getCurrentDate, toISODate, formatDateCustom } from '../../lib/date-utils';
+import type { PurchaseOrder, PaymentStatus, PurchaseOrderStatus, DeliveryStatus } from './types';
+import { Button } from '../../components/ui/button';
+import { SupplierSelectionCard } from './components/supplier-selection-card';
+import { OrderInfoCard } from './components/order-info-card';
 import {
   ProductSelectionCard,
   type ProductLineItem,
-} from './components/product-selection-card.tsx';
-import { OrderNotesCard } from './components/order-notes-card.tsx';
+} from './components/product-selection-card';
+import { OrderNotesCard } from './components/order-notes-card';
 import {
   OrderSummaryCard,
   type DiscountType,
   type Fee,
   type PaymentRecord,
-} from './components/order-summary-card.tsx';
+} from './components/order-summary-card';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { SystemId } from '@/lib/id-types';
 
 export function PurchaseOrderFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams] = useSearchParamsWithSetter();
   const navigate = useNavigate();
   const { add, update, findById, data: allOrders, processInventoryReceipt } = usePurchaseOrderStore();
   const { data: branches } = useBranchStore();

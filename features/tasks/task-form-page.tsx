@@ -1,31 +1,31 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { useTaskStore } from './store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useRouteMeta } from '../../hooks/use-route-meta';
-import type { Task, TaskPriority, TaskStatus } from './types.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { DateTimePicker24h } from '../../components/ui/date-time-picker-24h.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { VirtualizedCombobox } from '../../components/ui/virtualized-combobox.tsx';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useTaskStore } from './store';
+import { useEmployeeStore } from '../employees/store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
+import type { Task, TaskPriority, TaskStatus } from './types';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Checkbox } from '../../components/ui/checkbox';
+import { DateTimePicker24h } from '../../components/ui/date-time-picker-24h';
+import { Badge } from '../../components/ui/badge';
+import { VirtualizedCombobox } from '../../components/ui/virtualized-combobox';
 import { ArrowLeft, Save, FileText, Plus, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { loadTaskTemplates, loadTaskTypes } from '../../features/settings/tasks/tasks-settings-page.tsx';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import { loadTaskTemplates, loadTaskTypes } from '../../features/settings/tasks/tasks-settings-page';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export function TaskFormPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
   const navigate = ReactRouterDOM.useNavigate();
-  const routeMeta = useRouteMeta();
   const store = useTaskStore();
   const { findById, add, update } = store;
   const { data: employees } = useEmployeeStore();

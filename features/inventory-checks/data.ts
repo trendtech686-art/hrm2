@@ -3,8 +3,8 @@
  * Dữ liệu mẫu phiếu kiểm kê - normalized với branded types
  */
 
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
-import type { InventoryCheck } from './types.ts';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import type { InventoryCheck } from './types';
 
 export const data = [
   {

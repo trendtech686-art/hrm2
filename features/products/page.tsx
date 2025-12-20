@@ -1,21 +1,22 @@
+'use client'
+
 import * as React from "react"
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { useQueryClient } from '@tanstack/react-query';
-import { useProductStore } from "./store.ts"
-import { useProductCategoryStore } from "../settings/inventory/product-category-store.ts"
-import { useBranchStore } from "../settings/branches/store.ts"
-import { useBrandStore } from "../settings/inventory/brand-store.ts"
-import { usePricingPolicyStore } from "../settings/pricing/store.ts"
-import { usePkgxSettingsStore } from "../settings/pkgx/store.ts"
-import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync.ts"
-import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog.tsx"
-import { createProduct, updateProduct } from "../../lib/pkgx/api-service.ts"
-import type { PkgxProductPayload } from "../settings/pkgx/types.ts"
-import { usePkgxSync } from "./hooks/use-pkgx-sync.ts"
-import { useAuth } from "../../contexts/auth-context.tsx"
+import { useProductStore } from "./store"
+import { useProductCategoryStore } from "../settings/inventory/product-category-store"
+import { useBranchStore } from "../settings/branches/store"
+import { useBrandStore } from "../settings/inventory/brand-store"
+import { usePricingPolicyStore } from "../settings/pricing/store"
+import { usePkgxSettingsStore } from "../settings/pkgx/store"
+import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync"
+import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog"
+import { createProduct, updateProduct } from "../../lib/pkgx/api-service"
+import type { PkgxProductPayload } from "../settings/pkgx/types"
+import { usePkgxSync } from "./hooks/use-pkgx-sync"
+import { useAuth } from "../../contexts/auth-context"
 import { asSystemId, asBusinessId } from '../../lib/id-types';
-import { getColumns } from "./columns.tsx"
+import { getColumns } from "./columns"
 import { usePrint } from '@/lib/use-print';
 import { 
   convertProductForLabel,
@@ -24,18 +25,18 @@ import {
   createStoreSettings,
 } from '@/lib/print/product-print-helper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx"
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { productImportExportConfig } from "../../lib/import-export/configs/product.config.ts";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
-import { transformImportedRows, normalizeFieldKey, type BranchInventoryIdentifier } from "./product-importer.ts";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { productImportExportConfig } from "../../lib/import-export/configs/product.config";
+import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
+import { PageFilters } from "../../components/layout/page-filters";
+import { PageToolbar } from "../../components/layout/page-toolbar";
+import { transformImportedRows, normalizeFieldKey, type BranchInventoryIdentifier } from "./product-importer";
 import { 
   Card, 
   CardContent, 
-} from "../../components/ui/card.tsx"
+} from "../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,33 +46,33 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx"
-import type { Product } from "./types.ts"
-import { Button } from "../../components/ui/button.tsx"
+} from "../../components/ui/alert-dialog"
+import type { Product } from "./types"
+import { Button } from "../../components/ui/button"
 import { PlusCircle } from "lucide-react"
-import { PkgxLinkDialog } from "./components/pkgx-link-dialog.tsx"
-import { useProductsQuery } from "./hooks/use-products-query.ts";
-import { DEFAULT_PRODUCT_SORT, getFilteredProductsSnapshot, type ProductQueryParams, type ProductQueryResult } from "./product-service.ts";
-import { usePersistentState } from "../../hooks/use-persistent-state.ts";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
+import { PkgxLinkDialog } from "./components/pkgx-link-dialog"
+import { useProductsQuery } from "./hooks/use-products-query";
+import { DEFAULT_PRODUCT_SORT, getFilteredProductsSnapshot, type ProductQueryParams, type ProductQueryResult } from "./product-service";
+import { usePersistentState } from "../../hooks/use-persistent-state";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { Badge } from "../../components/ui/badge";
+import { Avatar, AvatarFallback } from "../../components/ui/avatar";
+import { useMediaQuery } from "../../lib/use-media-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu.tsx";
+} from "../../components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet.tsx";
+} from "../../components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
 import { MoreVertical, Package, Settings2, SlidersHorizontal, Columns3, Layers, RefreshCw, FileText, DollarSign, PackageSearch, Search, Flag, Image, ExternalLink, Unlink, Printer, Trash2, Play, StopCircle, FileUp, Download } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate } from '@/lib/date-utils';

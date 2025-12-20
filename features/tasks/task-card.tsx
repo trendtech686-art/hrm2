@@ -1,14 +1,14 @@
 import * as React from 'react';
 import { formatDate } from '@/lib/date-utils';
-import type { Task } from './types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
-import { Card, CardContent } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Progress } from '../../components/ui/progress.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import type { Task } from './types';
+import type { SystemId } from '../../lib/id-types';
+import { Card, CardContent } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Progress } from '../../components/ui/progress';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { Button } from '../../components/ui/button';
 import { MoreVertical, Calendar, Clock, User, Flag } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 
 interface TaskCardProps {
   task: Task;

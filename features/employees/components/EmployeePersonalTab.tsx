@@ -6,17 +6,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
+} from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select.tsx";
-import { DatePicker } from "../../../components/ui/date-picker.tsx";
-import type { EmployeeFormValues } from "../employee-form.tsx";
+} from "../../../components/ui/select";
+import { DatePicker } from "../../../components/ui/date-picker";
+import type { EmployeeFormValues } from "../employee-form";
 
 interface EmployeePersonalTabProps {
   form: UseFormReturn<EmployeeFormValues, any, EmployeeFormValues>;

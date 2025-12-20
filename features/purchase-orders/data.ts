@@ -1,4 +1,4 @@
-import type { PurchaseOrder } from './types.ts';
+import type { PurchaseOrder } from './types';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 function addDays(days: number): string {

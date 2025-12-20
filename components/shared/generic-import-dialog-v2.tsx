@@ -35,24 +35,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../ui/dialog.tsx"
-import { Button } from "../ui/button.tsx"
-import { Label } from "../ui/label.tsx"
-import { Input } from "../ui/input.tsx"
-import { Textarea } from "../ui/textarea.tsx"
+} from "../ui/dialog"
+import { Button } from "../ui/button"
+import { Label } from "../ui/label"
+import { Input } from "../ui/input"
+import { Textarea } from "../ui/textarea"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select.tsx"
-import { Progress } from "../ui/progress.tsx"
-import { ScrollArea, ScrollBar } from "../ui/scroll-area.tsx"
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert.tsx"
-import { Badge } from "../ui/badge.tsx"
-import { Checkbox } from "../ui/checkbox.tsx"
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group.tsx"
+} from "../ui/select"
+import { Progress } from "../ui/progress"
+import { ScrollArea, ScrollBar } from "../ui/scroll-area"
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
+import { Badge } from "../ui/badge"
+import { Checkbox } from "../ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group"
 import {
   Table,
   TableBody,
@@ -60,27 +60,27 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table.tsx"
+} from "../ui/table"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "../ui/tabs.tsx"
+} from "../ui/tabs"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "../ui/popover.tsx"
+} from "../ui/popover"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "../ui/tooltip.tsx"
+} from "../ui/tooltip"
 import * as XLSX from 'xlsx'
 import { toast } from "sonner"
-import { cn } from "../../lib/utils.ts"
+import { cn } from "../../lib/utils"
 import { 
   useImportExportStore,
   type ImportPreviewResult,
@@ -88,11 +88,11 @@ import {
   type ImportExportConfig,
   type FieldConfig,
   previewImportData,
-} from '../../lib/import-export/index.ts'
-import type { SystemId } from "../../lib/id-types.ts"
-import { ExcelFileDropzone, type ExcelFile } from './excel-file-dropzone.tsx'
-import { useBranchStore } from "../../features/settings/branches/store.ts"
-import { usePricingPolicyStore } from "../../features/settings/pricing/store.ts"
+} from '../../lib/import-export/index'
+import type { SystemId } from "../../lib/id-types"
+import { ExcelFileDropzone, type ExcelFile } from './excel-file-dropzone'
+import { useBranchStore } from "../../features/settings/branches/store"
+import { usePricingPolicyStore } from "../../features/settings/pricing/store"
 
 // ============================================
 // EDITABLE CELL COMPONENT (Memoized for performance)

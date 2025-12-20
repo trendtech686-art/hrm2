@@ -10,7 +10,7 @@ import type { SystemId } from '@/lib/id-types';
 import type { Complaint, ComplaintAction } from '../types';
 import type { ComplaintPermissions } from './use-complaint-permissions';
 import { complaintNotifications } from '../notification-utils';
-import { handleVerifyIncorrect } from '../handlers/verify-incorrect-handler.ts';
+import { handleVerifyIncorrect } from '../handlers/verify-incorrect-handler';
 
 interface UseVerificationHandlersProps {
   complaint: Complaint | null;
@@ -71,7 +71,7 @@ export function useVerificationHandlers({
       // Confirm files if any
       let confirmedImages: string[] = [];
       if (stagingFiles.length > 0) {
-        const { FileUploadAPI } = await import('../../../lib/file-upload-api.ts');
+        const { FileUploadAPI } = await import('../../../lib/file-upload-api');
         const stagingIds = stagingFiles.map(f => f.id);
         // Use confirmStagingFiles instead
         const confirmed = await FileUploadAPI.confirmStagingFiles(

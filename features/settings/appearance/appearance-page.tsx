@@ -1,21 +1,21 @@
 import * as React from 'react'
 import { Moon, Sun, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { useAppearanceStore, type Theme, type FontSize, type CustomThemeConfig, type ColorMode } from './store.ts'
-import { getThemeConfig } from './themes.ts';
-import { Button } from '../../../components/ui/button.tsx'
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx'
-import { cn } from '../../../lib/utils.ts'
-import { CustomThemeForm } from './custom-theme-form.tsx'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../../components/ui/resizable.tsx'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
-import { ScrollArea } from '../../../components/ui/scroll-area.tsx'
-import { ToggleGroup, ToggleGroupItem } from '../../../components/ui/toggle-group.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { useAppearanceStore, type Theme, type FontSize, type CustomThemeConfig, type ColorMode } from './store'
+import { getThemeConfig } from './themes';
+import { Button } from '../../../components/ui/button'
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton'
+import { cn } from '../../../lib/utils'
+import { CustomThemeForm } from './custom-theme-form'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../../components/ui/resizable'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
+import { ScrollArea } from '../../../components/ui/scroll-area'
+import { ToggleGroup, ToggleGroupItem } from '../../../components/ui/toggle-group';
 
-import { PreviewCards } from '../previews/cards.tsx'
-import { PreviewDashboard } from '../previews/dashboard.tsx'
-import { PreviewAuthentication } from '../previews/authentication.tsx'
+import { PreviewCards } from '../previews/cards'
+import { PreviewDashboard } from '../previews/dashboard'
+import { PreviewAuthentication } from '../previews/authentication'
 
 type PreviewComponent = 'Cards' | 'Dashboard' | 'Authentication';
 

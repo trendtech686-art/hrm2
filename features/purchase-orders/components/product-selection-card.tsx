@@ -1,32 +1,32 @@
 import * as React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { NumberInput } from "../../../components/ui/number-input.tsx";
-import { CurrencyInput } from "../../../components/ui/currency-input.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { NumberInput } from "../../../components/ui/number-input";
+import { CurrencyInput } from "../../../components/ui/currency-input";
 import { Package, Plus, X, StickyNote, History, Pencil, Eye, ChevronDown, ChevronRight } from "lucide-react";
-import { PurchaseProductSearch } from "../../../components/shared/unified-product-search.tsx";
-import { ProductSelectionDialog } from "../../shared/product-selection-dialog.tsx";
-import { TaxSelector } from "./tax-selector.tsx";
-import { useTaxStore } from "../../settings/taxes/store.ts";
-import { useProductStore } from "../../products/store.ts";
-import { useProductTypeStore } from "../../settings/inventory/product-type-store.ts";
-import { usePurchaseOrderStore } from "../store.ts";
-import type { Product } from "../../products/types.ts";
-import { useProductImage } from "../../products/components/product-image.tsx";
-import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog.tsx";
+import { PurchaseProductSearch } from "../../../components/shared/unified-product-search";
+import { ProductSelectionDialog } from "../../shared/product-selection-dialog";
+import { TaxSelector } from "./tax-selector";
+import { useTaxStore } from "../../settings/taxes/store";
+import { useProductStore } from "../../products/store";
+import { useProductTypeStore } from "../../settings/inventory/product-type-store";
+import { usePurchaseOrderStore } from "../store";
+import type { Product } from "../../products/types";
+import { useProductImage } from "../../products/components/product-image";
+import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import { formatDateForDisplay } from '@/lib/date-utils';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "../../../components/ui/popover.tsx";
+} from "../../../components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select.tsx";
+} from "../../../components/ui/select";
 import {
   Table,
   TableBody,
@@ -34,7 +34,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../../components/ui/table.tsx";
+} from "../../../components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -42,9 +42,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog.tsx";
-import { Textarea } from "../../../components/ui/textarea.tsx";
-import { Link } from "react-router-dom";
+} from "../../../components/ui/dialog";
+import { Textarea } from "../../../components/ui/textarea";
+import { Link } from '@/lib/next-compat';
 
 // Component hiển thị ảnh sản phẩm với preview - tương tự LineItemsTable
 const ProductThumbnail = ({ 

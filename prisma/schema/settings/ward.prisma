@@ -1,0 +1,30 @@
+// ═══════════════════════════════════════════════════════════════
+// WARD MODEL (Phường/Xã)
+// ═══════════════════════════════════════════════════════════════
+
+model Ward {
+  systemId          String        @id @default(uuid())
+  
+  // Basic info
+  name              String
+  code              String        @unique
+  
+  // District
+  districtId        String
+  district          District      @relation(fields: [districtId], references: [systemId])
+  
+  // Type
+  type              String?       // ward, commune, town
+  
+  // Display
+  sortOrder         Int           @default(0)
+  
+  // Status
+  isActive          Boolean       @default(true)
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@map("wards")
+}

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Payment } from './types.ts';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { data as initialData } from './data.ts';
+import type { Payment } from './types';
+import type { HistoryEntry } from '../../components/ActivityHistory';
+import { data as initialData } from './data';
 import {
   extractCounterFromBusinessId,
   findNextAvailableBusinessId,
@@ -10,11 +10,11 @@ import {
   getMaxBusinessIdCounter,
   getMaxSystemIdCounter,
   type EntityType,
-} from '../../lib/id-utils.ts';
-import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
+} from '../../lib/id-utils';
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 import { pickAccount, pickPaymentMethod, pickPaymentType, pickTargetGroup } from '@/features/finance/document-lookups';
-import { useEmployeeStore } from '../employees/store.ts';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+import { useEmployeeStore } from '../employees/store';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
 
 // Helper to get current user info
 const getCurrentUserInfo = () => {

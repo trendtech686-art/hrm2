@@ -1,47 +1,49 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
-import { formatDate } from '../../../lib/date-utils.ts'
-import { usePenaltyStore, usePenaltyTypeStore } from "./store.ts"
-import { useEmployeeStore } from "../../employees/store.ts";
-import { useBranchStore } from "../branches/store.ts";
-import { useStoreInfoStore } from "../store-info/store-info-store.ts";
-import { useDefaultPageSize } from "../global-settings-store.ts";
-import { getColumns } from "./columns.tsx"
-import { ResponsiveDataTable, type BulkAction } from "../../../components/data-table/responsive-data-table.tsx"
-import { DataTableFacetedFilter } from "../../../components/data-table/data-table-faceted-filter.tsx"
+import { useNavigate } from '@/lib/next-compat';
+import { formatDate } from '../../../lib/date-utils'
+import { usePenaltyStore, usePenaltyTypeStore } from "./store"
+import { useEmployeeStore } from "../../employees/store";
+import { useBranchStore } from "../branches/store";
+import { useStoreInfoStore } from "../store-info/store-info-store";
+import { useDefaultPageSize } from "../global-settings-store";
+import { getColumns } from "./columns"
+import { ResponsiveDataTable, type BulkAction } from "../../../components/data-table/responsive-data-table"
+import { DataTableFacetedFilter } from "../../../components/data-table/data-table-faceted-filter"
 import { toast } from "sonner"
 import { 
   Card, 
   CardContent,
-} from "../../../components/ui/card.tsx"
-import { Button } from "../../../components/ui/button.tsx"
+} from "../../../components/ui/card"
+import { Button } from "../../../components/ui/button"
 import { PlusCircle, User, Calendar, MoreHorizontal, FileText, AlertTriangle, Printer } from "lucide-react"
-import type { Penalty, PenaltyStatus } from "./types.ts"
-import { penaltyCategoryLabels } from "./types.ts"
-import { DataTableExportDialog } from "../../../components/data-table/data-table-export-dialog.tsx";
-import { DataTableImportDialog, type ImportConfig } from "../../../components/data-table/data-table-import-dialog.tsx";
+import type { Penalty, PenaltyStatus } from "./types"
+import { penaltyCategoryLabels } from "./types"
+import { DataTableExportDialog } from "../../../components/data-table/data-table-export-dialog";
+import { DataTableImportDialog, type ImportConfig } from "../../../components/data-table/data-table-import-dialog";
 import Fuse from "fuse.js"
-import { usePageHeader } from "../../../contexts/page-header-context.tsx";
-import { DataTableColumnCustomizer } from "../../../components/data-table/data-table-column-toggle.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select.tsx";
-import { TouchButton } from "../../../components/mobile/touch-button.tsx";
-import { Badge } from "../../../components/ui/badge.tsx";
-import { useMediaQuery } from "../../../lib/use-media-query.ts";
+import { usePageHeader } from "../../../contexts/page-header-context";
+import { DataTableColumnCustomizer } from "../../../components/data-table/data-table-column-toggle";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { TouchButton } from "../../../components/mobile/touch-button";
+import { Badge } from "../../../components/ui/badge";
+import { useMediaQuery } from "../../../lib/use-media-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu.tsx";
-import { PageToolbar } from "../../../components/layout/page-toolbar.tsx";
-import { PageFilters } from "../../../components/layout/page-filters.tsx";
-import { usePrint } from "../../../lib/use-print.ts";
+} from "../../../components/ui/dropdown-menu";
+import { PageToolbar } from "../../../components/layout/page-toolbar";
+import { PageFilters } from "../../../components/layout/page-filters";
+import { usePrint } from "../../../lib/use-print";
 import { 
   convertPenaltyForPrint,
   mapPenaltyToPrintData,
   createStoreSettings,
-} from "../../../lib/print/penalty-print-helper.ts";
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog.tsx";
+} from "../../../lib/print/penalty-print-helper";
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog";
 
 const COLUMN_LAYOUT_STORAGE_KEY = 'penalties-column-layout';
 

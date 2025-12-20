@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useDebounce } from '../../hooks/use-debounce.ts';
-import { cn } from '../../lib/utils.ts';
-import { Button } from './button.tsx';
-import { Command, CommandInput, CommandEmpty } from './command.tsx';
-import { Popover, PopoverContent, PopoverTrigger } from './popover.tsx';
+import { useDebounce } from '../../hooks/use-debounce';
+import { cn } from '../../lib/utils';
+import { Button } from './button';
+import { Command, CommandInput, CommandEmpty } from './command';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 export type ComboboxOption = {
   value: string;

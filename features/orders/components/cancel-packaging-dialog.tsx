@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Textarea } from '../../../components/ui/textarea.tsx';
-import { Label } from '../../../components/ui/label.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Textarea } from '../../../components/ui/textarea';
+import { Label } from '../../../components/ui/label';
 
 interface CancelPackagingDialogProps {
     isOpen: boolean;

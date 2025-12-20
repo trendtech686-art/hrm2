@@ -1,62 +1,64 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ROUTES } from '../../lib/router.ts';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { ROUTES } from '../../lib/router';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate, toISODateTime } from '@/lib/date-utils';
 import { useForm } from 'react-hook-form';
-import { usePurchaseOrderStore } from './store.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
+import { usePurchaseOrderStore } from './store';
+import { useSupplierStore } from '../suppliers/store';
+import { usePaymentStore } from '../payments/store';
+import { useReceiptStore } from '../receipts/store';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
+import { Separator } from '../../components/ui/separator';
 import { ArrowLeft, Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, History, Plus, Edit2, ChevronDown, ChevronRight, Banknote, Landmark, Lock, Trash2, MoreVertical, Wallet, CreditCard, AlertCircle, Eye } from 'lucide-react';
-import { useProductImage } from '../products/components/product-image.tsx';
-import { cn } from '../../lib/utils.ts';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogFooter as FormDialogFooter } from '../../components/ui/dialog.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../components/ui/dropdown-menu.tsx';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { usePaymentTypeStore } from '../settings/payments/types/store.ts';
-import { useCashbookStore } from '../cashbook/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
+import { useProductImage } from '../products/components/product-image';
+import { cn } from '../../lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogFooter as FormDialogFooter } from '../../components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
+import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { useProductStore } from '../products/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { usePaymentTypeStore } from '../settings/payments/types/store';
+import { useCashbookStore } from '../cashbook/store';
+import { useBranchStore } from '../settings/branches/store';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { Payment } from '../payments/types.ts';
-import type { Receipt } from '../receipts/types.ts';
-import { Form, FormControl, FormField, FormItem, FormLabel } from '../../components/ui/form.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { NumberInput } from '../../components/ui/number-input.tsx';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs.tsx';
-import { RelatedDataTable } from '../../components/data-table/related-data-table.tsx';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import type { InventoryReceipt } from '../inventory-receipts/types.ts';
-import { ActivityHistory } from '../../components/ActivityHistory.tsx';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { Timeline, TimelineItem } from '../../components/ui/timeline.tsx';
-import { usePurchaseReturnStore } from '../purchase-returns/store.ts';
-import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types.ts';
-import { Badge } from '../../components/ui/badge.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import type { PurchaseOrder, PaymentStatus } from './types.ts';
-import { getPaymentsForPurchaseOrder, getReceiptsForPurchaseOrder, sumPaymentsForPurchaseOrder } from './payment-utils.ts';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog.tsx';
+import type { Payment } from '../payments/types';
+import type { Receipt } from '../receipts/types';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '../../components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Input } from '../../components/ui/input';
+import { NumberInput } from '../../components/ui/number-input';
+import { DetailField } from '../../components/ui/detail-field';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { RelatedDataTable } from '../../components/data-table/related-data-table';
+import type { ColumnDef } from '../../components/data-table/types';
+import type { InventoryReceipt } from '../inventory-receipts/types';
+import { ActivityHistory } from '../../components/ActivityHistory';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { Timeline, TimelineItem } from '../../components/ui/timeline';
+import { usePurchaseReturnStore } from '../purchase-returns/store';
+import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
+import { Badge } from '../../components/ui/badge';
+import { useAuth } from '../../contexts/auth-context';
+import type { PurchaseOrder, PaymentStatus } from './types';
+import { getPaymentsForPurchaseOrder, getReceiptsForPurchaseOrder, sumPaymentsForPurchaseOrder } from './payment-utils';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertPurchaseOrderForPrint,
   mapPurchaseOrderToPrintData, 
   mapPurchaseOrderLineItems,
   createStoreSettings,
-} from '../../lib/print/purchase-order-print-helper.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+} from '../../lib/print/purchase-order-print-helper';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { 
   PrintData, 
   PrintLineItem,
@@ -65,10 +67,10 @@ import {
   numberToWords,
   getStoreData,
   StoreSettings
-} from '../../lib/print-mappers/types.ts';
-import { createPaymentDocument } from '../finance/document-helpers.ts';
-import { PurchaseOrderPaymentItem } from './components/payment-item.tsx';
-import { useEmployeeStore } from '../employees/store.ts';
+} from '../../lib/print-mappers/types';
+import { createPaymentDocument } from '../finance/document-helpers';
+import { PurchaseOrderPaymentItem } from './components/payment-item';
+import { useEmployeeStore } from '../employees/store';
 import { mapPaymentToPrintData, PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
 import { mapReceiptToPrintData, ReceiptForPrint } from '../../lib/print-mappers/receipt.mapper';
 import { 
@@ -76,7 +78,7 @@ import {
   mapSupplierReturnToPrintData, 
   mapSupplierReturnLineItems,
   createStoreSettings as createSupplierReturnStoreSettings,
-} from '../../lib/print/supplier-return-print-helper.ts';
+} from '../../lib/print/supplier-return-print-helper';
 
 
 
@@ -272,7 +274,7 @@ import {
   mapStockInToPrintData,
   mapStockInLineItems,
   createStoreSettings as createStockInStoreSettings,
-} from '../../lib/print/stock-in-print-helper.ts';
+} from '../../lib/print/stock-in-print-helper';
 
 function InventoryReceiptDetailView({ 
   receipt, 

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { cn } from "../../lib/utils.ts"
+import { cn } from "../../lib/utils"
 
 // CONTEXT
 type ContextMenuContextType = {

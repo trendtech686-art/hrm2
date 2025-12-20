@@ -1,9 +1,11 @@
+'use client'
+
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
-import type { Complaint } from '../types.ts';
-import { formatOrderAddress } from '../../orders/address-utils.ts';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import type { Complaint } from '../types';
+import { formatOrderAddress } from '../../orders/address-utils';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface Props {

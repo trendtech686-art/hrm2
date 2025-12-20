@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { useFormContext, useWatch, Controller } from 'react-hook-form';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { Label } from '../../../components/ui/label.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Separator } from '../../../components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Label } from '../../../components/ui/label';
 
 interface WarrantySummaryProps {
   disabled?: boolean;

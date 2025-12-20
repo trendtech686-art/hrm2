@@ -2,16 +2,16 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import type { DailyRecord } from '../types.ts';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog.tsx';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { TimePicker } from '../../../components/ui/time-picker.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
+import type { DailyRecord } from '../types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Button } from '../../../components/ui/button';
+import { TimePicker } from '../../../components/ui/time-picker';
+import { Separator } from '../../../components/ui/separator';
 import { CheckCircle2, XCircle, Clock, Calendar, Users, Edit3 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { SystemId } from '../../../lib/id-types.ts';
+import type { SystemId } from '../../../lib/id-types';
 
 interface BulkEditDialogProps {
   isOpen: boolean;

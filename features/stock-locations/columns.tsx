@@ -1,10 +1,10 @@
 import * as React from "react";
-import type { StockLocation } from './types.ts'
-import type { Branch } from '../settings/branches/types.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import type { StockLocation } from './types'
+import type { Branch } from '../settings/branches/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Button } from "../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
-import type { ColumnDef } from '../../components/data-table/types.ts';
+import type { ColumnDef } from '../../components/data-table/types';
 
 export const getColumns = (
   onEdit: (location: StockLocation) => void,

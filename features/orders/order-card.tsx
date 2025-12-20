@@ -1,8 +1,10 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Badge } from '../../components/ui/badge.tsx';
-import { StatusBadge, ORDER_MAIN_STATUS_MAP, PAYMENT_STATUS_MAP, DELIVERY_STATUS_MAP } from '../../components/StatusBadge.tsx';
-import { TouchButton } from '../../components/mobile/touch-button.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { Badge } from '../../components/ui/badge';
+import { StatusBadge, ORDER_MAIN_STATUS_MAP, PAYMENT_STATUS_MAP, DELIVERY_STATUS_MAP } from '../../components/StatusBadge';
+import { TouchButton } from '../../components/mobile/touch-button';
 import { 
   User, 
   Calendar, 
@@ -13,8 +15,8 @@ import {
   Printer,
   MoreVertical
 } from 'lucide-react';
-import type { Order } from './types.ts';
-import { formatDate } from '../../lib/date-utils.ts';
+import type { Order } from './types';
+import { formatDate } from '../../lib/date-utils';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0 ₫';

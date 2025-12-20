@@ -1,14 +1,14 @@
 import * as React from "react";
-import { Card, CardContent } from "../ui/card.tsx";
-import { ResponsiveDataTable } from "../data-table/responsive-data-table.tsx";
-import { DataTableToolbar } from "../data-table/data-table-toolbar.tsx";
-import { DataTableColumnCustomizer } from "../data-table/data-table-column-toggle.tsx";
-import { DataTableExportDialog } from "../data-table/data-table-export-dialog.tsx";
-import { DataTableImportDialog } from "../data-table/data-table-import-dialog.tsx";
-import { MobileSearchBar } from "../mobile/mobile-search-bar.tsx";
-import { TouchButton } from "../mobile/touch-button.tsx";
-import { Button } from "../ui/button.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
+import { Card, CardContent } from "../ui/card";
+import { ResponsiveDataTable } from "../data-table/responsive-data-table";
+import { DataTableToolbar } from "../data-table/data-table-toolbar";
+import { DataTableColumnCustomizer } from "../data-table/data-table-column-toggle";
+import { DataTableExportDialog } from "../data-table/data-table-export-dialog";
+import { DataTableImportDialog } from "../data-table/data-table-import-dialog";
+import { MobileSearchBar } from "../mobile/mobile-search-bar";
+import { TouchButton } from "../mobile/touch-button";
+import { Button } from "../ui/button";
+import { useMediaQuery } from "../../lib/use-media-query";
 import { PlusCircle } from "lucide-react";
 
 interface DataPageLayoutProps<T> {

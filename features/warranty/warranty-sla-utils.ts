@@ -4,7 +4,7 @@
  * Calculate and format SLA-related metrics for warranty tickets
  */
 
-import { WarrantyTicket } from './types.ts';
+import { WarrantyTicket } from './types';
 
 const SLA_STORAGE_KEY = 'warranty-sla-targets';
 

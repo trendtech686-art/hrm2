@@ -1,17 +1,17 @@
 import * as React from "react";
-import type { ProductCategory } from '../settings/inventory/types.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from "../../components/ui/button.tsx";
-import { Switch } from "../../components/ui/switch.tsx";
+import type { ProductCategory } from '../settings/inventory/types';
+import { Checkbox } from "../../components/ui/checkbox";
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
+import { Badge } from "../../components/ui/badge";
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from "../../components/ui/button";
+import { Switch } from "../../components/ui/switch";
 import { MoreHorizontal, Image as ImageIcon, Package, Pencil, CheckCircle, AlertTriangle, XCircle, RefreshCw, Search, AlignLeft, ExternalLink, Unlink, Globe, Link2, FolderEdit } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx";
-import { useProductStore } from '../products/store.ts';
-import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell.tsx';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+import { useProductStore } from '../products/store';
+import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return '';

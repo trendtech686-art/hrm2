@@ -5,8 +5,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select.tsx";
-import { Input } from "../../../components/ui/input.tsx";
+} from "../../../components/ui/select";
+import { Input } from "../../../components/ui/input";
 
 interface PriceSelectorProps {
   productId: string;

@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { cn } from '../../lib/utils.ts';
-import { Skeleton } from './skeleton.tsx';
+import { cn } from '../../lib/utils';
+import { Skeleton } from './skeleton';
 
 interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;

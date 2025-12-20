@@ -7,13 +7,13 @@
 import * as React from 'react';
 import { format, parseISO, startOfDay, startOfWeek, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { useOrderStore } from '@/features/orders/store.ts';
-import { useProductStore } from '@/features/products/store.ts';
-import { useEmployeeStore } from '@/features/employees/store.ts';
-import { useBranchStore } from '@/features/settings/branches/store.ts';
-import { useCustomerStore } from '@/features/customers/store.ts';
-import { useSalesReturnStore } from '@/features/sales-returns/store.ts';
-import { useBrandStore } from '@/features/settings/inventory/brand-store.ts';
+import { useOrderStore } from '@/features/orders/store';
+import { useProductStore } from '@/features/products/store';
+import { useEmployeeStore } from '@/features/employees/store';
+import { useBranchStore } from '@/features/settings/branches/store';
+import { useCustomerStore } from '@/features/customers/store';
+import { useSalesReturnStore } from '@/features/sales-returns/store';
+import { useBrandStore } from '@/features/settings/inventory/brand-store';
 import type { 
   ReportDateRange, 
   TimeGrouping,
@@ -23,9 +23,9 @@ import type {
   SalesBranchReportRow,
   SalesCustomerReportRow,
   SalesReportSummary,
-} from '../types.ts';
-import type { SystemId } from '@/lib/id-types.ts';
-import type { Order } from '@/features/orders/types.ts';
+} from '../types';
+import type { SystemId } from '@/lib/id-types';
+import type { Order } from '@/features/orders/types';
 
 // Helper: Get time key and label based on grouping
 function getTimeKey(date: Date, grouping: TimeGrouping): { key: string; label: string } {

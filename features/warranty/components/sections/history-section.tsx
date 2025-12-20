@@ -1,6 +1,6 @@
-import { ActivityHistory } from '../../../../components/ActivityHistory.tsx';
-import type { WarrantyTicket } from '../../types.ts';
-import { useWarrantyHistory } from '../../hooks/use-warranty-history.ts';
+import { ActivityHistory } from '../../../../components/ActivityHistory';
+import type { WarrantyTicket } from '../../types';
+import { useWarrantyHistory } from '../../hooks/use-warranty-history';
 
 interface WarrantyHistorySectionProps {
   ticket: WarrantyTicket;

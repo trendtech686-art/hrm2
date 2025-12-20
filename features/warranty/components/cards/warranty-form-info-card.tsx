@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { FormField, FormItem, FormLabel, FormControl } from '../../../../components/ui/form.tsx';
-import { Input } from '../../../../components/ui/input.tsx';
-import { CurrencyInput } from '../../../../components/ui/currency-input.tsx';
-import { Combobox } from '../../../../components/ui/combobox.tsx';
-import { useBranchStore } from '../../../settings/branches/store.ts';
-import { useEmployeeStore } from '../../../employees/store.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { FormField, FormItem, FormLabel, FormControl } from '../../../../components/ui/form';
+import { Input } from '../../../../components/ui/input';
+import { CurrencyInput } from '../../../../components/ui/currency-input';
+import { Combobox } from '../../../../components/ui/combobox';
+import { useBranchStore } from '../../../settings/branches/store';
+import { useEmployeeStore } from '../../../employees/store';
 
 /**
  * Thông tin bổ sung - Adapted from OrderInfoCard

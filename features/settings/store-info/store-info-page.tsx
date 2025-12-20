@@ -5,27 +5,27 @@ import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { useAuth } from '../../../contexts/auth-context.tsx';
-import { useBranchStore } from '../branches/store.ts';
-import { useEmployeeStore } from '../../employees/store.ts';
-import type { Branch } from '../branches/types.ts';
-import { BranchForm, type BranchFormValues } from '../branches/branch-form.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { useAuth } from '../../../contexts/auth-context';
+import { useBranchStore } from '../branches/store';
+import { useEmployeeStore } from '../../employees/store';
+import type { Branch } from '../branches/types';
+import { BranchForm, type BranchFormValues } from '../branches/branch-form';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Textarea } from '../../../components/ui/textarea.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
+import { Badge } from '../../../components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
+import { Input } from '../../../components/ui/input';
+import { Textarea } from '../../../components/ui/textarea';
+import { Separator } from '../../../components/ui/separator';
 import { toast } from 'sonner';
-import { getDefaultStoreInfo, useStoreInfoStore, type StoreGeneralInfo, type StoreGeneralInfoInput } from './store-info-store.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
+import { getDefaultStoreInfo, useStoreInfoStore, type StoreGeneralInfo, type StoreGeneralInfoInput } from './store-info-store';
+import type { SystemId } from '../../../lib/id-types';
 
 const generalInfoSchema = z.object({
     companyName: z.string().min(2, 'Vui lòng nhập tên pháp nhân'),

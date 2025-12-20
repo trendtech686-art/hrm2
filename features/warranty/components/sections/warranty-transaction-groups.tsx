@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../../../components/ui/accordion.tsx';
-import { Badge } from '../../../../components/ui/badge.tsx';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../../../components/ui/accordion';
+import { Badge } from '../../../../components/ui/badge';
 import { CheckCircle } from 'lucide-react';
-import type { Order } from '../../../orders/types.ts';
-import type { WarrantyTransactionGroup } from '../../types/transactions.ts';
-import type { SettlementMethod } from '../../types.ts';
-import { WarrantyTransactionItem } from './warranty-transaction-item.tsx';
+import type { Order } from '../../../orders/types';
+import type { WarrantyTransactionGroup } from '../../types/transactions';
+import type { SettlementMethod } from '../../types';
+import { WarrantyTransactionItem } from './warranty-transaction-item';
 
 interface WarrantyTransactionGroupsProps {
   groups: WarrantyTransactionGroup[];

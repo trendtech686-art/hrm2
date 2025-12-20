@@ -1,0 +1,69 @@
+// ═══════════════════════════════════════════════════════════════
+// COMPLAINT MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: COMP0000000001 (English, 10 digits)
+// BusinessId: KN0000000001 (Vietnamese - Khiếu nại, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Complaint {
+  systemId          String            @id           // COMP0000000001
+  id                String            @unique       // KN0000000001
+  
+  // Customer
+  customerId        String?
+  customer          Customer?         @relation(fields: [customerId], references: [systemId])
+  customerName      String?
+  customerPhone     String?
+  customerEmail     String?
+  
+  // Related Order
+  orderId           String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?           @relation(fields: [branchId], references: [systemId])
+  
+  // Complaint details
+  title             String
+  description       String?
+  category          String?           // product, service, delivery, other
+  priority          ComplaintPriority @default(MEDIUM)
+  
+  // Status
+  status            ComplaintStatus   @default(OPEN)
+  
+  // SLA
+  slaDeadline       DateTime?
+  resolvedAt        DateTime?
+  
+  // Assignment
+  assignedTo        String?
+  
+  // Resolution
+  resolution        String?
+  compensationAmount Decimal?         @db.Decimal(15, 2)
+  
+  // Rating
+  satisfactionRating Int?             // 1-5
+  
+  // Attachments
+  attachments       String[]
+  
+  // Notes
+  internalNotes     String?
+  
+  // Relations
+  activities        ComplaintActivity[]
+  
+  // Soft delete
+  isDeleted         Boolean           @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("complaints")
+}

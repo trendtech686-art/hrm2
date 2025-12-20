@@ -4,7 +4,7 @@
  */
 
 import type { BusinessId, SystemId } from '@/lib/id-types';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
+import type { HistoryEntry } from '../../components/ActivityHistory';
 
 // ============================================
 // RECEIPT TYPE (Loại Phiếu Thu - Category)

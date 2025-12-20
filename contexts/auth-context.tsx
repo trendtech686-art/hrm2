@@ -32,6 +32,8 @@ const AuthContext = React.createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: employees } = useEmployeeStore();
   const [user, setUser] = React.useState<User | null>(() => {
+    // Check if running on client side
+    if (typeof window === 'undefined') return null;
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   });

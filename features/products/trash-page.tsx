@@ -1,15 +1,17 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate } from '@/lib/date-utils'
 import { toast } from "sonner"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useProductStore } from "./store.ts"
-import { getColumns } from "./trash-columns.tsx"
-import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
-import { Card, CardContent } from "../../components/ui/card.tsx"
-import { Badge } from "../../components/ui/badge.tsx"
-import { Button } from "../../components/ui/button.tsx"
-import type { Product } from "./types.ts"
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useProductStore } from "./store"
+import { getColumns } from "./trash-columns"
+import { GenericTrashPage } from "../../components/shared/generic-trash-page"
+import { Card, CardContent } from "../../components/ui/card"
+import { Badge } from "../../components/ui/badge"
+import { Button } from "../../components/ui/button"
+import type { Product } from "./types"
 import type { SystemId } from "@/lib/id-types";
 
 export function ProductsTrashPage() {

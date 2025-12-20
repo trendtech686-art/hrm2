@@ -1,0 +1,62 @@
+// ═══════════════════════════════════════════════════════════════
+// SUPPLIER MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: SUP000001 (English, 6 digits)
+// BusinessId: NCC000001 (Vietnamese - Nhà cung cấp, 6 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Supplier {
+  systemId          String              @id           // SUP000001
+  id                String              @unique       // NCC000001
+  
+  // Basic info
+  name              String
+  code              String?             @unique
+  description       String?
+  
+  // Contact
+  contactPerson     String?
+  phone             String?
+  email             String?
+  website           String?
+  
+  // Address
+  address           String?
+  province          String?
+  district          String?
+  ward              String?
+  country           String?
+  
+  // Tax info
+  taxCode           String?
+  bankName          String?
+  bankAccount       String?
+  bankBranch        String?
+  
+  // Terms
+  paymentTerms      String?
+  leadTimeDays      Int?
+  
+  // Status
+  status            String              @default("active") // active, inactive
+  rating            Int?                // 1-5 stars
+  
+  // Relations
+  products          Product[]
+  purchaseOrders    PurchaseOrder[]
+  
+  // Custom fields
+  customFields      Json?
+  
+  // Soft delete
+  isDeleted         Boolean             @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("suppliers")
+}

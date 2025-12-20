@@ -14,15 +14,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../../../components/ui/alert-dialog.tsx';
-import { Textarea } from '../../../../components/ui/textarea.tsx';
-import type { WarrantyTicket, WarrantyHistory } from '../../types.ts';
-import { useWarrantyStore } from '../../store.ts';
-import { useProductStore } from '../../../products/store.ts';
-import { useAuth } from '../../../../contexts/auth-context.tsx';
-import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils.ts';
-import { asSystemId, type SystemId } from '../../../../lib/id-types.ts';
-import { getMaxSystemIdCounter } from '../../../../lib/id-utils.ts';
+} from '../../../../components/ui/alert-dialog';
+import { Textarea } from '../../../../components/ui/textarea';
+import type { WarrantyTicket, WarrantyHistory } from '../../types';
+import { useWarrantyStore } from '../../store';
+import { useProductStore } from '../../../products/store';
+import { useAuth } from '../../../../contexts/auth-context';
+import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
+import { asSystemId, type SystemId } from '../../../../lib/id-types';
+import { getMaxSystemIdCounter } from '../../../../lib/id-utils';
 
 interface WarrantyReopenFromCancelledDialogProps {
   open: boolean;

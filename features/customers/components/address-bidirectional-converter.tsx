@@ -20,8 +20,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, ArrowRight, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddressConversionDialog } from './address-conversion-dialog';
-import { findAllNewWards, findAllOldWards } from '@/features/settings/provinces/ward-old-to-new-mapping.ts';
-import { useProvinceStore } from '@/features/settings/provinces/store.ts';
+import { findAllNewWards, findAllOldWards } from '@/features/settings/provinces/ward-old-to-new-mapping';
+import { useProvinceStore } from '@/features/settings/provinces/store';
 import { asBusinessId } from '@/lib/id-types';
 import type { EnhancedCustomerAddress } from '../types/enhanced-address';
 

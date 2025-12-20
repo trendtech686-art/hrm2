@@ -1,4 +1,4 @@
-import type { Branch } from './types.ts';
+import type { Branch } from './types';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 

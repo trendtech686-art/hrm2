@@ -1,19 +1,19 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { Textarea } from '../../../components/ui/textarea.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { CurrencyInput } from '../../../components/ui/currency-input.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Label } from '../../../components/ui/label';
+import { Input } from '../../../components/ui/input';
+import { Button } from '../../../components/ui/button';
+import { Switch } from '../../../components/ui/switch';
+import { Textarea } from '../../../components/ui/textarea';
+import { Badge } from '../../../components/ui/badge';
+import { CurrencyInput } from '../../../components/ui/currency-input';
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select.tsx';
+} from '../../../components/ui/select';
 import { 
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table.tsx';
+} from '../../../components/ui/table';
 import { 
   MoreHorizontal,
   Plus,
@@ -36,19 +36,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog.tsx';
+} from '../../../components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
-import { ConfirmDialog } from '../../../components/ui/confirm-dialog.tsx';
+} from '../../../components/ui/dropdown-menu';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { toast } from 'sonner';
-import { usePenaltyTypeStore } from './store.ts';
-import type { PenaltyType, PenaltyCategory } from './types.ts';
-import { penaltyCategoryLabels, penaltyCategoryColors } from './types.ts';
+import { usePenaltyTypeStore } from './store';
+import type { PenaltyType, PenaltyCategory } from './types';
+import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
 import { asBusinessId } from '@/lib/id-types';
 
 // ============================================

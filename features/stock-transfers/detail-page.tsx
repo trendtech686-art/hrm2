@@ -1,30 +1,32 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { useStockTransferStore } from './store.ts';
-import { ProductImage, useProductImage } from '../products/components/product-image.tsx';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { Link, useLocation, useNavigate, useParams } from '@/lib/next-compat';
+import { useStockTransferStore } from './store';
+import { ProductImage, useProductImage } from '../products/components/product-image';
+import { useBranchStore } from '../settings/branches/store';
+import { useProductStore } from '../products/store';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useEmployeeStore } from '../employees/store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertStockTransferForPrint,
   mapStockTransferToPrintData, 
   mapStockTransferLineItems,
   createStoreSettings
-} from '../../lib/print/stock-transfer-print-helper.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
+} from '../../lib/print/stock-transfer-print-helper';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES, generatePath } from '../../lib/router';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Separator } from '../../components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { DetailField } from '../../components/ui/detail-field';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -34,19 +36,19 @@ import {
   AlertDialogFooter, 
   AlertDialogHeader, 
   AlertDialogTitle 
-} from '../../components/ui/alert-dialog.tsx';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Label } from '../../components/ui/label.tsx';
+} from '../../components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Label } from '../../components/ui/label';
 import { ArrowRight, Truck, Package, CheckCircle, XCircle, Printer, Edit, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { asSystemId, type SystemId } from '../../lib/id-types.ts';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
+import { asSystemId, type SystemId } from '../../lib/id-types';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
-import { StockTransferWorkflowCard } from './components/stock-transfer-workflow-card.tsx';
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
-import type { StockTransferStatus, StockTransferItem, StockTransfer } from './types.ts';
+import { StockTransferWorkflowCard } from './components/stock-transfer-workflow-card';
+import type { Subtask } from '../../components/shared/subtask-list';
+import type { StockTransferStatus, StockTransferItem, StockTransfer } from './types';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 
@@ -147,8 +149,8 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
 }
 
 export function StockTransferDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const navigate = useNavigate();
   const { findById, confirmTransfer, confirmReceive, cancelTransfer } = useStockTransferStore();
   const { findById: findProductById } = useProductStore();
   const { findById: findProductTypeById } = useProductTypeStore();
@@ -555,12 +557,12 @@ export function StockTransferDetailPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <ReactRouterDOM.Link 
+                            <Link 
                               to={`/products/${item.productSystemId}`}
                               className="font-medium text-primary hover:underline"
                             >
                               {item.productName}
-                            </ReactRouterDOM.Link>
+                            </Link>
                             <p className="text-body-sm text-muted-foreground">{item.productId}</p>
                           </TableCell>
                           <TableCell className="text-body-sm text-muted-foreground">{productTypeName}</TableCell>

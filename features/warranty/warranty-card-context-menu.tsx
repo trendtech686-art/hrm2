@@ -5,8 +5,8 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '../../components/ui/context-menu.tsx';
-import { WarrantyTicket } from './types.ts';
+} from '../../components/ui/context-menu';
+import { WarrantyTicket } from './types';
 import { toast } from 'sonner';
 
 interface WarrantyCardContextMenuProps {

@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { fetchPublicWarrantyTicket, type PublicWarrantyResponse } from '../public-warranty-api.ts';
+import { fetchPublicWarrantyTicket, type PublicWarrantyResponse } from '../public-warranty-api';
 
 type TrackingError = 'MISSING_TRACKING_CODE' | 'NOT_FOUND' | 'UNKNOWN' | null;
 

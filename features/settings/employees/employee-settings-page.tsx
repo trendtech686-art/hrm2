@@ -1,35 +1,36 @@
+'use client'
 
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 // FIX: Changed the import of 'FieldArray as useFieldArray' to 'useFieldArray' to resolve an export error.
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useEmployeeSettingsStore } from './employee-settings-store.ts';
-import type { EmployeeSettings, LeaveType, SalaryComponent, LatePenaltyTier } from './types.ts';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../../components/ui/form.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { TimePicker } from '../../../components/ui/time-picker.tsx';
-import { NumberInput } from '../../../components/ui/number-input.tsx';
-import { CurrencyInput } from '../../../components/ui/currency-input.tsx';
+import { useEmployeeSettingsStore } from './employee-settings-store';
+import type { EmployeeSettings, LeaveType, SalaryComponent, LatePenaltyTier } from './types';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { Button } from '../../../components/ui/button';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../../components/ui/form';
+import { Input } from '../../../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { Switch } from '../../../components/ui/switch';
+import { Separator } from '../../../components/ui/separator';
+import { TimePicker } from '../../../components/ui/time-picker';
+import { NumberInput } from '../../../components/ui/number-input';
+import { CurrencyInput } from '../../../components/ui/currency-input';
 import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog.tsx';
-import { LeaveTypeForm, type LeaveTypeFormValues } from './leave-type-form.tsx';
-import { SalaryComponentForm, type SalaryComponentFormValues } from './salary-component-form.tsx';
-import { InsuranceTaxSettings } from './insurance-tax-settings.tsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
+import { LeaveTypeForm, type LeaveTypeFormValues } from './leave-type-form';
+import { SalaryComponentForm, type SalaryComponentFormValues } from './salary-component-form';
+import { InsuranceTaxSettings } from './insurance-tax-settings';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import { TabsContent } from '../../../components/ui/tabs.tsx';
-import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
-import { PenaltyTypesSettingsContent } from '../penalties/penalty-types-settings-content.tsx';
-import { PayrollTemplatesSettingsContent } from './payroll-templates-settings-content.tsx';
+import { TabsContent } from '../../../components/ui/tabs';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { PenaltyTypesSettingsContent } from '../penalties/penalty-types-settings-content';
+import { PayrollTemplatesSettingsContent } from './payroll-templates-settings-content';
 
 const weekDays = [
   { id: 1, label: 'Thứ 2' },

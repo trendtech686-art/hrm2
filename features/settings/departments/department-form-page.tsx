@@ -1,10 +1,12 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from '@/lib/next-compat';
 import { DepartmentForm, DepartmentFormValues } from './department-form';
 import { useDepartmentStore } from './store';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { ROUTES, generatePath } from '../../../lib/router';
 
 export function DepartmentFormPage() {

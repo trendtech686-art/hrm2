@@ -1,10 +1,10 @@
 import * as React from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from 'sonner';
-import { Card, CardContent } from "../../../components/ui/card.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Label } from "../../../components/ui/label.tsx";
+import { Card, CardContent } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 
 interface EmployeeAccountFormTabProps {
   workEmail: string;

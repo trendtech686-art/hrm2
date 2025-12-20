@@ -21,7 +21,7 @@ import {
 import { VirtualizedCombobox } from '../../../components/ui/virtualized-combobox';
 import { toast } from 'sonner';
 import { useProvinceStore } from '../../settings/provinces/store';
-import { autoFillDistrict } from '../../settings/provinces/ward-district-mapping.ts';
+import { autoFillDistrict } from '../../settings/provinces/ward-district-mapping';
 import type { CustomerAddress } from '../types';
 
 interface AddressFormDialogProps {

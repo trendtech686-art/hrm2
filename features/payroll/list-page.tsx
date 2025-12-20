@@ -1,33 +1,35 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { AlertTriangle, ClipboardList, PlusCircle, ShieldCheck, Wallet, Printer, XCircle } from 'lucide-react';
-import { Button } from '../../components/ui/button.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { usePayrollBatchStore } from './payroll-batch-store.ts';
-import { PayrollSummaryCards, type PayrollSummaryCard } from './components/summary-cards.tsx';
-import type { PayrollBatch } from '../../lib/payroll-types.ts';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { getBatchColumns } from './components/batch-columns.tsx';
-import { BatchCard } from './components/batch-card.tsx';
-import { useDefaultPageSize } from '../settings/global-settings-store.ts';
+import { Button } from '../../components/ui/button';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { usePayrollBatchStore } from './payroll-batch-store';
+import { PayrollSummaryCards, type PayrollSummaryCard } from './components/summary-cards';
+import type { PayrollBatch } from '../../lib/payroll-types';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { PageFilters } from '../../components/layout/page-filters';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { getBatchColumns } from './components/batch-columns';
+import { BatchCard } from './components/batch-card';
+import { useDefaultPageSize } from '../settings/global-settings-store';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
-import { usePaymentStore } from '../payments/store.ts';
-import { usePenaltyStore } from '../settings/penalties/store.ts';
-import { usePrint } from '../../lib/use-print.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useDepartmentStore } from '../settings/departments/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePaymentStore } from '../payments/store';
+import { usePenaltyStore } from '../settings/penalties/store';
+import { usePrint } from '../../lib/use-print';
+import { useEmployeeStore } from '../employees/store';
+import { useDepartmentStore } from '../settings/departments/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import {
   convertPayrollBatchForPrint,
   createStoreSettings,
   mapPayrollBatchToPrintData,
   mapPayrollBatchLineItems,
-} from '../../lib/print/payroll-print-helper.ts';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult, PaperSize } from '../../components/shared/simple-print-options-dialog.tsx';
+} from '../../lib/print/payroll-print-helper';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult, PaperSize } from '../../components/shared/simple-print-options-dialog';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 type FilterValues = {

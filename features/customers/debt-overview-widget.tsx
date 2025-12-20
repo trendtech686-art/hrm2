@@ -1,8 +1,8 @@
 import * as React from "react";
 import { AlertTriangle, Clock, DollarSign, TrendingUp } from "lucide-react";
-import { useCustomerStore } from "./store.ts";
-import { calculateTotalOverdueDebt } from "./debt-tracking-utils.ts";
-import { AlertListBox } from "./components/alert-list-box.tsx";
+import { useCustomerStore } from "./store";
+import { calculateTotalOverdueDebt } from "./debt-tracking-utils";
+import { AlertListBox } from "./components/alert-list-box";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('vi-VN').format(value);

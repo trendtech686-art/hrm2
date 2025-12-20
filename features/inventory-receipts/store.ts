@@ -1,8 +1,8 @@
-import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { InventoryReceipt, InventoryReceiptLineItem } from './types.ts';
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
-import { useProductStore } from '../products/store.ts';
+import { createCrudStore, CrudState } from '../../lib/store-factory';
+import { data as initialData } from './data';
+import type { InventoryReceipt, InventoryReceiptLineItem } from './types';
+import type { SystemId, BusinessId } from '../../lib/id-types';
+import { useProductStore } from '../products/store';
 
 const baseStore = createCrudStore<InventoryReceipt>(
   initialData,

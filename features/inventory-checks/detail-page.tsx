@@ -1,33 +1,35 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useInventoryCheckStore } from './store.ts';
-import { useProductStore } from '../products/store.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs.tsx';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useInventoryCheckStore } from './store';
+import { useProductStore } from '../products/store';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useBreakpoint } from '../../contexts/breakpoint-context';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Check, Pencil, XCircle, Printer } from 'lucide-react';
-import { usePrint } from '../../lib/use-print.ts';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertInventoryCheckForPrint,
   mapInventoryCheckToPrintData, 
   mapInventoryCheckLineItems,
   createStoreSettings,
-} from '../../lib/print/inventory-check-print-helper.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { formatDateCustom } from '../../lib/date-utils.ts';
+} from '../../lib/print/inventory-check-print-helper';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from 'sonner';
-import { SystemId, BusinessId, asSystemId } from '../../lib/id-types.ts';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card.tsx';
-import type { Subtask } from '../../components/shared/subtask-list.tsx';
-import { ProductThumbnailCell } from '../../components/shared/read-only-products-table.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
+import { SystemId, BusinessId, asSystemId } from '../../lib/id-types';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
+import type { Subtask } from '../../components/shared/subtask-list';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import {
   Table,
   TableBody,
@@ -35,7 +37,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../components/ui/table.tsx';
+} from '../../components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +47,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
+} from '../../components/ui/alert-dialog';
 
 export function InventoryCheckDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -120,7 +122,7 @@ export function InventoryCheckDetailPage() {
   // Load employee names
   React.useEffect(() => {
     if (check) {
-      import('../employees/store.ts').then(({ useEmployeeStore }) => {
+      import('../employees/store').then(({ useEmployeeStore }) => {
         const employeeStore = useEmployeeStore.getState();
         
         if (check.createdBy) {

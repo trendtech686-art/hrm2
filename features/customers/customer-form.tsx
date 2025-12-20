@@ -1,24 +1,24 @@
 import * as React from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { customerFormSchema, validateUniqueId, type CustomerFormData } from "./validation.ts";
-import type { Customer, CustomerAddress } from "./types.ts";
+import { customerFormSchema, validateUniqueId, type CustomerFormData } from "./validation";
+import type { Customer, CustomerAddress } from "./types";
 import { toast } from 'sonner';
-import { useCustomerStore } from './store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
+import { useCustomerStore } from './store';
+import { useEmployeeStore } from '../employees/store';
 import { useShallow } from 'zustand/react/shallow';
-import { useProvinceStore } from "../settings/provinces/store.ts";
+import { useProvinceStore } from "../settings/provinces/store";
 import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
 import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
 import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
 import { usePaymentTermStore } from '../settings/customers/payment-terms-store';
 import { useCreditRatingStore } from '../settings/customers/credit-ratings-store';
-import { NewDocumentsUpload } from '../../components/ui/new-documents-upload.tsx';
-import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer.tsx';
-import { FileUploadAPI, type StagingFile, type ServerFile } from '../../lib/file-upload-api.ts';
-import { TagInput } from "../../components/ui/tag-input.tsx";
-import { DatePicker } from "../../components/ui/date-picker.tsx";
-import { Checkbox } from "../../components/ui/checkbox.tsx";
+import { NewDocumentsUpload } from '../../components/ui/new-documents-upload';
+import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer';
+import { FileUploadAPI, type StagingFile, type ServerFile } from '../../lib/file-upload-api';
+import { TagInput } from "../../components/ui/tag-input";
+import { DatePicker } from "../../components/ui/date-picker";
+import { Checkbox } from "../../components/ui/checkbox";
 import { Plus, Trash2 } from "lucide-react";
 
 import {
@@ -29,25 +29,25 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from "../../components/ui/form.tsx";
-import { Input } from "../../components/ui/input.tsx";
-import { CurrencyInput } from "../../components/ui/currency-input.tsx";
+} from "../../components/ui/form";
+import { Input } from "../../components/ui/input";
+import { CurrencyInput } from "../../components/ui/currency-input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select.tsx";
-import { Combobox, type ComboboxOption } from "../../components/ui/combobox.tsx";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
-import { Card } from "../../components/ui/card.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
-import { CustomerAddresses } from './customer-addresses.tsx';
-import { Button } from "../../components/ui/button.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
+} from "../../components/ui/select";
+import { Combobox, type ComboboxOption } from "../../components/ui/combobox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { Card } from "../../components/ui/card";
+import { Textarea } from "../../components/ui/textarea";
+import { CustomerAddresses } from './customer-addresses';
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
-import { usePricingPolicyStore } from '../settings/pricing/store.ts';
+import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useLifecycleStageStore } from '../settings/customers/lifecycle-stages-store';
 
 export type CustomerFormValues = CustomerFormData;

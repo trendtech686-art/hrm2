@@ -1,0 +1,38 @@
+// ═══════════════════════════════════════════════════════════════
+// ACTIVITY LOG MODEL
+// ═══════════════════════════════════════════════════════════════
+// Audit trail for all entity changes
+// ═══════════════════════════════════════════════════════════════
+
+model ActivityLog {
+  systemId          String        @id @default(uuid())
+  
+  // User
+  userId            String?
+  userName          String?
+  
+  // Entity
+  entityType        String        // employee, product, order, etc.
+  entityId          String
+  
+  // Action
+  action            String        // create, update, delete, view, etc.
+  
+  // Changes
+  changes           Json?         // { field: { old: x, new: y } }
+  description       String?
+  
+  // Context
+  ipAddress         String?
+  userAgent         String?
+  
+  // Branch
+  branchId          String?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@map("activity_logs")
+}

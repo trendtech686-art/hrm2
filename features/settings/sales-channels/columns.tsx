@@ -1,9 +1,9 @@
 import * as React from 'react';
-import type { SalesChannel } from './types.ts';
-import type { ColumnDef } from '../../../components/data-table/types.ts';
-import { Button } from '../../../components/ui/button.tsx';
+import type { SalesChannel } from './types';
+import type { ColumnDef } from '../../../components/data-table/types';
+import { Button } from '../../../components/ui/button';
 import { MoreHorizontal, CheckCircle2 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import type { SystemId } from '@/lib/id-types';
 
 export const getColumns = (

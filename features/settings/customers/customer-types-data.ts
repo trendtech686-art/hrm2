@@ -1,4 +1,4 @@
-import { asSystemId, asBusinessId } from '../../../lib/id-types.ts';
+import { asSystemId, asBusinessId } from '../../../lib/id-types';
 import type { CustomerType } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 

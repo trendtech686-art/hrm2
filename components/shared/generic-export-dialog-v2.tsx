@@ -17,14 +17,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../ui/dialog.tsx"
-import { Button } from "../ui/button.tsx"
-import { Label } from "../ui/label.tsx"
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group.tsx"
-import { Checkbox } from "../ui/checkbox.tsx"
-import { ScrollArea } from "../ui/scroll-area.tsx"
-import { Separator } from "../ui/separator.tsx"
-import { Badge } from "../ui/badge.tsx"
+} from "../ui/dialog"
+import { Button } from "../ui/button"
+import { Label } from "../ui/label"
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group"
+import { Checkbox } from "../ui/checkbox"
+import { ScrollArea } from "../ui/scroll-area"
+import { Separator } from "../ui/separator"
+import { Badge } from "../ui/badge"
 import * as XLSX from 'xlsx'
 import { toast } from "sonner"
 import {
@@ -34,9 +34,9 @@ import {
   transformExportRow,
   generateExportFileName,
   formatFileSize,
-} from '../../lib/import-export/index.ts'
-import type { SystemId } from "../../lib/id-types.ts"
-import { usePricingPolicyStore } from "../../features/settings/pricing/store.ts"
+} from '../../lib/import-export/index'
+import type { SystemId } from "../../lib/id-types"
+import { usePricingPolicyStore } from "../../features/settings/pricing/store"
 
 // ============================================
 // TYPES

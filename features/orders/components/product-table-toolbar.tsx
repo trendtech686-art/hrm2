@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { Settings } from 'lucide-react';
-import { Button } from '../../../components/ui/button.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group.tsx';
+import { Button } from '../../../components/ui/button';
+import { Switch } from '../../../components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import { Label } from '../../../components/ui/label';
+import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
 
 export interface ProductTableSettings {
     comboDisplayType: 'value' | 'percent';

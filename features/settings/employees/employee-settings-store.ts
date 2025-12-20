@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { EmployeeSettings, LeaveType, SalaryComponent, WorkShift } from './types.ts';
-import { getCurrentUserSystemId } from '../../../contexts/auth-context.tsx';
-import { generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, findNextAvailableBusinessId } from '../../../lib/id-utils.ts';
-import { getPrefix, type EntityType } from '../../../lib/smart-prefix.ts';
-import { getEntityConfig } from '../../../lib/id-config.ts';
+import type { EmployeeSettings, LeaveType, SalaryComponent, WorkShift } from './types';
+import { getCurrentUserSystemId } from '../../../contexts/auth-context';
+import { generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, findNextAvailableBusinessId } from '../../../lib/id-utils';
+import { getPrefix, type EntityType } from '../../../lib/smart-prefix';
+import { getEntityConfig } from '../../../lib/id-config';
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
 
 const SETTINGS_ENTITY_MAP = {

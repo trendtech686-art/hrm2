@@ -1,17 +1,17 @@
 import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
-import { usePaymentMethodStore } from "./store.ts";
-import type { PaymentMethod } from "./types.ts";
-import { PaymentMethodForm, type PaymentMethodFormValues } from "./form.tsx";
-import { Button } from "../../../../components/ui/button.tsx";
-import { Switch } from "../../../../components/ui/switch.tsx";
+import { usePaymentMethodStore } from "./store";
+import type { PaymentMethod } from "./types";
+import { PaymentMethodForm, type PaymentMethodFormValues } from "./form";
+import { Button } from "../../../../components/ui/button";
+import { Switch } from "../../../../components/ui/switch";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../../components/ui/dialog.tsx";
+} from "../../../../components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../../../../components/ui/alert-dialog.tsx";
+} from "../../../../components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,12 +29,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../../../components/ui/dropdown-menu.tsx";
+} from "../../../../components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../../components/ui/table.tsx";
-import { SettingsActionButton } from "../../../../components/settings/SettingsActionButton.tsx";
-import type { RegisterTabActions } from "../../use-tab-action-registry.ts";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../../components/ui/table";
+import { SettingsActionButton } from "../../../../components/settings/SettingsActionButton";
+import type { RegisterTabActions } from "../../use-tab-action-registry";
 
 type PaymentMethodsPageContentProps = {
   isActive: boolean;

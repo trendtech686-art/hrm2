@@ -1,20 +1,20 @@
 
 import * as React from 'react';
-import { useProductStore } from '../products/store.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import type { Product } from '../products/types.ts';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../components/ui/dialog.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
+import { useProductStore } from '../products/store';
+import { useBranchStore } from '../settings/branches/store';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import type { Product } from '../products/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../components/ui/dialog';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Checkbox } from '../../components/ui/checkbox';
 import { Package, ChevronLeft, ChevronRight, Minus, Plus, Info } from 'lucide-react';
-import { cn } from '../../lib/utils.ts';
-import { isComboProduct, calculateComboStockAllBranches, calculateComboCostPrice } from '../products/combo-utils.ts';
-import { LazyImage } from '../../components/ui/lazy-image.tsx';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip.tsx';
-import { useImageStore } from '../products/image-store.ts';
-import { FileUploadAPI } from '../../lib/file-upload-api.ts';
+import { cn } from '../../lib/utils';
+import { isComboProduct, calculateComboStockAllBranches, calculateComboCostPrice } from '../products/combo-utils';
+import { LazyImage } from '../../components/ui/lazy-image';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { useImageStore } from '../products/image-store';
+import { FileUploadAPI } from '../../lib/file-upload-api';
 import type { SystemId } from '@/lib/id-types';
 
 const ITEMS_PER_PAGE = 10;

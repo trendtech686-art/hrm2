@@ -1,6 +1,8 @@
+'use client'
+
 import * as React from 'react';
-import { Navigate } from 'react-router-dom';
-import { ROUTES } from '../../lib/router.ts';
+import { Navigate } from '@/lib/next-compat';
+import { ROUTES } from '../../lib/router';
 
 /**
  * PayrollTemplatePage đã được chuyển vào Cài đặt → Nhân viên → Mẫu bảng lương

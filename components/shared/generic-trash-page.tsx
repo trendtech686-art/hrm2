@@ -1,7 +1,9 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff, isValidDate } from '@/lib/date-utils'
-import { ResponsiveDataTable } from "../data-table/responsive-data-table.tsx"
+import { ResponsiveDataTable } from "../data-table/responsive-data-table"
 import { toast } from "sonner"
 import { asSystemId, type SystemId } from "@/lib/id-types";
 import { 
@@ -9,7 +11,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "../ui/card.tsx"
+} from "../ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,11 +21,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../ui/alert-dialog.tsx"
-import { Button } from "../ui/button.tsx"
+} from "../ui/alert-dialog"
+import { Button } from "../ui/button"
 import { Trash2, RotateCcw, AlertTriangle } from "lucide-react"
-import { usePageHeader } from "../../contexts/page-header-context.tsx"
-import type { ColumnDef } from '../data-table/types.ts';
+import { usePageHeader } from "../../contexts/page-header-context"
+import type { ColumnDef } from '../data-table/types';
 
 interface GenericTrashPageProps<T extends { systemId: SystemId; deletedAt?: string | null | undefined }> {
   // Data & Store

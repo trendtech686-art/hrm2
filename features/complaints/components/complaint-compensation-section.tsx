@@ -1,12 +1,14 @@
+'use client'
+
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from '@/lib/next-compat';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle } from "lucide-react";
-import type { Complaint } from "../types.ts";
-import { usePaymentStore } from "../../payments/store.ts";
-import { useReceiptStore } from "../../receipts/store.ts";
-import { useInventoryCheckStore } from "../../inventory-checks/store.ts";
+import type { Complaint } from "../types";
+import { usePaymentStore } from "../../payments/store";
+import { useReceiptStore } from "../../receipts/store";
+import { useInventoryCheckStore } from "../../inventory-checks/store";
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface Props {

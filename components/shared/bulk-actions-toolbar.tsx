@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Button } from '../ui/button.tsx';
-import { Checkbox } from '../ui/checkbox.tsx';
+import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-} from '../ui/dropdown-menu.tsx';
+} from '../ui/dropdown-menu';
 import { 
   X, 
   Trash2, 
@@ -32,8 +32,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog.tsx';
-import { cn } from '../../lib/utils.ts';
+} from '../ui/alert-dialog';
+import { cn } from '../../lib/utils';
 
 /**
  * Generic action configuration

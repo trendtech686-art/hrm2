@@ -3,7 +3,7 @@ import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown, ChevronUp } from "lucide-react"
 
 import { cn } from "../../lib/utils"
-import { useModal } from "../../contexts/modal-context.tsx"
+import { useModal } from "../../contexts/modal-context"
 
 type BaseSelectProps = React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root>
 

@@ -1,6 +1,6 @@
-﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, subtractDays, toISODate, addDays } from '../../lib/date-utils.ts';
-import type { Employee, EmployeeAddress } from './types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, subtractDays, toISODate, addDays } from '../../lib/date-utils';
+import type { Employee, EmployeeAddress } from './types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 /**
  * Helper functions to create EmployeeAddress

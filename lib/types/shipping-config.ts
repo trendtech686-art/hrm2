@@ -1,7 +1,7 @@
 /**
  * Shipping Configuration Types - V2 Multi-Account Structure
  */
-import type { SystemId } from '../id-types.ts';
+import type { SystemId } from '../id-types';
 
 /**
  * Weight calculation mode

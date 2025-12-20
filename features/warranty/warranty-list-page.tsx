@@ -1,8 +1,10 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { Plus, Download, Upload, Filter, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Fuse from 'fuse.js';
-import { cn } from '../../lib/utils.ts';
+import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
   type ColumnDef,
@@ -15,28 +17,28 @@ import {
 } from '@tanstack/react-table';
 
 // Types & Store
-import type { WarrantyTicket, WarrantyStatus } from './types.ts';
-import { useWarrantyStore } from './store.ts';
-import { useOrderStore } from '../orders/store.ts';
-import { WARRANTY_STATUS_LABELS } from './types.ts';
+import type { WarrantyTicket, WarrantyStatus } from './types';
+import { useWarrantyStore } from './store';
+import { useOrderStore } from '../orders/store';
+import { WARRANTY_STATUS_LABELS } from './types';
 import { asSystemId } from '@/lib/id-types';
 
 // Column definitions & Mobile card
-import { getColumns } from './columns.tsx';
-import { WarrantyCard } from './warranty-card.tsx';
-import { WarrantyCardContextMenu } from './warranty-card-context-menu.tsx';
-import { WarrantyReminderDialog, WarrantyCancelDialog } from './components/dialogs/index.ts';
-import { useWarrantyReminders } from './hooks/use-warranty-reminders.ts';
-import { useRealtimeUpdates, getWarrantyDataVersion } from './use-realtime-updates.ts';
+import { getColumns } from './columns';
+import { WarrantyCard } from './warranty-card';
+import { WarrantyCardContextMenu } from './warranty-card-context-menu';
+import { WarrantyReminderDialog, WarrantyCancelDialog } from './components/dialogs/index';
+import { useWarrantyReminders } from './hooks/use-warranty-reminders';
+import { useRealtimeUpdates, getWarrantyDataVersion } from './use-realtime-updates';
 
 // UI Components
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
-import { PageFilters } from '../../components/layout/page-filters.tsx';
-import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
+import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { PageFilters } from '../../components/layout/page-filters';
+import { PageToolbar } from '../../components/layout/page-toolbar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,25 +48,25 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
+} from '../../components/ui/alert-dialog';
 
 // Hooks & Utils
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
-import { useDebounce } from '../../hooks/use-debounce.ts';
-import { loadCardColorSettings } from '../settings/warranty/warranty-settings-page.tsx';
-import { checkWarrantyOverdue } from './warranty-sla-utils.ts';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import { usePrint } from '../../lib/use-print.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useBreakpoint } from '../../contexts/breakpoint-context';
+import { useDebounce } from '../../hooks/use-debounce';
+import { loadCardColorSettings } from '../settings/warranty/warranty-settings-page';
+import { checkWarrantyOverdue } from './warranty-sla-utils';
+import { ROUTES, generatePath } from '../../lib/router';
+import { usePrint } from '../../lib/use-print';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import {
   convertWarrantyForPrint,
   mapWarrantyToPrintData,
   mapWarrantyLineItems,
   createStoreSettings
-} from '../../lib/print/warranty-print-helper.ts';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
+} from '../../lib/print/warranty-print-helper';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 
 /**
  * KanbanColumn Component - Display warranties by status
@@ -282,7 +284,7 @@ export function WarrantyListPage() {
       customerAddress: true,
       trackingCode: true,
       shippingFee: true,
-      linkedOrderId: true, // ✅ Column ID (keep as is - matches column.id from columns.tsx)
+      linkedOrderId: true, // ✅ Column ID (keep as is - matches column.id from columns)
       referenceUrl: true, // ✅ Show new columns
       externalReference: true, // ✅ Show new columns
       status: true,

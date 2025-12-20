@@ -1,9 +1,9 @@
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils.ts';
-import { asSystemId } from '../../../lib/id-types.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
-import type { WarrantyProduct, WarrantyHistory, WarrantyTicket } from '../types.ts';
-import { baseStore, originalUpdate, getCurrentUserName } from './base-store.ts';
-import { commitWarrantyStock, uncommitWarrantyStock } from './stock-management.ts';
+import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
+import { asSystemId } from '../../../lib/id-types';
+import type { SystemId } from '../../../lib/id-types';
+import type { WarrantyProduct, WarrantyHistory, WarrantyTicket } from '../types';
+import { baseStore, originalUpdate, getCurrentUserName } from './base-store';
+import { commitWarrantyStock, uncommitWarrantyStock } from './stock-management';
 
 /**
  * Tính summary từ danh sách sản phẩm

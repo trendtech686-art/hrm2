@@ -13,12 +13,12 @@ import ReactFlow, {
   Panel,
   ConnectionMode,
 } from 'reactflow';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { Mouse, GripVertical, Download } from 'lucide-react';
-import { Button } from '../../../../components/ui/button.tsx';
-import { SettingsActionButton } from '../../../../components/settings/SettingsActionButton.tsx';
-import { Kbd } from '../../../../components/ui/kbd.tsx';
-import { useSettingsPageHeader } from '../../use-settings-page-header.tsx';
+import { Button } from '../../../../components/ui/button';
+import { SettingsActionButton } from '../../../../components/settings/SettingsActionButton';
+import { Kbd } from '../../../../components/ui/kbd';
+import { useSettingsPageHeader } from '../../use-settings-page-header';
 import { CustomEmployeeNode } from './components/chart-node';
 import { ChartSearch } from './components/chart-search';
 import { ChartControls } from './components/chart-controls';
@@ -30,7 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator
-} from '../../../../components/ui/dropdown-menu.tsx';
+} from '../../../../components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { 
   exportAsPNG, 

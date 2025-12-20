@@ -4,10 +4,10 @@
  */
 
 import * as React from 'react';
-import { useTaskStore } from './store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { useTaskStore } from './store';
+import { useEmployeeStore } from '../employees/store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import {
   Card,
@@ -37,7 +37,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Task, TaskStatus } from './types.ts';
+import { Task, TaskStatus } from './types';
 
 type DateRange = '7d' | '30d' | '90d' | 'all';
 

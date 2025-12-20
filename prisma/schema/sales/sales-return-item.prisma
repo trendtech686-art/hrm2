@@ -1,0 +1,40 @@
+// ═══════════════════════════════════════════════════════════════
+// SALES RETURN ITEM MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: SRITEM0000000001 (English, 10 digits)
+// BusinessId: CTTH0000000001 (Vietnamese - Chi tiết trả hàng, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model SalesReturnItem {
+  systemId          String        @id           // SRITEM0000000001
+  id                String        @unique       // CTTH0000000001
+  
+  // Parent Return
+  returnId          String
+  salesReturn       SalesReturn   @relation(fields: [returnId], references: [systemId])
+  
+  // Product
+  productId         String?
+  productName       String
+  productSku        String?
+  
+  // Quantity
+  quantity          Int           @default(1)
+  unitPrice         Decimal       @db.Decimal(15, 2)
+  
+  // Total
+  lineTotal         Decimal       @db.Decimal(15, 2)
+  
+  // Reason
+  reason            String?
+  condition         String?       // good, damaged, defective
+  
+  // Notes
+  notes             String?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@map("sales_return_items")
+}

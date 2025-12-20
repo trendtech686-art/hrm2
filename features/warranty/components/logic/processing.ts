@@ -3,9 +3,9 @@
  * Gom toàn bộ tính toán/payment state cho module warranty
  */
 
-import type { WarrantyTicket } from '../../types.ts';
-import type { Payment } from '../../../payments/types.ts';
-import type { Receipt } from '../../../receipts/types.ts';
+import type { WarrantyTicket } from '../../types';
+import type { Payment } from '../../../payments/types';
+import type { Receipt } from '../../../receipts/types';
 
 // ============================================================
 // TYPES

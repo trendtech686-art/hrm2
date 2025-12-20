@@ -14,17 +14,17 @@
  * - Preview mode for dry-run calculations
  */
 
-import { attendanceSnapshotService, type AttendanceSnapshot } from './attendance-snapshot-service.ts';
+import { attendanceSnapshotService, type AttendanceSnapshot } from './attendance-snapshot-service';
 import type {
   PayrollComponent,
   PayrollComponentEntry,
   PayrollTotals,
-} from './payroll-types.ts';
-import type { Penalty } from '../features/settings/penalties/types.ts';
-import type { SystemId, BusinessId } from './id-types.ts';
-import { usePenaltyStore } from '../features/settings/penalties/store.ts';
-import { useEmployeeSettingsStore } from '../features/settings/employees/employee-settings-store.ts';
-import type { InsuranceRates, TaxSettings, TaxBracket } from '../features/settings/employees/types.ts';
+} from './payroll-types';
+import type { Penalty } from '../features/settings/penalties/types';
+import type { SystemId, BusinessId } from './id-types';
+import { usePenaltyStore } from '../features/settings/penalties/store';
+import { useEmployeeSettingsStore } from '../features/settings/employees/employee-settings-store';
+import type { InsuranceRates, TaxSettings, TaxBracket } from '../features/settings/employees/types';
 
 // =============================================
 // TYPES - Input/Output for Engine

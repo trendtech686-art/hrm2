@@ -1,0 +1,50 @@
+// ═══════════════════════════════════════════════════════════════
+// PAYROLL MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: PAYROLL000001 (English)
+// BusinessId: BL000001 (Vietnamese - Bảng lương)
+// ═══════════════════════════════════════════════════════════════
+
+model Payroll {
+  systemId        String    @id           // PAYROLL000001
+  id              String    @unique       // BL000001
+  
+  // Period
+  month           Int
+  year            Int
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Status
+  status          String    @default("DRAFT") // DRAFT, PROCESSING, APPROVED, PAID
+  
+  // Summary
+  totalEmployees  Int       @default(0)
+  totalGross      Decimal   @default(0) @db.Decimal(15, 2)
+  totalDeductions Decimal   @default(0) @db.Decimal(15, 2)
+  totalNet        Decimal   @default(0) @db.Decimal(15, 2)
+  
+  // Approval
+  approvedBy      String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  
+  // Relations
+  items           PayrollItem[]
+  
+  // Notes
+  notes           String?
+  
+  // Soft delete
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  
+  @@unique([month, year])
+  @@map("payrolls")
+}

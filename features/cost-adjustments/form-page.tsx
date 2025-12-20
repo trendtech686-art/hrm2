@@ -1,26 +1,28 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCostAdjustmentStore } from './store.ts';
-import { useProductStore } from '../products/store.ts';
-import { ProductImage } from '../products/components/product-image.tsx';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { ROUTES } from '../../lib/router.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { CurrencyInput } from '../../components/ui/currency-input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { ProductSelectionDialog } from '../shared/product-selection-dialog.tsx';
+import { useCostAdjustmentStore } from './store';
+import { useProductStore } from '../products/store';
+import { ProductImage } from '../products/components/product-image';
+import { useEmployeeStore } from '../employees/store';
+import { useAuth } from '../../contexts/auth-context';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { ROUTES } from '../../lib/router';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { CurrencyInput } from '../../components/ui/currency-input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { ProductSelectionDialog } from '../shared/product-selection-dialog';
 import { Plus, X, Save, Trash2, Package, ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { asSystemId } from '../../lib/id-types.ts';
+import { asSystemId } from '../../lib/id-types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';

@@ -8,18 +8,18 @@
  */
 
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { Card, CardContent } from '../../../components/ui/card.tsx';
+import { useNavigate } from '@/lib/next-compat';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { Badge } from '../../../components/ui/badge';
+import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
+import { Separator } from '../../../components/ui/separator';
+import { Card, CardContent } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
-import { RESOLUTION_LABELS, SETTLEMENT_TYPE_LABELS } from '../types.ts';
-import type { WarrantyProduct, WarrantyTicket } from '../types.ts';
-import { useProductStore } from '../../products/store.ts';
-import { useProductTypeStore } from '../../settings/inventory/product-type-store.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
+import { RESOLUTION_LABELS, SETTLEMENT_TYPE_LABELS } from '../types';
+import type { WarrantyProduct, WarrantyTicket } from '../types';
+import { useProductStore } from '../../products/store';
+import { useProductTypeStore } from '../../settings/inventory/product-type-store';
+import type { SystemId } from '../../../lib/id-types';
 
 interface WarrantyProductsDetailTableProps {
   products: WarrantyProduct[];

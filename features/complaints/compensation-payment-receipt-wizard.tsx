@@ -31,19 +31,19 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
-import type { Payment } from "../payments/types.ts";
-import type { Receipt } from "../receipts/types.ts";
-import type { CashAccount } from "../cashbook/types.ts";
-import type { Employee } from "../employees/types.ts";
-import type { Complaint } from "./types.ts";
+import type { Payment } from "../payments/types";
+import type { Receipt } from "../receipts/types";
+import type { CashAccount } from "../cashbook/types";
+import type { Employee } from "../employees/types";
+import type { Complaint } from "./types";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { usePaymentStore } from "../payments/store.ts";
-import { usePaymentTypeStore } from "../settings/payments/types/store.ts";
-import { useTargetGroupStore } from "../settings/target-groups/store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { usePaymentMethodStore } from "../settings/payments/methods/store.ts";
-import { usePenaltyStore, usePenaltyTypeStore } from "../settings/penalties/store.ts";
-import type { Penalty, PenaltyType } from "../settings/penalties/types.ts";
+import { usePaymentStore } from "../payments/store";
+import { usePaymentTypeStore } from "../settings/payments/types/store";
+import { useTargetGroupStore } from "../settings/target-groups/store";
+import { useBranchStore } from "../settings/branches/store";
+import { usePaymentMethodStore } from "../settings/payments/methods/store";
+import { usePenaltyStore, usePenaltyTypeStore } from "../settings/penalties/store";
+import type { Penalty, PenaltyType } from "../settings/penalties/types";
 
 export interface CompensationResult {
   payment?: Payment;  // Optional - only for refund
@@ -101,7 +101,7 @@ export function CompensationPaymentReceiptWizard({
   // Lazy-load accounts if not provided
   React.useEffect(() => {
     if (open && accounts.length === 0) {
-      import('../cashbook/store.ts').then(({ useCashbookStore }) => {
+      import('../cashbook/store').then(({ useCashbookStore }) => {
         setAccounts(useCashbookStore.getState().accounts);
       });
     }
@@ -110,7 +110,7 @@ export function CompensationPaymentReceiptWizard({
   // Lazy-load payment methods
   React.useEffect(() => {
     if (open && paymentMethods.length === 0) {
-      import('../settings/payments/methods/store.ts').then(({ usePaymentMethodStore }) => {
+      import('../settings/payments/methods/store').then(({ usePaymentMethodStore }) => {
         const methods = usePaymentMethodStore.getState().data;
         setPaymentMethods(methods);
         // Set default method
@@ -244,7 +244,7 @@ export function CompensationPaymentReceiptWizard({
       const targetGroups = useTargetGroupStore.getState().data;
       const branches = useBranchStore.getState().data;
       const paymentMethods = usePaymentMethodStore.getState().data;
-      const orders = await import('../orders/store.ts').then(m => m.useOrderStore.getState().data);
+      const orders = await import('../orders/store').then(m => m.useOrderStore.getState().data);
       
       // Lấy đơn hàng gốc
       const relatedOrder = orders.find(o => o.systemId === complaint.orderSystemId);

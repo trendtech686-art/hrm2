@@ -1,6 +1,6 @@
 // FIX: Re-export LineItem to make it available to other modules importing from this file.
-export type { LineItem } from '../orders/types.ts';
-import type { LineItem as LocalLineItem } from '../orders/types.ts';
+export type { LineItem } from '../orders/types';
+import type { LineItem as LocalLineItem } from '../orders/types';
 import type { BusinessId, SystemId } from '@/lib/id-types';
 
 export type ReturnLineItem = {

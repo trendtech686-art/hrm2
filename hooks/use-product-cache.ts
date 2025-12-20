@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Product } from '../features/products/types.ts';
+import type { Product } from '../features/products/types';
 
 /**
  * Hook tạo cache Map cho products để lookup O(1) thay vì O(n)

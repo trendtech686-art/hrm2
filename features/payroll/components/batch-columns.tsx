@@ -4,21 +4,21 @@
  */
 
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
-import type { ColumnDef } from '../../../components/data-table/types.ts';
-import type { PayrollBatch } from '../../../lib/payroll-types.ts';
-import { ROUTES } from '../../../lib/router.ts';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
-import { Button } from '../../../components/ui/button.tsx';
+import type { ColumnDef } from '../../../components/data-table/types';
+import type { PayrollBatch } from '../../../lib/payroll-types';
+import { ROUTES } from '../../../lib/router';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { Button } from '../../../components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
-import { PayrollStatusBadge } from './status-badge.tsx';
+} from '../../../components/ui/dropdown-menu';
+import { PayrollStatusBadge } from './status-badge';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {

@@ -3,7 +3,7 @@ import { describe, it, beforeAll, afterEach, beforeEach, expect, vi } from 'vite
 import type { MockedFunction } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from '@/lib/next-compat';
 
 import { CustomersPage } from '../page';
 import { PageHeaderProvider } from '../../../contexts/page-header-context';

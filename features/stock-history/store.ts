@@ -1,10 +1,10 @@
 ﻿import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { StockHistoryEntry } from './types.ts';
-import { asSystemId } from '../../lib/id-types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
-import { data as initialData } from './data.ts';
+import type { StockHistoryEntry } from './types';
+import { asSystemId } from '../../lib/id-types';
+import type { SystemId } from '../../lib/id-types';
+import { data as initialData } from './data';
 
 // ✨ Migration helper: Convert SKU to systemId for old data
 function migrateHistoryData(entries: StockHistoryEntry[]): StockHistoryEntry[] {

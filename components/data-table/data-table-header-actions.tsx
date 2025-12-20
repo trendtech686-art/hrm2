@@ -1,7 +1,7 @@
 import * as React from "react";
-import { DataTableActions } from "../../components/data-table/data-table-actions.tsx";
-import type { DataTableToolbarProps } from "../../components/data-table/data-table-toolbar.tsx";
-import type { ColumnDef } from "../../components/data-table/types.ts";
+import { DataTableActions } from "../../components/data-table/data-table-actions";
+import type { DataTableToolbarProps } from "../../components/data-table/data-table-toolbar";
+import type { ColumnDef } from "../../components/data-table/types";
 
 interface DataTableHeaderActionsProps<TData> extends React.HTMLAttributes<HTMLDivElement> {
   exportConfig: {

@@ -24,9 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { WarrantyTicket } from '../../types.ts';
-import type { ReminderTemplate } from '../../hooks/use-warranty-reminders.ts';
-import { formatReminderMessage } from '../../hooks/use-warranty-reminders.ts';
+import type { WarrantyTicket } from '../../types';
+import type { ReminderTemplate } from '../../hooks/use-warranty-reminders';
+import { formatReminderMessage } from '../../hooks/use-warranty-reminders';
 
 interface WarrantyReminderDialogProps {
   open: boolean;

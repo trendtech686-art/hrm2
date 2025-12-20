@@ -1,13 +1,13 @@
-import { useEmployeeStore } from '../../employees/store.ts';
-import { useAttendanceStore } from '../../attendance/store.ts';
-import { usePayrollTemplateStore } from '../payroll-template-store.ts';
-import { usePayrollBatchStore, type GeneratedPayslipPayload } from '../payroll-batch-store.ts';
-import { useEmployeeCompStore } from '../../employees/employee-comp-store.ts';
-import { useEmployeeSettingsStore } from '../../settings/employees/employee-settings-store.ts';
-import { payrollEngine } from '../../../lib/payroll-engine.ts';
-import type { AttendanceDataRow } from '../../attendance/types.ts';
-import type { Employee } from '../../employees/types.ts';
-import type { SystemId } from '../../../lib/id-types.ts';
+import { useEmployeeStore } from '../../employees/store';
+import { useAttendanceStore } from '../../attendance/store';
+import { usePayrollTemplateStore } from '../payroll-template-store';
+import { usePayrollBatchStore, type GeneratedPayslipPayload } from '../payroll-batch-store';
+import { useEmployeeCompStore } from '../../employees/employee-comp-store';
+import { useEmployeeSettingsStore } from '../../settings/employees/employee-settings-store';
+import { payrollEngine } from '../../../lib/payroll-engine';
+import type { AttendanceDataRow } from '../../attendance/types';
+import type { Employee } from '../../employees/types';
+import type { SystemId } from '../../../lib/id-types';
 
 /**
  * Seed helper dùng để tạo nhanh dữ liệu demo cho module payroll nhằm phục vụ QA Phase 3.

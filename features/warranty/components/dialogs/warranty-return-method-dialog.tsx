@@ -1,15 +1,15 @@
 import * as React from 'react';
-import { Button } from '../../../../components/ui/button.tsx';
+import { Button } from '../../../../components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '../../../../components/ui/dialog.tsx';
-import { VirtualizedCombobox, type ComboboxOption } from '../../../../components/ui/virtualized-combobox.tsx';
-import type { WarrantyTicket } from '../../types.ts';
-import type { OrderSearchResult } from '../../../orders/order-search-api.ts';
+} from '../../../../components/ui/dialog';
+import { VirtualizedCombobox, type ComboboxOption } from '../../../../components/ui/virtualized-combobox';
+import type { WarrantyTicket } from '../../types';
+import type { OrderSearchResult } from '../../../orders/order-search-api';
 
 type ReturnMethod = 'direct' | 'order' | null;
 

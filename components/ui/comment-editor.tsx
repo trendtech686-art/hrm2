@@ -18,13 +18,13 @@ import Image from '@tiptap/extension-image';
 import Mention from '@tiptap/extension-mention';
 import Placeholder from '@tiptap/extension-placeholder';
 import { cn } from '../../lib/utils';
-import { FileUploadAPI } from '../../lib/file-upload-api.ts';
+import { FileUploadAPI } from '../../lib/file-upload-api';
 import { Bold, Italic, Image as ImageIcon, AtSign, Upload, Loader2 } from 'lucide-react';
 import { Button } from './button';
 import { toast } from 'sonner';
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
-import { MentionCombobox } from './mention-combobox.tsx';
+import { MentionCombobox } from './mention-combobox';
 
 export interface CommentEditorProps {
   content?: string;

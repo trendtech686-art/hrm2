@@ -2,8 +2,10 @@
 // File: features/employees/page-tanstack-test.tsx
 // Route: /employees/test (temporary)
 
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { TanStackDataTable } from '../../components/data-table/tanstack-data-table';
 import { createEmployeeColumns } from './tanstack-columns';
 import { useEmployeeStore } from './store';

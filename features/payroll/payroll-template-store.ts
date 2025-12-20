@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { PayrollTemplate } from '../../lib/payroll-types.ts';
-import { generateSystemId, findNextAvailableBusinessId } from '../../lib/id-utils.ts';
-import { getPrefix } from '../../lib/smart-prefix.ts';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types.ts';
+import type { PayrollTemplate } from '../../lib/payroll-types';
+import { generateSystemId, findNextAvailableBusinessId } from '../../lib/id-utils';
+import { getPrefix } from '../../lib/smart-prefix';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 
 const STORAGE_KEY = 'hrm-payroll-template-store';
 const TEMPLATE_ENTITY: 'payroll-templates' = 'payroll-templates';

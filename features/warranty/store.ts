@@ -1,1 +1,1 @@
-﻿export { useWarrantyStore } from './store/index.ts';
+﻿export { useWarrantyStore } from './store/index';

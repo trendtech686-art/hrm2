@@ -1,8 +1,8 @@
 import * as React from "react";
-import { useProductStore } from "../../products/store.ts";
+import { useProductStore } from "../../products/store";
 import { Package, ChevronLeft, ChevronRight } from "lucide-react";
-import { ProductThumbnailCell } from "../../../components/shared/read-only-products-table.tsx";
-import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog.tsx";
+import { ProductThumbnailCell } from "../../../components/shared/read-only-products-table";
+import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { Input } from "../../../components/ui/input.tsx";
-import { Checkbox } from "../../../components/ui/checkbox.tsx";
-import { cn } from "../../../lib/utils.ts";
-import type { Product } from "../../products/types.ts";
+} from "../../../components/ui/dialog";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Checkbox } from "../../../components/ui/checkbox";
+import { cn } from "../../../lib/utils";
+import type { Product } from "../../products/types";
 
 interface BulkProductSelectorDialogProps {
   open: boolean;

@@ -1,53 +1,55 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { useProductStore } from './store.ts';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useProductStore } from './store';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useAuth } from '../../contexts/auth-context';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { ArrowLeft, Edit, Info, Printer, TrendingUp, AlertTriangle, Eye, Trash2, Package, Video, Globe, Truck, FileText, ShoppingCart, BarChart3, Clock, MapPin } from 'lucide-react';
 import { usePrint } from '@/lib/use-print';
 import { mapProductToLabelPrintData } from '@/lib/print-mappers/product-label.mapper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
-import { DetailField } from '../../components/ui/detail-field.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs.tsx';
-import { LazyImage } from '../../components/ui/lazy-image.tsx';
-import { Comments, type Comment as CommentType } from '../../components/Comments.tsx';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory.tsx';
-import { usePricingPolicyStore } from '../settings/pricing/store.ts';
-import { useSupplierStore } from '../suppliers/store.ts';
-import { useStockHistoryStore } from '../stock-history/store.ts';
-import { getStockHistoryColumns } from '../stock-history/columns.tsx';
-import { purchasePriceHistoryColumns, type PriceHistoryEntry } from './purchase-price-history-columns.tsx';
-import { RelatedDataTable } from '../../components/data-table/related-data-table.tsx';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
-import { usePurchaseOrderStore } from '../purchase-orders/store.ts';
-import { useInventoryReceiptStore } from '../inventory-receipts/store.ts';
-import { useOrderStore } from '../orders/store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import { useWarrantyStore } from '../warranty/store.ts';
-import { useInventoryCheckStore } from '../inventory-checks/store.ts';
-import { useStockTransferStore } from '../stock-transfers/store.ts';
-import { CommittedStockDialog } from './components/committed-stock-dialog.tsx';
-import { InTransitStockDialog } from './components/in-transit-stock-dialog.tsx';
-import { useImageStore } from './image-store.ts';
-import { FileUploadAPI } from '@/lib/file-upload-api.ts';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
-import { calculateComboStock, calculateComboCostPrice, isComboProduct } from './combo-utils.ts';
-import { StockAlertBadges } from './components/stock-alert-badges.tsx';
-import { getProductStockAlerts, getTotalAvailableStock, getTotalOnHandStock, getSuggestedOrderQuantity } from './stock-alert-utils.ts';
-import { useProductTypeStore } from '../settings/inventory/product-type-store.ts';
-import { useProductCategoryStore } from '../settings/inventory/product-category-store.ts';
-import { useStorageLocationStore } from '../settings/inventory/storage-location-store.ts';
-import { useBrandStore } from '../settings/inventory/brand-store.ts';
-import { EcommerceTab } from './components/ecommerce-tab.tsx';
-import { sanitizeHtml } from '@/lib/sanitize.ts';
+import { DetailField } from '../../components/ui/detail-field';
+import { Badge } from '../../components/ui/badge';
+import { Separator } from '../../components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { LazyImage } from '../../components/ui/lazy-image';
+import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { usePricingPolicyStore } from '../settings/pricing/store';
+import { useSupplierStore } from '../suppliers/store';
+import { useStockHistoryStore } from '../stock-history/store';
+import { getStockHistoryColumns } from '../stock-history/columns';
+import { purchasePriceHistoryColumns, type PriceHistoryEntry } from './purchase-price-history-columns';
+import { RelatedDataTable } from '../../components/data-table/related-data-table';
+import { useBranchStore } from '../settings/branches/store';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { usePurchaseOrderStore } from '../purchase-orders/store';
+import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { useOrderStore } from '../orders/store';
+import { useEmployeeStore } from '../employees/store';
+import { useWarrantyStore } from '../warranty/store';
+import { useInventoryCheckStore } from '../inventory-checks/store';
+import { useStockTransferStore } from '../stock-transfers/store';
+import { CommittedStockDialog } from './components/committed-stock-dialog';
+import { InTransitStockDialog } from './components/in-transit-stock-dialog';
+import { useImageStore } from './image-store';
+import { FileUploadAPI } from '@/lib/file-upload-api';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { calculateComboStock, calculateComboCostPrice, isComboProduct } from './combo-utils';
+import { StockAlertBadges } from './components/stock-alert-badges';
+import { getProductStockAlerts, getTotalAvailableStock, getTotalOnHandStock, getSuggestedOrderQuantity } from './stock-alert-utils';
+import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useProductCategoryStore } from '../settings/inventory/product-category-store';
+import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
+import { useBrandStore } from '../settings/inventory/brand-store';
+import { EcommerceTab } from './components/ecommerce-tab';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -59,7 +61,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '../../components/ui/alert-dialog.tsx';
+} from '../../components/ui/alert-dialog';
 
 
 const formatCurrency = (value?: number) => {

@@ -1,12 +1,12 @@
 import * as React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { Label } from '../../../../components/ui/label.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select.tsx';
-import { Button } from '../../../../components/ui/button.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Label } from '../../../../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
+import { Button } from '../../../../components/ui/button';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
-import { usePricingPolicyStore } from '../../pricing/store.ts';
+import { usePricingPolicyStore } from '../../pricing/store';
 import { PKGX_PRICE_FIELDS } from '../constants';
 import type { SystemId } from '../../../../lib/id-types';
 

@@ -1,4 +1,4 @@
-import type { Customer } from '../../customers/types.ts';
+import type { Customer } from '../../customers/types';
 
 export interface WarrantyCustomerInfo {
   name: string;

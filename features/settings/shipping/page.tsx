@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { PartnerConnectionsPageContent } from './partner-connections.tsx';
-import { GlobalShippingConfigTab } from './tabs/global-shipping-config.tsx';
-import { ShippingFeeConfigPageContent } from './shipping-fee-config.tsx';
-import { TabsContent } from '../../../components/ui/tabs.tsx';
-import { useTabActionRegistry } from '../use-tab-action-registry.ts';
-import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { PartnerConnectionsPageContent } from './partner-connections';
+import { GlobalShippingConfigTab } from './tabs/global-shipping-config';
+import { ShippingFeeConfigPageContent } from './shipping-fee-config';
+import { TabsContent } from '../../../components/ui/tabs';
+import { useTabActionRegistry } from '../use-tab-action-registry';
+import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 
 export function ShippingPartnersPage() {
   const [activeTab, setActiveTab] = React.useState('connections');

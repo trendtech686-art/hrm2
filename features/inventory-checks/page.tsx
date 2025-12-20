@@ -1,28 +1,30 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { ROUTES } from '../../lib/router';
-import { useInventoryCheckStore } from './store.ts';
-import { getColumns } from './columns.tsx';
-import { InventoryCheckCard } from './card.tsx';
-import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table.tsx';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter.tsx';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle.tsx';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog.tsx';
-import { PageToolbar } from '../../components/layout/page-toolbar.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { useBreakpoint } from '../../contexts/breakpoint-context.tsx';
-import { useAuth } from '../../contexts/auth-context.tsx';
+import { useInventoryCheckStore } from './store';
+import { getColumns } from './columns';
+import { InventoryCheckCard } from './card';
+import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
+import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
+import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog';
+import { PageToolbar } from '../../components/layout/page-toolbar';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { useBreakpoint } from '../../contexts/breakpoint-context';
+import { useAuth } from '../../contexts/auth-context';
 import { Plus, Download, Printer, XCircle, Scale, FileSpreadsheet } from 'lucide-react';
-import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2.tsx';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2.tsx';
-import { inventoryCheckImportExportConfig, flattenInventoryChecksForExport } from '../../lib/import-export/configs/inventory-check.config.ts';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog.tsx';
+import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
+import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
+import { inventoryCheckImportExportConfig, flattenInventoryChecksForExport } from '../../lib/import-export/configs/inventory-check.config';
+import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
-import type { InventoryCheck } from './types.ts';
+import type { InventoryCheck } from './types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,16 +34,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
-import { usePrint } from '../../lib/use-print.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
+} from '../../components/ui/alert-dialog';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { usePrint } from '../../lib/use-print';
+import { useBranchStore } from '../settings/branches/store';
 import { 
   convertInventoryCheckForPrint,
   mapInventoryCheckToPrintData,
   mapInventoryCheckLineItems,
   createStoreSettings,
-} from '../../lib/print/inventory-check-print-helper.ts';
+} from '../../lib/print/inventory-check-print-helper';
 
 type ConfirmState =
   | { type: 'cancel'; item: InventoryCheck }

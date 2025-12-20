@@ -1,21 +1,23 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { useSupplierStore } from './store.ts';
-import { SupplierForm, type SupplierFormValues } from './supplier-form.tsx';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useSupplierStore } from './store';
+import { SupplierForm, type SupplierFormValues } from './supplier-form';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import type { Supplier } from './types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+} from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import type { Supplier } from './types';
+import { usePageHeader } from '../../contexts/page-header-context';
 import { toast } from 'sonner';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import { ROUTES, generatePath } from '../../lib/router.ts';
-import type { BreadcrumbItem } from '../../lib/breadcrumb-system.ts';
+import { ROUTES, generatePath } from '../../lib/router';
+import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 
 export function SupplierFormPage() {
   const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();

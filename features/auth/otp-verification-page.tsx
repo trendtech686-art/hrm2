@@ -1,10 +1,12 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Button } from '../../components/ui/button.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '../../components/ui/input-otp.tsx';
+import { useNavigate, useLocation } from '@/lib/next-compat';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '../../components/ui/input-otp';
 import { toast } from 'sonner';
-import { ROUTES } from '../../lib/router.ts';
+import { ROUTES } from '../../lib/router';
 
 const CORRECT_OTP = '123456'; // Mock OTP for testing
 

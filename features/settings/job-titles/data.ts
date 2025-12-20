@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { JobTitle } from './types.ts';
+import type { JobTitle } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 type JobTitleSeed = {

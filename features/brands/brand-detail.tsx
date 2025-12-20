@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from '@/lib/next-compat';
 import { 
   Save, 
   X, 

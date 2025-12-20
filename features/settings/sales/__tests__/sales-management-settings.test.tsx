@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import React from 'react';
-import { SalesManagementSettings } from '../sales-management-settings.tsx';
+import { SalesManagementSettings } from '../sales-management-settings';
 
 // Minimal harness to reproduce sales-management tab crash
 

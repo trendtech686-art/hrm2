@@ -1,10 +1,10 @@
-import { createCrudStore, CrudState } from '../../lib/store-factory.ts';
-import { data as initialData } from './data.ts';
-import type { Supplier } from './types.ts';
-import type { SystemId } from '../../lib/id-types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import { createCrudStore, CrudState } from '../../lib/store-factory';
+import { data as initialData } from './data';
+import type { Supplier } from './types';
+import type { SystemId } from '../../lib/id-types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import Fuse from 'fuse.js';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
 
 const baseStore = createCrudStore<Supplier>(initialData, 'suppliers', {
   businessIdField: 'id',

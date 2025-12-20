@@ -1,4 +1,4 @@
-import { asSystemId, type SystemId } from './id-types.ts';
+import { asSystemId, type SystemId } from './id-types';
 
 export const DEFAULT_SEED_AUTHOR = asSystemId('EMP000001');
 

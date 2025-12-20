@@ -1,8 +1,8 @@
 import * as React from 'react';
-import type { InventoryCheck } from './types.ts';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { formatDateCustom } from '../../lib/date-utils.ts';
+import type { InventoryCheck } from './types';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { formatDateCustom } from '../../lib/date-utils';
 
 type CardProps = {
   item: InventoryCheck;

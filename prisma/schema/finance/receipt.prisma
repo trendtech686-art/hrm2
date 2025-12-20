@@ -1,0 +1,52 @@
+// ═══════════════════════════════════════════════════════════════
+// RECEIPT MODEL (Thu tiền)
+// ═══════════════════════════════════════════════════════════════
+// SystemId: REC0000000001 (English, 10 digits)
+// BusinessId: PT0000000001 (Vietnamese - Phiếu thu, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Receipt {
+  systemId          String        @id           // REC0000000001
+  id                String        @unique       // PT0000000001
+  
+  // Related Order
+  orderId           String?
+  order             Order?        @relation(fields: [orderId], references: [systemId])
+  
+  // Customer
+  customerId        String?
+  customerName      String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?       @relation(fields: [branchId], references: [systemId])
+  
+  // Cash Account
+  cashAccountId     String?
+  cashAccount       CashAccount?  @relation(fields: [cashAccountId], references: [systemId])
+  
+  // Payment details
+  receiptDate       DateTime      @default(now())
+  amount            Decimal       @db.Decimal(15, 2)
+  paymentMethod     String?       // cash, card, bank_transfer
+  reference         String?       // transaction ref
+  
+  // Status
+  status            String        @default("completed") // draft, completed, cancelled
+  
+  // Notes
+  description       String?
+  notes             String?
+  
+  // Soft delete
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("receipts")
+}

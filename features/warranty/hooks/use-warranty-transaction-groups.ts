@@ -1,14 +1,14 @@
 import * as React from 'react';
-import type { WarrantyTicket, WarrantyHistory } from '../types.ts';
-import type { Payment } from '../../payments/types.ts';
-import type { Receipt } from '../../receipts/types.ts';
+import type { WarrantyTicket, WarrantyHistory } from '../types';
+import type { Payment } from '../../payments/types';
+import type { Receipt } from '../../receipts/types';
 import type {
   WarrantyTransaction,
   WarrantyTransactionGroup,
   WarrantyTransactionGroupSummary,
   WarrantyPaymentTransaction,
   WarrantyReceiptTransaction,
-} from '../types/transactions.ts';
+} from '../types/transactions';
 
 interface UseWarrantyTransactionGroupsParams {
   ticket: WarrantyTicket | null | undefined;

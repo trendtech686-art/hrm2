@@ -1,7 +1,7 @@
-import { Comments } from '../../../../components/Comments.tsx';
-import type { WarrantyTicket } from '../../types.ts';
-import { useWarrantyComments } from '../../hooks/use-warranty-comments.ts';
-import { useEmployeeStore } from '../../../employees/store.ts';
+import { Comments } from '../../../../components/Comments';
+import type { WarrantyTicket } from '../../types';
+import { useWarrantyComments } from '../../hooks/use-warranty-comments';
+import { useEmployeeStore } from '../../../employees/store';
 import * as React from 'react';
 
 import type { SystemId } from '@/lib/id-types';

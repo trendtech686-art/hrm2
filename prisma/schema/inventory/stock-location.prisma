@@ -1,0 +1,47 @@
+// ═══════════════════════════════════════════════════════════════
+// STOCK LOCATION MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: SLOC000001 (English, 6 digits)
+// BusinessId: VT000001 (Vietnamese - Vị trí, 6 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model StockLocation {
+  systemId          String        @id           // SLOC000001
+  id                String        @unique       // VT000001
+  
+  // Basic info
+  name              String
+  code              String        @unique
+  description       String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?       @relation(fields: [branchId], references: [systemId])
+  
+  // Location details
+  locationType      String?       // warehouse, shelf, bin, etc
+  zone              String?
+  aisle             String?
+  rack              String?
+  shelf             String?
+  bin               String?
+  
+  // Capacity
+  capacity          Int?
+  currentUsage      Int?
+  
+  // Status
+  isActive          Boolean       @default(true)
+  isDefault         Boolean       @default(false)
+  
+  // Relations
+  inventories       Inventory[]
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("stock_locations")
+}

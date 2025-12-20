@@ -5,9 +5,9 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '../../components/ui/context-menu.tsx';
-import { Complaint } from './types.ts';
-import { isTrackingEnabled } from './tracking-utils.ts';
+} from '../../components/ui/context-menu';
+import { Complaint } from './types';
+import { isTrackingEnabled } from './tracking-utils';
 import { toast } from 'sonner';
 
 interface ComplaintCardContextMenuProps {

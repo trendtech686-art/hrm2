@@ -5,16 +5,18 @@
  * Dashboard thống kê và phân tích phiếu bảo hành
  */
 
+'use client'
+
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Button } from "../../components/ui/button.tsx";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useWarrantyStore } from "./store.ts";
-import { useWarrantyStatistics, formatMinutes } from "./hooks/use-warranty-statistics.ts";
-import { WARRANTY_STATUS_LABELS } from "./types.ts";
-import { cn } from "../../lib/utils.ts";
+import { useNavigate } from '@/lib/next-compat';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useWarrantyStore } from "./store";
+import { useWarrantyStatistics, formatMinutes } from "./hooks/use-warranty-statistics";
+import { WARRANTY_STATUS_LABELS } from "./types";
+import { cn } from "../../lib/utils";
 import {
   TrendingUp,
   TrendingDown,

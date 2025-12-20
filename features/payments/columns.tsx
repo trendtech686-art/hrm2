@@ -1,16 +1,16 @@
 import * as React from "react";
-import { formatDateCustom } from '../../lib/date-utils.ts';
-import type { Payment } from './types.ts';
-import type { CashAccount } from "../cashbook/types.ts";
-import type { SystemId } from '../../lib/id-types.ts';
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from "../../components/ui/button.tsx";
+import { formatDateCustom } from '../../lib/date-utils';
+import type { Payment } from './types';
+import type { CashAccount } from "../cashbook/types";
+import type { SystemId } from '../../lib/id-types';
+import { Checkbox } from "../../components/ui/checkbox";
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
+import { Badge } from "../../components/ui/badge";
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from "../../components/ui/button";
 import { Pencil, Trash2, RotateCcw, Eye, MoreHorizontal, XCircle, CheckCircle, Printer } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '0';

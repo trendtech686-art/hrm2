@@ -1,10 +1,10 @@
 import * as React from "react";
 import { Download, Upload, Settings2 } from "lucide-react";
-import { Button } from "../ui/button.tsx";
-import { DataTableExportDialog } from "./data-table-export-dialog.tsx";
-import { DataTableImportDialog } from "./data-table-import-dialog.tsx";
-import { DataTableColumnCustomizer } from "./data-table-column-toggle.tsx";
-import type { ColumnDef } from './types.ts';
+import { Button } from "../ui/button";
+import { DataTableExportDialog } from "./data-table-export-dialog";
+import { DataTableImportDialog } from "./data-table-import-dialog";
+import { DataTableColumnCustomizer } from "./data-table-column-toggle";
+import type { ColumnDef } from './types';
 
 interface DataTableActionsProps<TData> {
   exportConfig?: {

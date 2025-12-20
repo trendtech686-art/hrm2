@@ -5,16 +5,16 @@
 
 import * as React from 'react';
 import { useFormContext, useFieldArray } from 'react-hook-form';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
-import { FormControl, FormField, FormItem, FormLabel, FormDescription, FormMessage } from '../../../components/ui/form.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { NumberInput } from '../../../components/ui/number-input.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { FormControl, FormField, FormItem, FormLabel, FormDescription, FormMessage } from '../../../components/ui/form';
+import { Input } from '../../../components/ui/input';
+import { NumberInput } from '../../../components/ui/number-input';
+import { Separator } from '../../../components/ui/separator';
+import { Button } from '../../../components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { PlusCircle, Trash2, AlertCircle, Info } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert.tsx';
-import type { EmployeeSettings } from './types.ts';
+import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
+import type { EmployeeSettings } from './types';
 
 const formatCurrency = (value: number) => 
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);

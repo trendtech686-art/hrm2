@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { Handle, Position, type NodeProps, NodeResizer } from 'reactflow';
-import { cn } from '../../../../../lib/utils.ts';
-import { Avatar, AvatarFallback, AvatarImage } from '../../../../../components/ui/avatar.tsx';
-import type { Employee } from '../../../../employees/types.ts';
-import { Button } from '../../../../../components/ui/button.tsx';
+import { cn } from '../../../../../lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '../../../../../components/ui/avatar';
+import type { Employee } from '../../../../employees/types';
+import { Button } from '../../../../../components/ui/button';
 import { Plus, Minus, Mail, Phone, Users, Focus, User, Copy, Check, GripVertical, XCircle } from 'lucide-react';
-import { Badge } from '../../../../../components/ui/badge.tsx';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../../components/ui/tooltip.tsx';
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '../../../../../components/ui/context-menu.tsx';
+import { Badge } from '../../../../../components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../../components/ui/tooltip';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '../../../../../components/ui/context-menu';
 
 const getInitials = (name: string) => {
     if (!name) return '';

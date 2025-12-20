@@ -1,24 +1,24 @@
 import * as React from 'react';
-import { usePageHeader } from '../../../contexts/page-header-context.tsx';
-import { useProductStore } from '../../products/store.ts';
-import { useSupplierStore } from '../../suppliers/store.ts';
-import type { StockAlertReportRow, StockAlertFilter } from './types.ts';
-import { getColumns } from './columns.tsx';
-import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table.tsx';
-import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar.tsx';
-import { Card, CardContent } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs.tsx';
+import { usePageHeader } from '../../../contexts/page-header-context';
+import { useProductStore } from '../../products/store';
+import { useSupplierStore } from '../../suppliers/store';
+import type { StockAlertReportRow, StockAlertFilter } from './types';
+import { getColumns } from './columns';
+import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
+import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import Fuse from 'fuse.js';
 import { Download, PackageX, AlertTriangle, TrendingUp, AlertCircle } from 'lucide-react';
-import { ROUTES } from '../../../lib/router.ts';
+import { ROUTES } from '../../../lib/router';
 import { 
     getProductStockAlerts, 
     getTotalOnHandStock, 
     getTotalAvailableStock,
     getSuggestedOrderQuantity,
     STOCK_ALERT_CONFIG 
-} from '../../products/stock-alert-utils.ts';
+} from '../../products/stock-alert-utils';
 
 const formatNumber = (value?: number) => new Intl.NumberFormat('vi-VN').format(value ?? 0);
 

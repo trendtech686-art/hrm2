@@ -1,17 +1,17 @@
 import * as React from "react";
-import { useSalesChannelStore } from "./store.ts";
-import type { SalesChannel } from "./types.ts";
-import { SalesChannelForm, type SalesChannelFormValues } from "./form.tsx";
-import { Button } from "../../../components/ui/button.tsx";
-import { SettingsActionButton } from "../../../components/settings/SettingsActionButton.tsx";
+import { useSalesChannelStore } from "./store";
+import type { SalesChannel } from "./types";
+import { SalesChannelForm, type SalesChannelFormValues } from "./form";
+import { Button } from "../../../components/ui/button";
+import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog.tsx";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu.tsx";
-import type { RegisterTabActions } from "../use-tab-action-registry.ts";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Switch } from "../../../components/ui/switch";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
+import type { RegisterTabActions } from "../use-tab-action-registry";
 import { toast } from "sonner";
 
 type SalesChannelsPageContentProps = {

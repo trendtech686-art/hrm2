@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { useWarrantyStore } from '../store.ts';
-import { usePaymentStore } from '../../payments/store.ts';
-import { useReceiptStore } from '../../receipts/store.ts';
-import { calculateWarrantyProcessingState } from '../components/logic/processing.ts';
-import { calculateWarrantySettlementTotal } from '../utils/payment-calculations.ts';
-import type { SettlementMethod, WarrantySettlement, WarrantyTicket } from '../types.ts';
+import { useWarrantyStore } from '../store';
+import { usePaymentStore } from '../../payments/store';
+import { useReceiptStore } from '../../receipts/store';
+import { calculateWarrantyProcessingState } from '../components/logic/processing';
+import { calculateWarrantySettlementTotal } from '../utils/payment-calculations';
+import type { SettlementMethod, WarrantySettlement, WarrantyTicket } from '../types';
 import { asSystemId } from '@/lib/id-types';
 
 export interface WarrantySettlementState {

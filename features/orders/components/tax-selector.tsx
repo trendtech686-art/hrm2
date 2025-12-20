@@ -1,12 +1,12 @@
 import * as React from 'react';
-import { useTaxStore } from '../../settings/taxes/store.ts';
+import { useTaxStore } from '../../settings/taxes/store';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select.tsx';
+} from '../../../components/ui/select';
 
 interface TaxSelectorProps {
   value: string; // tax systemId

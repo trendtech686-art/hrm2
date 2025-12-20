@@ -1,8 +1,8 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
-import type { Province } from "./types.ts"
-import { useProvinceStore } from "./store.ts";
-import { Button } from "../../../components/ui/button.tsx"
+import type { Province } from "./types"
+import { useProvinceStore } from "./store";
+import { Button } from "../../../components/ui/button"
 import {
   Form,
   FormControl,
@@ -10,8 +10,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form.tsx"
-import { Input } from "../../../components/ui/input.tsx"
+} from "../../../components/ui/form"
+import { Input } from "../../../components/ui/input"
 
 export type ProvinceFormValues = Omit<Province, 'systemId'>;
 

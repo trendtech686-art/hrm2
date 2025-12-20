@@ -1,13 +1,13 @@
 import * as React from 'react';
-import { formatDateCustom } from '../../lib/date-utils.ts';
-import type { InventoryCheck } from './types.ts';
-import { Checkbox } from '../../components/ui/checkbox.tsx';
-import { DataTableColumnHeader } from '../../components/data-table/data-table-column-header.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import type { ColumnDef } from '../../components/data-table/types.ts';
-import { Button } from '../../components/ui/button.tsx';
+import { formatDateCustom } from '../../lib/date-utils';
+import type { InventoryCheck } from './types';
+import { Checkbox } from '../../components/ui/checkbox';
+import { DataTableColumnHeader } from '../../components/data-table/data-table-column-header';
+import { Badge } from '../../components/ui/badge';
+import type { ColumnDef } from '../../components/data-table/types';
+import { Button } from '../../components/ui/button';
 import { MoreHorizontal, Pencil, XCircle, Printer } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 
 const formatDate = (d?: string) => (d ? formatDateCustom(new Date(d), 'dd/MM/yyyy HH:mm') : '');
 

@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { 
   DndContext, 
   DragOverlay,
@@ -13,26 +15,26 @@ import {
 } from '@dnd-kit/core';
 import { Search, Users, Crown, MoreHorizontal, PlusCircle, Eye, Copy, Check, GripVertical } from 'lucide-react';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { useDepartmentStore } from './store.ts';
-import { useEmployeeStore } from '../../employees/store.ts';
-import { useJobTitleStore } from '../job-titles/store.ts';
-import type { Department } from './types.ts';
-import type { Employee } from '../../employees/types.ts';
-import type { JobTitle } from '../job-titles/types.ts';
-import { cn } from '../../../lib/utils.ts';
-import { Button } from '../../../components/ui/button.tsx';
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar.tsx';
-import { ScrollArea } from '../../../components/ui/scroll-area.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { SortableCard } from '../../../components/settings/SortableCard.tsx';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog.tsx';
-import { DepartmentForm, type DepartmentFormValues } from './department-form.tsx';
-import { JobTitlesPageContent } from '../job-titles/page-content.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { useDepartmentStore } from './store';
+import { useEmployeeStore } from '../../employees/store';
+import { useJobTitleStore } from '../job-titles/store';
+import type { Department } from './types';
+import type { Employee } from '../../employees/types';
+import type { JobTitle } from '../job-titles/types';
+import { cn } from '../../../lib/utils';
+import { Button } from '../../../components/ui/button';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
+import { Input } from '../../../components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
+import { ScrollArea } from '../../../components/ui/scroll-area';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { SortableCard } from '../../../components/settings/SortableCard';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog';
+import { DepartmentForm, type DepartmentFormValues } from './department-form';
+import { JobTitlesPageContent } from '../job-titles/page-content';
+import { Separator } from '../../../components/ui/separator';
 import { useDroppable } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';

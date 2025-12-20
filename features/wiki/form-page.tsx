@@ -1,17 +1,19 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import * as ReactRouterDOM from '@/lib/next-compat';
 import { useForm } from 'react-hook-form';
-import { useWikiStore } from './store.ts';
-import { useEmployeeStore } from '../employees/store.ts';
-import type { WikiArticle } from './types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Button } from '../../components/ui/button.tsx';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select.tsx';
+import { useWikiStore } from './store';
+import { useEmployeeStore } from '../employees/store';
+import type { WikiArticle } from './types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { usePageHeader } from '../../contexts/page-header-context';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 
 type WikiFormValues = {
   title: string;

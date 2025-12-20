@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "../../lib/utils.ts"
+import { cn } from "../../lib/utils"
 
 /**
  * A container that maintains a specific aspect ratio.

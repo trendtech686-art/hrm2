@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
 import { createCrudStore } from '../../../lib/store-factory';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
-import type { Province, District, Ward } from './types.ts';
+import type { Province, District, Ward } from './types';
 import { PROVINCES_DATA } from './provinces-data';
 import { DISTRICTS_DATA } from './districts-data';
 import { WARDS_2LEVEL_DATA } from './wards-2level-data';

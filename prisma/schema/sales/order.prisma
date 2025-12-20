@@ -1,0 +1,78 @@
+// ═══════════════════════════════════════════════════════════════
+// ORDER MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: ORDER0000000001 (English, 10 digits)
+// BusinessId: DH0000000001 (Vietnamese - Đơn hàng, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Order {
+  systemId          String        @id           // ORDER0000000001
+  id                String        @unique       // DH0000000001
+  
+  // Customer
+  customerId        String?
+  customer          Customer?     @relation(fields: [customerId], references: [systemId])
+  customerName      String?
+  customerPhone     String?
+  customerEmail     String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?       @relation(fields: [branchId], references: [systemId])
+  
+  // Order details
+  orderDate         DateTime      @default(now())
+  expectedDate      DateTime?
+  completedDate     DateTime?
+  
+  // Status
+  status            OrderStatus   @default(DRAFT)
+  paymentStatus     PaymentStatus @default(PENDING)
+  
+  // Shipping
+  shippingAddress   String?
+  shippingProvince  String?
+  shippingDistrict  String?
+  shippingWard      String?
+  shippingMethod    String?
+  shippingFee       Decimal       @default(0) @db.Decimal(15, 2)
+  shippingNote      String?
+  
+  // Amounts
+  subtotal          Decimal       @default(0) @db.Decimal(15, 2)
+  discount          Decimal       @default(0) @db.Decimal(15, 2)
+  discountPercent   Decimal       @default(0) @db.Decimal(5, 2)
+  tax               Decimal       @default(0) @db.Decimal(15, 2)
+  total             Decimal       @default(0) @db.Decimal(15, 2)
+  paidAmount        Decimal       @default(0) @db.Decimal(15, 2)
+  remainingAmount   Decimal       @default(0) @db.Decimal(15, 2)
+  
+  // Sales info
+  salesPersonId     String?
+  salesChannel      String?
+  source            String?
+  
+  // Notes
+  notes             String?
+  internalNotes     String?
+  
+  // Relations
+  items             OrderItem[]
+  payments          OrderPayment[]
+  shipments         Shipment[]
+  receipts          Receipt[]
+  warranties        Warranty[]
+  packagings        Packaging[]
+  
+  // Soft delete
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("orders")
+}

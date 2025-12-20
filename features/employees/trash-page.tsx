@@ -1,17 +1,19 @@
+'use client'
+
 import * as React from "react"
-import { useNavigate } from 'react-router-dom';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
+import { useNavigate } from '@/lib/next-compat';
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
 import { toast } from "sonner"
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { useEmployeeStore } from "./store.ts"
-import { useBranchStore } from "../settings/branches/store.ts";
-import { getColumns } from "./trash-columns.tsx"
-import { GenericTrashPage } from "../../components/shared/generic-trash-page.tsx"
-import { Card, CardContent } from "../../components/ui/card.tsx"
-import { Button } from "../../components/ui/button.tsx"
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar.tsx"
-import { getApiUrl } from "../../lib/api-config.ts"
-import type { Employee } from "./types.ts"
+import { usePageHeader } from "../../contexts/page-header-context";
+import { useEmployeeStore } from "./store"
+import { useBranchStore } from "../settings/branches/store";
+import { getColumns } from "./trash-columns"
+import { GenericTrashPage } from "../../components/shared/generic-trash-page"
+import { Card, CardContent } from "../../components/ui/card"
+import { Button } from "../../components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
+import { getApiUrl } from "../../lib/api-config"
+import type { Employee } from "./types"
 import type { SystemId } from '@/lib/id-types';
 
 export function EmployeesTrashPage() {

@@ -1,14 +1,16 @@
+'use client'
+
 import * as React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from '@/lib/next-compat';
 import { Package, Clock, CheckCircle, XCircle, MessageSquare, User, Calendar, AlertCircle, Image as ImageIcon, ExternalLink, Receipt, DollarSign, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { StatusBadge, COMPLAINT_STATUS_MAP } from '../../components/StatusBadge.tsx';
+import { StatusBadge, COMPLAINT_STATUS_MAP } from '../../components/StatusBadge';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Progress } from '../../components/ui/progress';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Comments } from '../../components/Comments.tsx';
+import { Comments } from '../../components/Comments';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 
 // Lazy load ImagePreviewDialog để giảm bundle size
@@ -17,7 +19,7 @@ const ImagePreviewDialog = React.lazy(() =>
     default: module.ImagePreviewDialog
   }))
 );
-import { SlaTimer, COMPLAINT_SLA_CONFIGS } from '../../components/SlaTimer.tsx';
+import { SlaTimer, COMPLAINT_SLA_CONFIGS } from '../../components/SlaTimer';
 import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 import { useComplaintStore } from './store';
@@ -26,7 +28,7 @@ import { useEmployeeStore } from '../employees/store';
 import { usePaymentStore } from '../payments/store';
 import { useReceiptStore } from '../receipts/store';
 import { asSystemId } from '@/lib/id-types';
-import { formatOrderAddress } from '../orders/address-utils.ts';
+import { formatOrderAddress } from '../orders/address-utils';
 import { 
   complaintStatusLabels, 
   complaintStatusColors,

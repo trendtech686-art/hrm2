@@ -1,8 +1,8 @@
 import * as React from "react";
-import type { StorageLocation } from "./storage-location-types.ts";
-import type { ColumnDef } from "../../../components/data-table/types.ts";
-import { Button } from "../../../components/ui/button.tsx";
-import { Switch } from "../../../components/ui/switch.tsx";
+import type { StorageLocation } from "./storage-location-types";
+import type { ColumnDef } from "../../../components/data-table/types";
+import { Button } from "../../../components/ui/button";
+import { Switch } from "../../../components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu.tsx";
+} from "../../../components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 interface ColumnOptions {

@@ -7,15 +7,15 @@
 import * as React from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths, subQuarters, subYears, startOfYear, endOfYear, startOfQuarter, endOfQuarter } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Card, CardContent } from '@/components/ui/card.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx';
-import { Button } from '@/components/ui/button.tsx';
-import { Calendar } from '@/components/ui/calendar.tsx';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.tsx';
-import { PageFilters } from '@/components/layout/page-filters.tsx';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { PageFilters } from '@/components/layout/page-filters';
 import { CalendarIcon, ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils.ts';
-import type { ReportDateRange, ReportType, GroupByOption, TimeGrouping } from '../types.ts';
+import { cn } from '@/lib/utils';
+import type { ReportDateRange, ReportType, GroupByOption, TimeGrouping } from '../types';
 
 // Predefined date ranges
 const DATE_PRESETS = [

@@ -3,8 +3,8 @@
  * Includes PaymentType (category/classification)
  */
 
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
-import type { HistoryEntry } from '../../components/ActivityHistory.tsx';
+import type { SystemId, BusinessId } from '../../lib/id-types';
+import type { HistoryEntry } from '../../components/ActivityHistory';
 
 // ============================================
 // PAYMENT TYPE (Loại Phiếu Chi - Category)

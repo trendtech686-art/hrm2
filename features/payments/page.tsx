@@ -1,48 +1,50 @@
+'use client'
+
 import * as React from "react";
-import { useNavigate } from 'react-router-dom';
-import { usePaymentStore } from "./store.ts";
-import { useReceiptStore } from "../receipts/store.ts";
-import { useCashbookStore } from "../cashbook/store.ts";
-import { useBranchStore } from "../settings/branches/store.ts";
-import { usePaymentTypeStore } from "../settings/payments/types/store.ts";
-import { useCustomerStore } from "../customers/store.ts";
-import { useStoreInfoStore } from "../settings/store-info/store-info-store.ts";
-import { useEmployeeStore } from "../employees/store.ts";
-import type { Payment } from "./types.ts";
-import type { Receipt } from "../receipts/types.ts";
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table.tsx";
-import { Card, CardContent } from "../../components/ui/card.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import { useNavigate } from '@/lib/next-compat';
+import { usePaymentStore } from "./store";
+import { useReceiptStore } from "../receipts/store";
+import { useCashbookStore } from "../cashbook/store";
+import { useBranchStore } from "../settings/branches/store";
+import { usePaymentTypeStore } from "../settings/payments/types/store";
+import { useCustomerStore } from "../customers/store";
+import { useStoreInfoStore } from "../settings/store-info/store-info-store";
+import { useEmployeeStore } from "../employees/store";
+import type { Payment } from "./types";
+import type { Receipt } from "../receipts/types";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table";
+import { Card, CardContent } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
 import { Minus, ReceiptText, Printer, FileSpreadsheet, Download } from "lucide-react";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { paymentImportExportConfig } from "../../lib/import-export/configs/payment.config.ts";
-import { useAuth } from "../../contexts/auth-context.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { paymentImportExportConfig } from "../../lib/import-export/configs/payment.config";
+import { useAuth } from "../../contexts/auth-context";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
 import Fuse from "fuse.js";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { DataTableImportDialog } from "../../components/data-table/data-table-import-dialog.tsx";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter.tsx";
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx";
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { useMediaQuery } from "../../lib/use-media-query.ts";
-import { ROUTES, generatePath } from "../../lib/router.ts";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { DataTableImportDialog } from "../../components/data-table/data-table-import-dialog";
+import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
+import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { PageToolbar } from "../../components/layout/page-toolbar";
+import { PageFilters } from "../../components/layout/page-filters";
+import { useMediaQuery } from "../../lib/use-media-query";
+import { ROUTES, generatePath } from "../../lib/router";
 import { toast } from "sonner";
-import { toISODate, toISODateTime } from '../../lib/date-utils.ts';
+import { toISODate, toISODateTime } from '../../lib/date-utils';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
-import { getColumns } from "./columns.tsx";
-import { asSystemId, type SystemId } from "../../lib/id-types.ts";
-import { MobilePaymentCard } from "./card.tsx";
-import { usePrint } from "../../lib/use-print.ts";
+import { getColumns } from "./columns";
+import { asSystemId, type SystemId } from "../../lib/id-types";
+import { MobilePaymentCard } from "./card";
+import { usePrint } from "../../lib/use-print";
 import { 
   convertPaymentForPrint,
   mapPaymentToPrintData,
   createStoreSettings,
-} from "../../lib/print/payment-print-helper.ts";
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog.tsx";
+} from "../../lib/print/payment-print-helper";
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
 
 export function PaymentsPage() {
     const navigate = useNavigate();

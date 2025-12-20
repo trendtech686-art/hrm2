@@ -1,19 +1,19 @@
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { MoreHorizontal, Pencil, Printer, Trash2, Calculator, ExternalLink, Receipt, AlertTriangle } from 'lucide-react';
-import { Button } from '../../../components/ui/button.tsx';
-import { Checkbox } from '../../../components/ui/checkbox.tsx';
+import { Button } from '../../../components/ui/button';
+import { Checkbox } from '../../../components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu.tsx';
-import type { ColumnDef } from '../../../components/data-table/types.ts';
-import type { PayrollTotals, PayrollComponentEntry } from '../../../lib/payroll-types.ts';
-import type { BusinessId, SystemId } from '../../../lib/id-types.ts';
-import { ROUTES } from '../../../lib/router.ts';
+} from '../../../components/ui/dropdown-menu';
+import type { ColumnDef } from '../../../components/data-table/types';
+import type { PayrollTotals, PayrollComponentEntry } from '../../../lib/payroll-types';
+import type { BusinessId, SystemId } from '../../../lib/id-types';
+import { ROUTES } from '../../../lib/router';
 
 // =============================================
 // TYPES

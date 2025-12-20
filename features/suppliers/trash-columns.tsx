@@ -1,9 +1,9 @@
 import * as React from "react"
-import type { NavigateFunction } from 'react-router-dom';
-import type { ColumnDef } from "../../components/data-table/types.ts"
-import type { Supplier } from "./types.ts"
-import { Badge } from "../../components/ui/badge.tsx"
-import { Button } from "../../components/ui/button.tsx"
+import type { NavigateFunction } from '@/lib/next-compat';
+import type { ColumnDef } from "../../components/data-table/types"
+import type { Supplier } from "./types"
+import { Badge } from "../../components/ui/badge"
+import { Button } from "../../components/ui/button"
 import { RotateCcw, Trash2 } from "lucide-react"
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 

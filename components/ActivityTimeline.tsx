@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card.tsx';
-import { Badge } from './ui/badge.tsx';
-import { Button } from './ui/button.tsx';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -19,8 +19,8 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
-import { cn } from '../lib/utils.ts';
-import type { TaskActivity } from '../features/tasks/types.ts';
+import { cn } from '../lib/utils';
+import type { TaskActivity } from '../features/tasks/types';
 
 interface ActivityTimelineProps {
   activities: TaskActivity[];

@@ -1,5 +1,5 @@
-import type { WikiArticle } from './types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import type { WikiArticle } from './types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: WikiArticle[] = [

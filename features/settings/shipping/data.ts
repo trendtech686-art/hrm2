@@ -1,4 +1,4 @@
-import type { ShippingPartner } from './types.ts';
+import type { ShippingPartner } from './types';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 

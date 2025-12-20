@@ -5,13 +5,13 @@
  * Dùng chung cho tất cả các modules trong hệ thống
  */
 
-import type { HistoryEntry } from '../components/ActivityHistory.tsx';
-import { useEmployeeStore } from '../features/employees/store.ts';
-import { getCurrentUserInfo as getAuthUserInfo } from '../contexts/auth-context.tsx';
-import type { SystemId } from './id-types.ts';
+import type { HistoryEntry } from '../components/ActivityHistory';
+import { useEmployeeStore } from '../features/employees/store';
+import { getCurrentUserInfo as getAuthUserInfo } from '../contexts/auth-context';
+import type { SystemId } from './id-types';
 
 // Re-export HistoryEntry type for convenience
-export type { HistoryEntry } from '../components/ActivityHistory.tsx';
+export type { HistoryEntry } from '../components/ActivityHistory';
 
 /**
  * Lấy thông tin người dùng hiện tại từ auth context

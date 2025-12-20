@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { toast } from 'sonner';
-import type { NavigateFunction } from 'react-router-dom';
-import { calculateWarrantyProcessingState } from '../components/logic/processing.ts';
-import type { WarrantyTicket } from '../types.ts';
-import type { Order } from '../../orders/types.ts';
-import { usePaymentStore } from '../../payments/store.ts';
-import { useReceiptStore } from '../../receipts/store.ts';
+import type { NavigateFunction } from '@/lib/next-compat';
+import { calculateWarrantyProcessingState } from '../components/logic/processing';
+import type { WarrantyTicket } from '../types';
+import type { Order } from '../../orders/types';
+import { usePaymentStore } from '../../payments/store';
+import { useReceiptStore } from '../../receipts/store';
 
 interface CurrentUser {
   name: string;

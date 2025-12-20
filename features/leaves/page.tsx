@@ -1,28 +1,30 @@
+'use client'
+
 import * as React from "react";
-import * as ReactRouterDOM from 'react-router-dom';
-import { useLeaveStore } from './store.ts';
-import { getColumns } from './columns.tsx';
-import type { LeaveRequest, LeaveStatus } from "./types.ts";
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { useLeaveStore } from './store';
+import { getColumns } from './columns';
+import type { LeaveRequest, LeaveStatus } from "./types";
 import type { SystemId } from '@/lib/id-types';
-import { usePageHeader } from "../../contexts/page-header-context.tsx";
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table.tsx";
-import { PageToolbar } from "../../components/layout/page-toolbar.tsx"
-import { PageFilters } from "../../components/layout/page-filters.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import { usePageHeader } from "../../contexts/page-header-context";
+import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
+import { PageToolbar } from "../../components/layout/page-toolbar"
+import { PageFilters } from "../../components/layout/page-filters";
+import { Button } from "../../components/ui/button";
 import { PlusCircle, CheckCircle2, XCircle, Download } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog.tsx";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog.tsx";
-import { LeaveForm } from "./leave-form.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
+import { LeaveForm } from "./leave-form";
 import Fuse from "fuse.js";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select.tsx";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle.tsx";
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog.tsx";
-import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog.tsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
+import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
 import { toast } from "sonner";
-import { useBreakpoint } from "../../contexts/breakpoint-context.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Card, CardContent, CardHeader } from "../../components/ui/card.tsx";
-import { formatDate } from "../../lib/date-utils.ts";
+import { useBreakpoint } from "../../contexts/breakpoint-context";
+import { Badge } from "../../components/ui/badge";
+import { Card, CardContent, CardHeader } from "../../components/ui/card";
+import { formatDate } from "../../lib/date-utils";
 
 export function LeavesPage() {
   const { data: leaveRequests, remove, add, update } = useLeaveStore();

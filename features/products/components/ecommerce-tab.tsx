@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Separator } from '../../../components/ui/separator.tsx';
-import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Badge } from '../../../components/ui/badge';
+import { Separator } from '../../../components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
 import { 
   Globe, 
   Link, 
@@ -25,11 +25,11 @@ import {
   Home
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Product } from '../types.ts';
-import { usePkgxSettingsStore } from '../../settings/pkgx/store.ts';
-import { usePricingPolicyStore } from '../../settings/pricing/store.ts';
-import { useProductStore } from '../store.ts';
-import * as pkgxApi from '../../../lib/pkgx/api-service.ts';
+import type { Product } from '../types';
+import { usePkgxSettingsStore } from '../../settings/pkgx/store';
+import { usePricingPolicyStore } from '../../settings/pricing/store';
+import { useProductStore } from '../store';
+import * as pkgxApi from '../../../lib/pkgx/api-service';
 import { 
   mapHrmToPkgxPayload, 
   createPriceUpdatePayload, 
@@ -37,7 +37,7 @@ import {
   createDescriptionUpdatePayload,
   createFlagsUpdatePayload,
   getTotalInventory 
-} from '../../../lib/pkgx/mapping-service.ts';
+} from '../../../lib/pkgx/mapping-service';
 
 interface EcommerceTabProps {
   product: Product;

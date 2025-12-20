@@ -1,4 +1,4 @@
-import type { WarrantyTicket } from '../types.ts';
+import type { WarrantyTicket } from '../types';
 
 const MONEY_RESOLUTIONS = new Set(['out_of_stock']);
 

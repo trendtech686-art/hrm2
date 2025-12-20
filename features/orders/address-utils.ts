@@ -1,4 +1,4 @@
-import type { OrderAddress } from './types.ts';
+import type { OrderAddress } from './types';
 
 export const formatOrderAddress = (address?: string | OrderAddress | null): string => {
     if (!address) return '';

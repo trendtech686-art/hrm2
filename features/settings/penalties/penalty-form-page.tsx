@@ -1,11 +1,12 @@
+'use client'
+
 import * as React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-import { usePenaltyStore } from './store.ts';
-import { useSettingsPageHeader } from '../use-settings-page-header.tsx';
-import { useRouteMeta } from '../../../hooks/use-route-meta';
-import { PenaltyForm } from './form.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Button } from '../../../components/ui/button.tsx';
+import * as ReactRouterDOM from '@/lib/next-compat';
+import { usePenaltyStore } from './store';
+import { useSettingsPageHeader } from '../use-settings-page-header';
+import { PenaltyForm } from './form';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Button } from '../../../components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
@@ -13,7 +14,6 @@ import { asSystemId } from '@/lib/id-types';
 export function PenaltyFormPage() {
   const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
   const navigate = ReactRouterDOM.useNavigate();
-  const routeMeta = useRouteMeta();
   const { findById, add, update, remove } = usePenaltyStore();
 
   const penalty = React.useMemo(() => (systemId ? (findById(asSystemId(systemId)) ?? null) : null), [systemId, findById]);

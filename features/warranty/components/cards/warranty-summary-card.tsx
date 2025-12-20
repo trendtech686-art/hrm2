@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card.tsx';
-import { Separator } from '../../../../components/ui/separator.tsx';
-import { Badge } from '../../../../components/ui/badge.tsx';
-import { Link } from 'react-router-dom';
-import type { WarrantyProduct } from '../../types.ts';
-import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement.ts';
-import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Separator } from '../../../../components/ui/separator';
+import { Badge } from '../../../../components/ui/badge';
+import { Link } from '@/lib/next-compat';
+import type { WarrantyProduct } from '../../types';
+import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement';
+import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
 
 interface WarrantySummaryCardProps {
   products: WarrantyProduct[];

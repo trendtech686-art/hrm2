@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { Penalty, PenaltyType } from './types.ts';
+import type { Penalty, PenaltyType } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 // =============================================

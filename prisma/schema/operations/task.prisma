@@ -1,0 +1,62 @@
+// ═══════════════════════════════════════════════════════════════
+// TASK MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: TASK0000000001 (English, 10 digits)
+// BusinessId: CV0000000001 (Vietnamese - Công việc, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model Task {
+  systemId          String        @id           // TASK0000000001
+  id                String        @unique       // CV0000000001
+  
+  // Basic info
+  title             String
+  description       String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?       @relation(fields: [branchId], references: [systemId])
+  
+  // Category
+  category          String?
+  tags              String[]
+  
+  // Priority & Status
+  priority          TaskPriority  @default(MEDIUM)
+  status            TaskStatus    @default(TODO)
+  
+  // Dates
+  startDate         DateTime?
+  dueDate           DateTime?
+  completedDate     DateTime?
+  
+  // Estimated time (hours)
+  estimatedHours    Decimal?      @db.Decimal(5, 2)
+  actualHours       Decimal?      @db.Decimal(5, 2)
+  
+  // Assignment
+  assignedTo        String?
+  
+  // Parent task (for subtasks)
+  parentId          String?
+  parent            Task?         @relation("TaskHierarchy", fields: [parentId], references: [systemId])
+  subtasks          Task[]        @relation("TaskHierarchy")
+  
+  // Relations
+  comments          TaskComment[]
+  
+  // Attachments
+  attachments       String[]
+  
+  // Soft delete
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("tasks")
+}

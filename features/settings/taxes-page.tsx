@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { SettingsPlaceholder } from '../../components/settings/SettingsPlaceholder.tsx';
-import { useSettingsPageHeader } from './use-settings-page-header.tsx';
-import { Card, CardContent } from '../../components/ui/card.tsx';
+import { SettingsPlaceholder } from '../../components/settings/SettingsPlaceholder';
+import { useSettingsPageHeader } from './use-settings-page-header';
+import { Card, CardContent } from '../../components/ui/card';
 import { ReceiptCent } from 'lucide-react';
 
 export function TaxesPage() {

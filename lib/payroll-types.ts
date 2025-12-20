@@ -1,4 +1,4 @@
-import type { BusinessId, DualIDEntity, SystemId } from './id-types.ts';
+import type { BusinessId, DualIDEntity, SystemId } from './id-types';
 
 export const PAYROLL_BATCH_STATUSES = ['draft', 'reviewed', 'locked', 'cancelled'] as const;
 export type PayrollBatchStatus = typeof PAYROLL_BATCH_STATUSES[number];

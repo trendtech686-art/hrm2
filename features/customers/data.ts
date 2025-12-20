@@ -1,4 +1,4 @@
-import type { Customer, CustomerStatus } from './types.ts'
+import type { Customer, CustomerStatus } from './types'
 import { asSystemId, asBusinessId } from '@/lib/id-types'
 
 export const data: Customer[] = [

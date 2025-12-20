@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Button } from '../ui/button.tsx';
-import { Checkbox } from '../ui/checkbox.tsx';
-import { Input } from '../ui/input.tsx';
-import { Avatar, AvatarFallback } from '../ui/avatar.tsx';
+import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
+import { Input } from '../ui/input';
+import { Avatar, AvatarFallback } from '../ui/avatar';
 import {
   Plus,
   GripVertical,

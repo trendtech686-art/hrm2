@@ -1,5 +1,5 @@
-import type { Payment } from '../../payments/types.ts';
-import type { Receipt } from '../../receipts/types.ts';
+import type { Payment } from '../../payments/types';
+import type { Receipt } from '../../receipts/types';
 
 export type WarrantyTransactionKind = 'payment' | 'receipt';
 

@@ -10,7 +10,7 @@
  * 4. SAFETY: Tự động check existence trước khi cancel
  */
 
-import type { Complaint } from '../types.ts';
+import type { Complaint } from '../types';
 import { asSystemId } from '@/lib/id-types';
 import type { SystemId, BusinessId } from '@/lib/id-types';
 
@@ -61,9 +61,9 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     // ============================================
     // STEP 1: LAZY LOAD STORES
     // ============================================
-    const { useReceiptStore } = await import('../../receipts/store.ts');
-    const { usePaymentStore } = await import('../../payments/store.ts');
-    const { useProductStore } = await import('../../products/store.ts');
+    const { useReceiptStore } = await import('../../receipts/store');
+    const { usePaymentStore } = await import('../../payments/store');
+    const { useProductStore } = await import('../../products/store');
     
     const receiptStore = useReceiptStore.getState();
     const paymentStore = usePaymentStore.getState();
@@ -206,7 +206,7 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     // ============================================
     // SKIP nếu skipInventoryCheck = true (khi hủy khiếu nại)
     if (inventoryCheckSystemId && !options?.skipInventoryCheck) {
-      const { useInventoryCheckStore } = await import('../../inventory-checks/store.ts');
+      const { useInventoryCheckStore } = await import('../../inventory-checks/store');
       const inventoryCheckStore = useInventoryCheckStore.getState();
       const inventoryCheck = inventoryCheckStore.data.find(ic => ic.systemId === inventoryCheckSystemId);
       

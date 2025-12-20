@@ -1,6 +1,6 @@
 import * as React from "react";
-import { Badge } from "../../../components/ui/badge.tsx";
-import { cn } from "../../../lib/utils.ts";
+import { Badge } from "../../../components/ui/badge";
+import { cn } from "../../../lib/utils";
 import type { LucideIcon } from "lucide-react";
 
 interface AlertItem {

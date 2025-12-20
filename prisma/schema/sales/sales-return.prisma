@@ -1,0 +1,50 @@
+// ═══════════════════════════════════════════════════════════════
+// SALES RETURN MODEL
+// ═══════════════════════════════════════════════════════════════
+// SystemId: SRET0000000001 (English, 10 digits)
+// BusinessId: TH0000000001 (Vietnamese - Trả hàng, 10 digits)
+// ═══════════════════════════════════════════════════════════════
+
+model SalesReturn {
+  systemId          String            @id           // SRET0000000001
+  id                String            @unique       // TH0000000001
+  
+  // Original Order
+  orderId           String?
+  
+  // Customer
+  customerId        String?
+  customer          Customer?         @relation(fields: [customerId], references: [systemId])
+  customerName      String?
+  
+  // Branch
+  branchId          String?
+  branch            Branch?           @relation(fields: [branchId], references: [systemId])
+  
+  // Return details
+  returnDate        DateTime          @default(now())
+  reason            String?
+  status            ReturnStatus      @default(PENDING)
+  
+  // Amounts
+  subtotal          Decimal           @default(0) @db.Decimal(15, 2)
+  refundAmount      Decimal           @default(0) @db.Decimal(15, 2)
+  
+  // Notes
+  notes             String?
+  
+  // Relations
+  items             SalesReturnItem[]
+  
+  // Soft delete
+  isDeleted         Boolean           @default(false)
+  deletedAt         DateTime?
+  
+  // Audit
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@map("sales_returns")
+}

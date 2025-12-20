@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog.tsx';
-import { Button } from './button.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import { Button } from './button';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2 } from 'lucide-react';
-import { Spinner } from './spinner.tsx';
+import { Spinner } from './spinner';
 
 interface ImagePreviewDialogProps {
   images: string[];

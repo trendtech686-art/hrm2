@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "../../lib/utils.ts"
+import { cn } from "../../lib/utils"
 
 // FIX: Omitted `defaultValue` from HTML attributes to resolve a props type conflict, as it clashed with the component's custom `defaultValue` prop.
 type SliderProps = Omit<React.HTMLAttributes<HTMLSpanElement>, 'onValueChange' | 'value' | 'defaultValue'> & {

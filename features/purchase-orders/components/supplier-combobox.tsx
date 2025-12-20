@@ -1,9 +1,9 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
-import { useSupplierStore } from "../../suppliers/store.ts";
-import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox.tsx";
-import { Avatar, AvatarFallback } from "../../../components/ui/avatar.tsx";
-import { QuickAddSupplierDialog } from "../../suppliers/components/quick-add-supplier-dialog.tsx";
+import { useSupplierStore } from "../../suppliers/store";
+import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
+import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
+import { QuickAddSupplierDialog } from "../../suppliers/components/quick-add-supplier-dialog";
 import { asSystemId, type SystemId } from "@/lib/id-types";
 
 interface SupplierComboboxProps {

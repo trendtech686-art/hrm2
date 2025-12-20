@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Upload, Download, FileText, Trash2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Button } from '../ui/button.tsx';
+import { Button } from '../ui/button';
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../ui/dialog.tsx';
-import { Label } from '../ui/label.tsx';
-import { cn } from '../../lib/utils.ts';
-import { Checkbox } from '../ui/checkbox.tsx';
-import { ScrollArea } from '../ui/scroll-area.tsx';
-import { Badge } from '../ui/badge.tsx';
+} from '../ui/dialog';
+import { Label } from '../ui/label';
+import { cn } from '../../lib/utils';
+import { Checkbox } from '../ui/checkbox';
+import { ScrollArea } from '../ui/scroll-area';
+import { Badge } from '../ui/badge';
 
 export type ImportConfig<TData> = {
   importer: (data: Omit<TData, 'id'>[]) => void;

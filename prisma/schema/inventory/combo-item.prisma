@@ -1,0 +1,30 @@
+// ═══════════════════════════════════════════════════════════════
+// COMBO ITEM MODEL
+// ═══════════════════════════════════════════════════════════════
+// Links products as components of combo products
+// ═══════════════════════════════════════════════════════════════
+
+model ComboItem {
+  systemId          String        @id @default(uuid())
+  
+  // Combo Product
+  comboId           String
+  combo             Product       @relation("combo", fields: [comboId], references: [systemId])
+  
+  // Component Product
+  componentId       String
+  component         Product       @relation("component", fields: [componentId], references: [systemId])
+  
+  // Quantity
+  quantity          Int           @default(1)
+  
+  // Notes
+  notes             String?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@unique([comboId, componentId])
+  @@map("combo_items")
+}

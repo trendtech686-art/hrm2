@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { useReceiptStore } from "./store";
 import { useReceiptTypeStore } from "../settings/receipt-types/store";
 import { useCashbookStore } from "../cashbook/store";
@@ -12,10 +14,10 @@ import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/re
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Printer, FileSpreadsheet, Download } from "lucide-react";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2.tsx";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2.tsx";
-import { receiptImportExportConfig } from "../../lib/import-export/configs/receipt.config.ts";
-import { useAuth } from "../../contexts/auth-context.tsx";
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+import { receiptImportExportConfig } from "../../lib/import-export/configs/receipt.config";
+import { useAuth } from "../../contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";

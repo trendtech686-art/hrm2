@@ -1,13 +1,13 @@
 import * as React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table.tsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { useOrderStore } from '../../orders/store.ts';
-import { useWarrantyStore } from '../../warranty/store.ts';
-import { useProductStore } from '../store.ts';
-import { SystemId } from '../../../lib/id-types.ts';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Badge } from '../../../components/ui/badge';
+import { useOrderStore } from '../../orders/store';
+import { useWarrantyStore } from '../../warranty/store';
+import { useProductStore } from '../store';
+import { SystemId } from '../../../lib/id-types';
+import * as ReactRouterDOM from '@/lib/next-compat';
 
 interface CommittedStockDialogProps {
   open: boolean;

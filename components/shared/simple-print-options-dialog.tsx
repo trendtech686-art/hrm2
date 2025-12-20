@@ -1,11 +1,11 @@
 import * as React from "react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog.tsx";
-import { Button } from "../ui/button.tsx";
-import { Label } from "../ui/label.tsx";
-import { Checkbox } from "../ui/checkbox.tsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select.tsx";
-import { cn } from "../../lib/utils.ts";
-import { useBranchStore } from "../../features/settings/branches/store.ts";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Label } from "../ui/label";
+import { Checkbox } from "../ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { cn } from "../../lib/utils";
+import { useBranchStore } from "../../features/settings/branches/store";
 
 // Paper size options matching the order print dialog
 const PAPER_SIZE_OPTIONS = [

@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from '@/lib/next-compat';
 import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

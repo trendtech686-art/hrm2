@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Card } from './ui/card.tsx';
+import { Card } from './ui/card';
 import { Clock } from 'lucide-react';
-import { cn } from '../lib/utils.ts';
+import { cn } from '../lib/utils';
 
 interface TimeTrackerProps {
   taskId: string;

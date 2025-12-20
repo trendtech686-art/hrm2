@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { ReceiptType } from './types.ts';
+import type { ReceiptType } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: ReceiptType[] = [

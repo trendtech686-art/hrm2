@@ -1,23 +1,23 @@
 
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { PlusCircle, Package } from 'lucide-react';
-import type { Product } from '../../products/types.ts';
-import type { ProductFormValues } from '../../products/validation.ts';
-import { useProductStore } from '../../products/store.ts';
-import { useUnitStore } from '../../settings/units/store.ts';
-import { usePricingPolicyStore } from '../../settings/pricing/store.ts';
-import { useBranchStore } from '../../settings/branches/store.ts';
-import { useImageStore } from '../../products/image-store.ts';
-import { FileUploadAPI } from '../../../lib/file-upload-api.ts';
-import { LazyImage } from '../../../components/ui/lazy-image.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { Input } from '../../../components/ui/input.tsx';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog.tsx';
-import { NumberInput } from '../../../components/ui/number-input.tsx';
-import { Combobox } from '../../../components/ui/combobox.tsx';
-import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox.tsx';
-import { isComboProduct, calculateComboStockAllBranches, calculateComboCostPrice } from '../../products/combo-utils.ts';
+import type { Product } from '../../products/types';
+import type { ProductFormValues } from '../../products/validation';
+import { useProductStore } from '../../products/store';
+import { useUnitStore } from '../../settings/units/store';
+import { usePricingPolicyStore } from '../../settings/pricing/store';
+import { useBranchStore } from '../../settings/branches/store';
+import { useImageStore } from '../../products/image-store';
+import { FileUploadAPI } from '../../../lib/file-upload-api';
+import { LazyImage } from '../../../components/ui/lazy-image';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
+import { NumberInput } from '../../../components/ui/number-input';
+import { Combobox } from '../../../components/ui/combobox';
+import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
+import { isComboProduct, calculateComboStockAllBranches, calculateComboCostPrice } from '../../products/combo-utils';
 import type { SystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {

@@ -1,5 +1,5 @@
-import { createCrudStore } from '../lib/store-factory.ts';
-import type { WikiArticle } from './types.ts';
+import { createCrudStore } from '../lib/store-factory';
+import type { WikiArticle } from './types';
 
 const initialData: WikiArticle[] = [];
 

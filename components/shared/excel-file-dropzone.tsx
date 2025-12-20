@@ -19,9 +19,9 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
-import { Button } from '../ui/button.tsx';
-import { cn } from '../../lib/utils.ts';
-import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api.ts';
+import { Button } from '../ui/button';
+import { cn } from '../../lib/utils';
+import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
 
 // ============================================
 // TYPES

@@ -13,7 +13,7 @@ import type { CustomerSlaAlert, DebtAlert, CustomerHealthAlert, SlaAlertLevel } 
 import { formatDaysRemaining } from './sla-utils';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { ROUTES } from '../../../lib/router';
 
 // ============================================

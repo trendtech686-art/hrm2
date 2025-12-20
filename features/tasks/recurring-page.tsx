@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/next-compat';
 import { useRecurringTaskStore } from './recurring-store';
 import { useTaskStore } from './store';
 import { useEmployeeStore } from '../employees/store';

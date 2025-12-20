@@ -1,4 +1,4 @@
-import type { StockHistoryEntry } from './types.ts';
+import type { StockHistoryEntry } from './types';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 
 const SEED_AUTHOR = asSystemId('EMP000001');

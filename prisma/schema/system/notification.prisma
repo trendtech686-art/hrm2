@@ -1,0 +1,31 @@
+// ═══════════════════════════════════════════════════════════════
+// NOTIFICATION MODEL
+// ═══════════════════════════════════════════════════════════════
+
+model Notification {
+  systemId          String        @id @default(uuid())
+  
+  // Recipient
+  userId            String
+  user              User          @relation(fields: [userId], references: [systemId])
+  
+  // Content
+  title             String
+  message           String
+  type              String        // info, success, warning, error
+  
+  // Reference
+  referenceType     String?       // order, complaint, task, etc.
+  referenceId       String?
+  link              String?
+  
+  // Status
+  isRead            Boolean       @default(false)
+  readAt            DateTime?
+  
+  // Audit
+  createdAt         DateTime      @default(now())
+  
+  @@index([userId, isRead])
+  @@map("notifications")
+}

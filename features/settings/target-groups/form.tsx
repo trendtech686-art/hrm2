@@ -2,9 +2,9 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { TargetGroup } from "./types.ts";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form.tsx";
-import { Input } from "../../../components/ui/input.tsx";
+import type { TargetGroup } from "./types";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
 
 const formSchema = z.object({
   id: z.string().default(""),

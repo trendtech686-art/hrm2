@@ -1,16 +1,16 @@
 import * as React from "react";
-import type { ColumnDef } from "../../components/data-table/types.ts";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
-import { Button } from "../../components/ui/button.tsx";
+import type { ColumnDef } from "../../components/data-table/types";
+import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import { Eye, MoreHorizontal, Pencil, XCircle } from "lucide-react";
-import { generatePath, ROUTES } from "../../lib/router.ts";
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils.ts';
-import type { Receipt } from "../receipts/types.ts";
-import type { Payment } from "../payments/types.ts";
-import { Checkbox } from "../../components/ui/checkbox.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu.tsx";
-import type { CashAccount } from "./types.ts";
+import { generatePath, ROUTES } from "../../lib/router";
+import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import type { Receipt } from "../receipts/types";
+import type { Payment } from "../payments/types";
+import { Checkbox } from "../../components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import type { CashAccount } from "./types";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 

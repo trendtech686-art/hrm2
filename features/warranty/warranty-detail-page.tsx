@@ -1,27 +1,29 @@
+'use client'
+
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from '@/lib/next-compat';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit2, Save, X, MessageSquare, Printer, Link as LinkIcon, XCircle, Bell, Clock, AlertCircle, Copy, Plus, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { formatDateTime } from '../../lib/date-utils.ts';
-import { cn } from '../../lib/utils.ts';
-import type { WarrantyTicket } from './types.ts';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, SETTLEMENT_TYPE_LABELS, SETTLEMENT_STATUS_LABELS, type WarrantyHistory } from './types.ts';
-import { useWarrantyStore } from './store.ts';
-import { getCurrentDate, toISODateTime } from '../../lib/date-utils.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
+import { formatDateTime } from '../../lib/date-utils';
+import { cn } from '../../lib/utils';
+import type { WarrantyTicket } from './types';
+import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, SETTLEMENT_TYPE_LABELS, SETTLEMENT_STATUS_LABELS, type WarrantyHistory } from './types';
+import { useWarrantyStore } from './store';
+import { getCurrentDate, toISODateTime } from '../../lib/date-utils';
+import { useAuth } from '../../contexts/auth-context';
 
 // UI Components
-import { Button } from '../../components/ui/button.tsx';
-import { ScrollArea } from '../../components/ui/scroll-area.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Badge } from '../../components/ui/badge.tsx';
-import { Separator } from '../../components/ui/separator.tsx';
-import { Textarea } from '../../components/ui/textarea.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { ProgressiveImage } from '../../components/ui/progressive-image.tsx';
-import { usePageHeader } from '../../contexts/page-header-context.tsx';
+import { Button } from '../../components/ui/button';
+import { ScrollArea } from '../../components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Separator } from '../../components/ui/separator';
+import { Textarea } from '../../components/ui/textarea';
+import { Input } from '../../components/ui/input';
+import { ProgressiveImage } from '../../components/ui/progressive-image';
+import { usePageHeader } from '../../contexts/page-header-context';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,63 +33,63 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../components/ui/alert-dialog.tsx';
+} from '../../components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog.tsx';
-import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog.tsx';
+} from '../../components/ui/dialog';
+import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select.tsx';
+} from '../../components/ui/select';
 
 // Detail-specific components
-import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table.tsx';
-import { WarrantyProcessingCard, WarrantySummaryCard } from './components/index.ts';
-import { calculateWarrantyProcessingState } from './components/logic/processing.ts';
-import { TicketInfoCard } from './components/detail/ticket-info-card.tsx';
-import { CustomerInfoCard } from './components/detail/customer-info-card.tsx';
-import { WarrantyWorkflowCard } from './components/detail/workflow-card.tsx';
-import { WarrantyImageGalleryCard } from './components/detail/image-gallery-card.tsx';
-import { getWorkflowTemplate } from '../settings/printer/workflow-templates-page.tsx';
+import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table';
+import { WarrantyProcessingCard, WarrantySummaryCard } from './components/index';
+import { calculateWarrantyProcessingState } from './components/logic/processing';
+import { TicketInfoCard } from './components/detail/ticket-info-card';
+import { CustomerInfoCard } from './components/detail/customer-info-card';
+import { WarrantyWorkflowCard } from './components/detail/workflow-card';
+import { WarrantyImageGalleryCard } from './components/detail/image-gallery-card';
+import { getWorkflowTemplate } from '../settings/printer/workflow-templates-page';
 import {
   WarrantyCancelDialog,
   WarrantyReopenFromCancelledDialog,
   WarrantyReopenFromReturnedDialog,
   WarrantyReturnMethodDialog,
   WarrantyReminderDialog,
-} from './components/dialogs/index.ts';
-import { useWarrantyReminders } from './hooks/use-warranty-reminders.ts';
-import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking.ts';
-import { useWarrantySettlement } from './hooks/use-warranty-settlement.ts';
-import { useReturnMethodDialog } from './hooks/use-return-method-dialog.ts';
-import { useWarrantyActions } from './hooks/use-warranty-actions.ts';
-import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils.ts';
-import { ROUTES, generatePath } from '../../lib/router.ts';
+} from './components/dialogs/index';
+import { useWarrantyReminders } from './hooks/use-warranty-reminders';
+import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking';
+import { useWarrantySettlement } from './hooks/use-warranty-settlement';
+import { useReturnMethodDialog } from './hooks/use-return-method-dialog';
+import { useWarrantyActions } from './hooks/use-warranty-actions';
+import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils';
+import { ROUTES, generatePath } from '../../lib/router';
 
 // Section components
-import { WarrantyCommentsSection, WarrantyHistorySection } from './components/sections/index.ts';
+import { WarrantyCommentsSection, WarrantyHistorySection } from './components/sections/index';
 
-import { useOrderStore } from '../orders/store.ts';
-import { usePaymentStore } from '../payments/store.ts';
-import { asSystemId } from '@/lib/id-types.ts';
-import { useReceiptStore } from '../receipts/store.ts';
-import { usePrint } from '../../lib/use-print.ts';
+import { useOrderStore } from '../orders/store';
+import { usePaymentStore } from '../payments/store';
+import { asSystemId } from '@/lib/id-types';
+import { useReceiptStore } from '../receipts/store';
+import { usePrint } from '../../lib/use-print';
 import { 
   convertWarrantyForPrint,
   mapWarrantyToPrintData, 
   mapWarrantyLineItems, 
   createStoreSettings 
-} from '../../lib/print/warranty-print-helper.ts';
-import { useBranchStore } from '../settings/branches/store.ts';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store.ts';
+} from '../../lib/print/warranty-print-helper';
+import { useBranchStore } from '../settings/branches/store';
+import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 
 const RESPONSE_TEMPLATES = [
   {

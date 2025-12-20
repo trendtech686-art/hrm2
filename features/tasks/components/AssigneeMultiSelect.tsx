@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import type { TaskAssignee, AssigneeRole } from '../types';
-import { asSystemId, type SystemId } from '../../../lib/id-types.ts';
+import { asSystemId, type SystemId } from '../../../lib/id-types';
 
 interface Employee {
   systemId: SystemId;

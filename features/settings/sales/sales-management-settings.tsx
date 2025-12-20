@@ -1,14 +1,14 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card.tsx';
-import { Switch } from '../../../components/ui/switch.tsx';
-import { Label } from '../../../components/ui/label.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select.tsx';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { Switch } from '../../../components/ui/switch';
+import { Label } from '../../../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Info, Save } from 'lucide-react';
-import { SettingsActionButton } from '../../../components/settings/SettingsActionButton.tsx';
-import { useSalesManagementSettingsStore, type SalesManagementSettingsValues } from './sales-management-store.ts';
+import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
+import { useSalesManagementSettingsStore, type SalesManagementSettingsValues } from './sales-management-store';
 import { useShallow } from 'zustand/react/shallow';
 import type { ReactNode } from 'react';
-import type { RegisterTabActions } from '../use-tab-action-registry.ts';
+import type { RegisterTabActions } from '../use-tab-action-registry';
 import { toast } from 'sonner';
 
 type SalesManagementSettingsProps = {

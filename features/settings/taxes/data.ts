@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { Tax } from './types.ts';
+import type { Tax } from './types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: Tax[] = [

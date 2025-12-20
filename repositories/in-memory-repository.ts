@@ -1,6 +1,6 @@
-import type { SystemId } from '../lib/id-types.ts';
-import type { CrudState, ItemWithSystemId } from '../lib/store-factory.ts';
-import type { CrudRepository } from './types.ts';
+import type { SystemId } from '../lib/id-types';
+import type { CrudState, ItemWithSystemId } from '../lib/store-factory';
+import type { CrudRepository } from './types';
 
 /**
  * Adapter mặc định dùng trực tiếp Zustand store để giả lập tầng persistence.

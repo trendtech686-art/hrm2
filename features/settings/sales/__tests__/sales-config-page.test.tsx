@@ -1,10 +1,10 @@
 import { describe, it, afterEach, beforeAll, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import React from 'react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { PageHeaderProvider } from '../../../../contexts/page-header-context.tsx';
-import { BreakpointProvider } from '../../../../contexts/breakpoint-context.tsx';
-import { SalesConfigPage } from '../sales-config-page.tsx';
+import { MemoryRouter, Route, Routes } from '@/lib/next-compat';
+import { PageHeaderProvider } from '../../../../contexts/page-header-context';
+import { BreakpointProvider } from '../../../../contexts/breakpoint-context';
+import { SalesConfigPage } from '../sales-config-page';
 
 // Smoke test to surface the reported maximum update depth error on /settings/sales-config
 

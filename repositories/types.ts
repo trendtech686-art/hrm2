@@ -1,4 +1,4 @@
-import type { SystemId } from '../lib/id-types.ts';
+import type { SystemId } from '../lib/id-types';
 
 /**
  * Generic repository interface để store gọi thay vì thao tác trực tiếp với mock store.

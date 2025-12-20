@@ -1,5 +1,5 @@
-import type { StockTransfer } from './types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
+import type { StockTransfer } from './types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export const data: StockTransfer[] = [
   {

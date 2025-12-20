@@ -1,13 +1,13 @@
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { formatDateTime } from '@/lib/date-utils';
-import type { Order, Packaging } from '../types.ts';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card.tsx';
-import { Badge } from '../../../components/ui/badge.tsx';
-import { Button } from '../../../components/ui/button.tsx';
-import { ScrollArea } from '../../../components/ui/scroll-area.tsx';
+import type { Order, Packaging } from '../types';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Truck, RefreshCw } from 'lucide-react';
-import { useOrderStore } from '../store.ts';
+import { useOrderStore } from '../store';
 
 interface ShippingTrackingTabProps {
     order: Order;

@@ -1,15 +1,17 @@
+'use client'
+
 import * as React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Button } from '../../components/ui/button.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.tsx';
-import { Input } from '../../components/ui/input.tsx';
-import { Label } from '../../components/ui/label.tsx';
-import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group.tsx';
+import { useNavigate, useLocation } from '@/lib/next-compat';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { toast } from 'sonner';
-import { ROUTES } from '../../lib/router.ts';
-import { useAuth } from '../../contexts/auth-context.tsx';
-import { useEmployeeStore } from '../employees/store.ts';
-import { verifyPassword, checkRateLimit, sanitizeInput } from '../../lib/security-utils.ts';
+import { ROUTES } from '../../lib/router';
+import { useAuth } from '../../contexts/auth-context';
+import { useEmployeeStore } from '../employees/store';
+import { verifyPassword, checkRateLimit, sanitizeInput } from '../../lib/security-utils';
 
 export function LoginPage() {
   const navigate = useNavigate();

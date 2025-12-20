@@ -1,14 +1,14 @@
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/lib/next-compat';
 import { Package, Eye, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table.tsx';
-import { Button } from '../ui/button.tsx';
-import { useProductStore } from '../../features/products/store.ts';
-import { useProductTypeStore } from '../../features/settings/inventory/product-type-store.ts';
-import { useTaxStore } from '../../features/settings/taxes/store.ts';
-import { useProductImage } from '../../features/products/components/product-image.tsx';
-import { ImagePreviewDialog } from '../ui/image-preview-dialog.tsx';
-import type { Product } from '../../features/products/types.ts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
+import { Button } from '../ui/button';
+import { useProductStore } from '../../features/products/store';
+import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
+import { useTaxStore } from '../../features/settings/taxes/store';
+import { useProductImage } from '../../features/products/components/product-image';
+import { ImagePreviewDialog } from '../ui/image-preview-dialog';
+import type { Product } from '../../features/products/types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';

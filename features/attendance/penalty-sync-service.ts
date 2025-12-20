@@ -3,14 +3,14 @@
  * Tự động tạo phiếu phạt khi phát hiện đi trễ hoặc về sớm trong chấm công
  */
 
-import { usePenaltyStore } from '../settings/penalties/store.ts';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store.ts';
-import type { Penalty } from '../settings/penalties/types.ts';
-import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types.ts';
-import type { EmployeeSettings } from '../settings/employees/types.ts';
+import { usePenaltyStore } from '../settings/penalties/store';
+import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import type { Penalty } from '../settings/penalties/types';
+import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types';
+import type { EmployeeSettings } from '../settings/employees/types';
 import { asBusinessId, asSystemId, type SystemId, type BusinessId } from '@/lib/id-types';
-import { toISODate, getDayOfWeek, isValidDate } from '../../lib/date-utils.ts';
-import { getCurrentUserSystemId } from '../../contexts/auth-context.tsx';
+import { toISODate, getDayOfWeek, isValidDate } from '../../lib/date-utils';
+import { getCurrentUserSystemId } from '../../contexts/auth-context';
 
 // Penalty type SystemIds (từ data.ts)
 const LATE_ARRIVAL_PENALTY_TYPE = asSystemId('PENTYPE000004'); // Đi làm trễ

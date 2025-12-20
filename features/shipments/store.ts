@@ -10,10 +10,10 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { SystemId, BusinessId } from '../../lib/id-types.ts';
-import { asSystemId, asBusinessId } from '../../lib/id-types.ts';
-import { generateSystemId, generateBusinessId, getMaxSystemIdCounter, getMaxBusinessIdCounter } from '../../lib/id-utils.ts';
-import type { Shipment } from './types.ts';
+import type { SystemId, BusinessId } from '../../lib/id-types';
+import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { generateSystemId, generateBusinessId, getMaxSystemIdCounter, getMaxBusinessIdCounter } from '../../lib/id-utils';
+import type { Shipment } from './types';
 
 // ========================================
 // CONSTANTS
