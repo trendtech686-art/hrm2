@@ -13,10 +13,9 @@ export async function GET(request: Request, { params }: RouteParams) {
     const warranty = await prisma.warranty.findUnique({
       where: { systemId },
       include: {
-        customer: true,
         product: true,
         order: {
-          select: { id: true, orderDate: true },
+          select: { systemId: true, id: true, orderDate: true },
         },
       },
     })
@@ -47,15 +46,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const warranty = await prisma.warranty.update({
       where: { systemId },
       data: {
-        issueDescription: body.issueDescription,
+        notes: body.issueDescription || body.notes,
         status: body.status,
-        completedAt: body.completedAt ? new Date(body.completedAt) : undefined,
-        solution: body.solution,
-        totalCost: body.totalCost,
-        notes: body.notes,
+        terms: body.solution,
       },
       include: {
-        customer: true,
         product: true,
       },
     })

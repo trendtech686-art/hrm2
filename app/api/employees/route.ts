@@ -92,6 +92,7 @@ export async function POST(request: Request) {
 
     const employee = await prisma.employee.create({
       data: {
+        systemId: `EMP${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         fullName: body.fullName,
         dob: body.dob ? new Date(body.dob) : null,
@@ -104,10 +105,10 @@ export async function POST(request: Request) {
         avatarUrl: body.avatarUrl,
         permanentAddress: body.permanentAddress,
         temporaryAddress: body.temporaryAddress,
-        departmentId: body.departmentId,
-        jobTitleId: body.jobTitleId,
-        branchId: body.branchId,
-        managerId: body.managerId,
+        department: body.departmentId ? { connect: { systemId: body.departmentId } } : undefined,
+        jobTitle: body.jobTitleId ? { connect: { systemId: body.jobTitleId } } : undefined,
+        branch: body.branchId ? { connect: { systemId: body.branchId } } : undefined,
+        manager: body.managerId ? { connect: { systemId: body.managerId } } : undefined,
         hireDate: body.hireDate ? new Date(body.hireDate) : null,
         startDate: body.startDate ? new Date(body.startDate) : null,
         employeeType: body.employeeType || 'FULLTIME',

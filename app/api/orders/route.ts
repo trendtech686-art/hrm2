@@ -70,14 +70,14 @@ export async function GET(request: Request) {
               name: true,
             },
           },
-          lineItems: {
+          items: {
             include: {
               product: {
                 select: {
                   systemId: true,
                   id: true,
                   name: true,
-                  thumbnailImage: true,
+                  imageUrl: true,
                 },
               },
             },
@@ -180,55 +180,38 @@ export async function POST(request: Request) {
 
     const order = await prisma.order.create({
       data: {
+        systemId: `ORDER${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
         customerId: body.customerId,
         customerName: customer.name,
         branchId: body.branchId,
-        branchName: branch.name,
-        salespersonId: body.salespersonId,
-        salespersonName: body.salespersonName || 'Unknown',
+        salesPersonId: body.salespersonId,
         orderDate: body.orderDate ? new Date(body.orderDate) : new Date(),
-        expectedDeliveryDate: body.expectedDeliveryDate ? new Date(body.expectedDeliveryDate) : null,
+        expectedDate: body.expectedDeliveryDate ? new Date(body.expectedDeliveryDate) : null,
         shippingAddress: body.shippingAddress,
-        billingAddress: body.billingAddress,
         status: body.status || 'PENDING',
-        paymentStatus: body.paymentStatus || 'UNPAID',
-        deliveryStatus: body.deliveryStatus || 'PENDING_PACK',
-        deliveryMethod: body.deliveryMethod || 'SHIPPING',
+        paymentStatus: body.paymentStatus || 'PENDING',
+        shippingMethod: body.deliveryMethod || 'SHIPPING',
         subtotal,
         shippingFee,
         tax,
         discount,
-        discountType: body.discountType,
-        grandTotal,
-        codAmount: body.codAmount || 0,
+        total: grandTotal,
         notes: body.notes,
-        tags: body.tags || [],
         source: body.source,
-        externalReference: body.externalReference,
         createdBy: body.createdBy,
-        lineItems: {
+        items: {
           create: lineItemsData,
         },
       },
       include: {
         customer: true,
         branch: true,
-        lineItems: {
+        items: {
           include: {
             product: true,
           },
         },
-      },
-    })
-
-    // Update customer stats
-    await prisma.customer.update({
-      where: { systemId: body.customerId },
-      data: {
-        totalOrders: { increment: 1 },
-        totalSpent: { increment: grandTotal },
-        lastPurchaseDate: new Date(),
       },
     })
 

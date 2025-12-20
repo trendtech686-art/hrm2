@@ -80,6 +80,7 @@ export async function POST(request: Request) {
 
     const branch = await prisma.branch.create({
       data: {
+        systemId: `BRANCH${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
         address: body.address,

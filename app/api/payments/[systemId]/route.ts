@@ -13,18 +13,18 @@ export async function GET(request: Request, { params }: RouteParams) {
     const payment = await prisma.payment.findUnique({
       where: { systemId },
       include: {
-        supplier: true,
         purchaseOrder: {
           include: {
             items: {
               include: {
                 product: {
-                  select: { id: true, name: true },
+                  select: { systemId: true, id: true, name: true },
                 },
               },
             },
           },
         },
+        branch: true,
       },
     })
 
@@ -55,12 +55,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
       where: { systemId },
       data: {
         amount: body.amount,
-        method: body.method,
+        paymentMethod: body.method || body.paymentMethod,
         description: body.description,
       },
       include: {
-        supplier: true,
         purchaseOrder: true,
+        branch: true,
       },
     })
 

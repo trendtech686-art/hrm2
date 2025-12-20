@@ -13,8 +13,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     const receipt = await prisma.receipt.findUnique({
       where: { systemId },
       include: {
-        customer: true,
         order: true,
+        branch: true,
       },
     })
 
@@ -45,12 +45,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
       where: { systemId },
       data: {
         amount: body.amount,
-        method: body.method,
+        paymentMethod: body.method || body.paymentMethod,
         description: body.description,
       },
       include: {
-        customer: true,
         order: true,
+        branch: true,
       },
     })
 

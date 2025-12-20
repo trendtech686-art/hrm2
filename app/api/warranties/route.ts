@@ -40,11 +40,8 @@ export async function GET(request: Request) {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          customer: {
-            select: { id: true, name: true },
-          },
           product: {
-            select: { id: true, name: true, thumbnailImage: true },
+            select: { systemId: true, id: true, name: true, imageUrl: true },
           },
         },
       }),
@@ -88,24 +85,23 @@ export async function POST(request: Request) {
 
     const warranty = await prisma.warranty.create({
       data: {
+        systemId: `WAR${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
-        customerId: body.customerId,
         productId: body.productId,
         orderId: body.orderId,
+        customerId: body.customerId,
         customerName: body.customerName || '',
         customerPhone: body.customerPhone || '',
         productName: body.productName || '',
-        title: body.title || '',
         serialNumber: body.serialNumber,
-        issueDescription: body.issueDescription,
-        status: body.status || 'RECEIVED',
-        receivedAt: body.receivedAt ? new Date(body.receivedAt) : new Date(),
-        solution: body.solution,
-        totalCost: body.totalCost || 0,
-        notes: body.notes,
+        notes: body.issueDescription || body.notes,
+        status: body.status || 'PENDING',
+        startDate: body.startDate ? new Date(body.startDate) : new Date(),
+        endDate: body.endDate ? new Date(body.endDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        warrantyMonths: body.warrantyMonths || 12,
+        terms: body.solution,
       },
       include: {
-        customer: true,
         product: true,
       },
     })

@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: RouteParams) {
             systemId: true,
             id: true,
             name: true,
-            thumbnailImage: true,
+            imageUrl: true,
           },
         },
         _count: { select: { products: true } },
@@ -55,7 +55,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       data: {
         name: body.name,
         description: body.description,
-        logo: body.logo,
+        logoUrl: body.logo || body.logoUrl,
         website: body.website,
       },
     })

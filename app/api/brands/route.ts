@@ -79,10 +79,11 @@ export async function POST(request: Request) {
 
     const brand = await prisma.brand.create({
       data: {
+        systemId: `BRAND${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
         description: body.description,
-        logo: body.logo,
+        logoUrl: body.logo || body.logoUrl,
         website: body.website,
       },
     })

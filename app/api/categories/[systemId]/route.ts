@@ -18,8 +18,7 @@ export async function GET(request: Request, { params }: RouteParams) {
           where: { isDeleted: false },
           orderBy: { sortOrder: 'asc' },
         },
-        products: {
-          where: { product: { isDeleted: false } },
+        productCategories: {
           take: 10,
           include: {
             product: {
@@ -27,12 +26,12 @@ export async function GET(request: Request, { params }: RouteParams) {
                 systemId: true,
                 id: true,
                 name: true,
-                thumbnailImage: true,
+                imageUrl: true,
               },
             },
           },
         },
-        _count: { select: { products: true, children: true } },
+        _count: { select: { productCategories: true, children: true } },
       },
     })
 
@@ -64,7 +63,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       data: {
         name: body.name,
         description: body.description,
-        thumbnail: body.thumbnail,
+        imageUrl: body.thumbnail || body.imageUrl,
         parentId: body.parentId,
         sortOrder: body.sortOrder,
       },

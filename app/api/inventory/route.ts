@@ -33,10 +33,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Filter low stock items (quantity below minQuantity)
+    // Filter low stock items
     if (lowStock) {
       where.quantity = {
-        lte: prisma.inventory.fields.minQuantity,
+        lte: 10, // Default low stock threshold
       }
     }
 
@@ -52,11 +52,11 @@ export async function GET(request: Request) {
               systemId: true,
               id: true,
               name: true,
-              thumbnailImage: true,
+              imageUrl: true,
               unit: true,
             },
           },
-          location: true,
+          stockLocation: true,
         },
       }),
       prisma.inventory.count({ where }),
@@ -92,29 +92,21 @@ export async function POST(request: Request) {
       )
     }
 
-    // Upsert inventory - update if exists, create if not
-    const inventory = await prisma.inventory.upsert({
-      where: {
-        productId_locationId: {
-          productId: body.productId,
-          locationId: body.locationId || null,
-        },
-      },
-      update: {
-        quantity: body.quantity,
-        minQuantity: body.minQuantity,
-        maxQuantity: body.maxQuantity,
-      },
-      create: {
+    // Create new inventory record
+    const inventory = await prisma.inventory.create({
+      data: {
+        systemId: `INV${String(Date.now()).slice(-10).padStart(10, '0')}`,
+        id: `TK${String(Date.now()).slice(-6).padStart(6, '0')}`,
         productId: body.productId,
         locationId: body.locationId,
+        branchId: body.branchId,
         quantity: body.quantity || 0,
-        minQuantity: body.minQuantity || 0,
-        maxQuantity: body.maxQuantity,
+        reservedQuantity: 0,
+        availableQuantity: body.quantity || 0,
       },
       include: {
         product: true,
-        location: true,
+        stockLocation: true,
       },
     })
 

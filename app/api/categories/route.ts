@@ -105,10 +105,11 @@ export async function POST(request: Request) {
 
     const category = await prisma.category.create({
       data: {
+        systemId: `CAT${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
         description: body.description,
-        thumbnail: body.thumbnail,
+        imageUrl: body.thumbnail || body.imageUrl,
         parentId: body.parentId,
         sortOrder: body.sortOrder || 0,
       },

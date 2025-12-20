@@ -42,15 +42,15 @@ export function useOrderStoreV2() {
     return orders.find(o => o.systemId === systemId)
   }, [orders])
 
-  const getActive = useCallback(() => orders.filter(o => !o.isDeleted), [orders])
-  const getDeleted = useCallback(() => orders.filter(o => o.isDeleted), [orders])
+  const getActive = useCallback(() => orders.filter(o => o.status !== 'Đã hủy'), [orders])
+  const getDeleted = useCallback(() => orders.filter(o => o.status === 'Đã hủy'), [orders])
 
   // Order-specific helpers
   const getByStatus = useCallback((status: string) => 
-    orders.filter(o => o.status === status && !o.isDeleted), [orders])
+    orders.filter(o => o.status === status), [orders])
   
-  const getByCustomer = useCallback((customerId: string) => 
-    orders.filter(o => o.customerId === customerId && !o.isDeleted), [orders])
+  const getByCustomer = useCallback((customerSystemId: string) => 
+    orders.filter(o => o.customerSystemId === customerSystemId), [orders])
 
   return useMemo(() => ({
     data: orders,

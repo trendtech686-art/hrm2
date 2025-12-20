@@ -16,7 +16,7 @@ export async function GET(request: Request) {
         where,
         orderBy: { name: 'asc' },
         include: {
-          _count: { select: { inventory: true } },
+          _count: { select: { inventories: true } },
         },
       })
       return NextResponse.json({ data: locations })
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       where,
       orderBy: { name: 'asc' },
       include: {
-        _count: { select: { inventory: true } },
+        _count: { select: { inventories: true } },
       },
     })
 
@@ -54,9 +54,11 @@ export async function POST(request: Request) {
 
     const location = await prisma.stockLocation.create({
       data: {
+        systemId: `SLOC${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
-        address: body.address,
+        code: body.code || body.id,
+        description: body.address || body.description,
         branchId: body.branchId,
         isActive: body.isActive ?? true,
       },

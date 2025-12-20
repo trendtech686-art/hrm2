@@ -14,8 +14,8 @@ export async function GET(request: Request, { params }: RouteParams) {
       where: { systemId },
       include: {
         customer: true,
-        assignee: {
-          select: { id: true, fullName: true, avatar: true, phone: true },
+        activities: {
+          orderBy: { createdAt: 'desc' },
         },
       },
     })
@@ -51,13 +51,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
         category: body.category,
         priority: body.priority,
         status: body.status,
-        assigneeId: body.assigneeId,
+        assignedTo: body.assigneeId || body.assignedTo,
         resolution: body.resolution,
         resolvedAt: body.resolvedAt ? new Date(body.resolvedAt) : undefined,
       },
       include: {
         customer: true,
-        assignee: true,
       },
     })
 

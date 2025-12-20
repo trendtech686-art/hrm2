@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: RouteParams) {
                 systemId: true,
                 id: true,
                 name: true,
-                thumbnailImage: true,
+                imageUrl: true,
                 unit: true,
               },
             },

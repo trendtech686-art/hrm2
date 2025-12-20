@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     }
 
     if (category) {
-      where.category = category
+      where.categoryId = category
     }
 
     if (published === 'true') {
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     }
 
     const [articles, total] = await Promise.all([
-      prisma.wiki.findMany({
+      prisma.wikiPage.findMany({
         where,
         skip,
         take: limit,
@@ -46,18 +46,17 @@ export async function GET(request: Request) {
           id: true,
           title: true,
           slug: true,
-          category: true,
+          categoryId: true,
+          category: {
+            select: { systemId: true, name: true },
+          },
           tags: true,
           isPublished: true,
-          viewCount: true,
           createdAt: true,
           updatedAt: true,
-          author: {
-            select: { id: true, fullName: true, avatar: true },
-          },
         },
       }),
-      prisma.wiki.count({ where }),
+      prisma.wikiPage.count({ where }),
     ])
 
     return NextResponse.json({
@@ -95,31 +94,27 @@ export async function POST(request: Request) {
 
     // Generate business ID
     if (!body.id) {
-      const lastWiki = await prisma.wiki.findFirst({
+      const lastWiki = await prisma.wikiPage.findFirst({
         orderBy: { createdAt: 'desc' },
         select: { id: true },
       })
       const lastNum = lastWiki?.id 
-        ? parseInt(lastWiki.id.replace('WIKI', '')) 
+        ? parseInt(lastWiki.id.replace('TL', '')) 
         : 0
-      body.id = `WIKI${String(lastNum + 1).padStart(4, '0')}`
+      body.id = `TL${String(lastNum + 1).padStart(6, '0')}`
     }
 
-    const wiki = await prisma.wiki.create({
+    const wiki = await prisma.wikiPage.create({
       data: {
+        systemId: `WIKI${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         title: body.title,
         slug: body.slug,
         content: body.content,
-        category: body.category,
+        categoryId: body.categoryId || body.category,
         tags: body.tags || [],
         isPublished: body.isPublished ?? false,
-        authorId: body.authorId,
-      },
-      include: {
-        author: {
-          select: { id: true, fullName: true },
-        },
+        createdBy: body.authorId,
       },
     })
 

@@ -88,6 +88,7 @@ export async function POST(request: Request) {
 
     const supplier = await prisma.supplier.create({
       data: {
+        systemId: `SUP${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
         contactPerson: body.contactPerson,

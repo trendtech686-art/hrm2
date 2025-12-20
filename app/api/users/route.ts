@@ -99,11 +99,12 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.create({
       data: {
+        systemId: `USR${String(Date.now()).slice(-6).padStart(6, '0')}`,
         email: body.email,
         password: hashedPassword,
         role: body.role || 'USER',
         isActive: body.isActive ?? true,
-        employeeId: body.employeeId,
+        employee: body.employeeId ? { connect: { systemId: body.employeeId } } : undefined,
       },
       select: {
         systemId: true,

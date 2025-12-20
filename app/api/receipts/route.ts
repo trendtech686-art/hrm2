@@ -37,11 +37,11 @@ export async function GET(request: Request) {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          customer: {
-            select: { id: true, name: true },
-          },
           order: {
-            select: { id: true },
+            select: { systemId: true, id: true },
+          },
+          branch: {
+            select: { systemId: true, id: true, name: true },
           },
         },
       }),
@@ -85,19 +85,20 @@ export async function POST(request: Request) {
 
     const receipt = await prisma.receipt.create({
       data: {
+        systemId: `REC${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
-        type: body.type || 'CUSTOMER_PAYMENT',
         customerId: body.customerId,
+        customerName: body.customerName,
         orderId: body.orderId,
         branchId: body.branchId,
         amount: body.amount,
-        method: body.method || 'CASH',
+        paymentMethod: body.method || body.paymentMethod || 'CASH',
         receiptDate: body.receiptDate ? new Date(body.receiptDate) : new Date(),
         description: body.description,
       },
       include: {
-        customer: true,
         order: true,
+        branch: true,
       },
     })
 

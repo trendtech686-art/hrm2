@@ -106,7 +106,9 @@ export async function POST(request: Request) {
     // Create new check-in
     const attendance = await prisma.attendanceRecord.create({
       data: {
-        employeeId: body.employeeId,
+        systemId: `ATTEND${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        id: `CC${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        employee: { connect: { systemId: body.employeeId } },
         date: today,
         checkIn: new Date(),
         status: body.status || 'PRESENT',

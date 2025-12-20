@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     const location = await prisma.stockLocation.findUnique({
       where: { systemId },
       include: {
-        inventory: {
+        inventories: {
           take: 20,
           include: {
             product: {
@@ -21,12 +21,12 @@ export async function GET(request: Request, { params }: RouteParams) {
                 systemId: true,
                 id: true,
                 name: true,
-                thumbnailImage: true,
+                imageUrl: true,
               },
             },
           },
         },
-        _count: { select: { inventory: true } },
+        _count: { select: { inventories: true } },
       },
     })
 
@@ -57,7 +57,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       where: { systemId },
       data: {
         name: body.name,
-        address: body.address,
+        description: body.address || body.description,
         isActive: body.isActive,
       },
     })

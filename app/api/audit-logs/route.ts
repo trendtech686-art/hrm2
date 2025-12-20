@@ -41,13 +41,13 @@ export async function GET(request: Request) {
     }
 
     const [logs, total] = await Promise.all([
-      prisma.auditLog.findMany({
+      prisma.activityLog.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.auditLog.count({ where }),
+      prisma.activityLog.count({ where }),
     ])
 
     return NextResponse.json({
@@ -73,14 +73,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    const log = await prisma.auditLog.create({
+    const log = await prisma.activityLog.create({
       data: {
+        systemId: `ACT${String(Date.now()).slice(-6).padStart(6, '0')}`,
         entityType: body.entityType,
         entityId: body.entityId,
-        entityName: body.entityName,
         action: body.action,
-        oldData: body.oldData,
-        newData: body.newData,
+        changes: body.oldData || body.newData ? { old: body.oldData, new: body.newData } : undefined,
+        description: body.entityName,
         userId: body.userId,
         ipAddress: body.ipAddress,
         userAgent: body.userAgent,

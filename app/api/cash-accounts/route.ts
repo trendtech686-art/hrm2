@@ -40,10 +40,11 @@ export async function POST(request: Request) {
 
     const account = await prisma.cashAccount.create({
       data: {
+        systemId: `CASH${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
-        type: body.type || 'CASH',
-        balance: body.balance || 0,
+        accountType: body.type || body.accountType || 'cash',
+        currentBalance: body.balance || body.currentBalance || 0,
         bankName: body.bankName,
         accountNumber: body.accountNumber,
         isActive: body.isActive ?? true,

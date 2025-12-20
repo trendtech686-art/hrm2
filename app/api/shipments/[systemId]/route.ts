@@ -51,7 +51,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         trackingNumber: body.trackingNumber,
         shippingFee: body.shippingFee,
         status: body.status,
-        deliveredAt: body.deliveredAt ? new Date(body.deliveredAt) : undefined,
+        actualDelivery: body.deliveredAt ? new Date(body.deliveredAt) : undefined,
         recipientName: body.recipientName,
         recipientPhone: body.recipientPhone,
         recipientAddress: body.recipientAddress,

@@ -97,15 +97,18 @@ export async function POST(request: Request) {
 
     const payroll = await prisma.payroll.create({
       data: {
+        systemId: `PAYROLL${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         month: body.month,
         year: body.year,
+        periodStart: body.periodStart ? new Date(body.periodStart) : new Date(body.year, body.month - 1, 1),
+        periodEnd: body.periodEnd ? new Date(body.periodEnd) : new Date(body.year, body.month, 0),
         status: body.status || 'DRAFT',
         items: {
           create: body.items?.map((item: any) => ({
-            employeeId: item.employeeId,
-            employeeName: item.employeeName || '',
-            employeeCode: item.employeeCode || '',
+            systemId: `PAYITEM${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
+            id: `BLITEM${String(Date.now()).slice(-6)}`,
+            employee: { connect: { systemId: item.employeeId } },
             baseSalary: item.baseSalary || 0,
             netSalary: item.netSalary || 0,
             notes: item.notes,

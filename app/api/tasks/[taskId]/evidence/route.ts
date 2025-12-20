@@ -67,17 +67,15 @@ export async function POST(
       // Save to database
       await prisma.fileUpload.create({
         data: {
-          id: fileId,
+          systemId: fileId,
           entityType: 'Task',
           entityId: taskId,
-          documentType: 'evidence',
           originalName: file.name,
           fileName: savedFile.filename,
-          filePath: savedFile.relativePath,
+          storagePath: savedFile.relativePath,
           fileSize: file.size,
           mimeType: file.type,
-          storageProvider: 'local',
-          status: 'permanent',
+          metadata: { documentType: 'evidence', storageProvider: 'local', status: 'permanent' },
         },
       });
 
@@ -124,7 +122,7 @@ export async function GET(
       where: {
         entityType: 'Task',
         entityId: taskId,
-        documentType: 'evidence',
+        metadata: { path: ['documentType'], equals: 'evidence' },
       },
       orderBy: {
         createdAt: 'desc',
@@ -134,12 +132,12 @@ export async function GET(
     return NextResponse.json({
       success: true,
       files: files.map(f => ({
-        id: f.id,
+        id: f.systemId,
         name: f.originalName,
         originalName: f.originalName,
         size: f.fileSize,
         type: f.mimeType,
-        url: `/api/files/${f.filePath}`,
+        url: `/api/files/${f.storagePath}`,
         uploadedAt: f.createdAt.toISOString(),
       })),
     });

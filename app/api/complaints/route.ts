@@ -46,10 +46,7 @@ export async function GET(request: Request) {
         orderBy: { createdAt: 'desc' },
         include: {
           customer: {
-            select: { id: true, name: true },
-          },
-          assignee: {
-            select: { id: true, fullName: true, avatar: true },
+            select: { systemId: true, id: true, name: true },
           },
         },
       }),
@@ -93,6 +90,7 @@ export async function POST(request: Request) {
 
     const complaint = await prisma.complaint.create({
       data: {
+        systemId: `COMP${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
         customerId: body.customerId,
         orderId: body.orderId,
@@ -101,11 +99,10 @@ export async function POST(request: Request) {
         category: body.category,
         priority: body.priority || 'MEDIUM',
         status: body.status || 'OPEN',
-        assigneeId: body.assigneeId,
+        assignedTo: body.assigneeId || body.assignedTo,
       },
       include: {
         customer: true,
-        assignee: true,
       },
     })
 

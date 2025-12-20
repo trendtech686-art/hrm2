@@ -47,7 +47,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       where: { systemId },
       data: {
         name: body.name,
-        type: body.type,
+        accountType: body.type || body.accountType,
         bankName: body.bankName,
         accountNumber: body.accountNumber,
         isActive: body.isActive,

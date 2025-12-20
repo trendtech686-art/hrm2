@@ -81,10 +81,11 @@ export async function POST(request: Request) {
 
     const department = await prisma.department.create({
       data: {
+        systemId: `DEPT${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
         description: body.description,
-        parentId: body.parentId,
+        parent: body.parentId ? { connect: { systemId: body.parentId } } : undefined,
       },
       include: {
         parent: true,

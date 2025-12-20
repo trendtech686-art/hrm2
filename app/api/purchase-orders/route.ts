@@ -43,7 +43,7 @@ export async function GET(request: Request) {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, thumbnailImage: true },
+                select: { systemId: true, id: true, name: true, imageUrl: true },
               },
             },
           },
@@ -90,8 +90,9 @@ export async function POST(request: Request) {
 
     const order = await prisma.purchaseOrder.create({
       data: {
+        systemId: `PO${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
-        supplierId: body.supplierId,
+        supplier: { connect: { systemId: body.supplierId } },
         orderDate: body.orderDate ? new Date(body.orderDate) : new Date(),
         expectedDate: body.expectedDate ? new Date(body.expectedDate) : null,
         status: body.status || 'DRAFT',
@@ -102,7 +103,9 @@ export async function POST(request: Request) {
         notes: body.notes,
         items: {
           create: body.items?.map((item: any) => ({
-            productId: item.productId,
+            systemId: `POI${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
+            id: `POI${String(Date.now()).slice(-6)}`,
+            product: { connect: { systemId: item.productId } },
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             discount: item.discount || 0,

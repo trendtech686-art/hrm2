@@ -79,6 +79,7 @@ export async function POST(request: Request) {
 
     const jobTitle = await prisma.jobTitle.create({
       data: {
+        systemId: `JOB${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
         description: body.description,

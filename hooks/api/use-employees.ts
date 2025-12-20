@@ -207,10 +207,10 @@ export function useActiveEmployees() {
  * Get deleted employees only  
  */
 export function useDeletedEmployees() {
-  const { data, ...rest } = useEmployees({ includeDeleted: true })
+  const { data: response, ...rest } = useEmployees({ includeDeleted: true })
   return {
     ...rest,
-    data: data?.filter(e => e.isDeleted) ?? [],
+    data: response?.data?.filter(e => e.isDeleted) ?? [],
   }
 }
 

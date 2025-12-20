@@ -11,21 +11,21 @@ export async function GET(request: Request, { params }: RouteParams) {
     const { systemId } = await params
 
     // Try to find by systemId first, then by slug
-    let wiki = await prisma.wiki.findUnique({
+    let wiki = await prisma.wikiPage.findUnique({
       where: { systemId },
       include: {
-        author: {
-          select: { id: true, fullName: true, avatar: true },
+        category: {
+          select: { systemId: true, name: true },
         },
       },
     })
 
     if (!wiki) {
-      wiki = await prisma.wiki.findUnique({
+      wiki = await prisma.wikiPage.findUnique({
         where: { slug: systemId },
         include: {
-          author: {
-            select: { id: true, fullName: true, avatar: true },
+          category: {
+            select: { systemId: true, name: true },
           },
         },
       })
@@ -37,12 +37,6 @@ export async function GET(request: Request, { params }: RouteParams) {
         { status: 404 }
       )
     }
-
-    // Increment view count
-    await prisma.wiki.update({
-      where: { systemId: wiki.systemId },
-      data: { viewCount: { increment: 1 } },
-    })
 
     return NextResponse.json(wiki)
   } catch (error) {
@@ -60,18 +54,16 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const { systemId } = await params
     const body = await request.json()
 
-    const wiki = await prisma.wiki.update({
+    const wiki = await prisma.wikiPage.update({
       where: { systemId },
       data: {
         title: body.title,
         slug: body.slug,
         content: body.content,
-        category: body.category,
+        categoryId: body.categoryId || body.category,
         tags: body.tags,
         isPublished: body.isPublished,
-      },
-      include: {
-        author: true,
+        updatedBy: body.updatedBy,
       },
     })
 
@@ -102,7 +94,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
-    await prisma.wiki.update({
+    await prisma.wikiPage.update({
       where: { systemId },
       data: { isDeleted: true },
     })

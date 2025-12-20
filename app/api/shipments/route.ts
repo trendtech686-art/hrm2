@@ -86,13 +86,14 @@ export async function POST(request: Request) {
 
     const shipment = await prisma.shipment.create({
       data: {
+        systemId: `SHIP${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
         orderId: body.orderId,
         carrier: body.carrier,
         trackingNumber: body.trackingNumber,
         shippingFee: body.shippingFee || 0,
         status: body.status || 'PENDING',
-        deliveredAt: body.deliveredAt ? new Date(body.deliveredAt) : null,
+        actualDelivery: body.deliveredAt ? new Date(body.deliveredAt) : null,
         recipientName: body.recipientName,
         recipientPhone: body.recipientPhone,
         recipientAddress: body.recipientAddress,

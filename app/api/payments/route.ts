@@ -37,11 +37,11 @@ export async function GET(request: Request) {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          supplier: {
-            select: { id: true, name: true },
-          },
           purchaseOrder: {
-            select: { id: true },
+            select: { systemId: true, id: true },
+          },
+          branch: {
+            select: { systemId: true, id: true, name: true },
           },
         },
       }),
@@ -85,19 +85,20 @@ export async function POST(request: Request) {
 
     const payment = await prisma.payment.create({
       data: {
+        systemId: `PAY${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
-        type: body.type || 'SUPPLIER_PAYMENT',
         supplierId: body.supplierId,
+        supplierName: body.supplierName,
         purchaseOrderId: body.purchaseOrderId,
         branchId: body.branchId,
         amount: body.amount,
-        method: body.method || 'CASH',
+        paymentMethod: body.method || body.paymentMethod || 'CASH',
         paymentDate: body.paymentDate ? new Date(body.paymentDate) : new Date(),
         description: body.description,
       },
       include: {
-        supplier: true,
         purchaseOrder: true,
+        branch: true,
       },
     })
 
