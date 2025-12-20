@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 /generated/prisma
+# Uploads - ignore all files but keep directory structure
+/uploads/*
+!/uploads/.gitkeep
