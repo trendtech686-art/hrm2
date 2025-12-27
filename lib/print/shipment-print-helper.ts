@@ -5,7 +5,7 @@
 
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
-import type { Order } from '../../features/orders/store';
+import type { Order } from '@/lib/types/prisma-extended';
 import { 
   DeliveryForPrint,
   mapDeliveryToPrintData, 

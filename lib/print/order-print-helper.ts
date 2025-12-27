@@ -3,7 +3,7 @@
  * Helpers để chuẩn bị dữ liệu in cho đơn hàng
  */
 
-import type { Order, LineItem, Packaging } from '../../features/orders/store';
+import type { Order, LineItem, Packaging } from '@/lib/types/prisma-extended';
 import type { Customer } from '@/lib/types/prisma-extended';
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';

@@ -34,9 +34,9 @@ const formatCurrency = (value?: number) => {
 };
 
 const statusConfig: Record<PenaltyStatus, { label: string; variant: "warning" | "success" | "secondary" }> = {
-  "Chua thanh toán": { label: "Chua thanh toán", variant: "warning" },
-  "Ğã thanh toán": { label: "Ğã thanh toán", variant: "success" },
-  "Ğã h?y": { label: "Ğã h?y", variant: "secondary" },
+  "ChÆ°a thanh toÃ¡n": { label: "ChÆ°a thanh toÃ¡n", variant: "warning" },
+  "ÄÃ£ thanh toÃ¡n": { label: "ÄÃ£ thanh toÃ¡n", variant: "success" },
+  "ÄÃ£ há»§y": { label: "ÄÃ£ há»§y", variant: "secondary" },
 };
 
 export function PenaltyDetailPage() {
@@ -144,12 +144,12 @@ export function PenaltyDetailPage() {
           onClick={handlePrint}
         >
           <Printer className="mr-2 h-4 w-4" />
-          In phi?u
+          In phiáº¿u
         </Button>
       );
     }
     
-    if (penalty && penalty.status !== 'Ğã h?y') {
+    if (penalty && penalty.status !== 'ÄÃ£ há»§y') {
       actions.push(
         <Button 
           key="edit" 
@@ -187,7 +187,7 @@ export function PenaltyDetailPage() {
     return (
       <Card>
         <CardContent className="p-8 text-center text-muted-foreground">
-          Không tìm th?y phi?u ph?t
+          Khï¿½ng tï¿½m th?y phi?u ph?t
         </CardContent>
       </Card>
     );
@@ -199,10 +199,10 @@ export function PenaltyDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Thông tin chính */}
+      {/* Thï¿½ng tin chï¿½nh */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Thông tin phi?u ph?t</CardTitle>
+          <CardTitle className="text-lg font-semibold">Thï¿½ng tin phi?u ph?t</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           {/* S? ti?n ph?t - Highlighted */}
@@ -211,9 +211,9 @@ export function PenaltyDetailPage() {
             <p className="text-2xl font-bold text-destructive">{formatCurrency(penalty.amount)} ?</p>
           </div>
           
-          {/* Nhân viên b? ph?t */}
+          {/* Nhï¿½n viï¿½n b? ph?t */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Nhân viên b? ph?t</p>
+            <p className="text-sm text-muted-foreground mb-1">Nhï¿½n viï¿½n b? ph?t</p>
             {penalizedEmployee ? (
               <Link href={generatePath(ROUTES.HRM.EMPLOYEE_VIEW, { systemId: penalty.employeeSystemId })} 
                 className="font-medium text-primary hover:underline"
@@ -225,9 +225,9 @@ export function PenaltyDetailPage() {
             )}
           </div>
           
-          {/* Ngày l?p phi?u */}
+          {/* Ngï¿½y l?p phi?u */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Ngày l?p phi?u</p>
+            <p className="text-sm text-muted-foreground mb-1">Ngï¿½y l?p phi?u</p>
             <p className="font-medium">{formatDateCustom(new Date(penalty.issueDate), 'dd/MM/yyyy')}</p>
           </div>
           
@@ -239,19 +239,19 @@ export function PenaltyDetailPage() {
             </div>
           )}
           
-          {/* Phân lo?i */}
+          {/* Phï¿½n lo?i */}
           {penalty.category && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Phân lo?i</p>
+              <p className="text-sm text-muted-foreground mb-1">Phï¿½n lo?i</p>
               <Badge variant="outline" className={penaltyCategoryColors[penalty.category]}>
                 {penaltyCategoryLabels[penalty.category]}
               </Badge>
             </div>
           )}
           
-          {/* Tr?ng thái */}
+          {/* Tr?ng thï¿½i */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Tr?ng thái</p>
+            <p className="text-sm text-muted-foreground mb-1">Tr?ng thï¿½i</p>
             <Badge variant={statusConfig[penalty.status].variant}>
               {statusConfig[penalty.status].label}
             </Badge>
@@ -271,25 +271,25 @@ export function PenaltyDetailPage() {
             )}
           </div>
           
-          {/* Lı do - Full width */}
+          {/* Lï¿½ do - Full width */}
           <div className="md:col-span-2">
-            <p className="text-sm text-muted-foreground mb-1">Lı do ph?t</p>
+            <p className="text-sm text-muted-foreground mb-1">Lï¿½ do ph?t</p>
             <p className="font-medium whitespace-pre-wrap bg-muted/50 rounded-md p-3">{penalty.reason}</p>
           </div>
         </CardContent>
       </Card>
       
-      {/* Liên k?t */}
+      {/* Liï¿½n k?t */}
       {(penalty.linkedComplaintSystemId || penalty.linkedOrderSystemId || penalty.deductedInPayrollId) && (
         <Card>
           <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Liên k?t</CardTitle>
+          <CardTitle className="text-lg font-semibold">Liï¿½n k?t</CardTitle>
         </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            {/* Khi?u n?i liên quan */}
+            {/* Khi?u n?i liï¿½n quan */}
             {penalty.linkedComplaintSystemId && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Khi?u n?i liên quan</p>
+                <p className="text-sm text-muted-foreground mb-1">Khi?u n?i liï¿½n quan</p>
                 <Link href={`/complaints/${penalty.linkedComplaintSystemId}`} 
                   className="font-medium font-mono text-primary hover:underline"
                 >
@@ -298,10 +298,10 @@ export function PenaltyDetailPage() {
               </div>
             )}
             
-            {/* Ğon hàng liên quan */}
+            {/* ï¿½on hï¿½ng liï¿½n quan */}
             {penalty.linkedOrderSystemId && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Ğon hàng liên quan</p>
+                <p className="text-sm text-muted-foreground mb-1">ï¿½on hï¿½ng liï¿½n quan</p>
                 <Link href={`/orders/${penalty.linkedOrderSystemId}`} 
                   className="font-medium font-mono text-primary hover:underline"
                 >
@@ -310,13 +310,13 @@ export function PenaltyDetailPage() {
               </div>
             )}
             
-            {/* Ğã tr? vào b?ng luong */}
+            {/* ï¿½ï¿½ tr? vï¿½o b?ng luong */}
             {penalty.deductedInPayrollId && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Ğã tr? vào b?ng luong</p>
+                <p className="text-sm text-muted-foreground mb-1">ï¿½ï¿½ tr? vï¿½o b?ng luong</p>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-200">
-                    Ğã tr? luong
+                    ï¿½ï¿½ tr? luong
                   </Badge>
                   {penalty.deductedAt && (
                     <span className="text-sm text-muted-foreground">
@@ -330,12 +330,12 @@ export function PenaltyDetailPage() {
         </Card>
       )}
       
-      {/* Thông tin h? th?ng */}
+      {/* Thï¿½ng tin h? th?ng */}
       <Card>
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           {penalty.createdAt && (
             <p>
-              Ngày t?o:{' '}
+              Ngï¿½y t?o:{' '}
               <span className="text-foreground font-medium">
                 {formatDateCustom(new Date(penalty.createdAt), 'dd/MM/yyyy HH:mm')}
               </span>
@@ -361,15 +361,15 @@ export function PenaltyDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="Bình lu?n"
-        placeholder="Thêm bình lu?n v? phi?u ph?t..."
+        title="Bï¿½nh lu?n"
+        placeholder="Thï¿½m bï¿½nh lu?n v? phi?u ph?t..."
       />
 
       {/* Activity History */}
       <ActivityHistory
         history={penalty.activityHistory || []}
         title="L?ch s? ho?t d?ng"
-        emptyMessage="Chua có l?ch s? ho?t d?ng"
+        emptyMessage="Chua cï¿½ l?ch s? ho?t d?ng"
         showFilters={false}
         groupByDate
         maxHeight="400px"

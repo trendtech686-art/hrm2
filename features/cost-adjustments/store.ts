@@ -273,14 +273,14 @@ export interface CostAdjustmentStoreState {
   counter: number;
   
   // CRUD
-  getById: (systemId: SystemId) => CostAdjustment | undefined;
+  getById: (systemId: string | SystemId) => CostAdjustment | undefined;
   getByBusinessId: (businessId: string) => CostAdjustment | undefined;
   
   // Create
   create: (
     items: Omit<CostAdjustmentItem, 'adjustmentAmount' | 'adjustmentPercent'>[],
     type: CostAdjustmentType,
-    createdBySystemId: SystemId,
+    createdBySystemId: string | SystemId,
     createdByName: string,
     options?: {
       customId?: string;
@@ -292,8 +292,8 @@ export interface CostAdjustmentStoreState {
   ) => CostAdjustment;
   
   // Actions
-  confirm: (systemId: SystemId, confirmedBySystemId: SystemId, confirmedByName: string) => boolean;
-  cancel: (systemId: SystemId, cancelledBySystemId: SystemId, cancelledByName: string, reason?: string) => boolean;
+  confirm: (systemId: string | SystemId, confirmedBySystemId: string | SystemId, confirmedByName: string) => boolean;
+  cancel: (systemId: string | SystemId, cancelledBySystemId: string | SystemId, cancelledByName: string, reason?: string) => boolean;
   
   // Queries
   getAll: () => CostAdjustment[];
@@ -388,9 +388,9 @@ export const useCostAdjustmentStore = create<CostAdjustmentStoreState>()(
         // Update product cost prices
         const productStore = useProductStore.getState();
         adjustment.items.forEach(item => {
-          const existingProduct = productStore.findById(item.productSystemId);
+          const existingProduct = productStore.findById(asSystemId(item.productSystemId));
           if (!existingProduct) return;
-          productStore.update(item.productSystemId, {
+          productStore.update(asSystemId(item.productSystemId), {
             ...existingProduct,
             costPrice: item.newCostPrice,
           });

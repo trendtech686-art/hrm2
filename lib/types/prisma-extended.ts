@@ -8,6 +8,9 @@
  * File này export cả Prisma types (với hậu tố Model/WithItems) và alias types cho compatibility.
  */
 
+import type { SystemId, BusinessId } from '@/lib/id-types';
+import type { HistoryEntry } from '@/lib/activity-history-helper';
+
 import type { CostAdjustmentModel } from '@/generated/prisma/models/CostAdjustment';
 import type { CostAdjustmentItemModel } from '@/generated/prisma/models/CostAdjustmentItem';
 import type { InventoryCheckModel } from '@/generated/prisma/models/InventoryCheck';
@@ -129,8 +132,8 @@ export type DifferenceReason =
  * @deprecated Use InventoryCheckItemModel instead
  */
 export type InventoryCheckItem = {
-  productSystemId: string;
-  productId: string;
+  productSystemId: SystemId;
+  productId: BusinessId;
   productName: string;
   unit: string;
   systemQuantity: number;
@@ -145,9 +148,9 @@ export type InventoryCheckItem = {
  * @deprecated Use InventoryCheckWithItems instead
  */
 export type InventoryCheck = {
-  systemId: string;
-  id: string;
-  branchSystemId?: string;
+  systemId: SystemId;
+  id: BusinessId;
+  branchSystemId?: SystemId;
   branchName?: string;
   status: InventoryCheckStatus;
   createdBy?: string;
@@ -165,9 +168,6 @@ export type InventoryCheck = {
 // ============================================
 // SUPPLIER - APP TYPES (Phase 7)
 // ============================================
-
-import type { SystemId, BusinessId } from '@/lib/id-types';
-import type { HistoryEntry } from '@/lib/activity-history-helper';
 
 /**
  * Supplier status
@@ -1354,6 +1354,7 @@ export type PaymentType = {
   isBusinessResult: boolean;
   createdAt: string;
   isActive: boolean;
+  isDefault?: boolean | undefined;
   color?: string | undefined;
 };
 
@@ -3353,11 +3354,18 @@ export type PkgxProduct = {
   is_best: number;
   is_new: number;
   is_hot: number;
+  is_home?: number;
   sort_order: number;
   warn_number: number;
   goods_number: number;
   cat_name?: string;
   brand_name?: string;
+  // SEO & Additional fields
+  slug?: string;
+  seller_note?: string;
+  meta_title?: string;
+  meta_desc?: string;
+  keywords?: string;
 };
 
 export type PkgxProductsResponse = {
@@ -3383,6 +3391,11 @@ export type PkgxImageUploadResponse = {
     goods_img: string;
     goods_thumb: string;
     original_img: string;
+    full_urls?: {
+      img: string;
+      thumb: string;
+      original: string;
+    };
   };
 };
 
@@ -3461,7 +3474,7 @@ export type PkgxProductPayload = {
   original_img?: string;
   goods_desc?: string;
   goods_brief?: string;
-  is_on_sale?: number;
+  is_on_sale?: number | boolean;
   is_best?: number;
   is_new?: number;
   is_hot?: number;
@@ -3469,6 +3482,17 @@ export type PkgxProductPayload = {
   warn_number?: number;
   goods_number?: number;
   keywords?: string;
+  // Additional fields for mapping service
+  seller_note?: string;
+  meta_title?: string;
+  meta_desc?: string;
+  slug?: string;
+  is_home?: number | boolean;
+  ishome?: boolean;
+  best?: boolean;
+  hot?: boolean;
+  new?: boolean;
+  gallery_images?: string[];
 };
 
 // Pkgx Sync Settings Types

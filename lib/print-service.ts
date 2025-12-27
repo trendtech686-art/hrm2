@@ -128,6 +128,18 @@ export function numberToWords(amount: number | undefined | null): string {
 }
 
 /**
+ * Ẩn số giữa của số điện thoại
+ * Ví dụ: 0901234567 -> 090****567
+ */
+export function hidePhoneMiddle(phone: string | undefined | null): string {
+  if (!phone) return '';
+  if (phone.length < 6) return phone;
+  const start = phone.slice(0, 3);
+  const end = phone.slice(-3);
+  return `${start}****${end}`;
+}
+
+/**
  * Format ngày theo định dạng dd/MM/yyyy
  * Uses centralized date-utils for consistent formatting
  */

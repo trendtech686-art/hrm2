@@ -5,7 +5,7 @@
  */
 
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import type { InventoryReceipt } from '@/features/inventory-receipts/store';
+import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 
 const fields: FieldConfig<InventoryReceipt>[] = [
   // Group: Thông tin chung

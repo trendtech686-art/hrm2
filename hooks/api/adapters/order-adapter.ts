@@ -10,7 +10,7 @@ import {
   useUpdateOrder, 
   useDeleteOrder 
 } from '@/hooks/api/use-orders'
-import type { Order } from '@/features/orders/store'
+import type { Order } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types'
 
 export function useOrderStoreV2() {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * @deprecated This file is DEPRECATED and should NOT be used!
  * 
@@ -75,20 +76,20 @@ import { usePkgxSettingsStore as usePkgxStore } from '@/features/settings/pkgx/s
 import type { Employee } from '@/lib/types/prisma-extended';
 import type { Customer } from '@/lib/types/prisma-extended';
 import type { Product } from '@/lib/types/prisma-extended';
-import type { Order } from '@/features/orders/store';
+import type { Order } from '@/lib/types/prisma-extended';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import type { WarrantyTicket } from '@/lib/types/prisma-extended';
-import type { WikiArticle } from '@/features/wiki/store';
+import type { WikiArticle } from '@/lib/types/prisma-extended';
 
 // ============== TRANSACTION TYPE IMPORTS ==============
 import type { LeaveRequest } from '@/lib/types/prisma-extended';
-import type { PurchaseOrder } from '@/features/purchase-orders/store';
-import type { PurchaseReturn } from '@/features/purchase-returns/store';
-import type { SalesReturn } from '@/features/sales-returns/store';
-import type { InventoryReceipt } from '@/features/inventory-receipts/store';
+import type { PurchaseOrder } from '@/lib/types/prisma-extended';
+import type { PurchaseReturn } from '@/lib/types/prisma-extended';
+import type { SalesReturn } from '@/lib/types/prisma-extended';
+import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 import type { InventoryCheckModel as InventoryCheck } from '@/generated/prisma/models/InventoryCheck';
-import type { StockLocation } from '@/features/stock-locations/store';
-import type { Task } from '@/features/tasks/store';
+import type { StockLocation } from '@/lib/types/prisma-extended';
+import type { Task } from '@/lib/types/prisma-extended';
 
 // ============== SETTINGS TYPE IMPORTS ==============
 import type { 

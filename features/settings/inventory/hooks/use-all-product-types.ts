@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import { useProductTypes } from './use-product-types';
-import type { ProductType } from '@/lib/types/prisma-extended';
+import type { ProductTypeSettings } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
 /**
@@ -17,7 +17,7 @@ export function useAllProductTypes() {
   const query = useProductTypes({ limit: 50 });
   
   return {
-    data: query.data?.data || [],
+    data: (query.data?.data || []) as ProductTypeSettings[],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
@@ -78,7 +78,7 @@ export function useProductTypeFinder() {
   const { data } = useAllProductTypes();
   
   const findById = React.useCallback(
-    (systemId: SystemId | string | undefined): ProductType | undefined => {
+    (systemId: SystemId | string | undefined): ProductTypeSettings | undefined => {
       if (!systemId) return undefined;
       return data.find(pt => pt.systemId === systemId && !pt.isDeleted);
     },

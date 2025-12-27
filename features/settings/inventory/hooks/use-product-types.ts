@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/product-types-api';
-import type { ProductType } from '@/lib/types/prisma-extended';
+import type { ProductTypeSettings } from '@/lib/types/prisma-extended';
 
 export const productTypeKeys = {
   all: ['product-types'] as const,
@@ -45,7 +45,7 @@ export function useProductTypeMutations() {
   });
   
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: Partial<ProductType> }) =>
+    mutationFn: ({ systemId, data }: { systemId: string; data: Partial<ProductTypeSettings> }) =>
       api.updateProductType(systemId, data),
     onSuccess: invalidateProductTypes,
   });

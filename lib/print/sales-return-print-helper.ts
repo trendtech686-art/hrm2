@@ -3,11 +3,11 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu trả hàng
  */
 
-import type { SalesReturn, ReturnLineItem } from '../../features/sales-returns/store';
+import type { SalesReturn, ReturnLineItem } from '@/lib/types/prisma-extended';
 import type { Customer } from '@/lib/types/prisma-extended';
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
-import type { Order } from '../../features/orders/store';
+import type { Order } from '@/lib/types/prisma-extended';
 import { 
   SalesReturnForPrint, 
   mapSalesReturnToPrintData, 

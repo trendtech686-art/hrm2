@@ -48,11 +48,6 @@ export async function GET(request: Request) {
         orderBy: { createdAt: 'desc' },
         include: {
           brand: true,
-          categories: {
-            include: {
-              category: true,
-            },
-          },
           inventoryRecords: true,
           prices: {
             include: {

@@ -43,12 +43,12 @@ const baseStore = createCrudStore<InventoryCheck>(initialData, 'inventory-checks
 registerBreadcrumbStore('inventory-checks', () => baseStore.getState());
 
 interface InventoryCheckStoreState extends CrudState<InventoryCheck> {
-  balanceCheck: (systemId: SystemId) => Promise<void>;
-  cancelCheck: (systemId: SystemId, reason?: string) => void;
+  balanceCheck: (systemId: string | SystemId) => Promise<void>;
+  cancelCheck: (systemId: string | SystemId, reason?: string) => void;
 }
 
 const augmentedMethods = {
-  balanceCheck: async (systemId: SystemId) => {
+  balanceCheck: async (systemId: string | SystemId) => {
     const state = baseStore.getState();
     const check = state.findById(systemId);
     
@@ -103,16 +103,16 @@ const augmentedMethods = {
     );
     
     // Update check status with balanced user and timestamp
-    state.update(systemId, {
+    state.update(asSystemId(String(systemId)), {
       ...check,
       status: 'balanced',
       balancedAt: new Date().toISOString(),
-      balancedBy: asSystemId(currentUserSystemId),
+      balancedBy: String(currentUserSystemId),
       activityHistory: [...(check.activityHistory || []), historyEntry],
     });
   },
   
-  cancelCheck: (systemId: SystemId, reason?: string) => {
+  cancelCheck: (systemId: string | SystemId, reason?: string) => {
     const state = baseStore.getState();
     const check = state.findById(systemId);
     
@@ -125,11 +125,11 @@ const augmentedMethods = {
       { oldValue: statusLabel, newValue: 'Đã hủy', note: reason }
     );
     
-    state.update(systemId, {
+    state.update(asSystemId(String(systemId)), {
       ...check,
       status: 'cancelled',
       cancelledAt: new Date().toISOString(),
-      cancelledBy: asSystemId(getCurrentUserSystemId()),
+      cancelledBy: String(getCurrentUserSystemId()),
       cancelledReason: reason ?? '',
       activityHistory: [...(check.activityHistory || []), historyEntry],
     });

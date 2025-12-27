@@ -10,7 +10,7 @@
  * - Không import phí ship, chiết khấu
  */
 
-import type { Order, LineItem, OrderAddress } from '@/features/orders/store';
+import type { Order, LineItem, OrderAddress } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useCustomerStore } from '@/features/customers/store';
 import { useProductStore } from '@/features/products/store';

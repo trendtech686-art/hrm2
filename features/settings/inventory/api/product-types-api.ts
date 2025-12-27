@@ -2,7 +2,7 @@
  * Product Types API service
  */
 
-import type { ProductType } from '@/lib/types/prisma-extended';
+import type { ProductTypeSettings as ProductType } from '@/lib/types/prisma-extended';
 
 const API_ENDPOINT = '/api/settings/product-types';
 

@@ -44,17 +44,17 @@ const formatCurrency = (value?: number) => {
 
 const StatusTimeline = ({ deliveryStatus }: { deliveryStatus?: OrderDeliveryStatus }) => {
     const steps = [
-        { name: 'Ch? l?y h�ng', icon: PackageSearch },
-        { name: '�� l?y h�ng', icon: PackageCheck },
-        { name: '�ang giao h�ng', icon: Truck },
-        { name: '�� giao h�ng', icon: Home },
+        { name: 'Chờ lấy hàng', icon: PackageSearch },
+        { name: 'Đã lấy hàng', icon: PackageCheck },
+        { name: 'Đang giao hàng', icon: Truck },
+        { name: 'Đã giao hàng', icon: Home },
     ];
 
     let currentStepIndex = -1;
     switch (deliveryStatus) {
-        case 'Ch? l?y h�ng': currentStepIndex = 0; break;
-        case '�ang giao h�ng': currentStepIndex = 2; break; // Assume '�� l?y h�ng' is skipped visually for simplicity
-        case '�� giao h�ng': currentStepIndex = 3; break;
+        case 'Chờ lấy hàng': currentStepIndex = 0; break;
+        case 'Đang giao hàng': currentStepIndex = 2; break; // Assume 'Đã lấy hàng' is skipped visually for simplicity
+        case 'Đã giao hàng': currentStepIndex = 3; break;
         default: currentStepIndex = -1;
     }
     
@@ -119,7 +119,7 @@ export function ShipmentDetailPage() {
             content,
             author: {
                 systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-                name: authEmployee?.fullName || 'H? th?ng',
+                name: authEmployee?.fullName || 'Hệ thống',
                 avatar: authEmployee?.avatar,
             },
             createdAt: new Date().toISOString(),
@@ -276,10 +276,10 @@ export function ShipmentDetailPage() {
     }, [packaging, order, handleDispatchAll, router]);
 
     const detailBreadcrumb = React.useMemo(() => {
-        const shipmentLabel = shipment?.id ?? 'Chi ti?t v?n don';
+        const shipmentLabel = shipment?.id ?? 'Chi tiết vận đơn';
         return [
-            { label: 'Trang ch?', href: ROUTES.DASHBOARD },
-            { label: 'V?n chuy?n', href: ROUTES.INTERNAL.SHIPMENTS },
+            { label: 'Trang chủ', href: ROUTES.DASHBOARD },
+            { label: 'Vận chuyển', href: ROUTES.INTERNAL.SHIPMENTS },
             { label: shipmentLabel, href: shipment ? generatePath(ROUTES.INTERNAL.SHIPMENT_VIEW, { systemId: shipment.systemId }) : ROUTES.INTERNAL.SHIPMENTS }
         ];
     }, [shipment]);
@@ -287,23 +287,23 @@ export function ShipmentDetailPage() {
     const statusBadge = React.useMemo(() => {
         if (!packaging) return undefined;
         const variantMap: Partial<Record<OrderDeliveryStatus, "warning" | "default" | "success" | "destructive">> = {
-            "Ch? l?y h�ng": "warning",
-            "Ch? d�ng g�i": "default",
-            "�ang giao h�ng": "default",
-            "�� giao h�ng": "success",
-            "Ch? giao l?i": "warning",
-            "�� h?y": "destructive",
+            "Chờ lấy hàng": "warning",
+            "Chờ đóng gói": "default",
+            "Đang giao hàng": "default",
+            "Đã giao hàng": "success",
+            "Chờ giao lại": "warning",
+            "Đã hủy": "destructive",
         };
-        const variant = variantMap[packaging.deliveryStatus || 'Ch? l?y h�ng'] ?? 'default';
+        const variant = variantMap[packaging.deliveryStatus || 'Chờ lấy hàng'] ?? 'default';
         return (
             <Badge variant={variant} className="capitalize">
-                {packaging.deliveryStatus || 'Ch? l?y h�ng'}
+                {packaging.deliveryStatus || 'Chờ lấy hàng'}
             </Badge>
         );
     }, [packaging]);
 
     usePageHeader({
-        title: shipment ? `V?n don ${shipment.id}` : 'Chi ti?t v?n don',
+        title: shipment ? `Vận đơn ${shipment.id}` : 'Chi tiết vận đơn',
         badge: statusBadge,
         showBackButton: true,
         backPath: ROUTES.INTERNAL.SHIPMENTS,
@@ -315,9 +315,9 @@ export function ShipmentDetailPage() {
         return (
             <div className="flex h-full items-center justify-center">
                 <div className="text-center">
-                    <h2 className="text-h3 font-bold">Kh�ng t�m th?y v?n don</h2>
+                    <h2 className="text-h3 font-bold">Không tìm thấy vận đơn</h2>
                     <Button onClick={() => router.push('/shipments')} className="mt-4">
-                        Quay v? danh s�ch
+                        Quay về danh sách
                     </Button>
                 </div>
             </div>
@@ -328,18 +328,18 @@ export function ShipmentDetailPage() {
     
     // Mock status history
     const statusHistory = [
-        { status: 'Ch? l?y h�ng', time: packaging.requestDate, details: '�on h�ng d� du?c d�ng g�i v� s?n s�ng b�n giao cho �TVC.' },
-        ...(packaging.deliveryStatus === '�ang giao h�ng' || packaging.deliveryStatus === '�� giao h�ng' ? [{ status: '�ang giao h�ng', time: order.dispatchedDate, details: `�on h�ng dang du?c giao b?i ${packaging.carrier || 'd?i t�c v?n chuy?n'}.` }] : []),
-        ...(packaging.deliveryStatus === '�� giao h�ng' ? [{ status: '�� giao h�ng', time: packaging.deliveredDate, details: 'Giao h�ng th�nh c�ng.' }] : []),
+        { status: 'Chờ lấy hàng', time: packaging.requestDate, details: 'Đơn hàng đã được đóng gói và sẵn sàng bàn giao cho ĐTVC.' },
+        ...(packaging.deliveryStatus === 'Đang giao hàng' || packaging.deliveryStatus === 'Đã giao hàng' ? [{ status: 'Đang giao hàng', time: order.dispatchedDate, details: `Đơn hàng đang được giao bởi ${packaging.carrier || 'đối tác vận chuyển'}.` }] : []),
+        ...(packaging.deliveryStatus === 'Đã giao hàng' ? [{ status: 'Đã giao hàng', time: packaging.deliveredDate, details: 'Giao hàng thành công.' }] : []),
     ];
 
     const deliveryStatusVariant: Partial<Record<OrderDeliveryStatus, "warning" | "default" | "success" | "destructive">> = {
-        "Ch? l?y h�ng": "warning",
-        "Ch? d�ng g�i": "default",
-        "�ang giao h�ng": "default",
-        "�� giao h�ng": "success",
-        "Ch? giao l?i": "warning",
-        "�� h?y": "destructive",
+        "Chờ lấy hàng": "warning",
+        "Chờ đóng gói": "default",
+        "Đang giao hàng": "default",
+        "Đã giao hàng": "success",
+        "Chờ giao lại": "warning",
+        "Đã hủy": "destructive",
     };
 
     return (
@@ -349,7 +349,7 @@ export function ShipmentDetailPage() {
                 <CardContent className="p-4">
                     <div className="flex items-center gap-3 mb-4 text-sm text-muted-foreground">
                         <span className="text-sm text-muted-foreground">
-                            �on h�ng: <Link href={`/orders/${order.systemId}`} className="text-primary hover:underline font-medium">{order.id}</Link>
+                            Đơn hàng: <Link href={`/orders/${order.systemId}`} className="text-primary hover:underline font-medium">{order.id}</Link>
                         </span>
                     </div>
                     <StatusTimeline deliveryStatus={packaging.deliveryStatus} />
@@ -362,7 +362,7 @@ export function ShipmentDetailPage() {
                 <div className="space-y-4 lg:order-2">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-h6 font-semibold">Th�ng tin ngu?i nh?n</CardTitle>
+                            <CardTitle className="text-h6 font-semibold">Thông tin người nhận</CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm space-y-3">
                             {customer ? (
@@ -376,23 +376,23 @@ export function ShipmentDetailPage() {
                             )}
                             <p className="text-muted-foreground">{customer?.phone || '---'}</p>
                             <p className="text-muted-foreground">
-                                {[customer?.shippingAddress_street, customer?.shippingAddress_ward, customer?.shippingAddress_province].filter(Boolean).join(', ') || 'Chua c� d?a ch?'}
+                                {[customer?.shippingAddress_street, customer?.shippingAddress_ward, customer?.shippingAddress_province].filter(Boolean).join(', ') || 'Chưa có địa chỉ'}
                             </p>
                         </CardContent>
                     </Card>
                     
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-h6 font-semibold">Th�ng tin d?i t�c v?n chuy?n</CardTitle>
+                            <CardTitle className="text-h6 font-semibold">Thông tin đối tác vận chuyển</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <DetailField label="H�ng v?n chuy?n" value={packaging.carrier || 'Chua c�'} />
-                            <DetailField label="D?ch v?" value={packaging.service || 'Chua c�'} />
-                            <DetailField label="B�n tr? ph�" value={packaging.payer || 'Chua c�'} />
-                            <DetailField label="Ph� v?n chuy?n" value={formatCurrency(packaging.shippingFeeToPartner || 0)} />
-                            <DetailField label="Thu h? (COD)" value={formatCurrency(packaging.codAmount || 0)} />
+                            <DetailField label="Hãng vận chuyển" value={packaging.carrier || 'Chưa có'} />
+                            <DetailField label="Dịch vụ" value={packaging.service || 'Chưa có'} />
+                            <DetailField label="Bên trả phí" value={packaging.payer || 'Chưa có'} />
+                            <DetailField label="Phí vận chuyển" value={formatCurrency(packaging.shippingFeeToPartner || 0)} />
+                            <DetailField label="Thu hộ (COD)" value={formatCurrency(packaging.codAmount || 0)} />
                             {packaging.trackingCode && (
-                                <DetailField label="M� v?n don" value={packaging.trackingCode} />
+                                <DetailField label="Mã vận đơn" value={packaging.trackingCode} />
                             )}
                         </CardContent>
                     </Card>
@@ -401,15 +401,15 @@ export function ShipmentDetailPage() {
                 {/* Left Column - Status History Timeline */}
                 <Card className="lg:col-span-2 lg:order-1">
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-h6 font-semibold">L?ch s? tr?ng th�i don giao h�ng</CardTitle>
+                        <CardTitle className="text-h6 font-semibold">Lịch sử trạng thái đơn giao hàng</CardTitle>
                         <Button  
                             variant="link" 
                             size="sm" 
                             className="h-auto p-0"
-                            onClick={() => alert('Ch?c nang l?ch s? chi ti?t dang ph�t tri?n')}
+                            onClick={() => alert('Chức năng lịch sử chi tiết đang phát triển')}
                         >
                             <History className="mr-1.5 h-4 w-4" />
-                            Xem chi ti?t
+                            Xem chi tiết
                         </Button>
                     </CardHeader>
                     <CardContent>
@@ -437,7 +437,7 @@ export function ShipmentDetailPage() {
                     subtotal: totalValue,
                     grandTotal: totalValue,
                 }}
-                grandTotalLabel="T?ng c?ng"
+                grandTotalLabel="Tổng cộng"
             />
 
             {/* Comments */}
@@ -449,15 +449,15 @@ export function ShipmentDetailPage() {
                 onUpdateComment={handleUpdateComment}
                 onDeleteComment={handleDeleteComment}
                 currentUser={commentCurrentUser}
-                title="B�nh lu?n"
-                placeholder="Th�m b�nh lu?n v? v?n don..."
+                title="Bình luận"
+                placeholder="Thêm bình luận về vận đơn..."
             />
 
             {/* Activity History */}
             <ActivityHistory
                 history={shipment.activityHistory || []}
-                title="L?ch s? ho?t d?ng"
-                emptyMessage="Chua c� l?ch s? ho?t d?ng"
+                title="Lịch sử hoạt động"
+                emptyMessage="Chưa có lịch sử hoạt động"
                 groupByDate
                 maxHeight="400px"
             />

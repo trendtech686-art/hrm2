@@ -4,7 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Order } from '@/features/orders/store'
+import type { Order } from '@/lib/types/prisma-extended'
 
 // ============================================================
 // Query Keys
