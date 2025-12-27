@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useProductStore } from './store';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
@@ -223,12 +224,12 @@ function ComboItemsCard({
                       )}
                       {item.product ? (
                         <div className="min-w-0">
-                          <ReactRouterDOM.Link 
-                            to={`/products/${item.product.systemId}`}
+                          <Link 
+                            href={`/products/${item.product.systemId}`}
                             className="text-primary hover:underline font-medium block truncate"
                           >
                             {item.product.name}
-                          </ReactRouterDOM.Link>
+                          </Link>
                           <p className="text-body-xs text-muted-foreground truncate">
                             {item.product.id} · {getTypeLabel(item.product.type)}
                           </p>
@@ -500,8 +501,8 @@ function ComboInventoryCard({
 }
 
 export function ProductDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById: findProductById, data: allProducts, remove } = useProductStore();
   const { findById: findSupplierById } = useSupplierStore();
   const { data: pricingPolicies } = usePricingPolicyStore();
@@ -836,11 +837,11 @@ export function ProductDetailPage() {
       description: `${product.name} (${product.id})`,
       action: {
         label: 'Xem thùng rác',
-        onClick: () => navigate('/products/trash'),
+        onClick: () => router.push('/products/trash'),
       },
     });
-    navigate('/products');
-  }, [product, remove, navigate]);
+    router.push('/products');
+  }, [product, remove, router]);
 
   const headerActions = React.useMemo(() => {
     if (!product) return [];
@@ -850,7 +851,7 @@ export function ProductDetailPage() {
         variant="default"
         size="sm"
         className="h-9"
-        onClick={() => navigate(`/products/${product.systemId}/edit`)}
+        onClick={() => router.push(`/products/${product.systemId}/edit`)}
       >
         <Edit className="mr-2 h-4 w-4" />
         Chỉnh sửa
@@ -897,7 +898,7 @@ export function ProductDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
     ];
-  }, [product, navigate, handlePrintLabel, handleMoveToTrash]);
+  }, [product, router, handlePrintLabel, handleMoveToTrash]);
 
   // Calculate combo stock for low stock warning in header
   const comboTotalStock = React.useMemo(() => {
@@ -978,7 +979,7 @@ export function ProductDetailPage() {
         <div className="text-center">
           <h2 className="text-h2">Không tìm thấy sản phẩm</h2>
           <p className="text-muted-foreground mt-2">Sản phẩm bạn đang tìm kiếm không tồn tại.</p>
-          <Button onClick={() => navigate('/products')} className="mt-4 h-9">
+          <Button onClick={() => router.push('/products')} className="mt-4 h-9">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
           </Button>
@@ -1172,9 +1173,9 @@ export function ProductDetailPage() {
                   {product.launchedDate && <DetailField label="Ngày ra mắt" value={formatDateForDisplay(product.launchedDate)} />}
                   {product.discontinuedDate && <DetailField label="Ngày ngừng KD" value={formatDateForDisplay(product.discontinuedDate)} />}
                   {product.createdAt && <DetailField label="Ngày tạo" value={formatDateTimeForDisplay(product.createdAt)} />}
-                  {createdByEmployee && <DetailField label="Người tạo" value={<ReactRouterDOM.Link to={`/employees/${createdByEmployee.systemId}`} className="text-primary hover:underline">{createdByEmployee.fullName}</ReactRouterDOM.Link>} />}
+                  {createdByEmployee && <DetailField label="Người tạo" value={<Link href={`/employees/${createdByEmployee.systemId}`} className="text-primary hover:underline">{createdByEmployee.fullName}</Link>} />}
                   {product.updatedAt && <DetailField label="Cập nhật" value={formatDateTimeForDisplay(product.updatedAt)} />}
-                  {updatedByEmployee && <DetailField label="Người cập nhật" value={<ReactRouterDOM.Link to={`/employees/${updatedByEmployee.systemId}`} className="text-primary hover:underline">{updatedByEmployee.fullName}</ReactRouterDOM.Link>} />}
+                  {updatedByEmployee && <DetailField label="Người cập nhật" value={<Link href={`/employees/${updatedByEmployee.systemId}`} className="text-primary hover:underline">{updatedByEmployee.fullName}</Link>} />}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1328,7 +1329,7 @@ export function ProductDetailPage() {
                   <CardContent className="space-y-3">
                     <DetailField label="Giá vốn" value={formatCurrency(product.costPrice)} />
                     {product.type !== 'combo' && <DetailField label="Giá nhập gần nhất" value={product.lastPurchasePrice ? formatCurrency(product.lastPurchasePrice) : '-'} />}
-                    {product.type !== 'combo' && supplier && <DetailField label="NCC chính" value={<ReactRouterDOM.Link to={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</ReactRouterDOM.Link>} />}
+                    {product.type !== 'combo' && supplier && <DetailField label="NCC chính" value={<Link href={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</Link>} />}
                     {product.type !== 'combo' && <DetailField label="Ngày nhập gần nhất" value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} />}
                     <DetailField label="Giá tối thiểu" value={product.minPrice ? formatCurrency(product.minPrice) : '-'} />
                     {product.taxRate !== undefined && <DetailField label="Thuế suất" value={`${product.taxRate}%`} />}

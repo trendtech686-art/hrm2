@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
-import { useNavigate, useParams, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, Printer, FileText, Download, Lock, Unlock, CheckCircle2, Banknote, ExternalLink } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -452,7 +453,7 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
 
 export function PayrollDetailPage() {
   const params = useParams<{ systemId?: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Parse systemId once
   const resolvedSystemId = React.useMemo(
@@ -520,8 +521,8 @@ export function PayrollDetailPage() {
 
   // Handlers
   const handleBack = React.useCallback(() => {
-    navigate(ROUTES.PAYROLL.LIST);
-  }, [navigate]);
+    router.push(ROUTES.PAYROLL.LIST);
+  }, [router]);
 
   const handlePrint = React.useCallback(() => {
     if (!batch) return;
@@ -543,8 +544,8 @@ export function PayrollDetailPage() {
   }, [batch, payslips, employeeLookup, departmentLookup, storeInfo, print]);
 
   const handleRunNew = React.useCallback(() => {
-    navigate(ROUTES.PAYROLL.RUN);
-  }, [navigate]);
+    router.push(ROUTES.PAYROLL.RUN);
+  }, [router]);
 
   // Approval dialog handlers (moved up for headerActions dependency)
   const openApprovalDialog = React.useCallback((action: ApprovalAction) => {
@@ -679,8 +680,8 @@ export function PayrollDetailPage() {
 
   const handleOpenEmployee = React.useCallback((row: PayslipRow) => {
     if (!row.employeeSystemId) return;
-    navigate(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.employeeSystemId));
-  }, [navigate]);
+    router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.employeeSystemId));
+  }, [router]);
 
   // Payslip action handlers
   const handleEditPayslip = React.useCallback((row: PayslipRow) => {

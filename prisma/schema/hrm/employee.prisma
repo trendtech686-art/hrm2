@@ -1,99 +1,93 @@
-// ═══════════════════════════════════════════════════════════════
-// EMPLOYEE MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: EMP000001 (English)
-// BusinessId: NV000001 (Vietnamese - Nhân viên)
-// ═══════════════════════════════════════════════════════════════
-
 model Employee {
-  systemId              String   @id           // EMP000001
-  id                    String   @unique       // NV000001
-  fullName              String
+  systemId                          String             @id
+  id                                String             @unique
+  fullName                          String
+  dob                               DateTime?
+  placeOfBirth                      String?
+  gender                            Gender             @default(OTHER)
+  phone                             String?
+  personalEmail                     String?
+  workEmail                         String?            @unique
+  nationalId                        String?
+  nationalIdIssueDate               DateTime?
+  nationalIdIssuePlace              String?
+  avatarUrl                         String?
+  permanentAddress                  Json?
+  temporaryAddress                  Json?
+  departmentId                      String?
+  jobTitleId                        String?
+  branchId                          String?
+  managerId                         String?
+  hireDate                          DateTime?
+  startDate                         DateTime?
+  endDate                           DateTime?
+  terminationDate                   DateTime?
+  reasonForLeaving                  String?
+  employeeType                      EmployeeType       @default(FULLTIME)
+  employmentStatus                  EmploymentStatus   @default(ACTIVE)
+  role                              String             @default("Nhân viên")
+  baseSalary                        Decimal?           @db.Decimal(15, 2)
+  socialInsuranceSalary             Decimal?           @db.Decimal(15, 2)
+  positionAllowance                 Decimal?           @db.Decimal(15, 2)
+  mealAllowance                     Decimal?           @db.Decimal(15, 2)
+  otherAllowances                   Decimal?           @db.Decimal(15, 2)
+  numberOfDependents                Int?
+  contractNumber                    String?
+  contractStartDate                 DateTime?
+  contractEndDate                   DateTime?
+  contractType                      ContractType?
+  probationEndDate                  DateTime?
+  bankAccountNumber                 String?
+  bankName                          String?
+  bankBranch                        String?
+  personalTaxId                     String?
+  socialInsuranceNumber             String?
+  annualLeaveBalance                Int?               @default(12)
+  notes                             String?
   
-  // Personal Info
-  dob                   DateTime?
-  placeOfBirth          String?
-  gender                Gender   @default(OTHER)
-  phone                 String?
-  personalEmail         String?
-  workEmail             String?
-  nationalId            String?
-  nationalIdIssueDate   DateTime?
-  nationalIdIssuePlace  String?
-  avatarUrl             String?
-  avatar                String?
+  // Personal Info (added from types.ts comparison)
+  maritalStatus                     String?            // "Độc thân" | "Đã kết hôn" | "Khác"
+  emergencyContactName              String?
+  emergencyContactPhone             String?
   
-  // Address
-  permanentAddress      String?
-  temporaryAddress      String?
+  // Work Schedule (added from types.ts comparison)
+  workingHoursPerDay                Int?               @default(8)
+  workingDaysPerWeek                Int?               @default(5)
+  shiftType                         String?            // "Hành chính" | "Ca sáng" | "Ca chiều" | "Ca đêm" | "Luân ca"
   
-  // Organization
-  departmentId          String?
-  department            Department? @relation(fields: [departmentId], references: [systemId])
-  jobTitleId            String?
-  jobTitle              JobTitle?  @relation(fields: [jobTitleId], references: [systemId])
-  branchId              String?
-  branch                Branch?    @relation(fields: [branchId], references: [systemId])
-  managerId             String?
-  manager               Employee?  @relation("EmployeeManager", fields: [managerId], references: [systemId])
-  subordinates          Employee[] @relation("EmployeeManager")
+  // Performance & Review (added from types.ts comparison)
+  performanceRating                 String?            // "Xuất sắc" | "Tốt" | "Đạt yêu cầu" | "Cần cải thiện"
+  lastReviewDate                    DateTime?
+  nextReviewDate                    DateTime?
   
-  // Employment
-  hireDate              DateTime?
-  startDate             DateTime?
-  endDate               DateTime?
-  terminationDate       DateTime?
-  reasonForLeaving      String?
-  employeeType          EmployeeType     @default(FULLTIME)
-  employmentStatus      EmploymentStatus @default(ACTIVE)
-  role                  String?
+  // Skills & Certifications (added from types.ts comparison)
+  skills                            Json?              // String array stored as JSON
+  certifications                    Json?              // String array stored as JSON
   
-  // Salary
-  baseSalary            Decimal?   @db.Decimal(15, 2)
-  socialInsuranceSalary Decimal?   @db.Decimal(15, 2)
-  positionAllowance     Decimal?   @db.Decimal(15, 2)
-  mealAllowance         Decimal?   @db.Decimal(15, 2)
-  otherAllowances       Decimal?   @db.Decimal(15, 2)
-  numberOfDependents    Int?
-  
-  // Contract
-  contractNumber        String?
-  contractStartDate     DateTime?
-  contractEndDate       DateTime?
-  contractType          String?
-  probationEndDate      DateTime?
-  
-  // Banking
-  bankAccountNumber     String?
-  bankName              String?
-  bankBranch            String?
-  
-  // Tax & Insurance
-  personalTaxId         String?
-  socialInsuranceNumber String?
-  
-  // Leave
-  annualLeaveBalance    Int        @default(12)
-  
-  // Notes
-  notes                 String?
-  
-  // Relations
-  user                  User?
-  leaves                Leave[]
-  attendanceRecords     AttendanceRecord[]
-  payrollItems          PayrollItem[]
-  penalties             Penalty[]
-  
-  // Soft delete
-  isDeleted             Boolean  @default(false)
-  deletedAt             DateTime?
-  
-  // Audit
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  createdBy             String?
-  updatedBy             String?
-  
+  isDeleted                         Boolean            @default(false)
+  deletedAt                         DateTime?
+  createdAt                         DateTime           @default(now())
+  updatedAt                         DateTime           @updatedAt
+  createdBy                         String?
+  updatedBy                         String?
+  avatar                            String?
+  attendanceRecords                 AttendanceRecord[]
+  complaints                        Complaint[]
+  branch                            Branch?            @relation(fields: [branchId], references: [systemId])
+  department                        Department?        @relation(fields: [departmentId], references: [systemId])
+  jobTitle                          JobTitle?          @relation(fields: [jobTitleId], references: [systemId])
+  manager                           Employee?          @relation("EmployeeManager", fields: [managerId], references: [systemId])
+  subordinates                      Employee[]         @relation("EmployeeManager")
+  leaves                            Leave[]
+  orders                            Order[]
+  payrollItems                      PayrollItem[]
+  tasks_tasks_assigneeIdToemployees Task[]             @relation("tasks_assigneeIdToemployees")
+  tasks_tasks_creatorIdToemployees  Task[]             @relation("tasks_creatorIdToemployees")
+  user                              User?
+  wikiArticles                      Wiki[]
+
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([employmentStatus])
   @@map("employees")
 }

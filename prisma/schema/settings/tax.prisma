@@ -1,41 +1,16 @@
-// ═══════════════════════════════════════════════════════════════
-// TAX MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: TAX000001 (English, 6 digits)
-// BusinessId: THUE000001 (Vietnamese - Thuế, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Tax {
-  systemId          String        @id           // TAX000001
-  id                String        @unique       // THUE000001
-  
-  // Basic info
+  systemId          String   @id @default(uuid())
+  id                String   @unique
   name              String
-  code              String        @unique
+  rate              Decimal  @db.Decimal(5, 2)
   description       String?
-  
-  // Rate
-  rate              Decimal       @db.Decimal(5, 2)
-  
-  // Type
-  type              String        @default("percentage") // percentage, fixed
-  
-  // Application
-  appliesTo         String?       // sales, purchases, all
-  
-  // Status
-  isActive          Boolean       @default(true)
-  isDefault         Boolean       @default(false)
-  
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  isDefaultSale     Boolean  @default(false)
+  isDefaultPurchase Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   createdBy         String?
   updatedBy         String?
-  
+
   @@map("taxes")
 }

@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: RouteParams) {
             },
           },
         },
-        branch: true,
+        suppliers: true,
       },
     })
 
@@ -60,7 +60,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
       include: {
         purchaseOrder: true,
-        branch: true,
+        suppliers: true,
       },
     })
 

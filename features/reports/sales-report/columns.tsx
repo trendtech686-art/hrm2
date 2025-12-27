@@ -1,6 +1,6 @@
 import { formatDate as formatDateUtil, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '../../../lib/date-utils';
 import type { ColumnDef } from '../../../components/data-table/types';
-import type { OrderWithProfit } from './types';
+import type { OrderWithProfit } from '@/lib/types/prisma-extended';
 import { Badge } from "../../../components/ui/badge";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);

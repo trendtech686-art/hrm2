@@ -16,7 +16,7 @@ export async function GET(request: Request) {
         where,
         orderBy: { name: 'asc' },
         include: {
-          _count: { select: { inventories: true } },
+          _count: { select: { inventoryRecords: true } },
         },
       })
       return NextResponse.json({ data: locations })
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       where,
       orderBy: { name: 'asc' },
       include: {
-        _count: { select: { inventories: true } },
+        _count: { select: { inventoryRecords: true } },
       },
     })
 

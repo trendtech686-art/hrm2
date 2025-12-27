@@ -70,7 +70,7 @@ export async function GET(request: Request) {
               name: true,
             },
           },
-          items: {
+          lineItems: {
             include: {
               product: {
                 select: {
@@ -185,29 +185,31 @@ export async function POST(request: Request) {
         customerId: body.customerId,
         customerName: customer.name,
         branchId: body.branchId,
-        salesPersonId: body.salespersonId,
+        salespersonId: body.salespersonId,
+        branchName: branch.name,
+        salespersonName: body.salespersonName || 'N/A',
         orderDate: body.orderDate ? new Date(body.orderDate) : new Date(),
-        expectedDate: body.expectedDeliveryDate ? new Date(body.expectedDeliveryDate) : null,
+        expectedDeliveryDate: body.expectedDeliveryDate ? new Date(body.expectedDeliveryDate) : null,
         shippingAddress: body.shippingAddress,
         status: body.status || 'PENDING',
-        paymentStatus: body.paymentStatus || 'PENDING',
-        shippingMethod: body.deliveryMethod || 'SHIPPING',
+        paymentStatus: body.paymentStatus || 'UNPAID',
+        deliveryMethod: body.deliveryMethod || 'SHIPPING',
         subtotal,
         shippingFee,
         tax,
         discount,
-        total: grandTotal,
+        grandTotal,
         notes: body.notes,
         source: body.source,
         createdBy: body.createdBy,
-        items: {
+        lineItems: {
           create: lineItemsData,
         },
       },
       include: {
         customer: true,
         branch: true,
-        items: {
+        lineItems: {
           include: {
             product: true,
           },

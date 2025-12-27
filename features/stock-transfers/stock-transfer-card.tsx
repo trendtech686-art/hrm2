@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
-import type { StockTransfer } from './types';
+import { useRouter } from 'next/navigation';
+import type { StockTransfer } from '@/lib/types/prisma-extended';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -36,7 +36,7 @@ interface StockTransferCardProps {
 }
 
 export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isPending = transfer.status === 'pending';
   const totalQuantity = transfer.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
@@ -65,13 +65,13 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/stock-transfers/${transfer.systemId}`)}>
+              <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
                 <Eye className="mr-2 h-4 w-4" />
                 Xem chi tiết
               </DropdownMenuItem>
               {isPending && (
                 <>
-                  <DropdownMenuItem onClick={() => navigate(`/stock-transfers/${transfer.systemId}/edit`)}>
+                  <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}/edit`)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Chỉnh sửa
                   </DropdownMenuItem>

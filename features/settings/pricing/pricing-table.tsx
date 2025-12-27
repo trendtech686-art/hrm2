@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table';
-import type { PricingPolicy } from './types';
+import type { PricingPolicy } from '@/lib/types/prisma-extended';
 import { toast } from 'sonner';
 
 interface PricingTableProps {

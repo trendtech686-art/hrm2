@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils'
 import { useEmployeeStore } from "./store"
@@ -31,7 +31,7 @@ import {
 } from "../../components/ui/alert-dialog"
 import { Button } from "../../components/ui/button"
 import { PlusCircle, Phone, Mail, Building2, Calendar, MoreHorizontal, Trash2, Upload, Download } from "lucide-react"
-import type { Employee } from "./types"
+import type { Employee } from '@/lib/types/prisma-extended'
 import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
 import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
 import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
@@ -92,7 +92,8 @@ export function EmployeesPage() {
 
   const { data: employees, remove, restore, getActive, getDeleted, addMultiple, update } = useEmployeeStore();
   const { data: branchesRaw } = useBranchStore();
-  const navigate = useNavigate();
+  
+  const router = useRouter();
   
   // ✅ Memoize branches to prevent re-renders
   const branches = React.useMemo(() => branchesRaw, [branchesRaw]);
@@ -105,15 +106,15 @@ export function EmployeesPage() {
   
   // ✅ Memoize actions to prevent infinite loop
   const headerActions = React.useMemo(() => [
-    <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => navigate('/employees/trash')}>
+    <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees/trash')}>
       <Trash2 className="mr-2 h-4 w-4" />
       Thùng rác ({deletedCount})
     </Button>,
-    <Button key="add" size="sm" className="h-9" onClick={() => navigate('/employees/new')}>
+    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/employees/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm nhân viên
     </Button>
-  ], [navigate, deletedCount]);
+  ], [router, deletedCount]);
   
   // Set page header with actions
   usePageHeader({
@@ -190,7 +191,7 @@ export function EmployeesPage() {
     toast.success("Đã khôi phục nhân viên");
   }, [restore]);
   
-  const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, navigate, branches), [handleDelete, handleRestore, navigate, branches]);
+  const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, router, branches), [handleDelete, handleRestore, router, branches]);
 
   const buildDefaultVisibility = React.useCallback(() => {
     const defaultVisibleColumns = new Set([
@@ -506,7 +507,7 @@ export function EmployeesPage() {
   ];
 
   const handleRowClick = (row: Employee) => {
-    navigate(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.systemId));
+    router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.systemId));
   };
 
   // Mobile Employee Card Component
@@ -555,7 +556,7 @@ export function EmployeesPage() {
                 </TouchButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/employees/${employee.systemId}/edit`); }}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/employees/${employee.systemId}/edit`); }}>
                   Chỉnh sửa
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(employee.systemId); }}>

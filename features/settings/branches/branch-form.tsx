@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
-import type { Branch } from './types';
+import type { Branch } from '@/lib/types/prisma-extended';
 import { useBranchStore } from './store';
 import { useEmployeeStore } from '../../employees/store';
 import { useProvinceStore } from '../provinces/store';

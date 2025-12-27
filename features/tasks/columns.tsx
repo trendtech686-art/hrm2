@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as ReactRouterDOM from '@/lib/next-compat';
+import Link from 'next/link';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
 import type { Task, TaskPriority, TaskStatus } from './types'
 import type { SystemId } from '../../lib/id-types';

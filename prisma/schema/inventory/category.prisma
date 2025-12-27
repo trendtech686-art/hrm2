@@ -1,52 +1,39 @@
-// ═══════════════════════════════════════════════════════════════
-// CATEGORY MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: CAT000001 (English, 6 digits)
-// BusinessId: DM000001 (Vietnamese - Danh mục, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Category {
-  systemId          String        @id           // CAT000001
-  id                String        @unique       // DM000001
-  
-  // Basic info
+  systemId          String            @id
+  id                String            @unique
   name              String
-  description       String?
-  
-  // Hierarchy
+  slug              String?           // URL-friendly name (VD: "ban-phim-co")
   parentId          String?
-  parent            Category?     @relation("CategoryHierarchy", fields: [parentId], references: [systemId])
-  children          Category[]    @relation("CategoryHierarchy")
-  level             Int           @default(0)
-  path              String?       // /parent/child/grandchild
-  
+  // SEO Fields (NEW)
+  seoTitle          String?           // Title tag cho SEO
+  metaDescription   String?           // Meta description cho SEO
+  seoKeywords       String?           // Từ khóa SEO
+  shortDescription  String?           // Mô tả ngắn (1-2 câu)
+  longDescription   String?           @db.Text // Mô tả chi tiết (HTML)
+  ogImage           String?           // Open Graph image URL
+  // Multi-website SEO (NEW)
+  websiteSeo        Json?             // Key: 'pkgx' | 'web2' | ...
+  // Hierarchy
+  path              String?           // Full path: "Điện tử > Máy tính > Bàn phím"
+  level             Int?              // 0 = root, 1 = child, 2 = grandchild
   // Display
-  sortOrder         Int           @default(0)
+  color             String?           // Màu hiển thị
+  icon              String?           // Icon hoặc emoji
   imageUrl          String?
-  iconName          String?
-  color             String?
-  
-  // SEO
-  slug              String?       @unique
-  metaTitle         String?
-  metaDescription   String?
-  
+  thumbnail         String?           // Ảnh đại diện danh mục
+  description       String?
+  sortOrder         Int?              @default(0)
   // Status
-  isActive          Boolean       @default(true)
-  
-  // Relations
-  products          Product[]
-  productCategories ProductCategory[]
-  
-  // Soft delete
-  isDeleted         Boolean       @default(false)
+  isActive          Boolean           @default(true)
+  isDeleted         Boolean           @default(false)
+  // Timestamps
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  // Relations
+  parent            Category?         @relation("CategoryHierarchy", fields: [parentId], references: [systemId])
+  children          Category[]        @relation("CategoryHierarchy")
+  productCategories ProductCategory[]
+
   @@map("categories")
 }

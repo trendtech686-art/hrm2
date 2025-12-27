@@ -4,8 +4,8 @@
  * Cấu hình xuất dữ liệu phiếu đóng gói
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types';
-import type { PackagingSlip } from '../../../features/packaging/types';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
+import type { PackagingSlip } from '@/lib/types/prisma-extended';
 
 const fields: FieldConfig<PackagingSlip>[] = [
   // Group: Thông tin chung

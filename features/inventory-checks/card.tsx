@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { InventoryCheck } from './types';
+import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { formatDateCustom } from '../../lib/date-utils';

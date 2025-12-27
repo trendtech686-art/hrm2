@@ -24,7 +24,7 @@ const statusVariants: Record<PenaltyStatus, "warning" | "success" | "secondary">
 export const getColumns = (
   onMarkPaid: (penalty: Penalty) => void,
   onCancel: (penalty: Penalty) => void,
-  navigate: (path: string) => void,
+  router: { push: (path: string) => void },
 ): ColumnDef<Penalty>[] => [
   // Select column - sticky left
   {
@@ -54,7 +54,7 @@ export const getColumns = (
     header: "Mã Phiếu",
     cell: ({ row }) => (
       <button
-        onClick={() => navigate(`/penalties/${row.systemId}`)}
+        onClick={() => router.push(`/penalties/${row.systemId}`)}
         className="font-medium text-primary hover:underline"
       >
         {row.id}
@@ -144,7 +144,7 @@ export const getColumns = (
     header: "Mã Khiếu nại",
     cell: ({ row }) => row.linkedComplaintSystemId ? (
       <button
-        onClick={(e) => { e.stopPropagation(); navigate(`/complaints/${row.linkedComplaintSystemId}`); }}
+        onClick={(e) => { e.stopPropagation(); router.push(`/complaints/${row.linkedComplaintSystemId}`); }}
         className="text-primary hover:underline font-mono text-xs"
       >
         {row.linkedComplaintSystemId}
@@ -158,7 +158,7 @@ export const getColumns = (
     header: "Mã Đơn hàng",
     cell: ({ row }) => row.linkedOrderSystemId ? (
       <button
-        onClick={(e) => { e.stopPropagation(); navigate(`/orders/${row.linkedOrderSystemId}`); }}
+        onClick={(e) => { e.stopPropagation(); router.push(`/orders/${row.linkedOrderSystemId}`); }}
         className="text-primary hover:underline font-mono text-xs"
       >
         {row.linkedOrderSystemId}
@@ -202,8 +202,8 @@ export const getColumns = (
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => navigate(`/penalties/${row.systemId}`)}>Xem chi tiết</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => navigate(`/penalties/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push(`/penalties/${row.systemId}`)}>Xem chi tiết</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push(`/penalties/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
               {row.status === 'Chưa thanh toán' && (
                 <DropdownMenuItem onSelect={() => onMarkPaid(row)}>
                   Đánh dấu đã thanh toán

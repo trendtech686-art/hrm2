@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Save, X, Globe } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -65,7 +65,7 @@ const categoryFormSchema = z.object({
 type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 
 export function CategoryNewPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data, add } = useProductCategoryStore();
   
   // Get all active categories for parent selection
@@ -164,12 +164,12 @@ export function CategoryNewPage() {
     } as any);
     
     toast.success('Đã tạo danh mục mới');
-    navigate(`/categories/${newCategory.systemId}`);
+    router.push(`/categories/${newCategory.systemId}`);
   };
 
   // Header actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => navigate('/categories')}>
+    <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push('/categories')}>
       <X className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
@@ -177,7 +177,7 @@ export function CategoryNewPage() {
       <Save className="mr-2 h-4 w-4" />
       Lưu
     </Button>
-  ], [navigate, form]);
+  ], [router, form]);
 
   usePageHeader({
     actions: headerActions,

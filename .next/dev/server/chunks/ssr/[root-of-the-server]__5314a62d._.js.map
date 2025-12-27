@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///D:/hrm2/app/%28authenticated%29/settings/shipping/page.tsx"],"sourcesContent":["import dynamic from 'next/dynamic';\r\n\r\nconst ShippingPartnersPage = dynamic(\r\n  () => import('@/features/settings/shipping/page').then(mod => mod.ShippingPartnersPage),\r\n  { ssr: false, loading: () => <div className=\"flex items-center justify-center h-64\"><div className=\"animate-spin rounded-full h-8 w-8 border-b-2 border-primary\"></div></div> }\r\n);\r\n\r\nexport default function Page() {\r\n  return <ShippingPartnersPage />;\r\n}\r\n"],"names":[],"mappings":";;;;;AAAA;;;;AAEA,MAAM,uBAAuB,IAAA,0KAAO,EAClC,IAAM,kIAA4C,IAAI,CAAC,CAAA,MAAO,IAAI,oBAAoB;;;;;;IACpF,KAAK;IAAO,SAAS,kBAAM,8OAAC;YAAI,WAAU;sBAAwC,cAAA,8OAAC;gBAAI,WAAU;;;;;;;;;;;;AAGtF,SAAS;IACtB,qBAAO,8OAAC;;;;;AACV"}}]
+}

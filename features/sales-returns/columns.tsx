@@ -1,8 +1,8 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { SalesReturn } from './types';
+import type { SalesReturn } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../components/data-table/types';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { Checkbox } from "../../components/ui/checkbox";
 import { Button } from "../../components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
@@ -38,103 +38,103 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
       ),
       size: 48,
       meta: {
-        displayName: "Chọn",
+        displayName: "Ch?n",
         sticky: "left",
       },
     },
     {
         id: "id",
         accessorKey: "id",
-        header: "Mã đơn trả hàng",
-        cell: ({ row }) => <Link to={`/returns/${row.systemId}`} className="font-medium text-primary hover:underline">{row.id}</Link>,
-        meta: { displayName: "Mã đơn trả hàng" },
+        header: "M� don tr? h�ng",
+        cell: ({ row }) => <Link href={`/returns/${row.systemId}`} className="font-medium text-primary hover:underline">{row.id}</Link>,
+        meta: { displayName: "M� don tr? h�ng" },
         size: 120,
     },
     {
         id: "status",
         accessorKey: "isReceived",
-        header: "Trạng thái",
+        header: "Tr?ng th�i",
         cell: ({ row }) => (
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-body-xs font-medium ${
                 row.isReceived 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-amber-100 text-amber-800'
             }`}>
-                {row.isReceived ? 'Đã nhận' : 'Chưa nhận'}
+                {row.isReceived ? '�� nh?n' : 'Chua nh?n'}
             </span>
         ),
-        meta: { displayName: "Trạng thái" },
+        meta: { displayName: "Tr?ng th�i" },
         size: 100,
     },
     {
         id: "returnDate",
         accessorKey: "returnDate",
-        header: "Ngày trả",
+        header: "Ng�y tr?",
         cell: ({ row }) => formatDate(row.returnDate),
-        meta: { displayName: "Ngày trả" },
+        meta: { displayName: "Ng�y tr?" },
         size: 100,
     },
     {
         id: "returnQuantity",
         accessorKey: "items",
-        header: "Số lượng hàng trả",
+        header: "S? lu?ng h�ng tr?",
         cell: ({ row }) => {
             const totalQty = row.items.reduce((sum, item) => sum + item.returnQuantity, 0);
             return <span className="text-center block">{totalQty}</span>;
         },
-        meta: { displayName: "Số lượng hàng trả" },
+        meta: { displayName: "S? lu?ng h�ng tr?" },
         size: 140,
     },
     {
         id: "totalReturnValue",
         accessorKey: "totalReturnValue",
-        header: "Giá trị hàng trả",
+        header: "Gi� tr? h�ng tr?",
         cell: ({ row }) => <span className="font-semibold">{formatCurrency(row.totalReturnValue)}</span>,
-        meta: { displayName: "Giá trị hàng trả" },
+        meta: { displayName: "Gi� tr? h�ng tr?" },
         size: 140,
     },
     {
         id: "exchangeOrderId",
         accessorKey: "exchangeOrderSystemId",
-        header: "Mã đơn đổi",
+        header: "M� don d?i",
         cell: ({ row }) => row.exchangeOrderSystemId ? (
-            <Link to={`/orders/${row.exchangeOrderSystemId}`} className="text-primary hover:underline">
+            <Link href={`/orders/${row.exchangeOrderSystemId}`} className="text-primary hover:underline">
                 {/* We need to get the order ID from systemId - will show systemId for now */}
                 {row.exchangeOrderSystemId.replace('ORD', 'DH')}
             </Link>
         ) : (
             <span className="text-muted-foreground">-</span>
         ),
-        meta: { displayName: "Mã đơn đổi" },
+        meta: { displayName: "M� don d?i" },
         size: 120,
     },
     {
         id: "exchangeQuantity",
         accessorKey: "exchangeItems",
-        header: "Số lượng hàng đổi",
+        header: "S? lu?ng h�ng d?i",
         cell: ({ row }) => {
             const totalQty = row.exchangeItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
             return totalQty > 0 ? <span className="text-center block">{totalQty}</span> : <span className="text-muted-foreground text-center block">-</span>;
         },
-        meta: { displayName: "Số lượng hàng đổi" },
+        meta: { displayName: "S? lu?ng h�ng d?i" },
         size: 150,
     },
     {
         id: "exchangeValue",
         accessorKey: "grandTotalNew",
-        header: "Giá trị hàng đổi",
+        header: "Gi� tr? h�ng d?i",
         cell: ({ row }) => row.grandTotalNew > 0 ? (
             <span className="font-semibold">{formatCurrency(row.grandTotalNew)}</span>
         ) : (
             <span className="text-muted-foreground">-</span>
         ),
-        meta: { displayName: "Giá trị hàng đổi" },
+        meta: { displayName: "Gi� tr? h�ng d?i" },
         size: 140,
     },
     {
         id: "finalAmount",
         accessorKey: "finalAmount",
-        header: "Chênh lệch",
+        header: "Ch�nh l?ch",
         cell: ({ row }) => {
             const value = row.finalAmount;
             const isNegative = value < 0;
@@ -145,29 +145,29 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
                 </span>
             );
         },
-        meta: { displayName: "Chênh lệch" },
+        meta: { displayName: "Ch�nh l?ch" },
         size: 120,
     },
     {
         id: "actions",
-        header: "Hành động",
+        header: "H�nh d?ng",
         cell: ({ row }) => (
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Mở menu</span>
+                        <span className="sr-only">M? menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => onPrint?.(row.systemId)}>
                         <Printer className="mr-2 h-4 w-4" />
-                        In Phiếu Trả Hàng
+                        In Phi?u Tr? H�ng
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
         ),
-        meta: { displayName: "Hành động", sticky: "right" },
+        meta: { displayName: "H�nh d?ng", sticky: "right" },
         size: 80,
     },
 ];

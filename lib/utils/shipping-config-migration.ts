@@ -1,10 +1,13 @@
 /**
  * Shipping Configuration Migration - V2 Multi-Account Structure
+ * 
+ * NOTE: localStorage has been removed - all data comes from API/database
  */
 
 import { ShippingConfig, GlobalShippingConfig, PartnerAccount } from '@/lib/types/shipping-config';
 
-const STORAGE_KEY = 'shipping_partners_config';
+// In-memory cache
+let configCache: ShippingConfig | null = null;
 
 /**
  * Get default global config
@@ -51,49 +54,56 @@ export function getDefaultShippingConfig(): ShippingConfig {
 }
 
 /**
- * Load shipping config from localStorage
+ * Load shipping config from database (async)
  */
-export function loadShippingConfig(): ShippingConfig {
-  const data = localStorage.getItem(STORAGE_KEY);
-  
-  if (data) {
-    try {
-      const config = JSON.parse(data);
-      
-      // If it's V2 format, migrate old 'email' field to 'apiToken' if needed
-      if (config.version === 2 && config.partners) {
-        // ✅ Auto-migrate GHTK credentials from 'email' to 'apiToken'
-        if (config.partners.GHTK?.accounts) {
-          config.partners.GHTK.accounts.forEach((account: any) => {
-            if (account.credentials?.email && !account.credentials?.apiToken) {
-              console.log('🔄 [Migration] Converting GHTK credentials from email to apiToken');
-              account.credentials.apiToken = account.credentials.email;
-              delete account.credentials.email;
-            }
-          });
-          // Save migrated config
-          saveShippingConfig(config);
-        }
-        return config;
-      }
-    } catch (error) {
-      console.error('Failed to parse config:', error);
-    }
+export async function loadShippingConfigAsync(): Promise<ShippingConfig> {
+  try {
+    const response = await fetch('/api/shipping-config');
+    if (!response.ok) throw new Error('Failed to fetch');
+    const config = await response.json();
+    configCache = config;
+    return config;
+  } catch (error) {
+    console.error('[ShippingConfig] Failed to load from database:', error);
+    // Return cached or default
+    return configCache ?? getDefaultShippingConfig();
   }
-  
-  // No config found, return empty V2 structure
-  const newConfig = getDefaultShippingConfig();
-  saveShippingConfig(newConfig);
-  return newConfig;
 }
 
 /**
- * Save shipping config
+ * Load shipping config (sync) - returns cache or default
+ */
+export function loadShippingConfig(): ShippingConfig {
+  // Return cache if available
+  if (configCache) return configCache;
+  
+  // Return default - async load should be triggered on app init
+  return getDefaultShippingConfig();
+}
+
+/**
+ * Save shipping config to database
  */
 export function saveShippingConfig(config: ShippingConfig): void {
   config.lastUpdated = new Date().toISOString();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  console.log('✅ Shipping config saved');
+  
+  // Update cache
+  configCache = config;
+  
+  // Save to database
+  fetch('/api/shipping-config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  }).then(response => {
+    if (response.ok) {
+      console.log('✅ Shipping config saved to database');
+    } else {
+      console.warn('⚠️ Failed to save shipping config to database');
+    }
+  }).catch(error => {
+    console.error('❌ Error saving shipping config to database:', error);
+  });
 }
 
 /**

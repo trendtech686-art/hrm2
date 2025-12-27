@@ -25,7 +25,7 @@ export async function DELETE(
     const { employeeId } = await params;
 
     // Delete from database
-    const deletedFiles = await prisma.fileUpload.deleteMany({
+    const deletedFiles = await prisma.file.deleteMany({
       where: {
         entityType: 'Employee',
         entityId: employeeId,

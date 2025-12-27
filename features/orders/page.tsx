@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate, useLocation } from '@/lib/next-compat';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrderStore } from "./store"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"
-import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus } from "./types"
+import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus } from '@/lib/types/prisma-extended'
 import { Button } from "../../components/ui/button"
 import { Label } from "../../components/ui/label"
 import { Checkbox } from "../../components/ui/checkbox"
@@ -77,8 +77,8 @@ const statusOptions = (Object.keys({
 export function OrdersPage() {
   const orderStore = useOrderStore();
   const orders: Order[] = orderStore.data ?? [];
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { employee: authEmployee } = useAuth();
   const currentEmployeeName = authEmployee?.fullName ?? 'Hệ thống';
   const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
@@ -128,7 +128,8 @@ export function OrdersPage() {
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
     const storageKey = 'orders-column-visibility';
     const stored = localStorage.getItem(storageKey);
-    const cols = getColumns(() => {}, () => {});
+    // Just need column structure, so pass null router
+    const cols = getColumns(() => {}, null as unknown as ReturnType<typeof useRouter>);
     const allColumnIds = cols.map(c => c.id).filter(Boolean);
     if (stored) {
       try {
@@ -152,12 +153,11 @@ export function OrdersPage() {
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
   React.useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const status = params.get('status');
+    const status = searchParams?.get('status');
     if (status) {
       setStatusFilter(new Set([status]));
     }
-  }, [location.search]);
+  }, [searchParams]);
   
   // Reset mobile count when filters change
   React.useEffect(() => {
@@ -256,7 +256,7 @@ export function OrdersPage() {
     onPrintDelivery: handlePrintDelivery,
   }), [handlePrintOrder, handlePrintPacking, handlePrintShippingLabel, handlePrintDelivery]);
   
-  const columns = React.useMemo(() => getColumns(handleCancelRequest, navigate, printActions), [handleCancelRequest, navigate, printActions]);
+  const columns = React.useMemo(() => getColumns(handleCancelRequest, router, printActions), [handleCancelRequest, router, printActions]);
   
   // Set default visible columns - 15+ để có sticky scrollbar
   React.useEffect(() => {
@@ -383,7 +383,7 @@ export function OrdersPage() {
   }, [isMobile, mobileLoadedCount, sortedData.length]);
 
   const handleRowClick = (row: Order) => {
-    navigate(`/orders/${row.systemId}`);
+    router.push(`/orders/${row.systemId}`);
   };
   
   const handleBulkDelete = React.useCallback(() => {
@@ -639,11 +639,11 @@ export function OrdersPage() {
   
   // Header actions - Chỉ còn nút Tạo đơn hàng
   const headerActions = React.useMemo(() => [
-    <Button key="add" size="sm" className="h-9" onClick={() => navigate('/orders/new')}>
+    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/orders/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Tạo đơn hàng
     </Button>
-  ], [navigate]);
+  ], [router]);
   
   usePageHeader({
     title: 'Danh sách đơn hàng',

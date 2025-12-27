@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { formatDate, formatDateCustom, parseDate, isDateAfter, isDateBefore, getDaysDiff } from '../../lib/date-utils';
 import { useInventoryReceiptStore } from "./store";
@@ -19,7 +19,7 @@ import { useMediaQuery } from "../../lib/use-media-query";
 import { Package, Calendar as CalendarIcon, Users, FileText, Printer, Download } from "lucide-react";
 import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types";
-import type { InventoryReceipt } from "./types";
+import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
 import { useBranchStore } from "../settings/branches/store";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
@@ -205,7 +205,7 @@ export function InventoryReceiptsPage() {
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
   const { employee: currentUser } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Export dialog state
@@ -217,7 +217,7 @@ export function InventoryReceiptsPage() {
       variant="outline"
       size="sm"
       className="h-9"
-      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDERS)}
+      onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)}
     >
       Đơn mua hàng
     </Button>,
@@ -225,11 +225,11 @@ export function InventoryReceiptsPage() {
       key="create"
       size="sm"
       className="h-9"
-      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}
+      onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}
     >
       Tạo phiếu nhập
     </Button>,
-  ], [navigate]);
+  ], [router]);
   
   usePageHeader({
     title: 'Danh sách phiếu nhập kho',
@@ -418,8 +418,8 @@ export function InventoryReceiptsPage() {
   }, [sortedData, pagination]);
 
   const handleRowClick = React.useCallback((row: InventoryReceipt) => {
-    navigate(ROUTES.PROCUREMENT.INVENTORY_RECEIPT_VIEW.replace(':systemId', row.systemId));
-  }, [navigate]);
+    router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPT_VIEW.replace(':systemId', row.systemId));
+  }, [router]);
 
   const selectedRows = React.useMemo(() => {
     return sortedData.filter(r => rowSelection[r.systemId]);

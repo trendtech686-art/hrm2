@@ -1,7 +1,7 @@
 import type { ColumnDef } from '../../../components/data-table/types';
-import type { InventoryReportRow } from './types';
+import type { InventoryReportRow } from '@/lib/types/prisma-extended';
 import { Badge } from '../../../components/ui/badge';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { ROUTES, generatePath } from '../../../lib/router';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip';
 import { AlertTriangle } from 'lucide-react';
@@ -15,8 +15,7 @@ export const getColumns = (): ColumnDef<InventoryReportRow>[] => [
         header: 'Sản phẩm', 
         cell: ({ row }) => (
             <div className="flex items-center gap-2">
-                <Link 
-                    to={generatePath(ROUTES.SALES.PRODUCT_VIEW, { systemId: row.productSystemId })} 
+                <Link href={generatePath(ROUTES.SALES.PRODUCT_VIEW, { systemId: row.productSystemId })} 
                     className="font-medium hover:underline text-primary"
                 >
                     {row.productName}

@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '../../lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useSalesReturnStore } from './store';
@@ -35,7 +35,7 @@ import { TouchButton } from '../../components/mobile/touch-button';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { useAuth } from '../../contexts/auth-context';
 import { toast } from 'sonner';
-import type { SalesReturn } from './types';
+import type { SalesReturn } from '@/lib/types/prisma-extended';
 import Fuse from 'fuse.js';
 import { ROUTES } from '../../lib/router';
 
@@ -45,7 +45,7 @@ const formatCurrency = (value?: number) => {
 };
 
 export function SalesReturnsPage() {
-    const navigate = useNavigate();
+    const router = useRouter();
     const { data: returns, getActive } = useSalesReturnStore();
     const { data: branches } = useBranchStore();
     const { info: storeInfo } = useStoreInfoStore();
@@ -57,8 +57,8 @@ export function SalesReturnsPage() {
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
     
     const handleCreateReturn = React.useCallback(() => {
-        navigate(ROUTES.SALES.ORDERS);
-    }, [navigate]);
+        router.push(ROUTES.SALES.ORDERS);
+    }, [router]);
 
     const totalReturnValue = React.useMemo(() =>
         activeReturns.reduce((sum, item) => sum + (item.totalReturnValue || 0), 0),
@@ -280,7 +280,7 @@ export function SalesReturnsPage() {
     React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter]);
 
     const statusOptions = React.useMemo(() => [{ label: 'Đã nhận', value: 'Đã nhận' }, { label: 'Chưa nhận', value: 'Chưa nhận' }], []);
-    const handleRowClick = (row: SalesReturn) => navigate('/returns/' + row.systemId);
+    const handleRowClick = (row: SalesReturn) => router.push('/returns/' + row.systemId);
 
     const allSelectedRows = React.useMemo(() => activeReturns.filter(r => rowSelection[r.systemId]), [activeReturns, rowSelection]);
 

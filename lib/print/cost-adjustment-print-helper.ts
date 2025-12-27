@@ -3,9 +3,9 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu điều chỉnh giá vốn
  */
 
-import type { CostAdjustment, CostAdjustmentItem } from '../../features/cost-adjustments/types';
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
+import type { CostAdjustment } from '@/lib/types/prisma-extended';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { EmployeeModel as Employee } from '@/generated/prisma/models/Employee';
 import { 
   CostAdjustmentForPrint, 
   mapCostAdjustmentToPrintData, 
@@ -29,18 +29,20 @@ export function convertCostAdjustmentForPrint(
   // Tính tổng
   const totalItems = adjustment.items.length;
   const totalIncrease = adjustment.items.reduce((sum, item) => 
-    item.adjustmentAmount > 0 ? sum + item.adjustmentAmount : sum, 0
-  );
+    item.adjustmentAmount > 0 ? sum + item.adjustmentAmount : sum, 0);
   const totalDecrease = adjustment.items.reduce((sum, item) => 
-    item.adjustmentAmount < 0 ? sum + Math.abs(item.adjustmentAmount) : sum, 0
-  );
-  const totalDifference = adjustment.items.reduce((sum, item) => sum + item.adjustmentAmount, 0);
+    item.adjustmentAmount < 0 ? sum + Math.abs(item.adjustmentAmount) : sum, 0);
+  const totalDifference = adjustment.items.reduce((sum, item) => 
+    sum + item.adjustmentAmount, 0);
 
   // Map trạng thái sang tiếng Việt
   const statusMap: Record<string, string> = {
     'draft': 'Nháp',
+    'DRAFT': 'Nháp',
     'confirmed': 'Đã xác nhận',
+    'CONFIRMED': 'Đã xác nhận',
     'cancelled': 'Đã hủy',
+    'CANCELLED': 'Đã hủy',
   };
 
   return {
@@ -63,7 +65,7 @@ export function convertCostAdjustmentForPrint(
       province: branch.province,
     } : undefined,
     
-    // Danh sách sản phẩm
+    // Danh sách sản phẩm - App fields: oldCostPrice, newCostPrice
     items: adjustment.items.map(item => ({
       variantCode: item.productId,
       productName: item.productName,
@@ -73,7 +75,7 @@ export function convertCostAdjustmentForPrint(
       difference: item.adjustmentAmount,
       onHand: 0,
       totalDifference: item.adjustmentAmount,
-      reason: item.reason,
+      reason: item.reason || undefined,
     })),
     
     // Tổng
@@ -82,7 +84,7 @@ export function convertCostAdjustmentForPrint(
     totalIncrease,
     totalDecrease,
     
-    note: adjustment.note,
+    note: adjustment.note || undefined,
   };
 }
 

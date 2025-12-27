@@ -1,7 +1,7 @@
-﻿import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import * as React from 'react';
+import Link from 'next/link';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { PackagingSlip } from './types';
+import type { PackagingSlip } from '@/lib/types/prisma-extended';
 import type { PackagingStatus } from '../orders/types';
 import type { ColumnDef } from '../../components/data-table/types';
 import { Button } from '../../components/ui/button';
@@ -53,22 +53,22 @@ export const getColumns = (
         accessorKey: 'id', 
         header: 'Mã đóng gói', 
         cell: ({ row }) => (
-            <Link to={`/packaging/${row.systemId}`} className="font-medium font-mono text-primary hover:underline">
+            <Link href={`/packaging/${row.systemId}`} className="font-medium font-mono text-primary hover:underline">
                 {row.id}
             </Link>
         ), 
-        meta: { displayName: 'Mã đóng gói' } 
+        meta: { displayName: 'Mã đóng gói' }
     },
     { 
         id: 'orderId', 
         accessorKey: 'orderId', 
         header: 'Mã đơn hàng', 
         cell: ({ row }) => (
-            <Link to={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">
+            <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">
                 {row.orderId}
             </Link>
         ),
-        meta: { displayName: 'Mã đơn hàng' } 
+        meta: { displayName: 'Mã đơn hàng' }
     },
     { 
         id: 'requestDate', 
@@ -145,7 +145,7 @@ export const getColumns = (
         accessorKey: 'cancelReason', 
         header: 'Lý do hủy', 
         cell: ({ row }) => row.cancelReason || '-',
-        meta: { displayName: 'Lý do hủy' } 
+        meta: { displayName: 'Lý do hủy' }
     },
     {
         id: 'actions',

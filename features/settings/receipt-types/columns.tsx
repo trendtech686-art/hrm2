@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { ReceiptType } from "./types";
+import type { ReceiptType } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from "../../../components/data-table/types";
 import {
   DropdownMenu,

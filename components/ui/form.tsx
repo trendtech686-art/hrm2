@@ -114,13 +114,13 @@ const FormControl = React.forwardRef<
     .filter((child): child is React.ReactElement => React.isValidElement(child))
 
   if (childElements.length === 0) {
-    if (import.meta?.env?.DEV) {
+    if (process.env.NODE_ENV === 'development') {
       console.warn('FormControl cần ít nhất một phần tử con hợp lệ')
     }
     return null
   }
 
-  if (childElements.length > 1 && import.meta?.env?.DEV) {
+  if (childElements.length > 1 && process.env.NODE_ENV === 'development') {
     console.warn('FormControl chỉ hỗ trợ một phần tử con. Đang dùng phần tử đầu tiên.')
   }
 

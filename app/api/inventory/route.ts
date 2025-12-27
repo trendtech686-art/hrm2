@@ -56,7 +56,7 @@ export async function GET(request: Request) {
               unit: true,
             },
           },
-          stockLocation: true,
+          location: true,
         },
       }),
       prisma.inventory.count({ where }),
@@ -96,17 +96,15 @@ export async function POST(request: Request) {
     const inventory = await prisma.inventory.create({
       data: {
         systemId: `INV${String(Date.now()).slice(-10).padStart(10, '0')}`,
-        id: `TK${String(Date.now()).slice(-6).padStart(6, '0')}`,
         productId: body.productId,
         locationId: body.locationId,
-        branchId: body.branchId,
         quantity: body.quantity || 0,
-        reservedQuantity: 0,
-        availableQuantity: body.quantity || 0,
+        reservedQty: 0,
+        updatedAt: new Date(),
       },
       include: {
         product: true,
-        stockLocation: true,
+        location: true,
       },
     })
 

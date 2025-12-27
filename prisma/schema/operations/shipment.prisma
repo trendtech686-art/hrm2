@@ -1,59 +1,74 @@
-// ═══════════════════════════════════════════════════════════════
-// SHIPMENT MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: SHIP0000000001 (English, 10 digits)
-// BusinessId: VC0000000001 (Vietnamese - Vận chuyển, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Shipment {
-  systemId          String          @id           // SHIP0000000001
-  id                String          @unique       // VC0000000001
+  systemId         String         @id
+  id               String         @unique
+  trackingCode     String?        @unique
+  orderId          String
+  carrier          String
+  status           ShipmentStatus @default(PENDING)
+  recipientName    String?
+  recipientPhone   String?
+  recipientAddress String?
+  shippingFee      Decimal        @default(0) @db.Decimal(15, 2)
+  codAmount        Decimal        @default(0) @db.Decimal(15, 2)
+  insuranceFee     Decimal        @default(0) @db.Decimal(15, 2)
+  weight           Decimal?       @db.Decimal(10, 2)
+  createdAt        DateTime       @default(now())
+  pickedAt         DateTime?
+  deliveredAt      DateTime?
+  returnedAt       DateTime?
+  notes            String?
+  failReason       String?
+  updatedAt        DateTime       @updatedAt
+  createdBy        String?
+  trackingNumber   String?
   
-  // Related Order
-  orderId           String?
-  order             Order?          @relation(fields: [orderId], references: [systemId])
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Branch
-  branchId          String?
-  branch            Branch?         @relation(fields: [branchId], references: [systemId])
+  // Linking
+  packagingSystemId    String?    // Link to Packaging
+  orderSystemId        String?
+  orderBusinessId      String?    // DH000001
   
-  // Carrier
-  carrier           String?
-  trackingNumber    String?
+  // Carrier details
+  service              String?    // Service name (Chuẩn, Nhanh)
   
-  // Status
-  status            ShipmentStatus  @default(PENDING)
+  // Status details
+  deliveryStatus       String?    // Chờ lấy hàng, Đang giao, etc.
+  printStatus          String     @default("Chưa in")  // Đã in, Chưa in
+  reconciliationStatus String?    // Chưa đối soát, Đã đối soát
+  partnerStatus        String?    // Status from carrier API
+  
+  // Financial
+  shippingFeeToPartner Decimal?   @db.Decimal(15, 2)
+  payer                String?    // 'Người gửi' | 'Người nhận'
   
   // Dates
-  shipDate          DateTime?
-  expectedDelivery  DateTime?
-  actualDelivery    DateTime?
+  dispatchedAt         DateTime?  // Ngày xuất kho
+  cancelledAt          DateTime?  // Ngày hủy
   
-  // Shipping details
-  shippingFee       Decimal         @default(0) @db.Decimal(15, 2)
-  codAmount         Decimal         @default(0) @db.Decimal(15, 2)
-  weight            Decimal?        @db.Decimal(10, 3)
+  // Physical properties
+  dimensions           String?    // 'DxRxC cm'
+  noteToShipper        String?    // Ghi chú cho shipper
   
-  // Recipient
-  recipientName     String?
-  recipientPhone    String?
-  recipientAddress  String?
-  recipientProvince String?
-  recipientDistrict String?
-  recipientWard     String?
+  // GHTK specific fields
+  ghtkStatusId         Int?
+  ghtkReasonCode       String?
+  ghtkReasonText       String?
+  ghtkTrackingId       String?
+  estimatedPickTime    DateTime?
+  estimatedDeliverTime DateTime?
+  lastSyncedAt         DateTime?
+  actualWeight         Decimal?   @db.Decimal(10, 3)
+  actualFee            Decimal?   @db.Decimal(15, 2)
   
-  // Notes
-  notes             String?
+  // Activity History
+  activityHistory      Json?
   
-  // Soft delete
-  isDeleted         Boolean         @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  // === RELATIONS ===
+  order            Order          @relation(fields: [orderId], references: [systemId])
+
+  @@index([carrier])
+  @@index([orderId])
+  @@index([status])
   @@map("shipments")
 }

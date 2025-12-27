@@ -1,34 +1,17 @@
-// ═══════════════════════════════════════════════════════════════
-// COST ADJUSTMENT ITEM MODEL
-// ═══════════════════════════════════════════════════════════════
-
 model CostAdjustmentItem {
-  systemId          String          @id @default(uuid())
-  
-  // Parent Adjustment
+  systemId          String         @id @default(uuid())
   adjustmentId      String
-  costAdjustment    CostAdjustment  @relation(fields: [adjustmentId], references: [systemId])
-  
-  // Product
   productId         String
-  productName       String
-  productSku        String?
-  
-  // Cost
-  oldCost           Decimal         @db.Decimal(15, 2)
-  newCost           Decimal         @db.Decimal(15, 2)
-  adjustment        Decimal         @db.Decimal(15, 2) // newCost - oldCost
-  
-  // Quantity affected
-  quantity          Int             @default(0)
-  totalAdjustment   Decimal         @db.Decimal(15, 2) // adjustment * quantity
-  
-  // Reason
-  reason            String?
-  
-  // Audit
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  
+  productSystemId   String?        // Product systemId
+  productName       String?        // Cached product name
+  productImage      String?        // Product thumbnail
+  oldCost           Decimal        @db.Decimal(15, 2)
+  newCost           Decimal        @db.Decimal(15, 2)
+  adjustmentAmount  Decimal?       @db.Decimal(15, 2) // Chênh lệch = newCost - oldCost
+  adjustmentPercent Decimal?       @db.Decimal(5, 2)  // Phần trăm thay đổi
+  quantity          Int
+  reason            String?        // Lý do điều chỉnh riêng cho item này
+  costAdjustment    CostAdjustment @relation(fields: [adjustmentId], references: [systemId], onDelete: Cascade)
+
   @@map("cost_adjustment_items")
 }

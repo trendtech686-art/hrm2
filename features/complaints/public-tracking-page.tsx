@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useParams } from '@/lib/next-compat';
+import { useParams } from 'next/navigation';
 import { Package, Clock, CheckCircle, XCircle, MessageSquare, User, Calendar, AlertCircle, Image as ImageIcon, ExternalLink, Receipt, DollarSign, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';

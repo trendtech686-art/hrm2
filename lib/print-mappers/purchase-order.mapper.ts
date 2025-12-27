@@ -12,7 +12,7 @@ import {
   numberToWords,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 export interface PurchaseOrderForPrint {
   // Thông tin cơ bản

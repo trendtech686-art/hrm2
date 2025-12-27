@@ -13,4 +13,4 @@ export { categoryImportExportConfig, categoryFields, categoryFieldGroups } from 
 export { orderImportExportConfig, orderFields, orderFieldGroups, flattenOrdersForExport } from './order.config';
 
 // Types re-export for convenience
-export type { ImportExportConfig, FieldConfig } from '../types';
+export type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';

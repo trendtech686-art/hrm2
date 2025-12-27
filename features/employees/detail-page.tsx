@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
-import { Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { Printer, FileSpreadsheet, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -49,7 +49,7 @@ import {
 } from '../../lib/print/leave-print-helper';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
-import type { Employee, EmployeeAddress } from './types';
+import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { 
@@ -204,8 +204,8 @@ interface PayrollHistoryRow {
 
 
 export function EmployeeDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById } = useEmployeeStore();
   const { data: branches } = useBranchStore();
   const { employee: authEmployee } = useAuth();
@@ -437,7 +437,7 @@ export function EmployeeDetailPage() {
                                 <Printer className="mr-2 h-4 w-4" />
                                 In phiếu chấm công
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/attendance?month=${row.monthKey}`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/attendance?month=${row.monthKey}`)}>
                                 <ExternalLink className="mr-2 h-4 w-4" />
                                 Xem bảng chấm công
                             </DropdownMenuItem>
@@ -447,7 +447,7 @@ export function EmployeeDetailPage() {
             ), 
             meta: { displayName: 'Thao tác', sticky: 'right' as const } 
         },
-    ], [handlePrintSingleAttendance, navigate]);
+    ], [handlePrintSingleAttendance, router]);
 
     // ✅ Custom bulk actions cho bảng chấm công
     const attendanceBulkActions = React.useMemo(() => {
@@ -716,7 +716,7 @@ export function EmployeeDetailPage() {
                                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                                 Xuất Excel
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/penalties/${row.systemId}`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/penalties/${row.systemId}`)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 Xem chi tiết
                             </DropdownMenuItem>
@@ -726,7 +726,7 @@ export function EmployeeDetailPage() {
             ), 
             meta: { displayName: 'Thao tác', sticky: 'right' as const } 
         },
-    ], [handlePrintSinglePenalty, handleExportSinglePenalty, navigate]);
+    ], [handlePrintSinglePenalty, handleExportSinglePenalty, router]);
 
     // ✅ Dynamic columns cho Lịch sử nghỉ phép (có action column)
     const leaveColumns: ColumnDef<LeaveRequest>[] = React.useMemo(() => [
@@ -756,7 +756,7 @@ export function EmployeeDetailPage() {
                                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                                 Xuất Excel
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/leaves/${row.systemId}`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/leaves/${row.systemId}`)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 Xem chi tiết
                             </DropdownMenuItem>
@@ -766,7 +766,7 @@ export function EmployeeDetailPage() {
             ), 
             meta: { displayName: 'Thao tác', sticky: 'right' as const } 
         },
-    ], [handlePrintSingleLeave, handleExportSingleLeave, navigate]);
+    ], [handlePrintSingleLeave, handleExportSingleLeave, router]);
 
     // ✅ Task row type for RelatedDataTable
     type TaskRow = {
@@ -849,7 +849,7 @@ export function EmployeeDetailPage() {
                                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                                 Xuất Excel
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(row.link)}>
+                            <DropdownMenuItem onClick={() => router.push(row.link)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 Xem chi tiết
                             </DropdownMenuItem>
@@ -859,7 +859,7 @@ export function EmployeeDetailPage() {
             ), 
             meta: { displayName: 'Thao tác', sticky: 'right' as const } 
         },
-    ], [handleExportSingleTask, navigate]);
+    ], [handleExportSingleTask, router]);
 
     const { batches: payrollBatches, payslips: payrollPayslips } = usePayrollBatchStore();
     const payrollHistory = React.useMemo(() => {
@@ -950,8 +950,7 @@ export function EmployeeDetailPage() {
     // Payroll columns for RelatedDataTable
     const payrollColumns: ColumnDef<PayrollHistoryRow>[] = React.useMemo(() => [
         { id: 'batchId', accessorKey: 'batchId', header: 'Mã BL', size: 95, cell: ({ row }) => (
-            <Link 
-                to={row.batchSystemId ? ROUTES.PAYROLL.DETAIL.replace(':systemId', row.batchSystemId) : '#'}
+            <Link href={row.batchSystemId ? ROUTES.PAYROLL.DETAIL.replace(':systemId', row.batchSystemId) : '#'}
                 className="font-mono text-xs text-primary hover:underline"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -994,7 +993,7 @@ export function EmployeeDetailPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                                 if (row.batchSystemId) {
-                                    navigate(ROUTES.PAYROLL.DETAIL.replace(':systemId', row.batchSystemId));
+                                    router.push(ROUTES.PAYROLL.DETAIL.replace(':systemId', row.batchSystemId));
                                 }
                             }}>
                                 <ExternalLink className="mr-2 h-4 w-4" />
@@ -1006,7 +1005,7 @@ export function EmployeeDetailPage() {
             ), 
             meta: { displayName: 'Thao tác', sticky: 'right' as const } 
         },
-    ], [navigate, handlePrintSinglePayslip]);
+    ], [router, handlePrintSinglePayslip]);
 
     const handlePayrollRowClick = React.useCallback((row: PayrollHistoryRow) => {
         const historyItem = displayedPayrollHistory.find(h => h.slip.systemId === row.systemId);
@@ -1019,9 +1018,9 @@ export function EmployeeDetailPage() {
     const handleViewPayroll = React.useCallback(
         (batchSystemId?: string) => {
             if (!batchSystemId) return;
-            navigate(ROUTES.PAYROLL.DETAIL.replace(':systemId', batchSystemId));
+            router.push(ROUTES.PAYROLL.DETAIL.replace(':systemId', batchSystemId));
         },
-        [navigate]
+        [router]
     );
 
     // ✅ Custom bulk actions for payroll table - sử dụng 4-layer print system
@@ -1111,15 +1110,15 @@ export function EmployeeDetailPage() {
 
     // Actions for detail page
     const headerActions = React.useMemo(() => [
-        <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => navigate('/employees')}>
+        <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay lại
         </Button>,
-        <Button key="edit" size="sm" className="h-9" onClick={() => navigate(`/employees/${systemId}/edit`)}>
+        <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/employees/${systemId}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
             Chỉnh sửa
         </Button>
-    ], [navigate, systemId]);
+    ], [router, systemId]);
 
   // ✅ Auto-generate breadcrumb
   const breadcrumb = React.useMemo(() => {
@@ -1150,7 +1149,7 @@ export function EmployeeDetailPage() {
         <div className="text-center">
           <h2 className="text-h3 font-bold">Không tìm thấy nhân viên</h2>
           <p className="text-muted-foreground mt-2">Nhân viên bạn đang tìm kiếm không tồn tại.</p>
-          <Button onClick={() => navigate('/employees')} className="mt-4" size="sm">
+          <Button onClick={() => router.push('/employees')} className="mt-4" size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
           </Button>
@@ -1198,8 +1197,7 @@ export function EmployeeDetailPage() {
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Building2 className="h-4 w-4" />
                                 {employee.branchSystemId ? (
-                                    <Link 
-                                        to={`/branches/${employee.branchSystemId}`}
+                                    <Link href={`/branches/${employee.branchSystemId}`}
                                         className="hover:underline text-primary"
                                     >
                                         {branchName}
@@ -1366,8 +1364,7 @@ export function EmployeeDetailPage() {
                             <InfoItem label="Email công việc" value={employee.workEmail} />
                             <InfoItem label="Chi nhánh">
                                 {employee.branchSystemId ? (
-                                    <Link 
-                                        to={`/branches/${employee.branchSystemId}`}
+                                    <Link href={`/branches/${employee.branchSystemId}`}
                                         className="hover:underline text-primary"
                                     >
                                         {branchName}
@@ -1433,7 +1430,7 @@ export function EmployeeDetailPage() {
                             dateFilterColumn="issueDate" 
                             dateFilterTitle="Ngày lập phiếu" 
                             exportFileName={`Lich_su_phat_${employee.id}`} 
-                            onRowClick={(row) => navigate(`/penalties/${row.systemId}`)} 
+                            onRowClick={(row) => router.push(`/penalties/${row.systemId}`)} 
                             showCheckbox
                             customBulkActions={penaltyBulkActions}
                         />
@@ -1452,7 +1449,7 @@ export function EmployeeDetailPage() {
                             dateFilterColumn="startDate" 
                             dateFilterTitle="Ngày bắt đầu" 
                             exportFileName={`Lich_su_nghi_phep_${employee.id}`} 
-                            onRowClick={(row) => navigate(`/leaves/${row.systemId}`)} 
+                            onRowClick={(row) => router.push(`/leaves/${row.systemId}`)} 
                             showCheckbox
                             customBulkActions={leaveBulkActions}
                         />
@@ -1475,7 +1472,7 @@ export function EmployeeDetailPage() {
                                                         dateFilterColumn="dueDate" 
                                                         dateFilterTitle="Hạn chót" 
                                                         exportFileName={`Cong_viec_${employee.id}`} 
-                                                        onRowClick={(row) => navigate(row.link)} 
+                                                        onRowClick={(row) => router.push(row.link)} 
                                                         showCheckbox
                                                         customBulkActions={taskBulkActions}
                                                 />
@@ -1967,7 +1964,7 @@ export function EmployeeDetailPage() {
                                 className="flex-1"
                                 onClick={() => {
                                     setIsAttendanceDialogOpen(false);
-                                    navigate(`/attendance?month=${selectedAttendance.monthKey}`);
+                                    router.push(`/attendance?month=${selectedAttendance.monthKey}`);
                                 }}
                             >
                                 <ExternalLink className="mr-2 h-4 w-4" />

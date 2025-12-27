@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { Unit } from './types'
+import type { Unit } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { Button } from "../../../components/ui/button";

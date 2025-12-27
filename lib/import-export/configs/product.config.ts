@@ -1,5 +1,5 @@
-import type { Product, ProductType as ProductTypeEnum } from '@/features/products/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { Product, ProductType as ProductTypeEnum } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { usePricingPolicyStore } from '@/features/settings/pricing/store';
 import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
 import { asSystemId } from '@/lib/id-types';

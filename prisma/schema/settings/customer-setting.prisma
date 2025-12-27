@@ -1,0 +1,22 @@
+model CustomerSetting {
+  systemId    String    @id @default(uuid())
+  id          String
+  name        String
+  type        String
+  description String?
+  color       String?
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  orderIndex  Int?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+
+  @@unique([id, type])
+  @@index([type])
+  @@map("customer_settings")
+}

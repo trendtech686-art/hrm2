@@ -101,8 +101,6 @@ export async function POST(request: Request) {
         id: body.id,
         month: body.month,
         year: body.year,
-        periodStart: body.periodStart ? new Date(body.periodStart) : new Date(body.year, body.month - 1, 1),
-        periodEnd: body.periodEnd ? new Date(body.periodEnd) : new Date(body.year, body.month, 0),
         status: body.status || 'DRAFT',
         items: {
           create: body.items?.map((item: any) => ({

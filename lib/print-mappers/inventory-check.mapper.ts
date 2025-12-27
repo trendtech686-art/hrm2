@@ -10,7 +10,7 @@ import {
   formatTime,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 export interface InventoryCheckForPrint {
   // Thông tin cơ bản

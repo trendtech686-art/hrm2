@@ -1,22 +1,12 @@
-// ═══════════════════════════════════════════════════════════════
-// BASE CONFIGURATION
-// ═══════════════════════════════════════════════════════════════
-// Generator, Datasource, and Shared Enums
-// ═══════════════════════════════════════════════════════════════
-
 generator client {
-  provider        = "prisma-client"
-  output          = "../../generated/prisma"
-  engineType      = "client"
+  provider   = "prisma-client"
+  output     = "../../generated/prisma"
+  engineType = "client"
 }
 
 datasource db {
   provider = "postgresql"
 }
-
-// ═══════════════════════════════════════════════════════════════
-// SHARED ENUMS
-// ═══════════════════════════════════════════════════════════════
 
 enum UserRole {
   ADMIN
@@ -32,49 +22,38 @@ enum Gender {
 
 enum EmployeeType {
   FULLTIME
-  PARTTIME
-  CONTRACT
-  INTERN
   PROBATION
+  INTERN
+  PARTTIME
 }
 
 enum EmploymentStatus {
   ACTIVE
-  INACTIVE
-  ONLEAVE
+  ON_LEAVE
   TERMINATED
-  RESIGNED
 }
 
 enum OrderStatus {
-  DRAFT
   PENDING
-  CONFIRMED
   PROCESSING
-  READY
-  SHIPPING
-  DELIVERED
   COMPLETED
   CANCELLED
-  RETURNED
 }
 
 enum PaymentStatus {
-  PENDING
+  UNPAID
   PARTIAL
   PAID
-  REFUNDED
-  FAILED
 }
 
 enum ShipmentStatus {
   PENDING
-  PICKED_UP
+  PICKED
   IN_TRANSIT
-  OUT_FOR_DELIVERY
+  DELIVERING
   DELIVERED
-  FAILED
   RETURNED
+  CANCELLED
 }
 
 enum LeaveStatus {
@@ -90,7 +69,6 @@ enum LeaveType {
   MATERNITY
   PATERNITY
   UNPAID
-  COMPENSATORY
   OTHER
 }
 
@@ -110,13 +88,10 @@ enum TaskPriority {
 }
 
 enum WarrantyStatus {
-  PENDING
   RECEIVED
-  DIAGNOSING
+  PROCESSING
   WAITING_PARTS
-  REPAIRING
-  TESTING
-  READY
+  COMPLETED
   RETURNED
   CANCELLED
 }
@@ -126,53 +101,19 @@ enum ComplaintStatus {
   IN_PROGRESS
   RESOLVED
   CLOSED
-  ESCALATED
-}
-
-enum StockMovementType {
-  IN
-  OUT
-  TRANSFER
-  ADJUSTMENT
-  RETURN
-}
-
-enum TransactionType {
-  RECEIPT
-  PAYMENT
 }
 
 enum ProductStatus {
   ACTIVE
   INACTIVE
   DISCONTINUED
-  OUT_OF_STOCK
 }
 
 enum PurchaseOrderStatus {
   DRAFT
   PENDING
-  APPROVED
-  ORDERED
-  PARTIAL
-  RECEIVED
-  COMPLETED
-  CANCELLED
-}
-
-enum ReturnStatus {
-  PENDING
-  APPROVED
-  PROCESSING
-  COMPLETED
-  REJECTED
-}
-
-enum TransferStatus {
-  PENDING
-  APPROVED
-  IN_TRANSIT
-  PARTIAL
+  CONFIRMED
+  RECEIVING
   COMPLETED
   CANCELLED
 }
@@ -181,5 +122,23 @@ enum ComplaintPriority {
   LOW
   MEDIUM
   HIGH
-  URGENT
+  CRITICAL
+}
+
+// === Order Additional Statuses (Phase 7) ===
+
+enum PrintStatus {
+  PRINTED
+  NOT_PRINTED
+}
+
+enum StockOutStatus {
+  NOT_STOCKED_OUT
+  FULLY_STOCKED_OUT
+}
+
+enum ReturnStatus {
+  NO_RETURN
+  PARTIAL_RETURN
+  FULL_RETURN
 }

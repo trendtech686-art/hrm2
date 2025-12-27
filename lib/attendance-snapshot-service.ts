@@ -1,5 +1,5 @@
 import { useAttendanceStore } from '../features/attendance/store';
-import type { AttendanceDataRow } from '../features/attendance/types';
+import type { AttendanceDataRow } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from './id-types';
 
 type SnapshotQuery = {

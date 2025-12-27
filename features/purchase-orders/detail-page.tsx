@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { ROUTES } from '../../lib/router';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate, toISODateTime } from '@/lib/date-utils';
 import { useForm } from 'react-hook-form';
@@ -44,7 +45,7 @@ import { usePurchaseReturnStore } from '../purchase-returns/store';
 import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
 import { Badge } from '../../components/ui/badge';
 import { useAuth } from '../../contexts/auth-context';
-import type { PurchaseOrder, PaymentStatus } from './types';
+import type { PurchaseOrder, PurchaseOrderPaymentStatus as PaymentStatus } from '@/lib/types/prisma-extended';
 import { getPaymentsForPurchaseOrder, getReceiptsForPurchaseOrder, sumPaymentsForPurchaseOrder } from './payment-utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
@@ -310,8 +311,7 @@ function InventoryReceiptDetailView({
               {receipt.items.map(item => (
                 <TableRow key={item.productSystemId}>
                   <TableCell>
-                    <Link 
-                      to={`/products/${item.productSystemId}`}
+                    <Link href={`/products/${item.productSystemId}`}
                       className="text-body-sm font-medium text-primary hover:underline"
                     >
                       {item.productId}
@@ -375,7 +375,7 @@ function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPrintRetu
                     <>
                     <span>{formatCurrency(purchaseReturn.refundAmount)} - {purchaseReturn.refundMethod}</span>
                     {refundReceipt && (
-                        <Link to={`/receipts/${refundReceipt.systemId}`} className="ml-2 text-body-sm font-medium text-primary hover:underline">
+                        <Link href={`/receipts/${refundReceipt.systemId}`} className="ml-2 text-body-sm font-medium text-primary hover:underline">
                         ({refundReceipt.id})
                         </Link>
                     )}
@@ -409,8 +409,7 @@ function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPrintRetu
                 {purchaseReturn.items.map((item, index) => (
                   <TableRow key={item.productSystemId}>
                     <TableCell>
-                      <Link 
-                        to={`/products/${item.productSystemId}`}
+                      <Link href={`/products/${item.productSystemId}`}
                         className="text-body-sm font-medium text-primary hover:underline"
                       >
                         {item.productId}
@@ -502,8 +501,7 @@ function StockHistoryTab({
                                             </Button>
                                         </TableCell>
                                         <TableCell className="font-medium">
-                                            <Link 
-                                                to={isReceipt ? `/inventory-receipts/${data.systemId}` : `/purchase-returns/${data.systemId}`}
+                                            <Link href={isReceipt ? `/inventory-receipts/${data.systemId}` : `/purchase-returns/${data.systemId}`}
                                                 className="text-body-sm font-medium text-primary hover:underline"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
@@ -579,7 +577,7 @@ function StockHistoryTab({
 
 export function PurchaseOrderDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById, processInventoryReceipt, finishOrder, cancelOrder } = usePurchaseOrderStore();
   const purchaseOrder = findById(systemId!);
   
@@ -590,7 +588,7 @@ export function PurchaseOrderDetailPage() {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-h2 mb-4">Không tìm thấy đơn hàng</h2>
           <p className="text-body-sm text-muted-foreground mb-6">Đơn hàng với mã {systemId} không tồn tại hoặc đã bị xóa.</p>
-          <Button onClick={() => navigate('/purchase-orders')}>
+          <Button onClick={() => router.push('/purchase-orders')}>
             Quay lại danh sách
           </Button>
         </div>
@@ -938,7 +936,7 @@ export function PurchaseOrderDetailPage() {
 
     // Nhóm nút bên trái (Thoát, Sao chép, In đơn)
     const leftButtons = [
-      <Button key="exit" variant="outline" size="sm" onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="h-9">
+      <Button key="exit" variant="outline" size="sm" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="h-9">
         Thoát
       </Button>
     ];
@@ -947,7 +945,7 @@ export function PurchaseOrderDetailPage() {
       leftButtons.push(
         <Button key="copy" variant="outline" size="sm" onClick={() => {
           // Copy order logic - navigate to new order with pre-filled data
-          navigate(`${ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW}?copy=${purchaseOrder.systemId}`);
+          router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW}?copy=${purchaseOrder.systemId}`);
         }} className="h-9">
           Sao chép
         </Button>
@@ -974,7 +972,7 @@ export function PurchaseOrderDetailPage() {
 
     if (canEdit) {
       actionButtons.push(
-        <Button key="edit" variant="outline" size="sm" onClick={() => navigate(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/edit`)} className="h-9">
+        <Button key="edit" variant="outline" size="sm" onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/edit`)} className="h-9">
           <Edit className="mr-2 h-4 w-4" />
           Sửa
         </Button>
@@ -983,7 +981,7 @@ export function PurchaseOrderDetailPage() {
 
     if (canReturn) {
       actionButtons.push(
-        <Button key="return" variant="outline" size="sm" onClick={() => navigate(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/return`)} className="h-9">
+        <Button key="return" variant="outline" size="sm" onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/return`)} className="h-9">
           <Undo2 className="mr-2 h-4 w-4" />
           Hoàn trả
         </Button>
@@ -1000,7 +998,7 @@ export function PurchaseOrderDetailPage() {
     }
 
     return actionButtons;
-  }, [navigate, purchaseOrder, canBeFinished, canReturn, finishOrder, currentUserSystemId, currentUserName, handleCancelRequest, handlePrint]);
+  }, [router, purchaseOrder, canBeFinished, canReturn, finishOrder, currentUserSystemId, currentUserName, handleCancelRequest, handlePrint]);
 
   usePageHeader({ 
     actions,
@@ -1183,7 +1181,7 @@ export function PurchaseOrderDetailPage() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold">Không tìm thấy đơn nhập hàng</h2>
-          <Button onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="mt-4"><ArrowLeft className="mr-2 h-4 w-4" />Quay về danh sách</Button>
+          <Button onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="mt-4"><ArrowLeft className="mr-2 h-4 w-4" />Quay về danh sách</Button>
         </div>
       </div>
     );
@@ -1191,7 +1189,7 @@ export function PurchaseOrderDetailPage() {
   
   const handleSupplierClick = () => {
     if (supplier) {
-      navigate(`${ROUTES.PROCUREMENT.SUPPLIERS}/${supplier.systemId}`);
+      router.push(`${ROUTES.PROCUREMENT.SUPPLIERS}/${supplier.systemId}`);
     }
   };
   
@@ -1625,15 +1623,13 @@ export function PurchaseOrderDetailPage() {
                                       </TableCell>
                                       <TableCell>
                                         <div className="flex flex-col gap-1">
-                                          <Link 
-                                            to={`/products/${item.productSystemId}`} 
+                                          <Link href={`/products/${item.productSystemId}`} 
                                             className="text-body-sm font-medium text-primary hover:underline"
                                           >
                                             {item.productName}
                                           </Link>
                                           <div className="flex items-center gap-1 text-body-xs text-muted-foreground">
-                                            <Link 
-                                              to={`/products/${item.productSystemId}`} 
+                                            <Link href={`/products/${item.productSystemId}`} 
                                               className="text-primary hover:underline"
                                             >
                                               {item.sku || item.productId}

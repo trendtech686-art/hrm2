@@ -6,7 +6,7 @@ import { asSystemId, asBusinessId } from "@/lib/id-types";
 import { ProvinceForm, type ProvinceFormValues } from "./form";
 import { WardForm, type WardFormValues } from "./ward-form";
 import { DistrictForm, type DistrictFormValues } from "./district-form";
-import type { Province, Ward, District } from "./types";
+import type { Province, Ward, District } from '@/lib/types/prisma-extended';
 import { useSettingsPageHeader } from "../use-settings-page-header";
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import {

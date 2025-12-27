@@ -1,60 +1,72 @@
-// ═══════════════════════════════════════════════════════════════
-// PURCHASE ORDER MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PO0000000001 (English, 10 digits)
-// BusinessId: PN0000000001 (Vietnamese - Phiếu nhập, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model PurchaseOrder {
-  systemId          String                @id           // PO0000000001
-  id                String                @unique       // PN0000000001
+  systemId     String              @id
+  id           String              @unique
+  supplierId   String
+  branchId     String?
+  employeeId   String?
+  orderDate    DateTime            @default(now())
+  expectedDate DateTime?
+  receivedDate DateTime?
+  status       PurchaseOrderStatus @default(DRAFT)
+  subtotal     Decimal             @default(0) @db.Decimal(15, 2)
+  discount     Decimal             @default(0) @db.Decimal(15, 2)
+  tax          Decimal             @default(0) @db.Decimal(15, 2)
+  total        Decimal             @default(0) @db.Decimal(15, 2)
+  paid         Decimal             @default(0) @db.Decimal(15, 2)
+  debt         Decimal             @default(0) @db.Decimal(15, 2)
+  notes        String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  createdBy    String?
+  updatedBy    String?
+  deletedAt    DateTime?
+  isDeleted    Boolean             @default(false)
   
-  // Supplier
-  supplierId        String?
-  supplier          Supplier?             @relation(fields: [supplierId], references: [systemId])
-  supplierName      String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Branch
-  branchId          String?
-  branch            Branch?               @relation(fields: [branchId], references: [systemId])
+  // Supplier & branch info (denormalized)
+  supplierSystemId     String?
+  supplierName         String?
+  branchSystemId       String?
+  branchName           String?
   
-  // Order details
-  orderDate         DateTime              @default(now())
-  expectedDate      DateTime?
-  receivedDate      DateTime?
+  // Buyer/creator info
+  buyerSystemId        String?
+  buyer                String?      // Employee who created PO
+  creatorSystemId      String?
+  creatorName          String?
   
-  // Status
-  status            PurchaseOrderStatus   @default(DRAFT)
-  paymentStatus     PaymentStatus         @default(PENDING)
+  // Delivery & payment status
+  deliveryDate         DateTime?    // was expectedDeliveryDate
+  deliveryStatus       String       @default("Chưa nhập")  // 'Chưa nhập' | 'Đã nhập một phần' | 'Đã nhập'
+  paymentStatus        String       @default("Chưa thanh toán")  // Payment status
+  returnStatus         String?      // 'Chưa hoàn trả' | 'Hoàn hàng một phần' | 'Hoàn hàng toàn bộ'
+  refundStatus         String?      // 'Chưa hoàn tiền' | 'Hoàn tiền một phần' | 'Hoàn tiền toàn bộ'
   
-  // Amounts
-  subtotal          Decimal               @default(0) @db.Decimal(15, 2)
-  discount          Decimal               @default(0) @db.Decimal(15, 2)
-  tax               Decimal               @default(0) @db.Decimal(15, 2)
-  shippingFee       Decimal               @default(0) @db.Decimal(15, 2)
-  total             Decimal               @default(0) @db.Decimal(15, 2)
-  paidAmount        Decimal               @default(0) @db.Decimal(15, 2)
+  // Line items (stored as JSON for flexibility)
+  lineItems            Json?        // Array of PurchaseOrderLineItem
   
-  // Notes
-  notes             String?
-  internalNotes     String?
+  // Financial
+  discountType         String?      // 'percentage' | 'fixed'
+  shippingFee          Decimal      @default(0) @db.Decimal(15, 2)
+  grandTotal           Decimal      @default(0) @db.Decimal(15, 2)
   
-  // Relations
-  items             PurchaseOrderItem[]
-  payments          Payment[]
-  purchaseReturns   PurchaseReturn[]
+  // Linked receipts
+  inventoryReceiptIds  String[]     // Array of inventory receipt IDs
   
-  // Soft delete
-  isDeleted         Boolean               @default(false)
-  deletedAt         DateTime?
+  // External reference
+  reference            String?
   
-  // Audit
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  approvedBy        String?
-  approvedAt        DateTime?
+  // Activity History
+  activityHistory      Json?
   
+  // === RELATIONS ===
+  payments     Payment[]
+  items        PurchaseOrderItem[]
+  supplier     Supplier            @relation(fields: [supplierId], references: [systemId])
+
+  @@index([orderDate])
+  @@index([status])
+  @@index([supplierId])
   @@map("purchase_orders")
 }

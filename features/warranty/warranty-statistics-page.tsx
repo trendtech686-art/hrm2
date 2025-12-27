@@ -8,7 +8,7 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -106,17 +106,17 @@ function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }:
  * Main Statistics Page
  */
 export function WarrantyStatisticsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: tickets } = useWarrantyStore();
 
   const stats = useWarrantyStatistics(tickets);
 
   const actions = React.useMemo(() => [
-    <Button key="back" variant="outline" onClick={() => navigate("/warranty")}>
+    <Button key="back" variant="outline" onClick={() => router.push("/warranty")}>
       <ArrowLeft className="h-4 w-4 mr-2" />
       Quay lại
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   usePageHeader({ 
     actions,

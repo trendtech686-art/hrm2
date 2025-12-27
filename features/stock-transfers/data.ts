@@ -1,4 +1,4 @@
-import type { StockTransfer } from './types';
+import type { StockTransfer } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export const data: StockTransfer[] = [

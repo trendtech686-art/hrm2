@@ -2,7 +2,7 @@ import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { usePaymentTypeStore } from "./store";
-import type { PaymentType } from "./types";
+import type { PaymentType } from '@/lib/types/prisma-extended';
 import { PaymentTypeForm, type PaymentTypeFormValues } from "./form";
 import { Button } from "../../../../components/ui/button";
 import { Switch } from "../../../../components/ui/switch";

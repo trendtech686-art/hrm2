@@ -39,7 +39,7 @@ export async function GET(request: Request) {
               },
             },
           },
-          _count: { select: { products: true } },
+          _count: { select: { productCategories: true } },
         },
       })
       return NextResponse.json({ data: categories })
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
         orderBy: { name: 'asc' },
         include: {
           parent: true,
-          _count: { select: { products: true, children: true } },
+          _count: { select: { productCategories: true, children: true } },
         },
       })
       return NextResponse.json({ data: categories })
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
         orderBy: { sortOrder: 'asc' },
         include: {
           parent: true,
-          _count: { select: { products: true, children: true } },
+          _count: { select: { productCategories: true, children: true } },
         },
       }),
       prisma.category.count({ where }),

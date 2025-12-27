@@ -930,6 +930,76 @@ export const ID_CONFIG: Record<EntityType, EntityIDConfig> = {
     category: 'system',
     usesStoreFactory: false,
   },
+  
+  // ========================================
+  // 🌐 PKGX INTEGRATION (phukiengiaxuong.com.vn)
+  // ========================================
+  
+  'pkgx-categories': {
+    entityType: 'pkgx-categories',
+    prefix: ENTITY_PREFIXES['pkgx-categories'], // 'PKGXCAT'
+    systemIdPrefix: 'PKGXCAT',
+    digitCount: 6,
+    displayName: 'Danh mục PKGX',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Danh mục từ website phukiengiaxuong.com.vn',
+  },
+  
+  'pkgx-brands': {
+    entityType: 'pkgx-brands',
+    prefix: ENTITY_PREFIXES['pkgx-brands'], // 'PKGXBRAND'
+    systemIdPrefix: 'PKGXBRAND',
+    digitCount: 6,
+    displayName: 'Thương hiệu PKGX',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Thương hiệu từ website phukiengiaxuong.com.vn',
+  },
+  
+  'pkgx-category-mappings': {
+    entityType: 'pkgx-category-mappings',
+    prefix: ENTITY_PREFIXES['pkgx-category-mappings'], // 'CATMAP'
+    systemIdPrefix: 'CATMAP',
+    digitCount: 6,
+    displayName: 'Mapping danh mục PKGX',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Mapping danh mục HRM ↔ PKGX',
+  },
+  
+  'pkgx-brand-mappings': {
+    entityType: 'pkgx-brand-mappings',
+    prefix: ENTITY_PREFIXES['pkgx-brand-mappings'], // 'BRANDMAP'
+    systemIdPrefix: 'BRANDMAP',
+    digitCount: 6,
+    displayName: 'Mapping thương hiệu PKGX',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Mapping thương hiệu HRM ↔ PKGX',
+  },
+  
+  'pkgx-price-mappings': {
+    entityType: 'pkgx-price-mappings',
+    prefix: ENTITY_PREFIXES['pkgx-price-mappings'], // 'PRICEMAP'
+    systemIdPrefix: 'PRICEMAP',
+    digitCount: 6,
+    displayName: 'Mapping giá PKGX',
+    category: 'settings',
+    usesStoreFactory: false,
+    notes: 'Mapping bảng giá HRM → PKGX price fields',
+  },
+  
+  'pkgx-sync-logs': {
+    entityType: 'pkgx-sync-logs',
+    prefix: ENTITY_PREFIXES['pkgx-sync-logs'], // 'PKGXLOG'
+    systemIdPrefix: 'PKGXLOG',
+    digitCount: 6,
+    displayName: 'Log đồng bộ PKGX',
+    category: 'system',
+    usesStoreFactory: false,
+    notes: 'Lưu lịch sử đồng bộ với PKGX',
+  },
 };
 
 // ========================================

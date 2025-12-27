@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { Navigate } from '@/lib/next-compat';
+import { redirect } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 
 /**
@@ -9,11 +9,11 @@ import { ROUTES } from '../../lib/router';
  * Component này redirect về trang settings với tab templates
  */
 export function PayrollTemplatePage() {
-  // Redirect về /settings/employees với state để mở tab templates
+  // Save flag để employee settings page biết cần mở tab nào
   React.useEffect(() => {
-    // Save flag để employee settings page biết cần mở tab nào
     sessionStorage.setItem('employee-settings-active-tab', 'templates');
+    redirect(ROUTES.SETTINGS.EMPLOYEES);
   }, []);
 
-  return <Navigate to={ROUTES.SETTINGS.EMPLOYEES} replace />;
+  return null;
 }

@@ -3,10 +3,10 @@
  * Helpers để chuẩn bị dữ liệu in cho đơn hàng
  */
 
-import type { Order, LineItem, Packaging } from '../../features/orders/types';
-import type { Customer } from '../../features/customers/types';
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
+import type { Order, LineItem, Packaging } from '../../features/orders/store';
+import type { Customer } from '@/lib/types/prisma-extended';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   OrderForPrint, 
   DeliveryForPrint, 
@@ -294,9 +294,10 @@ export function convertToPackingForPrint(
 
 /**
  * Tạo StoreSettings từ Branch và branding info
+ * Note: branch param accepts any object with name/address/phone for flexibility with API responses
  */
 export function createStoreSettings(
-  branch?: Branch | null,
+  branch?: { name?: string; address?: string; phone?: string } | null,
   options?: { logo?: string | null }
 ): StoreSettings {
   if (!branch) {

@@ -1,4 +1,4 @@
-import type { LeaveRequest } from './types';
+import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import type { LeaveType } from '../settings/employees/types';
 import { useEmployeeStore } from '../employees/store';
 import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';

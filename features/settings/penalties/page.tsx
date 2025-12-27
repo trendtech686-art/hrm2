@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '../../../lib/date-utils'
 import { usePenaltyStore, usePenaltyTypeStore } from "./store"
 import { useEmployeeStore } from "../../employees/store";
@@ -79,7 +79,7 @@ export function PenaltiesPage() {
   const { data: employees } = useEmployeeStore();
   const { data: branches } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { print, printMultiple } = usePrint();
   
   // Print dialog state
@@ -91,11 +91,11 @@ export function PenaltiesPage() {
   
   // ✅ Memoize actions
   const headerActions = React.useMemo(() => [
-    <Button key="add" size="sm" className="h-9" onClick={() => navigate('/penalties/new')}>
+    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/penalties/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Tạo phiếu phạt
     </Button>
-  ], [navigate]);
+  ], [router]);
   
   // Set page header
   usePageHeader({
@@ -167,7 +167,7 @@ export function PenaltiesPage() {
     });
   }, [update]);
 
-  const columns = React.useMemo(() => getColumns(handleMarkPaid, handleCancel, navigate), [handleMarkPaid, handleCancel, navigate]);
+  const columns = React.useMemo(() => getColumns(handleMarkPaid, handleCancel, router), [handleMarkPaid, handleCancel, router]);
 
   const buildDefaultVisibility = React.useCallback(() => {
     const defaultVisibleColumns = new Set([
@@ -402,7 +402,7 @@ export function PenaltiesPage() {
   ];
 
   const handleRowClick = (row: Penalty) => {
-    navigate(`/penalties/${row.systemId}`);
+    router.push(`/penalties/${row.systemId}`);
   };
 
   // Mobile Penalty Card Component
@@ -443,7 +443,7 @@ export function PenaltiesPage() {
                 </TouchButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/penalties/${penalty.systemId}/edit`); }}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`); }}>
                   Chỉnh sửa
                 </DropdownMenuItem>
               </DropdownMenuContent>

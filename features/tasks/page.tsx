@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useTaskStore } from "./store"
 import { getColumns } from "./columns"
 import type { Task, TaskStatus, TaskPriority } from "./types"
@@ -32,7 +32,7 @@ export function TasksPage() {
   const { data: employees } = useEmployeeStore();
   const { isMobile } = useBreakpoint();
   const { isAdmin, employee } = useAuth();
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   
   // Quick filters state
   const [activeQuickFilters, setActiveQuickFilters] = React.useState<string[]>([]);
@@ -86,7 +86,7 @@ export function TasksPage() {
     setIsAlertOpen(true);
   }, []);
 
-  const columns = React.useMemo(() => getColumns(handleDelete, () => {}, navigate, isAdmin), [handleDelete, navigate, isAdmin]);
+  const columns = React.useMemo(() => getColumns(handleDelete, () => {}, router.push, isAdmin), [handleDelete, router, isAdmin]);
   
   // Initialize column visibility and order only once
   const [isColumnsInitialized, setIsColumnsInitialized] = React.useState(false);
@@ -218,7 +218,7 @@ export function TasksPage() {
   [tasks, rowSelection]);
   
   const handleRowClick = (row: Task) => {
-    navigate(`/tasks/${row.systemId}`);
+    router.push(`/tasks/${row.systemId}`);
   };
   
   // Quick filter handlers
@@ -264,7 +264,7 @@ export function TasksPage() {
           variant="outline"
           size="sm"
           className="h-9"
-          onClick={() => navigate('/tasks/recurring')}
+          onClick={() => router.push('/tasks/recurring')}
         >
           <Repeat className="mr-2 h-4 w-4" />
           Lặp lại
@@ -274,7 +274,7 @@ export function TasksPage() {
           variant="outline"
           size="sm"
           className="h-9"
-          onClick={() => navigate('/tasks/templates')}
+          onClick={() => router.push('/tasks/templates')}
         >
           <FileText className="mr-2 h-4 w-4" />
           Mẫu
@@ -284,7 +284,7 @@ export function TasksPage() {
           variant="outline"
           size="sm"
           className="h-9"
-          onClick={() => navigate('/tasks/fields')}
+          onClick={() => router.push('/tasks/fields')}
         >
           <Settings className="mr-2 h-4 w-4" />
           Trường
@@ -294,7 +294,7 @@ export function TasksPage() {
           variant="outline"
           size="sm"
           className="h-9"
-          onClick={() => navigate('/tasks/dashboard')}
+          onClick={() => router.push('/tasks/dashboard')}
         >
           <BarChart3 className="mr-2 h-4 w-4" />
           Dashboard
@@ -305,14 +305,14 @@ export function TasksPage() {
     // Only admin can create tasks
     if (isAdmin) {
       actionButtons.push(
-        <Button key="new" onClick={() => navigate('/tasks/new')} size="sm" className="h-9">
+        <Button key="new" onClick={() => router.push('/tasks/new')} size="sm" className="h-9">
           <PlusCircle className="mr-2 h-4 w-4" /> Tạo công việc mới
         </Button>
       );
     }
     
     return actionButtons;
-  }, [viewMode, navigate, isAdmin]);
+  }, [viewMode, router, isAdmin]);
 
   const taskStats = React.useMemo(() => {
     return tasks.reduce(

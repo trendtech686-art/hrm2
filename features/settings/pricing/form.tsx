@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { PricingPolicy } from "./types";
+import type { PricingPolicy } from '@/lib/types/prisma-extended';
 import { pricingPolicySchema, validateUniqueId } from "./validation";
 import { usePricingPolicyStore } from "./store";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";

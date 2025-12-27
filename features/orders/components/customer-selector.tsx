@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Users2, PlusCircle, X, Copy } from 'lucide-react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import type { Customer } from '../../customers/types';
 import { useCustomerStore } from '../../customers/store';
 import { useOrderStore } from '../store';
@@ -388,7 +388,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                             <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <Link to={`/customers/${selectedCustomer.systemId}`} className="font-semibold text-primary truncate">
+                                        <Link href={`/customers/${selectedCustomer.systemId}`} className="font-semibold text-primary truncate">
                                             {selectedCustomer.name}
                                         </Link>
                                         {selectedCustomer.tags && selectedCustomer.tags.length > 0 && (
@@ -462,7 +462,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                             <span className="text-muted-foreground">{metric.label}:</span>
                                             <div className="text-right">
                                                 {metric.link ? (
-                                                    <Link to={metric.link} className="inline-flex items-center gap-1">
+                                                    <Link href={metric.link} className="inline-flex items-center gap-1">
                                                         <span className={`font-medium ${getToneClass(metric.tone)}`}>{metric.value}</span>
                                                         {metric.badge && (
                                                             <Badge variant="secondary" className={`text-[10px] px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}>

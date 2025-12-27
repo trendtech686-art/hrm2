@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useFormContext, Controller, useWatch } from 'react-hook-form';
 import { useDebounce } from '../../../hooks/use-debounce';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -69,7 +69,7 @@ const PartnerAvatar = ({ name }: { name: string }) => {
 
 
 export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
-    const navigate = useNavigate();
+    const router = useRouter();
     const { control, getValues, setValue } = useFormContext();
     const { data: allPartners } = useShippingPartnerStore();
     const { settings: shippingSettings } = useShippingSettingsStore();
@@ -661,7 +661,7 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => navigate('/settings/shipping-partners')}
+                                                                onClick={() => router.push('/settings/shipping-partners')}
                                                             >
                                                                 Cấu hình
                                                             </Button>

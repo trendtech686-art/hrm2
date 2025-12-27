@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     }
 
     if (category) {
-      where.categoryId = category
+      where.category = category
     }
 
     if (published === 'true') {
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     }
 
     const [articles, total] = await Promise.all([
-      prisma.wikiPage.findMany({
+      prisma.wiki.findMany({
         where,
         skip,
         take: limit,
@@ -46,17 +46,17 @@ export async function GET(request: Request) {
           id: true,
           title: true,
           slug: true,
-          categoryId: true,
-          category: {
-            select: { systemId: true, name: true },
-          },
+          category: true,
           tags: true,
           isPublished: true,
           createdAt: true,
           updatedAt: true,
+          author: {
+            select: { systemId: true, fullName: true },
+          },
         },
       }),
-      prisma.wikiPage.count({ where }),
+      prisma.wiki.count({ where }),
     ])
 
     return NextResponse.json({
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
     // Generate business ID
     if (!body.id) {
-      const lastWiki = await prisma.wikiPage.findFirst({
+      const lastWiki = await prisma.wiki.findFirst({
         orderBy: { createdAt: 'desc' },
         select: { id: true },
       })
@@ -104,17 +104,18 @@ export async function POST(request: Request) {
       body.id = `TL${String(lastNum + 1).padStart(6, '0')}`
     }
 
-    const wiki = await prisma.wikiPage.create({
+    const wiki = await prisma.wiki.create({
       data: {
         systemId: `WIKI${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         title: body.title,
         slug: body.slug,
         content: body.content,
-        categoryId: body.categoryId || body.category,
+        category: body.categoryId || body.category,
         tags: body.tags || [],
         isPublished: body.isPublished ?? false,
-        createdBy: body.authorId,
+        authorId: body.authorId,
+        updatedAt: new Date(),
       },
     })
 

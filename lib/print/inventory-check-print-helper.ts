@@ -3,9 +3,7 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu kiểm kho
  */
 
-import type { InventoryCheck, InventoryCheckItem } from '../../features/inventory-checks/types';
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
+import type { InventoryCheck, Branch, Employee } from '@/lib/types/prisma-extended';
 import { 
   InventoryCheckForPrint, 
   mapInventoryCheckToPrintData, 
@@ -34,8 +32,14 @@ export function convertInventoryCheckForPrint(
   // Map trạng thái sang tiếng Việt
   const statusMap: Record<string, string> = {
     'draft': 'Nháp',
+    'DRAFT': 'Nháp',
+    'in_progress': 'Đang kiểm',
+    'IN_PROGRESS': 'Đang kiểm',
+    'completed': 'Hoàn thành',
+    'COMPLETED': 'Hoàn thành',
     'balanced': 'Đã cân bằng',
     'cancelled': 'Đã hủy',
+    'CANCELLED': 'Đã hủy',
   };
 
   // Map lý do sang tiếng Việt

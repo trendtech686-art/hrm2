@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useTaskTemplateStore } from './template-store';
 import { useEmployeeStore } from '../employees/store';
 import { useTaskStore } from './store';
@@ -67,7 +67,7 @@ function Wallet(props: any) { return <div {...props}>💼</div>; }
 function FileText(props: any) { return <div {...props}>📄</div>; }
 
 export function TaskTemplatesPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const templateStore = useTaskTemplateStore();
   const { data: employees } = useEmployeeStore();
   const taskStore = useTaskStore();
@@ -86,7 +86,7 @@ export function TaskTemplatesPage() {
 
   usePageHeader({
     actions: [
-      <Button key="create" onClick={() => navigate('/tasks/templates/new')}>
+      <Button key="create" onClick={() => router.push('/tasks/templates/new')}>
         <Plus className="mr-2 h-4 w-4" />
         Tạo mẫu mới
       </Button>
@@ -159,7 +159,7 @@ export function TaskTemplatesPage() {
 
       toast.success(`Đã tạo công việc từ mẫu "${selectedTemplate.name}"`);
       setShowUseDialog(false);
-      navigate('/tasks');
+      router.push('/tasks');
     } catch (error) {
       toast.error('Không thể tạo công việc từ mẫu');
     }
@@ -317,7 +317,7 @@ export function TaskTemplatesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigate(`/tasks/templates/${template.systemId}`)}
+                        onClick={() => router.push(`/tasks/templates/${template.systemId}`)}
                       >
                         <Eye className="h-3 w-3" />
                       </Button>

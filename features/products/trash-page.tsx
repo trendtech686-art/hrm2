@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate } from '@/lib/date-utils'
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
@@ -11,16 +11,16 @@ import { GenericTrashPage } from "../../components/shared/generic-trash-page"
 import { Card, CardContent } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
-import type { Product } from "./types"
+import type { Product } from "@/lib/types/prisma-extended"
 import type { SystemId } from "@/lib/id-types";
 
 export function ProductsTrashPage() {
   const store = useProductStore();
   const { data, getDeleted, restore, remove } = store;
-  const navigate = useNavigate();
+  const router = useRouter();
   
-  const handleNavigateBack = React.useCallback(() => navigate('/products'), [navigate]);
-  const handleCreateProduct = React.useCallback(() => navigate('/products/new'), [navigate]);
+  const handleNavigateBack = React.useCallback(() => router.push('/products'), [router]);
+  const handleCreateProduct = React.useCallback(() => router.push('/products/new'), [router]);
 
   const headerActions = React.useMemo(() => [
     <Button
@@ -76,9 +76,9 @@ export function ProductsTrashPage() {
   const columns = React.useMemo(
     () => {
       // Pass real handlers to columns for button clicks
-      return getColumns(navigate, handleRestoreFromColumn, handleDeleteFromColumn);
+      return getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn);
     },
-    [navigate, handleRestoreFromColumn, handleDeleteFromColumn, data] // Add data to re-create columns on store update
+    [router, handleRestoreFromColumn, handleDeleteFromColumn, data] // Add data to re-create columns on store update
   );
 
   // Custom mobile card for products

@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate, useParams, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useInventoryCheckStore } from './store';
 import { useBranchStore } from '../settings/branches/store';
 import { useProductStore } from '../products/store';
@@ -25,8 +26,8 @@ import { toast } from 'sonner';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
-import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from './types';
-import type { Product } from '../products/types';
+import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from '@/lib/types/prisma-extended';
+import type { Product } from '@/lib/types/prisma-extended';
 
 const DIFFERENCE_REASONS: { value: DifferenceReason; label: string }[] = [
   { value: 'other', label: 'Khác' },
@@ -38,7 +39,7 @@ const DIFFERENCE_REASONS: { value: DifferenceReason; label: string }[] = [
 ];
 
 export function InventoryCheckFormPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { systemId } = useParams<{ systemId: string }>();
   const isEditMode = !!systemId;
   
@@ -113,7 +114,7 @@ export function InventoryCheckFormPage() {
         });
       } else {
         toast.error('Không tìm thấy phiếu kiểm hàng');
-        navigate('/inventory-checks');
+        router.push('/inventory-checks');
       }
     } else if (!isEditMode) {
       // Auto-select default branch for new form
@@ -122,7 +123,7 @@ export function InventoryCheckFormPage() {
         setBranchSystemId(defaultBranch.systemId);
       }
     }
-  }, [isEditMode, systemId, findById, navigate, branches]);
+  }, [isEditMode, systemId, findById, router, branches]);
 
   // Get branch name
   const selectedBranch = React.useMemo(() => 
@@ -329,8 +330,8 @@ export function InventoryCheckFormPage() {
       toast.success('Đã tạo phiếu kiểm hàng');
     }
 
-    navigate('/inventory-checks');
-  }, [branchSystemId, items, isEditMode, systemId, findById, selectedBranch, note, update, customId, currentUserSystemId, add, navigate]);
+    router.push('/inventory-checks');
+  }, [branchSystemId, items, isEditMode, systemId, findById, selectedBranch, note, update, customId, currentUserSystemId, add, router]);
 
   // Balance
   const handleBalance = React.useCallback(() => {
@@ -389,7 +390,7 @@ export function InventoryCheckFormPage() {
     try {
       await balanceCheck(asSystemId(checkSystemId));
       toast.success('Đã cân bằng kho thành công');
-      navigate(`/inventory-checks/${checkSystemId}`);
+      router.push(`/inventory-checks/${checkSystemId}`);
     } catch (error) {
       toast.error('Không thể cân bằng kho, vui lòng thử lại');
     } finally {
@@ -412,7 +413,7 @@ export function InventoryCheckFormPage() {
     if (isEditMode) {
       // Actions cho chế độ sửa
       return [
-        <Button key="cancel" variant="outline" onClick={() => navigate('/inventory-checks')} className="h-9">
+        <Button key="cancel" variant="outline" onClick={() => router.push('/inventory-checks')} className="h-9">
           Hủy
         </Button>,
         <Button key="save" onClick={() => handleSaveDraftRef.current()} className="h-9">
@@ -422,7 +423,7 @@ export function InventoryCheckFormPage() {
     } else {
       // Actions cho chế độ thêm mới
       return [
-        <Button key="cancel" variant="outline" onClick={() => navigate('/inventory-checks')} className="h-9">
+        <Button key="cancel" variant="outline" onClick={() => router.push('/inventory-checks')} className="h-9">
           Hủy
         </Button>,
         <Button key="save" variant="outline" onClick={() => handleSaveDraftRef.current()} className="h-9">
@@ -433,7 +434,7 @@ export function InventoryCheckFormPage() {
         </Button>
       ];
     }
-  }, [isEditMode, navigate]);
+  }, [isEditMode, router]);
 
   // Breadcrumb
   const breadcrumb = React.useMemo(() => [
@@ -736,7 +737,7 @@ export function InventoryCheckFormPage() {
                               <td className="px-3 py-2">
                                 <div>
                                   <button
-                                    onClick={() => navigate(`/products/${item.productSystemId}`)}
+                                    onClick={() => router.push(`/products/${item.productSystemId}`)}
                                     className="text-blue-600 hover:underline dark:text-blue-400 font-medium text-body-sm text-left"
                                   >
                                     {item.productName}

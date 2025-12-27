@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
-import type { Branch } from '@/features/settings/branches/types'
+import type { Branch } from '@/lib/types/prisma-extended'
 
 const API_BASE = '/api/branches'
 

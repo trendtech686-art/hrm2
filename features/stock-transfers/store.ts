@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { StockTransfer, StockTransferStatus, StockTransferItem } from './types';
+import type { StockTransfer, StockTransferStatus, StockTransferItem } from '@/lib/types/prisma-extended';
 import { data as initialData } from './data';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
 import { useProductStore } from '../products/store';

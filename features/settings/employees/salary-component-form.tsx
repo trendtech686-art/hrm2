@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
-import type { SalaryComponent, SalaryComponentCategory } from "./types";
+import type { SalaryComponent, SalaryComponentCategory } from '@/lib/types/prisma-extended';
 import { Button } from "../../../components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
 import { Input } from "../../../components/ui/input";

@@ -1,6 +1,6 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { useFormContext, useFieldArray, Controller, useWatch } from 'react-hook-form';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { AlertTriangle, X, Package, Eye, ChevronDown, ChevronRight, StickyNote, Pencil } from 'lucide-react';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../../components/ui/table';
 import { NumberInput } from '../../../components/ui/number-input';
@@ -27,7 +27,7 @@ const formatCurrency = (value?: number) => {
     return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-// Helper component để hiển thị ảnh combo child với server priority
+// Helper component d? hi?n th? ?nh combo child v?i server priority
 const ComboChildImage = ({ 
     product, 
     productName, 
@@ -64,7 +64,7 @@ const ComboChildImage = ({
     );
 };
 
-// ✅ Memoized row component để tránh re-render không cần thiết
+// ? Memoized row component d? tr�nh re-render kh�ng c?n thi?t
 const LineItemRow = React.memo(({
     item,
     index,
@@ -103,7 +103,7 @@ const LineItemRow = React.memo(({
     }, [pricingPolicyId, pricingPolicies]);
     const [isComboExpanded, setIsComboExpanded] = React.useState(false);
     
-    // ✅ Watch quantity và discountType để tính toán
+    // ? Watch quantity v� discountType d? t�nh to�n
     const quantity = useWatch({ control, name: `${fieldName}.${index}.quantity`, defaultValue: 1 });
     const discountType = useWatch({ control, name: `${fieldName}.${index}.discountType`, defaultValue: 'fixed' });
     const note = useWatch({ control, name: `${fieldName}.${index}.note`, defaultValue: '' });
@@ -135,7 +135,7 @@ const LineItemRow = React.memo(({
         });
     }, [isCombo, product?.comboItems, allProducts, effectivePolicyId]);
 
-    // ✅ Get image from store
+    // ? Get image from store
     const permanentImages = useImageStore(state => state.permanentImages[item.productSystemId]);
     const lastFetched = useImageStore(state => state.permanentMeta[item.productSystemId]?.lastFetched);
     const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
@@ -143,17 +143,17 @@ const LineItemRow = React.memo(({
     const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
     const storeGallery = permanentImages?.gallery?.[0]?.url;
     
-    // ✅ Ưu tiên ảnh từ server trước, sau đó mới đến product data
+    // ? Uu ti�n ?nh t? server tru?c, sau d� m?i d?n product data
     const displayImage = React.useMemo(() => {
-        // 1. Ảnh từ server (ưu tiên cao nhất)
+        // 1. ?nh t? server (uu ti�n cao nh?t)
         if (storeThumbnail) return storeThumbnail;
         if (storeGallery) return storeGallery;
-        // 2. Ảnh từ product data (mock/seed)
+        // 2. ?nh t? product data (mock/seed)
         if (!product) return undefined;
         return product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
     }, [storeThumbnail, storeGallery, product]);
 
-    // ✅ Fetch image if missing
+    // ? Fetch image if missing
     React.useEffect(() => {
         if (!displayImage && !lastFetched && item.productSystemId) {
             FileUploadAPI.getProductFiles(item.productSystemId)
@@ -184,7 +184,7 @@ const LineItemRow = React.memo(({
         }
     }, [item.productSystemId, displayImage, lastFetched, updatePermanentImages]);
 
-    // ✅ Memoize stock calculation
+    // ? Memoize stock calculation
     const stockInfo = React.useMemo(() => {
         if (!branchSystemId || !product) {
             return { stock: 0, isValid: false };
@@ -209,16 +209,16 @@ const LineItemRow = React.memo(({
             case 'combo':
                 return 'Combo';
             case 'service':
-                return 'Dịch vụ';
+                return 'D?ch v?';
             case 'digital':
-                return 'Sản phẩm số';
+                return 'S?n ph?m s?';
             default:
-                return 'Hàng hóa';
+                return 'H�ng h�a';
         }
     }, [product]);
     
     const isOutOfStock = stockInfo.isValid && quantity > stockInfo.stock;
-    const isService = item.productId === 'DỊCH-VỤ';
+    const isService = item.productId === 'D?CH-V?';
     const isPercentage = discountType === 'percentage';
     
     return (
@@ -268,8 +268,7 @@ const LineItemRow = React.memo(({
                 <TableCell>
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                            <Link
-                                to={`/products/${item.productSystemId}`}
+                            <Link href={`/products/${item.productSystemId}`}
                                 className="font-medium text-primary hover:underline"
                             >
                                 {item.productName}
@@ -284,8 +283,7 @@ const LineItemRow = React.memo(({
                             <div className="flex items-center gap-1 text-xs text-muted-foreground group/info">
                                 <span>{productTypeLabel}</span>
                                 <span>-</span>
-                                <Link
-                                    to={`/products/${item.productSystemId}`}
+                                <Link href={`/products/${item.productSystemId}`}
                                     className="text-primary hover:underline"
                                     onClick={(e) => e.stopPropagation()}
                                 >
@@ -316,7 +314,7 @@ const LineItemRow = React.memo(({
                                             onClick={() => onEditNote(index)}
                                             className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground ml-1 opacity-0 group-hover/info:opacity-100 transition-opacity"
                                         >
-                                            Thêm ghi chú
+                                            Th�m ghi ch�
                                         </Button>
                                     )
                                 )}
@@ -324,7 +322,7 @@ const LineItemRow = React.memo(({
                             {!isService && isOutOfStock && (
                                 <div className="flex items-center gap-1 text-destructive">
                                     <AlertTriangle className="h-3 w-3" />
-                                    <span>Không đủ</span>
+                                    <span>Kh�ng d?</span>
                                 </div>
                             )}
                         </div>
@@ -378,7 +376,7 @@ const LineItemRow = React.memo(({
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="fixed">đ</SelectItem>
+                                        <SelectItem value="fixed">d</SelectItem>
                                         <SelectItem value="percentage">%</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -442,7 +440,7 @@ const LineItemRow = React.memo(({
                         return (
                         <TableRow key={`combo-${index}-${ciIndex}`} className="bg-muted/30">
                             <TableCell className="text-center text-muted-foreground pl-8">
-                                <span className="text-muted-foreground/50">└</span>
+                                <span className="text-muted-foreground/50">+</span>
                             </TableCell>
                             <TableCell>
                                 <ComboChildImage 
@@ -454,11 +452,10 @@ const LineItemRow = React.memo(({
                             <TableCell>
                                 <div className="flex flex-col gap-0.5">
                                     <p className="text-sm text-muted-foreground">
-                                        {comboItem.product?.name || 'Sản phẩm không tồn tại'}
+                                        {comboItem.product?.name || 'S?n ph?m kh�ng t?n t?i'}
                                     </p>
                                     {comboItem.product && (
-                                        <Link
-                                            to={`/products/${comboItem.product.systemId}`}
+                                        <Link href={`/products/${comboItem.product.systemId}`}
                                             className="text-xs text-primary hover:underline"
                                             onClick={(e) => e.stopPropagation()}
                                         >
@@ -510,7 +507,7 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
         name: "serviceFees",
     });
     
-    // ✅ Đổi watch → useWatch để tối ưu performance
+    // ? �?i watch ? useWatch d? t?i uu performance
     const branchSystemId = useWatch({ control, name: 'branchSystemId' });
 
     const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
@@ -523,7 +520,7 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
         setPreviewState({ open: true, image, title });
     }, []);
 
-    // State cho dialog ghi chú
+    // State cho dialog ghi ch�
     const [editingNoteIndex, setEditingNoteIndex] = React.useState<number | null>(null);
     const [tempNote, setTempNote] = React.useState('');
 
@@ -553,18 +550,18 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                 <TableHeader>
                     <TableRow>
                         <TableHead className="w-[50px] text-center">STT</TableHead>
-                        <TableHead className="w-[60px]">Ảnh</TableHead>
-                        <TableHead>Tên sản phẩm</TableHead>
-                        <TableHead className="w-[140px]">Số lượng</TableHead>
-                        <TableHead className="w-[200px]">Đơn giá</TableHead>
-                        <TableHead className="w-[140px]">Thuế</TableHead>
-                        <TableHead className="w-[200px]">Chiết khấu</TableHead>
-                        <TableHead className="w-[120px] text-right">Thành tiền</TableHead>
+                        <TableHead className="w-[60px]">?nh</TableHead>
+                        <TableHead>T�n s?n ph?m</TableHead>
+                        <TableHead className="w-[140px]">S? lu?ng</TableHead>
+                        <TableHead className="w-[200px]">�on gi�</TableHead>
+                        <TableHead className="w-[140px]">Thu?</TableHead>
+                        <TableHead className="w-[200px]">Chi?t kh?u</TableHead>
+                        <TableHead className="w-[120px] text-right">Th�nh ti?n</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {/* ✅ Dùng LineItemRow component đã được memoized */}
+                    {/* ? D�ng LineItemRow component d� du?c memoized */}
                     {fields.map((item, index) => (
                         <LineItemRow
                             key={item.id}
@@ -595,7 +592,7 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                                     <TableCell className="text-center text-muted-foreground">{fields.length + index + 1}</TableCell>
                                     <TableCell colSpan={5}>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium text-orange-700">[Phí dịch vụ]</span>
+                                            <span className="text-sm font-medium text-orange-700">[Ph� d?ch v?]</span>
                                             <span className="font-medium">{(fee as any).name}</span>
                                         </div>
                                     </TableCell>
@@ -629,20 +626,20 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                 title={previewState.title}
             />
 
-            {/* Dialog ghi chú cho sản phẩm */}
+            {/* Dialog ghi ch� cho s?n ph?m */}
             <Dialog open={editingNoteIndex !== null} onOpenChange={(open) => !open && setEditingNoteIndex(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Ghi chú sản phẩm</DialogTitle>
+                        <DialogTitle>Ghi ch� s?n ph?m</DialogTitle>
                         <DialogDescription>
                             {editingNoteIndex !== null && fields[editingNoteIndex] && (
-                                <span>Ghi chú cho: {fields[editingNoteIndex].productName}</span>
+                                <span>Ghi ch� cho: {fields[editingNoteIndex].productName}</span>
                             )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
                         <Textarea
-                            placeholder="Nhập ghi chú cho sản phẩm..."
+                            placeholder="Nh?p ghi ch� cho s?n ph?m..."
                             value={tempNote}
                             onChange={(e) => setTempNote(e.target.value)}
                             rows={4}
@@ -650,10 +647,10 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditingNoteIndex(null)}>
-                            Hủy
+                            H?y
                         </Button>
                         <Button onClick={handleSaveNote}>
-                            Lưu ghi chú
+                            Luu ghi ch�
                         </Button>
                     </DialogFooter>
                 </DialogContent>

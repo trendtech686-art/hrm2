@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
@@ -7,7 +8,6 @@ import { useOrderStore } from '../../orders/store';
 import { useWarrantyStore } from '../../warranty/store';
 import { useProductStore } from '../store';
 import { SystemId } from '../../../lib/id-types';
-import * as ReactRouterDOM from '@/lib/next-compat';
 
 interface CommittedStockDialogProps {
   open: boolean;
@@ -29,7 +29,7 @@ export function CommittedStockDialog({
   const { data: allOrders } = useOrderStore();
   const { data: allWarranties } = useWarrantyStore();
   const { findById: findProductById } = useProductStore();
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
 
   // Get product to find SKU (business ID)
   const product = React.useMemo(() => findProductById(productSystemId), [productSystemId, findProductById]);
@@ -150,9 +150,9 @@ export function CommittedStockDialog({
 
   const handleRowClick = (item: typeof allCommittedItems[0]) => {
     if (item.type === 'Đơn hàng') {
-      navigate(`/orders/${item.systemId}`);
+      router.push(`/orders/${item.systemId}`);
     } else {
-      navigate(`/warranty/${item.systemId}`);
+      router.push(`/warranty/${item.systemId}`);
     }
     onOpenChange(false);
   };

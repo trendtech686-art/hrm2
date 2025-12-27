@@ -1,60 +1,80 @@
-// ═══════════════════════════════════════════════════════════════
-// CUSTOMER MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: CUSTOMER000001 (English)
-// BusinessId: KH000001 (Vietnamese - Khách hàng)
-// ═══════════════════════════════════════════════════════════════
-
 model Customer {
-  systemId          String    @id           // CUSTOMER000001
-  id                String    @unique       // KH000001
-  name              String
+  systemId         String            @id
+  id               String            @unique
+  name             String
+  email            String?
+  phone            String?
+  company          String?
+  companyName      String?
+  status           CustomerStatus    @default(ACTIVE)
+  taxCode          String?
+  representative   String?
+  position         String?
+  addresses        Json?
+  currentDebt      Decimal?          @default(0) @db.Decimal(15, 2)
+  maxDebt          Decimal?          @db.Decimal(15, 2)
+  lifecycleStage   CustomerLifecycle @default(LEAD)
+  pricingLevel     PricingLevel?
+  defaultDiscount  Decimal?          @db.Decimal(5, 2)
+  totalOrders      Int?              @default(0)
+  totalSpent       Decimal?          @default(0) @db.Decimal(15, 2)
+  lastPurchaseDate DateTime?
+  accountManagerId String?
+  tags             String[]
+  notes            String?
   
-  // Contact
-  phone             String?
-  email             String?
-  contactPerson     String?
+  // Contact & Banking (added from types.ts comparison)
+  zaloPhone        String?
+  bankName         String?
+  bankAccount      String?
   
-  // Address
-  address           String?
-  province          String?
-  provinceId        String?
-  district          String?
-  districtId        Int?
-  ward              String?
-  wardCode          String?
+  // Customer Classification (added from types.ts comparison)
+  type             String?           // Customer type ID from settings
+  customerGroup    String?           // Customer group ID from settings
+  rfmScores        Json?             // {recency, frequency, monetary}
+  segment          String?           // RFM segment: Champions, Loyal, At Risk, etc.
+  healthScore      Int?              // 0-100
+  churnRisk        String?           // low, medium, high
   
-  // Business info
-  taxCode           String?
-  companyName       String?
+  // Source & Campaign Tracking (added from types.ts comparison)
+  source           String?           // Lead source ID
+  campaign         String?           // Campaign name or code
+  referredBy       String?           // Customer systemId who referred
   
-  // Classification
-  customerType      String?   // B2B, B2C, VIP, etc.
-  customerGroup     String?
-  source            String?
+  // Multiple Contacts (added from types.ts comparison)
+  contacts         Json?             // Array of contact objects
   
-  // Credit
-  creditLimit       Decimal?  @db.Decimal(15, 2)
-  currentDebt       Decimal   @default(0) @db.Decimal(15, 2)
+  // Payment Terms & Credit (added from types.ts comparison)
+  paymentTerms     String?           // Payment term ID (COD, NET7, NET15...)
+  creditRating     String?           // Credit rating ID (AAA, AA, A...)
+  allowCredit      Boolean?          @default(true)
   
-  // Notes
-  notes             String?
-  tags              String[]
+  // Contract Information (added from types.ts comparison)
+  contract         Json?             // Contract info object
   
-  // Relations
-  orders            Order[]
-  complaints        Complaint[]
-  salesReturns      SalesReturn[]
+  // Images & Social (added from types.ts comparison)
+  images           String[]          // Image URLs
+  social           Json?             // {facebook, linkedin, website}
   
-  // Soft delete
-  isDeleted         Boolean   @default(false)
-  deletedAt         DateTime?
+  // Follow-up Tracking (added from types.ts comparison)
+  lastContactDate     DateTime?
+  nextFollowUpDate    DateTime?
+  followUpReason      String?
+  followUpAssigneeId  String?
   
-  // Audit
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  isDeleted        Boolean           @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  complaints       Complaint[]
+  orders           Order[]
+  receipts         Receipt[]
+  warranties       Warranty[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([status])
   @@map("customers")
 }

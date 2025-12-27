@@ -17,7 +17,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
@@ -104,7 +104,7 @@ interface CounterInfo extends CounterTableRow {
 }
 
 export function IDCounterSettingsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const [selectedEntity, setSelectedEntity] = React.useState<CounterInfo | null>(null);

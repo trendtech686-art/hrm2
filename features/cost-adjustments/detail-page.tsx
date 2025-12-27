@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useCostAdjustmentStore } from './store';
 import { useProductStore } from '../products/store';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
@@ -37,7 +38,7 @@ import { CheckCircle, XCircle, Printer, Package, TrendingUp, TrendingDown, Arrow
 import { toast } from 'sonner';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import type { CostAdjustmentStatus, CostAdjustment } from './types';
+import type { CostAdjustmentStatus, CostAdjustment } from '@/lib/types/prisma-extended';
 import { usePrint } from '../../lib/use-print';
 import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
 
@@ -119,8 +120,8 @@ function buildHistoryEntries(adjustment: CostAdjustment): HistoryEntry[] {
 }
 
 export function CostAdjustmentDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeStore();
@@ -222,7 +223,7 @@ export function CostAdjustmentDetailPage() {
   const handleConfirm = () => {
     if (!adjustment || !currentEmployee) return;
     
-    const success = confirm(adjustment.systemId, currentEmployee.systemId, currentEmployee.fullName);
+    const success = confirm(adjustment.systemId, asSystemId(currentEmployee.systemId), currentEmployee.fullName);
     if (success) {
       toast.success('Đã xác nhận phiếu điều chỉnh giá vốn');
     } else {
@@ -234,7 +235,7 @@ export function CostAdjustmentDetailPage() {
   const handleCancel = () => {
     if (!adjustment || !currentEmployee) return;
     
-    const success = cancel(adjustment.systemId, currentEmployee.systemId, currentEmployee.fullName, cancelReason);
+    const success = cancel(adjustment.systemId, asSystemId(currentEmployee.systemId), currentEmployee.fullName, cancelReason);
     if (success) {
       toast.success('Đã hủy phiếu điều chỉnh');
     } else {
@@ -312,7 +313,7 @@ export function CostAdjustmentDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Không tìm thấy phiếu điều chỉnh</p>
-        <Button variant="link" onClick={() => navigate('/cost-adjustments')}>
+        <Button variant="link" onClick={() => router.push('/cost-adjustments')}>
           Quay lại danh sách
         </Button>
       </div>
@@ -433,12 +434,12 @@ export function CostAdjustmentDetailPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <ReactRouterDOM.Link 
-                          to={`/products/${item.productSystemId}`}
+                        <Link 
+                          href={`/products/${item.productSystemId}`}
                           className="font-medium text-primary hover:underline"
                         >
                           {item.productName}
-                        </ReactRouterDOM.Link>
+                        </Link>
                         <p className="text-sm text-muted-foreground">{item.productId}</p>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{productTypeName}</TableCell>

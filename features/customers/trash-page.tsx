@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate, formatDateTime } from '@/lib/date-utils'
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
@@ -13,12 +13,12 @@ import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { ArrowLeft, RotateCcw, Trash2, Phone, Mail, Building2 } from "lucide-react"
-import type { Customer } from "./types"
+import type { Customer } from "@/lib/types/prisma-extended"
 import type { SystemId } from '@/lib/id-types'
 
 export function CustomersTrashPage() {
   const { data, getDeleted, restore, remove } = useCustomerStore();
-  const navigate = useNavigate();
+  const router = useRouter();
   
   usePageHeader({
     title: 'Thùng rác khách hàng',
@@ -29,7 +29,7 @@ export function CustomersTrashPage() {
     ],
     showBackButton: false,
     actions: [
-      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => navigate('/customers')}>
+      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/customers')}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Quay lại
       </Button>,
@@ -56,8 +56,8 @@ export function CustomersTrashPage() {
   }, [remove]);
 
   const columns = React.useMemo(
-    () => getColumns(navigate, handleRestoreFromColumn, handleDeleteFromColumn),
-    [navigate, handleRestoreFromColumn, handleDeleteFromColumn, data]
+    () => getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn),
+    [router, handleRestoreFromColumn, handleDeleteFromColumn, data]
   );
 
   const getInitials = (name: string) => {

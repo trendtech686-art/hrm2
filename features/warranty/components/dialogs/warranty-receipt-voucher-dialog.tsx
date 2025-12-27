@@ -8,7 +8,7 @@
 
 import * as React from 'react';
 import { useForm, Controller, type RegisterOptions } from 'react-hook-form';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -59,7 +59,7 @@ export function WarrantyReceiptVoucherDialog({
   existingReceipts = [],
 }: WarrantyReceiptVoucherDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
   
   const { add: addReceipt } = useReceiptStore();
   const { findById, addHistory } = useWarrantyStore();
@@ -196,7 +196,7 @@ export function WarrantyReceiptVoucherDialog({
         description: `Thu ${values.amount.toLocaleString('vi-VN')} đ từ ${customer.name}`,
         action: {
           label: 'Xem phiếu thu',
-          onClick: () => navigate(`/receipts/${newReceipt.systemId}`),
+          onClick: () => router.push(`/receipts/${newReceipt.systemId}`),
         },
       });
 

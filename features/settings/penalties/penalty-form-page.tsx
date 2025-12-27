@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { usePenaltyStore } from './store';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { PenaltyForm } from './form';
@@ -12,16 +12,16 @@ import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
 
 export function PenaltyFormPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById, add, update, remove } = usePenaltyStore();
 
   const penalty = React.useMemo(() => (systemId ? (findById(asSystemId(systemId)) ?? null) : null), [systemId, findById]);
   const isEdit = !!systemId;
 
   const handleCancel = React.useCallback(() => {
-    navigate('/penalties');
-  }, [navigate]);
+    router.push('/penalties');
+  }, [router]);
 
   const actions = React.useMemo(() => [
     <Button 
@@ -74,20 +74,20 @@ export function PenaltyFormPage() {
       add(values);
       toast.success('Đã tạo phiếu phạt mới');
     }
-    navigate('/penalties');
+    router.push('/penalties');
   };
 
   const handleDelete = (systemIdToRemove: string) => {
     remove(asSystemId(systemIdToRemove));
     toast.success('Đã xóa phiếu phạt');
-    navigate('/penalties');
+    router.push('/penalties');
   };
 
   if (isEdit && !penalty) {
     return (
       <div className="text-center p-8">
         <h2 className="text-2xl font-bold">Không tìm thấy phiếu phạt</h2>
-        <Button onClick={() => navigate('/penalties')} className="mt-4">
+        <Button onClick={() => router.push('/penalties')} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay về danh sách
         </Button>

@@ -1,4 +1,4 @@
-import type { ShippingPartner } from './types';
+import type { ShippingPartner } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 

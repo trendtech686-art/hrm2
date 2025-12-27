@@ -1,52 +1,79 @@
-// ═══════════════════════════════════════════════════════════════
-// PAYMENT MODEL (Chi tiền)
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PAY0000000001 (English, 10 digits)
-// BusinessId: PC0000000001 (Vietnamese - Phiếu chi, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Payment {
-  systemId          String          @id           // PAY0000000001
-  id                String          @unique       // PC0000000001
+  systemId        String         @id
+  id              String         @unique
+  type            PaymentType
+  supplierId      String?
+  employeeId      String?
+  branchId        String
+  accountId       String?
+  referenceType   String?
+  referenceId     String?
+  amount          Decimal        @db.Decimal(15, 2)
+  paymentMethod   String?
+  paymentDate     DateTime       @default(now())
+  description     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdBy       String?
+  method          String?
+  purchaseOrderId String?
   
-  // Related Purchase Order
-  purchaseOrderId   String?
-  purchaseOrder     PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [systemId])
-  
-  // Supplier
-  supplierId        String?
-  supplierName      String?
-  
-  // Branch
-  branchId          String?
-  branch            Branch?         @relation(fields: [branchId], references: [systemId])
-  
-  // Cash Account
-  cashAccountId     String?
-  cashAccount       CashAccount?    @relation(fields: [cashAccountId], references: [systemId])
-  
-  // Payment details
-  paymentDate       DateTime        @default(now())
-  amount            Decimal         @db.Decimal(15, 2)
-  paymentMethod     String?
-  reference         String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
   // Status
-  status            String          @default("completed")
+  status             String       @default("completed") // 'completed' | 'cancelled'
+  category           String?      // 'purchase' | 'complaint_refund' | 'warranty_refund' | etc.
+  cancelledAt        DateTime?
   
-  // Notes
-  description       String?
-  notes             String?
+  // Recipient info (Link to TargetGroup settings)
+  recipientTypeSystemId  String?  // Link to TargetGroup
+  recipientTypeName      String?  // Cached name
+  recipientName          String?
+  recipientSystemId      String?  // Link to customer/supplier/employee
   
-  // Soft delete
-  isDeleted         Boolean         @default(false)
-  deletedAt         DateTime?
+  // Payment Method (Link to PaymentMethod settings)
+  paymentMethodSystemId   String?
+  paymentMethodName       String?
   
-  // Audit
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  // Account & Type (Link to settings)
+  accountSystemId             String?
+  paymentReceiptTypeSystemId  String?
+  paymentReceiptTypeName      String?
   
+  // Branch info
+  branchSystemId     String?
+  branchName         String?
+  
+  // Date fields
+  recognitionDate    DateTime?    // Ngày ghi nhận (cho thanh toán trả sau)
+  
+  // Links to other documents
+  originalDocumentId        String?   // Link to Order/Complaint/Warranty (Business ID)
+  purchaseOrderSystemId     String?   // Link to purchase order (systemId)
+  purchaseOrderBusinessId   String?   // Cache business id for display
+  linkedWarrantySystemId    String?   // Link to Warranty
+  linkedComplaintSystemId   String?   // Link to Complaint
+  linkedOrderSystemId       String?   // Link to Order
+  linkedSalesReturnSystemId String?   // Link to Sales Return
+  linkedPayrollBatchSystemId String?  // Link to PayrollBatch
+  linkedPayslipSystemId     String?   // Link to Payslip
+  
+  // Customer info (denormalized)
+  customerSystemId   String?
+  customerName       String?
+  
+  // Financial
+  affectsDebt        Boolean      @default(true)
+  runningBalance     Decimal?     @db.Decimal(15, 2)
+  
+  // Activity History
+  activityHistory    Json?
+  
+  // === RELATIONS ===
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [systemId])
+  suppliers       Supplier?      @relation(fields: [supplierId], references: [systemId])
+
+  @@index([supplierId])
+  @@index([type])
   @@map("payments")
 }

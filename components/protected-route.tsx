@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { Navigate, useLocation } from '@/lib/next-compat';
+import { useRouter, usePathname } from 'next/navigation';
 import { ROUTES } from '../lib/router';
 import { useAuth } from '../contexts/auth-context';
 
@@ -10,12 +10,20 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const location = useLocation();
+  const pathname = usePathname();
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
   
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      // Redirect to login page, but save the attempted URL
+      sessionStorage.setItem('redirect-after-login', pathname);
+      router.replace(ROUTES.AUTH.LOGIN);
+    }
+  }, [isAuthenticated, pathname, router]);
+  
   if (!isAuthenticated) {
-    // Redirect to login page, but save the attempted URL
-    return <Navigate to={ROUTES.AUTH.LOGIN} state={{ from: location.pathname }} replace />;
+    return null;
   }
   
   return <>{children}</>;

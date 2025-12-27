@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
-import type { Unit } from "./types";
+import type { Unit } from '@/lib/types/prisma-extended';
 import { useUnitStore } from "./store";
 import { Button } from "../../../components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form";

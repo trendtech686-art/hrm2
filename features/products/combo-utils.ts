@@ -9,7 +9,7 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
-import type { Product, ComboItem, ComboPricingType } from './types';
+import type { Product, ComboItem, ComboPricingType } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
 // Constants

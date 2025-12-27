@@ -8,8 +8,13 @@
  * - Các dòng cùng Mã phiếu sẽ được nhóm thành 1 phiếu
  */
 
-import type { CostAdjustment, CostAdjustmentItem, CostAdjustmentStatus, CostAdjustmentType } from '@/features/cost-adjustments/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { 
+  CostAdjustment, 
+  CostAdjustmentItem, 
+  CostAdjustmentStatus, 
+  CostAdjustmentType 
+} from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useProductStore } from '@/features/products/store';
 import { useEmployeeStore } from '@/features/employees/store';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
@@ -384,7 +389,7 @@ export function flattenCostAdjustmentsForExport(adjustments: CostAdjustment[]): 
         adjustmentId: i === 0 ? adjustment.id : '',
         type: i === 0 ? adjustment.type : '',
         status: i === 0 ? adjustment.status : '',
-        createdDate: i === 0 ? adjustment.createdDate : '',
+        createdDate: i === 0 ? (adjustment.createdDate instanceof Date ? adjustment.createdDate.toISOString() : adjustment.createdDate ?? '') : '',
         createdByName: i === 0 ? adjustment.createdByName : '',
         reason: i === 0 ? adjustment.reason : '',
         note: i === 0 ? adjustment.note : '',

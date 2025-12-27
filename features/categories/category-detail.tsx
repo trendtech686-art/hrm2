@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, useLocation } from '@/lib/next-compat';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -89,10 +89,10 @@ type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 
 export function CategoryDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
   
-  const isEditMode = location.pathname.endsWith('/edit');
+  const isEditMode = pathname?.endsWith('/edit') ?? false;
   
   const { data, update, remove, isBusinessIdExists } = useProductCategoryStore();
   
@@ -233,7 +233,7 @@ export function CategoryDetailPage() {
     });
     
     toast.success('Đã cập nhật danh mục');
-    navigate(`/categories/${systemId}`);
+    router.push(`/categories/${systemId}`);
   };
 
   const handleDelete = () => {
@@ -246,18 +246,18 @@ export function CategoryDetailPage() {
     
     remove(asSystemId(systemId));
     toast.success('Đã xóa danh mục');
-    navigate('/categories');
+    router.push('/categories');
   };
 
   const handleSwitchToEdit = () => {
-    navigate(`/categories/${systemId}/edit`);
+    router.push(`/categories/${systemId}/edit`);
   };
 
   // Header actions
   const headerActions = React.useMemo(() => {
     if (isEditMode) {
       return [
-        <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => navigate(`/categories/${systemId}`)}>
+        <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push(`/categories/${systemId}`)}>
           <X className="mr-2 h-4 w-4" />
           Hủy
         </Button>,
@@ -277,7 +277,7 @@ export function CategoryDetailPage() {
         Chỉnh sửa
       </Button>
     ];
-  }, [isEditMode, systemId, navigate, form]);
+  }, [isEditMode, systemId, router, form]);
 
   usePageHeader({
     actions: headerActions,
@@ -289,7 +289,7 @@ export function CategoryDetailPage() {
       <div className="flex items-center justify-center h-[50vh]">
         <div className="text-center">
           <p className="text-muted-foreground">Không tìm thấy danh mục</p>
-          <Button variant="link" onClick={() => navigate('/categories')}>
+          <Button variant="link" onClick={() => router.push('/categories')}>
             Quay lại danh sách
           </Button>
         </div>
@@ -373,7 +373,7 @@ export function CategoryDetailPage() {
                           <Button 
                             variant="link" 
                             className="h-auto p-0 text-primary"
-                            onClick={() => navigate(`/categories/${parentCategory.systemId}`)}
+                            onClick={() => router.push(`/categories/${parentCategory.systemId}`)}
                           >
                             {parentCategory.name}
                           </Button>
@@ -407,7 +407,7 @@ export function CategoryDetailPage() {
                         key={String(child.systemId)}
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/categories/${child.systemId}`)}
+                        onClick={() => router.push(`/categories/${child.systemId}`)}
                       >
                         {child.name}
                       </Button>

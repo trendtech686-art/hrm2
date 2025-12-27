@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat'
+import { useRouter } from 'next/navigation'
 import { Search, Users, Building2, DollarSign, FileText, Settings, Calendar, Package, TrendingUp } from "lucide-react"
 import {
   CommandDialog,
@@ -27,7 +27,7 @@ type CommandItem = {
 
 const useCommandPalette = () => {
   const [open, setOpen] = React.useState(false)
-  const navigate = useNavigate()
+  const router = useRouter()
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -48,7 +48,7 @@ const useCommandPalette = () => {
       description: "Trang chủ và tổng quan hệ thống",
       icon: TrendingUp,
       keywords: ["dashboard", "home", "trang chủ"],
-      onSelect: () => navigate("/dashboard"),
+      onSelect: () => router.push("/dashboard"),
     },
     {
       id: "nav-employees",
@@ -56,7 +56,7 @@ const useCommandPalette = () => {
       description: "Xem và quản lý danh sách nhân viên",
       icon: Users,
       keywords: ["employees", "nhân viên", "staff"],
-      onSelect: () => navigate("/employees"),
+      onSelect: () => router.push("/employees"),
     },
     {
       id: "nav-add-employee",
@@ -64,7 +64,7 @@ const useCommandPalette = () => {
       description: "Tạo hồ sơ nhân viên mới",
       icon: Users,
       keywords: ["add employee", "thêm nhân viên", "new staff"],
-      onSelect: () => navigate("/employees/new"),
+      onSelect: () => router.push("/employees/new"),
     },
     {
       id: "nav-departments",
@@ -72,7 +72,7 @@ const useCommandPalette = () => {
       description: "Xem và quản lý các phòng ban",
       icon: Building2,
       keywords: ["departments", "phòng ban", "divisions"],
-      onSelect: () => navigate("/departments"),
+      onSelect: () => router.push("/departments"),
     },
     {
       id: "nav-branches",
@@ -80,7 +80,7 @@ const useCommandPalette = () => {
       description: "Xem và quản lý chi nhánh",
       icon: Building2,
       keywords: ["branches", "chi nhánh", "locations"],
-      onSelect: () => navigate("/branches"),
+      onSelect: () => router.push("/branches"),
     },
     {
       id: "nav-payroll",
@@ -88,7 +88,7 @@ const useCommandPalette = () => {
       description: "Xử lý bảng lương và thưởng",
       icon: DollarSign,
       keywords: ["payroll", "salary", "lương", "thưởng"],
-      onSelect: () => navigate("/payroll"),
+      onSelect: () => router.push("/payroll"),
     },
     {
       id: "nav-reports",
@@ -96,7 +96,7 @@ const useCommandPalette = () => {
       description: "Xem các báo cáo và thống kê",
       icon: FileText,
       keywords: ["reports", "báo cáo", "statistics", "thống kê"],
-      onSelect: () => navigate("/reports"),
+      onSelect: () => router.push("/reports"),
     },
     {
       id: "nav-attendance",
@@ -104,7 +104,7 @@ const useCommandPalette = () => {
       description: "Quản lý chấm công nhân viên",
       icon: Calendar,
       keywords: ["attendance", "chấm công", "timesheet"],
-      onSelect: () => navigate("/attendance"),
+      onSelect: () => router.push("/attendance"),
     },
     {
       id: "nav-inventory",
@@ -112,7 +112,7 @@ const useCommandPalette = () => {
       description: "Theo dõi tồn kho và sản phẩm",
       icon: Package,
       keywords: ["inventory", "kho", "stock", "warehouse"],
-      onSelect: () => navigate("/inventory"),
+      onSelect: () => router.push("/inventory"),
     },
     {
       id: "nav-settings",
@@ -120,7 +120,7 @@ const useCommandPalette = () => {
       description: "Cấu hình hệ thống",
       icon: Settings,
       keywords: ["settings", "cài đặt", "configuration"],
-      onSelect: () => navigate("/settings"),
+      onSelect: () => router.push("/settings"),
     },
   ]
 

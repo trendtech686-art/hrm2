@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { TanStackDataTable } from '../../components/data-table/tanstack-data-table';
 import { createEmployeeColumns } from './tanstack-columns';
 import { useEmployeeStore } from './store';
@@ -25,10 +25,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
-import type { Employee } from './types';
+import type { Employee } from '@/lib/types/prisma-extended';
 
 export function EmployeesPageTanStackTest() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: employees, remove, getActive } = useEmployeeStore();
   const { data: branches } = useBranchStore();
 
@@ -64,8 +64,8 @@ export function EmployeesPageTanStackTest() {
 
   // Memoize columns
   const columns = React.useMemo(
-    () => createEmployeeColumns(navigate, handleDelete, branches),
-    [navigate, branches]
+    () => createEmployeeColumns(router, handleDelete, branches),
+    [router, branches]
   );
 
   // Page header
@@ -75,7 +75,7 @@ export function EmployeesPageTanStackTest() {
         key="back"
         variant="outline"
         size="sm"
-        onClick={() => navigate('/employees')}
+        onClick={() => router.push('/employees')}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Quay lại (Old Version)
@@ -84,7 +84,7 @@ export function EmployeesPageTanStackTest() {
         key="trash"
         variant="outline"
         size="sm"
-        onClick={() => navigate('/employees/trash')}
+        onClick={() => router.push('/employees/trash')}
       >
         <Trash2 className="mr-2 h-4 w-4" />
         Thùng rác ({deletedCount})
@@ -92,13 +92,13 @@ export function EmployeesPageTanStackTest() {
       <Button
         key="add"
         size="sm"
-        onClick={() => navigate('/employees/new')}
+        onClick={() => router.push('/employees/new')}
       >
         <PlusCircle className="mr-2 h-4 w-4" />
         Thêm nhân viên
       </Button>,
     ],
-    [navigate, deletedCount]
+    [router, deletedCount]
   );
 
   usePageHeader({

@@ -1,4 +1,4 @@
-import type { Receipt } from './types';
+import type { Receipt } from '@/lib/types/prisma-extended';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 export const data: Receipt[] = [

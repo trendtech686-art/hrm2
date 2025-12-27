@@ -1,11 +1,11 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 // FIX: Changed the import of 'FieldArray as useFieldArray' to 'useFieldArray' to resolve an export error.
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useEmployeeSettingsStore } from './employee-settings-store';
-import type { EmployeeSettings, LeaveType, SalaryComponent, LatePenaltyTier } from './types';
+import type { EmployeeSettings, LeaveType, SalaryComponent, LatePenaltyTier } from '@/lib/types/prisma-extended';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Button } from '../../../components/ui/button';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
@@ -43,7 +43,7 @@ const weekDays = [
 ];
 
 export function EmployeeSettingsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { settings, setSettings } = useEmployeeSettingsStore();
   
   // Check if redirected from template-page with specific tab
@@ -86,8 +86,8 @@ export function EmployeeSettingsPage() {
 
   const { control, handleSubmit, watch } = form;
   const handleCancel = React.useCallback(() => {
-    navigate('/settings');
-  }, [navigate]);
+    router.push('/settings');
+  }, [router]);
 
   const onSubmit = React.useCallback((data: EmployeeSettings) => {
     setSettings(data);

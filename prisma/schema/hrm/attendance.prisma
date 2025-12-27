@@ -1,43 +1,48 @@
-// ═══════════════════════════════════════════════════════════════
-// ATTENDANCE RECORD MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: ATTEND000001 (English)
-// BusinessId: CC000001 (Vietnamese - Chấm công)
-// ═══════════════════════════════════════════════════════════════
-
 model AttendanceRecord {
-  systemId      String    @id           // ATTEND000001
-  id            String    @unique       // CC000001
+  systemId   String           @id
+  employeeId String
+  date       DateTime         @db.Date
+  checkIn    DateTime?
+  checkOut   DateTime?
+  workHours  Decimal?         @db.Decimal(4, 2)
+  status     AttendanceStatus @default(PRESENT)
+  notes      String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
   
-  // Employee
-  employeeId    String
-  employee      Employee  @relation(fields: [employeeId], references: [systemId])
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Attendance details
-  date          DateTime  @db.Date
-  checkIn       DateTime?
-  checkOut      DateTime?
-  workHours     Decimal?  @db.Decimal(4, 2)
-  overtimeHours Decimal?  @db.Decimal(4, 2)
+  // Employee info (denormalized for row display)
+  employeeSystemId     String?
+  employeeBusinessId   String?      // Mã hiển thị cho người dùng (NV001)
+  fullName             String?
+  department           String?
   
-  // Status
-  status        String    @default("PRESENT") // PRESENT, ABSENT, LATE, EARLY_LEAVE, HALF_DAY
-  notes         String?
+  // Morning session
+  morningCheckOut      DateTime?    // Sáng - Tan làm (giờ ra sáng)
   
-  // Location (for mobile check-in)
-  checkInLocation  String?
-  checkOutLocation String?
+  // Afternoon session
+  afternoonCheckIn     DateTime?    // Chiều - Làm việc (giờ vào chiều)
   
-  // Soft delete
-  isDeleted     Boolean   @default(false)
-  deletedAt     DateTime?
+  // Overtime
+  overtimeCheckIn      DateTime?
+  overtimeCheckOut     DateTime?
   
-  // Audit
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  createdBy     String?
-  updatedBy     String?
+  // Summary fields
+  workDays             Int          @default(0)
+  leaveDays            Int          @default(0)
+  absentDays           Int          @default(0)
+  lateArrivals         Int          @default(0)
+  earlyDepartures      Int          @default(0)
+  otHours              Decimal?     @db.Decimal(5, 2)
+  otHoursWeekday       Decimal?     @db.Decimal(5, 2)
+  otHoursWeekend       Decimal?     @db.Decimal(5, 2)
+  otHoursHoliday       Decimal?     @db.Decimal(5, 2)
   
+  // === RELATIONS ===
+  employee   Employee         @relation(fields: [employeeId], references: [systemId])
+
   @@unique([employeeId, date])
+  @@index([date])
   @@map("attendance_records")
 }

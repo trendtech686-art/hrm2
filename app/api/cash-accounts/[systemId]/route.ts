@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     const account = await prisma.cashAccount.findUnique({
       where: { systemId },
       include: {
-        transactions: {
+        cash_transactions: {
           take: 20,
           orderBy: { createdAt: 'desc' },
         },
@@ -47,7 +47,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       where: { systemId },
       data: {
         name: body.name,
-        accountType: body.type || body.accountType,
+        type: body.type || body.accountType,
         bankName: body.bankName,
         accountNumber: body.accountNumber,
         isActive: body.isActive,

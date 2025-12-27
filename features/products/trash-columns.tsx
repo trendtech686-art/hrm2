@@ -1,6 +1,7 @@
 import * as React from "react";
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isValidDate, getDaysDiff } from '@/lib/date-utils';
-import type { Product } from './types'
+import type { Product } from '@/lib/types/prisma-extended'
 import type { SystemId } from "@/lib/id-types";
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
@@ -38,7 +39,7 @@ const getStatusLabel = (status?: string) => {
 };
 
 export const getColumns = (
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   onRestore: (systemId: SystemId) => void,
   onPermanentDelete: (systemId: SystemId) => void
 ): ColumnDef<Product>[] => [

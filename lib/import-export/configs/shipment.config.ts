@@ -4,8 +4,8 @@
  * Cấu hình xuất dữ liệu vận đơn
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types';
-import type { ShipmentView } from '../../../features/shipments/types';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
+import type { ShipmentView } from '@/lib/types/prisma-extended';
 
 const fields: FieldConfig<ShipmentView>[] = [
   // Group: Thông tin chung

@@ -1,7 +1,7 @@
 import type { ColumnDef } from '../../../components/data-table/types';
-import type { StockAlertReportRow } from './types';
+import type { StockAlertReportRow } from '@/lib/types/prisma-extended';
 import { Badge } from '../../../components/ui/badge';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip';
 import { PackageX, AlertTriangle, TrendingUp, ShoppingCart } from 'lucide-react';
 import { formatDateForDisplay } from '@/lib/date-utils';
@@ -23,8 +23,7 @@ export const getColumns = (): ColumnDef<StockAlertReportRow>[] => [
         header: 'Sản phẩm', 
         cell: ({ row }) => (
             <div>
-                <Link 
-                    to={`/products/${row.productSystemId}`} 
+                <Link href={`/products/${row.productSystemId}`} 
                     className="font-medium hover:underline text-primary"
                 >
                     {row.productName}

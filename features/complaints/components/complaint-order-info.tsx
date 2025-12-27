@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import type { Complaint } from '../types';
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, relatedOrder, employees }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const displayedShippingAddress = formatOrderAddress(relatedOrder?.shippingAddress) || "Chưa có";
 
   return (
@@ -28,7 +28,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
           <div className="flex justify-between">
             <span className="text-muted-foreground">Mã đơn hàng:</span>
             <button
-              onClick={() => navigate(`/orders/${complaint.orderSystemId}`)} 
+              onClick={() => router.push(`/orders/${complaint.orderSystemId}`)} 
               className="font-medium text-primary hover:underline cursor-pointer"
             >
               {complaint.orderCode || complaint.orderSystemId}
@@ -38,7 +38,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
             <span className="text-muted-foreground">Mã vận đơn:</span>
             {relatedOrder?.packagings?.[0]?.trackingCode ? (
               <button
-                onClick={() => navigate(`/shipments/${relatedOrder.packagings[0].systemId}`)}
+                onClick={() => router.push(`/shipments/${relatedOrder.packagings[0].systemId}`)}
                 className="font-medium text-primary hover:underline"
               >
                 {relatedOrder.packagings[0].trackingCode}
@@ -51,7 +51,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
             <span className="text-muted-foreground">Khách hàng:</span>
             <button
               onClick={() => {
-                navigate(`/customers/${complaint.customerSystemId}`);
+                router.push(`/customers/${complaint.customerSystemId}`);
               }}
               className="font-medium text-primary hover:underline cursor-pointer"
             >
@@ -73,7 +73,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
                 // Find employee by name
                 const creator = employees.find(e => e.fullName === relatedOrder?.salesperson);
                 if (creator) {
-                  navigate(`/employees/${creator.systemId}`);
+                  router.push(`/employees/${creator.systemId}`);
                 } else {
                   toast.info("Không tìm thấy thông tin nhân viên");
                 }
@@ -119,7 +119,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
             <button
               onClick={() => {
                 if (complaint.assignedTo) {
-                  navigate(`/employees/${complaint.assignedTo}`);
+                  router.push(`/employees/${complaint.assignedTo}`);
                 }
               }}
               className="font-medium text-primary hover:underline cursor-pointer disabled:text-muted-foreground disabled:no-underline disabled:cursor-default"

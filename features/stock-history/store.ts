@@ -1,7 +1,7 @@
 ﻿import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { StockHistoryEntry } from './types';
+import type { StockHistoryEntry } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
 import { data as initialData } from './data';

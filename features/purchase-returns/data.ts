@@ -1,4 +1,4 @@
-import type { PurchaseReturn } from './types';
+import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 function addDays(days: number): string {

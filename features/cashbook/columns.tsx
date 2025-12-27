@@ -10,7 +10,7 @@ import type { Receipt } from "../receipts/types";
 import type { Payment } from "../payments/types";
 import { Checkbox } from "../../components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import type { CashAccount } from "./types";
+import type { CashAccount } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 

@@ -1,5 +1,5 @@
-import type { ProductCategory } from '@/features/settings/inventory/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { ProductCategory } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useProductCategoryStore } from '@/features/settings/inventory/product-category-store';
 
 /**

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { ColumnDef } from '../../components/data-table/types';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Badge } from '../../components/ui/badge';
@@ -40,7 +40,7 @@ export const getColumns = (
   onCancel: (systemId: string) => void,
   onGetLink: (systemId: string) => void,
   employees: Array<{ systemId: string; fullName: string }>,
-  navigate: ReturnType<typeof useNavigate>
+  router: AppRouterInstance
 ): ColumnDef<Complaint>[] => [
   // Select column
   {
@@ -94,7 +94,7 @@ export const getColumns = (
       <div className="flex items-center gap-2">
         <Package className="h-4 w-4 text-muted-foreground" />
         <button
-          onClick={() => navigate(`/orders/${row.orderSystemId}`)}
+          onClick={() => router.push(`/orders/${row.orderSystemId}`)}
           className="font-medium text-primary hover:underline"
         >
           {row.orderCode || row.orderSystemId}
@@ -115,7 +115,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <div className="flex flex-col">
         <button
-          onClick={() => navigate(`/customers/${row.customerSystemId}`)}
+          onClick={() => router.push(`/customers/${row.customerSystemId}`)}
           className="font-medium text-primary hover:underline text-left"
         >
           {row.customerName}

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { Link, useLocation, useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { ROUTES, generatePath } from '../../lib/router';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
@@ -87,7 +87,7 @@ export function CashbookPage() {
   const { data: branches } = useBranchStore();
   const { data: receiptTypes } = useReceiptTypeStore();
   const { data: paymentTypes } = usePaymentTypeStore();
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -105,7 +105,7 @@ export function CashbookPage() {
   const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>(undefined);
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
     // ✅ Always use default visibility (don't load from localStorage)
-    const cols = getColumns(accounts, () => {}, navigate);
+    const cols = getColumns(accounts, () => {}, router.push);
     const initial: Record<string, boolean> = {};
     cols.forEach((c: any) => { if (c.id) initial[c.id] = true; });
     return initial;
@@ -138,10 +138,10 @@ export function CashbookPage() {
   const handleEdit = React.useCallback((transaction: Receipt | Payment) => {
     const isReceipt = 'payerType' in transaction;
     const editRoute = isReceipt ? ROUTES.FINANCE.RECEIPT_EDIT : ROUTES.FINANCE.PAYMENT_EDIT;
-    navigate(generatePath(editRoute, { systemId: transaction.systemId }));
-  }, [navigate]);
+    router.push(generatePath(editRoute, { systemId: transaction.systemId }));
+  }, [router]);
 
-  const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate), [accounts, handleCancel, navigate]);
+  const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push), [accounts, handleCancel, router]);
 
   // ✅ Set default column visibility - Run ONCE on mount
   React.useEffect(() => {
@@ -392,15 +392,15 @@ export function CashbookPage() {
 
   // ✅ Memoize header actions - CHỈ action chính (tạo phiếu)
   const headerActions = React.useMemo(() => [
-    <Button key="payment" variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.PAYMENT_NEW)}>
+    <Button key="payment" variant="outline" size="sm" className="h-9" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}>
       <Minus className="mr-2 h-4 w-4" />
       Lập Phiếu Chi
     </Button>,
-    <Button key="receipt" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}>
+    <Button key="receipt" size="sm" className="h-9" onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}>
       <Plus className="mr-2 h-4 w-4" />
       Lập Phiếu Thu
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   const breadcrumb = React.useMemo(() => ([
     { label: 'Trang chủ', href: ROUTES.ROOT },
@@ -428,7 +428,7 @@ export function CashbookPage() {
     return (
       <Card
         className="hover:shadow-md transition-shadow cursor-pointer"
-        onClick={() => navigate(generatePath(viewRoute, { systemId: transaction.systemId }))}
+        onClick={() => router.push(generatePath(viewRoute, { systemId: transaction.systemId }))}
       >
         <CardContent className="p-4">
           {/* Header: Icon + ID + Type + Menu */}
@@ -458,7 +458,7 @@ export function CashbookPage() {
                 </TouchButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(generatePath(viewRoute, { systemId: transaction.systemId })); }}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(generatePath(viewRoute, { systemId: transaction.systemId })); }}>
                   <Eye className="mr-2 h-4 w-4" />
                   Xem chi tiết
                 </DropdownMenuItem>
@@ -559,7 +559,7 @@ export function CashbookPage() {
                 pageData={paginatedData}
                 config={exportConfig}
               />
-              <Button variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.CASHBOOK_REPORTS)}>
+              <Button variant="outline" size="sm" className="h-9" onClick={() => router.push(ROUTES.FINANCE.CASHBOOK_REPORTS)}>
                 <BarChart3 className="mr-2 h-4 w-4" />
                 Báo cáo
               </Button>
@@ -681,7 +681,7 @@ export function CashbookPage() {
           setPinnedColumns={setPinnedColumns}
           onRowClick={(row) => {
             const viewRoute = row.type === 'receipt' ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW;
-            navigate(generatePath(viewRoute, { systemId: row.systemId }));
+            router.push(generatePath(viewRoute, { systemId: row.systemId }));
           }}
           renderMobileCard={(row) => <MobileTransactionCard transaction={row} />}
         />

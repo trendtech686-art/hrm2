@@ -1,6 +1,7 @@
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
-import type { StockTransfer, StockTransferStatus } from './types';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import type { StockTransfer, StockTransferStatus } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../components/data-table/types';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -64,12 +65,12 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     accessorKey: 'id',
     header: 'Mã phiếu',
     cell: ({ row }) => (
-      <ReactRouterDOM.Link
-        to={`/stock-transfers/${(row as any).systemId}`}
+      <Link
+        href={`/stock-transfers/${(row as any).systemId}`}
         className="font-medium text-primary hover:underline"
       >
         {(row as any).id}
-      </ReactRouterDOM.Link>
+      </Link>
     ),
     meta: { displayName: 'Mã phiếu' },
   },
@@ -168,7 +169,7 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     id: 'actions',
     header: 'Hành động',
     cell: ({ row }) => {
-      const navigate = ReactRouterDOM.useNavigate();
+      const router = useRouter();
       const transfer = row as any;
       const isPending = transfer.status === 'pending';
       const isTransferring = transfer.status === 'transferring';
@@ -190,16 +191,16 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
             </DropdownMenuItem>
             {isPending && (
               <>
-                <DropdownMenuItem onClick={() => navigate(`/stock-transfers/${transfer.systemId}/edit`)}>
+                <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}/edit`)}>
                   Chỉnh sửa
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate(`/stock-transfers/${transfer.systemId}`)}>
+                <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
                   Chuyển hàng khỏi kho
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="text-destructive focus:text-destructive"
-                  onClick={() => navigate(`/stock-transfers/${transfer.systemId}`)}
+                  onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}
                 >
                   Hủy phiếu
                 </DropdownMenuItem>
@@ -208,13 +209,13 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
             
             {isTransferring && (
               <>
-                <DropdownMenuItem onClick={() => navigate(`/stock-transfers/${transfer.systemId}`)}>
+                <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
                   Nhận hàng vào kho
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="text-destructive focus:text-destructive"
-                  onClick={() => navigate(`/stock-transfers/${transfer.systemId}`)}
+                  onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}
                 >
                   Hủy phiếu
                 </DropdownMenuItem>

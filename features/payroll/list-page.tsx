@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, ClipboardList, PlusCircle, ShieldCheck, Wallet, Printer, XCircle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -95,7 +95,7 @@ const matchesStatusFilter = (
 };
 
 export function PayrollListPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { batches, updateBatchStatus, payslips } = usePayrollBatchStore();
   const defaultPageSize = useDefaultPageSize();
   const { print } = usePrint();
@@ -210,11 +210,11 @@ export function PayrollListPage() {
   }, [cancelBatch, batches, payslips, allPayments, cancelPayment, penaltyStore]);
   
   const columns = React.useMemo(() => getBatchColumns({
-    navigate,
+    navigate: router.push,
     onLock: handleLock,
     onUnlock: handleUnlock,
     onCancel: handleCancel,
-  }), [navigate, handleLock, handleUnlock, handleCancel]);
+  }), [router.push, handleLock, handleUnlock, handleCancel]);
 
   const filteredBatches = React.useMemo(() => {
     return batches
@@ -290,13 +290,13 @@ export function PayrollListPage() {
         key="run"
         className="h-9"
         size="sm"
-        onClick={() => navigate(ROUTES.PAYROLL.RUN)}
+        onClick={() => router.push(ROUTES.PAYROLL.RUN)}
       >
         <PlusCircle className="mr-2 h-4 w-4" />
         Chạy bảng lương
       </Button>,
     ],
-    [navigate]
+    [router]
   );
   
   // Filter + search + sort the data
@@ -520,7 +520,7 @@ export function PayrollListPage() {
   }, [batches]);
   
   const handleRowClick = (row: PayrollBatch) => {
-    navigate(ROUTES.PAYROLL.DETAIL.replace(':systemId', row.systemId));
+    router.push(ROUTES.PAYROLL.DETAIL.replace(':systemId', row.systemId));
   };
 
   usePageHeader({

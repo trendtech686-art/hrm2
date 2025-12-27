@@ -1,51 +1,34 @@
-// ═══════════════════════════════════════════════════════════════
-// PENALTY MODEL (Phạt nhân viên)
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PEN0000000001 (English, 10 digits)
-// BusinessId: PH0000000001 (Vietnamese - Phạt, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Penalty {
-  systemId          String        @id           // PEN0000000001
-  id                String        @unique       // PH0000000001
-  
-  // Employee
-  employeeId        String
-  employee          Employee      @relation(fields: [employeeId], references: [systemId])
-  
-  // Branch
-  branchId          String?
-  branch            Branch?       @relation(fields: [branchId], references: [systemId])
-  
-  // Penalty details
-  penaltyDate       DateTime      @default(now())
-  reason            String
-  category          String?       // attendance, performance, behavior, policy_violation
-  
-  // Amount
-  amount            Decimal       @db.Decimal(15, 2)
-  
-  // Status
-  status            String        @default("pending") // pending, approved, applied, cancelled
-  
-  // Linked to payroll
-  payrollId         String?
-  
-  // Notes
-  notes             String?
-  attachments       String[]
-  
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
-  
+  systemId                String    @id
+  id                      String    @unique
+  employeeId              String
+  employeeName            String?   // Cached employee name
+  penaltyTypeId           String?
+  penaltyTypeName         String?   // Cached penalty type name
+  amount                  Decimal   @db.Decimal(15, 2)
+  reason                  String?
+  date                    DateTime  @default(now())
+  status                  String    @default("Chưa thanh toán") // 'Chưa thanh toán' | 'Đã thanh toán' | 'Đã hủy'
+  category                String?   // 'complaint' | 'attendance' | 'performance' | 'other'
+  // Issuer info
+  issuerName              String?   // Employee Name of the issuer
+  issuerSystemId          String?   // Employee SystemId of the issuer
+  // Linked entities
+  linkedComplaintSystemId String?   // Link to Complaint
+  linkedOrderSystemId     String?   // Link to Order
+  // Payroll integration
+  payrollItemId           String?
+  deductedInPayrollId     String?   // ID of payroll where this was deducted
+  deductedAt              DateTime? // Date when deducted from salary
+  isApplied               Boolean   @default(false)
   // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  approvedBy        String?
-  approvedAt        DateTime?
-  
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  createdBy               String?
+  updatedBy               String?
+  activityHistory         Json?
+
+  @@index([employeeId])
+  @@index([status])
   @@map("penalties")
 }

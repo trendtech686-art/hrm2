@@ -1,10 +1,10 @@
 'use client'
 
 import * as React from "react";
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useLeaveStore } from './store';
 import { getColumns } from './columns';
-import type { LeaveRequest, LeaveStatus } from "./types";
+import type { LeaveRequest, LeaveStatus } from "@/lib/types/prisma-extended";
 import type { SystemId } from '@/lib/id-types';
 import { usePageHeader } from "../../contexts/page-header-context";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
@@ -28,7 +28,7 @@ import { formatDate } from "../../lib/date-utils";
 
 export function LeavesPage() {
   const { data: leaveRequests, remove, add, update } = useLeaveStore();
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -70,7 +70,7 @@ export function LeavesPage() {
     setIsFormOpen(true);
   }, []);
 
-  const columns = React.useMemo(() => getColumns(handleDelete, handleEdit, handleStatusChange, navigate), [handleDelete, handleEdit, handleStatusChange, navigate]);
+  const columns = React.useMemo(() => getColumns(handleDelete, handleEdit, handleStatusChange, router.push), [handleDelete, handleEdit, handleStatusChange, router]);
   
   // Set default visibility with 15+ columns for sticky scrollbar - RUN ONCE
   React.useEffect(() => {
@@ -171,7 +171,7 @@ export function LeavesPage() {
   [leaveRequests, rowSelection]);
 
   const handleRowClick = (row: LeaveRequest) => {
-    navigate(`/leaves/${row.systemId}`);
+    router.push(`/leaves/${row.systemId}`);
   };
 
   const handleBulkApprove = React.useCallback(() => {

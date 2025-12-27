@@ -1,4 +1,4 @@
-import type { Customer } from './types';
+import type { Customer } from '@/lib/types/prisma-extended';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 // RFM Score types
 export type RFMScore = {

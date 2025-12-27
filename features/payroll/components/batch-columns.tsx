@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
 import type { ColumnDef } from '../../../components/data-table/types';
 import type { PayrollBatch } from '../../../lib/payroll-types';
@@ -84,8 +84,7 @@ export const getBatchColumns = (actions: BatchColumnActions): ColumnDef<PayrollB
     size: 120,
     header: 'Mã bảng lương',
     cell: ({ row }) => (
-      <Link
-        to={ROUTES.PAYROLL.DETAIL.replace(':systemId', row.systemId)}
+      <Link href={ROUTES.PAYROLL.DETAIL.replace(':systemId', row.systemId)}
         className="font-mono text-body-xs text-primary hover:underline"
         onClick={(e) => e.stopPropagation()}
       >

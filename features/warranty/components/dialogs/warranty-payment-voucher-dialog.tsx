@@ -9,7 +9,7 @@
 
 import * as React from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -92,7 +92,7 @@ export function WarrantyPaymentVoucherDialog({
   existingPayments = [],
 }: WarrantyPaymentVoucherDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
   
   const { add: addPayment, data: payments } = usePaymentStore();
   const { data: receipts } = useReceiptStore();
@@ -588,7 +588,7 @@ export function WarrantyPaymentVoucherDialog({
       description: `Trừ ${orderAmount.toLocaleString('vi-VN')} đ vào ${order.id} + Chi ${cashAmount.toLocaleString('vi-VN')} đ`,
       action: {
         label: 'Xem phiếu chi',
-        onClick: () => navigate(`/payments/${cashPaymentResult.systemId}`),
+        onClick: () => router.push(`/payments/${cashPaymentResult.systemId}`),
       },
     });
   };
@@ -793,7 +793,7 @@ export function WarrantyPaymentVoucherDialog({
         description: `Đã xuất tiền (${values.amount.toLocaleString('vi-VN')} đ)`,
         action: {
           label: 'Xem phiếu chi',
-          onClick: () => navigate(`/payments/${newPayment.systemId}`),
+          onClick: () => router.push(`/payments/${newPayment.systemId}`),
         },
       });
 

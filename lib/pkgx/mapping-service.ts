@@ -1,7 +1,7 @@
 import type { SystemId } from '../id-types';
-import type { Product } from '../../features/products/types';
+import type { Product } from '@/lib/types/prisma-extended';
 import { usePkgxSettingsStore } from '../../features/settings/pkgx/store';
-import type { PkgxProductPayload, PkgxProduct } from '../../features/settings/pkgx/types';
+import type { PkgxProductPayload, PkgxProduct } from '@/lib/types/prisma-extended';
 
 // ========================================
 // Mapping Functions

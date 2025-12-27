@@ -5,7 +5,7 @@
  * ReconciliationItem = Packaging + order info
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import type { ReconciliationItem } from '../../../features/reconciliation/page';
 
 const fields: FieldConfig<ReconciliationItem>[] = [

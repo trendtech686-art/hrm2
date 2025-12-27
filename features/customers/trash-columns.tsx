@@ -1,6 +1,7 @@
 import * as React from "react";
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
-import type { Customer } from './types'
+import type { Customer } from '@/lib/types/prisma-extended'
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
 import { Badge } from "../../components/ui/badge"
@@ -11,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 
 
 export const getColumns = (
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   onRestore: (systemId: string) => void,
   onPermanentDelete: (systemId: string) => void
 ): ColumnDef<Customer>[] => [

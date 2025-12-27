@@ -8,7 +8,7 @@ import { Progress } from '../../components/ui/progress';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Button } from '../../components/ui/button';
 import { MoreVertical, Calendar, Clock, User, Flag } from 'lucide-react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 
 interface TaskCardProps {
   task: Task;
@@ -16,7 +16,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onDelete }: TaskCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const getPriorityColor = (priority: Task['priority']) => {
     const colors = {
@@ -44,7 +44,7 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
   return (
     <Card 
       className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={() => navigate(`/tasks/${task.systemId}`)}
+      onClick={() => router.push(`/tasks/${task.systemId}`)}
     >
       <CardContent className="p-4">
         {/* Header: ID + Priority + Menu */}
@@ -65,13 +65,13 @@ export function TaskCard({ task, onDelete }: TaskCardProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/tasks/${task.systemId}`);
+                router.push(`/tasks/${task.systemId}`);
               }}>
                 Xem chi tiết
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/tasks/${task.systemId}/edit`);
+                router.push(`/tasks/${task.systemId}/edit`);
               }}>
                 Chỉnh sửa
               </DropdownMenuItem>

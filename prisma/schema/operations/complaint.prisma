@@ -1,69 +1,89 @@
-// ═══════════════════════════════════════════════════════════════
-// COMPLAINT MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: COMP0000000001 (English, 10 digits)
-// BusinessId: KN0000000001 (Vietnamese - Khiếu nại, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Complaint {
-  systemId          String            @id           // COMP0000000001
-  id                String            @unique       // KN0000000001
+  systemId      String            @id
+  id            String            @unique
+  customerId    String?
+  orderId       String?
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
+  title         String
+  description   String?
+  status        ComplaintStatus   @default(OPEN)
+  priority      ComplaintPriority @default(MEDIUM)
+  assigneeId    String?
+  branchId      String?
+  images        String[]
+  resolution    String?
+  resolvedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  category      String?
+  deletedAt     DateTime?
+  isDeleted     Boolean           @default(false)
   
-  // Customer
-  customerId        String?
-  customer          Customer?         @relation(fields: [customerId], references: [systemId])
-  customerName      String?
-  customerPhone     String?
-  customerEmail     String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Related Order
-  orderId           String?
+  // Tracking & identification
+  publicTrackingCode   String?             // Mã tracking công khai cho khách hàng tra cứu
+  orderCode            String?             // Mã đơn hàng hiển thị (denormalized)
+  orderValue           Decimal?   @db.Decimal(15, 2) // Giá trị đơn hàng
   
-  // Branch
-  branchId          String?
-  branch            Branch?           @relation(fields: [branchId], references: [systemId])
+  // Branch info (denormalized from order)
+  branchSystemId       String?
+  branchName           String?
   
-  // Complaint details
-  title             String
-  description       String?
-  category          String?           // product, service, delivery, other
-  priority          ComplaintPriority @default(MEDIUM)
+  // Complaint classification
+  type                 String?    // ComplaintType: 'wrong-product' | 'missing-items' | etc.
+  verification         String     @default("pending-verification") // 'verified-correct' | 'verified-incorrect' | 'pending-verification'
   
-  // Status
-  status            ComplaintStatus   @default(OPEN)
+  // Employee images (separate from customer images)
+  employeeImages       Json?      // Array of { id, url, uploadedBy, uploadedAt }
   
-  // SLA
-  slaDeadline       DateTime?
-  resolvedAt        DateTime?
+  // Assignee details
+  assigneeName         String?    // Denormalized for display
+  assignedAt           DateTime?
   
-  // Assignment
-  assignedTo        String?
+  // Investigation & resolution
+  investigationNote    String?    // Ghi chú kiểm tra từ nhân viên
+  evidenceImages       String[]   // Hình ảnh camera, bằng chứng
+  proposedSolution     String?    // Đề xuất giải pháp từ nhân viên
+  resolutionNote       String?    // Ghi chú cách xử lý cuối cùng
   
-  // Resolution
-  resolution        String?
-  compensationAmount Decimal?         @db.Decimal(15, 2)
+  // KPI & responsibility
+  isVerifiedCorrect    Boolean?   // true = lỗi thật, false = khách sai
+  responsibleUserId    String?    // Người chịu trách nhiệm (nếu lỗi đúng)
   
-  // Rating
-  satisfactionRating Int?             // 1-5
+  // Affected products from order
+  affectedProducts     Json?      // Array of affected product details
   
-  // Attachments
-  attachments       String[]
+  // Inventory adjustments tracking
+  inventoryAdjustment  Json?      // { adjusted, adjustedBy, adjustedAt, adjustmentNote, items[] }
+  inventoryHistory     Json?      // Array of adjustment history entries
   
-  // Notes
-  internalNotes     String?
+  // Cancelled payments/receipts history
+  cancelledPaymentsReceipts Json? // Array of cancelled payment/receipt records
   
-  // Relations
-  activities        ComplaintActivity[]
+  // Resolution tracking
+  resolvedBy           String?    // userId - Người giải quyết
+  cancelledBy          String?    // userId - Người hủy
+  cancelledAt          DateTime?
+  endedBy              String?    // userId - Người kết thúc
+  endedAt              DateTime?
   
-  // Soft delete
-  isDeleted         Boolean           @default(false)
-  deletedAt         DateTime?
+  // Classification
+  tags                 String[]   // Tags for filtering
   
-  // Audit
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  // Workflow
+  timeline             Json?      // Array of ComplaintAction
+  subtasks             Json?      // Array of Subtask (quy trình xử lý)
   
+  // === RELATIONS ===
+  employees     Employee?         @relation(fields: [assigneeId], references: [systemId])
+  customer      Customer?         @relation(fields: [customerId], references: [systemId])
+
+  @@index([customerId])
+  @@index([status])
   @@map("complaints")
 }

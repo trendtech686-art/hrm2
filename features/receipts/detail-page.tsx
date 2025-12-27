@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useReceiptStore } from './store';
 import { ROUTES, generatePath } from '@/lib/router';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -39,7 +40,7 @@ const getStatusBadge = (status?: string) => {
 
 export function ReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById } = useReceiptStore();
   const { findById: findEmployeeById } = useEmployeeStore();
   const { print } = usePrint();
@@ -159,7 +160,7 @@ export function ReceiptDetailPage() {
         variant="outline"
         size="sm"
         className="h-9"
-        onClick={() => navigate(ROUTES.FINANCE.RECEIPTS)}
+        onClick={() => router.push(ROUTES.FINANCE.RECEIPTS)}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Danh sách phiếu thu
@@ -187,7 +188,7 @@ export function ReceiptDetailPage() {
           key="edit"
           size="sm"
           className="h-9"
-          onClick={() => navigate(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }))}
+          onClick={() => router.push(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }))}
         >
           <Edit className="mr-2 h-4 w-4" />
           Chỉnh sửa
@@ -196,7 +197,7 @@ export function ReceiptDetailPage() {
     }
 
     return actions;
-  }, [navigate, receipt]);
+  }, [router, receipt]);
   
   usePageHeader({ 
     title: receipt ? `Phiếu thu ${receipt.id}` : 'Chi tiết phiếu thu',
@@ -248,7 +249,7 @@ export function ReceiptDetailPage() {
           <div>
             <p className="text-sm text-muted-foreground mb-1">Người nộp</p>
             {payerLink ? (
-              <Link to={payerLink} className="font-medium text-primary hover:underline">
+              <Link href={payerLink} className="font-medium text-primary hover:underline">
                 {receipt.payerName}
               </Link>
             ) : (
@@ -285,7 +286,7 @@ export function ReceiptDetailPage() {
             <div>
               <p className="text-sm text-muted-foreground mb-1">Chứng từ gốc</p>
               {originalDocumentLink ? (
-                <Link to={originalDocumentLink} className="font-medium font-mono text-primary hover:underline">
+                <Link href={originalDocumentLink} className="font-medium font-mono text-primary hover:underline">
                   {receipt.originalDocumentId}
                 </Link>
               ) : (

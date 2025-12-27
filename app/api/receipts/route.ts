@@ -40,7 +40,7 @@ export async function GET(request: Request) {
           order: {
             select: { systemId: true, id: true },
           },
-          branch: {
+          customers: {
             select: { systemId: true, id: true, name: true },
           },
         },
@@ -88,9 +88,9 @@ export async function POST(request: Request) {
         systemId: `REC${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
         customerId: body.customerId,
-        customerName: body.customerName,
         orderId: body.orderId,
         branchId: body.branchId,
+        type: 'CUSTOMER_PAYMENT',
         amount: body.amount,
         paymentMethod: body.method || body.paymentMethod || 'CASH',
         receiptDate: body.receiptDate ? new Date(body.receiptDate) : new Date(),
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       },
       include: {
         order: true,
-        branch: true,
+        customers: true,
       },
     })
 

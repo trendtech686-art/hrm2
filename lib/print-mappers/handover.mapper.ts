@@ -11,7 +11,7 @@ import {
   formatTime,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 /**
  * Interface cho Phiếu bàn giao tài sản

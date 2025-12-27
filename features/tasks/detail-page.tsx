@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { useTaskStore } from './store';
 import { useEmployeeStore } from '../employees/store';
 import { useAuth } from '../../contexts/auth-context';
@@ -45,9 +45,9 @@ const getStatusVariant = (status: TaskStatus): "default" | "secondary" | "warnin
 };
 
 export function TaskDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+  const { systemId } = useParams<{ systemId: string }>();
   const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   const store = useTaskStore();
   const { remove, update, approveTask, rejectTask } = store;
   const { isAdmin, employee } = useAuth();
@@ -114,7 +114,7 @@ export function TaskDetailPage() {
     // Only show edit/delete for admin or task owner
     if (canEdit) {
       actionButtons.push(
-        <Button key="edit" size="sm" className="h-9" onClick={() => navigate(`/tasks/${task.systemId}/edit`)}>
+        <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/tasks/${task.systemId}/edit`)}>
           <Edit className="mr-2 h-4 w-4" />
           Chỉnh sửa
         </Button>
@@ -131,7 +131,7 @@ export function TaskDetailPage() {
     }
     
     return actionButtons;
-  }, [task?.systemId, task?.approvalStatus, task?.completionEvidence, systemId, navigate, canEdit, isAdmin]);
+  }, [task?.systemId, task?.approvalStatus, task?.completionEvidence, systemId, router, canEdit, isAdmin]);
 
   const statusBadge = React.useMemo(() => {
     if (!task) return undefined;
@@ -162,7 +162,7 @@ export function TaskDetailPage() {
     if (task) {
       remove(task.systemId);
       toast.success('Đã xóa công việc');
-      navigate('/tasks');
+      router.push('/tasks');
     }
   };
 
@@ -170,7 +170,7 @@ export function TaskDetailPage() {
     return (
       <div className="text-center p-8">
         <h2 className="text-2xl font-bold">Không tìm thấy công việc</h2>
-        <Button onClick={() => navigate('/tasks')} className="mt-4">
+        <Button onClick={() => router.push('/tasks')} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay về danh sách
         </Button>

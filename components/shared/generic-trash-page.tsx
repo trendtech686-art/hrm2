@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff, isValidDate } from '@/lib/date-utils'
 import { ResponsiveDataTable } from "../data-table/responsive-data-table"
 import { toast } from "sonner"
@@ -87,13 +87,13 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
   deleteRelatedFiles,
   getItemDisplayName,
 }: GenericTrashPageProps<T>) {
-  const navigate = useNavigate();
+  const router = useRouter();
   
   const headerActions = React.useMemo(() => [
-    <Button key="back" variant="outline" onClick={() => navigate(backUrl)}>
+    <Button key="back" variant="outline" onClick={() => router.push(backUrl)}>
       Quay lại danh sách
     </Button>
-  ], [navigate, backUrl]);
+  ], [router, backUrl]);
   
   usePageHeader({
     title,

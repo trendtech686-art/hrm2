@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/hrm2/app/%28authenticated%29/returns/page.tsx"],"sourcesContent":["'use client';\r\n\r\nimport { redirect } from 'next/navigation';\r\n\r\n/**\r\n * /returns redirects to /sales-returns by default\r\n * Available return types:\r\n * - /sales-returns - Đổi trả hàng bán (khách hàng trả lại)\r\n * - /purchase-returns - Trả hàng nhập (trả lại nhà cung cấp)\r\n */\r\nexport default function ReturnsPage() {\r\n  redirect('/sales-returns');\r\n}\r\n"],"names":[],"mappings":";;;;AAEA;AAFA;;AAUe,SAAS;IACtB,IAAA,8IAAQ,EAAC;AACX"}}]
+}

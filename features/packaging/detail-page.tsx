@@ -1,7 +1,8 @@
 ﻿'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
 import { useOrderStore } from '../orders/store';
 import type { Order, Packaging, PackagingStatus } from '../orders/types';
@@ -87,8 +88,8 @@ function CancelPackagingDialog({
 
 
 export function PackagingDetailPage() {
-    const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-    const navigate = ReactRouterDOM.useNavigate();
+    const { systemId } = useParams<{ systemId: string }>();
+    const router = useRouter();
     const { data: allOrders, confirmPackaging, cancelPackagingRequest } = useOrderStore();
     const { findById: findCustomerById } = useCustomerStore();
     const { findById: findEmployeeById } = useEmployeeStore();
@@ -248,7 +249,7 @@ export function PackagingDetailPage() {
                     variant="outline"
                     size="sm"
                     className="h-9"
-                    onClick={() => navigate('/packaging')}
+                    onClick={() => router.push('/packaging')}
                 >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Danh sách đóng gói
@@ -256,7 +257,7 @@ export function PackagingDetailPage() {
             );
 
             return actions;
-        }, [packaging, order, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, navigate]);
+        }, [packaging, order, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, router]);
 
         const headerBadge = React.useMemo(() => {
             if (!packaging) return undefined;
@@ -285,7 +286,7 @@ export function PackagingDetailPage() {
             <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                     <h2 className="text-h3 font-bold">Không tìm thấy phiếu đóng gói</h2>
-                    <Button onClick={() => navigate('/packaging')} className="mt-4 h-9">
+                    <Button onClick={() => router.push('/packaging')} className="mt-4 h-9">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Quay về danh sách
                     </Button>
@@ -320,23 +321,23 @@ export function PackagingDetailPage() {
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <DetailField label="Đơn hàng">
-                                    <ReactRouterDOM.Link 
-                                        to={`/orders/${order.systemId}`} 
+                                    <Link 
+                                        href={`/orders/${order.systemId}`} 
                                         className="font-medium text-primary hover:underline"
                                     >
                                         {order.id}
-                                    </ReactRouterDOM.Link>
+                                    </Link>
                                 </DetailField>
                                 <DetailField label="Chi nhánh" value={order.branchName} />
                                 
                                 <DetailField label="Khách hàng">
                                     {customer ? (
-                                        <ReactRouterDOM.Link 
-                                            to={`/customers/${customer.systemId}`}
+                                        <Link 
+                                            href={`/customers/${customer.systemId}`}
                                             className="text-primary hover:underline font-medium"
                                         >
                                             {order.customerName}
-                                        </ReactRouterDOM.Link>
+                                        </Link>
                                     ) : (
                                         <span>{order.customerName}</span>
                                     )}
@@ -354,12 +355,12 @@ export function PackagingDetailPage() {
                                 
                                 <DetailField label="Nhân viên yêu cầu">
                                     {requestingEmployee ? (
-                                        <ReactRouterDOM.Link 
-                                            to={`/employees/${requestingEmployee.systemId}`}
+                                        <Link 
+                                            href={`/employees/${requestingEmployee.systemId}`}
                                             className="text-primary hover:underline font-medium"
                                         >
                                             {packaging.requestingEmployeeName}
-                                        </ReactRouterDOM.Link>
+                                        </Link>
                                     ) : (
                                         <span>{packaging.requestingEmployeeName}</span>
                                     )}
@@ -367,12 +368,12 @@ export function PackagingDetailPage() {
                                 
                                 <DetailField label="Nhân viên được gán">
                                     {assignedEmployee ? (
-                                        <ReactRouterDOM.Link 
-                                            to={`/employees/${assignedEmployee.systemId}`}
+                                        <Link 
+                                            href={`/employees/${assignedEmployee.systemId}`}
                                             className="text-primary hover:underline font-medium"
                                         >
                                             {packaging.assignedEmployeeName}
-                                        </ReactRouterDOM.Link>
+                                        </Link>
                                     ) : (
                                         <span>{packaging.assignedEmployeeName || '---'}</span>
                                     )}
@@ -384,12 +385,12 @@ export function PackagingDetailPage() {
                                 
                                 <DetailField label="Nhân viên đóng gói" className="md:col-span-2">
                                     {confirmingEmployee ? (
-                                        <ReactRouterDOM.Link 
-                                            to={`/employees/${confirmingEmployee.systemId}`}
+                                        <Link 
+                                            href={`/employees/${confirmingEmployee.systemId}`}
                                             className="text-primary hover:underline font-medium"
                                         >
                                             {packaging.confirmingEmployeeName}
-                                        </ReactRouterDOM.Link>
+                                        </Link>
                                     ) : (
                                         <span>{packaging.confirmingEmployeeName || '---'}</span>
                                     )}

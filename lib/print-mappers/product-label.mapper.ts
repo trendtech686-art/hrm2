@@ -1,11 +1,11 @@
-import type { Product } from '@/features/products/types';
+import type { Product } from '@/lib/types/prisma-extended';
 import {
   PrintData,
   StoreSettings,
   formatCurrency,
   formatDate,
   getStoreData,
-} from './types';
+} from '@/lib/print-service';
 
 const DEFAULT_QR_SIZE = 96;
 const DEFAULT_BARCODE_HEIGHT = 48;

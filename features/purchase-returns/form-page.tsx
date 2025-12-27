@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { formatDateCustom, parseDate, getCurrentDate, toISODate } from '@/lib/date-utils';
 import { ArrowLeft, InfoIcon, AlertCircle } from 'lucide-react';
@@ -10,7 +10,7 @@ import { usePurchaseOrderStore } from '../purchase-orders/store';
 import { useSupplierStore } from '../suppliers/store';
 import { useBranchStore } from '../settings/branches/store';
 import { usePurchaseReturnStore } from './store';
-import type { PurchaseReturnLineItem } from './types';
+import type { PurchaseReturnLineItem } from '@/lib/types/prisma-extended';
 import { useAuth } from '../../contexts/auth-context';
 import { useCashbookStore } from '../cashbook/store';
 import { usePaymentStore } from '../payments/store';
@@ -67,8 +67,8 @@ type PurchaseReturnFormValues = {
 };
 
 export function PurchaseReturnFormPage() {
-  const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId: systemIdParam } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const isSelectMode = !systemIdParam;
 
   // Stores
@@ -119,9 +119,9 @@ export function PurchaseReturnFormPage() {
       toast.error('Không thể tạo phiếu trả', {
         description: 'Đơn nhập hàng này chưa có phiếu nhập kho nào.'
       });
-      navigate(-1);
+      router.back();
     }
-  }, [po, receipts, navigate]);
+  }, [po, receipts, router]);
 
   // Tính số lượng có thể hoàn trả cho mỗi sản phẩm
   const returnableQuantities = React.useMemo(() => {
@@ -250,7 +250,7 @@ export function PurchaseReturnFormPage() {
           variant="outline"
           size="sm"
           className="h-9"
-          onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_RETURNS)}
+          onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURNS)}
         >
           Danh sách phiếu trả
         </Button>
@@ -263,7 +263,7 @@ export function PurchaseReturnFormPage() {
         variant="outline"
         size="sm"
         className="h-9"
-        onClick={() => navigate(-1)}
+        onClick={() => router.back()}
       >
         Hủy
       </Button>,
@@ -277,7 +277,7 @@ export function PurchaseReturnFormPage() {
         Xác nhận hoàn trả
       </Button>
     ];
-  }, [isSelectMode, navigate]);
+  }, [isSelectMode, router]);
 
   usePageHeader({
     title: headerTitle,
@@ -310,7 +310,7 @@ export function PurchaseReturnFormPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Quay lại
           </Button>
@@ -345,7 +345,7 @@ export function PurchaseReturnFormPage() {
                     <Card 
                       key={po.systemId} 
                       className="cursor-pointer hover:border-primary transition-colors"
-                      onClick={() => navigate(`/purchase-orders/${po.systemId}/return`)}
+                      onClick={() => router.push(`/purchase-orders/${po.systemId}/return`)}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
@@ -382,7 +382,7 @@ export function PurchaseReturnFormPage() {
             ID: {systemIdParam || 'Chưa có'}
           </p>
         </div>
-        <Button onClick={() => navigate(-1)} variant="outline" className="h-9">
+        <Button onClick={() => router.back()} variant="outline" className="h-9">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay lại
         </Button>
@@ -401,7 +401,7 @@ export function PurchaseReturnFormPage() {
             {!branch && 'Không tìm thấy chi nhánh.'}
           </p>
         </div>
-        <Button onClick={() => navigate(-1)} variant="outline" className="h-9">
+        <Button onClick={() => router.back()} variant="outline" className="h-9">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay lại
         </Button>
@@ -410,7 +410,7 @@ export function PurchaseReturnFormPage() {
   }
 
   if (receipts.length === 0) {
-    return null; // Đã navigate(-1) ở useEffect
+    return null; // Đã router.back() ở useEffect
   }
 
   const handleFormSubmit = (data: PurchaseReturnFormValues) => {
@@ -500,7 +500,7 @@ export function PurchaseReturnFormPage() {
     toast.success('Đã tạo phiếu trả', {
       description: pendingSubmit.returnId ? `Phiếu ${pendingSubmit.returnId} đã được lưu.` : 'Phiếu trả NCC đã được lưu.'
     });
-    navigate(`/purchase-orders/${po.systemId}`);
+    router.push(`/purchase-orders/${po.systemId}`);
   };
 
   const itemsWithQty = watchedItems.filter(item => item.returnQuantity > 0);
@@ -510,7 +510,7 @@ export function PurchaseReturnFormPage() {
     <Form {...form}>
       <form id="purchase-return-form" onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="flex items-center justify-between mb-4 lg:hidden">
-            <Button variant="ghost" type="button" onClick={() => navigate(-1)} className="h-9 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" type="button" onClick={() => router.back()} className="h-9 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Đơn nhập hàng {po.id}
             </Button>

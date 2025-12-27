@@ -6,7 +6,7 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
 import { Eye, EyeOff, RefreshCw, Copy, ShieldAlert } from 'lucide-react';
-import type { Employee } from './types';
+import type { Employee } from '@/lib/types/prisma-extended';
 import type { EmployeeRole } from './roles';
 import { useEmployeeStore } from './store';
 import { useAuth } from '../../contexts/auth-context';

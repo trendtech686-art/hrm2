@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import type { Order, Packaging, PackagingStatus, OrderDeliveryStatus } from '../types';
 import { Button } from '../../../components/ui/button';
@@ -102,7 +102,7 @@ export function PackagingInfo({
         }
 
         return (
-            <Link to={`/employees/${employeeId}`} className="text-primary hover:underline">
+            <Link href={`/employees/${employeeId}`} className="text-primary hover:underline">
                 {resolvedName || employeeId}
             </Link>
         );
@@ -502,7 +502,7 @@ export function PackagingInfo({
                     <div className="grid grid-cols-1 md:grid-cols-2 text-sm gap-x-6 gap-y-1">
                         <DetailField label="Mã đóng gói" className="py-1 border-0">
                             <div className="flex items-center gap-1">
-                                <Link to={`/packaging/${packaging.systemId}`} className="font-mono text-primary hover:underline">{packaging.id}</Link>
+                                <Link href={`/packaging/${packaging.systemId}`} className="font-mono text-primary hover:underline">{packaging.id}</Link>
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -527,7 +527,7 @@ export function PackagingInfo({
                             {packaging.trackingCode ? (
                                 <div className="flex items-center gap-1">
                                     {shipment ? (
-                                        <Link to={`/shipments/${shipment.systemId}`} className="font-mono text-primary hover:underline">
+                                        <Link href={`/shipments/${shipment.systemId}`} className="font-mono text-primary hover:underline">
                                             {packaging.trackingCode}
                                         </Link>
                                     ) : (

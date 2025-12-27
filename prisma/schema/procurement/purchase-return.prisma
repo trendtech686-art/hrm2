@@ -1,50 +1,50 @@
-// ═══════════════════════════════════════════════════════════════
-// PURCHASE RETURN MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PRET0000000001 (English, 10 digits)
-// BusinessId: THNCC0000000001 (Vietnamese - Trả hàng NCC, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model PurchaseReturn {
-  systemId          String                @id           // PRET0000000001
-  id                String                @unique       // THNCC0000000001
+  systemId        String               @id
+  id              String               @unique
+  supplierId      String
+  purchaseOrderId String?
+  branchId        String?
+  employeeId      String?
+  returnDate      DateTime             @default(now())
+  status          PurchaseReturnStatus @default(DRAFT)
+  reason          String?
+  subtotal        Decimal              @default(0) @db.Decimal(15, 2)
+  total           Decimal              @default(0) @db.Decimal(15, 2)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  createdBy       String?
+  updatedBy       String?
   
-  // Original PO
-  purchaseOrderId   String?
-  purchaseOrder     PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [systemId])
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Supplier
-  supplierId        String?
-  supplierName      String?
+  // Purchase order linking
+  purchaseOrderSystemId    String?    // SystemId of purchase order
+  purchaseOrderBusinessId  String?    // Business ID for display
   
-  // Branch
-  branchId          String?
-  branch            Branch?               @relation(fields: [branchId], references: [systemId])
+  // Supplier & branch info (denormalized)
+  supplierSystemId     String?
+  supplierName         String?
+  branchSystemId       String?
+  branchName           String?
   
-  // Return details
-  returnDate        DateTime              @default(now())
-  reason            String?
-  status            ReturnStatus          @default(PENDING)
+  // Items (stored as JSON)
+  returnItems          Json?          // Array of PurchaseReturnLineItem
   
-  // Amounts
-  subtotal          Decimal               @default(0) @db.Decimal(15, 2)
-  refundAmount      Decimal               @default(0) @db.Decimal(15, 2)
+  // Financial
+  totalReturnValue     Decimal        @default(0) @db.Decimal(15, 2)
+  refundAmount         Decimal        @default(0) @db.Decimal(15, 2)
+  refundMethod         String?
+  accountSystemId      String?        // Cash account for refund
   
-  // Notes
-  notes             String?
+  // Creator info
+  creatorName          String?
   
-  // Relations
-  items             PurchaseReturnItem[]
+  // Activity History
+  activityHistory      Json?
   
-  // Soft delete
-  isDeleted         Boolean               @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  // === RELATIONS ===
+  items           PurchaseReturnItem[]
+  suppliers       Supplier             @relation(fields: [supplierId], references: [systemId])
+
   @@map("purchase_returns")
 }

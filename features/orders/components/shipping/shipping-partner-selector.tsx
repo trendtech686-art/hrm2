@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { RadioGroup } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -39,7 +39,7 @@ export function ShippingPartnerSelector({
   disabled,
   collapsed,
 }: ShippingPartnerSelectorProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { results, isCalculating, calculateFees } = useShippingCalculator();
   const prevWeightRef = React.useRef<number>(0);
   const prevOrderValueRef = React.useRef<number>(0); // ✅ Track orderValue
@@ -338,7 +338,7 @@ export function ShippingPartnerSelector({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/settings/shipping')}
+            onClick={() => router.push('/settings/shipping')}
             className="w-full border-orange-300 text-orange-700 hover:bg-orange-100"
           >
             Kết nối ngay

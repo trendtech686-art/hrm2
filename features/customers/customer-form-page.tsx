@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, toISODate } from '@/lib/date-utils';
 import { useCustomerStore } from './store';
 import { asSystemId } from '@/lib/id-types';
@@ -15,10 +15,10 @@ import {
   CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import type { Customer } from './types';
+import type { Customer } from '@/lib/types/prisma-extended';
 export function CustomerFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById, add, update } = useCustomerStore();
 
   const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
@@ -52,11 +52,11 @@ export function CustomerFormPage() {
   };
 
   const handleSuccess = () => {
-    navigate('/customers');
+    router.push('/customers');
   };
 
   const handleCancel = () => {
-    navigate('/customers');
+    router.push('/customers');
   }
 
   const headerActions = React.useMemo(() => [

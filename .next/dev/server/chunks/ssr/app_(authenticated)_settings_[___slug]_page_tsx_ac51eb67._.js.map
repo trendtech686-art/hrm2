@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/hrm2/app/%28authenticated%29/settings/%5B...slug%5D/page.tsx"],"sourcesContent":["'use client';\r\nimport { redirect } from 'next/navigation';\r\n\r\n// Catch-all settings routes -> main settings page\r\nexport default function SettingsCatchAllPage() {\r\n  redirect('/settings');\r\n}\r\n"],"names":[],"mappings":";;;;AACA;AADA;;AAIe,SAAS;IACtB,IAAA,8IAAQ,EAAC;AACX"}}]
+}

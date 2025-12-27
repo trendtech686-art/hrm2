@@ -12,7 +12,7 @@ import {
   formatTime,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 // Helper: Format số khấu trừ (có dấu âm khi > 0, không dấu khi = 0)
 const formatDeduction = (value: number | undefined): string => {

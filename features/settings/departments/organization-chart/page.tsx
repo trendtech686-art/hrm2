@@ -13,7 +13,7 @@ import ReactFlow, {
   Panel,
   ConnectionMode,
 } from 'reactflow';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Mouse, GripVertical, Download } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import { SettingsActionButton } from '../../../../components/settings/SettingsActionButton';
@@ -44,7 +44,7 @@ const nodeTypes = {
 };
 
 function OrgChartFlow() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const {
     employees,
     departments,
@@ -96,7 +96,7 @@ function OrgChartFlow() {
       data: {
         ...node.data,
         onToggle: () => toggleNode(node.id),
-        navigate,
+        router,
         onFocus: handleFocusNode,
         departmentFilter,
         isInteractive,
@@ -156,7 +156,7 @@ function OrgChartFlow() {
     setEdges,
     setForceAutoLayout,
     toggleNode,
-    navigate,
+    router,
     handleFocusNode,
   ]);
 

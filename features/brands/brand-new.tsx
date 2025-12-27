@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { Link, useLocation, useNavigate } from '@/lib/next-compat';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 import { 
   Save, 
   X, 
@@ -64,7 +65,7 @@ const brandFormSchema = z.object({
 type BrandFormValues = z.infer<typeof brandFormSchema>;
 
 export function BrandNewPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   
   const { data, add, getNextId, counter } = useBrandStore();
   
@@ -151,12 +152,12 @@ export function BrandNewPage() {
     });
     
     toast.success('Đã thêm thương hiệu mới');
-    navigate('/brands');
+    router.push('/brands');
   };
 
   // Header actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => navigate('/brands')}>
+    <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push('/brands')}>
       <X className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
@@ -164,7 +165,7 @@ export function BrandNewPage() {
       <Save className="mr-2 h-4 w-4" />
       Tạo mới
     </Button>
-  ], [navigate, form]);
+  ], [router, form]);
 
   usePageHeader({
     actions: headerActions,

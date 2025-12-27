@@ -1,50 +1,41 @@
-// ═══════════════════════════════════════════════════════════════
-// INVENTORY CHECK MODEL (Kiểm kho)
-// ═══════════════════════════════════════════════════════════════
-// SystemId: ICHK0000000001 (English, 10 digits)
-// BusinessId: KK0000000001 (Vietnamese - Kiểm kho, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model InventoryCheck {
-  systemId          String              @id           // ICHK0000000001
-  id                String              @unique       // KK0000000001
+  systemId   String               @id
+  id         String               @unique
+  branchId   String
+  employeeId String?
+  checkDate  DateTime             @default(now())
+  status     InventoryCheckStatus @default(DRAFT)
+  notes      String?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  createdBy  String?
+  updatedBy  String?
   
-  // Branch
-  branchId          String?
-  branch            Branch?             @relation(fields: [branchId], references: [systemId])
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Location
-  locationId        String?
+  // Branch info (denormalized)
+  branchSystemId       String?
+  branchName           String?
   
-  // Check details
-  checkDate         DateTime            @default(now())
-  checkType         String              @default("full") // full, partial, cycle
+  // Balance tracking
+  balancedAt           DateTime?
+  balancedBy           String?
   
-  // Status
-  status            String              @default("draft") // draft, in_progress, completed, cancelled
+  // Cancellation tracking
+  cancelledAt          DateTime?
+  cancelledBy          String?
+  cancelledReason      String?
   
-  // Summary
-  totalItems        Int                 @default(0)
-  matchedItems      Int                 @default(0)
-  varianceItems     Int                 @default(0)
+  // Items (stored as JSON for flexibility)
+  checkItems           Json?          // Array of InventoryCheckItem with reason
   
-  // Notes
-  notes             String?
+  // Activity History
+  activityHistory      Json?
   
-  // Relations
-  items             InventoryCheckItem[]
-  
-  // Soft delete
-  isDeleted         Boolean             @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  approvedBy        String?
-  approvedAt        DateTime?
-  
+  // === RELATIONS ===
+  items      InventoryCheckItem[]
+
+  @@index([branchId])
+  @@index([status])
   @@map("inventory_checks")
 }

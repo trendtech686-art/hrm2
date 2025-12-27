@@ -1,6 +1,6 @@
 import * as React from "react";
 import { formatDateCustom } from '../../lib/date-utils';
-import type { Payment } from './types';
+import type { Payment } from '@/lib/types/prisma-extended';
 import type { SystemId } from '../../lib/id-types';
 import { Card, CardContent, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";

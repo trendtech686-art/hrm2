@@ -1,14 +1,14 @@
 import * as React from "react"
-import type { NavigateFunction } from '@/lib/next-compat';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { ColumnDef } from "../../components/data-table/types"
-import type { Supplier } from "./types"
+import type { Supplier } from '@/lib/types/prisma-extended'
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { RotateCcw, Trash2 } from "lucide-react"
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 export function getColumns(
-  navigate: NavigateFunction,
+  router: AppRouterInstance,
   onRestore: (systemId: string) => void,
   onPermanentDelete: (systemId: string) => void
 ): ColumnDef<Supplier>[] {

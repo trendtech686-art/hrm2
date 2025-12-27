@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useCostAdjustmentStore } from './store';
 import { getColumns, getStatusOptions } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
@@ -21,7 +21,7 @@ import { useMediaQuery } from '../../lib/use-media-query';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { CostAdjustmentCard } from './cost-adjustment-card';
-import type { CostAdjustment, CostAdjustmentStatus } from './types';
+import type { CostAdjustment, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
 import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
 import { useAuth } from '../../contexts/auth-context';
 import { asSystemId } from '../../lib/id-types';
@@ -64,7 +64,7 @@ const readStoredColumnLayout = (): StoredColumnLayout | null => {
 
 export function CostAdjustmentListPage() {
   const storedLayoutRef = React.useRef(readStoredColumnLayout());
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: adjustments, cancel, confirm } = useCostAdjustmentStore();
   const { employee } = useAuth();
   const isMobile = !useMediaQuery("(min-width: 768px)");
@@ -99,8 +99,8 @@ export function CostAdjustmentListPage() {
 
   // Columns memoized with callbacks
   const columns = React.useMemo(
-    () => getColumns(navigate, handleSinglePrint),
-    [navigate, handleSinglePrint]
+    () => getColumns(router.push, handleSinglePrint),
+    [router, handleSinglePrint]
   );
   
   // Confirm dialog state
@@ -158,11 +158,11 @@ export function CostAdjustmentListPage() {
 
   // Page header
   const headerActions = React.useMemo(() => [
-    <Button key="add" className="h-9" onClick={() => navigate('/cost-adjustments/new')}>
+    <Button key="add" className="h-9" onClick={() => router.push('/cost-adjustments/new')}>
       <Plus className="mr-2 h-4 w-4" />
       Tạo phiếu điều chỉnh
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   usePageHeader({
     title: 'Danh sách điều chỉnh giá vốn',
@@ -550,19 +550,19 @@ export function CostAdjustmentListPage() {
 
   // Row click handler
   const handleRowClick = (row: CostAdjustment) => {
-    navigate(`/cost-adjustments/${row.systemId}`);
+    router.push(`/cost-adjustments/${row.systemId}`);
   };
 
   // Actions for mobile card - navigate to detail page for confirm/cancel
   const handleConfirm = React.useCallback((systemId: string) => {
-    navigate(`/cost-adjustments/${systemId}`);
+    router.push(`/cost-adjustments/${systemId}`);
     toast.info('Mở trang chi tiết để xác nhận phiếu');
-  }, [navigate]);
+  }, [router]);
 
   const handleCancel = React.useCallback((systemId: string) => {
-    navigate(`/cost-adjustments/${systemId}`);
+    router.push(`/cost-adjustments/${systemId}`);
     toast.info('Mở trang chi tiết để hủy phiếu');
-  }, [navigate]);
+  }, [router]);
 
   return (
     <div className="flex flex-col w-full h-full">

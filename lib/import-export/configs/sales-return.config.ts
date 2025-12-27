@@ -4,8 +4,8 @@
  * Cấu hình xuất dữ liệu phiếu trả hàng bán
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types';
-import type { SalesReturn } from '../../../features/sales-returns/types';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
+import type { SalesReturn } from '@/lib/types/prisma-extended';
 
 const fields: FieldConfig<SalesReturn>[] = [
   // Group: Thông tin chung

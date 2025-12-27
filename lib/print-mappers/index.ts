@@ -4,7 +4,7 @@
  */
 
 // Types & Utilities
-export * from './types';
+export * from '@/lib/print-service';
 
 // =============================================
 // MAIN TEMPLATE TYPES (16 loại chính)

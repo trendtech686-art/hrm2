@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { PaymentMethod } from "./types";
+import type { PaymentMethod } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from "../../../../components/data-table/types";
 import { Badge } from "../../../../components/ui/badge";
 import { Button } from "../../../../components/ui/button";

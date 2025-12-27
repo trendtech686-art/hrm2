@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { usePaymentTypeStore } from '../settings/payments/types/store';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
 import { useTargetGroupStore } from '../settings/target-groups/store';
@@ -15,7 +15,7 @@ import { useShippingPartnerStore } from '../settings/shipping/store';
 import { VirtualizedCombobox, type ComboboxOption } from '../../components/ui/virtualized-combobox';
 import { CurrencyInput } from '../../components/ui/currency-input';
 import { Checkbox } from '../../components/ui/checkbox';
-import type { Payment } from './types';
+import type { Payment } from '@/lib/types/prisma-extended';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
@@ -40,7 +40,7 @@ interface PaymentFormProps {
 }
 
 export function PaymentForm({ initialData, onSubmit, isEditing = false }: PaymentFormProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: paymentTypes } = usePaymentTypeStore();
   const { data: paymentMethods } = usePaymentMethodStore();
   const { data: targetGroups } = useTargetGroupStore();
@@ -129,7 +129,7 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
             {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu chi.`}
           </AlertDescription>
         </div>
-        <Button type="button" variant="outline" onClick={() => navigate(ROUTES.SETTINGS.PAYMENTS)}>
+        <Button type="button" variant="outline" onClick={() => router.push(ROUTES.SETTINGS.PAYMENTS)}>
           Mở Cài đặt thanh toán
         </Button>
       </Alert>

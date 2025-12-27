@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import type { Penalty, PenaltyStatus } from './types';
 import { Card, CardContent } from '../../../components/ui/card';
@@ -27,10 +27,10 @@ const statusVariants: Record<PenaltyStatus, "warning" | "success" | "secondary">
 };
 
 export function PenaltyCard({ penalty, onDelete }: PenaltyCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleCardClick = () => {
-    navigate(`/penalties/${penalty.systemId}`);
+    router.push(`/penalties/${penalty.systemId}`);
   };
 
   return (
@@ -65,7 +65,7 @@ export function PenaltyCard({ penalty, onDelete }: PenaltyCardProps) {
               <DropdownMenuItem 
                 onClick={(e) => { 
                   e.stopPropagation(); 
-                  navigate(`/penalties/${penalty.systemId}`); 
+                  router.push(`/penalties/${penalty.systemId}`); 
                 }}
               >
                 Xem chi tiết
@@ -73,7 +73,7 @@ export function PenaltyCard({ penalty, onDelete }: PenaltyCardProps) {
               <DropdownMenuItem 
                 onClick={(e) => { 
                   e.stopPropagation(); 
-                  navigate(`/penalties/${penalty.systemId}/edit`); 
+                  router.push(`/penalties/${penalty.systemId}/edit`); 
                 }}
               >
                 Chỉnh sửa

@@ -1,126 +1,89 @@
-import * as React from 'react';
-import { useCallback, useRef } from 'react';
-
 /**
  * Route Prefetch Hook
- * Prefetch lazy-loaded routes before user navigates to improve perceived performance
  * 
- * Usage:
- * const prefetch = useRoutePrefetch();
- * <MenuItem onMouseEnter={() => prefetch('/leaves')}>Nghỉ phép</MenuItem>
+ * Prefetches routes during idle time to improve navigation performance.
+ * Uses Next.js router.prefetch() under the hood.
  */
 
-interface PrefetchCache {
-  [key: string]: {
-    loading: boolean;
-    loaded: boolean;
-    error?: Error;
-  };
-}
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
 
-export const routeImportMap: Record<string, () => Promise<unknown>> = {
-  // HRM Routes
-  '/attendance': () => import('@/features/attendance/page'),
-  '/leaves': () => import('@/features/leaves/page'),
+// Routes to prefetch during idle time
+const PREFETCH_ROUTES = [
+  '/dashboard',
+  '/employees',
+  '/customers',
+  '/products',
+  '/orders',
+  '/settings',
+];
 
-  // Sales Routes
-  '/products/new': () => import('@/features/products/form-page'),
-  '/orders/new': () => import('@/features/orders/order-form-page'),
-  '/returns': () => import('@/features/sales-returns/page'),
+/**
+ * Hook to prefetch routes during browser idle time
+ * 
+ * @example
+ * ```tsx
+ * function App() {
+ *   useIdlePreload();
+ *   return <div>...</div>;
+ * }
+ * ```
+ */
+export function useIdlePreload() {
+  const router = useRouter();
+  const prefetchedRef = React.useRef(false);
 
-  // Procurement Routes
-  '/suppliers': () => import('@/features/suppliers/page'),
-  '/purchase-orders': () => import('@/features/purchase-orders/page'),
-  '/inventory-receipts': () => import('@/features/inventory-receipts/page'),
+  React.useEffect(() => {
+    // Only run once
+    if (prefetchedRef.current) return;
 
-  // Finance Routes
-  '/cashbook': () => import('@/features/cashbook/page'),
-  '/receipts': () => import('@/features/receipts/page'),
-  '/payments': () => import('@/features/payments/page'),
+    // Use requestIdleCallback if available, otherwise setTimeout
+    const schedulePreload = (callback: () => void) => {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(callback, { timeout: 2000 });
+      } else {
+        setTimeout(callback, 200);
+      }
+    };
 
-  // Internal Operations
-  '/packaging': () => import('@/features/packaging/page'),
-  '/shipments': () => import('@/features/shipments/page'),
-  '/reconciliation': () => import('@/features/reconciliation/page'),
-  '/warranty': () => import('@/features/warranty/warranty-list-page'),
-  '/complaints': () => import('@/features/complaints/page'),
-  '/wiki': () => import('@/features/wiki/page'),
-
-  // Reports
-  '/reports/sales': () => import('@/features/reports/sales-report/page'),
-  '/reports/inventory': () => import('@/features/reports/inventory-report/page'),
-
-  // Settings
-  '/settings': () => import('@/features/settings/page'),
-  '/settings/appearance': () => import('@/features/settings/appearance/appearance-page'),
-  '/settings/store-info': () => import('@/features/settings/store-info/store-info-page'),
-  '/settings/id-counters': () => import('@/features/settings/system/id-counter-settings-page'),
-};
-
-export function useRoutePrefetch() {
-  const cacheRef = useRef<PrefetchCache>({});
-
-  const prefetch = useCallback((routePath: string) => {
-    // Already loaded or loading
-    if (cacheRef.current[routePath]?.loaded || cacheRef.current[routePath]?.loading) {
-      return;
-    }
-
-    // Mark as loading
-    cacheRef.current[routePath] = { loading: true, loaded: false };
-
-    const importFn = routeImportMap[routePath];
-    
-    if (!importFn) {
-      // Route not found in map, mark as loaded to avoid retrying
-      cacheRef.current[routePath] = { loading: false, loaded: true };
-      return;
-    }
-
-    // Start prefetch
-    importFn()
-      .then(() => {
-        cacheRef.current[routePath] = { loading: false, loaded: true };
-        console.log(`[Prefetch] ✅ Loaded: ${routePath}`);
-      })
-      .catch((error) => {
-        cacheRef.current[routePath] = { loading: false, loaded: false, error };
-        console.error(`[Prefetch] ❌ Failed: ${routePath}`, error);
+    schedulePreload(() => {
+      PREFETCH_ROUTES.forEach((route) => {
+        try {
+          router.prefetch(route);
+        } catch (error) {
+          // Ignore prefetch errors
+          console.debug(`[Prefetch] Failed to prefetch ${route}:`, error);
+        }
       });
-  }, []);
-
-  return prefetch;
+      prefetchedRef.current = true;
+    });
+  }, [router]);
 }
 
 /**
- * Preload critical routes when browser is idle
- * Call this in App.tsx or main layout
+ * Hook to prefetch a specific route
+ * 
+ * @example
+ * ```tsx
+ * function MyComponent() {
+ *   const prefetch = usePrefetch();
+ *   
+ *   return (
+ *     <div onMouseEnter={() => prefetch('/some-route')}>
+ *       Hover to prefetch
+ *     </div>
+ *   );
+ * }
+ * ```
  */
-export function useIdlePreload(routes: string[]) {
-  const prefetch = useRoutePrefetch();
+export function usePrefetch() {
+  const router = useRouter();
 
-  React.useEffect(() => {
-    // Wait for browser to be idle before preloading
-    if ('requestIdleCallback' in window) {
-      const handle = requestIdleCallback(() => {
-        console.log('[Prefetch] 🚀 Starting idle preload...');
-        routes.forEach(route => {
-          setTimeout(() => prefetch(route), Math.random() * 1000); // Stagger loads
-        });
-      }, { timeout: 3000 });
-
-      return () => cancelIdleCallback(handle);
-    } else {
-      // Fallback for browsers without requestIdleCallback
-      const timer = setTimeout(() => {
-        routes.forEach(route => {
-          setTimeout(() => prefetch(route), Math.random() * 1000);
-        });
-      }, 2000);
-
-      return () => clearTimeout(timer);
+  return React.useCallback((route: string) => {
+    try {
+      router.prefetch(route);
+    } catch (error) {
+      console.debug(`[Prefetch] Failed to prefetch ${route}:`, error);
     }
-  }, [prefetch, routes]);
+  }, [router]);
 }
-
-// Fix: Import React

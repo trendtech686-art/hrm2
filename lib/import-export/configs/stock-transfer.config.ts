@@ -8,8 +8,8 @@
  * - Các dòng cùng Mã phiếu sẽ được nhóm thành 1 phiếu chuyển kho
  */
 
-import type { StockTransfer, StockTransferItem, StockTransferStatus } from '@/features/stock-transfers/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { StockTransfer, StockTransferItem, StockTransferStatus } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useProductStore } from '@/features/products/store';
 import { useBranchStore } from '@/features/settings/branches/store';
 import { useEmployeeStore } from '@/features/employees/store';

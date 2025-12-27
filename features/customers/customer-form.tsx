@@ -2,7 +2,7 @@ import * as React from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerFormSchema, validateUniqueId, type CustomerFormData } from "./validation";
-import type { Customer, CustomerAddress } from "./types";
+import type { Customer, CustomerAddress } from "@/lib/types/prisma-extended";
 import { toast } from 'sonner';
 import { useCustomerStore } from './store';
 import { useEmployeeStore } from '../employees/store';
@@ -210,7 +210,20 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
     defaultValues: {
       ...initialData,
       id: initialData?.id ?? '',
-      addresses: initialData?.addresses ?? [],
+      addresses: (initialData?.addresses ?? []).map(addr => ({
+        ...addr,
+        id: addr.id ?? '',
+        label: addr.label ?? '',
+        street: addr.street ?? '',
+        province: addr.province ?? '',
+        provinceId: addr.provinceId ?? '',
+        ward: addr.ward ?? '',
+        wardId: addr.wardId ?? '',
+        district: addr.district ?? '',
+        districtId: typeof addr.districtId === 'string' 
+          ? parseInt(addr.districtId, 10) || 0 
+          : addr.districtId ?? 0,
+      })),
       contacts: initialData?.contacts ?? [],
       tags: initialData?.tags ?? [],
       contract: initialData?.contract ?? {},

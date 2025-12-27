@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useReceiptTypeStore } from '../settings/receipt-types/store';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
 import { useTargetGroupStore } from '../settings/target-groups/store';
@@ -12,7 +12,7 @@ import { useCustomerStore } from '../customers/store';
 import { useSupplierStore } from '../suppliers/store';
 import { useEmployeeStore } from '../employees/store';
 import { useShippingPartnerStore } from '../settings/shipping/store';
-import type { Receipt, ReceiptStatus } from './types';
+import type { Receipt, ReceiptStatus } from '@/lib/types/prisma-extended';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -61,7 +61,7 @@ interface ReceiptFormProps {
 }
 
 export function ReceiptForm({ initialData, onSubmit, isEditing = false }: ReceiptFormProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: receiptTypes } = useReceiptTypeStore();
   const { data: paymentMethods } = usePaymentMethodStore();
   const { data: targetGroups } = useTargetGroupStore();
@@ -179,7 +179,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
             {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu thu.`}
           </AlertDescription>
         </div>
-        <Button type="button" variant="outline" onClick={() => navigate(ROUTES.SETTINGS.PAYMENTS)}>
+        <Button type="button" variant="outline" onClick={() => router.push(ROUTES.SETTINGS.PAYMENTS)}>
           Mở Cài đặt thanh toán
         </Button>
       </Alert>

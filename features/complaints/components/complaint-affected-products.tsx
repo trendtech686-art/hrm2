@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import { useProductStore } from "../../products/store";
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complaint }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById: findProductById } = useProductStore();
   const { findById: findProductTypeById } = useProductTypeStore();
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
@@ -124,7 +124,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                       </td>
                       <td className="p-2">
                         <button
-                          onClick={() => navigate(`/products/${item.productSystemId}`)}
+                          onClick={() => router.push(`/products/${item.productSystemId}`)}
                           className="font-medium text-sm text-primary hover:underline text-left"
                         >
                           {item.productName}

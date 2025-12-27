@@ -37,7 +37,7 @@ export async function GET(request: Request) {
         take: limit,
         orderBy: { transactionDate: 'desc' },
         include: {
-          cashAccount: true,
+          cash_accounts: true,
         },
       }),
       prisma.cashTransaction.count({ where }),
@@ -86,25 +86,23 @@ export async function POST(request: Request) {
         data: {
           systemId: `CTRANS${String(Date.now()).slice(-10).padStart(10, '0')}`,
           id: body.id,
-          cashAccountId: body.accountId || body.cashAccountId,
-          transactionType: body.type || body.transactionType,
+          accountId: body.accountId || body.cashAccountId,
+          type: body.type || body.transactionType,
           amount: body.amount,
-          balanceBefore: 0,
-          balanceAfter: body.amount,
           transactionDate: body.transactionDate ? new Date(body.transactionDate) : new Date(),
           description: body.description,
           referenceId: body.referenceId,
           referenceType: body.referenceType,
         },
-        include: { cashAccount: true },
+        include: { cash_accounts: true },
       })
 
       // Update account balance
-      const balanceChange = (body.type || body.transactionType) === 'receipt' ? body.amount : -body.amount
+      const balanceChange = (body.type || body.transactionType) === 'IN' ? body.amount : -body.amount
       await tx.cashAccount.update({
         where: { systemId: body.accountId || body.cashAccountId },
         data: {
-          currentBalance: { increment: balanceChange },
+          balance: { increment: balanceChange },
         },
       })
 

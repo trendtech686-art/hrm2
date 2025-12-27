@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/hrm2/app/%28authenticated%29/my-tasks/page.tsx"],"sourcesContent":["'use client';\r\nimport { redirect } from 'next/navigation';\r\n\r\nexport default function MyTasksPage() {\r\n  // Redirect to tasks list\r\n  redirect('/tasks');\r\n}\r\n"],"names":[],"mappings":";;;;AACA;AADA;;AAGe,SAAS;IACtB,yBAAyB;IACzB,IAAA,8IAAQ,EAAC;AACX"}}]
+}

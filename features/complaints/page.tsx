@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Plus, Filter, X, LayoutGrid, Table, AlertCircle, CheckCircle2, Clock, XCircle, AlertTriangle, Settings, Settings2, BarChart3, CheckCircle, FolderOpen, Ban, Link2, RefreshCw, Printer } from "lucide-react";
 import Fuse from "fuse.js";
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -311,7 +311,7 @@ function KanbanColumn({
  * =============================================
  */
 export function ComplaintsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
   const { setPageHeader } = usePageHeader();
 
@@ -356,7 +356,7 @@ export function ComplaintsPage() {
     ];
     const initial: Record<string, boolean> = {};
     const cols = getColumns(
-      () => {}, () => {}, () => {}, () => {}, () => {}, () => {}, employees, navigate
+      () => {}, () => {}, () => {}, () => {}, () => {}, () => {}, employees, router
     );
     cols.forEach((col) => {
       const colId = col.id || '';
@@ -548,21 +548,21 @@ export function ComplaintsPage() {
   // Event Handlers
   // ==========================================
   const handleComplaintClick = (complaint: Complaint) => {
-    navigate(`/complaints/${complaint.systemId}`);
+    router.push(`/complaints/${complaint.systemId}`);
   };
 
   const handleCreateComplaint = () => {
-    navigate("/complaints/new");
+    router.push("/complaints/new");
   };
 
   // Table view handlers
   const handleView = React.useCallback((systemId: string) => {
-    navigate(`/complaints/${systemId}`);
-  }, [navigate]);
+    router.push(`/complaints/${systemId}`);
+  }, [router]);
 
   const handleEdit = React.useCallback((systemId: string) => {
-    navigate(`/complaints/${systemId}/edit`);
-  }, [navigate]);
+    router.push(`/complaints/${systemId}/edit`);
+  }, [router]);
 
   const handleFinish = React.useCallback((systemId: string) => {
     const complaint = complaints.find(c => c.systemId === systemId);
@@ -774,8 +774,8 @@ export function ComplaintsPage() {
   }, [complaints]);
 
   const handleRowClick = React.useCallback((complaint: Complaint) => {
-    navigate(`/complaints/${complaint.systemId}`);
-  }, [navigate]);
+    router.push(`/complaints/${complaint.systemId}`);
+  }, [router]);
 
   // Get columns
   const columns = React.useMemo(
@@ -787,9 +787,9 @@ export function ComplaintsPage() {
       handleCancel, 
       handleGetLink, 
       employees,
-      navigate
+      router
     ),
-    [handleView, handleEdit, handleFinish, handleOpen, handleCancel, handleGetLink, employees, navigate]
+    [handleView, handleEdit, handleFinish, handleOpen, handleCancel, handleGetLink, employees, router]
   );
 
   // Set page header - CHỈ truyền actions (title & breadcrumb tự động generate)
@@ -827,7 +827,7 @@ export function ComplaintsPage() {
     <Button
       key="statistics"
       variant="outline"
-      onClick={() => navigate("/complaints/statistics")}
+      onClick={() => router.push("/complaints/statistics")}
       className="h-9"
     >
       <BarChart3 className="h-4 w-4 mr-2" />
@@ -835,13 +835,13 @@ export function ComplaintsPage() {
     </Button>,
     <Button
       key="create"
-      onClick={() => navigate("/complaints/new")}
+      onClick={() => router.push("/complaints/new")}
       className="h-9"
     >
       <Plus className="h-4 w-4 mr-2" />
       Tạo khiếu nại
     </Button>,
-  ], [navigate, viewMode, isPolling, togglePolling]);
+  ], [router, viewMode, isPolling, togglePolling]);
 
   const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => [
     { label: "Trang chủ", href: ROUTES.ROOT },
@@ -1197,7 +1197,7 @@ export function ComplaintsPage() {
               variant="outline"
               size="sm"
               className="h-9"
-              onClick={() => navigate("/settings/complaints")}
+              onClick={() => router.push("/settings/complaints")}
             >
               <Settings className="h-4 w-4 mr-2" />
               Cài đặt

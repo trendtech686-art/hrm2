@@ -11,7 +11,7 @@ import {
   formatTime,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 export interface PackingGuideForPrint {
   // Thông tin cơ bản

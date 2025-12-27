@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { useTargetGroupStore } from "./store";
-import type { TargetGroup } from "./types";
+import type { TargetGroup } from '@/lib/types/prisma-extended';
 import { TargetGroupForm, type TargetGroupFormValues } from "./form";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { Button } from "../../../components/ui/button";

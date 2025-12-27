@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///D:/hrm2/app/%28authenticated%29/settings/pkgx/page.tsx"],"sourcesContent":["import dynamic from 'next/dynamic';\r\n\r\nconst PkgxSettingsPage = dynamic(\r\n  () => import('@/features/settings/pkgx/pkgx-settings-page').then(mod => mod.PkgxSettingsPage),\r\n  { ssr: false, loading: () => <div className=\"flex items-center justify-center h-64\"><div className=\"animate-spin rounded-full h-8 w-8 border-b-2 border-primary\"></div></div> }\r\n);\r\n\r\nexport default function Page() {\r\n  return <PkgxSettingsPage />;\r\n}\r\n"],"names":[],"mappings":";;;;;AAAA;;;;AAEA,MAAM,mBAAmB,IAAA,0KAAO,EAC9B,IAAM,4IAAsD,IAAI,CAAC,CAAA,MAAO,IAAI,gBAAgB;;;;;;IAC1F,KAAK;IAAO,SAAS,kBAAM,8OAAC;YAAI,WAAU;sBAAwC,cAAA,8OAAC;gBAAI,WAAU;;;;;;;;;;;;AAGtF,SAAS;IACtB,qBAAO,8OAAC;;;;;AACV"}}]
+}

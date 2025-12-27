@@ -1,54 +1,45 @@
-// ═══════════════════════════════════════════════════════════════
-// CASH ACCOUNT MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: CASH000001 (English, 6 digits)
-// BusinessId: TQ000001 (Vietnamese - Tài quỹ, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model CashAccount {
-  systemId          String              @id           // CASH000001
-  id                String              @unique       // TQ000001
-  
-  // Basic info
+  systemId          String            @id
+  id                String            @unique
   name              String
-  code              String?             @unique
-  description       String?
-  
-  // Type
-  accountType       String              // cash, bank, card
-  
-  // Bank info
-  bankName          String?
-  bankBranch        String?
-  accountNumber     String?
-  accountHolder     String?
-  
-  // Branch
+  type              CashAccountType
   branchId          String?
-  branch            Branch?             @relation(fields: [branchId], references: [systemId])
+  accountNumber     String?
+  bankName          String?
+  balance           Decimal           @default(0) @db.Decimal(15, 2)
+  isActive          Boolean           @default(true)
+  isDefault         Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  accountType       String?           @default("cash") @db.VarChar(50)
   
-  // Balance
-  currentBalance    Decimal             @default(0) @db.Decimal(15, 2)
-  currency          String              @default("VND")
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Status
-  isActive          Boolean             @default(true)
-  isDefault         Boolean             @default(false)
+  // Initial balance
+  initialBalance    Decimal           @default(0) @db.Decimal(15, 2)
   
-  // Relations
-  receipts          Receipt[]
-  payments          Payment[]
-  transactions      CashTransaction[]
+  // Bank details
+  bankAccountNumber String?
+  bankBranch        String?
+  bankCode          String?          // Mã ngân hàng (VCB, TCB, etc.)
+  accountHolder     String?          // Chủ tài khoản
   
-  // Soft delete
-  isDeleted         Boolean             @default(false)
-  deletedAt         DateTime?
+  // Branch link
+  branchSystemId    String?
+  
+  // Balance limits
+  minBalance        Decimal?         @db.Decimal(15, 2)  // Số dư tối thiểu cảnh báo
+  maxBalance        Decimal?         @db.Decimal(15, 2)  // Số dư tối đa cảnh báo
+  
+  // Manager
+  managedBy         String?          // Người quản lý (systemId)
   
   // Audit
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
   createdBy         String?
   updatedBy         String?
   
+  // === RELATIONS ===
+  cash_transactions CashTransaction[]
+
   @@map("cash_accounts")
 }

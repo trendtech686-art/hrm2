@@ -11,7 +11,7 @@ import {
   formatCurrency,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 export interface CostAdjustmentForPrint {
   // Thông tin cơ bản

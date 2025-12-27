@@ -13,11 +13,21 @@ import {
   numberToWords,
   formatDate,
   formatTime,
-  formatDateText,
-  hidePhoneMiddle,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
+
+// Helper function for hiding phone middle digits
+function hidePhoneMiddle(phone: string | undefined | null): string {
+  if (!phone) return '';
+  if (phone.length < 6) return phone;
+  const start = phone.slice(0, 3);
+  const end = phone.slice(-3);
+  return `${start}****${end}`;
+}
+
+// Alias for backward compatibility
+const formatDateText = formatDate;
 
 export interface QuoteForPrint {
   // === THÔNG TIN CƠ BẢN ===

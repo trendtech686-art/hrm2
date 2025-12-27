@@ -12,7 +12,7 @@ import {
   hidePhoneMiddle,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 export interface ComplaintForPrint {
   // Thông tin cơ bản

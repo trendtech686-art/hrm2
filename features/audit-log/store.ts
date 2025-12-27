@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { LogEntry } from './types';
+import type { LogEntry } from '@/lib/types/prisma-extended';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, subtractDays, getDaysDiff } from '@/lib/date-utils';
 type AuditLogState = {
   logs: LogEntry[];

@@ -3,9 +3,9 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu giao hàng và phiếu bàn giao
  */
 
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
-import type { Order } from '../../features/orders/types';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
+import type { Order } from '../../features/orders/store';
 import { 
   DeliveryForPrint,
   mapDeliveryToPrintData, 
@@ -71,11 +71,12 @@ interface OrderLike {
     quantity: number;
     price?: number;
     unitPrice?: number;
-    amount: number;
+    amount?: number; // Made optional - can be calculated from quantity * unitPrice
     unit?: string;
     sku?: string;
   }>;
   grandTotal?: number;
+  finalAmount?: number; // Alternative to grandTotal
 }
 
 // Interface cho Customer (optional)

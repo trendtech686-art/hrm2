@@ -20,7 +20,7 @@ import {
   useDeleteEmployee,
   useRestoreEmployee 
 } from '@/hooks/api/use-employees'
-import type { Employee } from '@/features/employees/types'
+import type { Employee } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types'
 
 /**

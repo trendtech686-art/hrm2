@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
-import type { JobTitle } from "./types"
+import type { JobTitle } from '@/lib/types/prisma-extended'
 import { useJobTitleStore } from "./store";
 
 import { Button } from "../../../components/ui/button"

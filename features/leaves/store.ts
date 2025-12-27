@@ -1,6 +1,6 @@
 import { createCrudStore, type CrudState } from '../../lib/store-factory';
 import { data as initialData } from './data';
-import type { LeaveRequest } from './types';
+import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import { leaveAttendanceSync } from './leave-sync-service';
 import { leaveQuotaSync } from './leave-quota-service';
 

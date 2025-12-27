@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useStockTransferStore } from './store';
 import { getColumns } from './columns';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table';
@@ -25,7 +25,7 @@ import { useMediaQuery } from '../../lib/use-media-query';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { StockTransferCard } from './stock-transfer-card';
-import type { StockTransfer, StockTransferStatus } from './types';
+import type { StockTransfer, StockTransferStatus } from '@/lib/types/prisma-extended';
 import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePrint } from '../../lib/use-print';
@@ -59,7 +59,7 @@ const readStoredColumnLayout = (): StoredColumnLayout | null => {
 
 export function StockTransfersPage() {
   const storedLayoutRef = React.useRef(readStoredColumnLayout());
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: transfers } = useStockTransferStore();
   const { data: branches } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
@@ -123,13 +123,13 @@ export function StockTransfersPage() {
   const headerActions = React.useMemo(() => [
     <Button 
       key="add"
-      onClick={() => navigate(ROUTES.INVENTORY.STOCK_TRANSFER_NEW)}
+      onClick={() => router.push(ROUTES.INVENTORY.STOCK_TRANSFER_NEW)}
       className="h-9"
     >
       <Plus className="mr-2 h-4 w-4" />
       Tạo phiếu chuyển kho
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   usePageHeader({
     title: 'Danh sách chuyển kho',
@@ -409,7 +409,7 @@ export function StockTransfersPage() {
 
   // Row click handler
   const handleRowClick = (row: StockTransfer) => {
-    navigate(`/stock-transfers/${row.systemId}`);
+    router.push(`/stock-transfers/${row.systemId}`);
   };
 
   return (

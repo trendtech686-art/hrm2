@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Badge } from '../../components/ui/badge';
 import { StatusBadge, ORDER_MAIN_STATUS_MAP, PAYMENT_STATUS_MAP, DELIVERY_STATUS_MAP } from '../../components/StatusBadge';
 import { TouchButton } from '../../components/mobile/touch-button';
@@ -15,7 +15,7 @@ import {
   Printer,
   MoreVertical
 } from 'lucide-react';
-import type { Order } from './types';
+import type { Order } from '@/lib/types/prisma-extended';
 import { formatDate } from '../../lib/date-utils';
 
 const formatCurrency = (value?: number) => {
@@ -29,7 +29,7 @@ interface OrderCardProps {
 }
 
 export function OrderCard({ order, onCancel }: OrderCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const totalPaid = (order.payments || []).reduce((sum, p) => sum + p.amount, 0);
   const remaining = order.grandTotal - totalPaid;
@@ -37,7 +37,7 @@ export function OrderCard({ order, onCancel }: OrderCardProps) {
   return (
     <div 
       className="bg-card rounded-lg border p-4 space-y-3 hover:shadow-md transition-shadow"
-      onClick={() => navigate(`/orders/${order.systemId}`)}
+      onClick={() => router.push(`/orders/${order.systemId}`)}
     >
       {/* Header: Code + Status */}
       <div className="flex items-start justify-between">

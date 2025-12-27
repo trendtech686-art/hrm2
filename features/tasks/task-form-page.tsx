@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { useTaskStore } from './store';
 import { useEmployeeStore } from '../employees/store';
 import { useAuth } from '../../contexts/auth-context';
@@ -23,9 +23,9 @@ import { loadTaskTemplates, loadTaskTypes } from '../../features/settings/tasks/
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export function TaskFormPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
+  const { systemId } = useParams<{ systemId: string }>();
   const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   const store = useTaskStore();
   const { findById, add, update } = store;
   const { data: employees } = useEmployeeStore();
@@ -35,9 +35,9 @@ export function TaskFormPage() {
   React.useEffect(() => {
     if (!isAdmin) {
       toast.error('Bạn không có quyền tạo hoặc chỉnh sửa công việc');
-      navigate('/tasks');
+      router.push('/tasks');
     }
-  }, [isAdmin, navigate]);
+  }, [isAdmin, router]);
 
   const task = React.useMemo(() => (routeSystemId ? findById(routeSystemId) : null), [routeSystemId, findById]);
   const isEdit = !!systemId;
@@ -78,8 +78,8 @@ export function TaskFormPage() {
   const taskTypes = React.useMemo(() => loadTaskTypes(), []);
 
   const handleCancel = React.useCallback(() => {
-    navigate('/tasks');
-  }, [navigate]);
+    router.push('/tasks');
+  }, [router]);
 
   const headerActions = React.useMemo(() => [
     <Button 
@@ -170,7 +170,7 @@ export function TaskFormPage() {
       add(taskData as any);
       toast.success('Đã tạo công việc mới');
     }
-    navigate('/tasks');
+    router.push('/tasks');
   };
 
   const handleApplyTemplate = (templateId: string) => {
@@ -190,7 +190,7 @@ export function TaskFormPage() {
     return (
       <div className="text-center p-8">
         <h2 className="text-2xl font-bold">Không tìm thấy công việc</h2>
-        <Button onClick={() => navigate('/tasks')} className="h-9 mt-4">
+        <Button onClick={() => router.push('/tasks')} className="h-9 mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Quay về danh sách
         </Button>

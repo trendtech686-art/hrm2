@@ -4,8 +4,8 @@
  * Cấu hình xuất dữ liệu phiếu nhập kho
  */
 
-import type { ImportExportConfig, FieldConfig } from '../types';
-import type { InventoryReceipt } from '../../../features/inventory-receipts/types';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
+import type { InventoryReceipt } from '@/features/inventory-receipts/store';
 
 const fields: FieldConfig<InventoryReceipt>[] = [
   // Group: Thông tin chung

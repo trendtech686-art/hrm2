@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils';
 import { usePurchaseOrderStore } from "./store"
@@ -31,7 +31,7 @@ import { Button } from "../../components/ui/button"
 import { PlusCircle, Printer, XCircle, CreditCard, PackageCheck } from "lucide-react"
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context";
-import type { PurchaseOrder } from "./types";
+import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
@@ -102,7 +102,7 @@ export function PurchaseOrdersPage() {
   const { data: suppliers, findById: findSupplierById } = useSupplierStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
   
   // Sync payment statuses when component mounts hoặc khi vouchers thay đổi
@@ -115,12 +115,12 @@ export function PurchaseOrdersPage() {
       key="add"
       className="h-9"
       size="sm"
-      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}
+      onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}
     >
       <PlusCircle className="mr-2 h-4 w-4" />
       Tạo đơn nhập hàng
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   usePageHeader({
     title: "Đơn nhập hàng",
@@ -521,9 +521,9 @@ export function PurchaseOrdersPage() {
 
   const handlePayment = React.useCallback((po: PurchaseOrder) => {
     // TODO: Implement payment dialog/modal
-    navigate(`/purchase-orders/${po.systemId}`);
+    router.push(`/purchase-orders/${po.systemId}`);
     toast(`Mở trang thanh toán cho đơn ${po.id}`);
-  }, [navigate, toast]);
+  }, [router, toast]);
 
   const handleReceiveGoods = React.useCallback((po: PurchaseOrder) => {
     beginReceiveFlow([po]);
@@ -859,7 +859,7 @@ export function PurchaseOrdersPage() {
   ];
 
   const handleRowClick = (row: PurchaseOrder) => {
-    navigate(`/purchase-orders/${row.systemId}`);
+    router.push(`/purchase-orders/${row.systemId}`);
   };
 
   // Calculate statistics for POs with receipts and returns

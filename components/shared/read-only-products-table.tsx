@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { Package, Eye, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { Button } from '../ui/button';
@@ -269,8 +269,7 @@ export function ReadOnlyProductsTable({
                                         <TableCell>
                                             <div className="flex flex-col gap-0.5">
                                                 <div className="flex items-center gap-2">
-                                                    <Link 
-                                                        to={`/products/${item.productSystemId}`}
+                                                    <Link href={`/products/${item.productSystemId}`}
                                                         className="font-medium text-primary hover:underline"
                                                     >
                                                         {item.productName}
@@ -284,8 +283,7 @@ export function ReadOnlyProductsTable({
                                                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                                                     <span>{getProductTypeLabel(item.productSystemId)}</span>
                                                     <span>-</span>
-                                                    <Link 
-                                                        to={`/products/${item.productSystemId}`} 
+                                                    <Link href={`/products/${item.productSystemId}`} 
                                                         className="hover:text-primary hover:underline"
                                                     >
                                                         {item.productId}
@@ -362,8 +360,7 @@ export function ReadOnlyProductsTable({
                                                             {comboItem.product && (
                                                                 <>
                                                                     <div className="text-xs text-muted-foreground">{getProductTypeLabel(comboItem.product.systemId)}</div>
-                                                                    <Link
-                                                                        to={`/products/${comboItem.product.systemId}`}
+                                                                    <Link href={`/products/${comboItem.product.systemId}`}
                                                                         className="text-xs text-muted-foreground hover:text-primary hover:underline"
                                                                     >
                                                                         {comboItem.product.id}

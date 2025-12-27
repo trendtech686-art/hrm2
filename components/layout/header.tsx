@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { Link, useLocation, useNavigate } from '@/lib/next-compat';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 import { ChevronRight, User, Menu, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
@@ -23,7 +24,7 @@ import { NotificationCenter } from '../ui/notification-center';
 export function Header() {
   const { toggleSidebar, toggleSidebarCollapse, isSidebarCollapsed } = useUiStore();
   const { pageHeader } = usePageHeaderContext();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, employee, logout: authLogout } = useAuth();
   
   const { breadcrumb = [] } = pageHeader;
@@ -31,7 +32,7 @@ export function Header() {
   const handleLogout = () => {
     authLogout();
     toast.success('Đăng xuất thành công');
-    navigate(ROUTES.AUTH.LOGIN);
+    router.push(ROUTES.AUTH.LOGIN);
   };
   
   return (
@@ -70,7 +71,7 @@ export function Header() {
                   {item.isCurrent ? (
                     <span className="text-foreground font-medium truncate">{item.label}</span>
                   ) : (
-                    <Link to={item.href} className="text-muted-foreground hover:text-foreground transition-colors truncate hover:underline">
+                    <Link href={item.href} className="text-muted-foreground hover:text-foreground transition-colors truncate hover:underline">
                       {item.label}
                     </Link>
                   )}
@@ -109,7 +110,7 @@ export function Header() {
                     )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => navigate('/settings')}>Cài đặt</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => router.push('/settings')}>Cài đặt</DropdownMenuItem>
                   <DropdownMenuItem>Hỗ trợ</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={handleLogout} className="text-destructive focus:text-destructive">

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useShipmentStore } from './store';
@@ -19,7 +19,7 @@ import {
   mapHandoverLineItems,
   createStoreSettings,
 } from '../../lib/print/shipment-print-helper';
-import type { Shipment, ShipmentView } from './types';
+import type { Shipment, ShipmentView } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
@@ -49,7 +49,7 @@ export function ShipmentsPage() {
     const { data: branches } = useBranchStore();
     const { info: storeInfo } = useStoreInfoStore();
     const { employee: currentUser } = useAuth();
-    const navigate = useNavigate();
+    const router = useRouter();
     const { print, printMultiple } = usePrint();
 
     // Print dialog state
@@ -239,7 +239,7 @@ export function ShipmentsPage() {
         },
     ], [handleBulkPrintDelivery, handleBulkPrintHandover]);
     
-    const columns = React.useMemo(() => getColumns(handlePrintSingleDelivery, handlePrintSingleHandover, navigate), [handlePrintSingleDelivery, handlePrintSingleHandover, navigate]);
+    const columns = React.useMemo(() => getColumns(handlePrintSingleDelivery, handlePrintSingleHandover, router), [handlePrintSingleDelivery, handlePrintSingleHandover, router]);
 
     React.useEffect(() => {
         const defaultVisibleColumns = [
@@ -345,7 +345,7 @@ export function ShipmentsPage() {
     
     React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter, partnerFilter]);
 
-    const handleRowClick = (row: ShipmentView) => navigate('/shipments/' + row.systemId);
+    const handleRowClick = (row: ShipmentView) => router.push('/shipments/' + row.systemId);
 
     const MobileShipmentCard = ({ shipment }: { shipment: ShipmentView }) => {
         const getStatusVariant = (status?: string): 'default' | 'secondary' | 'destructive' => {
@@ -384,7 +384,7 @@ export function ShipmentsPage() {
                                 </TouchButton>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='end'>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate('/orders/' + shipment.orderSystemId); }}>Xem đơn hàng</DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push('/orders/' + shipment.orderSystemId); }}>Xem đơn hàng</DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSingleDelivery(shipment.systemId); }}>In Phiếu Giao Hàng</DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSingleHandover(shipment.systemId); }}>In Phiếu Bàn Giao</DropdownMenuItem>
                             </DropdownMenuContent>

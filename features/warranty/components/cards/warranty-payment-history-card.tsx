@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../../components
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
 import { FileText, ExternalLink } from 'lucide-react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { usePaymentStore } from '../../../payments/store';
 import { useReceiptStore } from '../../../receipts/store';
 import type { Payment } from '../../../payments/types';
@@ -28,7 +28,7 @@ export function WarrantyPaymentHistoryCard({
   warrantySystemId,
   warrantyId,
 }: WarrantyPaymentHistoryCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: payments } = usePaymentStore();
   const { data: receipts } = useReceiptStore();
   const { settlementMethods } = useWarrantySettlement(warrantySystemId);
@@ -166,7 +166,7 @@ export function WarrantyPaymentHistoryCard({
                 variant="ghost"
                 size="sm"
                 className="h-8"
-                onClick={() => navigate(isPayment ? `/payments/${doc.systemId}` : `/receipts/${doc.systemId}`)}
+                onClick={() => router.push(isPayment ? `/payments/${doc.systemId}` : `/receipts/${doc.systemId}`)}
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>

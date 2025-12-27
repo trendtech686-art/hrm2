@@ -1,10 +1,10 @@
-﻿'use client'
+'use client'
 
 import * as React from "react";
-import * as ReactRouterDOM from '@/lib/next-compat';
-import { Link } from '@/lib/next-compat';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import Link from 'next/link';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, Packaging } from './types';
+import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, Packaging } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
 import { Badge } from "../../components/ui/badge";
@@ -69,7 +69,7 @@ const returnStatusVariants: Record<OrderReturnStatus, "warning" | "destructive" 
 
 export interface OrderColumnActions {
   onCancel: (systemId: string) => void;
-  navigate: (path: string) => void;
+  router: AppRouterInstance;
   onPrintOrder?: (order: Order) => void;
   onPrintPacking?: (order: Order) => void;
   onPrintShippingLabel?: (order: Order) => void;
@@ -78,7 +78,7 @@ export interface OrderColumnActions {
 
 export const getColumns = (
   onCancel: (systemId: string) => void,
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   printActions?: {
     onPrintOrder?: (order: Order) => void;
     onPrintPacking?: (order: Order) => void;
@@ -115,85 +115,84 @@ export const getColumns = (
   {
     id: "id",
     accessorKey: "id",
-    header: "Mã ĐH",
+    header: "M� �H",
     cell: ({ row }) => (
-      <Link 
-        to={`/orders/${row.systemId}`} 
+      <Link href={`/orders/${row.systemId}`} 
         className="text-body-sm font-medium text-primary hover:underline"
       >
         {row.id}
       </Link>
     ),
-    meta: { displayName: "Mã ĐH", group: "Thông tin chung" },
+    meta: { displayName: "M� �H", group: "Th�ng tin chung" },
     size: 120,
   },
   {
     id: "customerName",
     accessorKey: "customerName",
-    header: "Tên khách hàng",
+    header: "T�n kh�ch h�ng",
     cell: ({ row }) => row.customerName,
-    meta: { displayName: "Tên khách hàng", group: "Thông tin chung" },
+    meta: { displayName: "T�n kh�ch h�ng", group: "Th�ng tin chung" },
   },
   {
     id: "orderDate",
     accessorKey: "orderDate",
-    header: "Ngày tạo",
+    header: "Ng�y t?o",
     cell: ({ row }) => formatDate(row.orderDate),
-    meta: { displayName: "Ngày tạo", group: "Thông tin chung" },
+    meta: { displayName: "Ng�y t?o", group: "Th�ng tin chung" },
   },
   {
     id: 'branchName',
     accessorKey: 'branchName',
-    header: 'Chi nhánh',
+    header: 'Chi nh�nh',
     cell: ({ row }) => row.branchName,
-    meta: { displayName: 'Chi nhánh', group: "Thông tin chung" }
+    meta: { displayName: 'Chi nh�nh', group: "Th�ng tin chung" }
   },
   {
     id: "salesperson",
     accessorKey: "salesperson",
-    header: "NV Bán",
+    header: "NV B�n",
     cell: ({ row }) => row.salesperson,
-    meta: { displayName: "NV Bán", group: "Nhân viên" },
+    meta: { displayName: "NV B�n", group: "Nh�n vi�n" },
   },
   {
     id: "grandTotal",
     accessorKey: "grandTotal",
-    header: "Tổng tiền",
+    header: "T?ng ti?n",
     cell: ({ row }) => formatCurrency(row.grandTotal),
-    meta: { displayName: "Tổng tiền", group: "Tài chính" },
+    meta: { displayName: "T?ng ti?n", group: "T�i ch�nh" },
   },
   {
     id: 'totalPaid',
-    header: 'Đã thanh toán',
+    header: '�� thanh to�n',
     cell: ({ row }) => {
         const totalPaid = (row.payments || []).reduce((sum, p) => sum + p.amount, 0);
         return formatCurrency(totalPaid);
     },
-    meta: { displayName: 'Đã thanh toán', group: "Tài chính" }
+    meta: { displayName: '�� thanh to�n', group: "T�i ch�nh" }
   },
   {
     id: 'debt',
-    header: 'Còn lại',
+    header: 'C�n l?i',
     cell: ({ row }) => {
         const totalPaid = (row.payments || []).reduce((sum, p) => sum + p.amount, 0);
         const remaining = row.grandTotal - totalPaid;
         return <span className={remaining > 0 ? 'text-body-sm text-destructive font-semibold' : ''}>{formatCurrency(remaining)}</span>;
     },
-    meta: { displayName: 'Còn lại', group: "Tài chính" }
+    meta: { displayName: 'C�n l?i', group: "T�i ch�nh" }
   },
   {
     id: "codAmount",
     accessorKey: "codAmount",
-    header: "Thu hộ (COD)",
+    header: "Thu h? (COD)",
     cell: ({ row }) => formatCurrency(row.codAmount),
-    meta: { displayName: "Thu hộ (COD)", group: "Tài chính" },
+    meta: { displayName: "Thu h? (COD)", group: "T�i ch�nh" },
   },
   {
     id: "status",
     accessorKey: "status",
-    header: "Trạng thái",
+    header: "Tr?ng th�i",
     cell: ({ row }) => <Badge variant={mainStatusVariants[row.status]}>{row.status}</Badge>,
-    meta: { displayName: "Trạng thái", group: "Trạng thái" },
+    meta: { displayName: "Tr?ng th�i", group: "Tr?ng th�i" },
   },
   {
     id: "paymentStatus",
@@ -288,10 +287,10 @@ export const getColumns = (
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => navigate(`/orders/${row.systemId}`)}>
+              <DropdownMenuItem onSelect={() => router.push(`/orders/${row.systemId}`)}>
                 Xem chi tiết
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => navigate(`/orders/${row.systemId}/edit`)}>
+              <DropdownMenuItem onSelect={() => router.push(`/orders/${row.systemId}/edit`)}>
                 Sửa
               </DropdownMenuItem>
               

@@ -1,4 +1,4 @@
-import type { Branch } from './types';
+import type { Branch } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 

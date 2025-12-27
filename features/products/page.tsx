@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProductStore } from "./store"
 import { useProductCategoryStore } from "../settings/inventory/product-category-store"
@@ -47,7 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"
-import type { Product } from "./types"
+import type { Product } from "@/lib/types/prisma-extended"
 import { Button } from "../../components/ui/button"
 import { PlusCircle } from "lucide-react"
 import { PkgxLinkDialog } from "./components/pkgx-link-dialog"
@@ -109,7 +109,7 @@ export function ProductsPage() {
   );
   const { data: branches } = useBranchStore();
   const { employee: authEmployee } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const defaultBranchSystemId = React.useMemo(() => {
     return branches.find(branch => branch.isDefault)?.systemId ?? branches[0]?.systemId ?? null;
@@ -148,7 +148,7 @@ export function ProductsPage() {
         variant="outline"
         size="sm"
         className="h-9"
-        onClick={() => navigate('/products/trash')}
+        onClick={() => router.push('/products/trash')}
       >
         <Package className="mr-2 h-4 w-4" />
         Thùng rác ({deletedCount})
@@ -180,11 +180,11 @@ export function ProductsPage() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => navigate('/products/new')}>
+          <DropdownMenuItem onClick={() => router.push('/products/new')}>
             <Package className="mr-2 h-4 w-4" />
             Thêm sản phẩm đơn
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/products/new?type=combo')}>
+          <DropdownMenuItem onClick={() => router.push('/products/new?type=combo')}>
             <Layers className="mr-2 h-4 w-4" />
             Thêm Combo
           </DropdownMenuItem>
@@ -193,7 +193,7 @@ export function ProductsPage() {
     );
 
     return actions;
-  }, [deletedCount, navigate, setActionsSheetOpen, isMobile]);
+  }, [deletedCount, router, setActionsSheetOpen, isMobile]);
   
   usePageHeader({
     title: 'Danh sách sản phẩm',
@@ -209,7 +209,8 @@ export function ProductsPage() {
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
     const storageKey = 'products-column-visibility';
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null;
-    const cols = getColumns(() => {}, () => {}, () => {});
+    // Just need column structure, so pass null router
+    const cols = getColumns(() => {}, () => {}, null as unknown as ReturnType<typeof useRouter>);
     const allColumnIds = cols.map(c => c.id).filter(Boolean);
     if (stored) {
       try {
@@ -631,7 +632,7 @@ export function ProductsPage() {
     () => getColumns(
       handleDelete, 
       handleRestore, 
-      navigate, 
+      router, 
       handlePrintLabel,
       handlePkgxPublish,
       handlePkgxLink,
@@ -641,7 +642,7 @@ export function ProductsPage() {
       handleInventoryChange,
       handleFieldUpdate
     ),
-    [handleDelete, handleRestore, navigate, handlePrintLabel, handlePkgxPublish, handlePkgxLink, handlePkgxUnlink, handlePkgxSyncImages, handleStatusChange, handleInventoryChange, handleFieldUpdate]
+    [handleDelete, handleRestore, router, handlePrintLabel, handlePkgxPublish, handlePkgxLink, handlePkgxUnlink, handlePkgxSyncImages, handleStatusChange, handleInventoryChange, handleFieldUpdate]
   );
   
   // ✅ Run once on mount only
@@ -923,7 +924,7 @@ export function ProductsPage() {
   );
 
   const handleRowClick = (row: Product) => {
-    navigate(`/products/${row.systemId}`);
+    router.push(`/products/${row.systemId}`);
   };
 
   // Get unique categories for filter - từ settings
@@ -1368,7 +1369,7 @@ export function ProductsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/products/${product.systemId}/edit`); }}>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/products/${product.systemId}/edit`); }}>
                       Chỉnh sửa
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(product.systemId); }}>

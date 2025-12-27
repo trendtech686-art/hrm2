@@ -1,57 +1,105 @@
-// ═══════════════════════════════════════════════════════════════
-// WARRANTY MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: WAR0000000001 (English, 10 digits)
-// BusinessId: BH0000000001 (Vietnamese - Bảo hành, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Warranty {
-  systemId          String          @id           // WAR0000000001
-  id                String          @unique       // BH0000000001
+  systemId           String           @id
+  id                 String           @unique
+  customerId         String?
+  productId          String?
+  orderId            String?
+  orderLineItemId    String?
+  customerName       String
+  customerPhone      String
+  customerEmail      String?
+  productName        String
+  serialNumber       String?
+  purchaseDate       DateTime?
+  warrantyExpireDate DateTime?
+  title              String
+  description        String?
+  images             String[]
+  status             WarrantyStatus   @default(RECEIVED)
+  priority           WarrantyPriority @default(MEDIUM)
+  assigneeId         String?
+  branchId           String?
+  diagnosis          String?
+  solution           String?
+  partsCost          Decimal          @default(0) @db.Decimal(15, 2)
+  laborCost          Decimal          @default(0) @db.Decimal(15, 2)
+  totalCost          Decimal          @default(0) @db.Decimal(15, 2)
+  isUnderWarranty    Boolean          @default(true)
+  receivedAt         DateTime         @default(now())
+  startedAt          DateTime?
+  completedAt        DateTime?
+  returnedAt         DateTime?
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  createdBy          String?
+  updatedBy          String?
+  deletedAt          DateTime?
+  isDeleted          Boolean          @default(false)
+  issueDescription   String?
   
-  // Related Order
-  orderId           String?
-  order             Order?          @relation(fields: [orderId], references: [systemId])
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Product
-  productId         String?
-  product           Product?        @relation(fields: [productId], references: [systemId])
-  productName       String?
-  serialNumber      String?
+  // Tracking & external references
+  trackingCode          String?          // Mã vận đơn (GHTK, GHN, etc.)
+  publicTrackingCode    String?          // Mã tra cứu công khai cho khách hàng
+  shippingFee           Decimal?         @db.Decimal(15, 2)
+  referenceUrl          String?          // Đường dẫn (URL)
+  externalReference     String?          // Mã tham chiếu
   
-  // Customer
-  customerId        String?
-  customerName      String?
-  customerPhone     String?
+  // Branch & employee info
+  branchSystemId        String?
+  branchName            String?
+  employeeSystemId      String?
+  employeeName          String?
   
-  // Branch
-  branchId          String?
-  branch            Branch?         @relation(fields: [branchId], references: [systemId])
+  // Customer address
+  customerAddress       String?
   
-  // Warranty period
-  startDate         DateTime
-  endDate           DateTime
-  warrantyMonths    Int
+  // Images
+  receivedImages        String[]         // Hình ảnh đơn hàng lúc nhận
+  processedImages       String[]         // Hình ảnh đã xử lý xong
   
-  // Status
-  status            WarrantyStatus  @default(PENDING)
+  // Products in warranty ticket
+  products              Json?            // Array of WarrantyProduct
   
-  // Claims
-  warrantyActivities WarrantyActivity[]
+  // Settlement
+  settlement            Json?            // WarrantySettlement object
+  settlementStatus      String           @default("pending") // 'pending' | 'partial' | 'completed'
+  stockDeducted         Boolean          @default(false) // Flag: Đã trừ kho khi completed
   
-  // Notes
-  notes             String?
-  terms             String?
+  // Status tracking
+  statusReason          String?          // Lý do chuyển trạng thái
+  cancelReason          String?          // Lý do hủy
+  cancelledAt           DateTime?
   
-  // Soft delete
-  isDeleted         Boolean         @default(false)
-  deletedAt         DateTime?
+  // Processing timestamps
+  processingStartedAt   DateTime?        // Thời điểm bắt đầu xử lý
+  processedAt           DateTime?        // Thời điểm xử lý xong
   
-  // Audit
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  // Order linking
+  linkedOrderSystemId   String?          // Link to order for deduction
   
+  // Summary stats
+  summary               Json?            // { totalProducts, totalReplaced, totalDeduction, etc. }
+  
+  // History & comments (stored as JSON for flexibility)
+  history               Json?            // Array of WarrantyHistory
+  comments              Json?            // Array of WarrantyComment
+  
+  // Workflow subtasks
+  subtasks              Json?            // Array of Subtask
+  
+  // Audit fields (branded types)
+  createdBySystemId     String?
+  updatedBySystemId     String?
+  
+  // === RELATIONS ===
+  customers          Customer?        @relation(fields: [customerId], references: [systemId])
+  order              Order?           @relation(fields: [orderId], references: [systemId])
+  product            Product?         @relation(fields: [productId], references: [systemId])
+
+  @@index([customerId])
+  @@index([status])
   @@map("warranties")
 }

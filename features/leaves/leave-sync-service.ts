@@ -1,4 +1,4 @@
-import type { LeaveRequest } from './types';
+import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import type { AttendanceDayKey, AttendanceDataRow, AnyAttendanceDataRow, DailyRecord } from '../attendance/types';
 import { useAttendanceStore } from '../attendance/store';
 import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';

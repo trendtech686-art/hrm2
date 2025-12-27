@@ -1,5 +1,5 @@
-import type { Employee } from '@/features/employees/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { Employee } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { enrichEmployeeAddresses } from '../address-lookup';
 
 /**

@@ -15,7 +15,7 @@ import {
   getStoreData,
   StoreSettings,
   hidePhoneMiddle
-} from './types';
+} from '@/lib/print-service';
 
 // Helper function để tạo barcode image
 function generateBarcodeImage(code: string | undefined, height = 50): string {

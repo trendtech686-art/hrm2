@@ -10,7 +10,7 @@ import {
   useUpdateProduct, 
   useDeleteProduct 
 } from '@/hooks/api/use-products'
-import type { Product } from '@/features/products/types'
+import type { Product } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types'
 
 export function useProductStoreV2() {

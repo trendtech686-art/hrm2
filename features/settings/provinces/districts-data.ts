@@ -3,7 +3,7 @@
 // Total: 624 districts (3 cấp - từ 63 tỉnh cũ → 34 tỉnh mới)
 
 import { asSystemId, asBusinessId } from '@/lib/id-types';
-import type { District } from './types';
+import type { District } from '@/lib/types/prisma-extended';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 type DistrictSeed = {

@@ -3,9 +3,9 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu chuyển kho
  */
 
-import type { StockTransfer, StockTransferItem } from '../../features/stock-transfers/types';
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
+import type { StockTransfer, StockTransferItem } from '../../features/stock-transfers/store';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   StockTransferForPrint, 
   mapStockTransferToPrintData, 

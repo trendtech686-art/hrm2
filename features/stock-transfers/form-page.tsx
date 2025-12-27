@@ -1,11 +1,11 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { useStockTransferStore } from './store';
 import { useBranchStore } from '../settings/branches/store';
 import { useProductStore } from '../products/store';
@@ -56,7 +56,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export function StockTransferFormPage() {
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   const { add, getNextId, isBusinessIdExists } = useStockTransferStore();
   const { data: branches } = useBranchStore();
   const { data: allProducts, findById: findProductById } = useProductStore();
@@ -134,7 +134,7 @@ export function StockTransferFormPage() {
         type="button" 
         variant="outline" 
         className="h-9"
-        onClick={() => navigate(ROUTES.INVENTORY.STOCK_TRANSFERS)}
+        onClick={() => router.push(ROUTES.INVENTORY.STOCK_TRANSFERS)}
         disabled={isSubmitting}
       >
         <X className="mr-2 h-4 w-4" />
@@ -150,7 +150,7 @@ export function StockTransferFormPage() {
         {isSubmitting ? 'Đang tạo...' : 'Tạo phiếu'}
       </Button>
     </div>
-  ), [navigate, fields.length, isSubmitting]);
+  ), [router, fields.length, isSubmitting]);
 
   // Breadcrumb
   const breadcrumb = React.useMemo(() => {
@@ -287,7 +287,7 @@ export function StockTransferFormPage() {
       });
 
       toast.success('Đã tạo phiếu chuyển kho');
-      navigate(`/stock-transfers/${newTransfer.systemId}`);
+      router.push(`/stock-transfers/${newTransfer.systemId}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -527,8 +527,7 @@ export function StockTransferFormPage() {
                             <TableCell>
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-2">
-                                  <Link 
-                                    to={`/products/${field.productSystemId}`}
+                                  <Link href={`/products/${field.productSystemId}`}
                                     className="font-medium text-primary hover:underline"
                                   >
                                     {field.productName}
@@ -621,8 +620,7 @@ export function StockTransferFormPage() {
                                         {comboItem.product?.name || 'Sản phẩm không tồn tại'}
                                       </span>
                                       {comboItem.product && (
-                                        <Link
-                                          to={`/products/${comboItem.product.systemId}`}
+                                        <Link href={`/products/${comboItem.product.systemId}`}
                                           className="text-body-xs text-muted-foreground hover:text-primary hover:underline"
                                         >
                                           {comboItem.product.id}

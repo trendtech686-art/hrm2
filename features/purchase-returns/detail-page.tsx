@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '@/lib/date-utils';
 import { usePurchaseReturnStore } from './store';
@@ -45,7 +46,7 @@ const formatCurrency = (value?: number) => {
 
 export function PurchaseReturnDetailPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById } = usePurchaseReturnStore();
   const { findById: findPurchaseOrder } = usePurchaseOrderStore();
   const { findById: findSupplier } = useSupplierStore();
@@ -152,7 +153,7 @@ export function PurchaseReturnDetailPage() {
       variant="outline"
       size="sm"
       className="h-9"
-      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_RETURNS)}
+      onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURNS)}
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
       Danh sách phiếu trả
@@ -166,7 +167,7 @@ export function PurchaseReturnDetailPage() {
       <Printer className="mr-2 h-4 w-4" />
       In phiếu
     </Button>
-  ], [navigate, handlePrint]);
+  ], [router, handlePrint]);
 
   usePageHeader({
     title: purchaseReturn ? `Phiếu trả hàng ${purchaseReturn.id}` : 'Chi tiết phiếu trả NCC',
@@ -192,7 +193,7 @@ export function PurchaseReturnDetailPage() {
     return (
       <div className="text-center p-8">
         <h2 className="text-h2 font-bold">Không tìm thấy phiếu trả hàng</h2>
-        <Button onClick={() => navigate(-1)} className="mt-4 h-9">
+        <Button onClick={() => router.back()} className="mt-4 h-9">
           <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
         </Button>
       </div>
@@ -214,7 +215,7 @@ export function PurchaseReturnDetailPage() {
           <DetailField label="Chi nhánh" value={purchaseReturn.branchName} />
           <DetailField label="Nhà cung cấp">
             {supplier ? (
-              <Link to={`/suppliers/${supplier.systemId}`} className="text-body-sm text-primary hover:underline font-medium">
+              <Link href={`/suppliers/${supplier.systemId}`} className="text-body-sm text-primary hover:underline font-medium">
                 {purchaseReturn.supplierName}
               </Link>
             ) : (
@@ -223,7 +224,7 @@ export function PurchaseReturnDetailPage() {
           </DetailField>
           <DetailField label="Đơn nhập hàng gốc">
             {purchaseOrder ? (
-              <Link to={`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}`} className="text-body-sm text-primary hover:underline font-medium">
+              <Link href={`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}`} className="text-body-sm text-primary hover:underline font-medium">
                 {purchaseReturn.purchaseOrderId}
               </Link>
             ) : (

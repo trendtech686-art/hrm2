@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useSearchParamsWithSetter, useNavigate } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
 import { useProductStore } from './store';
 import { ProductFormComplete, type ProductFormCompleteValues } from './product-form-complete';
 import {
@@ -9,7 +10,7 @@ import {
   CardContent,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import type { Product } from './types';
+import type { Product } from '@/lib/types/prisma-extended';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useBranchStore } from '../settings/branches/store';
 import { useStockHistoryStore } from '../stock-history/store';
@@ -24,7 +25,7 @@ import { calculateComboStock } from './combo-utils';
 export function ProductFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const [searchParams] = useSearchParamsWithSetter();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById, add, update, data: allProducts } = useProductStore();
   const { data: branches } = useBranchStore();
   const imageStore = useImageStore();
@@ -43,7 +44,7 @@ export function ProductFormPage() {
     if (product) {
       imageStore.clearStagingImages(product.systemId);
     }
-    navigate('/products');
+    router.push('/products');
   };
 
   const headerActions = React.useMemo(() => [
@@ -134,7 +135,7 @@ export function ProductFormPage() {
       }
       
       toast.success('Đã cập nhật sản phẩm thành công');
-      navigate(`/products/${product.systemId}`);
+      router.push(`/products/${product.systemId}`);
       return updatedProduct;
     } else {
       // Create mode - add new product
@@ -197,7 +198,7 @@ export function ProductFormPage() {
       });
       
       toast.success('Đã thêm sản phẩm thành công');
-      navigate(`/products/${newProduct.systemId}`);
+      router.push(`/products/${newProduct.systemId}`);
       return newProduct;
     }
   };

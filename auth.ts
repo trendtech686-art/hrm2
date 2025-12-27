@@ -26,10 +26,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             where: { email },
             include: {
               employee: {
-                include: {
-                  department: true,
-                  branch: true,
-                  jobTitle: true,
+                select: {
+                  systemId: true,
+                  fullName: true,
+                  department: { select: { systemId: true, name: true } },
+                  branch: { select: { systemId: true, name: true } },
+                  jobTitle: { select: { systemId: true, name: true } },
                 },
               },
             },
@@ -50,13 +52,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             data: { lastLogin: new Date() },
           })
 
+          // Return only serializable data (no Decimal, Date objects etc.)
           return {
             id: user.systemId,
             email: user.email,
             name: user.employee?.fullName || user.email,
             role: user.role,
             employeeId: user.employeeId,
-            employee: user.employee,
+            employee: user.employee ? {
+              systemId: user.employee.systemId,
+              fullName: user.employee.fullName,
+              departmentName: user.employee.department?.name || null,
+              branchName: user.employee.branch?.name || null,
+              jobTitleName: user.employee.jobTitle?.name || null,
+            } : null,
           }
         } catch (error) {
           console.error("Auth error:", error)

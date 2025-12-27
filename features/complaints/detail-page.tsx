@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react";
-import { useParams, useNavigate } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
 import type { BusinessId, SystemId } from '@/lib/id-types';
@@ -130,7 +130,7 @@ export function ComplaintDetailPage() {
   console.time('ComplaintDetailPage Mount');
   
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { setPageHeader } = usePageHeader();
 
   console.time('Store Hooks');
@@ -827,7 +827,7 @@ export function ComplaintDetailPage() {
           variant="default"
           size="sm"
           className="h-9"
-          onClick={() => navigate(`/complaints/${systemId}/edit`)}
+          onClick={() => router.push(`/complaints/${systemId}/edit`)}
         >
           Sửa
         </Button>
@@ -841,7 +841,7 @@ export function ComplaintDetailPage() {
         variant="outline"
         size="sm"
         className="h-9"
-        onClick={() => navigate("/complaints")}
+        onClick={() => router.push("/complaints")}
       >
         Quay lại
       </Button>
@@ -899,7 +899,7 @@ export function ComplaintDetailPage() {
     canEnd,
     canReopen,
     systemId,
-    navigate,
+    router,
   ]);
 
   // Set page header: replaced by ComplaintHeaderSection component
@@ -910,7 +910,7 @@ export function ComplaintDetailPage() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <h3 className="text-h4 font-semibold mb-2">Không tìm thấy khiếu nại</h3>
-          <Button className="h-9" onClick={() => navigate("/complaints")}>
+          <Button className="h-9" onClick={() => router.push("/complaints")}>
             Quay lại danh sách
           </Button>
         </div>

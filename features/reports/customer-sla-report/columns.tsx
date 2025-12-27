@@ -13,7 +13,7 @@ import type { CustomerSlaAlert, DebtAlert, CustomerHealthAlert, SlaAlertLevel } 
 import { formatDaysRemaining } from './sla-utils';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { ROUTES } from '../../../lib/router';
 
 // ============================================
@@ -72,8 +72,7 @@ export function getSlaAlertColumns(): ColumnDef<CustomerSlaAlert>[] {
       header: 'Khách hàng',
       cell: ({ row }) => (
         <div className="min-w-[180px]">
-          <Link 
-            to={ROUTES.SALES.CUSTOMER_VIEW.replace(':systemId', row.customer.systemId)}
+          <Link href={ROUTES.SALES.CUSTOMER_VIEW.replace(':systemId', row.customer.systemId)}
             className="font-medium text-primary hover:underline"
           >
             {row.customer.name}
@@ -179,8 +178,7 @@ export function getDebtAlertColumns(): ColumnDef<DebtAlert>[] {
       header: 'Khách hàng',
       cell: ({ row }) => (
         <div className="min-w-[180px]">
-          <Link 
-            to={ROUTES.SALES.CUSTOMER_VIEW.replace(':systemId', row.customer.systemId)}
+          <Link href={ROUTES.SALES.CUSTOMER_VIEW.replace(':systemId', row.customer.systemId)}
             className="font-medium text-primary hover:underline"
           >
             {row.customer.name}
@@ -289,8 +287,7 @@ export function getHealthAlertColumns(): ColumnDef<CustomerHealthAlert>[] {
       header: 'Khách hàng',
       cell: ({ row }) => (
         <div className="min-w-[180px]">
-          <Link 
-            to={ROUTES.SALES.CUSTOMER_VIEW.replace(':systemId', row.customer.systemId)}
+          <Link href={ROUTES.SALES.CUSTOMER_VIEW.replace(':systemId', row.customer.systemId)}
             className="font-medium text-primary hover:underline"
           >
             {row.customer.name}

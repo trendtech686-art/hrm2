@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
-import type { Province } from "./types"
+import type { Province } from '@/lib/types/prisma-extended'
 import { useProvinceStore } from "./store";
 import { Button } from "../../../components/ui/button"
 import {

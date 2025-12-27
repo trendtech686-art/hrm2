@@ -7,10 +7,10 @@
 // Change this when deploying to a different domain
 export const APP_CONFIG = {
   // Base URL - used for absolute URLs in emails, webhooks, etc.
-  BASE_URL: import.meta.env.VITE_BASE_URL || 'http://localhost:5173',
+  BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
   
   // API Configuration (if using external API)
-  API_URL: import.meta.env.VITE_API_URL || '',
+  API_URL: process.env.NEXT_PUBLIC_API_URL || '',
   
   // App Information
   APP_NAME: 'HRM - Quản lý nhân sự',

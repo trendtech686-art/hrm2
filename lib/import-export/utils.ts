@@ -13,7 +13,7 @@ import type {
   ImportPreviewResult,
   ImportPreviewStatus,
   FieldConfig,
-} from './types';
+} from '@/lib/import-export/types';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 // ============================================

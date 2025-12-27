@@ -125,28 +125,18 @@ export async function POST(request: NextRequest) {
     }
     
     // Save metadata to database
-    const fileRecord = await prisma.fileUpload.create({
+    const fileRecord = await prisma.file.create({
       data: {
         systemId: uuidv4(),
-        fileName: fileName,
+        filename: fileName,
         originalName: file.name,
-        mimeType: outputFormat === 'webp' ? 'image/webp' : file.type,
-        fileSize: buffer.length,
-        storagePath: filePath,
-        publicUrl: publicUrl,
+        mimetype: outputFormat === 'webp' ? 'image/webp' : file.type,
+        filesize: buffer.length,
+        filepath: relativePath,
         entityType: entityType,
-        entityId: entityId || null,
-        metadata: {
-          hash: fileHash,
-          originalSize: file.size,
-          width: metadata.width,
-          height: metadata.height,
-          format: metadata.format,
-          thumbnailUrl: thumbnailUrl,
-          uploadedAt: new Date().toISOString(),
-        },
-        isPublic: true,
-        createdBy: fields.userId || null,
+        entityId: entityId || '',
+        documentType: 'image',
+        uploadedBy: fields.userId || null,
       },
     })
     
@@ -155,10 +145,10 @@ export async function POST(request: NextRequest) {
       message: 'Upload ảnh thành công',
       data: {
         id: fileRecord.systemId,
-        fileName: fileRecord.fileName,
+        fileName: fileRecord.filename,
         originalName: fileRecord.originalName,
-        mimeType: fileRecord.mimeType,
-        fileSize: fileRecord.fileSize,
+        mimeType: fileRecord.mimetype,
+        fileSize: fileRecord.filesize,
         url: publicUrl,
         thumbnailUrl: thumbnailUrl,
         width: metadata.width,

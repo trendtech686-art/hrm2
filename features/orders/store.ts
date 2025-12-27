@@ -4,7 +4,7 @@ import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../li
 import { getApiUrl } from '../../lib/api-config';
 import { createCrudStore } from '../../lib/store-factory';
 import { data as initialDataOmit } from './data';
-import type { Order, OrderPayment, Packaging, OrderMainStatus, OrderDeliveryStatus, PackagingStatus, OrderPaymentStatus, OrderDeliveryMethod } from './types';
+import type { Order, OrderPayment, Packaging, OrderMainStatus, OrderDeliveryStatus, PackagingStatus, OrderPaymentStatus, OrderDeliveryMethod } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from '../../lib/id-types';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { generateSystemId, getMaxSystemIdCounter } from '../../lib/id-utils';

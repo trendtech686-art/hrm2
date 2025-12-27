@@ -1,48 +1,74 @@
-// ═══════════════════════════════════════════════════════════════
-// PACKAGING MODEL (Đóng gói)
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PKG0000000001 (English, 10 digits)
-// BusinessId: DG0000000001 (Vietnamese - Đóng gói, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Packaging {
-  systemId          String          @id           // PKG0000000001
-  id                String          @unique       // DG0000000001
+  systemId    String          @id
+  id          String          @unique
+  orderId     String
+  branchId    String
+  employeeId  String?
+  packDate    DateTime        @default(now())
+  status      PackagingStatus @default(PENDING)
+  totalItems  Int             @default(0)
+  packedItems Int             @default(0)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdBy   String?
+  items       PackagingItem[]
   
-  // Related Order
-  orderId           String?
-  order             Order?          @relation(fields: [orderId], references: [systemId])
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Branch
-  branchId          String?
-  branch            Branch?         @relation(fields: [branchId], references: [systemId])
+  // Dates
+  requestDate       DateTime        @default(now())
+  confirmDate       DateTime?
+  cancelDate        DateTime?
+  deliveredDate     DateTime?
   
-  // Packaging details
-  packagingDate     DateTime        @default(now())
+  // Employees
+  requestingEmployeeId     String?
+  requestingEmployeeName   String?
+  confirmingEmployeeId     String?
+  confirmingEmployeeName   String?
+  cancelingEmployeeId      String?
+  cancelingEmployeeName    String?
+  assignedEmployeeId       String?
+  assignedEmployeeName     String?
   
-  // Status
-  status            String          @default("pending") // pending, in_progress, completed, cancelled
+  // Statuses
+  printStatus       PrintStatus     @default(NOT_PRINTED)
+  cancelReason      String?
   
-  // Package info
-  packageCount      Int             @default(1)
-  totalWeight       Decimal?        @db.Decimal(10, 3)
-  dimensions        String?
+  // Delivery info
+  deliveryMethod    DeliveryMethod?
+  deliveryStatus    DeliveryStatus?
   
-  // Notes
-  notes             String?
+  // Carrier Shipment Details
+  carrier                 String?   // Tên hãng vận chuyển
+  service                 String?   // Tên dịch vụ
+  trackingCode            String?   // Mã vận đơn
+  partnerStatus           String?   // Trạng thái đối tác
+  shippingFeeToPartner    Decimal?  @db.Decimal(15, 2)
+  codAmount               Decimal?  @db.Decimal(15, 2)
+  payer                   String?   // 'Người gửi' | 'Người nhận'
+  reconciliationStatus    String?   // 'Chưa đối soát' | 'Đã đối soát'
+  
+  // Shipment dimensions
+  weight              Int?          // in grams
+  dimensions          String?       // e.g., "10cm x 10cm x 10cm"
+  noteToShipper       String?       // Ghi chú giao hàng
+  
+  // GHTK Specific Fields
+  ghtkStatusId          Int?        // Raw GHTK status code
+  ghtkReasonCode        String?     // GHTK reason code (100-144)
+  ghtkReasonText        String?     // Chi tiết lý do từ GHTK
+  ghtkTrackingId        String?     // GHTK tracking_id (internal ID)
+  estimatedPickTime     DateTime?   // Thời gian dự kiến lấy hàng
+  estimatedDeliverTime  DateTime?   // Thời gian dự kiến giao hàng
+  lastSyncedAt          DateTime?   // Lần cuối sync với GHTK
+  actualWeight          Decimal?    @db.Decimal(10, 3) // Khối lượng thực tế (kg)
+  actualFee             Decimal?    @db.Decimal(15, 2) // Phí thực tế (VND)
+  ghtkWebhookHistory    Json?       // Array of webhook events
   
   // Relations
-  items             PackagingItem[]
-  
-  // Soft delete
-  isDeleted         Boolean         @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  order     Order     @relation(fields: [orderId], references: [systemId])
+
   @@map("packagings")
 }

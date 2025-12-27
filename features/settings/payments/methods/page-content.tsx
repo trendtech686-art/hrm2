@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { usePaymentMethodStore } from "./store";
-import type { PaymentMethod } from "./types";
+import type { PaymentMethod } from '@/lib/types/prisma-extended';
 import { PaymentMethodForm, type PaymentMethodFormValues } from "./form";
 import { Button } from "../../../../components/ui/button";
 import { Switch } from "../../../../components/ui/switch";

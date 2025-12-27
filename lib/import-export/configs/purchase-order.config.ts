@@ -8,8 +8,8 @@
  * - Các dòng cùng Mã đơn sẽ được nhóm thành 1 đơn nhập hàng
  */
 
-import type { PurchaseOrder, PurchaseOrderLineItem, PurchaseOrderStatus, DeliveryStatus, PaymentStatus } from '@/features/purchase-orders/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { PurchaseOrder, PurchaseOrderLineItem, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus, PurchaseOrderPaymentStatus as PaymentStatus } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useSupplierStore } from '@/features/suppliers/store';
 import { useProductStore } from '@/features/products/store';
 import { useBranchStore } from '@/features/settings/branches/store';

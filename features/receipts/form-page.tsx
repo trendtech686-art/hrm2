@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { useReceiptStore, type ReceiptInput } from './store';
 import { ReceiptForm, type ReceiptFormValues } from './receipt-form';
 import { useCashbookStore } from '../cashbook/store';
@@ -19,7 +19,7 @@ type ReceiptUpsertPayload = Omit<ReceiptInput, 'createdAt'>;
 
 export function ReceiptFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data, findById, add, update } = useReceiptStore();
   const { accounts } = useCashbookStore();
   const { employee: currentEmployee } = useAuth();
@@ -55,7 +55,7 @@ export function ReceiptFormPage() {
       variant="outline"
       size="sm"
       className="h-9"
-      onClick={() => navigate(ROUTES.FINANCE.RECEIPTS)}
+      onClick={() => router.push(ROUTES.FINANCE.RECEIPTS)}
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
@@ -69,7 +69,7 @@ export function ReceiptFormPage() {
     >
       Lưu
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   const headerTitle = isEditing
     ? `Chỉnh sửa phiếu thu ${receipt?.id ?? ''}`.trim()
@@ -130,7 +130,7 @@ export function ReceiptFormPage() {
       if (receipt) {
         update(receipt.systemId, { ...receipt, ...normalizeValues(values, receipt.createdBy) });
         toast.success("Cập nhật phiếu thu thành công");
-        navigate(`${ROUTES.FINANCE.RECEIPTS}/${receipt.systemId}`);
+        router.push(`${ROUTES.FINANCE.RECEIPTS}/${receipt.systemId}`);
       } else {
         const normalized = normalizeValues(values, currentUserSystemId);
         const newReceipt = add({
@@ -139,9 +139,9 @@ export function ReceiptFormPage() {
         });
         toast.success("Tạo phiếu thu thành công");
         if (newReceipt) {
-          navigate(`${ROUTES.FINANCE.RECEIPTS}/${newReceipt.systemId}`);
+          router.push(`${ROUTES.FINANCE.RECEIPTS}/${newReceipt.systemId}`);
         } else {
-          navigate(ROUTES.FINANCE.RECEIPTS);
+          router.push(ROUTES.FINANCE.RECEIPTS);
         }
       }
     } catch (error) {

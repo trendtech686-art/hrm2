@@ -1,42 +1,50 @@
-// ═══════════════════════════════════════════════════════════════
-// LEAVE MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: LEAVE000001 (English)
-// BusinessId: PN000001 (Vietnamese - Phép nghỉ)
-// ═══════════════════════════════════════════════════════════════
-
 model Leave {
-  systemId      String      @id           // LEAVE000001
-  id            String      @unique       // PN000001
-  
-  // Employee
-  employeeId    String
-  employee      Employee    @relation(fields: [employeeId], references: [systemId])
-  
-  // Leave details
-  leaveType     LeaveType   @default(ANNUAL)
-  startDate     DateTime
-  endDate       DateTime
-  totalDays     Decimal     @db.Decimal(4, 1)
-  reason        String?
-  
-  // Status
-  status        LeaveStatus @default(PENDING)
-  approvedBy    String?
-  approvedAt    DateTime?
-  rejectedBy    String?
-  rejectedAt    DateTime?
+  systemId        String      @id
+  id              String      @unique
+  employeeId      String
+  leaveType       LeaveType
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  totalDays       Decimal     @db.Decimal(4, 1)
+  reason          String?
+  status          LeaveStatus @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
   rejectionReason String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   
-  // Soft delete
-  isDeleted     Boolean     @default(false)
-  deletedAt     DateTime?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
+  
+  // Employee info (denormalized)
+  employeeSystemId        String?      // Internal FK to employees
+  employeeBusinessId      String?      // Display ID (NV000001)
+  employeeName            String?
+  
+  // Leave type info (Link to settings)
+  leaveTypeSystemId           String?
+  leaveTypeId                 String?
+  leaveTypeName               String?
+  leaveTypeIsPaid             Boolean      @default(true)
+  leaveTypeRequiresAttachment Boolean      @default(false)
+  
+  // Dates
+  numberOfDays    Int          @default(1)
+  requestDate     DateTime     @default(now())
   
   // Audit
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  createdBy     String?
-  updatedBy     String?
+  createdBy       String?
+  updatedBy       String?
   
+  // Activity History
+  activityHistory Json?
+  
+  // === RELATIONS ===
+  employee        Employee    @relation(fields: [employeeId], references: [systemId])
+
+  @@index([employeeId])
+  @@index([startDate, endDate])
   @@map("leaves")
 }

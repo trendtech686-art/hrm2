@@ -9,7 +9,7 @@ import {
   formatDate,
   getStoreData,
   StoreSettings
-} from './types';
+} from '@/lib/print-service';
 
 export interface WarrantyForPrint {
   // Thông tin cơ bản

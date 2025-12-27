@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useSalesChannelStore } from "./store";
-import type { SalesChannel } from "./types";
+import type { SalesChannel } from '@/lib/types/prisma-extended';
 import { SalesChannelForm, type SalesChannelFormValues } from "./form";
 import { Button } from "../../../components/ui/button";
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";

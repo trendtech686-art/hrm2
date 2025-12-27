@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { Unit } from './types';
+import type { Unit } from '@/lib/types/prisma-extended';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: Unit[] = [

@@ -4,7 +4,7 @@ import { Badge } from "../../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { TouchButton } from "../../components/mobile/touch-button";
 import { Building2, Calendar, DollarSign, MoreHorizontal, Package, Printer, XCircle, CreditCard, PackageCheck } from "lucide-react";
-import type { PurchaseOrder } from "./types";
+import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { formatDate } from "../../lib/date-utils";
 
 const formatCurrency = (value?: number) => {

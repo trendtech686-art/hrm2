@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -10,7 +10,7 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 
 export function SignupPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [formData, setFormData] = React.useState({
     fullName: '',
@@ -44,13 +44,8 @@ export function SignupPage() {
     // Simulate API call
     setTimeout(() => {
       toast.success('Đăng ký thành công! Vui lòng xác thực OTP qua email.');
-      // Navigate to OTP verification
-      navigate('/verify-otp', { 
-        state: { 
-          email: formData.email,
-          from: 'signup' 
-        } 
-      });
+      // Navigate to OTP verification with query params
+      router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}&from=signup`);
       setIsLoading(false);
     }, 1500);
   };
@@ -180,7 +175,7 @@ export function SignupPage() {
                 href="/login"
                 onClick={(e) => {
                   e.preventDefault();
-                  navigate('/login');
+                  router.push('/login');
                 }}
                 className="underline underline-offset-4 hover:text-primary"
               >

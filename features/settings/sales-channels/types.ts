@@ -1,13 +1,2 @@
-import type { BusinessId, SystemId } from '@/lib/id-types';
-
-export type SalesChannel = {
-  systemId: SystemId;
-  id: BusinessId;
-  name: string;
-  isApplied: boolean;
-  isDefault: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: SystemId;
-  updatedBy?: SystemId;
-};
+// Re-export sales channel types from central prisma-extended
+export type { SalesChannel } from '@/lib/types/prisma-extended';

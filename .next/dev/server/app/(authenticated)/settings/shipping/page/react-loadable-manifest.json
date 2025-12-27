@@ -1,0 +1,10 @@
+{
+  "[project]/features/settings/shipping/page.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/settings/shipping/page.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_eb60d0d0._.js",
+      "static/chunks/node_modules_710cc720._.js",
+      "static/chunks/features_settings_shipping_page_tsx_eb845df9._.js"
+    ]
+  }
+}

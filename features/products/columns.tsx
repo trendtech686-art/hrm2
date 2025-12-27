@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from "react";
-import * as ReactRouterDOM from '@/lib/next-compat';
-import type { Product } from './types'
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import type { Product } from '@/lib/types/prisma-extended'
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
 import { Badge } from "../../components/ui/badge"
@@ -71,7 +71,7 @@ const getStatusLabel = (status?: 'active' | 'inactive' | 'discontinued'): string
 // ═══════════════════════════════════════════════════════════════
 // SEO SCORE HELPERS - Tính điểm SEO cho từng website
 // ═══════════════════════════════════════════════════════════════
-import type { WebsiteSeoData } from './types';
+import type { WebsiteSeoData } from '@/lib/types/prisma-extended';
 
 const calculateSeoScore = (seo: WebsiteSeoData | undefined): number => {
   if (!seo) return 0;
@@ -96,7 +96,7 @@ const getSeoStatusBadge = (score: number) => {
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onRestore: (systemId: string) => void,
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   onPrintLabel?: (product: Product) => void,
   // PKGX handlers - used by PkgxProductActionsCell
   onPkgxPublish?: (product: Product) => void,
@@ -1038,7 +1038,7 @@ export const getColumns = (
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuItem onSelect={() => navigate(`/products/${row.systemId}/edit`)}>
+                  <DropdownMenuItem onSelect={() => router.push(`/products/${row.systemId}/edit`)}>
                     Sửa
                   </DropdownMenuItem>
                   {onPrintLabel && (

@@ -1,4 +1,4 @@
-import type { Product } from './types';
+import type { Product } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
 export const INVENTORY_FIELD_PREFIXES = ['inventory', 'tonkho', 'stock'] as const;

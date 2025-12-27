@@ -13,7 +13,7 @@
  */
 
 import * as XLSX from 'xlsx';
-import type { AttendanceImportRow } from './types';
+import type { AttendanceImportRow } from '@/lib/import-export/types';
 
 // ============================================
 // TYPES

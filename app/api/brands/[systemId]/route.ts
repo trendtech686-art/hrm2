@@ -76,6 +76,39 @@ export async function PUT(request: Request, { params }: RouteParams) {
   }
 }
 
+// PATCH /api/brands/[systemId] - Same as PUT for partial updates
+export async function PATCH(request: Request, { params }: RouteParams) {
+  try {
+    const { systemId } = await params
+    const body = await request.json()
+
+    const brand = await prisma.brand.update({
+      where: { systemId },
+      data: {
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.logo !== undefined && { logoUrl: body.logo }),
+        ...(body.logoUrl !== undefined && { logoUrl: body.logoUrl }),
+        ...(body.website !== undefined && { website: body.website }),
+      },
+    })
+
+    return NextResponse.json(brand)
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Thương hiệu không tồn tại' },
+        { status: 404 }
+      )
+    }
+    console.error('Error updating brand:', error)
+    return NextResponse.json(
+      { error: 'Failed to update brand' },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE /api/brands/[systemId]
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {

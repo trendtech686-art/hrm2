@@ -1,37 +1,9 @@
-import * as React from 'react';
-
 /**
- * Professional Router Configuration
- * Features:
- * - BrowserRouter instead of HashRouter
- * - Type-safe route definitions
- * - Lazy loading & code splitting
- * - Error boundaries
- * - Loading states
- * - Route metadata
+ * Route Helpers
+ * 
+ * Utility functions for route path generation.
+ * Next.js uses file-based routing - this file only contains helper functions.
  */
-
-export interface RouteMetadata {
-  title?: string;
-  description?: string;
-  requiresAuth?: boolean;
-  roles?: string[];
-  breadcrumb?: (string | { label: string; href: string })[];
-  preload?: boolean;
-}
-
-export interface AppRoute {
-  path: string;
-  element?: React.ComponentType;
-  lazy?: () => Promise<{ Component: React.ComponentType }>;
-  loader?: () => Promise<any>;
-  action?: () => Promise<any>;
-  errorElement?: React.ComponentType;
-  children?: AppRoute[];
-  meta?: RouteMetadata;
-}
-
-// Type-safe route paths
 export const ROUTES = {
   // Core
   ROOT: '/',

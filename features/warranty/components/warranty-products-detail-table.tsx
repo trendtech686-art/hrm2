@@ -8,7 +8,7 @@
  */
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
 import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
@@ -27,7 +27,7 @@ interface WarrantyProductsDetailTableProps {
 }
 
 export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProductsDetailTableProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: allProducts } = useProductStore();
   const { findById: findProductTypeById } = useProductTypeStore();
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
@@ -94,7 +94,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                     onClick={() => {
                       const productDetail = productMap.get(product.sku!);
                       if (productDetail) {
-                        navigate(`/products/${productDetail.systemId}`);
+                        router.push(`/products/${productDetail.systemId}`);
                       }
                     }}
                     className="text-body-xs font-mono text-primary hover:underline hover:text-primary/80 transition-colors block mt-0.5"
@@ -280,7 +280,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                           onClick={() => {
                             const productDetail = allProducts.find(p => p.id === product.sku);
                             if (productDetail) {
-                              navigate(`/products/${productDetail.systemId}`);
+                              router.push(`/products/${productDetail.systemId}`);
                             }
                           }}
                           className="font-mono text-primary hover:underline hover:text-primary/80 transition-colors"

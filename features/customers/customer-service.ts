@@ -1,7 +1,7 @@
 import Fuse from 'fuse.js';
 import type { IFuseOptions } from 'fuse.js';
 import { isDateAfter, isDateBefore } from '../../lib/date-utils';
-import type { Customer } from './types';
+import type { Customer } from '@/lib/types/prisma-extended';
 import { useCustomerStore } from './store';
 import { useCustomerSlaEngineStore } from './sla/store';
 import type { SystemId } from '@/lib/id-types';

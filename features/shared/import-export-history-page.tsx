@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, subtractDays } from '../../lib/date-utils';
 import { FileSpreadsheet, Download, Upload, Eye, Trash2, Filter, RefreshCw } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context"
@@ -121,7 +121,7 @@ function transformStoreLogs(
 }
 
 export function ImportExportHistoryPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   
   // Get logs from store
   const importLogs = useImportExportStore(state => state.importLogs)

@@ -1,5 +1,5 @@
-﻿import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import * as React from 'react';
+import Link from 'next/link';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import type { ReconciliationItem } from './page';
 import type { ColumnDef } from '../../components/data-table/types';
@@ -30,13 +30,13 @@ export const getColumns = (): ColumnDef<ReconciliationItem>[] => [
         />
       ),
       size: 60,
-      meta: { displayName: "Chọn", sticky: "left" },
+      meta: { displayName: "Ch?n", sticky: "left" },
     },
-    { id: 'trackingCode', accessorKey: 'trackingCode', header: 'Mã vận đơn', cell: ({ row }) => <span className="font-mono">{row.trackingCode || '-'}</span>, meta: { displayName: 'Mã vận đơn' } },
-    { id: 'orderId', accessorKey: 'orderId', header: 'Mã đơn hàng', cell: ({ row }) => <Link to={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã đơn hàng' } },
-    { id: 'customerName', accessorKey: 'customerName', header: 'Khách hàng', cell: ({ row }) => row.customerName, meta: { displayName: 'Khách hàng' } },
-    { id: 'deliveredDate', accessorKey: 'deliveredDate', header: 'Ngày giao', cell: ({ row }) => formatDate(row.deliveredDate), meta: { displayName: 'Ngày giao' } },
-    { id: 'carrier', accessorKey: 'carrier', header: 'Đối tác vận chuyển', cell: ({ row }) => row.carrier || '-', meta: { displayName: 'Đối tác vận chuyển' } },
-    { id: 'codAmount', accessorKey: 'codAmount', header: 'Tiền thu hộ', cell: ({ row }) => <span className="font-semibold">{formatCurrency(row.codAmount)}</span>, meta: { displayName: 'Tiền thu hộ (COD)' } },
-    { id: 'reconciliationStatus', accessorKey: 'reconciliationStatus', header: 'Trạng thái đối soát', cell: ({ row }) => <Badge variant="secondary">{row.reconciliationStatus || 'Chưa đối soát'}</Badge>, meta: { displayName: 'Trạng thái đối soát' } },
+    { id: 'trackingCode', accessorKey: 'trackingCode', header: 'M� v?n don', cell: ({ row }) => <span className="font-mono">{row.trackingCode || '-'}</span>, meta: { displayName: 'M� v?n don' } },
+    { id: 'orderId', accessorKey: 'orderId', header: 'M� don h�ng', cell: ({ row }) => <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'M� don h�ng' } },
+    { id: 'customerName', accessorKey: 'customerName', header: 'Kh�ch h�ng', cell: ({ row }) => row.customerName, meta: { displayName: 'Kh�ch h�ng' } },
+    { id: 'deliveredDate', accessorKey: 'deliveredDate', header: 'Ng�y giao', cell: ({ row }) => formatDate(row.deliveredDate), meta: { displayName: 'Ng�y giao' } },
+    { id: 'carrier', accessorKey: 'carrier', header: '�?i t�c v?n chuy?n', cell: ({ row }) => row.carrier || '-', meta: { displayName: '�?i t�c v?n chuy?n' } },
+    { id: 'codAmount', accessorKey: 'codAmount', header: 'Ti?n thu h?', cell: ({ row }) => <span className="font-semibold">{formatCurrency(row.codAmount)}</span>, meta: { displayName: 'Ti?n thu h? (COD)' } },
+    { id: 'reconciliationStatus', accessorKey: 'reconciliationStatus', header: 'Tr?ng th�i d?i so�t', cell: ({ row }) => <Badge variant="secondary">{row.reconciliationStatus || 'Chua d?i so�t'}</Badge>, meta: { displayName: 'Tr?ng th�i d?i so�t' } },
 ];

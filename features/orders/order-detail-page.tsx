@@ -1,11 +1,11 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '../../lib/date-utils';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useOrderStore } from './store';
-import type { Order, OrderMainStatus, OrderPayment, Packaging, PackagingStatus, OrderDeliveryStatus } from './types';
+import type { Order, OrderMainStatus, OrderPayment, Packaging, PackagingStatus, OrderDeliveryStatus } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from './address-utils';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
@@ -38,7 +38,7 @@ import { useProductStore } from '../products/store';
 import { ProductImage, useProductImage } from '../products/components/product-image';
 import { useWarrantyStore } from '../warranty/store';
 import { useComplaintStore } from '../complaints/store';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { Spinner } from '../../components/ui/spinner';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
@@ -669,15 +669,14 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
             const absAmount = formatCurrency(Math.abs(payment.amount));
             const voucherPath = isRefund ? 'payments' : 'receipts';
             const paymentLink = (
-                <Link to={`/${voucherPath}/${payment.systemId}`} className="font-semibold text-primary hover:underline">
+                <Link href={`/${voucherPath}/${payment.systemId}`} className="font-semibold text-primary hover:underline">
                     {payment.id}
                 </Link>
             );
             const warrantyLink = payment.linkedWarrantySystemId ? (
                 <>
                     {' '}từ bảo hành{' '}
-                    <Link
-                        to={`/warranty/${payment.linkedWarrantySystemId}`}
+                    <Link href={`/warranty/${payment.linkedWarrantySystemId}`}
                         className="font-semibold text-primary hover:underline"
                     >
                         {warranties.find(w => w.systemId === payment.linkedWarrantySystemId)?.id || 'N/A'}
@@ -712,7 +711,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
                     content: (
                         <>
                             Yêu cầu đóng gói{' '}
-                            <Link to={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
+                            <Link href={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
                                 {pkg.id}
                             </Link>
                             .
@@ -732,7 +731,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
                     content: (
                         <>
                             Xác nhận đóng gói{' '}
-                            <Link to={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
+                            <Link href={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
                                 {pkg.id}
                             </Link>
                             .
@@ -752,7 +751,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
                     content: (
                         <>
                             Hủy đóng gói{' '}
-                            <Link to={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
+                            <Link href={`/packaging/${pkg.systemId}`} className="text-primary hover:underline">
                                 {pkg.id}
                             </Link>
                             . Lý do: <span className="italic">{pkg.cancelReason || 'Không rõ'}</span>
@@ -770,8 +769,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
             const transactionLink = transaction ? (
                 <>
                     {' '}và chứng từ{' '}
-                    <Link
-                        to={`/${returnSlip.paymentVoucherSystemId ? 'payments' : 'receipts'}/${transaction.systemId}`}
+                    <Link href={`/${returnSlip.paymentVoucherSystemId ? 'payments' : 'receipts'}/${transaction.systemId}`}
                         className="font-semibold text-primary hover:underline"
                     >
                         {transaction.id}
@@ -781,7 +779,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
             const exchangeOrderLink = returnSlip.exchangeOrderSystemId ? (
                 <>
                     {' '}và tạo đơn đổi{' '}
-                    <Link to={`/orders/${returnSlip.exchangeOrderSystemId}`} className="font-semibold text-primary hover:underline">
+                    <Link href={`/orders/${returnSlip.exchangeOrderSystemId}`} className="font-semibold text-primary hover:underline">
                         Xem đơn đổi
                     </Link>
                 </>
@@ -796,7 +794,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
                 content: (
                     <>
                         Tạo phiếu trả hàng{' '}
-                        <Link to={`/returns/${returnSlip.systemId}`} className="font-semibold text-primary hover:underline">
+                        <Link href={`/returns/${returnSlip.systemId}`} className="font-semibold text-primary hover:underline">
                             {returnSlip.id}
                         </Link>
                         {transactionLink}
@@ -900,7 +898,7 @@ const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesRetur
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">
                                     Giá trị trả hàng {order.linkedSalesReturnSystemId && (
-                                        <Link to={`/returns/${order.linkedSalesReturnSystemId}`} className="text-primary hover:underline">
+                                        <Link href={`/returns/${order.linkedSalesReturnSystemId}`} className="text-primary hover:underline">
                                             ({salesReturns.find(r => r.systemId === order.linkedSalesReturnSystemId)?.id || 'N/A'})
                                         </Link>
                                     )}
@@ -915,8 +913,7 @@ const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesRetur
                                     {warrantyPayments.map((payment, idx) => (
                                         <React.Fragment key={payment.systemId}>
                                             {idx === 0 && ' ('}
-                                            <Link 
-                                                to={`/payments/${payment.systemId}`} 
+                                            <Link href={`/payments/${payment.systemId}`} 
                                                 className="text-primary hover:underline font-medium"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
@@ -942,7 +939,7 @@ const getFinancialResolutionText = (returnSlip: SalesReturn, allTransactions: (R
     const transactionSystemId = returnSlip.paymentVoucherSystemId || returnSlip.receiptVoucherSystemIds?.[0];
     const transaction = transactionSystemId ? allTransactions.find(t => t.systemId === transactionSystemId) : null;
     const transactionLink = transaction ? (
-      <Link to={`/${returnSlip.paymentVoucherSystemId ? 'payments' : 'receipts'}/${transaction.systemId}`} onClick={(e) => e.stopPropagation()} className="ml-1 font-medium text-primary hover:underline">({transaction.id})</Link>
+      <Link href={`/${returnSlip.paymentVoucherSystemId ? 'payments' : 'receipts'}/${transaction.systemId}`} onClick={(e) => e.stopPropagation()} className="ml-1 font-medium text-primary hover:underline">({transaction.id})</Link>
     ) : null;
 
     if (returnSlip.finalAmount < 0) {
@@ -1123,8 +1120,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                             </Button>
                                         </TableCell>
                                         <TableCell>
-                                            <Link 
-                                                to={`/returns/${returnSlip.systemId}`} 
+                                            <Link href={`/returns/${returnSlip.systemId}`} 
                                                 onClick={e => e.stopPropagation()} 
                                                 className="font-medium text-primary hover:underline"
                                             >
@@ -1145,8 +1141,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                         <TableCell className="text-right font-medium">{formatCurrency(returnSlip.totalReturnValue)}</TableCell>
                                         <TableCell>
                                             {exchangeOrder ? (
-                                                <Link 
-                                                    to={`/orders/${exchangeOrder.systemId}`} 
+                                                <Link href={`/orders/${exchangeOrder.systemId}`} 
                                                     onClick={e => e.stopPropagation()} 
                                                     className="text-primary hover:underline"
                                                 >
@@ -1264,8 +1259,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                     <TableCell>
                                                                                         <div className="flex flex-col gap-0.5">
                                                                                             <div className="flex items-center gap-2">
-                                                                                                <Link 
-                                                                                                    to={`/products/${item.productSystemId}`}
+                                                                                                <Link href={`/products/${item.productSystemId}`}
                                                                                                     className="font-medium text-primary hover:underline"
                                                                                                 >
                                                                                                     {item.productName}
@@ -1278,8 +1272,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                             <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
                                                                                                 <span>{productType}</span>
                                                                                                 <span>-</span>
-                                                                                                <Link 
-                                                                                                    to={`/products/${item.productSystemId}`}
+                                                                                                <Link href={`/products/${item.productSystemId}`}
                                                                                                     className="text-primary hover:underline"
                                                                                                 >
                                                                                                     {item.productId}
@@ -1320,8 +1313,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                                         {childProduct?.name || 'Sản phẩm không tồn tại'}
                                                                                                     </span>
                                                                                                     {childProduct && (
-                                                                                                        <Link
-                                                                                                            to={`/products/${childProduct.systemId}`}
+                                                                                                        <Link href={`/products/${childProduct.systemId}`}
                                                                                                             className="text-body-xs text-primary hover:underline"
                                                                                                         >
                                                                                                             {childProduct.id}
@@ -1414,8 +1406,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                         <TableCell>
                                                                                             <div className="flex flex-col gap-0.5">
                                                                                                 <div className="flex items-center gap-2">
-                                                                                                    <Link 
-                                                                                                        to={`/products/${item.productSystemId}`}
+                                                                                                    <Link href={`/products/${item.productSystemId}`}
                                                                                                         className="font-medium text-primary hover:underline"
                                                                                                     >
                                                                                                         {item.productName}
@@ -1429,8 +1420,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                                 <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
                                                                                                     <span>{productType}</span>
                                                                                                     <span>-</span>
-                                                                                                    <Link 
-                                                                                                        to={`/products/${item.productSystemId}`}
+                                                                                                    <Link href={`/products/${item.productSystemId}`}
                                                                                                         className="text-primary hover:underline"
                                                                                                     >
                                                                                                         {item.productId}
@@ -1471,8 +1461,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                                             {childProduct?.name || 'Sản phẩm không tồn tại'}
                                                                                                         </span>
                                                                                                         {childProduct && (
-                                                                                                            <Link
-                                                                                                                to={`/products/${childProduct.systemId}`}
+                                                                                                            <Link href={`/products/${childProduct.systemId}`}
                                                                                                                 className="text-body-xs text-primary hover:underline"
                                                                                                             >
                                                                                                                 {childProduct.id}
@@ -1518,8 +1507,8 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
 
 
 export function OrderDetailPage() {
-    const params = ReactRouterDOM.useParams<{ systemId?: string; id?: string }>();
-    const navigate = ReactRouterDOM.useNavigate();
+    const params = useParams<{ systemId?: string; id?: string }>();
+    const router = useRouter();
 
     const orderStore = useOrderStore();
     const orders: Order[] = orderStore.data ?? [];
@@ -1786,12 +1775,12 @@ export function OrderDetailPage() {
 
         setIsCopying(true);
         try {
-            navigate(`/orders/new?copy=${order.systemId}`);
+            router.push(`/orders/new?copy=${order.systemId}`);
         } finally {
             // Component will unmount after navigation, but keep defensive reset to be safe when navigation fails
             setTimeout(() => setIsCopying(false), 300);
         }
-    }, [order, isCopying, navigate]);
+    }, [order, isCopying, router]);
 
     // Customer Settings Stores
     const customerTypes = useCustomerTypeStore();
@@ -2413,7 +2402,7 @@ export function OrderDetailPage() {
                     variant="outline"
                     size="sm"
                     className="h-9"
-                    onClick={() => navigate(`/orders/${order.systemId}/return`)}
+                    onClick={() => router.push(`/orders/${order.systemId}/return`)}
                 >
                     Hoàn trả hàng
                 </Button>
@@ -2447,7 +2436,7 @@ export function OrderDetailPage() {
                     variant="outline"
                     size="sm"
                     className="h-9"
-                    onClick={() => navigate(`/orders/${order.systemId}/edit`)}
+                    onClick={() => router.push(`/orders/${order.systemId}/edit`)}
                 >
                     Sửa
                 </Button>
@@ -2455,7 +2444,7 @@ export function OrderDetailPage() {
         }
 
         return actions;
-    }, [order, isActionable, navigate, setIsCancelAlertOpen, activePackaging, handleRequestPackagingClick]);
+    }, [order, isActionable, router, setIsCancelAlertOpen, activePackaging, handleRequestPackagingClick]);
 
     const displayStatus = React.useMemo(() => {
         if (!order) return undefined;
@@ -2528,7 +2517,7 @@ export function OrderDetailPage() {
             <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                     <h2 className="text-2xl font-bold">Không tìm thấy đơn hàng.</h2>
-                    <Button onClick={() => navigate('/orders')} className="mt-4">
+                    <Button onClick={() => router.push('/orders')} className="mt-4">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Quay về danh sách đơn hàng
                     </Button>
@@ -2588,7 +2577,7 @@ export function OrderDetailPage() {
                             <div className="space-y-3">
                                 {/* Tên và thông tin liên hệ */}
                                 <div>
-                                    <p className="font-semibold text-primary cursor-pointer hover:underline text-lg" onClick={() => navigate(`/customers/${customer?.systemId}`)}>{order.customerName}</p>
+                                    <p className="font-semibold text-primary cursor-pointer hover:underline text-lg" onClick={() => router.push(`/customers/${customer?.systemId}`)}>{order.customerName}</p>
                                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
                                         {customer?.phone && (
                                             <span className="font-medium text-foreground inline-flex items-center gap-1">
@@ -2673,8 +2662,7 @@ export function OrderDetailPage() {
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Công nợ/Hạn mức:</span>
                                         <div className="text-right">
-                                            <Link 
-                                                to={`/customers/${customer?.systemId}?tab=debt`} 
+                                            <Link href={`/customers/${customer?.systemId}?tab=debt`} 
                                                 className="font-medium text-red-500 hover:underline cursor-pointer"
                                             >
                                                 {formatCurrency(customerDebtBalance)}
@@ -2719,7 +2707,7 @@ export function OrderDetailPage() {
                                                 <span className="text-muted-foreground">{metric.label}:</span>
                                                 <div className="text-right space-y-0.5">
                                                     {metric.link ? (
-                                                        <Link to={metric.link} className="block">
+                                                        <Link href={metric.link} className="block">
                                                             {ValueContent}
                                                         </Link>
                                                     ) : (
@@ -2745,7 +2733,7 @@ export function OrderDetailPage() {
                                 <AlertTitle>Chưa cấu hình quy trình xử lý đơn hàng</AlertTitle>
                                 <AlertDescription>
                                     Thiết lập quy trình mặc định tại{' '}
-                                    <Link to="/settings/workflow-templates" className="font-semibold text-primary underline">
+                                    <Link href="/settings/workflow-templates" className="font-semibold text-primary underline">
                                         Cài đặt &gt; Quy trình
                                     </Link>{' '}
                                     để đội vận hành có checklist thống nhất.
@@ -2775,7 +2763,7 @@ export function OrderDetailPage() {
                             <DetailField label="Bán tại" value={order.branchName} />
                             <div className="flex">
                                 <span className="text-muted-foreground min-w-[140px]">Bán bởi:</span>
-                                <Link to={`/employees/${order.salespersonSystemId}`} className="text-primary hover:underline font-medium">
+                                <Link href={`/employees/${order.salespersonSystemId}`} className="text-primary hover:underline font-medium">
                                     {order.salesperson}
                                 </Link>
                             </div>
@@ -2836,7 +2824,7 @@ export function OrderDetailPage() {
                                     }
                                 }}
                             >
-                                <Link to={`/customers/${customer?.systemId}`} className="hover:underline">
+                                <Link href={`/customers/${customer?.systemId}`} className="hover:underline">
                                     Xem lịch sử đơn hàng
                                 </Link>
                             </Button>
@@ -2962,8 +2950,7 @@ export function OrderDetailPage() {
                                                 <div className="w-full p-3 flex items-center justify-between hover:bg-muted/50 rounded-md transition-colors cursor-pointer">
                                                 <div className="flex items-center gap-2">
                                                     <ArrowDownLeft className="h-4 w-4 text-green-600" />
-                                                    <Link 
-                                                        to={`/payments/${refund.systemId}`} 
+                                                    <Link href={`/payments/${refund.systemId}`} 
                                                         onClick={(e) => e.stopPropagation()}
                                                         className="font-medium text-primary hover:underline"
                                                     >

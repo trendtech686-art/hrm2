@@ -1,5 +1,5 @@
-import type { Customer } from '@/features/customers/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { Customer } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 
 /**
  * Customer Import/Export Configuration

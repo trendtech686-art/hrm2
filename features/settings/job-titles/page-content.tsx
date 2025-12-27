@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog"
 import { JobTitleForm, type JobTitleFormValues } from "./job-title-form"
-import type { JobTitle } from "./types"
+import type { JobTitle } from '@/lib/types/prisma-extended'
 import { Button } from "../../../components/ui/button"
 import { PlusCircle } from "lucide-react"
 import Fuse from "fuse.js"

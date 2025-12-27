@@ -93,7 +93,7 @@ export async function POST(request: Request) {
         trackingNumber: body.trackingNumber,
         shippingFee: body.shippingFee || 0,
         status: body.status || 'PENDING',
-        actualDelivery: body.deliveredAt ? new Date(body.deliveredAt) : null,
+        deliveredAt: body.deliveredAt ? new Date(body.deliveredAt) : null,
         recipientName: body.recipientName,
         recipientPhone: body.recipientPhone,
         recipientAddress: body.recipientAddress,

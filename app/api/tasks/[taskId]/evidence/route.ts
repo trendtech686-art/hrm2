@@ -65,17 +65,17 @@ export async function POST(
       }
 
       // Save to database
-      await prisma.fileUpload.create({
+      await prisma.file.create({
         data: {
           systemId: fileId,
           entityType: 'Task',
           entityId: taskId,
           originalName: file.name,
-          fileName: savedFile.filename,
-          storagePath: savedFile.relativePath,
-          fileSize: file.size,
-          mimeType: file.type,
-          metadata: { documentType: 'evidence', storageProvider: 'local', status: 'permanent' },
+          filename: savedFile.filename,
+          filepath: savedFile.relativePath,
+          filesize: file.size,
+          mimetype: file.type,
+          documentType: 'evidence',
         },
       });
 
@@ -118,14 +118,14 @@ export async function GET(
   try {
     const { taskId } = await params;
 
-    const files = await prisma.fileUpload.findMany({
+    const files = await prisma.file.findMany({
       where: {
         entityType: 'Task',
         entityId: taskId,
-        metadata: { path: ['documentType'], equals: 'evidence' },
+        documentType: 'evidence',
       },
       orderBy: {
-        createdAt: 'desc',
+        uploadedAt: 'desc',
       },
     });
 
@@ -135,10 +135,10 @@ export async function GET(
         id: f.systemId,
         name: f.originalName,
         originalName: f.originalName,
-        size: f.fileSize,
-        type: f.mimeType,
-        url: `/api/files/${f.storagePath}`,
-        uploadedAt: f.createdAt.toISOString(),
+        size: f.filesize,
+        type: f.mimetype,
+        url: `/api/files/${f.filepath}`,
+        uploadedAt: f.uploadedAt.toISOString(),
       })),
     });
   } catch (error) {

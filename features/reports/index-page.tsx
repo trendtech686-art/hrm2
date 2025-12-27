@@ -7,7 +7,7 @@
 'use client'
 
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { 
   AreaChart, 
   TrendingUp, 
@@ -249,7 +249,7 @@ export function ReportsIndexPage() {
                 {group.reports.map((report) => (
                   <Link
                     key={report.href}
-                    to={report.badge ? '#' : report.href}
+                    href={report.badge ? '#' : report.href}
                     className={report.badge ? 'pointer-events-none' : ''}
                   >
                     <Button

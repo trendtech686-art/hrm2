@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate } from '@/lib/next-compat';
+import { useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useForm, FormProvider } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
@@ -45,8 +46,8 @@ import { useEmployeeStore } from '../employees/store';
  * - Right (flex-grow-3): Summary
  */
 export function WarrantyFormPage() {
-  const { systemId } = useParams();
-  const navigate = useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { setPageHeader } = usePageHeader();
   const location = window.location;
   
@@ -145,9 +146,9 @@ export function WarrantyFormPage() {
   React.useEffect(() => {
     if (isReadOnly && isEditing) {
       toast.error('Không thể chỉnh sửa phiếu đã trả hàng cho khách');
-      navigate(`/warranty/${systemId}`);
+      router.push(`/warranty/${systemId}`);
     }
-  }, [isReadOnly, isEditing, systemId, navigate]);
+  }, [isReadOnly, isEditing, systemId, router]);
 
   // Handler for marking files for deletion (SAFE mode - like Employee)
   const handleMarkReceivedForDeletion = React.useCallback((fileId: string) => {
@@ -659,7 +660,7 @@ export function WarrantyFormPage() {
         }
         
         // Navigate back to detail page
-        navigate(`/warranty/${ticket.systemId}`);
+        router.push(`/warranty/${ticket.systemId}`);
       } else {
         // ===== CREATE NEW TICKET =====
         // Now create ticket with all confirmed images in one go
@@ -713,7 +714,7 @@ export function WarrantyFormPage() {
         });
         
         // Navigate immediately - no race condition since we only create once
-        navigate(`/warranty/${preGeneratedSystemId}`);
+        router.push(`/warranty/${preGeneratedSystemId}`);
       }
     } catch (error) {
       console.error('Error saving warranty ticket:', error);
@@ -736,7 +737,7 @@ export function WarrantyFormPage() {
       key="cancel"
       type="button"
       variant="outline"
-      onClick={() => navigate('/warranty')}
+      onClick={() => router.push('/warranty')}
       size="sm"
       className="h-9"
     >
@@ -753,7 +754,7 @@ export function WarrantyFormPage() {
     >
       {isSubmitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
     </Button>,
-  ], [navigate, isReadOnly, isSubmitting, isEditing]);
+  ], [router, isReadOnly, isSubmitting, isEditing]);
 
   // Set page header with title and breadcrumb
   React.useEffect(() => {

@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 import { useSupplierStore } from './store';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -60,8 +60,8 @@ const debtColumns: ColumnDef<any>[] = [
 
 
 export function SupplierDetailPage() {
-    const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+    const { systemId: systemIdParam } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById } = useSupplierStore();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
   const { data: allPayments } = usePaymentStore();
@@ -186,13 +186,13 @@ export function SupplierDetailPage() {
                 <Button
                     key="edit"
                     className="h-9 gap-2"
-                    onClick={() => supplierSystemId && navigate(`/suppliers/${supplierSystemId}/edit`)}
+                    onClick={() => supplierSystemId && router.push(`/suppliers/${supplierSystemId}/edit`)}
                     disabled={!supplierSystemId}
                 >
                         <Edit className="mr-2 h-4 w-4" />
                         Chỉnh sửa
                 </Button>
-        ], [navigate, supplierSystemId]);
+        ], [router, supplierSystemId]);
 
     const statusBadge = supplier ? (
         <Badge variant={statusVariants[supplier.status]}>{supplier.status}</Badge>
@@ -235,7 +235,7 @@ export function SupplierDetailPage() {
     return (
       <div className="text-center p-8">
           <h2 className="text-h2 font-bold">Không tìm thấy nhà cung cấp</h2>
-          <Button onClick={() => navigate('/suppliers')} className="mt-4"><ArrowLeft className="mr-2 h-4 w-4" />Quay về danh sách</Button>
+          <Button onClick={() => router.push('/suppliers')} className="mt-4"><ArrowLeft className="mr-2 h-4 w-4" />Quay về danh sách</Button>
       </div>
     );
   }
@@ -286,7 +286,7 @@ export function SupplierDetailPage() {
                             dateFilterColumn="orderDate"
                             dateFilterTitle="Ngày đặt"
                             exportFileName={`Lich_su_nhap_hang_${supplier.id}`}
-                            onRowClick={(row) => navigate(`/purchase-orders/${row.systemId}`)}
+                            onRowClick={(row) => router.push(`/purchase-orders/${row.systemId}`)}
                         />
                     </CardContent>
                 </Card>

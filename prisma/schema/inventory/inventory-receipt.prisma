@@ -1,60 +1,44 @@
-// ═══════════════════════════════════════════════════════════════
-// INVENTORY RECEIPT MODEL (Phiếu nhập kho)
-// ═══════════════════════════════════════════════════════════════
-// SystemId: IREC0000000001 (English, 10 digits)
-// BusinessId: PNK0000000001 (Vietnamese - Phiếu nhập kho, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model InventoryReceipt {
-  systemId          String                @id           // IREC0000000001
-  id                String                @unique       // PNK0000000001
+  systemId      String                 @id
+  id            String                 @unique
+  type          InventoryReceiptType
+  branchId      String
+  employeeId    String?
+  referenceType String?
+  referenceId   String?
+  receiptDate   DateTime               @default(now())
+  status        InventoryReceiptStatus @default(DRAFT)
+  notes         String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  createdBy     String?
+  updatedBy     String?
   
-  // Branch
-  branchId          String?
-  branch            Branch?               @relation(fields: [branchId], references: [systemId])
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Location
-  locationId        String?
+  // Purchase order linking
+  purchaseOrderId          String?    // Business ID for display
+  purchaseOrderSystemId    String?    // SystemId for FK
   
-  // Receipt type
-  receiptType       String                // purchase, return, transfer, adjustment, production
+  // Supplier info (denormalized)
+  supplierSystemId         String?
+  supplierName             String?
   
-  // Reference
-  referenceType     String?               // purchase_order, sales_return, stock_transfer
-  referenceId       String?
+  // Receiver info
+  receiverSystemId         String?
+  receiverName             String?
+  receivedDate             DateTime?
   
-  // Supplier (for purchase)
-  supplierId        String?
-  supplierName      String?
+  // Branch info (denormalized)
+  branchSystemId           String?
+  branchName               String?
+  warehouseName            String?
   
-  // Receipt details
-  receiptDate       DateTime              @default(now())
+  // Items (stored as JSON)
+  receiptItems             Json?      // Array of InventoryReceiptLineItem
   
-  // Status
-  status            String                @default("draft") // draft, pending, completed, cancelled
-  
-  // Totals
-  totalItems        Int                   @default(0)
-  totalQuantity     Int                   @default(0)
-  totalValue        Decimal               @default(0) @db.Decimal(15, 2)
-  
-  // Notes
-  notes             String?
-  
-  // Relations
-  items             InventoryReceiptItem[]
-  
-  // Soft delete
-  isDeleted         Boolean               @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  approvedBy        String?
-  approvedAt        DateTime?
-  
+  // === RELATIONS ===
+  items         InventoryReceiptItem[]
+
   @@map("inventory_receipts")
 }

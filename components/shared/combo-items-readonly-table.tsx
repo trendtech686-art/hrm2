@@ -12,7 +12,7 @@
  */
 
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { Package, Eye } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { useProductStore } from '../../features/products/store';
@@ -219,8 +219,7 @@ export function ComboItemsReadOnlyTable({
                                             />
                                             {item.product ? (
                                                 <div className="min-w-0">
-                                                    <Link 
-                                                        to={`/products/${item.product.systemId}`}
+                                                    <Link href={`/products/${item.product.systemId}`}
                                                         className="font-medium text-primary hover:underline block truncate"
                                                     >
                                                         {item.product.name}

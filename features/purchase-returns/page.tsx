@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate, isDateAfter, isDateBefore } from '../../lib/date-utils';
 import { usePurchaseReturnStore } from "./store";
@@ -28,7 +28,7 @@ import { useMediaQuery } from "../../lib/use-media-query";
 import { PackageX, Building2, User, Calendar, FileText, Plus, Printer, Download } from "lucide-react";
 import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types";
-import type { PurchaseReturn } from "./types";
+import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
 import { toast } from 'sonner';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
@@ -245,7 +245,7 @@ export function PurchaseReturnsPage() {
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
   const { employee: currentUser } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Print dialog state - using SimplePrintOptionsDialog like Orders page
@@ -277,12 +277,12 @@ export function PurchaseReturnsPage() {
       key="create" 
       size="sm" 
       className="h-9"
-      onClick={() => navigate(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}
+      onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}
     >
       <Plus className="mr-2 h-4 w-4" />
       Tạo phiếu trả hàng
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   usePageHeader({
     title: 'Danh sách phiếu trả NCC',
@@ -438,7 +438,7 @@ export function PurchaseReturnsPage() {
   }, [filteredData, sorting]);
 
   const handleRowClick = (row: PurchaseReturn) => {
-    navigate(`${ROUTES.PROCUREMENT.PURCHASE_RETURNS}/${row.systemId}`);
+    router.push(`${ROUTES.PROCUREMENT.PURCHASE_RETURNS}/${row.systemId}`);
   };
 
   const selectedRows = React.useMemo(() => {

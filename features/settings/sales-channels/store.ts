@@ -1,6 +1,6 @@
 import type { UseBoundStore, StoreApi } from 'zustand';
 import { data as initialData } from './data';
-import type { SalesChannel } from './types';
+import type { SalesChannel } from '@/lib/types/prisma-extended';
 import { createCrudStore, type CrudState } from '../../../lib/store-factory';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import type { SystemId } from '@/lib/id-types';

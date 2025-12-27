@@ -3,8 +3,8 @@
  * Helpers để chuẩn bị dữ liệu in cho bảng lương và phiếu lương
  */
 
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { attendanceSnapshotService } from '../attendance-snapshot-service';
 import { 
   PayrollBatchForPrint,
@@ -280,15 +280,13 @@ export function createStoreSettings(storeInfo?: {
 }): StoreSettings {
   const generalSettings = getGeneralSettings();
   
-  // Fallback: đọc từ store-info-settings nếu storeInfo rỗng
+  // Fallback: lấy từ store nếu storeInfo rỗng
   let storeInfoFromStorage: typeof storeInfo | null = null;
   if (!storeInfo?.companyName && !storeInfo?.brandName) {
     try {
-      const stored = localStorage.getItem('store-info-settings');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        storeInfoFromStorage = parsed?.state?.info;
-      }
+      // Import store dynamically để tránh circular dependency
+      const { useStoreInfoStore } = require('@/features/settings/store-info/store-info-store');
+      storeInfoFromStorage = useStoreInfoStore.getState().info;
     } catch (e) { /* ignore */ }
   }
   

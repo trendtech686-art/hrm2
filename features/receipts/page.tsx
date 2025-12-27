@@ -1,14 +1,14 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useReceiptStore } from "./store";
 import { useReceiptTypeStore } from "../settings/receipt-types/store";
 import { useCashbookStore } from "../cashbook/store";
 import { useBranchStore } from "../settings/branches/store";
 import { useCustomerStore } from "../customers/store";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
-import type { Receipt } from "./types";
+import type { Receipt } from '@/lib/types/prisma-extended';
 import { usePageHeader } from "@/contexts/page-header-context";
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,7 +54,8 @@ const formatDateDisplay = (dateString?: string) => {
 };
 
 export function ReceiptsPage() {
-    const navigate = useNavigate();
+    const router = useRouter();
+    const navigateTo = React.useCallback((path: string) => router.push(path), [router]);
     const isMobile = useMediaQuery("(max-width: 768px)");
 
     const { data: receipts, remove } = useReceiptStore();
@@ -80,12 +81,12 @@ export function ReceiptsPage() {
             key="add"
             size="sm"
             className="h-9"
-            onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}
+            onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}
         >
             <Plus className="mr-2 h-4 w-4" />
             Tạo phiếu thu
         </Button>
-    ], [navigate]);
+    ], [router]);
     
     usePageHeader({
         title: 'Danh sách phiếu thu',
@@ -146,12 +147,12 @@ export function ReceiptsPage() {
     }, []);
     
     const handleEdit = React.useCallback((receipt: Receipt) => {
-        navigate(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }));
-    }, [navigate]);
+        router.push(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }));
+    }, [router]);
     
     const handleRowClick = React.useCallback((receipt: Receipt) => {
-        navigate(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }));
-    }, [navigate]);
+        router.push(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }));
+    }, [router]);
 
     // Single print handler for dropdown action
     const handleSinglePrint = React.useCallback((receipt: Receipt) => {
@@ -167,7 +168,7 @@ export function ReceiptsPage() {
         });
     }, [branches, storeInfo, print]);
 
-    const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate, handleSinglePrint), [accounts, handleCancel, navigate, handleSinglePrint]);
+    const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigateTo, handleSinglePrint), [accounts, handleCancel, navigateTo, handleSinglePrint]);
     
     // ✅ Set default column visibility - Run ONCE on mount
     React.useEffect(() => {
@@ -213,7 +214,7 @@ export function ReceiptsPage() {
     };
 
     const handleAddNew = () => {
-        navigate(ROUTES.FINANCE.RECEIPT_NEW);
+        router.push(ROUTES.FINANCE.RECEIPT_NEW);
     };
     
     // ✅ Filter options
@@ -564,7 +565,7 @@ export function ReceiptsPage() {
                                     key={receipt.systemId} 
                                     receipt={receipt}
                                     onCancel={handleCancel}
-                                    navigate={navigate}
+                                    navigate={navigateTo}
                                     handleRowClick={handleRowClick}
                                 />
                             ))}
@@ -613,12 +614,12 @@ export function ReceiptsPage() {
                     setColumnOrder={setColumnOrder}
                     pinnedColumns={pinnedColumns}
                     setPinnedColumns={setPinnedColumns}
-                    onRowClick={(receipt) => navigate(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }))}
+                    onRowClick={(receipt) => router.push(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }))}
                     renderMobileCard={(receipt) => (
                         <MobileReceiptCard 
                             receipt={receipt}
                             onCancel={handleCancel}
-                            navigate={navigate}
+                            navigate={navigateTo}
                             handleRowClick={handleRowClick}
                         />
                     )}

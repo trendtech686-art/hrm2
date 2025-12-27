@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useSettingsPageHeader } from '../settings/use-settings-page-header';
 import { useStockLocationStore } from './store';
 import { useBranchStore } from '../settings/branches/store';
-import type { StockLocation } from './types';
+import type { StockLocation } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
 import { StockLocationForm, type StockLocationFormValues } from './form';

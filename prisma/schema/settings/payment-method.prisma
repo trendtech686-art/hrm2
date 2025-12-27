@@ -1,45 +1,22 @@
-// ═══════════════════════════════════════════════════════════════
-// PAYMENT METHOD MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PM000001 (English, 6 digits)
-// BusinessId: HTTT000001 (Vietnamese - Hình thức thanh toán, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model PaymentMethod {
-  systemId          String        @id           // PM000001
-  id                String        @unique       // HTTT000001
-  
-  // Basic info
-  name              String
-  code              String        @unique
-  description       String?
-  
-  // Type
-  type              String        // cash, card, bank_transfer, e_wallet, cod
-  
-  // Display
-  sortOrder         Int           @default(0)
-  icon              String?
-  
-  // Settings
-  isActive          Boolean       @default(true)
-  isDefault         Boolean       @default(false)
-  requiresReference Boolean       @default(false)
-  
-  // Fees
-  feeType           String?       // fixed, percentage
-  feeAmount         Decimal       @default(0) @db.Decimal(15, 2)
-  feePercent        Decimal       @default(0) @db.Decimal(5, 2)
-  
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  systemId      String   @id
+  id            String   @unique
+  name          String
+  description   String?
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  color         String?  // e.g., '#10b981'
+  icon          String?  // e.g., 'Wallet', 'CreditCard'
+  // Bank account info (for transfer methods)
+  accountNumber String?  // Số tài khoản
+  accountName   String?  // Tên chủ tài khoản
+  bankName      String?  // Tên ngân hàng
+  code          String?  @default("UNKNOWN") @db.VarChar(50)
+  type          String?  @default("other") @db.VarChar(50)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
   @@map("payment_methods")
 }

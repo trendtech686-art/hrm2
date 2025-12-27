@@ -1,4 +1,4 @@
-import type { OrderAddress } from './types';
+import type { OrderAddress } from '@/lib/types/prisma-extended';
 
 export const formatOrderAddress = (address?: string | OrderAddress | null): string => {
     if (!address) return '';

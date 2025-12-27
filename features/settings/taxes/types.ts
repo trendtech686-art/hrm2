@@ -1,17 +1,6 @@
-import type { BusinessId, SystemId } from '@/lib/id-types';
+// Re-export tax types from central prisma-extended
+export type { Tax } from '@/lib/types/prisma-extended';
 
-export interface Tax {
-  systemId: SystemId;
-  id: BusinessId; // Mã thuế (user-defined)
-  name: string; // Tên thuế
-  rate: number; // Thuế suất (%)
-  isDefaultSale: boolean; // Mặc định cho bán hàng
-  isDefaultPurchase: boolean; // Mặc định cho nhập hàng
-  description?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: SystemId;
-  updatedBy?: SystemId;
-}
-
+// Local derived type - not in prisma-extended
+import type { Tax } from '@/lib/types/prisma-extended';
 export type TaxFormValues = Omit<Tax, 'systemId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>;

@@ -9,7 +9,7 @@
  */
 
 import { getApiUrl, getBaseUrl } from './api-config';
-import type { GHTKWebhookPayload } from '@/features/orders/types';
+import type { GHTKWebhookPayload } from '@/features/orders/store';
 import { shouldSyncGHTKStatus } from './ghtk-constants';
 
 export type SyncMode = 'webhook' | 'polling' | 'hybrid';

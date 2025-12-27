@@ -40,7 +40,7 @@ export async function GET(request: Request) {
           purchaseOrder: {
             select: { systemId: true, id: true },
           },
-          branch: {
+          suppliers: {
             select: { systemId: true, id: true, name: true },
           },
         },
@@ -88,9 +88,9 @@ export async function POST(request: Request) {
         systemId: `PAY${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
         supplierId: body.supplierId,
-        supplierName: body.supplierName,
         purchaseOrderId: body.purchaseOrderId,
         branchId: body.branchId,
+        type: 'SUPPLIER_PAYMENT',
         amount: body.amount,
         paymentMethod: body.method || body.paymentMethod || 'CASH',
         paymentDate: body.paymentDate ? new Date(body.paymentDate) : new Date(),
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       },
       include: {
         purchaseOrder: true,
-        branch: true,
+        suppliers: true,
       },
     })
 

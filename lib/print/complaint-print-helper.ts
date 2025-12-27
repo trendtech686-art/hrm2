@@ -3,9 +3,9 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu khiếu nại
  */
 
-import type { Branch } from '../../features/settings/branches/types';
-import type { Customer } from '../../features/customers/types';
-import type { Employee } from '../../features/employees/types';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Customer } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   ComplaintForPrint, 
   mapComplaintToPrintData,
@@ -89,7 +89,7 @@ interface ComplaintLike {
 export function convertComplaintForPrint(
   complaint: ComplaintLike,
   options: {
-    branch?: Branch | null;
+    branch?: { name?: string; address?: string; phone?: string; province?: string } | null;
     customer?: Customer | null;
     creator?: Employee | null;
     assignee?: Employee | null;

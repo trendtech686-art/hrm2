@@ -1,6 +1,7 @@
 import * as React from 'react';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDateCustom } from '../../lib/date-utils';
-import type { InventoryCheck } from './types';
+import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import { Checkbox } from '../../components/ui/checkbox';
 import { DataTableColumnHeader } from '../../components/data-table/data-table-column-header';
 import { Badge } from '../../components/ui/badge';
@@ -15,7 +16,7 @@ export const getColumns = (
   onEdit: (item: InventoryCheck) => void,
   onCancel: (item: InventoryCheck) => void,
   onBalance: (item: InventoryCheck) => void,
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   onPrint?: (item: InventoryCheck) => void,
 ) : ColumnDef<InventoryCheck>[] => [
   // 1 - Select
@@ -50,7 +51,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <div
         className="font-medium text-primary cursor-pointer hover:underline"
-        onClick={() => navigate(`/inventory-checks/${row.systemId}`)}
+        onClick={() => router.push(`/inventory-checks/${row.systemId}`)}
       >
         {row.id}
       </div>
@@ -85,7 +86,7 @@ export const getColumns = (
     id: 'createdAt',
     accessorKey: 'createdAt',
     header: 'Ngày tạo',
-    cell: ({ row }) => formatDate(row.createdAt),
+    cell: ({ row }) => formatDate(row.createdAt as string | undefined),
     meta: { displayName: 'Ngày tạo' },
   },
 
@@ -103,7 +104,7 @@ export const getColumns = (
     id: 'balancedAt',
     accessorKey: 'balancedAt',
     header: 'Ngày cân bằng',
-    cell: ({ row }) => formatDate(row.balancedAt),
+    cell: ({ row }) => formatDate(row.balancedAt as string | undefined),
     meta: { displayName: 'Ngày cân bằng' },
   },
 

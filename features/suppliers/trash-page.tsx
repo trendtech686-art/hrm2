@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useSupplierStore } from "./store"
@@ -9,14 +9,14 @@ import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
 import { Card, CardContent } from "../../components/ui/card"
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
-import type { Supplier } from "./types"
+import type { Supplier } from '@/lib/types/prisma-extended'
 import type { SystemId } from "@/lib/id-types";
 import { ROUTES } from "../../lib/router";
 import type { BreadcrumbItem } from "../../lib/breadcrumb-system";
 
 export function SuppliersTrashPage() {
   const { data, getDeleted, restore, remove } = useSupplierStore();
-  const navigate = useNavigate();
+  const router = useRouter();
   
   const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => ([
     { label: 'Trang chủ', href: ROUTES.ROOT },
@@ -48,8 +48,8 @@ export function SuppliersTrashPage() {
   }, [remove]);
 
   const columns = React.useMemo(
-    () => getColumns(navigate, handleRestoreFromColumn, handleDeleteFromColumn),
-    [navigate, handleRestoreFromColumn, handleDeleteFromColumn, data]
+    () => getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn),
+    [router, handleRestoreFromColumn, handleDeleteFromColumn, data]
   );
 
   const renderMobileCard = (supplier: Supplier) => (

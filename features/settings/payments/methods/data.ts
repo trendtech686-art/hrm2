@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { PaymentMethod } from './types';
+import type { PaymentMethod } from '@/lib/types/prisma-extended';
 
 const SEED_AUTHOR = asSystemId('EMP000001');
 const buildAuditFields = (createdAt: string, createdBy = SEED_AUTHOR) => ({

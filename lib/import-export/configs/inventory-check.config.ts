@@ -8,8 +8,13 @@
  * - Các dòng cùng Mã phiếu sẽ được nhóm thành 1 phiếu kiểm kê
  */
 
-import type { InventoryCheck, InventoryCheckItem, InventoryCheckStatus, DifferenceReason } from '@/features/inventory-checks/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { 
+  InventoryCheck, 
+  InventoryCheckItem, 
+  InventoryCheckStatus, 
+  DifferenceReason 
+} from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useProductStore } from '@/features/products/store';
 import { useBranchStore } from '@/features/settings/branches/store';
 import { useEmployeeStore } from '@/features/employees/store';
@@ -180,11 +185,19 @@ export const inventoryCheckFields: FieldConfig<InventoryCheckImportRow>[] = [
 // ============================================
 
 const STATUS_MAP: Record<string, InventoryCheckStatus> = {
+  'DRAFT': 'draft',
   'draft': 'draft',
   'Nháp': 'draft',
-  'balanced': 'balanced',
-  'Cân bằng': 'balanced',
-  'Đã cân bằng': 'balanced',
+  'IN_PROGRESS': 'in_progress',
+  'in_progress': 'in_progress',
+  'Đang kiểm': 'in_progress',
+  'COMPLETED': 'completed',
+  'completed': 'completed',
+  'balanced': 'completed',
+  'Cân bằng': 'completed',
+  'Đã cân bằng': 'completed',
+  'Hoàn thành': 'completed',
+  'CANCELLED': 'cancelled',
   'cancelled': 'cancelled',
   'Đã hủy': 'cancelled',
 };
@@ -387,7 +400,7 @@ export function flattenInventoryChecksForExport(checks: InventoryCheck[]): Inven
         checkId: i === 0 ? check.id : '',
         branchIdOrName: i === 0 ? check.branchName : '',
         status: i === 0 ? check.status : '',
-        createdAt: i === 0 ? check.createdAt : '',
+        createdAt: i === 0 ? (check.createdAt instanceof Date ? check.createdAt.toISOString() : check.createdAt || '') : '',
         note: i === 0 ? check.note : '',
         productIdOrSku: item.productId,
         productName: item.productName,

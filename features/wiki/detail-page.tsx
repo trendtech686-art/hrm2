@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { useWikiStore } from './store';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
@@ -13,8 +13,8 @@ import { ArrowLeft, Edit, User, Calendar, Tag } from 'lucide-react';
 import { MarkdownRenderer } from './components/markdown-renderer';
 
 export function WikiDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById } = useWikiStore();
 
   const article = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
@@ -28,7 +28,7 @@ export function WikiDetailPage() {
       { label: article?.title ?? 'Chi tiết', href: `/wiki/${article?.systemId ?? ''}`, isCurrent: true },
     ],
     actions: [
-      <Button key="edit" className="h-9 gap-2" onClick={() => navigate(`/wiki/${article?.systemId}/edit`)}>
+      <Button key="edit" className="h-9 gap-2" onClick={() => router.push(`/wiki/${article?.systemId}/edit`)}>
         <Edit className="mr-2 h-4 w-4" />
         Chỉnh sửa
       </Button>
@@ -41,7 +41,7 @@ export function WikiDetailPage() {
             <div className="text-center">
                 <h2 className="text-h3 font-bold">Không tìm thấy bài viết</h2>
                 <p className="text-muted-foreground mt-2">Bài viết bạn đang tìm kiếm không tồn tại.</p>
-                <Button onClick={() => navigate('/wiki')} className="mt-4">
+                <Button onClick={() => router.push('/wiki')} className="mt-4">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Quay về trang Wiki
                 </Button>

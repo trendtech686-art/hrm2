@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { MoreHorizontal, Pencil, Printer, Trash2, Calculator, ExternalLink, Receipt, AlertTriangle } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Checkbox } from '../../../components/ui/checkbox';
@@ -94,8 +94,7 @@ export function getPayslipColumns(
       },
       header: () => <span>Mã nhân viên</span>,
       cell: ({ row }) => (
-        <Link 
-          to={row.employeeSystemId ? ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.employeeSystemId) : '#'}
+        <Link href={row.employeeSystemId ? ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.employeeSystemId) : '#'}
           className="text-primary hover:underline"
           onClick={(e) => e.stopPropagation()}
         >

@@ -1,7 +1,8 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react';
-import { Link, useNavigate, useParams } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -44,7 +45,7 @@ const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
 
 export function InventoryReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById: findReceiptById } = useInventoryReceiptStore();
   const { findById: findPurchaseOrderById } = usePurchaseOrderStore();
   const { findById: findSupplierById } = useSupplierStore();
@@ -72,7 +73,7 @@ export function InventoryReceiptDetailPage() {
       content,
       author: {
         systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
+        name: authEmployee?.fullName || 'H? th?ng',
       },
       createdAt: new Date(),
       parentId: parentId as SystemId | undefined,
@@ -92,7 +93,7 @@ export function InventoryReceiptDetailPage() {
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-    name: authEmployee?.fullName || 'Hệ thống',
+    name: authEmployee?.fullName || 'H? th?ng',
   }), [authEmployee]);
 
   const receipt = React.useMemo(() => (systemId ? findReceiptById(asSystemId(systemId)) : undefined), [systemId, findReceiptById]);
@@ -153,14 +154,14 @@ export function InventoryReceiptDetailPage() {
         onClick={handlePrint}
       >
         <Printer className="mr-2 h-4 w-4" />
-        In phiếu
+        In phi?u
       </Button>,
     ];
   }, [receipt, handlePrint]);
 
   const badge = React.useMemo(() => {
     if (!receipt) return undefined;
-    const label = receipt.branchName || 'Chưa gắn chi nhánh';
+    const label = receipt.branchName || 'Chua g?n chi nh�nh';
     return (
       <Badge variant="outline" className="uppercase tracking-wide">
         {label}
@@ -169,12 +170,12 @@ export function InventoryReceiptDetailPage() {
   }, [receipt]);
 
   usePageHeader({
-    title: receipt ? `Phiếu nhập kho ${receipt.id}` : 'Chi tiết phiếu nhập',
-    subtitle: receipt?.supplierName ? `Nhà cung cấp: ${receipt.supplierName}` : undefined,
+    title: receipt ? `Phi?u nh?p kho ${receipt.id}` : 'Chi ti?t phi?u nh?p',
+    subtitle: receipt?.supplierName ? `Nh� cung c?p: ${receipt.supplierName}` : undefined,
     breadcrumb: [
-      { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
-      { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: false },
-      { label: receipt?.id || 'Chi tiết', href: '', isCurrent: true },
+      { label: 'Trang ch?', href: ROUTES.DASHBOARD, isCurrent: false },
+      { label: 'Phi?u nh?p kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: false },
+      { label: receipt?.id || 'Chi ti?t', href: '', isCurrent: true },
     ],
     badge,
     showBackButton: true,
@@ -185,10 +186,10 @@ export function InventoryReceiptDetailPage() {
     return (
       <Card>
         <CardContent className="py-10 text-center space-y-4">
-          <p className="text-h3 font-semibold">Không tìm thấy phiếu nhập kho.</p>
-          <Button className="h-9" onClick={() => navigate(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
+          <p className="text-h3 font-semibold">Kh�ng t�m th?y phi?u nh?p kho.</p>
+          <Button className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Quay lại danh sách
+            Quay l?i danh s�ch
           </Button>
         </CardContent>
       </Card>
@@ -204,16 +205,15 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="grid gap-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <DetailField label="Mã phiếu">{receipt.id}</DetailField>
-            <DetailField label="Ngày nhập">{receivedDateLabel}</DetailField>
-            <DetailField label="Chi nhánh">{receipt.branchName || 'Không xác định'}</DetailField>
-            <DetailField label="Kho hàng">{receipt.warehouseName || 'Không xác định'}</DetailField>
+            <DetailField label="M� phi?u">{receipt.id}</DetailField>
+            <DetailField label="Ng�y nh?p">{receivedDateLabel}</DetailField>
+            <DetailField label="Chi nh�nh">{receipt.branchName || 'Kh�ng x�c d?nh'}</DetailField>
+            <DetailField label="Kho h�ng">{receipt.warehouseName || 'Kh�ng x�c d?nh'}</DetailField>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <DetailField label="Nhà cung cấp">
+            <DetailField label="Nh� cung c?p">
               {supplier ? (
-                <Link
-                  to={ROUTES.PROCUREMENT.SUPPLIER_VIEW.replace(':systemId', supplier.systemId)}
+                <Link href={ROUTES.PROCUREMENT.SUPPLIER_VIEW.replace(':systemId', supplier.systemId)}
                   className="text-primary hover:underline font-medium"
                 >
                   {receipt.supplierName}
@@ -222,10 +222,9 @@ export function InventoryReceiptDetailPage() {
                 receipt.supplierName
               )}
             </DetailField>
-            <DetailField label="Đơn mua hàng">
+            <DetailField label="�on mua h�ng">
               {purchaseOrder ? (
-                <Link
-                  to={ROUTES.PROCUREMENT.PURCHASE_ORDER_VIEW.replace(':systemId', purchaseOrder.systemId)}
+                <Link href={ROUTES.PROCUREMENT.PURCHASE_ORDER_VIEW.replace(':systemId', purchaseOrder.systemId)}
                   className="text-primary hover:underline font-medium"
                 >
                   {receipt.purchaseOrderId}
@@ -234,10 +233,9 @@ export function InventoryReceiptDetailPage() {
                 receipt.purchaseOrderId
               )}
             </DetailField>
-            <DetailField label="Người nhận hàng">
+            <DetailField label="Ngu?i nh?n h�ng">
               {receiver ? (
-                <Link
-                  to={ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', receiver.systemId)}
+                <Link href={ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', receiver.systemId)}
                   className="text-primary hover:underline font-medium"
                 >
                   {receipt.receiverName}
@@ -248,7 +246,7 @@ export function InventoryReceiptDetailPage() {
             </DetailField>
           </div>
           {receipt.notes && (
-            <DetailField label="Ghi chú">
+            <DetailField label="Ghi ch�">
               <span className="text-body-sm text-muted-foreground">{receipt.notes}</span>
             </DetailField>
           )}
@@ -258,9 +256,9 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="p-0">
           <div className="p-6">
-            <h3 className="text-h3 font-semibold">Danh sách sản phẩm</h3>
+            <h3 className="text-h3 font-semibold">Danh s�ch s?n ph?m</h3>
             <p className="text-body-sm text-muted-foreground">
-              Tổng {receipt.items.length} mặt hàng · {totalQuantity} đơn vị · {formatCurrency(totalValue)}
+              T?ng {receipt.items.length} m?t h�ng � {totalQuantity} don v? � {formatCurrency(totalValue)}
             </p>
           </div>
           <div className="border-t">
@@ -268,13 +266,13 @@ export function InventoryReceiptDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[60px] text-center">STT</TableHead>
-                  <TableHead className="w-[60px]">Ảnh</TableHead>
-                  <TableHead>Mã sản phẩm</TableHead>
-                  <TableHead>Tên sản phẩm</TableHead>
-                  <TableHead className="text-center">SL đặt</TableHead>
-                  <TableHead className="text-center">SL thực nhập</TableHead>
-                  <TableHead className="text-right">Đơn giá</TableHead>
-                  <TableHead className="text-right">Thành tiền</TableHead>
+                  <TableHead className="w-[60px]">?nh</TableHead>
+                  <TableHead>M� s?n ph?m</TableHead>
+                  <TableHead>T�n s?n ph?m</TableHead>
+                  <TableHead className="text-center">SL d?t</TableHead>
+                  <TableHead className="text-center">SL th?c nh?p</TableHead>
+                  <TableHead className="text-right">�on gi�</TableHead>
+                  <TableHead className="text-right">Th�nh ti?n</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -292,16 +290,14 @@ export function InventoryReceiptDetailPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Link
-                        to={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
+                      <Link href={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
                         className="text-primary hover:underline font-medium"
                       >
                         {item.productId}
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Link
-                        to={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
+                      <Link href={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
                         className="text-primary hover:underline"
                       >
                         {item.productName}
@@ -319,7 +315,7 @@ export function InventoryReceiptDetailPage() {
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-right font-semibold">Tổng cộng</TableCell>
+                  <TableCell colSpan={5} className="text-right font-semibold">T?ng c?ng</TableCell>
                   <TableCell className="text-center font-semibold">{totalQuantity}</TableCell>
                   <TableCell />
                   <TableCell className="text-right font-semibold">{formatCurrency(totalValue)}</TableCell>
@@ -347,15 +343,15 @@ export function InventoryReceiptDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="Bình luận"
-        placeholder="Thêm bình luận về phiếu nhập kho..."
+        title="B�nh lu?n"
+        placeholder="Th�m b�nh lu?n v? phi?u nh?p kho..."
       />
 
       {/* Activity History */}
       <ActivityHistory
         history={[]}
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có lịch sử hoạt động"
+        title="L?ch s? ho?t d?ng"
+        emptyMessage="Chua c� l?ch s? ho?t d?ng"
         groupByDate
         maxHeight="400px"
       />

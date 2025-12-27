@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { ReceiptType } from './types';
+import type { ReceiptType } from '@/lib/types/prisma-extended';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: ReceiptType[] = [

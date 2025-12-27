@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { usePaymentStore } from "./store";
 import { useReceiptStore } from "../receipts/store";
 import { useCashbookStore } from "../cashbook/store";
@@ -10,7 +10,7 @@ import { usePaymentTypeStore } from "../settings/payments/types/store";
 import { useCustomerStore } from "../customers/store";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import { useEmployeeStore } from "../employees/store";
-import type { Payment } from "./types";
+import type { Payment } from '@/lib/types/prisma-extended';
 import type { Receipt } from "../receipts/types";
 import { usePageHeader } from "../../contexts/page-header-context";
 import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table";
@@ -47,7 +47,7 @@ import {
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
 
 export function PaymentsPage() {
-    const navigate = useNavigate();
+    const router = useRouter();
     const isMobile = useMediaQuery("(max-width: 768px)");
 
     const { data: payments, remove } = usePaymentStore();
@@ -76,16 +76,16 @@ export function PaymentsPage() {
             variant="outline"
             size="sm"
             className="h-9 gap-2"
-            onClick={() => navigate(ROUTES.FINANCE.CASHBOOK)}
+            onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}
         >
             <ReceiptText className="h-4 w-4" />
             Nhật ký quỹ
         </Button>,
-        <Button key="add" size="sm" className="h-9 gap-2" onClick={() => navigate(ROUTES.FINANCE.PAYMENT_NEW)}>
+        <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}>
             <Minus className="mr-2 h-4 w-4" />
             Tạo phiếu chi
         </Button>
-    ], [navigate]);
+    ], [router]);
     
     usePageHeader({
         title: 'Danh sách phiếu chi',
@@ -146,12 +146,12 @@ export function PaymentsPage() {
     }, []);
     
     const handleEdit = React.useCallback((payment: Payment) => {
-        navigate(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }));
-    }, [navigate]);
+        router.push(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }));
+    }, [router]);
     
     const handleRowClick = React.useCallback((payment: Payment) => {
-        navigate(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId }));
-    }, [navigate]);
+        router.push(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId }));
+    }, [router]);
 
     // Single print handler for dropdown action
     const handleSinglePrint = React.useCallback((payment: Payment) => {
@@ -167,7 +167,7 @@ export function PaymentsPage() {
         });
     }, [branches, storeInfo, print]);
 
-    const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigate, handleSinglePrint, employees), [accounts, handleCancel, navigate, handleSinglePrint, employees]);
+    const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push, handleSinglePrint, employees), [accounts, handleCancel, router.push, handleSinglePrint, employees]);
     
     // ✅ Set default column visibility - Run ONCE on mount
     React.useEffect(() => {
@@ -213,7 +213,7 @@ export function PaymentsPage() {
     };
 
     const handleAddNew = () => {
-        navigate(ROUTES.FINANCE.PAYMENT_NEW);
+        router.push(ROUTES.FINANCE.PAYMENT_NEW);
     };
     
     // ✅ Filter options
@@ -647,7 +647,7 @@ export function PaymentsPage() {
                                     key={payment.systemId} 
                                     payment={payment}
                                     onCancel={handleCancel}
-                                    navigate={(path) => navigate(path)}
+                                    navigate={(path) => router.push(path)}
                                     handleRowClick={handleRowClick}
                                 />
                             ))}
@@ -701,7 +701,7 @@ export function PaymentsPage() {
                         <MobilePaymentCard 
                             payment={payment}
                             onCancel={handleCancel}
-                            navigate={(path) => navigate(path)}
+                            navigate={(path) => router.push(path)}
                             handleRowClick={handleRowClick}
                         />
                     )}

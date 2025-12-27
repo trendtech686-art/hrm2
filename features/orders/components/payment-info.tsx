@@ -1,5 +1,5 @@
-﻿import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import * as React from 'react';
+import Link from 'next/link';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import type { OrderPayment, Order, OrderAddress } from '../types';
 import { Button } from '../../../components/ui/button';
@@ -91,7 +91,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 recipientName: order.customerName,
                 recipientPhone: phoneStr,
                 recipientAddress: addressStr,
-                recipientType: 'Khách hàng',
+                recipientType: 'Kh�ch h�ng',
                 amount: amount,
                 description: payment.description,
                 paymentMethod: payment.method,
@@ -113,7 +113,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 payerName: order.customerName,
                 payerPhone: phoneStr,
                 payerAddress: addressStr,
-                payerType: 'Khách hàng',
+                payerType: 'Kh�ch h�ng',
                 amount: amount,
                 description: payment.description,
                 paymentMethod: payment.method,
@@ -148,15 +148,14 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 ) : (
                     <Banknote className="h-4 w-4 text-green-500 mr-3 flex-shrink-0" />
                 )}
-                <Link 
-                    to={detailLink} 
+                <Link href={detailLink} 
                     className="font-semibold font-mono text-primary hover:underline"
                     onClick={(e) => e.stopPropagation()} // Prevent collapsing when clicking link
                 >
                     {payment.id}
                 </Link>
                 {isWarrantyPayment && (
-                    <Badge variant="secondary" className="ml-2 text-xs">Bảo hành</Badge>
+                    <Badge variant="secondary" className="ml-2 text-xs">B?o h�nh</Badge>
                 )}
                 <div className="flex-grow text-right text-muted-foreground px-4">
                     {formatDate(payment.date)}
@@ -167,7 +166,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 )}>
                     {isPayment ? '-' : '+'}{formatCurrency(Math.abs(payment.amount))}
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0" onClick={handlePrint} title="In phiếu">
+                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0" onClick={handlePrint} title="In phi?u">
                     <Printer className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0">
@@ -179,26 +178,25 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
             {isExpanded && (
                 <div className="p-4 border-t bg-muted/50 space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
-                        <DetailField label="Phương thức" value={payment.method} className="py-1 border-0" />
+                        <DetailField label="Phuong th?c" value={payment.method} className="py-1 border-0" />
                         <DetailField 
-                            label="Người tạo" 
+                            label="Ngu?i t?o" 
                             className="py-1 border-0"
                             value={creator ? (
-                                <Link to={`/employees/${creator.systemId}`} className="text-primary hover:underline">
+                                <Link href={`/employees/${creator.systemId}`} className="text-primary hover:underline">
                                     {creator.fullName}
                                 </Link>
                             ) : payment.createdBy}
                         />
-                        <DetailField label="Diễn giải" value={payment.description} className="py-1 border-0 col-span-2" />
+                        <DetailField label="Di?n gi?i" value={payment.description} className="py-1 border-0 col-span-2" />
                         {isWarrantyPayment && (payment as any).linkedWarrantySystemId && (
                             <DetailField 
-                                label="Liên kết" 
+                                label="Li�n k?t" 
                                 value={
-                                    <Link 
-                                        to={`/warranty/${(payment as any).linkedWarrantySystemId}`}
+                                    <Link href={`/warranty/${(payment as any).linkedWarrantySystemId}`}
                                         className="text-primary hover:underline"
                                     >
-                                        Xem phiếu bảo hành
+                                        Xem phi?u b?o h�nh
                                     </Link>
                                 } 
                                 className="py-1 border-0 col-span-2" 

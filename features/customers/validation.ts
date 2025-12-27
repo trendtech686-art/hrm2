@@ -26,6 +26,7 @@ export const addressSchema = z.object({
   wardId: z.string(),
   
   district: z.string().min(1, "Vui lòng chọn Quận/Huyện"),
+  // Keep as number - conversion happens in form defaultValues
   districtId: z.number(),
   
   isDefaultShipping: z.boolean().optional(),

@@ -88,6 +88,43 @@ export async function PUT(request: Request, { params }: RouteParams) {
   }
 }
 
+// PATCH /api/categories/[systemId] - Same as PUT for partial updates
+export async function PATCH(request: Request, { params }: RouteParams) {
+  try {
+    const { systemId } = await params
+    const body = await request.json()
+
+    const category = await prisma.category.update({
+      where: { systemId },
+      data: {
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
+        ...(body.thumbnail !== undefined && { imageUrl: body.thumbnail }),
+        ...(body.parentId !== undefined && { parentId: body.parentId }),
+        ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder }),
+      },
+      include: {
+        parent: true,
+      },
+    })
+
+    return NextResponse.json(category)
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Danh mục không tồn tại' },
+        { status: 404 }
+      )
+    }
+    console.error('Error updating category:', error)
+    return NextResponse.json(
+      { error: 'Failed to update category' },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE /api/categories/[systemId]
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {

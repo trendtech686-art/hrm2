@@ -1,6 +1,6 @@
 ﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { createCrudStore } from '../../lib/store-factory';
-import type { SalesReturn, ReturnLineItem } from './types';
+import type { SalesReturn, ReturnLineItem } from '@/lib/types/prisma-extended';
 import { data as initialData } from './data';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';

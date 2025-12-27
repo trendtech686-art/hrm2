@@ -1,6 +1,6 @@
 import { createCrudStore } from '../../../../lib/store-factory';
 import { data as initialData } from './data';
-import type { PaymentType } from './types';
+import type { PaymentType } from '@/lib/types/prisma-extended';
 import { toISODate, getCurrentDate } from '../../../../lib/date-utils';
 
 const baseStore = createCrudStore<PaymentType>(initialData, 'payment-types', {

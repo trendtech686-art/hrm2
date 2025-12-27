@@ -1,7 +1,7 @@
 'use client'
 
 import React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle } from "lucide-react";
@@ -26,7 +26,7 @@ interface Props {
  * 4. Hiển thị badge "Đã hủy" nếu timeline có action 'cancelled'
  */
 export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actionTimestamp }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   
   // Neu co actionTimestamp truyen vao (tu history), dung cai do
   // Nguoc lai tim action verified-correct dau tien
@@ -197,7 +197,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                       ? 'bg-muted/50 opacity-60' 
                       : 'bg-card hover:bg-accent'
                   } transition-colors cursor-pointer`}
-                  onClick={() => navigate(`/payments/${payment.systemId}`)}
+                  onClick={() => router.push(`/payments/${payment.systemId}`)}
                 >
                   <div className="flex items-center gap-2 flex-col items-start">
                     <div className="flex items-center gap-2">
@@ -233,7 +233,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                       ? 'bg-muted/50 opacity-60' 
                       : 'bg-card hover:bg-accent'
                   } transition-colors cursor-pointer`}
-                  onClick={() => navigate(`/receipts/${receipt.systemId}`)}
+                  onClick={() => router.push(`/receipts/${receipt.systemId}`)}
                 >
                   <div className="flex items-center gap-2 flex-col items-start">
                     <div className="flex items-center gap-2">
@@ -270,7 +270,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                         ? 'bg-muted/50 opacity-60' 
                         : 'bg-card hover:bg-accent'
                     } transition-colors cursor-pointer`}
-                    onClick={() => navigate(`/inventory-checks/${inventoryCheck.systemId}`)}
+                    onClick={() => router.push(`/inventory-checks/${inventoryCheck.systemId}`)}
                   >
                     <div className="flex items-center gap-2 flex-col items-start">
                       <div className="flex items-center gap-2">

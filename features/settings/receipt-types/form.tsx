@@ -2,7 +2,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { ReceiptType } from "./types";
+import type { ReceiptType } from '@/lib/types/prisma-extended';
 import { useReceiptTypeStore } from "./store";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
 import { Input } from "../../../components/ui/input";

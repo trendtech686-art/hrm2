@@ -3,9 +3,9 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu bảo hành và yêu cầu bảo hành
  */
 
-import type { Branch } from '../../features/settings/branches/types';
-import type { Customer } from '../../features/customers/types';
-import type { Employee } from '../../features/employees/types';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Customer } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   WarrantyForPrint, 
   mapWarrantyToPrintData, 

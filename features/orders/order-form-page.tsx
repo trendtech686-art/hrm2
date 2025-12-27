@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, useSearchParamsWithSetter } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
 import { useForm, FormProvider, useWatch, useFieldArray, useFormContext } from 'react-hook-form';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODateTime } from '@/lib/date-utils';
 import { ArrowLeft, PackageOpen } from 'lucide-react';
@@ -10,7 +11,7 @@ import { toast } from 'sonner';
 // types
 import type { Product } from '../products/types';
 import type { ProductFormValues } from '../products/validation';
-import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress } from './types';
+import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress } from '@/lib/types/prisma-extended';
 
 // stores
 import { useProductStore } from '../products/store';
@@ -215,7 +216,7 @@ const OrderCalculations = () => {
 // Main Component
 export function OrderFormPage() {
     const { systemId } = useParams();
-    const navigate = useNavigate();
+    const router = useRouter();
     const [searchParams] = useSearchParamsWithSetter();
     const { findById, add, update, addPayment: addOrderPayment, data: allOrders } = useOrderStore();
     const { data: employees } = useEmployeeStore();
@@ -1144,7 +1145,7 @@ export function OrderFormPage() {
         if (isEditing && order) {
             const updatedOrder: Order = { ...order, ...finalOrderData };
             update(order.systemId, updatedOrder);
-            navigate(`/orders/${order.systemId}`);
+            router.push(`/orders/${order.systemId}`);
         } else {
             console.log('🔵 [DEBUG] Creating new order with data:', finalOrderData);
             const newItem = add(finalOrderData as Omit<Order, 'systemId'>);
@@ -1163,10 +1164,10 @@ export function OrderFormPage() {
                 // ✅ Công nợ sẽ được tạo khi đơn hàng giao thành công (completeDelivery)
                 // KHÔNG tạo công nợ ngay khi tạo đơn
 
-                navigate(`/orders/${newItem.systemId}`);
+                router.push(`/orders/${newItem.systemId}`);
             } else {
                 console.error('❌ [DEBUG] add() returned null/undefined!');
-                navigate('/orders'); // Fallback
+                router.push('/orders'); // Fallback
             }
         }
     };
@@ -1177,7 +1178,7 @@ export function OrderFormPage() {
             key="exit" 
             type="button" 
             variant="outline" 
-            onClick={() => navigate('/orders')} 
+            onClick={() => router.push('/orders')} 
             size="sm" 
             className="h-9"
         >

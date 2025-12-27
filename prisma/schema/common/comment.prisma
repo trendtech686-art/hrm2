@@ -1,0 +1,15 @@
+model Comment {
+  systemId      String    @id @default(dbgenerated("(gen_random_uuid())::character varying")) @db.VarChar(255)
+  entityType    String    @db.VarChar(100)
+  entityId      String    @db.VarChar(255)
+  content       String
+  attachments   String[]  @default([])
+  createdAt     DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime? @default(now()) @updatedAt @db.Timestamp(6)
+  createdBy     String?   @db.VarChar(255)
+  createdByName String?   @db.VarChar(255)
+  updatedBy     String?   @db.VarChar(255)
+
+  @@index([entityType, entityId], map: "idx_comments_entity")
+  @@map("comments")
+}

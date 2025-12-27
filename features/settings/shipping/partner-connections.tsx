@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Check, Settings2, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -18,14 +18,14 @@ type PartnerConnectionsPageContentProps = {
 };
 
 export const PartnerConnectionsPageContent: React.FC<PartnerConnectionsPageContentProps> = ({ isActive, onRegisterActions }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [shippingConfig] = React.useState(() => loadShippingConfig());
 
   const isMobile = !useMediaQuery("(min-width: 768px)");
 
   const handleOpenConfig = React.useCallback((code: ShippingPartner) => {
-    navigate(`/settings/shipping/partners/${code}`);
-  }, [navigate]);
+    router.push(`/settings/shipping/partners/${code}`);
+  }, [router]);
 
   const getPartnerStatus = (partnerCode: ShippingPartner) => {
     // ✅ V2: Check if partner has any active accounts

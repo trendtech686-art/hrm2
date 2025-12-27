@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useSupplierStore } from "./store"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"
-import type { Supplier } from "./types"
+import type { Supplier } from '@/lib/types/prisma-extended'
 import { Button } from "../../components/ui/button"
 import { PlusCircle, Trash2, FileSpreadsheet, Download } from "lucide-react"
 import Fuse from "fuse.js"
@@ -41,7 +41,7 @@ export function SuppliersPage() {
   const { data: suppliersRaw, remove, restore, getActive, getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
   const { data: branches } = useBranchStore();
   const { employee: currentUser } = useAuth();
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
   
   // ✅ Import/Export dialogs
@@ -67,7 +67,7 @@ export function SuppliersPage() {
       variant="outline"
       size="sm"
       className="h-9 gap-2"
-      onClick={() => navigate('/suppliers/trash')}
+      onClick={() => router.push('/suppliers/trash')}
     >
       <Trash2 className="mr-2 h-4 w-4" />
       Thùng rác ({deletedCount})
@@ -76,12 +76,12 @@ export function SuppliersPage() {
       key="add"
       size="sm"
       className="h-9 gap-2"
-      onClick={() => navigate('/suppliers/new')}
+      onClick={() => router.push('/suppliers/new')}
     >
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm nhà cung cấp
     </Button>
-  ], [navigate, deletedCount]);
+  ], [router, deletedCount]);
   
   usePageHeader({
     title: 'Nhà cung cấp',
@@ -102,7 +102,8 @@ export function SuppliersPage() {
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
     const storageKey = 'suppliers-column-visibility';
     const stored = localStorage.getItem(storageKey);
-    const cols = getColumns(() => {}, () => {}, () => {}, () => {});
+    // Just need column structure, so pass null router
+    const cols = getColumns(() => {}, () => {}, () => {}, null as unknown as ReturnType<typeof useRouter>);
     const allColumnIds = cols.map(c => c.id).filter(Boolean);
     if (stored) {
       try {
@@ -137,10 +138,10 @@ export function SuppliersPage() {
   }, [restore, suppliers]);
 
   const handleEdit = React.useCallback((supplier: Supplier) => {
-    navigate(`/suppliers/${supplier.systemId}/edit`);
-  }, [navigate]);
+    router.push(`/suppliers/${supplier.systemId}/edit`);
+  }, [router]);
 
-  const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, handleEdit, navigate), [handleDelete, handleRestore, handleEdit, navigate]);
+  const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, handleEdit, router), [handleDelete, handleRestore, handleEdit, router]);
   
   // ✅ Run once on mount only
   React.useEffect(() => {
@@ -179,7 +180,7 @@ export function SuppliersPage() {
   }
 
   const handleAddNew = () => {
-    navigate('/suppliers/new');
+    router.push('/suppliers/new');
   };
 
   const filteredData = React.useMemo(() => {
@@ -227,7 +228,7 @@ export function SuppliersPage() {
   }, [activeSuppliers, rowSelection]);
 
   const handleRowClick = (supplier: Supplier) => {
-    navigate(`/suppliers/${supplier.systemId}`);
+    router.push(`/suppliers/${supplier.systemId}`);
   };
 
   // Bulk actions
@@ -448,7 +449,7 @@ export function SuppliersPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onRestore={handleRestore}
-            navigate={navigate}
+            navigate={router.push}
           />
         )}
       />

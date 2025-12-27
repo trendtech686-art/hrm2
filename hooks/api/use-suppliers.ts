@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
-import type { Supplier } from '@/features/suppliers/types'
+import type { Supplier } from '@/lib/types/prisma-extended'
 
 const API_BASE = '/api/suppliers'
 

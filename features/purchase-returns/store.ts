@@ -1,7 +1,7 @@
 import { formatDateCustom, getCurrentDate } from '../../lib/date-utils';
 import { createCrudStore, type CrudState } from '../../lib/store-factory';
 import { data as initialData } from './data';
-import type { PurchaseReturn } from './types';
+import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 import { useProductStore } from '../products/store';
 import { useStockHistoryStore } from '../stock-history/store';
 import { useReceiptStore } from '../receipts/store';

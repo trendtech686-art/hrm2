@@ -1,21 +1,10 @@
 import type { NextAuthConfig } from "next-auth"
-import Credentials from "next-auth/providers/credentials"
 
 // NOTE: We can't import prisma here because this file is used by middleware (Edge runtime)
 // The actual database check happens in auth.ts
 
 export const authConfig: NextAuthConfig = {
-  providers: [
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      // authorize is implemented in auth.ts
-      authorize: async () => null,
-    }),
-  ],
+  providers: [], // Providers are defined in auth.ts (not here, because Edge runtime can't use Prisma)
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

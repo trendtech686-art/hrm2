@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
@@ -6,7 +7,6 @@ import { Badge } from '../../../components/ui/badge';
 import { useOrderStore } from '../../orders/store';
 import { useProductStore } from '../store';
 import type { SystemId } from '../../../lib/id-types';
-import * as ReactRouterDOM from '@/lib/next-compat';
 
 interface InTransitStockDialogProps {
   open: boolean;
@@ -27,7 +27,7 @@ export function InTransitStockDialog({
 }: InTransitStockDialogProps) {
   const { data: allOrders } = useOrderStore();
   const { findById: findProductById } = useProductStore();
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
 
   const product = React.useMemo(() => findProductById(productSystemId), [findProductById, productSystemId]);
   const productSku = product?.id;
@@ -72,7 +72,7 @@ export function InTransitStockDialog({
   const totalInTransit = inTransitOrders.reduce((sum, order) => sum + order.quantity, 0);
 
   const handleRowClick = (order: typeof inTransitOrders[number]) => {
-    navigate(`/orders/${order.systemId}`);
+    router.push(`/orders/${order.systemId}`);
     onOpenChange(false);
   };
 

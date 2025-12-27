@@ -46,9 +46,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const warranty = await prisma.warranty.update({
       where: { systemId },
       data: {
-        notes: body.issueDescription || body.notes,
+        issueDescription: body.issueDescription,
+        notes: body.notes,
         status: body.status,
-        terms: body.solution,
+        solution: body.solution,
       },
       include: {
         product: true,

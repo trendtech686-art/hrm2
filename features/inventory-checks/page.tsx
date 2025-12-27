@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { useInventoryCheckStore } from './store';
 import { getColumns } from './columns';
@@ -24,7 +24,7 @@ import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../compon
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
-import type { InventoryCheck } from './types';
+import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +53,7 @@ type ConfirmState =
   | null;
 
 export function InventoryChecksPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
   const { employee: currentUser } = useAuth();
   const { data, balanceCheck, cancelCheck } = useInventoryCheckStore();
@@ -84,8 +84,8 @@ export function InventoryChecksPage() {
 
   // Handlers
   const handleEdit = React.useCallback((item: InventoryCheck) => {
-    navigate(ROUTES.INVENTORY.INVENTORY_CHECK_EDIT.replace(':systemId', item.systemId));
-  }, [navigate]);
+    router.push(ROUTES.INVENTORY.INVENTORY_CHECK_EDIT.replace(':systemId', item.systemId));
+  }, [router]);
 
   const requestCancel = React.useCallback((item: InventoryCheck) => {
     if (item.status !== 'draft') {
@@ -177,8 +177,8 @@ export function InventoryChecksPage() {
 
   // Columns
   const columns = React.useMemo(() => 
-    getColumns(handleEdit, requestCancel, requestBalance, navigate, handlePrint),
-    [handleEdit, navigate, requestCancel, requestBalance, handlePrint]
+    getColumns(handleEdit, requestCancel, requestBalance, router, handlePrint),
+    [handleEdit, router, requestCancel, requestBalance, handlePrint]
   );
 
   // Default column visibility - 15 columns for sticky scrollbar
@@ -431,11 +431,11 @@ export function InventoryChecksPage() {
 
   // Header actions - Chỉ giữ action chính
   const headerActions = React.useMemo(() => [
-    <Button key="add" className="h-9" onClick={() => navigate(ROUTES.INVENTORY.INVENTORY_CHECK_NEW)}>
+    <Button key="add" className="h-9" onClick={() => router.push(ROUTES.INVENTORY.INVENTORY_CHECK_NEW)}>
       <Plus className="mr-2 h-4 w-4" />
       Tạo phiếu kiểm hàng
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   const confirmDialogCopy = React.useMemo(() => {
     if (!confirmState) return null;

@@ -1,0 +1,11214 @@
+(globalThis.TURBOPACK || (globalThis.TURBOPACK = [])).push([typeof document === "object" ? document.currentScript : undefined,
+"[project]/lib/api-config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * API Configuration Utilities
+ * 
+ * Centralized configuration for API endpoints.
+ * All API URLs should use these utilities instead of hardcoding.
+ */ /**
+ * Get the API base URL from environment variables
+ * Falls back to localhost:3001 for development
+ */ __turbopack_context__.s([
+    "getApiBaseUrl",
+    ()=>getApiBaseUrl,
+    "getApiUrl",
+    ()=>getApiUrl,
+    "getBaseUrl",
+    ()=>getBaseUrl,
+    "getFileUrl",
+    ()=>getFileUrl
+]);
+const __TURBOPACK__import$2e$meta__ = {
+    get url () {
+        return `file://${__turbopack_context__.P("lib/api-config.ts")}`;
+    }
+};
+function getApiBaseUrl() {
+    // Use relative path to leverage Vite proxy in development
+    // This avoids CORS issues when frontend (5173) talks to backend (3001)
+    if (__TURBOPACK__import$2e$meta__.env?.DEV) {
+        return '/api';
+    }
+    return __TURBOPACK__import$2e$meta__.env?.VITE_API_BASE_URL || 'http://localhost:3001/api';
+}
+function getBaseUrl() {
+    const apiUrl = getApiBaseUrl();
+    return apiUrl.replace('/api', '');
+}
+function getFileUrl(relativePath) {
+    if (!relativePath) return '';
+    // If already a full URL, return as is
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+        return relativePath;
+    }
+    // Build full URL
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}${relativePath}`;
+}
+function getApiUrl(endpoint) {
+    const apiBaseUrl = getApiBaseUrl();
+    return `${apiBaseUrl}${endpoint}`;
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/id-utils.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "extractCounterFromBusinessId",
+    ()=>extractCounterFromBusinessId,
+    "extractCounterFromSystemId",
+    ()=>extractCounterFromSystemId,
+    "findNextAvailableBusinessId",
+    ()=>findNextAvailableBusinessId,
+    "formatIdForDisplay",
+    ()=>formatIdForDisplay,
+    "generateBusinessId",
+    ()=>generateBusinessId,
+    "generateSuggestedIds",
+    ()=>generateSuggestedIds,
+    "generateSystemId",
+    ()=>generateSystemId,
+    "getMaxBusinessIdCounter",
+    ()=>getMaxBusinessIdCounter,
+    "getMaxSystemIdCounter",
+    ()=>getMaxSystemIdCounter,
+    "isBusinessIdUnique",
+    ()=>isBusinessIdUnique,
+    "isValidIdFormat",
+    ()=>isValidIdFormat,
+    "sanitizeBusinessId",
+    ()=>sanitizeBusinessId
+]);
+/**
+ * ID Utilities
+ * Helpers for generating and validating IDs (systemId & business id)
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$smart$2d$prefix$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/smart-prefix.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/id-config.ts [app-client] (ecmascript)");
+;
+;
+function generateSystemId(entityType, counter) {
+    const config = __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ID_CONFIG"][entityType];
+    if (!config) {
+        throw new Error(`No configuration found for entity type: ${entityType}`);
+    }
+    const prefix = config.systemIdPrefix;
+    const digitCount = config.digitCount || 6;
+    return `${prefix}${String(counter).padStart(digitCount, '0')}`;
+}
+function generateBusinessId(entityType, counter, customId) {
+    // If user provided custom ID, validate and return it
+    if (customId && customId.trim()) {
+        const sanitized = sanitizeBusinessId(customId);
+        if (!sanitized) {
+            throw new Error('Mã không hợp lệ! Chỉ được phép sử dụng chữ cái và số.');
+        }
+        return sanitized;
+    }
+    // Otherwise, auto-generate
+    const prefix = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$smart$2d$prefix$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getPrefix"])(entityType);
+    return `${prefix}${String(counter).padStart(6, '0')}`;
+}
+function sanitizeBusinessId(id) {
+    if (!id || typeof id !== 'string') return null;
+    // Remove all special characters, keep only alphanumeric
+    const cleaned = id.trim().replace(/[^a-zA-Z0-9]/g, '');
+    if (!cleaned) return null;
+    // Convert to uppercase for consistency
+    return cleaned.toUpperCase();
+}
+function isBusinessIdUnique(id, existingIds, currentId) {
+    if (!id) return false;
+    const normalizedId = id.toUpperCase();
+    const normalizedCurrentId = currentId?.toUpperCase();
+    return !existingIds.some((existingId)=>{
+        // ✅ Filter out empty/undefined IDs
+        if (!existingId || existingId.trim() === '') return false;
+        const normalizedExisting = existingId.toUpperCase();
+        // Skip self-comparison in edit mode
+        if (normalizedCurrentId && normalizedExisting === normalizedCurrentId) {
+            return false;
+        }
+        return normalizedExisting === normalizedId;
+    });
+}
+function extractCounterFromSystemId(systemId, prefix) {
+    if (!systemId || typeof systemId !== 'string') return 0;
+    // Try different digit counts (most entities use 6 digits, some use 7-8)
+    const regex8 = new RegExp(`^${prefix}(\\d{8})$`);
+    const regex7 = new RegExp(`^${prefix}(\\d{7})$`);
+    const regex6 = new RegExp(`^${prefix}(\\d{6})$`);
+    const match8 = systemId.match(regex8);
+    if (match8) return parseInt(match8[1], 10);
+    const match7 = systemId.match(regex7);
+    if (match7) return parseInt(match7[1], 10);
+    const match6 = systemId.match(regex6);
+    if (match6) return parseInt(match6[1], 10);
+    return 0;
+}
+function extractCounterFromBusinessId(businessId, prefix) {
+    if (!businessId || typeof businessId !== 'string') return 0;
+    const regex = new RegExp(`^${prefix}(\\d+)$`);
+    const match = businessId.match(regex);
+    return match ? parseInt(match[1], 10) : 0;
+}
+function getMaxSystemIdCounter(items, prefix) {
+    if (!items || !Array.isArray(items)) return 0;
+    let maxCounter = 0;
+    items.forEach((item)=>{
+        if (!item || !item.systemId) return;
+        const counter = extractCounterFromSystemId(item.systemId, prefix);
+        if (counter > maxCounter) {
+            maxCounter = counter;
+        }
+    });
+    return maxCounter;
+}
+function getMaxBusinessIdCounter(items, prefix) {
+    if (!items || !Array.isArray(items)) return 0;
+    let maxCounter = 0;
+    items.forEach((item)=>{
+        if (!item || !item.id) return;
+        const counter = extractCounterFromBusinessId(item.id, prefix);
+        if (counter > maxCounter) {
+            maxCounter = counter;
+        }
+    });
+    return maxCounter;
+}
+function formatIdForDisplay(id) {
+    // Match pattern: PREFIX followed by numbers
+    const match = id.match(/^([A-Z]+)(\d+)$/);
+    if (!match) return id;
+    const [, prefix, numbers] = match;
+    return `${prefix}-${numbers}`;
+}
+function isValidIdFormat(id) {
+    if (!id || typeof id !== 'string') return false;
+    // Only alphanumeric characters allowed
+    const regex = /^[A-Z0-9]+$/i;
+    return regex.test(id);
+}
+function generateSuggestedIds(entityType, counter, count = 3) {
+    const suggestions = [];
+    const prefix = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$smart$2d$prefix$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getPrefix"])(entityType);
+    for(let i = 0; i < count; i++){
+        suggestions.push(`${prefix}${String(counter + i + 1).padStart(6, '0')}`);
+    }
+    return suggestions;
+}
+function findNextAvailableBusinessId(prefix, existingIds, startCounter, digitCount = 6) {
+    let counter = startCounter;
+    let nextId;
+    // Keep incrementing until we find a unique ID
+    do {
+        counter++;
+        nextId = `${prefix}${String(counter).padStart(digitCount, '0')}`;
+    }while (existingIds.some((id)=>id === nextId))
+    return {
+        nextId,
+        updatedCounter: counter
+    };
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/store-factory.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "createCrudStore",
+    ()=>createCrudStore
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/react.mjs [app-client] (ecmascript)");
+// persist, createJSONStorage removed - database is now source of truth
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/id-utils.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$smart$2d$prefix$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/smart-prefix.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/id-config.ts [app-client] (ecmascript)");
+;
+;
+;
+;
+const SYSTEM_FALLBACK_ID = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createSystemId"])('SYS000000');
+const asSystemIdFallback = ()=>SYSTEM_FALLBACK_ID;
+// ✅ API Sync helper for store-factory
+async function syncToAPI(apiEndpoint, action, data, systemId) {
+    try {
+        const endpoint = action === 'create' ? apiEndpoint : `${apiEndpoint}/${systemId || data.systemId}`;
+        const method = action === 'create' ? 'POST' : action === 'update' ? 'PATCH' : action === 'delete' ? 'DELETE' : 'PATCH'; // restore uses PATCH
+        const response = await fetch(endpoint, {
+            method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: action !== 'delete' ? JSON.stringify(data) : undefined
+        });
+        if (!response.ok) {
+            console.warn(`[Store Factory API] ${action} failed for ${apiEndpoint}:`, response.status);
+        }
+        return response.ok;
+    } catch (error) {
+        console.error(`[Store Factory API] ${action} error for ${apiEndpoint}:`, error);
+        return false;
+    }
+}
+const createCrudStore = (_initialData, entityType, options)=>{
+    const businessPrefix = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$smart$2d$prefix$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getPrefix"])(entityType); // Vietnamese prefix for Business ID (NV, KH, DH)
+    const config = __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ID_CONFIG"][entityType];
+    const systemIdPrefix = config?.systemIdPrefix || entityType.toUpperCase(); // English prefix for SystemId (EMP, CUSTOMER, ORDER)
+    const businessIdField = options?.businessIdField ?? 'id';
+    // const persistKey = options?.persistKey; // @deprecated - No longer used
+    const getCurrentUser = options?.getCurrentUser;
+    const apiEndpoint = options?.apiEndpoint;
+    // ✅ CHANGED: Start with empty array - database is source of truth
+    // Mock data files (data.ts) are NO LONGER USED for runtime
+    const normalizedInitialData = [];
+    const storeConfig = (set, get)=>({
+            data: normalizedInitialData,
+            // ✅ Counters start at 0 - will be initialized from API via loadFromAPI()
+            _counters: {
+                systemId: 0,
+                businessId: 0
+            },
+            _initialized: false,
+            add: (item)=>{
+                // ✅ Get counters from state (persisted)
+                const currentCounters = get()._counters;
+                const newSystemIdCounter = currentCounters.systemId + 1;
+                const newSystemId = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createSystemId"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["generateSystemId"])(entityType, newSystemIdCounter));
+                // Generate or validate Business ID (if field exists)
+                let finalItem = {
+                    ...item
+                };
+                let newBusinessIdCounter = currentCounters.businessId;
+                if (businessIdField in item) {
+                    const customId = item[businessIdField];
+                    const existingIds = get().data.map((d)=>d[businessIdField]);
+                    // ✅ If customId provided, validate uniqueness
+                    if (customId && customId.trim()) {
+                        if (!(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isBusinessIdUnique"])(customId, existingIds)) {
+                            throw new Error(`Mã "${customId}" đã tồn tại! Vui lòng sử dụng mã khác.`);
+                        }
+                        finalItem[businessIdField] = customId.trim().toUpperCase();
+                    } else {
+                        // ✅ Auto-generate with findNextAvailableBusinessId
+                        const digitCount = 6; // All entities use 6 digits
+                        const result = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["findNextAvailableBusinessId"])(businessPrefix, existingIds, newBusinessIdCounter, digitCount);
+                        finalItem[businessIdField] = result.nextId;
+                        newBusinessIdCounter = result.updatedCounter;
+                    }
+                }
+                const now = new Date().toISOString();
+                const currentUser = getCurrentUser?.();
+                const newItem = {
+                    ...finalItem,
+                    systemId: newSystemId,
+                    createdAt: finalItem.createdAt || now,
+                    updatedAt: now,
+                    createdBy: finalItem.createdBy || currentUser,
+                    updatedBy: currentUser
+                };
+                // ✅ Update both data and counters atomically
+                set((state)=>({
+                        data: [
+                            ...state.data,
+                            newItem
+                        ],
+                        _counters: {
+                            systemId: newSystemIdCounter,
+                            businessId: newBusinessIdCounter
+                        }
+                    }));
+                // ✅ Sync to API in background
+                if (apiEndpoint) {
+                    syncToAPI(apiEndpoint, 'create', newItem).catch(console.error);
+                }
+                return newItem;
+            },
+            addMultiple: (items)=>set((state)=>{
+                    const now = new Date().toISOString();
+                    const currentUser = getCurrentUser?.();
+                    const newItems = [];
+                    const digitCount = 6; // All entities use 6 digits
+                    // ✅ Start from current counters
+                    let currentSystemIdCounter = state._counters.systemId;
+                    let currentBusinessIdCounter = state._counters.businessId;
+                    items.forEach((item)=>{
+                        // ✅ Generate SystemId from current counter
+                        currentSystemIdCounter++;
+                        const newSystemId = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createSystemId"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["generateSystemId"])(entityType, currentSystemIdCounter));
+                        // Generate or validate Business ID (if field exists)
+                        let finalItem = {
+                            ...item
+                        };
+                        if (businessIdField in item) {
+                            const customId = item[businessIdField];
+                            // Collect existing IDs (from state + already added in this batch)
+                            const existingIds = [
+                                ...state.data.map((d)=>d[businessIdField]),
+                                ...newItems.map((d)=>d[businessIdField])
+                            ];
+                            // ✅ If customId provided, validate uniqueness
+                            if (customId && customId.trim()) {
+                                if (!(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isBusinessIdUnique"])(customId, existingIds)) {
+                                    throw new Error(`Mã "${customId}" đã tồn tại! Vui lòng sử dụng mã khác.`);
+                                }
+                                finalItem[businessIdField] = customId.trim().toUpperCase();
+                            } else {
+                                // ✅ Auto-generate with findNextAvailableBusinessId
+                                const result = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["findNextAvailableBusinessId"])(businessPrefix, existingIds, currentBusinessIdCounter, digitCount);
+                                finalItem[businessIdField] = result.nextId;
+                                currentBusinessIdCounter = result.updatedCounter;
+                            }
+                        }
+                        newItems.push({
+                            ...finalItem,
+                            systemId: newSystemId,
+                            createdAt: now,
+                            updatedAt: now,
+                            createdBy: currentUser,
+                            updatedBy: currentUser
+                        });
+                    });
+                    // ✅ Update both data and counters
+                    const result = {
+                        data: [
+                            ...state.data,
+                            ...newItems
+                        ],
+                        _counters: {
+                            systemId: currentSystemIdCounter,
+                            businessId: currentBusinessIdCounter
+                        }
+                    };
+                    // ✅ Sync to API in background (batch)
+                    if (apiEndpoint) {
+                        newItems.forEach((item)=>{
+                            syncToAPI(apiEndpoint, 'create', item).catch(console.error);
+                        });
+                    }
+                    return result;
+                }),
+            update: (systemId, updatedItem)=>{
+                // Validate unique business ID (case-insensitive, skip self)
+                if (businessIdField in updatedItem) {
+                    const businessId = updatedItem[businessIdField];
+                    const existingIds = get().data.filter((d)=>d.systemId !== systemId).map((d)=>d[businessIdField]);
+                    if (businessId && !(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isBusinessIdUnique"])(businessId, existingIds)) {
+                        throw new Error(`Mã "${businessId}" đã tồn tại! Vui lòng sử dụng mã khác.`);
+                    }
+                }
+                const now = new Date().toISOString();
+                const currentUser = getCurrentUser?.();
+                set((state)=>({
+                        data: state.data.map((item)=>item.systemId === systemId ? {
+                                ...item,
+                                ...updatedItem,
+                                updatedAt: now,
+                                updatedBy: currentUser
+                            } : item)
+                    }));
+                // ✅ Sync to API in background
+                if (apiEndpoint) {
+                    const fullItem = get().data.find((item)=>item.systemId === systemId);
+                    if (fullItem) {
+                        syncToAPI(apiEndpoint, 'update', fullItem, systemId).catch(console.error);
+                    }
+                }
+            },
+            remove: (systemId)=>{
+                // Soft delete - mark as deleted
+                const now = new Date().toISOString();
+                set((state)=>({
+                        data: state.data.map((item)=>item.systemId === systemId ? {
+                                ...item,
+                                isDeleted: true,
+                                deletedAt: now
+                            } : item)
+                    }));
+                // ✅ Sync to API in background
+                if (apiEndpoint) {
+                    const item = get().data.find((item)=>item.systemId === systemId);
+                    if (item) {
+                        syncToAPI(apiEndpoint, 'update', {
+                            ...item,
+                            isDeleted: true,
+                            deletedAt: now
+                        }, systemId).catch(console.error);
+                    }
+                }
+            },
+            hardDelete: (systemId)=>{
+                // Permanent delete - remove from array
+                set((state)=>({
+                        data: state.data.filter((item)=>item.systemId !== systemId)
+                    }));
+                // ✅ Sync to API in background
+                if (apiEndpoint) {
+                    syncToAPI(apiEndpoint, 'delete', {
+                        systemId
+                    }, systemId).catch(console.error);
+                }
+            },
+            restore: (systemId)=>{
+                // Restore soft-deleted item
+                set((state)=>({
+                        data: state.data.map((item)=>item.systemId === systemId ? {
+                                ...item,
+                                isDeleted: false,
+                                deletedAt: null
+                            } : item)
+                    }));
+                // ✅ Sync to API in background
+                if (apiEndpoint) {
+                    const item = get().data.find((item)=>item.systemId === systemId);
+                    if (item) {
+                        syncToAPI(apiEndpoint, 'restore', {
+                            ...item,
+                            isDeleted: false,
+                            deletedAt: null
+                        }, systemId).catch(console.error);
+                    }
+                }
+            },
+            getActive: ()=>get().data.filter((item)=>!item.isDeleted),
+            getDeleted: ()=>get().data.filter((item)=>item.isDeleted),
+            findById: (id)=>get().data.find((item)=>item.systemId === id || item.id === id),
+            // ✅ Load data from database API - OPTIMIZED: No more limit=10000!
+            // This is now only used for counter initialization, NOT for loading all data
+            // Use React Query hooks for data fetching with proper pagination
+            loadFromAPI: async ()=>{
+                if (!apiEndpoint) return;
+                if (get()._initialized) return;
+                try {
+                    // Only fetch minimal data needed to initialize counters
+                    // Actual data loading should be done via React Query hooks
+                    const response = await fetch(`${apiEndpoint}?limit=1&sortBy=systemId&sortOrder=desc`, {
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        const json = await response.json();
+                        const pagination = json.pagination || {};
+                        const lastItem = json.data?.[0];
+                        // Initialize counters from the latest item (highest IDs)
+                        const newCounters = {
+                            systemId: lastItem ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMaxSystemIdCounter"])([
+                                lastItem
+                            ], systemIdPrefix) : 0,
+                            businessId: lastItem && options?.businessIdField ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getMaxBusinessIdCounter"])([
+                                lastItem
+                            ], businessPrefix) : 0
+                        };
+                        set({
+                            data: [],
+                            _counters: newCounters,
+                            _initialized: true
+                        });
+                        console.log(`[Store Factory] ${apiEndpoint} initialized. Total records: ${pagination.total || 'unknown'}`);
+                    }
+                } catch (error) {
+                    console.error(`[Store Factory] loadFromAPI error for ${apiEndpoint}:`, error);
+                    // Still mark as initialized to prevent infinite retry
+                    set({
+                        _initialized: true
+                    });
+                }
+            }
+        });
+    // ✅ SIMPLIFIED: No localStorage persistence, database is source of truth
+    // Data is loaded via ApiSyncProvider on app init
+    return (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["create"])(storeConfig);
+};
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/id-types.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Type-safe ID System
+ * 
+ * Prevents mixing systemId with business ID at compile time
+ */ // Branded types for type safety
+__turbopack_context__.s([
+    "asBusinessId",
+    ()=>asBusinessId,
+    "asSystemId",
+    ()=>asSystemId,
+    "buildEntityLink",
+    ()=>buildEntityLink,
+    "ensureBusinessId",
+    ()=>ensureBusinessId,
+    "ensureSystemId",
+    ()=>ensureSystemId,
+    "getDisplayId",
+    ()=>getDisplayId,
+    "isBusinessIdFormat",
+    ()=>isBusinessIdFormat,
+    "isSystemIdFormat",
+    ()=>isSystemIdFormat,
+    "parseId",
+    ()=>parseId
+]);
+function asSystemId(id) {
+    return id;
+}
+function asBusinessId(id) {
+    return id;
+}
+function isSystemIdFormat(id) {
+    // SystemId: 8 digits + prefix (e.g., NV00000001, VOUCHER00000123)
+    return /^[A-Z]+\d{8}$/.test(id);
+}
+function isBusinessIdFormat(id) {
+    // Business ID: shorter, variable length (e.g., NV001, PT000001)
+    return /^[A-Z]+\d{3,6}$/.test(id);
+}
+function parseId(id) {
+    if (isSystemIdFormat(id)) {
+        return {
+            type: 'system',
+            value: asSystemId(id)
+        };
+    }
+    if (isBusinessIdFormat(id)) {
+        return {
+            type: 'business',
+            value: asBusinessId(id)
+        };
+    }
+    throw new Error(`Invalid ID format: ${id}`);
+}
+function buildEntityLink(path, entity) {
+    return path.replace(':systemId', entity.systemId);
+}
+function getDisplayId(entity) {
+    return entity.id;
+}
+function ensureSystemId(id, context) {
+    if (!isSystemIdFormat(id)) {
+        console.warn(`[ensureSystemId] Invalid SystemId format: "${id}"${context ? ` in ${context}` : ''}`);
+    }
+    return asSystemId(id);
+}
+function ensureBusinessId(id, context) {
+    if (!isBusinessIdFormat(id)) {
+        console.warn(`[ensureBusinessId] Invalid BusinessId format: "${id}"${context ? ` in ${context}` : ''}`);
+    }
+    return asBusinessId(id);
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/activity-history-helper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Activity History Helper
+ * 
+ * Helper để tạo các entry lịch sử hoạt động một cách nhất quán
+ * Dùng chung cho tất cả các modules trong hệ thống
+ * 
+ * NOTE: Đã remove import useEmployeeStore để tránh circular dependency
+ * và cải thiện compile time
+ */ __turbopack_context__.s([
+    "appendHistoryEntry",
+    ()=>appendHistoryEntry,
+    "createAssignedEntry",
+    ()=>createAssignedEntry,
+    "createBulkUpdateEntries",
+    ()=>createBulkUpdateEntries,
+    "createCancelledEntry",
+    ()=>createCancelledEntry,
+    "createCommentEntry",
+    ()=>createCommentEntry,
+    "createCreatedEntry",
+    ()=>createCreatedEntry,
+    "createDeletedEntry",
+    ()=>createDeletedEntry,
+    "createEndedEntry",
+    ()=>createEndedEntry,
+    "createHistoryEntry",
+    ()=>createHistoryEntry,
+    "createPaymentEntry",
+    ()=>createPaymentEntry,
+    "createProductEntry",
+    ()=>createProductEntry,
+    "createReopenedEntry",
+    ()=>createReopenedEntry,
+    "createStatusChangedEntry",
+    ()=>createStatusChangedEntry,
+    "createUpdatedEntry",
+    ()=>createUpdatedEntry,
+    "createVerifiedEntry",
+    ()=>createVerifiedEntry,
+    "getCurrentUserInfo",
+    ()=>getCurrentUserInfo,
+    "getEmployeeInfo",
+    ()=>getEmployeeInfo,
+    "getEmployeeInfoFromData",
+    ()=>getEmployeeInfoFromData
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$auth$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/contexts/auth-context.tsx [app-client] (ecmascript)");
+;
+function getCurrentUserInfo() {
+    const authInfo = (0, __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$auth$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getCurrentUserInfo"])();
+    return {
+        systemId: authInfo.systemId || 'SYSTEM',
+        name: authInfo.name || 'Hệ thống',
+        avatar: undefined
+    };
+}
+function getEmployeeInfoFromData(employeeSystemId, employees) {
+    const employee = employees.find((e)=>e.systemId === employeeSystemId);
+    if (employee) {
+        return {
+            systemId: employee.systemId,
+            name: employee.fullName,
+            avatar: employee.avatarUrl
+        };
+    }
+    // Fallback to system
+    return {
+        systemId: String(employeeSystemId) || 'SYSTEM',
+        name: 'Hệ thống'
+    };
+}
+function getEmployeeInfo(employeeSystemId) {
+    // Return minimal info without employee store lookup
+    return {
+        systemId: String(employeeSystemId) || 'SYSTEM',
+        name: 'Hệ thống'
+    };
+}
+function createHistoryEntry(action, userOrDescription, descriptionOrMetadata, metadata) {
+    const hasUserObject = typeof userOrDescription === 'object' && userOrDescription !== null;
+    const user = hasUserObject ? userOrDescription : getCurrentUserInfo();
+    const description = hasUserObject ? descriptionOrMetadata : userOrDescription;
+    const meta = hasUserObject ? metadata : descriptionOrMetadata;
+    return {
+        id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        action,
+        timestamp: new Date(),
+        user: {
+            systemId: user.systemId,
+            name: user.name,
+            avatar: user.avatar
+        },
+        description: description ?? '',
+        metadata: meta
+    };
+}
+function createCreatedEntry(user, description) {
+    return createHistoryEntry('created', user, description);
+}
+function createUpdatedEntry(user, description) {
+    return createHistoryEntry('updated', user, description);
+}
+function createStatusChangedEntry(user, oldStatus, newStatus, description) {
+    return createHistoryEntry('status_changed', user, description, {
+        field: 'status',
+        oldValue: oldStatus,
+        newValue: newStatus
+    });
+}
+function createDeletedEntry(user, description) {
+    return createHistoryEntry('deleted', user, description);
+}
+function createAssignedEntry(user, description) {
+    return createHistoryEntry('assigned', user, description);
+}
+function createPaymentEntry(user, description) {
+    return createHistoryEntry('payment_made', user, description);
+}
+function createCommentEntry(user, description) {
+    return createHistoryEntry('comment_added', user, description);
+}
+function createCancelledEntry(user, description) {
+    return createHistoryEntry('cancelled', user, description);
+}
+function createVerifiedEntry(user, description) {
+    return createHistoryEntry('verified', user, description);
+}
+function createEndedEntry(user, description) {
+    return createHistoryEntry('ended', user, description);
+}
+function createReopenedEntry(user, description) {
+    return createHistoryEntry('reopened', user, description);
+}
+function createProductEntry(user, action, description) {
+    return createHistoryEntry(action, user, description);
+}
+function appendHistoryEntry(existingHistory, ...newEntries) {
+    return [
+        ...existingHistory || [],
+        ...newEntries
+    ];
+}
+function createBulkUpdateEntries(user, changes) {
+    return changes.map((change)=>createHistoryEntry('updated', user, change.description));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/ghtk-constants.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * GHTK Status Mapping & Constants
+ * Based on GHTK API documentation: https://api.ghtk.vn/docs/submit-order/webhook
+ */ __turbopack_context__.s([
+    "GHTK_REASON_MAP",
+    ()=>GHTK_REASON_MAP,
+    "GHTK_STATUS_MAP",
+    ()=>GHTK_STATUS_MAP,
+    "canCancelGHTKShipment",
+    ()=>canCancelGHTKShipment,
+    "getGHTKReasonText",
+    ()=>getGHTKReasonText,
+    "getGHTKStatusInfo",
+    ()=>getGHTKStatusInfo,
+    "getGHTKStatusText",
+    ()=>getGHTKStatusText,
+    "getGHTKStatusVariant",
+    ()=>getGHTKStatusVariant,
+    "shouldSyncGHTKStatus",
+    ()=>shouldSyncGHTKStatus
+]);
+const GHTK_STATUS_MAP = {
+    '-1': {
+        statusId: -1,
+        statusText: 'Hủy đơn hàng',
+        deliveryStatus: 'Chờ giao lại',
+        description: 'Đơn hàng đã bị hủy',
+        canCancel: false,
+        shouldUpdateStock: true,
+        stockAction: 'return',
+        isFinal: true
+    },
+    '1': {
+        statusId: 1,
+        statusText: 'Chưa tiếp nhận',
+        deliveryStatus: 'Chờ lấy hàng',
+        description: 'GHTK chưa tiếp nhận đơn hàng',
+        canCancel: true,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '2': {
+        statusId: 2,
+        statusText: 'Đã tiếp nhận',
+        deliveryStatus: 'Chờ lấy hàng',
+        description: 'GHTK đã tiếp nhận và đang chuẩn bị lấy hàng',
+        canCancel: true,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '3': {
+        statusId: 3,
+        statusText: 'Đã lấy hàng/Đã nhập kho',
+        deliveryStatus: 'Đang giao hàng',
+        description: 'Shipper đã lấy hàng thành công',
+        canCancel: false,
+        shouldUpdateStock: true,
+        stockAction: 'dispatch',
+        isFinal: false
+    },
+    '4': {
+        statusId: 4,
+        statusText: 'Đã điều phối giao hàng/Đang giao hàng',
+        deliveryStatus: 'Đang giao hàng',
+        description: 'Đơn hàng đang được giao đến khách',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '5': {
+        statusId: 5,
+        statusText: 'Đã giao hàng/Chưa đối soát',
+        deliveryStatus: 'Đã giao hàng',
+        description: 'Giao hàng thành công, chưa đối soát',
+        canCancel: false,
+        shouldUpdateStock: true,
+        stockAction: 'complete',
+        isFinal: false
+    },
+    '6': {
+        statusId: 6,
+        statusText: 'Đã đối soát',
+        deliveryStatus: 'Đã giao hàng',
+        description: 'Đã đối soát COD với GHTK',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: true
+    },
+    '7': {
+        statusId: 7,
+        statusText: 'Không lấy được hàng',
+        deliveryStatus: 'Chờ giao lại',
+        description: 'Shipper không lấy được hàng từ người gửi',
+        canCancel: false,
+        shouldUpdateStock: true,
+        stockAction: 'return',
+        isFinal: false
+    },
+    '8': {
+        statusId: 8,
+        statusText: 'Hoãn lấy hàng',
+        deliveryStatus: 'Chờ lấy hàng',
+        description: 'Lấy hàng bị hoãn, sẽ lấy lại sau',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '9': {
+        statusId: 9,
+        statusText: 'Không giao được hàng',
+        deliveryStatus: 'Chờ giao lại',
+        description: 'Giao hàng thất bại, sẽ giao lại hoặc trả hàng',
+        canCancel: false,
+        shouldUpdateStock: true,
+        stockAction: 'return',
+        isFinal: false
+    },
+    '10': {
+        statusId: 10,
+        statusText: 'Delay giao hàng',
+        deliveryStatus: 'Đang giao hàng',
+        description: 'Giao hàng bị chậm trễ',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '11': {
+        statusId: 11,
+        statusText: 'Đã đối soát công nợ trả hàng',
+        deliveryStatus: 'Chờ giao lại',
+        description: 'Đã đối soát tiền trả hàng',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: true
+    },
+    '12': {
+        statusId: 12,
+        statusText: 'Đã điều phối lấy hàng/Đang lấy hàng',
+        deliveryStatus: 'Chờ lấy hàng',
+        description: 'Shipper đang trên đường đến lấy hàng',
+        canCancel: true,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '13': {
+        statusId: 13,
+        statusText: 'Đơn hàng bồi hoàn',
+        deliveryStatus: 'Chờ giao lại',
+        description: 'Đơn hàng bị mất/hỏng, đang xử lý bồi hoàn',
+        canCancel: false,
+        shouldUpdateStock: true,
+        stockAction: 'return',
+        isFinal: true
+    },
+    '20': {
+        statusId: 20,
+        statusText: 'Đang trả hàng (COD cầm hàng đi trả)',
+        deliveryStatus: 'Chờ giao lại',
+        description: 'Shipper đang mang hàng về trả người gửi',
+        canCancel: false,
+        shouldUpdateStock: true,
+        stockAction: 'return',
+        isFinal: false
+    },
+    '21': {
+        statusId: 21,
+        statusText: 'Đã trả hàng (COD đã trả xong hàng)',
+        deliveryStatus: 'Chờ giao lại',
+        description: 'Đã trả hàng về cho người gửi',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: true
+    },
+    '123': {
+        statusId: 123,
+        statusText: 'Shipper báo đã lấy hàng',
+        deliveryStatus: 'Chờ lấy hàng',
+        description: 'Shipper cập nhật đã lấy hàng (chưa xác nhận)',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '127': {
+        statusId: 127,
+        statusText: 'Shipper báo không lấy được hàng',
+        deliveryStatus: 'Chờ lấy hàng',
+        description: 'Shipper báo không lấy được (chưa xác nhận)',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '128': {
+        statusId: 128,
+        statusText: 'Shipper báo delay lấy hàng',
+        deliveryStatus: 'Chờ lấy hàng',
+        description: 'Shipper báo hoãn lấy hàng (chưa xác nhận)',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '45': {
+        statusId: 45,
+        statusText: 'Shipper báo đã giao hàng',
+        deliveryStatus: 'Đang giao hàng',
+        description: 'Shipper cập nhật đã giao (chưa xác nhận)',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '49': {
+        statusId: 49,
+        statusText: 'Shipper báo không giao được hàng',
+        deliveryStatus: 'Đang giao hàng',
+        description: 'Shipper báo giao thất bại (chưa xác nhận)',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    },
+    '410': {
+        statusId: 410,
+        statusText: 'Shipper báo delay giao hàng',
+        deliveryStatus: 'Đang giao hàng',
+        description: 'Shipper báo hoãn giao hàng (chưa xác nhận)',
+        canCancel: false,
+        shouldUpdateStock: false,
+        isFinal: false
+    }
+};
+const GHTK_REASON_MAP = {
+    // Chậm lấy hàng (100-107)
+    '100': 'Nhà cung cấp (NCC) hẹn lấy vào ca tiếp theo',
+    '101': 'GHTK không liên lạc được với NCC',
+    '102': 'NCC chưa có hàng',
+    '103': 'NCC đổi địa chỉ',
+    '104': 'NCC hẹn ngày lấy hàng',
+    '105': 'GHTK quá tải, không lấy kịp',
+    '106': 'Do điều kiện thời tiết, khách quan',
+    '107': 'Lý do khác',
+    // Không lấy được hàng (110-115)
+    '110': 'Địa chỉ ngoài vùng phục vụ',
+    '111': 'Hàng không nhận vận chuyển',
+    '112': 'NCC báo hủy',
+    '113': 'NCC hoãn/không liên lạc được 3 lần',
+    '114': 'Lý do khác',
+    '115': 'Đối tác hủy đơn qua API',
+    // Chậm giao hàng (120-1200)
+    '120': 'GHTK quá tải, giao không kịp',
+    '121': 'Người nhận hàng hẹn giao ca tiếp theo',
+    '122': 'Không gọi được cho người nhận hàng',
+    '123': 'Người nhận hàng hẹn ngày giao',
+    '124': 'Người nhận hàng chuyển địa chỉ nhận mới',
+    '125': 'Địa chỉ người nhận sai, cần NCC check lại',
+    '126': 'Do điều kiện thời tiết, khách quan',
+    '127': 'Lý do khác',
+    '128': 'Đối tác hẹn thời gian giao hàng',
+    '129': 'Không tìm thấy hàng',
+    '1200': 'SĐT người nhận sai, cần NCC check lại',
+    // Không giao được hàng (130-135)
+    '130': 'Người nhận không đồng ý nhận sản phẩm',
+    '131': 'Không liên lạc được với KH 3 lần',
+    '132': 'KH hẹn giao lại quá 3 lần',
+    '133': 'Shop báo hủy đơn hàng',
+    '134': 'Lý do khác',
+    '135': 'Đối tác hủy đơn qua API',
+    // Delay trả hàng (140-144)
+    '140': 'NCC hẹn trả ca sau',
+    '141': 'Không liên lạc được với NCC',
+    '142': 'NCC không có nhà',
+    '143': 'NCC hẹn ngày trả',
+    '144': 'Lý do khác'
+};
+function getGHTKStatusInfo(statusId) {
+    return GHTK_STATUS_MAP[statusId] || null;
+}
+function getGHTKStatusText(statusId) {
+    const info = getGHTKStatusInfo(statusId);
+    return info?.statusText || `Trạng thái #${statusId}`;
+}
+function getGHTKReasonText(reasonCode) {
+    return GHTK_REASON_MAP[reasonCode] || reasonCode;
+}
+function canCancelGHTKShipment(statusId) {
+    if (!statusId) return false;
+    const info = getGHTKStatusInfo(statusId);
+    return info?.canCancel || false;
+}
+function shouldSyncGHTKStatus(statusId) {
+    if (!statusId) return true; // Sync nếu chưa có status
+    const info = getGHTKStatusInfo(statusId);
+    return !info?.isFinal; // Sync nếu chưa đến trạng thái cuối
+}
+function getGHTKStatusVariant(statusId) {
+    if (!statusId) return 'secondary';
+    const info = getGHTKStatusInfo(statusId);
+    if (!info) return 'secondary';
+    // Đã giao hàng, đã đối soát
+    if ([
+        5,
+        6
+    ].includes(statusId)) return 'success';
+    // Hủy, không lấy/giao được, bồi hoàn
+    if ([
+        -1,
+        7,
+        9,
+        13
+    ].includes(statusId)) return 'destructive';
+    // Delay, hoãn
+    if ([
+        8,
+        10
+    ].includes(statusId)) return 'warning';
+    // Đang xử lý
+    if ([
+        3,
+        4,
+        12
+    ].includes(statusId)) return 'default';
+    return 'secondary';
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/import-export-store.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "selectExportLogs",
+    ()=>selectExportLogs,
+    "selectExportLogsByEntity",
+    ()=>selectExportLogsByEntity,
+    "selectImportLogs",
+    ()=>selectImportLogs,
+    "selectImportLogsByEntity",
+    ()=>selectImportLogsByEntity,
+    "useImportExportStore",
+    ()=>useImportExportStore
+]);
+/**
+ * Import/Export Store
+ * 
+ * Lưu lịch sử import/export với Zustand persist (localStorage)
+ * Khi migrate sang Next.js, sẽ chuyển sang API
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/react.mjs [app-client] (ecmascript)");
+;
+const MAX_LOGS = 200; // Giới hạn để tránh localStorage quá tải
+// Generate simple ID
+const generateLogId = (prefix)=>{
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `${prefix}_${timestamp}_${random}`;
+};
+const useImportExportStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["create"])()((set, get)=>({
+        importLogs: [],
+        exportLogs: [],
+        initialized: false,
+        addImportLog: (log)=>{
+            const id = generateLogId('IMP');
+            const newLog = {
+                ...log,
+                id
+            };
+            set((state)=>({
+                    importLogs: [
+                        newLog,
+                        ...state.importLogs
+                    ].slice(0, MAX_LOGS)
+                }));
+            return id;
+        },
+        addExportLog: (log)=>{
+            const id = generateLogId('EXP');
+            const newLog = {
+                ...log,
+                id
+            };
+            set((state)=>({
+                    exportLogs: [
+                        newLog,
+                        ...state.exportLogs
+                    ].slice(0, MAX_LOGS)
+                }));
+            return id;
+        },
+        getLogsByEntity: (entityType)=>({
+                imports: get().importLogs.filter((l)=>l.entityType === entityType),
+                exports: get().exportLogs.filter((l)=>l.entityType === entityType)
+            }),
+        getRecentLogs: (limit = 50)=>{
+            const all = [
+                ...get().importLogs.map((l)=>({
+                        ...l,
+                        _type: 'import'
+                    })),
+                ...get().exportLogs.map((l)=>({
+                        ...l,
+                        _type: 'export'
+                    }))
+            ];
+            return all.sort((a, b)=>new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime()).slice(0, limit);
+        },
+        getImportLogById: (id)=>{
+            return get().importLogs.find((l)=>l.id === id);
+        },
+        getExportLogById: (id)=>{
+            return get().exportLogs.find((l)=>l.id === id);
+        },
+        deleteLog: (id, type)=>{
+            if (type === 'import') {
+                set((state)=>({
+                        importLogs: state.importLogs.filter((l)=>l.id !== id)
+                    }));
+            } else {
+                set((state)=>({
+                        exportLogs: state.exportLogs.filter((l)=>l.id !== id)
+                    }));
+            }
+        },
+        clearLogs: (entityType)=>{
+            if (entityType) {
+                set((state)=>({
+                        importLogs: state.importLogs.filter((l)=>l.entityType !== entityType),
+                        exportLogs: state.exportLogs.filter((l)=>l.entityType !== entityType)
+                    }));
+            } else {
+                set({
+                    importLogs: [],
+                    exportLogs: []
+                });
+            }
+        },
+        loadFromAPI: async ()=>{
+            if (get().initialized) return;
+            try {
+                const response = await fetch('/api/import-export-logs?limit=500');
+                if (response.ok) {
+                    const json = await response.json();
+                    const data = json.data || {};
+                    set({
+                        importLogs: data.importLogs || [],
+                        exportLogs: data.exportLogs || [],
+                        initialized: true
+                    });
+                }
+            } catch (error) {
+                console.error('[Import Export Store] loadFromAPI error:', error);
+            }
+        }
+    }));
+const selectImportLogs = (state)=>state.importLogs;
+const selectExportLogs = (state)=>state.exportLogs;
+const selectImportLogsByEntity = (entityType)=>(state)=>state.importLogs.filter((l)=>l.entityType === entityType);
+const selectExportLogsByEntity = (entityType)=>(state)=>state.exportLogs.filter((l)=>l.entityType === entityType); // ============================================
+ // FUTURE: API Service (Next.js migration)
+ // ============================================
+ // 
+ // export async function saveImportLog(log: Omit<ImportLogEntry, 'id'>) {
+ //   return fetch('/api/import-export/logs', {
+ //     method: 'POST',
+ //     headers: { 'Content-Type': 'application/json' },
+ //     body: JSON.stringify({ type: 'import', ...log }),
+ //   }).then(r => r.json());
+ // }
+ // 
+ // export async function getImportExportLogs(params: {
+ //   entityType?: string;
+ //   type?: 'import' | 'export';
+ //   limit?: number;
+ // }) {
+ //   const query = new URLSearchParams(params as Record<string, string>);
+ //   return fetch(`/api/import-export/logs?${query}`).then(r => r.json());
+ // }
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/employee-mapping-store.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "saveMappingsFromAutoMap",
+    ()=>saveMappingsFromAutoMap,
+    "useEmployeeMappingStore",
+    ()=>useEmployeeMappingStore
+]);
+/**
+ * Employee Mapping Store
+ * 
+ * Lưu mapping giữa tên NV máy chấm công → Mã NV hệ thống
+ * Mapping được lưu để tái sử dụng cho các lần import sau
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/react.mjs [app-client] (ecmascript)");
+;
+// Generate simple ID
+const generateMappingId = ()=>{
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 6);
+    return `MAP_${timestamp}_${random}`;
+};
+/**
+ * Normalize tên để so sánh (lowercase, remove diacritics, trim)
+ */ function normalizeName(name) {
+    return name.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/\s+/g, ' '); // Normalize spaces
+}
+/**
+ * Check if two names match (fuzzy matching)
+ */ function namesMatch(machineName, systemName) {
+    const normalizedMachine = normalizeName(machineName);
+    const normalizedSystem = normalizeName(systemName);
+    // Exact match
+    if (normalizedMachine === normalizedSystem) return true;
+    // Machine name is part of system name
+    if (normalizedSystem.includes(normalizedMachine)) return true;
+    // System name parts match machine name
+    const systemParts = normalizedSystem.split(' ');
+    const machineParts = normalizedMachine.split(' ');
+    // Check if all machine parts are in system name
+    const allPartsMatch = machineParts.every((part)=>systemParts.some((sp)=>sp === part || sp.includes(part) || part.includes(sp)));
+    if (allPartsMatch && machineParts.length >= 2) return true;
+    // Check last name + first name match
+    // VD: "duc dat" matches "Nguyễn Đức Đạt" (đức đạt)
+    if (systemParts.length >= 2 && machineParts.length >= 2) {
+        const systemLastParts = systemParts.slice(-2).join(' ');
+        if (normalizedMachine === systemLastParts) return true;
+    }
+    return false;
+}
+const useEmployeeMappingStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["create"])()((set, get)=>({
+        mappings: [],
+        initialized: false,
+        addMapping: (entry)=>{
+            const id = generateMappingId();
+            const now = new Date().toISOString();
+            const newEntry = {
+                ...entry,
+                id,
+                createdAt: now,
+                updatedAt: now
+            };
+            set((state)=>({
+                    mappings: [
+                        ...state.mappings,
+                        newEntry
+                    ]
+                }));
+            return id;
+        },
+        updateMapping: (id, updates)=>{
+            set((state)=>({
+                    mappings: state.mappings.map((m)=>m.id === id ? {
+                            ...m,
+                            ...updates,
+                            updatedAt: new Date().toISOString()
+                        } : m)
+                }));
+        },
+        deleteMapping: (id)=>{
+            set((state)=>({
+                    mappings: state.mappings.filter((m)=>m.id !== id)
+                }));
+        },
+        addMappings: (entries)=>{
+            const now = new Date().toISOString();
+            const newEntries = entries.map((entry)=>({
+                    ...entry,
+                    id: generateMappingId(),
+                    createdAt: now,
+                    updatedAt: now
+                }));
+            set((state)=>({
+                    mappings: [
+                        ...state.mappings,
+                        ...newEntries
+                    ]
+                }));
+        },
+        clearMappings: ()=>{
+            set({
+                mappings: []
+            });
+        },
+        findByMachineName: (machineName)=>{
+            const normalized = normalizeName(machineName);
+            return get().mappings.find((m)=>normalizeName(m.machineName) === normalized);
+        },
+        findByMachineId: (machineId)=>{
+            return get().mappings.find((m)=>m.machineEmployeeId === machineId);
+        },
+        findBySystemId: (systemId)=>{
+            return get().mappings.find((m)=>m.systemEmployeeId === systemId);
+        },
+        autoMapEmployees: (machineNames, systemEmployees)=>{
+            const mapped = [];
+            const unmapped = [];
+            const existingMappings = get().mappings;
+            for (const machineName of machineNames){
+                // 1. Check existing mapping first
+                const existingMapping = existingMappings.find((m)=>normalizeName(m.machineName) === normalizeName(machineName));
+                if (existingMapping) {
+                    mapped.push({
+                        machineName,
+                        systemId: existingMapping.systemEmployeeId,
+                        systemName: existingMapping.systemEmployeeName
+                    });
+                    continue;
+                }
+                // 2. Try to auto-match with system employees
+                const matchedEmployee = systemEmployees.find((emp)=>namesMatch(machineName, emp.fullName));
+                if (matchedEmployee) {
+                    mapped.push({
+                        machineName,
+                        systemId: matchedEmployee.businessId,
+                        systemName: matchedEmployee.fullName
+                    });
+                } else {
+                    unmapped.push(machineName);
+                }
+            }
+            return {
+                mapped,
+                unmapped
+            };
+        },
+        loadFromAPI: async ()=>{
+            if (get().initialized) return;
+            try {
+                // NOTE: Employee mappings are typically small dataset
+                const response = await fetch('/api/employee-mappings?limit=100');
+                if (response.ok) {
+                    const json = await response.json();
+                    const data = json.data || [];
+                    if (data.length > 0) {
+                        set({
+                            mappings: data,
+                            initialized: true
+                        });
+                    } else {
+                        set({
+                            initialized: true
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('[Employee Mapping Store] loadFromAPI error:', error);
+            }
+        }
+    }));
+function saveMappingsFromAutoMap(autoMapResult, machineIds) {
+    const store = useEmployeeMappingStore.getState();
+    const newMappings = autoMapResult.mapped.filter((m)=>!store.findByMachineName(m.machineName)) // Skip existing
+    .map((m)=>({
+            machineEmployeeId: machineIds.get(m.machineName) || 0,
+            machineName: m.machineName,
+            systemEmployeeId: m.systemId,
+            systemEmployeeName: m.systemName
+        }));
+    if (newMappings.length > 0) {
+        store.addMappings(newMappings);
+    }
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/utils.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Import/Export Utilities
+ * 
+ * Các hàm tiện ích cho import/export:
+ * - Preview (rà soát) dữ liệu trước khi import
+ * - Validate fields và rows
+ * - Transform data
+ */ __turbopack_context__.s([
+    "checkUniqueFields",
+    ()=>checkUniqueFields,
+    "formatFileSize",
+    ()=>formatFileSize,
+    "generateExportFileName",
+    ()=>generateExportFileName,
+    "previewImportData",
+    ()=>previewImportData,
+    "transformExportRow",
+    ()=>transformExportRow,
+    "transformImportRow",
+    ()=>transformImportRow,
+    "validateField",
+    ()=>validateField
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$date$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/date-utils.ts [app-client] (ecmascript)");
+;
+function previewImportData(rawRows, config, existingData, mode = 'upsert', branchSystemId) {
+    const rows = [];
+    let validCount = 0;
+    let warningCount = 0;
+    let errorCount = 0;
+    let duplicateCount = 0;
+    // 0. Pre-process all rows if defined (for fill-down logic, multi-row grouping)
+    let processedRawRows = rawRows;
+    if (config.preProcessRows) {
+        processedRawRows = config.preProcessRows(rawRows);
+    }
+    processedRawRows.forEach((rawData, index)=>{
+        const rowErrors = [];
+        const rowWarnings = [];
+        // 0.5. Apply preTransformRawRow if defined (normalize/merge raw columns)
+        let normalizedRawData = rawData;
+        if (config.preTransformRawRow) {
+            normalizedRawData = config.preTransformRawRow(rawData);
+        }
+        // 1. Transform raw data to typed data
+        let transformedData = transformImportRow(normalizedRawData, config.fields);
+        // 1.5. Apply postTransformRow if defined (enrich data, lookup IDs, etc.)
+        if (config.postTransformRow) {
+            transformedData = config.postTransformRow(transformedData, index, branchSystemId);
+        }
+        // 2. Validate từng field theo config
+        for (const field of config.fields){
+            if (field.hidden) continue; // Skip hidden fields
+            const value = transformedData[field.key];
+            const fieldErrors = validateField(value, field, transformedData);
+            // Separate warnings from errors (warnings start with [Warning])
+            fieldErrors.forEach((err)=>{
+                if (err.message.startsWith('[Warning]')) {
+                    rowWarnings.push({
+                        ...err,
+                        message: err.message.replace('[Warning] ', '')
+                    });
+                } else {
+                    rowErrors.push(err);
+                }
+            });
+        }
+        // 3. Validate row-level (custom validation) - pass mode so it can skip duplicate checks in upsert
+        if (config.validateRow) {
+            const rowLevelErrors = config.validateRow(transformedData, index, existingData, mode);
+            rowLevelErrors.forEach((err)=>{
+                if (err.message.startsWith('[Warning]')) {
+                    rowWarnings.push({
+                        ...err,
+                        message: err.message.replace('[Warning] ', '')
+                    });
+                } else {
+                    rowErrors.push(err);
+                }
+            });
+        }
+        // 4. Check existing record (upsert logic)
+        let existingRecord = null;
+        let isExisting = false;
+        let status = 'valid';
+        if (config.findExisting) {
+            existingRecord = config.findExisting(transformedData, existingData);
+        } else if (config.upsertKey) {
+            // Default: find by upsertKey
+            const businessId = transformedData[config.upsertKey];
+            existingRecord = existingData.find((e)=>e[config.upsertKey] === businessId) || null;
+        }
+        isExisting = existingRecord !== null;
+        // 5. Determine status based on mode and validation
+        if (rowErrors.length > 0) {
+            status = 'error';
+            errorCount++;
+        } else if (isExisting) {
+            if (mode === 'insert-only') {
+                status = 'duplicate';
+                duplicateCount++;
+            } else if (mode === 'update-only' || mode === 'upsert') {
+                status = 'will-update';
+                if (rowWarnings.length > 0) {
+                    status = 'warning';
+                    warningCount++;
+                } else {
+                    validCount++;
+                }
+            }
+        } else {
+            if (mode === 'update-only') {
+                status = 'error';
+                errorCount++;
+                rowErrors.push({
+                    message: 'Không tìm thấy record để cập nhật'
+                });
+            } else if (mode === 'insert-only' || mode === 'upsert') {
+                status = 'will-insert';
+                if (rowWarnings.length > 0) {
+                    status = 'warning';
+                    warningCount++;
+                } else {
+                    validCount++;
+                }
+            }
+        }
+        rows.push({
+            rowNumber: index + 2,
+            rawData,
+            transformedData: rowErrors.length > 0 ? null : transformedData,
+            status,
+            errors: rowErrors,
+            warnings: rowWarnings,
+            isExisting,
+            existingRecord: existingRecord || undefined
+        });
+    });
+    return {
+        rows,
+        totalRows: rawRows.length,
+        validCount,
+        warningCount,
+        errorCount,
+        duplicateCount,
+        isValid: validCount + warningCount > 0
+    };
+}
+function validateField(value, field, row) {
+    const errors = [];
+    const fieldKey = field.key;
+    // Check required
+    if (field.required && (value === undefined || value === null || value === '')) {
+        errors.push({
+            field: fieldKey,
+            message: `${field.label} là bắt buộc`
+        });
+        return errors; // Skip other validations if required field is empty
+    }
+    // Skip validation if value is empty and not required
+    if (value === undefined || value === null || value === '') {
+        return errors;
+    }
+    // Type-specific validation
+    switch(field.type){
+        case 'email':
+            if (typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                errors.push({
+                    field: fieldKey,
+                    message: `${field.label} không đúng định dạng email`
+                });
+            }
+            break;
+        case 'phone':
+            if (typeof value === 'string') {
+                const cleaned = value.replace(/\s/g, '');
+                if (!/^0\d{9,10}$/.test(cleaned)) {
+                    errors.push({
+                        field: fieldKey,
+                        message: `${field.label} không đúng định dạng SĐT`
+                    });
+                }
+            }
+            break;
+        case 'number':
+            if (typeof value !== 'number' && isNaN(Number(value))) {
+                errors.push({
+                    field: fieldKey,
+                    message: `${field.label} phải là số`
+                });
+            }
+            break;
+        case 'date':
+            if (typeof value === 'string') {
+                const date = new Date(value);
+                if (isNaN(date.getTime())) {
+                    errors.push({
+                        field: fieldKey,
+                        message: `${field.label} không đúng định dạng ngày`
+                    });
+                }
+            }
+            break;
+        case 'enum':
+            if (field.enumValues && !field.enumValues.includes(String(value))) {
+                errors.push({
+                    field: fieldKey,
+                    message: `${field.label} phải là một trong: ${field.enumValues.join(', ')}`
+                });
+            }
+            break;
+        case 'boolean':
+            const boolValues = [
+                'true',
+                'false',
+                '1',
+                '0',
+                'yes',
+                'no',
+                'có',
+                'không'
+            ];
+            if (typeof value === 'string' && !boolValues.includes(value.toLowerCase())) {
+                errors.push({
+                    field: fieldKey,
+                    message: `${field.label} phải là Có/Không`
+                });
+            }
+            break;
+    }
+    // Custom validator
+    if (field.validator) {
+        const customError = field.validator(value, row);
+        if (customError && customError !== true) {
+            errors.push({
+                field: fieldKey,
+                message: customError
+            });
+        }
+    }
+    return errors;
+}
+// ============================================
+// DATA TRANSFORMATION
+// ============================================
+/**
+ * Set nested value in object using dot notation key
+ * e.g., setNestedValue(obj, 'permanentAddress.street', '123 ABC')
+ */ function setNestedValue(obj, path, value) {
+    const keys = path.split('.');
+    let current = obj;
+    for(let i = 0; i < keys.length - 1; i++){
+        const key = keys[i];
+        if (current[key] === undefined) {
+            current[key] = {};
+        }
+        current = current[key];
+    }
+    current[keys[keys.length - 1]] = value;
+}
+/**
+ * Get nested value from object using dot notation key
+ * e.g., getNestedValue(obj, 'permanentAddress.street')
+ */ function getNestedValue(obj, path) {
+    if (!obj || typeof obj !== 'object') return undefined;
+    const keys = path.split('.');
+    let current = obj;
+    for (const key of keys){
+        if (current === undefined || current === null) return undefined;
+        current = current[key];
+    }
+    return current;
+}
+function transformImportRow(row, fields) {
+    const result = {};
+    for (const field of fields){
+        const key = field.key;
+        let value = row[field.label] ?? row[key]; // Try label first, then key
+        // Apply import transform
+        if (field.importTransform && value !== undefined) {
+            value = field.importTransform(value);
+        } else {
+            // Default transforms
+            switch(field.type){
+                case 'number':
+                    value = value !== undefined && value !== '' ? Number(value) || 0 : undefined;
+                    break;
+                case 'boolean':
+                    if (typeof value === 'string') {
+                        value = [
+                            'true',
+                            '1',
+                            'yes',
+                            'có'
+                        ].includes(value.toLowerCase());
+                    }
+                    break;
+                case 'date':
+                    // Excel serial date → ISO string
+                    if (typeof value === 'number') {
+                        const date = new Date((value - 25569) * 86400 * 1000);
+                        value = date.toISOString().split('T')[0];
+                    }
+                    break;
+            }
+        }
+        // Apply default value if empty
+        if ((value === undefined || value === null || value === '') && field.defaultValue !== undefined) {
+            value = field.defaultValue;
+        }
+        if (value !== undefined && value !== '') {
+            // Support nested keys like 'permanentAddress.street'
+            if (key.includes('.')) {
+                setNestedValue(result, key, value);
+            } else {
+                result[key] = value;
+            }
+        }
+    }
+    return result;
+}
+function transformExportRow(row, fields, selectedColumns) {
+    const result = {};
+    for (const field of fields){
+        // Skip if not selected
+        if (selectedColumns && !selectedColumns.includes(field.key)) {
+            continue;
+        }
+        // Skip if not exportable
+        if (field.exportable === false) {
+            continue;
+        }
+        const key = field.key;
+        // Support nested keys like 'permanentAddress.street'
+        let value = key.includes('.') ? getNestedValue(row, key) : row[key];
+        // Apply export transform
+        if (field.exportTransform && value !== undefined) {
+            value = field.exportTransform(value);
+        } else if (field.transform && value !== undefined) {
+            // Also use 'transform' for display purposes
+            value = field.transform(value);
+        } else {
+            // Default transforms
+            switch(field.type){
+                case 'date':
+                    if (value) {
+                        value = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$date$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDateForDisplay"])(value);
+                    }
+                    break;
+                case 'boolean':
+                    value = value ? 'Có' : 'Không';
+                    break;
+            }
+        }
+        result[field.label] = value;
+    }
+    return result;
+}
+function checkUniqueFields(row, uniqueFields, existingData, currentBusinessId) {
+    const errors = [];
+    for (const field of uniqueFields){
+        const value = row[field];
+        if (!value) continue;
+        const duplicate = existingData.find((e)=>{
+            // Skip if same record (updating)
+            if (currentBusinessId && e[field] === currentBusinessId) {
+                return false;
+            }
+            return e[field] === value;
+        });
+        if (duplicate) {
+            errors.push({
+                field: field,
+                message: `${field} đã được sử dụng`
+            });
+        }
+    }
+    return errors;
+}
+function generateExportFileName(entityDisplayName, scope) {
+    const date = new Date().toISOString().split('T')[0];
+    const scopeLabel = scope === 'all' ? 'TatCa' : scope === 'current-page' ? 'TrangHienTai' : 'DaLoc';
+    return `${entityDisplayName.replace(/\s+/g, '_')}_${scopeLabel}_${date}.xlsx`;
+}
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = [
+        'B',
+        'KB',
+        'MB',
+        'GB'
+    ];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/attendance-parser.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "getAvailableSheets",
+    ()=>getAvailableSheets,
+    "parseAttendanceFile",
+    ()=>parseAttendanceFile,
+    "parseWorkDays",
+    ()=>parseWorkDays,
+    "previewSheet",
+    ()=>previewSheet
+]);
+/**
+ * Attendance Parser
+ * 
+ * Parser riêng cho file từ máy chấm công
+ * File có format đặc biệt: header phức tạp, merged cells, etc.
+ * 
+ * Cấu trúc file t11.xls:
+ * - Sheet "Bảng tổng hợp chấm công": Tổng hợp theo tháng (DÙNG CHÍNH)
+ * - Row 0: Tiêu đề
+ * - Row 1: Ngày thống kê (VD: "Ngày thống kê:2025-11-01~2025-11-30")
+ * - Row 2-3: Headers
+ * - Row 4+: Dữ liệu nhân viên
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$xlsx$2f$xlsx$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/xlsx/xlsx.mjs [app-client] (ecmascript)");
+;
+function parseAttendanceFile(file) {
+    try {
+        const workbook = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$xlsx$2f$xlsx$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["read"](file, {
+            type: 'array'
+        });
+        // Tìm sheet "Bảng tổng hợp chấm công"
+        const sheetName = 'Bảng tổng hợp chấm công';
+        const sheet = workbook.Sheets[sheetName];
+        if (!sheet) {
+            return {
+                success: false,
+                data: [],
+                month: 0,
+                year: 0,
+                dateRange: {
+                    from: '',
+                    to: ''
+                },
+                errors: [
+                    {
+                        row: 0,
+                        message: `Không tìm thấy sheet "${sheetName}"`
+                    }
+                ]
+            };
+        }
+        // Convert to array
+        const rawData = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$xlsx$2f$xlsx$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["utils"].sheet_to_json(sheet, {
+            header: 1
+        });
+        // Parse date range từ row 1
+        const dateRangeRow = rawData[1];
+        const dateRange = parseDateRange(dateRangeRow?.[0] || '');
+        // Parse data từ row 4 trở đi
+        const data = [];
+        const errors = [];
+        for(let i = 4; i < rawData.length; i++){
+            const row = rawData[i];
+            if (!row || row.length === 0) continue;
+            // Skip if no employee ID
+            const machineId = row[0];
+            if (machineId === undefined || machineId === null || machineId === '') continue;
+            try {
+                const parsed = parseAttendanceRow(row, i + 1); // Excel row = index + 1
+                data.push(parsed);
+            } catch (err) {
+                errors.push({
+                    row: i + 1,
+                    message: err instanceof Error ? err.message : 'Lỗi không xác định'
+                });
+            }
+        }
+        return {
+            success: errors.length === 0,
+            data,
+            month: dateRange.month,
+            year: dateRange.year,
+            dateRange: {
+                from: dateRange.from,
+                to: dateRange.to
+            },
+            errors
+        };
+    } catch (err) {
+        return {
+            success: false,
+            data: [],
+            month: 0,
+            year: 0,
+            dateRange: {
+                from: '',
+                to: ''
+            },
+            errors: [
+                {
+                    row: 0,
+                    message: `Lỗi đọc file: ${err instanceof Error ? err.message : 'Unknown'}`
+                }
+            ]
+        };
+    }
+}
+/**
+ * Parse date range từ string "Ngày thống kê:2025-11-01~2025-11-30"
+ */ function parseDateRange(text) {
+    const match = text.match(/(\d{4}-\d{2}-\d{2})~(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+        const from = match[1];
+        const to = match[2];
+        const [year, month] = from.split('-').map(Number);
+        return {
+            from,
+            to,
+            month,
+            year
+        };
+    }
+    // Default to current month
+    const now = new Date();
+    return {
+        from: '',
+        to: '',
+        month: now.getMonth() + 1,
+        year: now.getFullYear()
+    };
+}
+/**
+ * Parse một dòng dữ liệu nhân viên
+ * 
+ * Cột trong file:
+ * A (0): Mã NV (máy)
+ * B (1): Họ tên
+ * C (2): Phòng ban
+ * D (3): TG làm việc chuẩn
+ * E (4): TG làm việc thực tế
+ * F (5): Đến muộn (lần)
+ * G (6): Đến muộn (phút)
+ * H (7): Về sớm (lần)
+ * I (8): Về sớm (phút)
+ * J (9): Tăng ca bình thường
+ * K (10): Tăng ca đặc biệt
+ * L (11): Số ngày (chuẩn/thực)
+ * M (12): Công tác
+ * N (13): Nghỉ không phép
+ * O (14): Nghỉ phép
+ */ function parseAttendanceRow(row, excelRow) {
+    const getNumber = (value)=>{
+        if (value === undefined || value === null || value === '') return 0;
+        const num = Number(value);
+        return isNaN(num) ? 0 : num;
+    };
+    const getString = (value)=>{
+        if (value === undefined || value === null) return '';
+        return String(value).trim();
+    };
+    return {
+        machineEmployeeId: getNumber(row[0]),
+        employeeName: getString(row[1]),
+        department: getString(row[2]),
+        standardHours: getNumber(row[3]),
+        actualHours: getNumber(row[4]),
+        lateCount: getNumber(row[5]),
+        lateMinutes: getNumber(row[6]),
+        earlyLeaveCount: getNumber(row[7]),
+        earlyLeaveMinutes: getNumber(row[8]),
+        overtimeNormal: getNumber(row[9]),
+        overtimeSpecial: getNumber(row[10]),
+        workDays: getString(row[11]),
+        businessTrip: getNumber(row[12]),
+        absentWithoutLeave: getNumber(row[13]),
+        paidLeave: getNumber(row[14])
+    };
+}
+function parseWorkDays(workDays) {
+    const cleaned = workDays.replace(/\s/g, '');
+    const match = cleaned.match(/(\d+)\/(\d+)/);
+    if (match) {
+        return {
+            standard: parseInt(match[1], 10),
+            actual: parseInt(match[2], 10)
+        };
+    }
+    return {
+        standard: 0,
+        actual: 0
+    };
+}
+function getAvailableSheets(file) {
+    const workbook = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$xlsx$2f$xlsx$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["read"](file, {
+        type: 'array'
+    });
+    return workbook.SheetNames;
+}
+function previewSheet(file, sheetName, maxRows = 10) {
+    const workbook = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$xlsx$2f$xlsx$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["read"](file, {
+        type: 'array'
+    });
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) return [];
+    const data = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$xlsx$2f$xlsx$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["utils"].sheet_to_json(sheet, {
+        header: 1
+    });
+    return data.slice(0, maxRows);
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/seed-audit.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "DEFAULT_SEED_AUTHOR",
+    ()=>DEFAULT_SEED_AUTHOR,
+    "buildSeedAuditFields",
+    ()=>buildSeedAuditFields
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/id-types.ts [app-client] (ecmascript)");
+;
+const DEFAULT_SEED_AUTHOR = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])('EMP000001');
+const buildSeedAuditFields = ({ createdAt, createdBy = DEFAULT_SEED_AUTHOR, updatedAt, updatedBy })=>({
+        createdAt,
+        updatedAt: updatedAt ?? createdAt,
+        createdBy,
+        updatedBy: updatedBy ?? createdBy
+    });
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/address-lookup.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "enrichEmployeeAddresses",
+    ()=>enrichEmployeeAddresses,
+    "findDistrictByName",
+    ()=>findDistrictByName,
+    "findProvinceByName",
+    ()=>findProvinceByName,
+    "findWardByName",
+    ()=>findWardByName,
+    "lookupAddressIds",
+    ()=>lookupAddressIds
+]);
+/**
+ * Address Lookup Helper for Import
+ * 
+ * Chuyển đổi tên địa chỉ thành ID để form edit có thể populate đúng dropdown
+ * 
+ * LƯU Ý QUAN TRỌNG:
+ * - Dữ liệu 2-level: 34 tỉnh mới (provinces-data) + wards-2level-data
+ * - Dữ liệu 3-level: 63 tỉnh cũ (wards-3level-data có provinceName riêng)
+ * - Cần lookup từ WARD trước để lấy đúng provinceId/districtId từ ward data
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$provinces$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/provinces/store.ts [app-client] (ecmascript)");
+;
+// Common aliases for provinces
+// KEY = name in provinces-data (TP HCM, Hà Nội, etc.)
+// VALUES = all possible variants including 3-level names
+const PROVINCE_ALIASES = {
+    'TP HCM': [
+        'tp hcm',
+        'tphcm',
+        'hcm',
+        'sai gon',
+        'saigon',
+        'thanh pho ho chi minh',
+        'tp ho chi minh',
+        'ho chi minh',
+        'thành phố hồ chí minh'
+    ],
+    'Hà Nội': [
+        'ha noi',
+        'hanoi',
+        'hn',
+        'thanh pho ha noi',
+        'tp ha noi',
+        'thành phố hà nội'
+    ],
+    'Đà Nẵng': [
+        'da nang',
+        'danang',
+        'thanh pho da nang',
+        'tp da nang',
+        'thành phố đà nẵng'
+    ],
+    'Hải Phòng': [
+        'hai phong',
+        'haiphong',
+        'hp',
+        'thanh pho hai phong',
+        'tp hai phong',
+        'thành phố hải phòng'
+    ],
+    'Cần Thơ': [
+        'can tho',
+        'cantho',
+        'thanh pho can tho',
+        'tp can tho',
+        'thành phố cần thơ'
+    ]
+};
+/**
+ * Normalize tên để so sánh (bỏ dấu, lowercase)
+ */ function normalizeText(text) {
+    return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').trim();
+}
+/**
+ * So sánh 2 string đã normalize
+ */ function matchText(a, b) {
+    return normalizeText(a) === normalizeText(b);
+}
+function findProvinceByName(provinceName) {
+    if (!provinceName) return null;
+    const store = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$provinces$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProvinceStore"].getState();
+    const provinces = store.data;
+    // Exact match first
+    let found = provinces.find((p)=>p.name === provinceName);
+    if (found) return {
+        id: found.id,
+        name: found.name
+    };
+    // Normalized match
+    found = provinces.find((p)=>matchText(p.name, provinceName));
+    if (found) return {
+        id: found.id,
+        name: found.name
+    };
+    // Try alias match
+    const normalizedInput = normalizeText(provinceName);
+    for (const [standardName, aliases] of Object.entries(PROVINCE_ALIASES)){
+        if (aliases.some((alias)=>alias === normalizedInput || normalizedInput.includes(alias) || alias.includes(normalizedInput))) {
+            found = provinces.find((p)=>p.name === standardName);
+            if (found) return {
+                id: found.id,
+                name: found.name
+            };
+        }
+    }
+    // Partial match (contains) - last resort
+    found = provinces.find((p)=>normalizeText(p.name).includes(normalizedInput) || normalizedInput.includes(normalizeText(p.name)));
+    return found ? {
+        id: found.id,
+        name: found.name
+    } : null;
+}
+/**
+ * Remove common prefixes from district/ward names for better matching
+ */ function removeCommonPrefixes(text) {
+    const prefixes = [
+        'quan ',
+        'huyen ',
+        'thi xa ',
+        'thanh pho ',
+        'tp ',
+        'phuong ',
+        'xa ',
+        'thi tran ',
+        'tt '
+    ];
+    const normalized = normalizeText(text);
+    for (const prefix of prefixes){
+        if (normalized.startsWith(prefix)) {
+            return normalized.slice(prefix.length);
+        }
+    }
+    return normalized;
+}
+function findDistrictByName(districtName, provinceId) {
+    if (!districtName || !provinceId) return null;
+    const store = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$provinces$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProvinceStore"].getState();
+    const districts = store.districts.filter((d)=>d.provinceId === provinceId);
+    // Exact match first
+    let found = districts.find((d)=>d.name === districtName);
+    if (found) return {
+        id: found.id,
+        name: found.name
+    };
+    // Normalized match
+    found = districts.find((d)=>matchText(d.name, districtName));
+    if (found) return {
+        id: found.id,
+        name: found.name
+    };
+    // Try matching without prefixes
+    const inputWithoutPrefix = removeCommonPrefixes(districtName);
+    found = districts.find((d)=>{
+        const dbWithoutPrefix = removeCommonPrefixes(d.name);
+        return dbWithoutPrefix === inputWithoutPrefix;
+    });
+    if (found) return {
+        id: found.id,
+        name: found.name
+    };
+    // Partial match - last resort
+    const normalizedInput = normalizeText(districtName);
+    found = districts.find((d)=>normalizeText(d.name).includes(normalizedInput) || normalizedInput.includes(normalizeText(d.name)));
+    return found ? {
+        id: found.id,
+        name: found.name
+    } : null;
+}
+function findWardByName(wardName, provinceId, districtId, inputLevel) {
+    if (!wardName || !provinceId) return null;
+    const store = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$provinces$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProvinceStore"].getState();
+    let wards = store.wards.filter((w)=>w.provinceId === provinceId);
+    // Filter by level
+    if (inputLevel === '3-level' && districtId) {
+        wards = wards.filter((w)=>w.level === '3-level' && w.districtId === districtId);
+    } else if (inputLevel === '2-level') {
+        wards = wards.filter((w)=>w.level === '2-level');
+    }
+    // Exact match first
+    let found = wards.find((w)=>w.name === wardName);
+    if (found) {
+        return {
+            id: found.id,
+            name: found.name,
+            districtId: found.districtId,
+            districtName: found.districtName
+        };
+    }
+    // Normalized match
+    found = wards.find((w)=>matchText(w.name, wardName));
+    if (found) {
+        return {
+            id: found.id,
+            name: found.name,
+            districtId: found.districtId,
+            districtName: found.districtName
+        };
+    }
+    // Try matching without prefixes
+    const inputWithoutPrefix = removeCommonPrefixes(wardName);
+    found = wards.find((w)=>{
+        const dbWithoutPrefix = removeCommonPrefixes(w.name);
+        return dbWithoutPrefix === inputWithoutPrefix;
+    });
+    if (found) {
+        return {
+            id: found.id,
+            name: found.name,
+            districtId: found.districtId,
+            districtName: found.districtName
+        };
+    }
+    // Partial match - last resort
+    const normalizedInput = normalizeText(wardName);
+    found = wards.find((w)=>normalizeText(w.name).includes(normalizedInput) || normalizedInput.includes(normalizeText(w.name)));
+    return found ? {
+        id: found.id,
+        name: found.name,
+        districtId: found.districtId,
+        districtName: found.districtName
+    } : null;
+}
+function lookupAddressIds(address) {
+    if (!address) return null;
+    if (!address.street && !address.province && !address.ward) return null;
+    const inputLevel = address.inputLevel || '3-level';
+    const store = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$provinces$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProvinceStore"].getState();
+    console.log('[lookupAddressIds] Input address:', address);
+    console.log('[lookupAddressIds] inputLevel:', inputLevel);
+    let provinceId = address.provinceId || '';
+    let provinceName = address.province || '';
+    let districtId = address.districtId || 0;
+    let districtName = address.district || '';
+    let wardId = address.wardId || '';
+    let wardName = address.ward || '';
+    // === STRATEGY: Lookup từ ward trước (có đầy đủ thông tin) ===
+    if (address.ward) {
+        const allWards = store.wards;
+        const normalizedWardInput = normalizeText(address.ward);
+        const wardWithoutPrefix = removeCommonPrefixes(address.ward);
+        // Filter wards by level
+        const wardsOfLevel = allWards.filter((w)=>inputLevel === '2-level' ? w.level === '2-level' : w.level === '3-level');
+        // Try to find ward matching name AND province/district context
+        let foundWard = wardsOfLevel.find((w)=>{
+            const nameMatch = w.name === address.ward || matchText(w.name, address.ward) || removeCommonPrefixes(w.name) === wardWithoutPrefix;
+            if (!nameMatch) return false;
+            // If province name provided, check if it matches ward's province
+            if (address.province) {
+                const normalizedProvince = normalizeText(address.province);
+                const wardProvince = normalizeText(w.provinceName || '');
+                // Check various matching patterns
+                if (!wardProvince.includes(normalizedProvince) && !normalizedProvince.includes(wardProvince) && !matchProvinceAlias(address.province, w.provinceName || '')) {
+                    return false;
+                }
+            }
+            // If district name provided (3-level), check if it matches
+            if (inputLevel === '3-level' && address.district && w.districtName) {
+                const normalizedDistrict = normalizeText(address.district);
+                const wardDistrict = normalizeText(w.districtName);
+                const districtWithoutPrefix = removeCommonPrefixes(address.district);
+                const wardDistrictWithoutPrefix = removeCommonPrefixes(w.districtName);
+                if (!wardDistrict.includes(normalizedDistrict) && !normalizedDistrict.includes(wardDistrict) && wardDistrictWithoutPrefix !== districtWithoutPrefix) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        // If not found with context, try just by ward name
+        if (!foundWard) {
+            foundWard = wardsOfLevel.find((w)=>w.name === address.ward || matchText(w.name, address.ward) || removeCommonPrefixes(w.name) === wardWithoutPrefix);
+        }
+        if (foundWard) {
+            console.log('[lookupAddressIds] Found ward:', foundWard);
+            wardId = foundWard.id;
+            wardName = foundWard.name;
+            // IMPORTANT: Get provinceId from provinces-data (not from ward's provinceId)
+            // because ward data might have different provinceId (e.g. "00" vs "24" for HCM)
+            const provinceFromData = findProvinceByName(foundWard.provinceName || address.province || '');
+            if (provinceFromData) {
+                provinceId = provinceFromData.id;
+                provinceName = provinceFromData.name;
+            } else {
+                // Fallback to ward's data if not found in provinces-data
+                provinceId = foundWard.provinceId;
+                provinceName = foundWard.provinceName || address.province || '';
+            }
+            if (foundWard.districtId) {
+                districtId = foundWard.districtId;
+                districtName = foundWard.districtName || address.district || '';
+            }
+        } else {
+            console.log('[lookupAddressIds] Ward NOT FOUND for:', address.ward);
+        }
+    }
+    // === Fallback: If no ward found, try province lookup ===
+    if (!wardId && address.province) {
+        const province = findProvinceByName(address.province);
+        if (province) {
+            provinceId = province.id;
+            provinceName = province.name;
+        }
+        // Try district lookup if province found
+        if (provinceId && address.district && inputLevel === '3-level') {
+            const district = findDistrictByName(address.district, provinceId);
+            if (district) {
+                districtId = district.id;
+                districtName = district.name;
+            }
+        }
+    }
+    console.log('[lookupAddressIds] Result:', {
+        provinceId,
+        provinceName,
+        districtId,
+        districtName,
+        wardId,
+        wardName
+    });
+    return {
+        street: address.street || '',
+        province: provinceName,
+        provinceId: provinceId,
+        district: districtName,
+        districtId: districtId,
+        ward: wardName,
+        wardId: wardId,
+        inputLevel: inputLevel
+    };
+}
+/**
+ * Check if province names match (including aliases)
+ */ function matchProvinceAlias(input, dbName) {
+    const normalizedInput = normalizeText(input);
+    const normalizedDb = normalizeText(dbName);
+    // Direct match
+    if (normalizedInput === normalizedDb) return true;
+    // Check aliases
+    for (const [standardName, aliases] of Object.entries(PROVINCE_ALIASES)){
+        const normalizedStandard = normalizeText(standardName);
+        const inputIsAlias = aliases.some((a)=>a === normalizedInput || normalizedInput.includes(a));
+        const dbIsStandard = normalizedDb === normalizedStandard || normalizedDb.includes(normalizedStandard);
+        const dbIsAlias = aliases.some((a)=>normalizedDb.includes(a));
+        if (inputIsAlias && (dbIsStandard || dbIsAlias)) return true;
+        if (dbIsAlias && normalizedInput === normalizedStandard) return true;
+    }
+    return false;
+}
+function enrichEmployeeAddresses(data) {
+    const result = {
+        ...data
+    };
+    console.log('[Address Lookup] Input:', {
+        permanentAddress: data.permanentAddress,
+        temporaryAddress: data.temporaryAddress
+    });
+    if (data.permanentAddress) {
+        const enriched = lookupAddressIds(data.permanentAddress);
+        console.log('[Address Lookup] permanentAddress enriched:', enriched);
+        if (enriched) {
+            result.permanentAddress = enriched;
+        }
+    }
+    if (data.temporaryAddress) {
+        const enriched = lookupAddressIds(data.temporaryAddress);
+        console.log('[Address Lookup] temporaryAddress enriched:', enriched);
+        if (enriched) {
+            result.temporaryAddress = enriched;
+        }
+    }
+    return result;
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/employee.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "default",
+    ()=>__TURBOPACK__default__export__,
+    "employeeConfig",
+    ()=>employeeConfig,
+    "employeeFields",
+    ()=>employeeFields,
+    "employeeImportExportConfig",
+    ()=>employeeImportExportConfig
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$address$2d$lookup$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/address-lookup.ts [app-client] (ecmascript)");
+;
+function parseEmployeeAddresses(rawRow) {
+    const addresses = [];
+    // Địa chỉ thường trú
+    const permanentProvince = rawRow['Tỉnh/TP thường trú'];
+    const permanentWard = rawRow['Phường/Xã thường trú'];
+    const permanentStreet = rawRow['Số nhà, đường thường trú'];
+    if (permanentProvince || permanentWard || permanentStreet) {
+        addresses.push({
+            type: 'permanent',
+            province: String(permanentProvince || ''),
+            ward: String(permanentWard || ''),
+            street: String(permanentStreet || '')
+        });
+    }
+    // Địa chỉ tạm trú
+    const temporaryProvince = rawRow['Tỉnh/TP tạm trú'];
+    const temporaryWard = rawRow['Phường/Xã tạm trú'];
+    const temporaryStreet = rawRow['Số nhà, đường tạm trú'];
+    if (temporaryProvince || temporaryWard || temporaryStreet) {
+        addresses.push({
+            type: 'temporary',
+            province: String(temporaryProvince || ''),
+            ward: String(temporaryWard || ''),
+            street: String(temporaryStreet || '')
+        });
+    }
+    return addresses;
+}
+/**
+ * Normalize raw row từ template
+ * Convert địa chỉ thường trú/tạm trú thành permanentAddress/temporaryAddress
+ */ function normalizeEmployeeRawRow(rawRow) {
+    const result = {
+        ...rawRow
+    };
+    const parsedAddresses = parseEmployeeAddresses(rawRow);
+    for (const addr of parsedAddresses){
+        if (addr.type === 'permanent') {
+            // Địa chỉ thường trú -> permanentAddress
+            result['__permanentAddress__'] = {
+                province: addr.province,
+                ward: addr.ward,
+                street: addr.street,
+                inputLevel: '2-level'
+            };
+        } else if (addr.type === 'temporary') {
+            // Địa chỉ tạm trú -> temporaryAddress
+            result['__temporaryAddress__'] = {
+                province: addr.province,
+                ward: addr.ward,
+                street: addr.street,
+                inputLevel: '2-level'
+            };
+        }
+    }
+    return result;
+}
+// Field definitions cho Employee - ĐẦY ĐỦ tất cả fields
+// CHỈ BẮT BUỘC: id (Mã nhân viên) và fullName (Họ và tên)
+const employeeFields = [
+    // ===== THÔNG TIN CƠ BẢN =====
+    {
+        key: 'id',
+        label: 'Mã nhân viên (*)',
+        required: true,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'NV001'
+    },
+    {
+        key: 'fullName',
+        label: 'Họ và tên (*)',
+        required: true,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Nguyễn Văn A'
+    },
+    {
+        key: 'gender',
+        label: 'Giới tính',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'male'
+    },
+    {
+        key: 'dateOfBirth',
+        label: 'Ngày sinh',
+        required: false,
+        type: 'date',
+        exportGroup: 'Thông tin cơ bản',
+        example: '1990-01-15'
+    },
+    {
+        key: 'placeOfBirth',
+        label: 'Nơi sinh',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Hà Nội'
+    },
+    {
+        key: 'nationality',
+        label: 'Quốc tịch',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Việt Nam'
+    },
+    {
+        key: 'religion',
+        label: 'Tôn giáo',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Không'
+    },
+    {
+        key: 'maritalStatus',
+        label: 'Tình trạng hôn nhân',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'single'
+    },
+    {
+        key: 'avatar',
+        label: 'Ảnh đại diện',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        hidden: true
+    },
+    // ===== THÔNG TIN ĐĂNG NHẬP =====
+    {
+        key: 'workEmail',
+        label: 'Email công ty',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin đăng nhập',
+        example: 'nguyenvana@company.com',
+        validator: (value)=>{
+            if (!value) return true;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(String(value)) || 'Email không hợp lệ';
+        }
+    },
+    {
+        key: 'password',
+        label: 'Mật khẩu',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin đăng nhập',
+        example: '********',
+        hidden: true
+    },
+    {
+        key: 'role',
+        label: 'Vai trò hệ thống (*Mặc định: employee)',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin đăng nhập',
+        example: 'employee',
+        defaultValue: 'employee'
+    },
+    // ===== GIẤY TỜ TÙY THÂN =====
+    {
+        key: 'nationalId',
+        label: 'CMND/CCCD',
+        required: false,
+        type: 'string',
+        exportGroup: 'Giấy tờ tùy thân',
+        example: '012345678901'
+    },
+    {
+        key: 'nationalIdIssueDate',
+        label: 'Ngày cấp CMND/CCCD',
+        required: false,
+        type: 'date',
+        exportGroup: 'Giấy tờ tùy thân',
+        example: '2020-01-15'
+    },
+    {
+        key: 'nationalIdIssuePlace',
+        label: 'Nơi cấp CMND/CCCD',
+        required: false,
+        type: 'string',
+        exportGroup: 'Giấy tờ tùy thân',
+        example: 'CA TP Hà Nội'
+    },
+    {
+        key: 'personalTaxId',
+        label: 'Mã số thuế cá nhân',
+        required: false,
+        type: 'string',
+        exportGroup: 'Giấy tờ tùy thân',
+        example: '0123456789'
+    },
+    {
+        key: 'socialInsuranceNumber',
+        label: 'Số sổ BHXH',
+        required: false,
+        type: 'string',
+        exportGroup: 'Giấy tờ tùy thân',
+        example: '1234567890'
+    },
+    // ===== LIÊN HỆ =====
+    {
+        key: 'personalEmail',
+        label: 'Email cá nhân',
+        required: false,
+        type: 'string',
+        exportGroup: 'Liên hệ',
+        example: 'nguyenvana@gmail.com',
+        validator: (value)=>{
+            if (!value) return true;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(String(value)) || 'Email không hợp lệ';
+        }
+    },
+    {
+        key: 'phone',
+        label: 'Số điện thoại',
+        required: false,
+        type: 'string',
+        exportGroup: 'Liên hệ',
+        example: '0901234567'
+    },
+    // ===== ĐỊA CHỈ THƯỜNG TRÚ (hệ thống 2 cấp) =====
+    {
+        key: 'permanentAddress.province',
+        label: 'Tỉnh/TP thường trú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Địa chỉ thường trú',
+        example: 'Hà Nội'
+    },
+    {
+        key: 'permanentAddress.ward',
+        label: 'Phường/Xã thường trú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Địa chỉ thường trú',
+        example: 'Phường Điện Biên'
+    },
+    {
+        key: 'permanentAddress.street',
+        label: 'Số nhà, đường thường trú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Địa chỉ thường trú',
+        example: '123 Đường ABC'
+    },
+    // ===== ĐỊA CHỈ TẠM TRÚ (hệ thống 2 cấp) =====
+    {
+        key: 'temporaryAddress.province',
+        label: 'Tỉnh/TP tạm trú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Địa chỉ tạm trú',
+        example: 'Hà Nội'
+    },
+    {
+        key: 'temporaryAddress.ward',
+        label: 'Phường/Xã tạm trú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Địa chỉ tạm trú',
+        example: 'Phường Cống Vị'
+    },
+    {
+        key: 'temporaryAddress.street',
+        label: 'Số nhà, đường tạm trú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Địa chỉ tạm trú',
+        example: '456 Đường XYZ'
+    },
+    // ===== LIÊN HỆ KHẨN CẤP =====
+    {
+        key: 'emergencyContactName',
+        label: 'Người liên hệ khẩn cấp',
+        required: false,
+        type: 'string',
+        exportGroup: 'Liên hệ khẩn cấp',
+        example: 'Nguyễn Văn B'
+    },
+    {
+        key: 'emergencyContactPhone',
+        label: 'SĐT khẩn cấp',
+        required: false,
+        type: 'string',
+        exportGroup: 'Liên hệ khẩn cấp',
+        example: '0908765432'
+    },
+    // ===== CÔNG VIỆC =====
+    {
+        key: 'departmentId',
+        label: 'Mã phòng ban',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'PB001'
+    },
+    {
+        key: 'departmentName',
+        label: 'Tên phòng ban',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'Phòng Kinh doanh'
+    },
+    {
+        key: 'department',
+        label: 'Bộ phận',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'Kinh doanh'
+    },
+    {
+        key: 'positionId',
+        label: 'Mã chức vụ',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'CV001'
+    },
+    {
+        key: 'positionName',
+        label: 'Tên chức vụ',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'Trưởng phòng'
+    },
+    {
+        key: 'jobTitle',
+        label: 'Chức danh',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'Nhân viên kinh doanh'
+    },
+    {
+        key: 'employeeType',
+        label: 'Loại nhân viên',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'Chính thức'
+    },
+    {
+        key: 'employmentStatus',
+        label: 'Trạng thái làm việc (*Mặc định: Đang làm việc)',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'Đang làm việc',
+        defaultValue: 'Đang làm việc'
+    },
+    {
+        key: 'status',
+        label: 'Trạng thái (*Mặc định: active)',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'active',
+        defaultValue: 'active'
+    },
+    {
+        key: 'hireDate',
+        label: 'Ngày tuyển dụng',
+        required: false,
+        type: 'date',
+        exportGroup: 'Công việc',
+        example: '2023-01-01'
+    },
+    {
+        key: 'startDate',
+        label: 'Ngày bắt đầu làm việc',
+        required: false,
+        type: 'date',
+        exportGroup: 'Công việc',
+        example: '2023-01-15'
+    },
+    {
+        key: 'endDate',
+        label: 'Ngày kết thúc',
+        required: false,
+        type: 'date',
+        exportGroup: 'Công việc',
+        example: ''
+    },
+    {
+        key: 'terminationDate',
+        label: 'Ngày nghỉ việc',
+        required: false,
+        type: 'date',
+        exportGroup: 'Công việc',
+        example: ''
+    },
+    {
+        key: 'reasonForLeaving',
+        label: 'Lý do nghỉ việc',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: ''
+    },
+    {
+        key: 'branchSystemId',
+        label: 'Mã chi nhánh',
+        required: false,
+        type: 'string',
+        exportGroup: 'Công việc',
+        example: 'CN001'
+    },
+    // ===== THỬ VIỆC & HỢP ĐỒNG =====
+    {
+        key: 'probationEndDate',
+        label: 'Ngày kết thúc thử việc',
+        required: false,
+        type: 'date',
+        exportGroup: 'Thử việc & Hợp đồng',
+        example: '2023-03-31'
+    },
+    {
+        key: 'contractNumber',
+        label: 'Số hợp đồng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thử việc & Hợp đồng',
+        example: 'HD-2023-001'
+    },
+    {
+        key: 'contractType',
+        label: 'Loại hợp đồng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thử việc & Hợp đồng',
+        example: 'definite'
+    },
+    {
+        key: 'contractStartDate',
+        label: 'Ngày bắt đầu HĐ',
+        required: false,
+        type: 'date',
+        exportGroup: 'Thử việc & Hợp đồng',
+        example: '2023-04-01'
+    },
+    {
+        key: 'contractEndDate',
+        label: 'Ngày kết thúc HĐ',
+        required: false,
+        type: 'date',
+        exportGroup: 'Thử việc & Hợp đồng',
+        example: '2024-03-31'
+    },
+    // ===== THỜI GIAN LÀM VIỆC =====
+    {
+        key: 'workingHoursPerDay',
+        label: 'Số giờ/ngày (*Mặc định: 8)',
+        required: false,
+        type: 'number',
+        exportGroup: 'Thời gian làm việc',
+        example: '8',
+        defaultValue: 8
+    },
+    {
+        key: 'workingDaysPerWeek',
+        label: 'Số ngày/tuần (*Mặc định: 5)',
+        required: false,
+        type: 'number',
+        exportGroup: 'Thời gian làm việc',
+        example: '5',
+        defaultValue: 5
+    },
+    {
+        key: 'shiftType',
+        label: 'Ca làm việc',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thời gian làm việc',
+        example: 'day'
+    },
+    // ===== LƯƠNG & THU NHẬP =====
+    {
+        key: 'baseSalary',
+        label: 'Lương cơ bản',
+        required: false,
+        type: 'number',
+        exportGroup: 'Lương & Thu nhập',
+        example: '15000000'
+    },
+    {
+        key: 'socialInsuranceSalary',
+        label: 'Lương đóng BHXH',
+        required: false,
+        type: 'number',
+        exportGroup: 'Lương & Thu nhập',
+        example: '10000000'
+    },
+    {
+        key: 'positionAllowance',
+        label: 'Phụ cấp chức vụ',
+        required: false,
+        type: 'number',
+        exportGroup: 'Lương & Thu nhập',
+        example: '2000000'
+    },
+    {
+        key: 'mealAllowance',
+        label: 'Phụ cấp ăn trưa',
+        required: false,
+        type: 'number',
+        exportGroup: 'Lương & Thu nhập',
+        example: '730000'
+    },
+    {
+        key: 'otherAllowances',
+        label: 'Phụ cấp khác',
+        required: false,
+        type: 'number',
+        exportGroup: 'Lương & Thu nhập',
+        example: '500000'
+    },
+    {
+        key: 'numberOfDependents',
+        label: 'Số người phụ thuộc',
+        required: false,
+        type: 'number',
+        exportGroup: 'Lương & Thu nhập',
+        example: '1'
+    },
+    // ===== NGÂN HÀNG =====
+    {
+        key: 'bankAccountNumber',
+        label: 'Số tài khoản',
+        required: false,
+        type: 'string',
+        exportGroup: 'Ngân hàng',
+        example: '1234567890123'
+    },
+    {
+        key: 'bankName',
+        label: 'Ngân hàng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Ngân hàng',
+        example: 'Vietcombank'
+    },
+    {
+        key: 'bankBranch',
+        label: 'Chi nhánh',
+        required: false,
+        type: 'string',
+        exportGroup: 'Ngân hàng',
+        example: 'CN Hà Nội'
+    },
+    // ===== NGHỈ PHÉP =====
+    {
+        key: 'annualLeaveBalance',
+        label: 'Số ngày phép còn',
+        required: false,
+        type: 'number',
+        exportGroup: 'Nghỉ phép',
+        example: '12'
+    },
+    {
+        key: 'leaveTaken',
+        label: 'Số ngày đã nghỉ (*Mặc định: 0)',
+        required: false,
+        type: 'number',
+        exportGroup: 'Nghỉ phép',
+        example: '3',
+        defaultValue: 0
+    },
+    {
+        key: 'paidLeaveTaken',
+        label: 'Nghỉ phép có lương',
+        required: false,
+        type: 'number',
+        exportGroup: 'Nghỉ phép',
+        example: '2'
+    },
+    {
+        key: 'unpaidLeaveTaken',
+        label: 'Nghỉ phép không lương',
+        required: false,
+        type: 'number',
+        exportGroup: 'Nghỉ phép',
+        example: '1'
+    },
+    {
+        key: 'annualLeaveTaken',
+        label: 'Nghỉ phép năm đã dùng',
+        required: false,
+        type: 'number',
+        exportGroup: 'Nghỉ phép',
+        example: '5'
+    },
+    // ===== ĐÁNH GIÁ =====
+    {
+        key: 'performanceRating',
+        label: 'Đánh giá hiệu suất',
+        required: false,
+        type: 'number',
+        exportGroup: 'Đánh giá',
+        example: '4'
+    },
+    {
+        key: 'lastReviewDate',
+        label: 'Ngày đánh giá gần nhất',
+        required: false,
+        type: 'date',
+        exportGroup: 'Đánh giá',
+        example: '2023-12-15'
+    },
+    {
+        key: 'nextReviewDate',
+        label: 'Ngày đánh giá tiếp theo',
+        required: false,
+        type: 'date',
+        exportGroup: 'Đánh giá',
+        example: '2024-06-15'
+    },
+    // ===== KỸ NĂNG & CHỨNG CHỈ =====
+    {
+        key: 'skills',
+        label: 'Kỹ năng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Kỹ năng & Chứng chỉ',
+        example: 'Excel, PowerPoint, Quản lý dự án',
+        transform: (value)=>{
+            if (Array.isArray(value)) return value.join(', ');
+            return value;
+        },
+        reverseTransform: (value)=>{
+            if (typeof value === 'string') {
+                return value.split(',').map((s)=>s.trim()).filter(Boolean);
+            }
+            return value;
+        }
+    },
+    {
+        key: 'certifications',
+        label: 'Chứng chỉ',
+        required: false,
+        type: 'string',
+        exportGroup: 'Kỹ năng & Chứng chỉ',
+        example: 'PMP, IELTS 7.0',
+        transform: (value)=>{
+            if (Array.isArray(value)) return value.join(', ');
+            return value;
+        },
+        reverseTransform: (value)=>{
+            if (typeof value === 'string') {
+                return value.split(',').map((s)=>s.trim()).filter(Boolean);
+            }
+            return value;
+        }
+    },
+    // ===== SƠ ĐỒ TỔ CHỨC =====
+    {
+        key: 'managerId',
+        label: 'Mã quản lý trực tiếp',
+        required: false,
+        type: 'string',
+        exportGroup: 'Sơ đồ tổ chức',
+        example: 'NV000'
+    },
+    // ===== HỌC VẤN =====
+    {
+        key: 'educationLevel',
+        label: 'Trình độ học vấn',
+        required: false,
+        type: 'string',
+        exportGroup: 'Học vấn',
+        example: 'Đại học'
+    },
+    {
+        key: 'major',
+        label: 'Chuyên ngành',
+        required: false,
+        type: 'string',
+        exportGroup: 'Học vấn',
+        example: 'Quản trị kinh doanh'
+    },
+    {
+        key: 'graduationYear',
+        label: 'Năm tốt nghiệp',
+        required: false,
+        type: 'number',
+        exportGroup: 'Học vấn',
+        example: '2018'
+    },
+    {
+        key: 'school',
+        label: 'Trường',
+        required: false,
+        type: 'string',
+        exportGroup: 'Học vấn',
+        example: 'Đại học Kinh tế Quốc dân'
+    },
+    // ===== GHI CHÚ =====
+    {
+        key: 'notes',
+        label: 'Ghi chú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Khác',
+        example: ''
+    },
+    // ===== DỮ LIỆU HỆ THỐNG (hidden, không import) =====
+    {
+        key: 'systemId',
+        label: 'System ID',
+        required: false,
+        type: 'string',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    },
+    {
+        key: 'avatarUrl',
+        label: 'URL ảnh đại diện',
+        required: false,
+        type: 'string',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    },
+    {
+        key: 'createdAt',
+        label: 'Ngày tạo',
+        required: false,
+        type: 'date',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    },
+    {
+        key: 'updatedAt',
+        label: 'Ngày cập nhật',
+        required: false,
+        type: 'date',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    }
+];
+/**
+ * Post-transform để xử lý địa chỉ thường trú và tạm trú
+ * Được tạo bởi normalizeEmployeeRawRow từ các cột:
+ * - __permanentAddress__: Địa chỉ thường trú
+ * - __temporaryAddress__: Địa chỉ tạm trú
+ */ function processEmployeeAddresses(row) {
+    const result = {
+        ...row
+    };
+    const rawData = row;
+    // Xử lý địa chỉ thường trú
+    const permanentRaw = rawData['__permanentAddress__'];
+    if (permanentRaw && (permanentRaw.province || permanentRaw.ward || permanentRaw.street)) {
+        // Enrich with IDs using address lookup
+        const enriched = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$address$2d$lookup$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["enrichEmployeeAddresses"])({
+            permanentAddress: {
+                province: permanentRaw.province || '',
+                ward: permanentRaw.ward || '',
+                street: permanentRaw.street || '',
+                inputLevel: permanentRaw.inputLevel || '2-level'
+            }
+        });
+        if (enriched.permanentAddress) {
+            result.permanentAddress = enriched.permanentAddress;
+        }
+        // Remove temporary field
+        delete result['__permanentAddress__'];
+    }
+    // Xử lý địa chỉ tạm trú
+    const temporaryRaw = rawData['__temporaryAddress__'];
+    if (temporaryRaw && (temporaryRaw.province || temporaryRaw.ward || temporaryRaw.street)) {
+        // Enrich with IDs using address lookup
+        const enriched = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$address$2d$lookup$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["enrichEmployeeAddresses"])({
+            temporaryAddress: {
+                province: temporaryRaw.province || '',
+                ward: temporaryRaw.ward || '',
+                street: temporaryRaw.street || '',
+                inputLevel: temporaryRaw.inputLevel || '2-level'
+            }
+        });
+        if (enriched.temporaryAddress) {
+            result.temporaryAddress = enriched.temporaryAddress;
+        }
+        // Remove temporary field
+        delete result['__temporaryAddress__'];
+    }
+    return result;
+}
+const employeeConfig = {
+    entityType: 'employees',
+    entityDisplayName: 'Nhân viên',
+    fields: employeeFields,
+    upsertKey: 'id',
+    templateFileName: 'mau-import-nhan-vien.xlsx',
+    // Pre-transform: Normalize raw row từ template mới (merge 2-level/3-level columns)
+    preTransformRawRow: normalizeEmployeeRawRow,
+    // Post-transform: Process addresses and lookup IDs
+    postTransformRow: processEmployeeAddresses
+};
+const employeeImportExportConfig = employeeConfig;
+;
+const __TURBOPACK__default__export__ = employeeConfig;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/attendance.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Attendance Import/Export Config
+ * 
+ * Cấu hình import chấm công từ máy CC
+ * 
+ * ⚠️ LƯU Ý: File từ máy CC có format đặc biệt
+ * - Sheet "Bảng tổng hợp chấm công"
+ * - Header phức tạp (2 dòng, merged cells)
+ * - Mã NV máy CC khác mã NV hệ thống → cần mapping
+ */ __turbopack_context__.s([
+    "attendanceFields",
+    ()=>attendanceFields,
+    "attendanceImportExportConfig",
+    ()=>attendanceImportExportConfig
+]);
+// ============================================
+// FIELD DEFINITIONS
+// ============================================
+const attendanceFields = [
+    {
+        key: 'machineEmployeeId',
+        label: 'Mã NV (máy) (*)',
+        required: true,
+        type: 'number',
+        example: '1',
+        exportGroup: 'Thông tin NV',
+        defaultSelected: true
+    },
+    {
+        key: 'employeeName',
+        label: 'Họ tên (*)',
+        required: true,
+        type: 'string',
+        example: 'nguyen van a',
+        exportGroup: 'Thông tin NV',
+        defaultSelected: true
+    },
+    {
+        key: 'department',
+        label: 'Phòng ban',
+        type: 'string',
+        example: 'CÔNG TY',
+        exportGroup: 'Thông tin NV'
+    },
+    {
+        key: 'standardHours',
+        label: 'Giờ chuẩn',
+        type: 'number',
+        example: '160',
+        exportGroup: 'Thời gian',
+        defaultSelected: true
+    },
+    {
+        key: 'actualHours',
+        label: 'Giờ thực tế',
+        type: 'number',
+        example: '145.28',
+        exportGroup: 'Thời gian',
+        defaultSelected: true
+    },
+    {
+        key: 'lateCount',
+        label: 'Đến muộn (lần)',
+        type: 'number',
+        example: '3',
+        exportGroup: 'Đến muộn/Về sớm',
+        defaultSelected: true
+    },
+    {
+        key: 'lateMinutes',
+        label: 'Đến muộn (phút)',
+        type: 'number',
+        example: '97',
+        exportGroup: 'Đến muộn/Về sớm',
+        defaultSelected: true
+    },
+    {
+        key: 'earlyLeaveCount',
+        label: 'Về sớm (lần)',
+        type: 'number',
+        example: '2',
+        exportGroup: 'Đến muộn/Về sớm'
+    },
+    {
+        key: 'earlyLeaveMinutes',
+        label: 'Về sớm (phút)',
+        type: 'number',
+        example: '36',
+        exportGroup: 'Đến muộn/Về sớm'
+    },
+    {
+        key: 'overtimeNormal',
+        label: 'Tăng ca thường (giờ)',
+        type: 'number',
+        example: '6.55',
+        exportGroup: 'Tăng ca',
+        defaultSelected: true
+    },
+    {
+        key: 'overtimeSpecial',
+        label: 'Tăng ca đặc biệt (giờ)',
+        type: 'number',
+        example: '43.5',
+        exportGroup: 'Tăng ca'
+    },
+    {
+        key: 'workDays',
+        label: 'Ngày công (chuẩn/thực)',
+        type: 'string',
+        example: '20/19',
+        exportGroup: 'Ngày công',
+        defaultSelected: true
+    },
+    {
+        key: 'businessTrip',
+        label: 'Công tác (ngày)',
+        type: 'number',
+        example: '2',
+        exportGroup: 'Nghỉ phép'
+    },
+    {
+        key: 'absentWithoutLeave',
+        label: 'Nghỉ không phép (ngày)',
+        type: 'number',
+        example: '1',
+        exportGroup: 'Nghỉ phép',
+        defaultSelected: true
+    },
+    {
+        key: 'paidLeave',
+        label: 'Nghỉ phép (ngày)',
+        type: 'number',
+        example: '0',
+        exportGroup: 'Nghỉ phép'
+    }
+];
+const attendanceImportExportConfig = {
+    entityType: 'attendance',
+    entityDisplayName: 'Chấm công (từ máy CC)',
+    // Template - dùng file gốc từ máy CC
+    templateFileName: 'Mau_ChamCong_MayCC.xls',
+    templateDownloadUrl: '/templates/Mau_ChamCong_MayCC.xls',
+    // ⚠️ SPECIAL: Custom parser
+    customParser: true,
+    sourceSheetName: 'Bảng tổng hợp chấm công',
+    headerRowIndex: 2,
+    dataStartRowIndex: 4,
+    // Fields
+    fields: attendanceFields,
+    // ⚠️ KHÔNG dùng upsertKey thông thường
+    // Vì máy CC dùng mã 1,2,3... không phải NV000001
+    upsertKey: undefined,
+    // Thay vào đó: Composite key cho upsert
+    compositeKey: [
+        'employeeSystemId',
+        'month',
+        'year'
+    ],
+    // Employee mapping
+    requireEmployeeMapping: true,
+    mappingField: 'employeeName',
+    // Upsert config
+    allowUpdate: true,
+    allowInsert: true,
+    // Preview config
+    requirePreview: true,
+    stopOnFirstError: false,
+    maxErrorsAllowed: 0,
+    maxRows: 100,
+    // Validation
+    validateRow: (row, _index, _existingData)=>{
+        const errors = [];
+        // Check tên không rỗng
+        if (!row.employeeName || row.employeeName.trim() === '') {
+            errors.push({
+                field: 'employeeName',
+                message: 'Họ tên không được trống'
+            });
+        }
+        // Check giờ thực tế không âm
+        if (row.actualHours < 0) {
+            errors.push({
+                field: 'actualHours',
+                message: 'Giờ thực tế không được âm'
+            });
+        }
+        // Check giờ thực tế không vượt quá chuẩn + tăng ca quá nhiều
+        const maxHours = row.standardHours + 100; // Tối đa 100 giờ tăng ca/tháng
+        if (row.actualHours > maxHours) {
+            errors.push({
+                field: 'actualHours',
+                message: `Giờ thực tế (${row.actualHours}h) vượt quá giới hạn (${maxHours}h)`
+            });
+        }
+        // Check số phút đến muộn hợp lý
+        if (row.lateMinutes > 0 && row.lateCount === 0) {
+            errors.push({
+                field: 'lateCount',
+                message: 'Có phút đến muộn nhưng số lần = 0'
+            });
+        }
+        return errors;
+    },
+    // After import hook
+    afterImport: (results)=>{
+        console.log(`Import chấm công hoàn tất:
+      - Thêm mới: ${results.inserted.length}
+      - Cập nhật: ${results.updated.length}
+      - Lỗi: ${results.failed.length}
+      - Bỏ qua: ${results.skipped.length}`);
+    }
+};
+;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/customer.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "customerFields",
+    ()=>customerFields,
+    "customerImportExportConfig",
+    ()=>customerImportExportConfig,
+    "default",
+    ()=>__TURBOPACK__default__export__
+]);
+const customerFields = [
+    // ===== THÔNG TIN CƠ BẢN =====
+    {
+        key: 'id',
+        label: 'Mã khách hàng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'KH000001'
+    },
+    {
+        key: 'name',
+        label: 'Tên khách hàng (*)',
+        required: true,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Công ty TNHH ABC'
+    },
+    {
+        key: 'status',
+        label: 'Trạng thái',
+        required: false,
+        type: 'enum',
+        enumValues: [
+            'Đang giao dịch',
+            'Ngừng Giao Dịch'
+        ],
+        enumLabels: {
+            'Đang giao dịch': 'Đang giao dịch',
+            'Ngừng Giao Dịch': 'Ngừng giao dịch'
+        },
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Đang giao dịch',
+        defaultValue: 'Đang giao dịch'
+    },
+    {
+        key: 'phone',
+        label: 'Số điện thoại',
+        required: false,
+        type: 'phone',
+        exportGroup: 'Thông tin cơ bản',
+        example: '0901234567',
+        validator: (value)=>{
+            if (!value) return null;
+            const phone = String(value).replace(/\s/g, '');
+            if (!/^0\d{9,10}$/.test(phone)) {
+                return '[Warning] Số điện thoại không đúng định dạng';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'email',
+        label: 'Email',
+        required: false,
+        type: 'email',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'contact@abc.com',
+        validator: (value)=>{
+            if (!value) return null;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(String(value))) {
+                return 'Email không hợp lệ';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'type',
+        label: 'Loại khách hàng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Doanh nghiệp'
+    },
+    {
+        key: 'customerGroup',
+        label: 'Nhóm khách hàng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Khách sỉ'
+    },
+    {
+        key: 'lifecycleStage',
+        label: 'Giai đoạn vòng đời',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Khách mới'
+    },
+    {
+        key: 'source',
+        label: 'Nguồn khách hàng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Facebook'
+    },
+    {
+        key: 'notes',
+        label: 'Ghi chú',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Khách hàng tiềm năng'
+    },
+    // ===== THÔNG TIN DOANH NGHIỆP =====
+    {
+        key: 'company',
+        label: 'Tên công ty / HKD',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin doanh nghiệp',
+        example: 'Công ty TNHH ABC'
+    },
+    {
+        key: 'taxCode',
+        label: 'Mã số thuế',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin doanh nghiệp',
+        example: '0123456789',
+        validator: (value)=>{
+            if (!value) return null;
+            const taxCode = String(value);
+            if (!/^\d{10}(\d{3})?$/.test(taxCode)) {
+                return '[Warning] Mã số thuế phải có 10 hoặc 13 số';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'representative',
+        label: 'Người đại diện',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin doanh nghiệp',
+        example: 'Nguyễn Văn A'
+    },
+    {
+        key: 'position',
+        label: 'Chức vụ',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin doanh nghiệp',
+        example: 'Giám đốc'
+    },
+    {
+        key: 'bankName',
+        label: 'Ngân hàng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin doanh nghiệp',
+        example: 'Vietcombank'
+    },
+    {
+        key: 'bankAccount',
+        label: 'Số tài khoản',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin doanh nghiệp',
+        example: '0123456789'
+    },
+    // ===== THANH TOÁN & GIÁ =====
+    {
+        key: 'paymentTerms',
+        label: 'Hạn thanh toán',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thanh toán & Giá',
+        example: 'NET15'
+    },
+    {
+        key: 'creditRating',
+        label: 'Xếp hạng tín dụng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thanh toán & Giá',
+        example: 'AAA'
+    },
+    {
+        key: 'currentDebt',
+        label: 'Công nợ hiện tại',
+        required: false,
+        type: 'number',
+        exportGroup: 'Thanh toán & Giá',
+        example: '0',
+        importTransform: (value)=>{
+            if (!value) return 0;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? 0 : num;
+        },
+        exportTransform: (value)=>{
+            if (!value) return '0';
+            return Number(value).toLocaleString('vi-VN');
+        }
+    },
+    {
+        key: 'maxDebt',
+        label: 'Hạn mức công nợ',
+        required: false,
+        type: 'number',
+        exportGroup: 'Thanh toán & Giá',
+        example: '50000000',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        },
+        exportTransform: (value)=>{
+            if (!value) return '';
+            return Number(value).toLocaleString('vi-VN');
+        }
+    },
+    {
+        key: 'allowCredit',
+        label: 'Cho phép công nợ',
+        required: false,
+        type: 'boolean',
+        exportGroup: 'Thanh toán & Giá',
+        example: 'Có',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).toLowerCase();
+            return str === 'có' || str === 'yes' || str === 'true' || str === '1';
+        },
+        exportTransform: (value)=>value ? 'Có' : 'Không'
+    },
+    {
+        key: 'pricingLevel',
+        label: 'Bảng giá áp dụng',
+        required: false,
+        type: 'enum',
+        enumValues: [
+            'Retail',
+            'Wholesale',
+            'VIP',
+            'Partner'
+        ],
+        enumLabels: {
+            'Retail': 'Bán lẻ',
+            'Wholesale': 'Bán sỉ',
+            'VIP': 'VIP',
+            'Partner': 'Đối tác'
+        },
+        exportGroup: 'Thanh toán & Giá',
+        example: 'Retail'
+    },
+    {
+        key: 'defaultDiscount',
+        label: 'Chiết khấu mặc định (%)',
+        required: false,
+        type: 'number',
+        exportGroup: 'Thanh toán & Giá',
+        example: '5',
+        validator: (value)=>{
+            if (!value) return null;
+            const num = Number(value);
+            if (num < 0 || num > 100) {
+                return 'Chiết khấu phải từ 0 đến 100%';
+            }
+            return null;
+        }
+    },
+    // ===== PHÂN LOẠI & QUẢN LÝ =====
+    {
+        key: 'accountManagerName',
+        label: 'Nhân viên phụ trách',
+        required: false,
+        type: 'string',
+        exportGroup: 'Phân loại & Quản lý',
+        example: 'Nguyễn Văn B'
+    },
+    {
+        key: 'campaign',
+        label: 'Chiến dịch',
+        required: false,
+        type: 'string',
+        exportGroup: 'Phân loại & Quản lý',
+        example: 'Summer Sale 2024'
+    },
+    {
+        key: 'tags',
+        label: 'Thẻ (Tags)',
+        required: false,
+        type: 'string',
+        exportGroup: 'Phân loại & Quản lý',
+        example: 'VIP, Ưu tiên',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            return String(value).split(',').map((s)=>s.trim()).filter(Boolean);
+        },
+        exportTransform: (value)=>{
+            if (!value || !Array.isArray(value)) return '';
+            return value.join(', ');
+        }
+    },
+    // ===== SOCIAL MEDIA =====
+    {
+        key: 'zaloPhone',
+        label: 'Zalo',
+        required: false,
+        type: 'phone',
+        exportGroup: 'Social Media',
+        example: '0901234567'
+    },
+    // ===== HỆ THỐNG (hidden) =====
+    {
+        key: 'systemId',
+        label: 'System ID',
+        required: false,
+        type: 'string',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    },
+    {
+        key: 'createdAt',
+        label: 'Ngày tạo',
+        required: false,
+        type: 'date',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    },
+    {
+        key: 'updatedAt',
+        label: 'Ngày cập nhật',
+        required: false,
+        type: 'date',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    }
+];
+const customerImportExportConfig = {
+    entityType: 'customers',
+    entityDisplayName: 'Khách hàng',
+    fields: customerFields,
+    upsertKey: 'id',
+    templateFileName: 'mau-import-khach-hang.xlsx',
+    requireBranch: false,
+    // Pre-transform raw row (normalize column names)
+    preTransformRawRow: (rawRow)=>{
+        const normalized = {};
+        // Map từ label tiếng Việt sang key
+        const labelToKey = {};
+        customerFields.forEach((field)=>{
+            labelToKey[field.label.toLowerCase()] = field.key;
+            // Also map without (*) marker
+            const labelWithoutStar = field.label.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
+            labelToKey[labelWithoutStar] = field.key;
+        });
+        Object.entries(rawRow).forEach(([key, value])=>{
+            // Normalize Excel header: strip (*) marker and lowercase
+            const normalizedExcelHeader = key.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
+            const normalizedKey = labelToKey[normalizedExcelHeader] || labelToKey[key.toLowerCase()] || key;
+            normalized[normalizedKey] = value;
+        });
+        return normalized;
+    },
+    // Post-transform row (set defaults, enrich data)
+    postTransformRow: (row)=>{
+        return {
+            ...row,
+            status: row.status || 'Đang giao dịch',
+            pricingLevel: row.pricingLevel || 'Retail',
+            currentDebt: row.currentDebt ?? 0,
+            defaultDiscount: row.defaultDiscount ?? 0,
+            tags: row.tags || []
+        };
+    },
+    // Validate row level (check duplicate taxCode)
+    // Skip duplicate check in upsert/update mode since we're updating existing records
+    validateRow: (row, _index, existingData, mode)=>{
+        const errors = [];
+        // Check unique taxCode - only in insert-only mode
+        // In upsert/update mode, duplicate is expected and allowed
+        if (row.taxCode && mode === 'insert-only') {
+            const duplicate = existingData.find((c)=>c.taxCode === row.taxCode && c.id !== row.id);
+            if (duplicate) {
+                errors.push({
+                    field: 'taxCode',
+                    message: `Mã số thuế đã được sử dụng bởi ${duplicate.name} (${duplicate.id})`
+                });
+            }
+        }
+        return errors;
+    }
+};
+const __TURBOPACK__default__export__ = customerImportExportConfig;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/product.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "default",
+    ()=>__TURBOPACK__default__export__,
+    "productFields",
+    ()=>productFields,
+    "productImportExportConfig",
+    ()=>productImportExportConfig
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$pricing$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/pricing/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$inventory$2f$product$2d$type$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/inventory/product-type-store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/id-types.ts [app-client] (ecmascript)");
+;
+;
+;
+/**
+ * Product Import/Export Configuration
+ * Theo chuẩn ImportExportConfig để dùng với GenericImportDialogV2 và GenericExportDialogV2
+ */ // Helper: Get all pricing policies
+const getAllPricingPolicies = ()=>{
+    return __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$pricing$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePricingPolicyStore"].getState().data;
+};
+// ===== PRODUCT TYPE HELPERS =====
+// Helper: Get all active product types from settings
+const getAllProductTypes = ()=>{
+    return __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$inventory$2f$product$2d$type$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProductTypeStore"].getState().getActive();
+};
+// Helper: Get ProductType systemId from name (tên loại sản phẩm)
+const getProductTypeSystemIdByName = (name)=>{
+    if (!name) return null;
+    const productTypes = getAllProductTypes();
+    const normalizedName = name.toLowerCase().trim();
+    // Tìm theo tên chính xác (case-insensitive)
+    const productType = productTypes.find((pt)=>pt.name.toLowerCase() === normalizedName || pt.id.toLowerCase() === normalizedName);
+    return productType?.systemId || null;
+};
+// Helper: Get ProductType name from systemId
+const getProductTypeNameById = (systemId)=>{
+    if (!systemId) return '';
+    const productTypes = getAllProductTypes();
+    const productType = productTypes.find((pt)=>pt.systemId === systemId);
+    return productType?.name || '';
+};
+// Helper: Get default ProductType systemId
+const getDefaultProductTypeSystemId = ()=>{
+    const productTypes = getAllProductTypes();
+    const defaultType = productTypes.find((pt)=>pt.isDefault);
+    return defaultType?.systemId || productTypes[0]?.systemId || null;
+};
+// Helper: Map enum type ('physical', 'service', 'digital') to ProductType systemId
+// Fallback khi user import bằng type cũ
+const getProductTypeSystemIdByEnumType = (enumType)=>{
+    if (!enumType) return getDefaultProductTypeSystemId();
+    const productTypes = getAllProductTypes();
+    const normalizedType = String(enumType).toLowerCase().trim();
+    // Map từ enum type sang tên tiếng Việt để tìm ProductType
+    const typeNameMapping = {
+        'physical': [
+            'hàng hóa',
+            'hang hoa',
+            'physical',
+            'hàng hoá'
+        ],
+        'service': [
+            'dịch vụ',
+            'dich vu',
+            'service'
+        ],
+        'digital': [
+            'digital',
+            'sản phẩm số',
+            'san pham so',
+            'kỹ thuật số',
+            'ky thuat so'
+        ],
+        'combo': [
+            'combo',
+            'bộ sản phẩm',
+            'bo san pham'
+        ]
+    };
+    for (const [_enumKey, names] of Object.entries(typeNameMapping)){
+        if (names.includes(normalizedType)) {
+            // Tìm ProductType có tên match với một trong các aliases
+            const productType = productTypes.find((pt)=>names.some((name)=>pt.name.toLowerCase().includes(name) || name.includes(pt.name.toLowerCase())));
+            if (productType) return productType.systemId;
+        }
+    }
+    // Fallback: tìm trực tiếp theo tên
+    const productType = productTypes.find((pt)=>pt.name.toLowerCase().includes(normalizedType) || normalizedType.includes(pt.name.toLowerCase()));
+    return productType?.systemId || getDefaultProductTypeSystemId();
+};
+// ===== PRICING POLICY HELPERS =====
+// Helper: Get pricing policy systemId from code (id) OR name
+// Hỗ trợ nhiều format cột giá trong Excel:
+// - "Giá: Giá bán lẻ" hoặc "Giá: BANLE" (có prefix "Giá:")
+// - "Giá bán lẻ" hoặc "BANLE" (không có prefix)
+const getPricingPolicySystemId = (columnName)=>{
+    const policies = getAllPricingPolicies();
+    // Normalize: bỏ prefix "Giá:" hoặc "Gia:" nếu có
+    let normalizedName = columnName.trim();
+    const pricePrefix = /^(giá|gia)\s*:\s*/i;
+    if (pricePrefix.test(normalizedName)) {
+        normalizedName = normalizedName.replace(pricePrefix, '').trim();
+    }
+    const upperName = normalizedName.toUpperCase();
+    // Tìm theo id (mã bảng giá) trước
+    const policyById = policies.find((p)=>p.id.toUpperCase() === upperName);
+    if (policyById) return policyById.systemId;
+    // Tìm theo name (tên bảng giá)
+    const policyByName = policies.find((p)=>p.name.toUpperCase() === upperName);
+    if (policyByName) return policyByName.systemId;
+    // Tìm theo name chứa (partial match)
+    const policyByPartialName = policies.find((p)=>p.name.toUpperCase().includes(upperName) || upperName.includes(p.name.toUpperCase()));
+    if (policyByPartialName) return policyByPartialName.systemId;
+    return null;
+};
+// Helper: Get pricing policy code (id) from systemId  
+const getPricingPolicyCode = (systemId)=>{
+    const policies = getAllPricingPolicies();
+    const policy = policies.find((p)=>p.systemId === systemId);
+    return policy?.id || systemId;
+};
+// Helper: Get pricing policy name from systemId  
+const getPricingPolicyName = (systemId)=>{
+    const policies = getAllPricingPolicies();
+    const policy = policies.find((p)=>p.systemId === systemId);
+    return policy?.name || systemId;
+};
+// Helper: Check if a column name matches a pricing policy (by id or name)
+const isPricingPolicyColumn = (columnName)=>{
+    return getPricingPolicySystemId(columnName) !== null;
+};
+const productFields = [
+    // ===== THÔNG TIN CƠ BẢN =====
+    {
+        key: 'id',
+        label: 'Mã sản phẩm',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'SP000001'
+    },
+    {
+        key: 'name',
+        label: 'Tên sản phẩm (*)',
+        required: true,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Áo sơ mi nam'
+    },
+    {
+        key: 'sku',
+        label: 'SKU',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'ASM-001'
+    },
+    {
+        key: 'barcode',
+        label: 'Mã vạch',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: '8934567890123'
+    },
+    {
+        key: 'type',
+        label: 'Loại SP (Hệ thống)',
+        required: false,
+        type: 'enum',
+        enumValues: [
+            'physical',
+            'service',
+            'digital'
+        ],
+        enumLabels: {
+            'physical': 'Hàng hóa',
+            'service': 'Dịch vụ',
+            'digital': 'Sản phẩm số'
+        },
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Hàng hóa',
+        defaultValue: 'physical',
+        hidden: true,
+        importTransform: (value)=>{
+            if (!value) return 'physical';
+            const str = String(value).toLowerCase().trim();
+            // Map tiếng Việt sang English
+            if (str === 'hàng hóa' || str === 'hang hoa' || str === 'physical' || str === 'hàng hoá') return 'physical';
+            if (str === 'dịch vụ' || str === 'dich vu' || str === 'service') return 'service';
+            if (str === 'sản phẩm số' || str === 'san pham so' || str === 'kỹ thuật số' || str === 'digital' || str === 'ky thuat so') return 'digital';
+            if (str === 'combo' || str === 'bộ sản phẩm' || str === 'bo san pham') return 'combo';
+            return 'physical';
+        },
+        validator: (value)=>{
+            if (value === 'combo') {
+                return 'Không hỗ trợ import sản phẩm Combo. Vui lòng tạo Combo trực tiếp trong hệ thống.';
+            }
+            return null;
+        }
+    },
+    // NEW: Loại sản phẩm từ Settings (ProductType) - Khuyến khích dùng thay cho field "type" cũ
+    {
+        key: 'productTypeSystemId',
+        label: 'Loại sản phẩm',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Hàng hóa',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).trim();
+            if (!str) return undefined;
+            // Trước tiên thử tìm theo tên/id trong ProductType settings
+            const systemId = getProductTypeSystemIdByName(str);
+            if (systemId) return systemId;
+            // Fallback: map từ enum type cũ
+            const enumSystemId = getProductTypeSystemIdByEnumType(str);
+            return enumSystemId || undefined;
+        },
+        exportTransform: (value)=>{
+            // Export ra tên loại SP thay vì systemId
+            return getProductTypeNameById(value);
+        },
+        validator: (value)=>{
+            if (!value) return null; // Optional field
+            const str = String(value).trim();
+            if (!str) return null;
+            // Validate: tên loại SP phải tồn tại trong settings
+            const systemId = getProductTypeSystemIdByName(str);
+            if (!systemId) {
+                // Fallback check enum type
+                const enumSystemId = getProductTypeSystemIdByEnumType(str);
+                if (!enumSystemId) {
+                    return `Loại sản phẩm "${str}" không tồn tại trong hệ thống. Vui lòng kiểm tra danh sách loại SP trong Cài đặt > Kho hàng.`;
+                }
+            }
+            return null;
+        }
+    },
+    {
+        key: 'status',
+        label: 'Trạng thái',
+        required: false,
+        type: 'enum',
+        enumValues: [
+            'active',
+            'inactive',
+            'discontinued'
+        ],
+        enumLabels: {
+            'active': 'Đang kinh doanh',
+            'inactive': 'Ngừng kinh doanh',
+            'discontinued': 'Ngừng nhập'
+        },
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Đang kinh doanh',
+        defaultValue: 'active',
+        importTransform: (value)=>{
+            if (!value) return 'active';
+            const str = String(value).toLowerCase().trim();
+            // Map tiếng Việt sang English
+            if (str === 'đang kinh doanh' || str === 'dang kinh doanh' || str === 'active') return 'active';
+            if (str === 'ngừng kinh doanh' || str === 'ngung kinh doanh' || str === 'inactive') return 'inactive';
+            if (str === 'ngừng nhập' || str === 'ngung nhap' || str === 'discontinued') return 'discontinued';
+            return 'active';
+        }
+    },
+    {
+        key: 'unit',
+        label: 'Đơn vị tính',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Cái',
+        defaultValue: 'Cái'
+    },
+    {
+        key: 'categories',
+        label: 'Danh mục',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Thời trang > Áo nam; Sale > Hot deal',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).trim();
+            if (!str) return undefined;
+            // Split by semicolon to get multiple categories, each category can have multi-level with >
+            return str.split(';').map((s)=>s.trim()).filter(Boolean);
+        },
+        exportTransform: (value)=>{
+            const categories = value;
+            return categories?.join('; ') || '';
+        }
+    },
+    // Legacy single category field (backward compatibility)
+    {
+        key: 'category',
+        label: 'Danh mục (cũ)',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        hidden: true,
+        example: 'Thời trang > Áo nam > Áo sơ mi'
+    },
+    {
+        key: 'description',
+        label: 'Mô tả',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Áo sơ mi nam cao cấp'
+    },
+    {
+        key: 'shortDescription',
+        label: 'Mô tả ngắn',
+        required: false,
+        type: 'string',
+        exportGroup: 'Thông tin cơ bản',
+        example: 'Áo sơ mi nam'
+    },
+    // ===== HÌNH ẢNH =====
+    // NOTE: Hình ảnh được upload lên server trước, sau đó import đường dẫn
+    // Format: /products/{ma_sp}/{ten_file}.jpg hoặc URL đầy đủ
+    {
+        key: 'thumbnailImage',
+        label: 'Ảnh đại diện',
+        required: false,
+        type: 'string',
+        exportGroup: 'Hình ảnh',
+        example: '/products/SP001/main.jpg',
+        validator: (value)=>{
+            if (!value) return null; // Optional
+            const str = String(value).trim();
+            // Cho phép: /path/to/file.ext hoặc http(s)://...
+            if (!str.startsWith('/') && !str.startsWith('http')) {
+                return 'Đường dẫn ảnh phải bắt đầu bằng / hoặc http(s)://';
+            }
+            // Check extension
+            const validExts = [
+                '.jpg',
+                '.jpeg',
+                '.png',
+                '.gif',
+                '.webp',
+                '.svg'
+            ];
+            const hasValidExt = validExts.some((ext)=>str.toLowerCase().endsWith(ext));
+            if (!hasValidExt && !str.includes('?')) {
+                return 'Định dạng ảnh không hợp lệ (jpg, png, gif, webp, svg)';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'galleryImages',
+        label: 'Ảnh bộ sưu tập',
+        required: false,
+        type: 'string',
+        exportGroup: 'Hình ảnh',
+        example: '/products/SP001/1.jpg, /products/SP001/2.jpg',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).trim();
+            if (!str) return undefined;
+            return str.split(/[,;|]/).map((s)=>s.trim()).filter(Boolean);
+        },
+        exportTransform: (value)=>{
+            const images = value;
+            return images?.join(', ') || '';
+        },
+        validator: (value)=>{
+            if (!value) return null;
+            const str = String(value).trim();
+            if (!str) return null;
+            const paths = str.split(/[,;|]/).map((s)=>s.trim()).filter(Boolean);
+            const validExts = [
+                '.jpg',
+                '.jpeg',
+                '.png',
+                '.gif',
+                '.webp',
+                '.svg'
+            ];
+            for (const path of paths){
+                if (!path.startsWith('/') && !path.startsWith('http')) {
+                    return `Đường dẫn "${path}" phải bắt đầu bằng / hoặc http(s)://`;
+                }
+                const hasValidExt = validExts.some((ext)=>path.toLowerCase().endsWith(ext));
+                if (!hasValidExt && !path.includes('?')) {
+                    return `Đường dẫn "${path}" có định dạng ảnh không hợp lệ`;
+                }
+            }
+            return null;
+        }
+    },
+    // ===== VIDEO LINKS =====
+    {
+        key: 'videoLinks',
+        label: 'Video link',
+        required: false,
+        type: 'string',
+        exportGroup: 'Media',
+        example: 'https://youtube.com/watch?v=xxx; https://drive.google.com/file/xxx',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).trim();
+            if (!str) return undefined;
+            return str.split(/[,;|]/).map((s)=>s.trim()).filter(Boolean);
+        },
+        exportTransform: (value)=>{
+            const links = value;
+            return links?.join('; ') || '';
+        },
+        validator: (value)=>{
+            if (!value) return null;
+            const str = String(value).trim();
+            if (!str) return null;
+            const links = str.split(/[,;|]/).map((s)=>s.trim()).filter(Boolean);
+            for (const link of links){
+                if (!link.startsWith('http')) {
+                    return `Link "${link}" phải bắt đầu bằng http:// hoặc https://`;
+                }
+                // Kiểm tra domain hợp lệ (YouTube, TikTok, Drive, Vimeo, etc.)
+                const validDomains = [
+                    'youtube.com',
+                    'youtu.be',
+                    'tiktok.com',
+                    'drive.google.com',
+                    'vimeo.com',
+                    'facebook.com',
+                    'fb.watch'
+                ];
+                const isValidDomain = validDomains.some((domain)=>link.includes(domain));
+                if (!isValidDomain) {
+                    // Cho phép các domain khác nhưng cảnh báo
+                    console.warn(`Link "${link}" không thuộc các nền tảng video phổ biến`);
+                }
+            }
+            return null;
+        }
+    },
+    // ===== GIÁ =====
+    {
+        key: 'costPrice',
+        label: 'Giá vốn',
+        required: false,
+        type: 'number',
+        exportGroup: 'Giá',
+        example: '150000',
+        importTransform: (value)=>{
+            if (!value) return 0;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? 0 : num;
+        }
+    },
+    {
+        key: 'sellingPrice',
+        label: 'Giá bán',
+        required: false,
+        type: 'number',
+        exportGroup: 'Giá',
+        example: '250000',
+        importTransform: (value)=>{
+            if (!value) return 0;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? 0 : num;
+        }
+    },
+    {
+        key: 'minPrice',
+        label: 'Giá tối thiểu',
+        required: false,
+        type: 'number',
+        exportGroup: 'Giá',
+        example: '200000',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    {
+        key: 'taxRate',
+        label: 'Thuế suất (%)',
+        required: false,
+        type: 'number',
+        exportGroup: 'Giá',
+        example: '10',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[%\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    // NOTE: Giá theo bảng giá (prices) được xử lý động trong preTransformRawRow
+    // User tạo cột với tên = mã bảng giá (VD: PL_10, BANLE, VIP...)
+    // Hệ thống tự detect và gom vào field prices
+    // ===== TỒN KHO =====
+    // NOTE: initialStock chỉ áp dụng khi TẠO MỚI sản phẩm (mode insert-only)
+    // Tồn kho sau đó được quản lý qua phiếu nhập/xuất/kiểm kê
+    {
+        key: 'initialStock',
+        label: 'Tồn kho ban đầu',
+        required: false,
+        type: 'number',
+        exportGroup: 'Tồn kho',
+        example: '100',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) || num < 0 ? undefined : num;
+        }
+    },
+    {
+        key: 'isStockTracked',
+        label: 'Theo dõi tồn kho',
+        required: false,
+        type: 'boolean',
+        exportGroup: 'Tồn kho',
+        example: 'Có',
+        defaultValue: true,
+        importTransform: (value)=>{
+            if (!value) return true;
+            const str = String(value).toLowerCase();
+            return str === 'có' || str === 'yes' || str === 'true' || str === '1';
+        }
+    },
+    {
+        key: 'reorderLevel',
+        label: 'Mức đặt hàng lại',
+        required: false,
+        type: 'number',
+        exportGroup: 'Tồn kho',
+        example: '10',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    {
+        key: 'safetyStock',
+        label: 'Tồn kho an toàn',
+        required: false,
+        type: 'number',
+        exportGroup: 'Tồn kho',
+        example: '5',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    {
+        key: 'maxStock',
+        label: 'Tồn kho tối đa',
+        required: false,
+        type: 'number',
+        exportGroup: 'Tồn kho',
+        example: '100',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    // ===== VẬT LÝ =====
+    {
+        key: 'weight',
+        label: 'Trọng lượng',
+        required: false,
+        type: 'number',
+        exportGroup: 'Vật lý',
+        example: '200',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    {
+        key: 'weightUnit',
+        label: 'Đơn vị trọng lượng',
+        required: false,
+        type: 'enum',
+        enumValues: [
+            'g',
+            'kg'
+        ],
+        exportGroup: 'Vật lý',
+        example: 'g',
+        defaultValue: 'g'
+    },
+    // ===== BẢO HÀNH =====
+    {
+        key: 'warrantyPeriodMonths',
+        label: 'Bảo hành (tháng)',
+        required: false,
+        type: 'number',
+        exportGroup: 'Bảo hành',
+        example: '12',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    // ===== KÍCH THƯỚC =====
+    {
+        key: 'dimensions',
+        label: 'Kích thước (DxRxC cm)',
+        required: false,
+        type: 'string',
+        exportGroup: 'Vật lý',
+        example: '30x20x10',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).trim();
+            const match = str.match(/^(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)$/);
+            if (match) {
+                return {
+                    length: parseFloat(match[1]),
+                    width: parseFloat(match[2]),
+                    height: parseFloat(match[3])
+                };
+            }
+            return undefined;
+        },
+        exportTransform: (value)=>{
+            const dims = value;
+            if (dims && typeof dims === 'object' && 'length' in dims) {
+                return `${dims.length || 0}x${dims.width || 0}x${dims.height || 0}`;
+            }
+            return '';
+        }
+    },
+    // ===== THÔNG TIN MỞ RỘNG =====
+    {
+        key: 'ktitle',
+        label: 'Tiêu đề SEO',
+        required: false,
+        type: 'string',
+        exportGroup: 'Mô tả',
+        example: 'Áo sơ mi nam cao cấp | Thời trang ABC'
+    },
+    {
+        key: 'seoDescription',
+        label: 'Mô tả SEO',
+        required: false,
+        type: 'string',
+        exportGroup: 'Mô tả',
+        example: 'Áo sơ mi nam chất liệu cotton cao cấp...'
+    },
+    {
+        key: 'subCategories',
+        label: 'Danh mục phụ',
+        required: false,
+        type: 'string',
+        exportGroup: 'Phân loại',
+        example: 'Slim fit > Form ôm; Cotton > Cao cấp',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).trim();
+            if (!str) return undefined;
+            // Split by semicolon to get multiple sub-categories
+            return str.split(';').map((s)=>s.trim()).filter(Boolean);
+        },
+        exportTransform: (value)=>{
+            const subCategories = value;
+            return subCategories?.join('; ') || '';
+        }
+    },
+    // Legacy single subCategory field (backward compatibility)
+    {
+        key: 'subCategory',
+        label: 'Danh mục phụ (cũ)',
+        required: false,
+        type: 'string',
+        exportGroup: 'Phân loại',
+        hidden: true,
+        example: 'Áo sơ mi > Dài tay > Slim fit'
+    },
+    {
+        key: 'tags',
+        label: 'Tags',
+        required: false,
+        type: 'string',
+        exportGroup: 'Phân loại',
+        example: 'nam,công sở,cotton',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const str = String(value).trim();
+            return str.split(/[,;]/).map((s)=>s.trim()).filter(Boolean);
+        },
+        exportTransform: (value)=>{
+            const tags = value;
+            return tags?.join(', ') || '';
+        }
+    },
+    {
+        key: 'pkgxId',
+        label: 'ID PKGX',
+        required: false,
+        type: 'number',
+        exportGroup: 'Thông tin cơ bản',
+        example: '12345',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) || num <= 0 ? undefined : num;
+        }
+    },
+    {
+        key: 'trendtechId',
+        label: 'ID Trendtech',
+        required: false,
+        type: 'number',
+        exportGroup: 'Thông tin cơ bản',
+        example: '67890',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) || num <= 0 ? undefined : num;
+        }
+    },
+    {
+        key: 'warehouseLocation',
+        label: 'Vị trí kho',
+        required: false,
+        type: 'string',
+        exportGroup: 'Tồn kho',
+        example: 'A1-01'
+    },
+    // ===== GIÁ BỔ SUNG =====
+    {
+        key: 'lastPurchasePrice',
+        label: 'Giá nhập gần nhất',
+        required: false,
+        type: 'number',
+        exportGroup: 'Giá',
+        example: '140000',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    // ===== THÔNG TIN TEM =====
+    {
+        key: 'nameVat',
+        label: 'Tên VAT',
+        required: false,
+        type: 'string',
+        exportGroup: 'Tem phụ',
+        example: 'Áo sơ mi nam cotton'
+    },
+    {
+        key: 'origin',
+        label: 'Xuất xứ',
+        required: false,
+        type: 'string',
+        exportGroup: 'Tem phụ',
+        example: 'Việt Nam'
+    },
+    {
+        key: 'usageGuide',
+        label: 'Hướng dẫn sử dụng',
+        required: false,
+        type: 'string',
+        exportGroup: 'Tem phụ',
+        example: 'Giặt máy ở nhiệt độ thấp'
+    },
+    {
+        key: 'importerName',
+        label: 'Đơn vị nhập khẩu',
+        required: false,
+        type: 'string',
+        exportGroup: 'Tem phụ',
+        example: 'Công ty TNHH ABC'
+    },
+    {
+        key: 'importerAddress',
+        label: 'Địa chỉ nhập khẩu',
+        required: false,
+        type: 'string',
+        exportGroup: 'Tem phụ',
+        example: '123 Nguyễn Văn A, Q.1, TP.HCM'
+    },
+    // ===== E-COMMERCE (bán hàng website) =====
+    // Slug chung (legacy - không khuyến khích dùng nữa)
+    {
+        key: 'slug',
+        label: 'Slug (URL)',
+        required: false,
+        type: 'string',
+        exportGroup: 'E-commerce',
+        hidden: true,
+        example: 'ao-so-mi-nam-trang-oxford',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            // Convert to URL-friendly slug
+            return String(value).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+            .replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        }
+    },
+    // Slug riêng cho PKGX website
+    {
+        key: 'pkgxSlug',
+        label: 'Slug PKGX',
+        required: false,
+        type: 'string',
+        exportGroup: 'E-commerce PKGX',
+        example: 'ao-so-mi-nam-trang-oxford',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            // Convert to URL-friendly slug
+            return String(value).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+            .replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        }
+    },
+    // Slug riêng cho Trendtech website
+    {
+        key: 'trendtechSlug',
+        label: 'Slug Trendtech',
+        required: false,
+        type: 'string',
+        exportGroup: 'E-commerce Trendtech',
+        example: 'ao-so-mi-nam-trang-oxford',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            // Convert to URL-friendly slug
+            return String(value).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+            .replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        }
+    },
+    {
+        key: 'isPublished',
+        label: 'Đăng web',
+        required: false,
+        type: 'boolean',
+        exportGroup: 'E-commerce',
+        example: 'Có',
+        defaultValue: false,
+        importTransform: (value)=>{
+            if (value === undefined || value === null || value === '') return false;
+            const str = String(value).toLowerCase().trim();
+            return str === 'có' || str === 'yes' || str === '1' || str === 'true' || str === 'x';
+        },
+        exportTransform: (value)=>value ? 'Có' : 'Không'
+    },
+    {
+        key: 'isFeatured',
+        label: 'Nổi bật',
+        required: false,
+        type: 'boolean',
+        exportGroup: 'E-commerce',
+        example: 'Có',
+        defaultValue: false,
+        importTransform: (value)=>{
+            if (value === undefined || value === null || value === '') return false;
+            const str = String(value).toLowerCase().trim();
+            return str === 'có' || str === 'yes' || str === '1' || str === 'true' || str === 'x';
+        },
+        exportTransform: (value)=>value ? 'Có' : 'Không'
+    },
+    {
+        key: 'isNewArrival',
+        label: 'Mới về',
+        required: false,
+        type: 'boolean',
+        exportGroup: 'E-commerce',
+        example: 'Có',
+        defaultValue: false,
+        importTransform: (value)=>{
+            if (value === undefined || value === null || value === '') return false;
+            const str = String(value).toLowerCase().trim();
+            return str === 'có' || str === 'yes' || str === '1' || str === 'true' || str === 'x';
+        },
+        exportTransform: (value)=>value ? 'Có' : 'Không'
+    },
+    {
+        key: 'isBestSeller',
+        label: 'Bán chạy',
+        required: false,
+        type: 'boolean',
+        exportGroup: 'E-commerce',
+        example: 'Có',
+        defaultValue: false,
+        importTransform: (value)=>{
+            if (value === undefined || value === null || value === '') return false;
+            const str = String(value).toLowerCase().trim();
+            return str === 'có' || str === 'yes' || str === '1' || str === 'true' || str === 'x';
+        },
+        exportTransform: (value)=>value ? 'Có' : 'Không'
+    },
+    {
+        key: 'isOnSale',
+        label: 'Đang giảm giá',
+        required: false,
+        type: 'boolean',
+        exportGroup: 'E-commerce',
+        example: 'Có',
+        defaultValue: false,
+        importTransform: (value)=>{
+            if (value === undefined || value === null || value === '') return false;
+            const str = String(value).toLowerCase().trim();
+            return str === 'có' || str === 'yes' || str === '1' || str === 'true' || str === 'x';
+        },
+        exportTransform: (value)=>value ? 'Có' : 'Không'
+    },
+    {
+        key: 'sortOrder',
+        label: 'Thứ tự hiển thị',
+        required: false,
+        type: 'number',
+        exportGroup: 'E-commerce',
+        example: '1',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    {
+        key: 'publishedAt',
+        label: 'Ngày đăng web',
+        required: false,
+        type: 'date',
+        exportGroup: 'E-commerce',
+        example: '2024-01-15'
+    },
+    // ===== PHÂN TÍCH BÁN HÀNG =====
+    {
+        key: 'totalSold',
+        label: 'Tổng đã bán',
+        required: false,
+        type: 'number',
+        exportGroup: 'Phân tích',
+        hidden: true,
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    {
+        key: 'totalRevenue',
+        label: 'Tổng doanh thu',
+        required: false,
+        type: 'number',
+        exportGroup: 'Phân tích',
+        hidden: true,
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    {
+        key: 'lastSoldDate',
+        label: 'Ngày bán gần nhất',
+        required: false,
+        type: 'date',
+        exportGroup: 'Phân tích',
+        hidden: true
+    },
+    {
+        key: 'viewCount',
+        label: 'Lượt xem',
+        required: false,
+        type: 'number',
+        exportGroup: 'Phân tích',
+        hidden: true,
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const num = Number(String(value).replace(/[,.\s]/g, ''));
+            return isNaN(num) ? undefined : num;
+        }
+    },
+    // ===== VÒNG ĐỜI SẢN PHẨM =====
+    {
+        key: 'launchedDate',
+        label: 'Ngày ra mắt',
+        required: false,
+        type: 'date',
+        exportGroup: 'Vòng đời',
+        example: '2024-01-15'
+    },
+    {
+        key: 'lastPurchaseDate',
+        label: 'Ngày nhập gần nhất',
+        required: false,
+        type: 'date',
+        exportGroup: 'Vòng đời',
+        hidden: true
+    },
+    {
+        key: 'discontinuedDate',
+        label: 'Ngày ngừng kinh doanh',
+        required: false,
+        type: 'date',
+        exportGroup: 'Vòng đời',
+        example: '2025-12-31'
+    },
+    // ===== HỆ THỐNG (hidden) =====
+    {
+        key: 'systemId',
+        label: 'System ID',
+        required: false,
+        type: 'string',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    },
+    {
+        key: 'createdAt',
+        label: 'Ngày tạo',
+        required: false,
+        type: 'date',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    },
+    {
+        key: 'updatedAt',
+        label: 'Ngày cập nhật',
+        required: false,
+        type: 'date',
+        exportGroup: 'Hệ thống',
+        hidden: true
+    }
+];
+const productImportExportConfig = {
+    entityType: 'products',
+    entityDisplayName: 'Sản phẩm',
+    fields: productFields,
+    upsertKey: 'id',
+    templateFileName: 'mau-import-san-pham.xlsx',
+    requireBranch: true,
+    // Pre-transform raw row (normalize column names + detect pricing columns)
+    preTransformRawRow: (rawRow)=>{
+        const normalized = {};
+        const prices = {};
+        // Map từ label tiếng Việt sang key
+        const labelToKey = {};
+        productFields.forEach((field)=>{
+            labelToKey[field.label.toLowerCase()] = field.key;
+            // Also map without (*) marker
+            const labelWithoutStar = field.label.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
+            labelToKey[labelWithoutStar] = field.key;
+        });
+        Object.entries(rawRow).forEach(([key, value])=>{
+            // Normalize Excel header: strip (*) marker and lowercase
+            const normalizedExcelHeader = key.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
+            // Check if this column is a pricing policy code (e.g., PL_10, BANLE, VIP)
+            const policySystemId = getPricingPolicySystemId(key);
+            if (policySystemId && value !== undefined && value !== null && value !== '') {
+                // This is a pricing column - parse price value
+                const priceValue = Number(String(value).replace(/[,.\s]/g, ''));
+                if (!isNaN(priceValue) && priceValue > 0) {
+                    prices[policySystemId] = priceValue;
+                }
+            } else {
+                // Normal field - map to key
+                const normalizedKey = labelToKey[normalizedExcelHeader] || labelToKey[key.toLowerCase()] || key;
+                normalized[normalizedKey] = value;
+            }
+        });
+        // Add prices if any pricing columns were found
+        if (Object.keys(prices).length > 0) {
+            normalized.prices = prices;
+        }
+        return normalized;
+    },
+    // Post-transform row (set defaults, enrich data)
+    // NOTE: branchSystemId được truyền từ import dialog để xử lý tồn kho ban đầu
+    postTransformRow: (row, _index, branchSystemId)=>{
+        // Xử lý tồn kho ban đầu - chỉ áp dụng khi có initialStock và branchSystemId
+        let inventoryByBranch = row.inventoryByBranch || {};
+        const initialStock = row.initialStock;
+        if (initialStock !== undefined && initialStock > 0 && branchSystemId) {
+            inventoryByBranch = {
+                ...inventoryByBranch,
+                [branchSystemId]: initialStock
+            };
+        }
+        // Remove initialStock from final data (không lưu vào Product)
+        const { initialStock: _removed, ...cleanRow } = row;
+        // Auto-set productTypeSystemId nếu chưa có
+        // Ưu tiên: productTypeSystemId > type enum mapping > default
+        let productTypeSystemIdStr = cleanRow.productTypeSystemId;
+        if (!productTypeSystemIdStr && cleanRow.type) {
+            // Map từ type enum sang productTypeSystemId
+            productTypeSystemIdStr = getProductTypeSystemIdByEnumType(cleanRow.type) || undefined;
+        }
+        if (!productTypeSystemIdStr) {
+            // Fallback: lấy default ProductType
+            productTypeSystemIdStr = getDefaultProductTypeSystemId() || undefined;
+        }
+        // Cast to SystemId if we have a value
+        const productTypeSystemId = productTypeSystemIdStr ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(productTypeSystemIdStr) : undefined;
+        return {
+            ...cleanRow,
+            type: cleanRow.type || 'physical',
+            productTypeSystemId,
+            status: cleanRow.status || 'active',
+            unit: cleanRow.unit || 'Cái',
+            costPrice: cleanRow.costPrice ?? 0,
+            sellingPrice: cleanRow.sellingPrice ?? 0,
+            isStockTracked: cleanRow.isStockTracked ?? true,
+            prices: cleanRow.prices || {},
+            inventoryByBranch,
+            committedByBranch: cleanRow.committedByBranch || {},
+            inTransitByBranch: cleanRow.inTransitByBranch || {}
+        };
+    },
+    // Validate row level (check duplicate SKU/barcode + warnings)
+    validateRow: (row, _index, existingData, mode)=>{
+        const errors = [];
+        const rowWithInitialStock = row;
+        // Check unique SKU - only in insert-only mode
+        if (row.sku && mode === 'insert-only') {
+            const duplicate = existingData.find((p)=>p.sku === row.sku && p.id !== row.id);
+            if (duplicate) {
+                errors.push({
+                    field: 'sku',
+                    message: `SKU đã được sử dụng bởi ${duplicate.name} (${duplicate.id})`
+                });
+            }
+        }
+        // Check unique barcode - only in insert-only mode
+        if (row.barcode && mode === 'insert-only') {
+            const duplicate = existingData.find((p)=>p.barcode === row.barcode && p.id !== row.id);
+            if (duplicate) {
+                errors.push({
+                    field: 'barcode',
+                    message: `Mã vạch đã được sử dụng bởi ${duplicate.name} (${duplicate.id})`
+                });
+            }
+        }
+        // Cảnh báo: initialStock chỉ có tác dụng khi tạo mới
+        if (rowWithInitialStock.initialStock !== undefined && rowWithInitialStock.initialStock > 0) {
+            if (mode === 'update-only') {
+                errors.push({
+                    field: 'initialStock',
+                    message: 'Tồn kho ban đầu sẽ bị BỎ QUA vì đang ở chế độ Cập nhật',
+                    type: 'warning'
+                });
+            } else if (mode === 'upsert') {
+                // Check if product exists
+                const exists = existingData.find((p)=>p.id === row.id);
+                if (exists) {
+                    errors.push({
+                        field: 'initialStock',
+                        message: `SP đã tồn tại - tồn kho ban đầu sẽ BỎ QUA (giữ nguyên tồn kho hiện tại)`,
+                        type: 'warning'
+                    });
+                }
+            }
+        }
+        // Cảnh báo giá bán < giá vốn
+        if (row.costPrice && row.sellingPrice && row.costPrice > row.sellingPrice) {
+            errors.push({
+                field: 'sellingPrice',
+                message: `Giá bán (${row.sellingPrice?.toLocaleString()}) thấp hơn giá vốn (${row.costPrice?.toLocaleString()})`,
+                type: 'warning'
+            });
+        }
+        return errors;
+    }
+};
+const __TURBOPACK__default__export__ = productImportExportConfig;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/brand.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "brandFieldGroups",
+    ()=>brandFieldGroups,
+    "brandFields",
+    ()=>brandFields,
+    "brandImportExportConfig",
+    ()=>brandImportExportConfig
+]);
+const brandFields = [
+    // === Basic Info ===
+    {
+        key: 'id',
+        label: 'Mã thương hiệu (*)',
+        type: 'string',
+        required: true,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'BRAND001',
+        validator: (value)=>{
+            if (!value || String(value).trim() === '') {
+                return 'Mã thương hiệu là bắt buộc';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'name',
+        label: 'Tên thương hiệu (*)',
+        type: 'string',
+        required: true,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'Apple',
+        validator: (value)=>{
+            if (!value || String(value).trim() === '') {
+                return 'Tên thương hiệu là bắt buộc';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'description',
+        label: 'Mô tả',
+        type: 'string',
+        required: false,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'Thương hiệu công nghệ hàng đầu thế giới'
+    },
+    {
+        key: 'website',
+        label: 'Website',
+        type: 'string',
+        required: false,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'https://www.apple.com',
+        validator: (value)=>{
+            if (value && typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed && !trimmed.match(/^https?:\/\/.+/i)) {
+                    return 'Website phải bắt đầu bằng http:// hoặc https://';
+                }
+            }
+            return null;
+        }
+    },
+    {
+        key: 'logo',
+        label: 'Logo URL',
+        type: 'string',
+        required: false,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'https://example.com/logo.png'
+    },
+    // === SEO Fields ===
+    {
+        key: 'seoTitle',
+        label: 'SEO Title',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'Apple - Thương hiệu công nghệ cao cấp'
+    },
+    {
+        key: 'metaDescription',
+        label: 'Meta Description',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'Apple Inc. là tập đoàn công nghệ đa quốc gia...'
+    },
+    {
+        key: 'seoKeywords',
+        label: 'SEO Keywords',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'apple, iphone, macbook, công nghệ'
+    },
+    {
+        key: 'shortDescription',
+        label: 'Mô tả ngắn',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'Thương hiệu công nghệ hàng đầu từ Mỹ'
+    },
+    {
+        key: 'longDescription',
+        label: 'Mô tả chi tiết',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: '<p>Apple Inc. được thành lập năm 1976...</p>'
+    },
+    // === Settings ===
+    {
+        key: 'isActive',
+        label: 'Trạng thái',
+        type: 'boolean',
+        required: false,
+        exportGroup: 'Cài đặt',
+        exportable: true,
+        example: 'Hoạt động',
+        importTransform: (value)=>{
+            if (typeof value === 'boolean') return value;
+            if (typeof value === 'number') return value === 1;
+            const strValue = String(value).toLowerCase().trim();
+            return strValue === 'true' || strValue === '1' || strValue === 'hoạt động' || strValue === 'hoat dong' || strValue === 'có' || strValue === 'co' || strValue === 'yes' || strValue === 'active';
+        },
+        exportTransform: (value)=>value ? 'Hoạt động' : 'Ngừng'
+    }
+];
+const brandFieldGroups = {
+    'Thông tin cơ bản': 'Thông tin cơ bản',
+    'SEO & Mô tả': 'SEO & Mô tả',
+    'Cài đặt': 'Cài đặt'
+};
+const brandImportExportConfig = {
+    entityType: 'brands',
+    entityDisplayName: 'Thương hiệu',
+    fields: brandFields,
+    // Template file
+    templateFileName: 'Mau_Nhap_Thuong_Hieu.xlsx',
+    sheetName: 'Thương hiệu',
+    // Upsert config - dùng id làm key
+    upsertKey: 'id',
+    allowUpdate: true,
+    allowInsert: true,
+    // Max rows
+    maxRows: 500,
+    // Row-level transform after all field transforms
+    postTransformRow: (row)=>{
+        // Ensure isActive defaults to true for new brands
+        if (row.isActive === undefined) {
+            row.isActive = true;
+        }
+        return row;
+    },
+    // Validate entire row
+    validateRow: (row, _index, _existingData, _mode)=>{
+        const errors = [];
+        if (!row.id || String(row.id).trim() === '') {
+            errors.push({
+                field: 'id',
+                message: 'Mã thương hiệu là bắt buộc'
+            });
+        }
+        if (!row.name || String(row.name).trim() === '') {
+            errors.push({
+                field: 'name',
+                message: 'Tên thương hiệu là bắt buộc'
+            });
+        }
+        return errors;
+    }
+};
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/category.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "categoryFieldGroups",
+    ()=>categoryFieldGroups,
+    "categoryFields",
+    ()=>categoryFields,
+    "categoryImportExportConfig",
+    ()=>categoryImportExportConfig
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$inventory$2f$product$2d$category$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/inventory/product-category-store.ts [app-client] (ecmascript)");
+;
+/**
+ * Product Category Import/Export Configuration
+ * Theo chuẩn ImportExportConfig để dùng với GenericImportDialogV2 và GenericExportDialogV2
+ */ // ===== CATEGORY HELPERS =====
+// Helper: Get all categories for parent lookup
+const getAllCategories = ()=>{
+    return __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$inventory$2f$product$2d$category$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProductCategoryStore"].getState().data.filter((c)=>!c.isDeleted);
+};
+// Helper: Get parent category systemId from name or path
+const getParentCategorySystemId = (value)=>{
+    if (!value || String(value).trim() === '') return null;
+    const categories = getAllCategories();
+    const normalizedValue = String(value).trim().toLowerCase();
+    // Try exact match by name first
+    const byName = categories.find((c)=>c.name.toLowerCase() === normalizedValue || c.id.toLowerCase() === normalizedValue);
+    if (byName) return byName.systemId;
+    // Try match by path (e.g., "Điện tử > Máy tính")
+    const byPath = categories.find((c)=>c.path?.toLowerCase() === normalizedValue);
+    if (byPath) return byPath.systemId;
+    return null;
+};
+// Helper: Get parent category display name from systemId
+const getParentCategoryName = (systemId)=>{
+    if (!systemId) return '';
+    const categories = getAllCategories();
+    const parent = categories.find((c)=>c.systemId === systemId);
+    return parent?.name || '';
+};
+const categoryFields = [
+    // === Basic Info ===
+    {
+        key: 'id',
+        label: 'Mã danh mục (*)',
+        type: 'string',
+        required: true,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'CAT001',
+        validator: (value)=>{
+            if (!value || String(value).trim() === '') {
+                return 'Mã danh mục là bắt buộc';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'name',
+        label: 'Tên danh mục (*)',
+        type: 'string',
+        required: true,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'Điện thoại',
+        validator: (value)=>{
+            if (!value || String(value).trim() === '') {
+                return 'Tên danh mục là bắt buộc';
+            }
+            return null;
+        }
+    },
+    {
+        key: 'slug',
+        label: 'Slug',
+        type: 'string',
+        required: false,
+        exportGroup: 'Thông tin cơ bản',
+        exportable: true,
+        example: 'dien-thoai'
+    },
+    // === Hierarchy ===
+    {
+        key: 'parentId',
+        label: 'Danh mục cha',
+        type: 'string',
+        required: false,
+        exportGroup: 'Phân cấp',
+        exportable: true,
+        example: 'Điện tử',
+        importTransform: (value)=>{
+            if (!value) return undefined;
+            const systemId = getParentCategorySystemId(String(value));
+            return systemId || undefined;
+        },
+        exportTransform: (value)=>{
+            // Value is the parentId systemId
+            return getParentCategoryName(value);
+        }
+    },
+    {
+        key: 'path',
+        label: 'Đường dẫn',
+        type: 'string',
+        required: false,
+        exportGroup: 'Phân cấp',
+        exportable: true,
+        hidden: true,
+        example: 'Điện tử > Điện thoại'
+    },
+    {
+        key: 'level',
+        label: 'Cấp độ',
+        type: 'number',
+        required: false,
+        exportGroup: 'Phân cấp',
+        exportable: true,
+        hidden: true,
+        example: '1'
+    },
+    // === Display ===
+    {
+        key: 'color',
+        label: 'Màu sắc',
+        type: 'string',
+        required: false,
+        exportGroup: 'Hiển thị',
+        exportable: true,
+        example: '#3b82f6'
+    },
+    {
+        key: 'icon',
+        label: 'Icon',
+        type: 'string',
+        required: false,
+        exportGroup: 'Hiển thị',
+        exportable: true,
+        example: '📱'
+    },
+    {
+        key: 'thumbnailImage',
+        label: 'Ảnh đại diện',
+        type: 'string',
+        required: false,
+        exportGroup: 'Hiển thị',
+        exportable: true,
+        example: 'https://example.com/category.jpg'
+    },
+    {
+        key: 'sortOrder',
+        label: 'Thứ tự',
+        type: 'number',
+        required: false,
+        exportGroup: 'Hiển thị',
+        exportable: true,
+        example: '1',
+        importTransform: (value)=>{
+            if (value === undefined || value === null || value === '') return 0;
+            const num = Number(value);
+            return isNaN(num) ? 0 : num;
+        }
+    },
+    // === SEO Fields ===
+    {
+        key: 'seoTitle',
+        label: 'SEO Title',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'Điện thoại chính hãng - Giá tốt nhất'
+    },
+    {
+        key: 'metaDescription',
+        label: 'Meta Description',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'Mua điện thoại chính hãng giá tốt nhất...'
+    },
+    {
+        key: 'seoKeywords',
+        label: 'SEO Keywords',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'điện thoại, smartphone, iphone, samsung'
+    },
+    {
+        key: 'shortDescription',
+        label: 'Mô tả ngắn',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: 'Danh mục điện thoại di động các hãng'
+    },
+    {
+        key: 'longDescription',
+        label: 'Mô tả chi tiết',
+        type: 'string',
+        required: false,
+        exportGroup: 'SEO & Mô tả',
+        exportable: true,
+        example: '<p>Điện thoại di động từ các thương hiệu...</p>'
+    },
+    // === Settings ===
+    {
+        key: 'isActive',
+        label: 'Trạng thái',
+        type: 'boolean',
+        required: false,
+        exportGroup: 'Cài đặt',
+        exportable: true,
+        example: 'Hoạt động',
+        importTransform: (value)=>{
+            if (typeof value === 'boolean') return value;
+            if (typeof value === 'number') return value === 1;
+            const strValue = String(value).toLowerCase().trim();
+            return strValue === 'true' || strValue === '1' || strValue === 'hoạt động' || strValue === 'hoat dong' || strValue === 'có' || strValue === 'co' || strValue === 'yes' || strValue === 'active';
+        },
+        exportTransform: (value)=>value ? 'Hoạt động' : 'Ngừng'
+    }
+];
+const categoryFieldGroups = {
+    'Thông tin cơ bản': 'Thông tin cơ bản',
+    'Phân cấp': 'Phân cấp',
+    'Hiển thị': 'Hiển thị',
+    'SEO & Mô tả': 'SEO & Mô tả',
+    'Cài đặt': 'Cài đặt'
+};
+const categoryImportExportConfig = {
+    entityType: 'categories',
+    entityDisplayName: 'Danh mục sản phẩm',
+    fields: categoryFields,
+    // Template file
+    templateFileName: 'Mau_Nhap_Danh_Muc.xlsx',
+    sheetName: 'Danh mục',
+    // Upsert config - dùng id làm key
+    upsertKey: 'id',
+    allowUpdate: true,
+    allowInsert: true,
+    // Max rows
+    maxRows: 500,
+    // Row-level transform after all field transforms
+    postTransformRow: (row)=>{
+        // Ensure isActive defaults to true for new categories
+        if (row.isActive === undefined) {
+            row.isActive = true;
+        }
+        // Default sortOrder to 0
+        if (row.sortOrder === undefined) {
+            row.sortOrder = 0;
+        }
+        // Generate slug from name if not provided
+        if (!row.slug && row.name) {
+            row.slug = String(row.name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+            .replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+        }
+        return row;
+    },
+    // Validate entire row
+    validateRow: (row, _index, _existingData, _mode)=>{
+        const errors = [];
+        if (!row.id || String(row.id).trim() === '') {
+            errors.push({
+                field: 'id',
+                message: 'Mã danh mục là bắt buộc'
+            });
+        }
+        if (!row.name || String(row.name).trim() === '') {
+            errors.push({
+                field: 'name',
+                message: 'Tên danh mục là bắt buộc'
+            });
+        }
+        return errors;
+    }
+};
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/order.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Order Import/Export Configuration
+ * 
+ * Import đơn hàng với các đặc điểm:
+ * - Multi-line: Mỗi sản phẩm 1 dòng, các dòng cùng Mã đơn sẽ được gộp thành 1 Order
+ * - Lookup khách hàng theo Mã KH (id field)
+ * - Lookup sản phẩm theo SKU
+ * - Trạng thái mặc định: "Đặt hàng"
+ * - Lấy địa chỉ giao hàng từ khách hàng
+ * - Không import phí ship, chiết khấu
+ */ __turbopack_context__.s([
+    "flattenOrdersForExport",
+    ()=>flattenOrdersForExport,
+    "orderFieldGroups",
+    ()=>orderFieldGroups,
+    "orderFields",
+    ()=>orderFields,
+    "orderImportExportConfig",
+    ()=>orderImportExportConfig
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$customers$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/customers/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$products$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/products/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/branches/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$employees$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/employees/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/id-types.ts [app-client] (ecmascript)");
+;
+;
+;
+;
+;
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+/**
+ * Lookup khách hàng theo Mã KH (id field)
+ */ const findCustomerById = (customerId)=>{
+    if (!customerId) return undefined;
+    const customers = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$customers$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCustomerStore"].getState().data;
+    const normalizedId = String(customerId).trim().toUpperCase();
+    return customers.find((c)=>c.id.toUpperCase() === normalizedId || c.systemId.toUpperCase() === normalizedId);
+};
+/**
+ * Lookup sản phẩm theo SKU
+ */ const findProductBySku = (sku)=>{
+    if (!sku) return undefined;
+    const products = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$products$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProductStore"].getState().data;
+    const normalizedSku = String(sku).trim().toUpperCase();
+    return products.find((p)=>p.id.toUpperCase() === normalizedSku || p.sku?.toUpperCase() === normalizedSku || p.systemId.toUpperCase() === normalizedSku);
+};
+/**
+ * Lookup chi nhánh theo tên hoặc mã
+ */ const findBranch = (branchIdOrName)=>{
+    if (!branchIdOrName) return undefined;
+    const branches = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useBranchStore"].getState().data;
+    const normalized = String(branchIdOrName).trim().toLowerCase();
+    return branches.find((b)=>b.id.toLowerCase() === normalized || b.name.toLowerCase() === normalized || b.systemId.toLowerCase() === normalized);
+};
+/**
+ * Lookup nhân viên theo tên hoặc mã
+ */ const findEmployee = (employeeIdOrName)=>{
+    if (!employeeIdOrName) return undefined;
+    const employees = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$employees$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEmployeeStore"].getState().data;
+    const normalized = String(employeeIdOrName).trim().toLowerCase();
+    return employees.find((e)=>e.id.toLowerCase() === normalized || e.fullName.toLowerCase() === normalized || e.systemId.toLowerCase() === normalized);
+};
+/**
+ * Get default branch
+ */ const getDefaultBranch = ()=>{
+    const branches = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useBranchStore"].getState().data;
+    return branches.find((b)=>b.isDefault) || branches[0];
+};
+/**
+ * Get default shipping address from customer
+ */ const getCustomerShippingAddress = (customer)=>{
+    if (!customer) return undefined;
+    // Tìm địa chỉ mặc định hoặc địa chỉ đầu tiên
+    const defaultAddr = customer.addresses?.find((a)=>a.isDefault || a.isDefaultShipping) || customer.addresses?.[0];
+    if (defaultAddr) {
+        const formattedAddress = [
+            defaultAddr.street,
+            defaultAddr.ward,
+            defaultAddr.district,
+            defaultAddr.province
+        ].filter(Boolean).join(', ');
+        return {
+            street: defaultAddr.street,
+            ward: defaultAddr.ward,
+            district: defaultAddr.district,
+            province: defaultAddr.province,
+            contactName: customer.name,
+            phone: customer.phone,
+            formattedAddress
+        };
+    }
+    return undefined;
+};
+const orderFields = [
+    // ===== Thông tin đơn hàng =====
+    {
+        key: 'orderId',
+        label: 'Mã đơn hàng (*)',
+        type: 'string',
+        required: true,
+        example: 'DH001',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'customerId',
+        label: 'Mã khách hàng (*)',
+        type: 'string',
+        required: true,
+        example: 'KH001',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'branchName',
+        label: 'Chi nhánh',
+        type: 'string',
+        required: false,
+        example: 'Chi nhánh Hà Nội',
+        group: 'Đơn hàng',
+        defaultSelected: true,
+        validator: (value)=>{
+            if (value && String(value).trim() !== '') {
+                const branch = findBranch(String(value));
+                if (!branch) {
+                    return `Không tìm thấy chi nhánh "${value}"`;
+                }
+            }
+            return true;
+        }
+    },
+    {
+        key: 'salespersonName',
+        label: 'Nhân viên bán hàng',
+        type: 'string',
+        required: false,
+        example: 'Nguyễn Văn A',
+        group: 'Đơn hàng',
+        defaultSelected: true,
+        validator: (value)=>{
+            if (value && String(value).trim() !== '') {
+                const employee = findEmployee(String(value));
+                if (!employee) {
+                    return `Không tìm thấy nhân viên "${value}"`;
+                }
+            }
+            return true;
+        }
+    },
+    {
+        key: 'orderDate',
+        label: 'Ngày đặt hàng',
+        type: 'date',
+        required: false,
+        example: '19/12/2024',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'source',
+        label: 'Nguồn đơn',
+        type: 'string',
+        required: false,
+        example: 'Website',
+        group: 'Đơn hàng',
+        defaultSelected: false
+    },
+    {
+        key: 'tags',
+        label: 'Tags',
+        type: 'string',
+        required: false,
+        example: 'VIP, Gấp',
+        group: 'Đơn hàng',
+        defaultSelected: false
+    },
+    {
+        key: 'orderNote',
+        label: 'Ghi chú đơn hàng',
+        type: 'string',
+        required: false,
+        example: 'Giao buổi sáng',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    // ===== Thông tin sản phẩm =====
+    {
+        key: 'productSku',
+        label: 'SKU sản phẩm (*)',
+        type: 'string',
+        required: true,
+        example: 'SP001',
+        group: 'Sản phẩm',
+        defaultSelected: true,
+        validator: (value)=>{
+            if (!value || String(value).trim() === '') {
+                return 'SKU sản phẩm không được để trống';
+            }
+            const product = findProductBySku(String(value));
+            if (!product) {
+                return `Không tìm thấy sản phẩm với SKU "${value}"`;
+            }
+            return true;
+        }
+    },
+    {
+        key: 'quantity',
+        label: 'Số lượng (*)',
+        type: 'number',
+        required: true,
+        example: '2',
+        group: 'Sản phẩm',
+        defaultSelected: true,
+        validator: (value)=>{
+            const qty = Number(value);
+            if (isNaN(qty) || qty <= 0) {
+                return 'Số lượng phải là số dương';
+            }
+            return true;
+        },
+        importTransform: (value)=>{
+            const num = Number(value);
+            return isNaN(num) ? 1 : Math.max(1, Math.floor(num));
+        }
+    },
+    {
+        key: 'unitPrice',
+        label: 'Đơn giá',
+        type: 'number',
+        required: false,
+        example: '150000',
+        group: 'Sản phẩm',
+        defaultSelected: true,
+        importTransform: (value)=>{
+            if (value === undefined || value === null || value === '') return undefined;
+            const num = Number(value);
+            return isNaN(num) ? undefined : Math.max(0, num);
+        }
+    },
+    {
+        key: 'lineNote',
+        label: 'Ghi chú SP',
+        type: 'string',
+        required: false,
+        example: 'Màu đỏ',
+        group: 'Sản phẩm',
+        defaultSelected: false
+    }
+];
+const orderFieldGroups = [
+    {
+        id: 'order-info',
+        label: 'Thông tin đơn hàng',
+        columns: [
+            {
+                key: 'id',
+                label: 'Mã đơn hàng',
+                defaultSelected: true
+            },
+            {
+                key: 'orderDate',
+                label: 'Ngày đặt',
+                defaultSelected: true
+            },
+            {
+                key: 'status',
+                label: 'Trạng thái',
+                defaultSelected: true
+            },
+            {
+                key: 'source',
+                label: 'Nguồn đơn',
+                defaultSelected: false
+            },
+            {
+                key: 'tags',
+                label: 'Tags',
+                defaultSelected: false
+            },
+            {
+                key: 'notes',
+                label: 'Ghi chú',
+                defaultSelected: false
+            }
+        ]
+    },
+    {
+        id: 'customer-info',
+        label: 'Thông tin khách hàng',
+        columns: [
+            {
+                key: 'customerId',
+                label: 'Mã KH',
+                defaultSelected: true
+            },
+            {
+                key: 'customerName',
+                label: 'Tên khách hàng',
+                defaultSelected: true
+            },
+            {
+                key: 'customerPhone',
+                label: 'SĐT khách',
+                defaultSelected: true
+            },
+            {
+                key: 'shippingAddress',
+                label: 'Địa chỉ giao',
+                defaultSelected: true
+            }
+        ]
+    },
+    {
+        id: 'product-info',
+        label: 'Thông tin sản phẩm',
+        columns: [
+            {
+                key: 'productSku',
+                label: 'SKU',
+                defaultSelected: true
+            },
+            {
+                key: 'productName',
+                label: 'Tên sản phẩm',
+                defaultSelected: true
+            },
+            {
+                key: 'quantity',
+                label: 'Số lượng',
+                defaultSelected: true
+            },
+            {
+                key: 'unitPrice',
+                label: 'Đơn giá',
+                defaultSelected: true
+            },
+            {
+                key: 'lineTotal',
+                label: 'Thành tiền',
+                defaultSelected: true
+            },
+            {
+                key: 'lineNote',
+                label: 'Ghi chú SP',
+                defaultSelected: false
+            }
+        ]
+    },
+    {
+        id: 'payment-info',
+        label: 'Thanh toán',
+        columns: [
+            {
+                key: 'subtotal',
+                label: 'Tạm tính',
+                defaultSelected: true
+            },
+            {
+                key: 'shippingFee',
+                label: 'Phí ship',
+                defaultSelected: false
+            },
+            {
+                key: 'orderDiscount',
+                label: 'Chiết khấu',
+                defaultSelected: false
+            },
+            {
+                key: 'grandTotal',
+                label: 'Tổng tiền',
+                defaultSelected: true
+            },
+            {
+                key: 'paidAmount',
+                label: 'Đã thanh toán',
+                defaultSelected: true
+            },
+            {
+                key: 'paymentStatus',
+                label: 'Trạng thái TT',
+                defaultSelected: true
+            }
+        ]
+    },
+    {
+        id: 'delivery-info',
+        label: 'Vận chuyển',
+        columns: [
+            {
+                key: 'deliveryMethod',
+                label: 'Phương thức giao',
+                defaultSelected: true
+            },
+            {
+                key: 'deliveryStatus',
+                label: 'Trạng thái giao',
+                defaultSelected: true
+            },
+            {
+                key: 'trackingCode',
+                label: 'Mã vận đơn',
+                defaultSelected: false
+            },
+            {
+                key: 'carrier',
+                label: 'ĐVVC',
+                defaultSelected: false
+            }
+        ]
+    },
+    {
+        id: 'branch-staff',
+        label: 'Chi nhánh & Nhân viên',
+        columns: [
+            {
+                key: 'branchName',
+                label: 'Chi nhánh',
+                defaultSelected: true
+            },
+            {
+                key: 'salesperson',
+                label: 'Nhân viên bán',
+                defaultSelected: true
+            }
+        ]
+    }
+];
+const orderImportExportConfig = {
+    entityType: 'orders',
+    entityDisplayName: 'Đơn hàng',
+    fields: orderFields,
+    templateFileName: 'Mau_Nhap_Don_Hang.xlsx',
+    sheetName: 'Đơn hàng',
+    // Import settings
+    upsertKey: 'id',
+    allowUpdate: false,
+    allowInsert: true,
+    requirePreview: true,
+    maxRows: 1000,
+    maxErrorsAllowed: 0,
+    // Pre-process: Fill empty orderId/customerId from previous row
+    // User must fill orderId + customerId on first row of each order
+    // Subsequent product rows can leave them empty → will inherit from previous row
+    preProcessRows: (rows)=>{
+        const importRows = rows;
+        let currentOrderId = '';
+        let currentCustomerId = '';
+        for (const row of importRows){
+            // If orderId is provided, use it and update current
+            if (row.orderId?.trim()) {
+                currentOrderId = row.orderId.trim();
+                // Also update customerId if provided on the same row
+                if (row.customerId?.trim()) {
+                    currentCustomerId = row.customerId.trim();
+                }
+            } else if (currentOrderId) {
+                // Fill from previous row's orderId (for subsequent product lines)
+                row.orderId = currentOrderId;
+            }
+            // Note: if orderId is empty and no previous orderId → validation will catch it
+            // Fill customerId if empty (inherit from previous row)
+            if (!row.customerId?.trim() && currentCustomerId) {
+                row.customerId = currentCustomerId;
+            } else if (row.customerId?.trim()) {
+                currentCustomerId = row.customerId.trim();
+            }
+        }
+        return importRows;
+    },
+    // Validate row (after pre-processing)
+    validateRow: (row, _index, existingData, mode)=>{
+        const errors = [];
+        const importRow = row;
+        // Check required fields - orderId must be filled on first row of each order
+        if (!importRow.orderId) {
+            errors.push({
+                field: 'orderId',
+                message: 'Mã đơn hàng không được để trống (bắt buộc điền ở dòng đầu của mỗi đơn)'
+            });
+        }
+        if (!importRow.customerId) {
+            errors.push({
+                field: 'customerId',
+                message: 'Mã khách hàng không được để trống (điền ở dòng đầu của mỗi đơn)'
+            });
+        }
+        if (!importRow.productSku) {
+            errors.push({
+                field: 'productSku',
+                message: 'SKU sản phẩm không được để trống'
+            });
+        }
+        // Validate customer
+        if (importRow.customerId) {
+            const customer = findCustomerById(importRow.customerId);
+            if (!customer) {
+                errors.push({
+                    field: 'customerId',
+                    message: `Không tìm thấy khách hàng "${importRow.customerId}"`
+                });
+            }
+        }
+        // Validate product
+        if (importRow.productSku) {
+            const product = findProductBySku(importRow.productSku);
+            if (!product) {
+                errors.push({
+                    field: 'productSku',
+                    message: `Không tìm thấy sản phẩm "${importRow.productSku}"`
+                });
+            }
+        }
+        // Validate branch if provided
+        if (importRow.branchName) {
+            const branch = findBranch(importRow.branchName);
+            if (!branch) {
+                errors.push({
+                    field: 'branchName',
+                    message: `Không tìm thấy chi nhánh "${importRow.branchName}"`
+                });
+            }
+        }
+        // Validate salesperson if provided
+        if (importRow.salespersonName) {
+            const employee = findEmployee(importRow.salespersonName);
+            if (!employee) {
+                errors.push({
+                    field: 'salespersonName',
+                    message: `Không tìm thấy nhân viên "${importRow.salespersonName}"`
+                });
+            }
+        }
+        // Validate quantity
+        if (importRow.quantity !== undefined) {
+            const qty = Number(importRow.quantity);
+            if (isNaN(qty) || qty <= 0) {
+                errors.push({
+                    field: 'quantity',
+                    message: 'Số lượng phải là số dương'
+                });
+            }
+        }
+        // Check duplicate order ID in existing data (only in insert-only mode)
+        if (mode === 'insert-only' && importRow.orderId) {
+            const duplicate = existingData.find((o)=>o.id.toUpperCase() === importRow.orderId.toUpperCase());
+            if (duplicate) {
+                errors.push({
+                    field: 'orderId',
+                    message: `Mã đơn hàng "${importRow.orderId}" đã tồn tại`
+                });
+            }
+        }
+        return errors;
+    },
+    // Transform: Group rows by orderId and build Order objects
+    // This is handled in postTransformRow and beforeImport
+    beforeImport: async (data)=>{
+        // data here is actually OrderImportRow[] after field transforms
+        const importRows = data;
+        // Group rows by orderId
+        const orderMap = new Map();
+        for (const row of importRows){
+            const orderId = row.orderId?.trim().toUpperCase();
+            if (!orderId) continue;
+            if (!orderMap.has(orderId)) {
+                const customer = findCustomerById(row.customerId);
+                const branch = row.branchName ? findBranch(row.branchName) : getDefaultBranch();
+                const employee = row.salespersonName ? findEmployee(row.salespersonName) : undefined;
+                orderMap.set(orderId, {
+                    rows: [],
+                    customer,
+                    branch,
+                    employee
+                });
+            }
+            orderMap.get(orderId).rows.push(row);
+        }
+        // Build Order objects
+        const orders = [];
+        const now = new Date().toISOString();
+        for (const [orderId, { rows, customer, branch, employee }] of orderMap.entries()){
+            if (!customer || rows.length === 0) continue;
+            // Build line items
+            const lineItems = [];
+            for (const row of rows){
+                const product = findProductBySku(row.productSku);
+                if (!product) continue;
+                const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
+                const unitPrice = row.unitPrice ?? product.sellingPrice ?? product.costPrice ?? 0;
+                lineItems.push({
+                    productSystemId: product.systemId,
+                    productId: product.id,
+                    productName: product.name,
+                    quantity,
+                    unitPrice,
+                    discount: 0,
+                    discountType: 'fixed',
+                    note: row.lineNote
+                });
+            }
+            if (lineItems.length === 0) continue;
+            // Calculate totals
+            const subtotal = lineItems.reduce((sum, item)=>{
+                return sum + item.unitPrice * item.quantity;
+            }, 0);
+            // Get first row for order-level data
+            const firstRow = rows[0];
+            // Parse order date
+            let orderDate = now;
+            if (firstRow.orderDate) {
+                const parsed = new Date(firstRow.orderDate);
+                if (!isNaN(parsed.getTime())) {
+                    orderDate = parsed.toISOString();
+                }
+            }
+            // Build shipping address from customer
+            const shippingAddress = getCustomerShippingAddress(customer);
+            // Parse tags
+            const tags = firstRow.tags ? firstRow.tags.split(',').map((t)=>t.trim()).filter(Boolean) : undefined;
+            const order = {
+                systemId: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                id: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asBusinessId"])(orderId),
+                customerSystemId: customer.systemId,
+                customerName: customer.name,
+                branchSystemId: branch?.systemId || (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                branchName: branch?.name || '',
+                salespersonSystemId: employee?.systemId || (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                salesperson: employee?.fullName || '',
+                orderDate,
+                // Statuses - all new orders start with "Đặt hàng"
+                status: 'Đặt hàng',
+                paymentStatus: 'Chưa thanh toán',
+                deliveryStatus: 'Chờ đóng gói',
+                printStatus: 'Chưa in',
+                stockOutStatus: 'Chưa xuất kho',
+                returnStatus: 'Chưa trả hàng',
+                deliveryMethod: 'Dịch vụ giao hàng',
+                // Address
+                shippingAddress,
+                // Line items
+                lineItems,
+                // Totals (no discount, no shipping fee from import)
+                subtotal,
+                shippingFee: 0,
+                tax: 0,
+                grandTotal: subtotal,
+                paidAmount: 0,
+                codAmount: 0,
+                // Arrays
+                payments: [],
+                packagings: [],
+                // Optional fields
+                notes: firstRow.orderNote,
+                source: firstRow.source,
+                tags,
+                // Timestamps
+                createdAt: now,
+                updatedAt: now
+            };
+            orders.push(order);
+        }
+        return orders;
+    }
+};
+function flattenOrdersForExport(orders) {
+    const rows = [];
+    for (const order of orders){
+        // Get customer info
+        const customer = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$customers$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCustomerStore"].getState().findById(order.customerSystemId);
+        // Get latest packaging for tracking info
+        const latestPackaging = order.packagings?.[order.packagings.length - 1];
+        for (const item of order.lineItems){
+            rows.push({
+                // Order info
+                id: order.id,
+                orderDate: order.orderDate,
+                status: order.status,
+                source: order.source || '',
+                tags: order.tags?.join(', ') || '',
+                notes: order.notes || '',
+                // Customer info
+                customerId: customer?.id || '',
+                customerName: order.customerName,
+                customerPhone: customer?.phone || '',
+                shippingAddress: typeof order.shippingAddress === 'string' ? order.shippingAddress : order.shippingAddress?.formattedAddress || '',
+                // Product info
+                productSku: item.productId,
+                productName: item.productName,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                lineTotal: item.unitPrice * item.quantity,
+                lineNote: item.note || '',
+                // Payment info
+                subtotal: order.subtotal,
+                shippingFee: order.shippingFee,
+                orderDiscount: order.orderDiscount || 0,
+                grandTotal: order.grandTotal,
+                paidAmount: order.paidAmount,
+                paymentStatus: order.paymentStatus,
+                // Delivery info
+                deliveryMethod: order.deliveryMethod,
+                deliveryStatus: order.deliveryStatus,
+                trackingCode: latestPackaging?.trackingCode || '',
+                carrier: latestPackaging?.carrier || '',
+                // Branch & Staff
+                branchName: order.branchName,
+                salesperson: order.salesperson
+            });
+        }
+    }
+    return rows;
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/index.ts [app-client] (ecmascript) <locals>", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([]);
+/**
+ * Import/Export Configs - Index
+ * 
+ * Re-export tất cả configs
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$employee$2e$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/configs/employee.config.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$attendance$2e$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/configs/attendance.config.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$customer$2e$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/configs/customer.config.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$product$2e$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/configs/product.config.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$brand$2e$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/configs/brand.config.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$category$2e$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/configs/category.config.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$order$2e$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/configs/order.config.ts [app-client] (ecmascript)");
+;
+;
+;
+;
+;
+;
+;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/index.ts [app-client] (ecmascript) <locals>", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Import/Export System - Main Exports
+ */ // Types
+__turbopack_context__.s([]);
+// Store
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$import$2d$export$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/import-export-store.ts [app-client] (ecmascript)");
+// Employee Mapping Store
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$employee$2d$mapping$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/employee-mapping-store.ts [app-client] (ecmascript)");
+// Utils
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/utils.ts [app-client] (ecmascript)");
+// Attendance Parser
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$attendance$2d$parser$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/attendance-parser.ts [app-client] (ecmascript)");
+// Configs
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$configs$2f$index$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/import-export/configs/index.ts [app-client] (ecmascript) <locals>");
+;
+;
+;
+;
+;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/file-upload-api.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "FileUploadAPI",
+    ()=>FileUploadAPI
+]);
+// API client để giao tiếp với server - Staging System
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/api-config.ts [app-client] (ecmascript)");
+;
+const API_BASE_URL = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$config$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getApiBaseUrl"])();
+class FileUploadAPI {
+    // Upload files vào staging (tạm thời)
+    static async uploadToStaging(files, sessionId) {
+        const formData = new FormData();
+        files.forEach((file)=>{
+            formData.append('files', file);
+        });
+        // CRITICAL FIX: sessionId in FormData doesn't work with multer
+        // Send via query params instead
+        const url = sessionId ? `${API_BASE_URL}/staging/upload?sessionId=${encodeURIComponent(sessionId)}` : `${API_BASE_URL}/staging/upload`;
+        console.log('📤 Uploading to:', url);
+        console.log('📦 Files:', files.map((f)=>`${f.name} (${(f.size / 1024).toFixed(1)}KB)`));
+        let response;
+        try {
+            response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+        } catch (fetchError) {
+            console.error('❌ Network fetch failed:', fetchError);
+            throw new Error(`Không thể kết nối đến server (${API_BASE_URL}). Vui lòng kiểm tra server có đang chạy.`);
+        }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Server error:', response.status, errorText);
+            throw new Error(`Server error (${response.status}): ${errorText}`);
+        }
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Staging upload failed');
+        }
+        return {
+            files: result.files,
+            sessionId: result.sessionId
+        };
+    }
+    // Confirm staging files → permanent với smart filename
+    // NOTE: entitySystemId MUST be immutable (systemId) to avoid broken references
+    static async confirmStagingFiles(sessionId, entitySystemId, documentType, documentName, metadata) {
+        const response = await fetch(`${API_BASE_URL}/staging/confirm/${sessionId}/${entitySystemId}/${documentType}/${encodeURIComponent(documentName)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                metadata
+            })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Confirm failed');
+        }
+        return result.files;
+    }
+    // Lấy staging files theo session
+    static async getStagingFiles(sessionId) {
+        const response = await fetch(`${API_BASE_URL}/staging/files/${sessionId}`);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to fetch staging files');
+        }
+        return result.files;
+    }
+    // Xóa staging files (cancel)
+    static async deleteStagingFiles(sessionId) {
+        const response = await fetch(`${API_BASE_URL}/staging/${sessionId}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Delete staging failed');
+        }
+    }
+    // Upload files lên server (legacy - direct permanent)
+    // NOTE: employeeId MUST be the systemId (immutable), NOT the business ID
+    static async uploadFiles(employeeId, documentType, documentName, files) {
+        const formData = new FormData();
+        files.forEach((file)=>{
+            formData.append('files', file);
+        });
+        const response = await fetch(`${API_BASE_URL}/upload/${employeeId}/${documentType}/${encodeURIComponent(documentName)}`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Upload failed');
+        }
+        return result.files;
+    }
+    // Lấy danh sách file permanent
+    // NOTE: employeeId MUST be the systemId (immutable), NOT the business ID
+    static async getFiles(employeeId, documentType) {
+        try {
+            const url = documentType ? `${API_BASE_URL}/files/${employeeId}/${documentType}` : `${API_BASE_URL}/files/${employeeId}`;
+            const response = await fetch(url);
+            // Check if response is ok
+            if (!response.ok) {
+                return []; // Return empty array instead of throwing
+            }
+            const result = await response.json();
+            if (!result.success) {
+                return []; // Return empty array instead of throwing
+            }
+            return result.files || [];
+        } catch (error) {
+            return []; // Return empty array on network error
+        }
+    }
+    // Xóa file permanent
+    static async deleteFile(fileId) {
+        const response = await fetch(`${API_BASE_URL}/files/${fileId}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Delete failed');
+        }
+    }
+    // Lấy URL file để hiển thị (bao gồm staging và permanent)
+    static getFileUrl(file) {
+        // ✅ Return relative path to use Vite proxy - avoid CORS
+        // Server already returns relative path like /api/staging/files/...
+        return file.url;
+    }
+    // Thống kê storage (chỉ permanent files)
+    static async getStorageInfo() {
+        const response = await fetch(`${API_BASE_URL}/storage/info`);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error('Failed to get storage info');
+        }
+        return result.stats;
+    }
+    // Helper: Generate session ID cho staging
+    static generateSessionId() {
+        return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    static async getProductFiles(productId) {
+        return this.getFiles(productId, 'products');
+    }
+    // Get customer files (images)
+    static async getCustomerFiles(customerId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/files/customers/${customerId}`);
+            if (!response.ok) {
+                return [];
+            }
+            const result = await response.json();
+            if (!result.success) {
+                return [];
+            }
+            return result.files || [];
+        } catch (error) {
+            console.error('Failed to get customer files:', error);
+            return [];
+        }
+    }
+    // Get customer contract files
+    static async getCustomerContractFiles(customerId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/files/customers/${customerId}/contracts`);
+            if (!response.ok) {
+                return [];
+            }
+            const result = await response.json();
+            if (!result.success) {
+                return [];
+            }
+            return result.files || [];
+        } catch (error) {
+            console.error('Failed to get customer contract files:', error);
+            return [];
+        }
+    }
+    // Confirm customer contract files from staging to permanent
+    static async confirmCustomerContractFiles(sessionId, customerId, customerData) {
+        const response = await fetch(`${API_BASE_URL}/staging/confirm/${sessionId}/customers/${customerId}/contracts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                customerData
+            })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Confirm customer contract files failed');
+        }
+        return result.files;
+    }
+    // Confirm customer images from staging to permanent
+    static async confirmCustomerImages(sessionId, customerId, customerData) {
+        const response = await fetch(`${API_BASE_URL}/staging/confirm/${sessionId}/customers/${customerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                customerData
+            })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Confirm customer images failed');
+        }
+        return result.files;
+    }
+    // Confirm warranty images from staging to permanent
+    static async confirmWarrantyImages(sessionId, warrantyId, imageType, warrantyData) {
+        const response = await fetch(`${API_BASE_URL}/staging/confirm/${sessionId}/warranty/${warrantyId}/${imageType}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                warrantyData
+            })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Confirm warranty images failed');
+        }
+        return result.files;
+    }
+    // Delete staging session (cleanup on cancel)
+    static async deleteStagingSession(sessionId) {
+        const response = await fetch(`${API_BASE_URL}/staging/${sessionId}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.message || 'Delete staging session failed');
+        }
+    }
+    /**
+   * Upload ảnh từ TipTap Editor vào STAGING
+   * Ảnh sẽ được move sang permanent khi entity được save
+   * 
+   * @param file - File ảnh cần upload
+   * @param sessionId - Session ID để group các ảnh cùng editor
+   * @returns StagingFile với URL tạm thời
+   */ static async uploadEditorImageToStaging(file, sessionId) {
+        const result = await FileUploadAPI.uploadToStaging([
+            file
+        ], sessionId);
+        return {
+            file: result.files[0],
+            sessionId: result.sessionId
+        };
+    }
+    /**
+   * Confirm ảnh editor từ staging sang permanent
+   * Đồng thời replace staging URLs trong HTML content bằng permanent URLs
+   * 
+   * @param sessionId - Editor staging session
+   * @param entityId - ID của entity (category, product, etc.)
+   * @param entityType - Loại entity ('categories', 'products', etc.)
+   * @param htmlContent - Nội dung HTML cần update URLs
+   * @returns Updated HTML với permanent URLs
+   */ static async confirmEditorImages(sessionId, entityId, entityType, htmlContent) {
+        // Confirm staging files
+        const confirmedFiles = await FileUploadAPI.confirmStagingFiles(sessionId, entityId, entityType, 'editor-images', {
+            source: 'tiptap-editor'
+        });
+        // Replace staging URLs with permanent URLs in HTML
+        let updatedHtml = htmlContent;
+        for (const file of confirmedFiles){
+            // Staging URL pattern: /api/staging/preview/{sessionId}/{filename}
+            // Find and replace with permanent URL
+            const stagingPattern = new RegExp(`/api/staging/preview/[^/]+/${file.filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+            updatedHtml = updatedHtml.replace(stagingPattern, file.url);
+        }
+        return {
+            html: updatedHtml,
+            files: confirmedFiles
+        };
+    }
+    static async uploadCommentImage(file) {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await fetch(`${API_BASE_URL}/comments/upload-image`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Upload ảnh bình luận thất bại');
+        }
+        return FileUploadAPI.mapDirectUpload(result.file, file.name);
+    }
+    static async uploadPrintTemplateImage(file) {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await fetch(`${API_BASE_URL}/print-templates/upload-image`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Upload ảnh mẫu in thất bại');
+        }
+        return FileUploadAPI.mapDirectUpload(result.file, file.name);
+    }
+    static async uploadComplaintCommentImage(complaintId, file) {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await fetch(`${API_BASE_URL}/complaints/${complaintId}/comments/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Upload ảnh khiếu nại thất bại');
+        }
+        return FileUploadAPI.mapDirectUpload(result.file, file.name);
+    }
+    static async uploadTaskEvidence(taskId, files) {
+        if (files.length === 0) {
+            return [];
+        }
+        const formData = new FormData();
+        files.forEach((file)=>formData.append('files', file));
+        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/evidence`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Upload bằng chứng công việc thất bại');
+        }
+        return (result.files || []).map((file, index)=>FileUploadAPI.mapDirectUpload(file, files[index]?.name || `evidence-${index}`));
+    }
+    static mapDirectUpload(file, fallbackName) {
+        return {
+            id: file.id,
+            name: file.originalName || file.name || fallbackName,
+            size: file.size || file.filesize || 0,
+            type: file.mimetype || file.type || 'application/octet-stream',
+            url: file.url,
+            uploadedAt: file.uploadedAt || new Date().toISOString()
+        };
+    }
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/import-export/configs/order-sapo.config.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Order Sapo Import Configuration
+ * 
+ * Import đơn hàng từ file export của Sapo POS
+ * 
+ * FORMAT FILE SAPO:
+ * - Multi-line: 1 đơn hàng có thể có nhiều dòng sản phẩm
+ * - Các dòng cùng Mã ĐH sẽ được nhóm thành 1 đơn hàng
+ * - Dữ liệu phong phú: thông tin KH, sản phẩm, giao hàng, thanh toán, trả hàng
+ * 
+ * MAPPING SAPO → HRM:
+ * - Mã ĐH → orderId
+ * - Mã KH → Lookup customer by id
+ * - Mã hàng → Lookup product by id/sku
+ * - Trạng thái đơn hàng → status
+ * - Trạng thái thanh toán → paymentStatus
+ * - Trạng thái đóng gói → packagingStatus
+ * - Trạng thái xuất kho → stockOutStatus
+ */ __turbopack_context__.s([
+    "SAPO_COLUMN_MAP",
+    ()=>SAPO_COLUMN_MAP,
+    "findBranch",
+    ()=>findBranch,
+    "findCustomer",
+    ()=>findCustomer,
+    "findEmployee",
+    ()=>findEmployee,
+    "findProduct",
+    ()=>findProduct,
+    "sapoOrderFields",
+    ()=>sapoOrderFields,
+    "sapoOrderImportConfig",
+    ()=>sapoOrderImportConfig
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$customers$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/customers/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$products$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/products/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/branches/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$employees$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/employees/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/id-types.ts [app-client] (ecmascript)");
+;
+;
+;
+;
+;
+const SAPO_COLUMN_MAP = {
+    // Thông tin đơn hàng
+    'STT': 'stt',
+    'Mã ĐH': 'orderId',
+    'Ngày chứng từ': 'orderDate',
+    'Ngày duyệt đơn': 'approvedDate',
+    'Chi nhánh': 'branchName',
+    'Nguồn': 'source',
+    'Ngày hẹn giao': 'expectedDeliveryDate',
+    'Ngày hoàn thành': 'completedDate',
+    'Ngày hủy đơn': 'cancelDate',
+    'Trạng thái đơn hàng': 'status',
+    'Lý do hủy đơn': 'cancelReason',
+    'Trạng thái xử lý': 'processStatus',
+    'Trạng thái đóng gói': 'packagingStatus',
+    'Trạng thái xuất kho': 'stockOutStatus',
+    'Trạng thái thanh toán': 'paymentStatus',
+    'Trạng thái trả hàng': 'returnStatus',
+    // Thông tin khách hàng
+    'Mã KH': 'customerId',
+    'Tên khách hàng': 'customerName',
+    'Điện thoại KH': 'customerPhone',
+    'Email': 'customerEmail',
+    'Địa chỉ KH': 'customerAddress',
+    'Liên hệ': 'contactName',
+    // Nhân viên
+    'Nhân viên tạo đơn': 'createdByName',
+    'Nhân viên gán cho đơn': 'salesperson',
+    'Bảng giá': 'priceList',
+    // Thông tin sản phẩm (line item)
+    'Mã hàng': 'productId',
+    'Mã barcode': 'barcode',
+    'Tên hàng': 'productName',
+    'Loại sản phẩm': 'productType',
+    'Ghi chú sản phẩm': 'productNote',
+    'Số lượng': 'quantity',
+    'Serial': 'serial',
+    'Mã lô date': 'batchCode',
+    'Đơn vị tính': 'unit',
+    'Đơn giá': 'unitPrice',
+    'CK sản phẩm(VNĐ)': 'lineDiscountAmount',
+    'CK sản phẩm(%)': 'lineDiscountPercent',
+    'Tổng tiền hàng': 'lineTotal',
+    'Thuế cho từng sản phẩm': 'lineTax',
+    // Tổng đơn hàng
+    'CK đơn hàng(VNĐ)': 'orderDiscountAmount',
+    'CK đơn hàng(%)': 'orderDiscountPercent',
+    'Phí vận chuyển': 'shippingFee',
+    'Khách phải trả': 'grandTotal',
+    'Khách đã trả': 'paidAmount',
+    'Ghi chú': 'notes',
+    'Tham chiếu': 'reference',
+    'Tag': 'tags',
+    'Đơn trên kênh': 'channelOrderId',
+    // Gói hàng
+    'Mã gói hàng': 'packageId',
+    'Mã vận đơn': 'trackingCode',
+    'Ngày đóng gói': 'packagingDate',
+    'Nhân viên đóng gói': 'packagerName',
+    'Ngày xuất kho': 'stockOutDate',
+    'Nhân viên xuất kho': 'stockOutByName',
+    // Giao hàng
+    'Đối tác giao hàng': 'carrier',
+    'Tình trạng gói hàng': 'packageStatus',
+    'Lý do hủy giao hàng': 'deliveryCancelReason',
+    'Trạng thái đối soát': 'reconciliationStatus',
+    'Người nhận hàng': 'recipientName',
+    'Số điện thoại': 'recipientPhone',
+    'Địa chỉ giao hàng': 'shippingStreet',
+    'Phường xã': 'shippingWard',
+    'Quận huyện': 'shippingDistrict',
+    'Tỉnh thành': 'shippingProvince',
+    'Tiền thu hộ': 'codAmount',
+    'Phí trả đối tác': 'carrierFee',
+    // Thanh toán
+    'Ngày thanh toán': 'paymentDate',
+    'Mã phiếu': 'paymentId',
+    'Nhân viên': 'paymentByName',
+    'Số tiền thanh toán': 'paymentAmount',
+    'Phương thức thanh toán': 'paymentMethod',
+    'Loại phương thức thanh toán': 'paymentMethodType',
+    'Tham chiếu thanh toán': 'paymentReference',
+    // Trả hàng
+    'Ngày trả hàng': 'returnDate',
+    'Mã đơn trả': 'returnOrderId',
+    'Trạng thái hoàn tiền': 'refundStatus',
+    'Lý do trả hàng': 'returnReason',
+    'Trạng thái nhận hàng': 'returnReceiveStatus',
+    'Mã hàng trả': 'returnProductId',
+    'Tên hàng trả': 'returnProductName',
+    'Giá hàng trả': 'returnPrice',
+    'Tổng tiền trả khách': 'returnTotal'
+};
+// ============================================
+// SAPO STATUS MAPPING
+// ============================================
+const SAPO_ORDER_STATUS_MAP = {
+    'Đặt hàng': 'Đặt hàng',
+    'Đang giao dịch': 'Đang giao dịch',
+    'Hoàn thành': 'Hoàn thành',
+    'Đã hủy': 'Đã hủy'
+};
+const SAPO_PAYMENT_STATUS_MAP = {
+    'Chưa thanh toán': 'Chưa thanh toán',
+    'Thanh toán một phần': 'Thanh toán 1 phần',
+    'Thanh toán toàn bộ': 'Thanh toán toàn bộ',
+    'Đã thanh toán': 'Thanh toán toàn bộ'
+};
+const SAPO_PACKAGING_STATUS_MAP = {
+    'Chưa đóng gói': 'Chờ đóng gói',
+    'Đóng gói một phần': 'Chờ đóng gói',
+    'Đóng gói toàn bộ': 'Đã đóng gói',
+    'Đã đóng gói': 'Đã đóng gói'
+};
+const SAPO_STOCK_OUT_STATUS_MAP = {
+    'Chưa xuất kho': 'Chưa xuất kho',
+    'Xuất kho một phần': 'Chưa xuất kho',
+    'Đã xuất kho': 'Xuất kho toàn bộ',
+    'Xuất kho toàn bộ': 'Xuất kho toàn bộ'
+};
+const SAPO_DELIVERY_STATUS_MAP = {
+    'Chờ đóng gói': 'Chờ đóng gói',
+    'Đang giao hàng': 'Đang giao hàng',
+    'Đã giao hàng': 'Đã giao hàng',
+    'Giao hàng thất bại': 'Chờ giao lại'
+};
+const SAPO_RETURN_STATUS_MAP = {
+    'Chưa trả hàng': 'Chưa trả hàng',
+    'Trả một phần': 'Trả hàng một phần',
+    'Đã trả hàng': 'Trả hàng toàn bộ',
+    'Trả hàng toàn bộ': 'Trả hàng toàn bộ'
+};
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+// Get stores (called at runtime)
+const getCustomerStore = ()=>__TURBOPACK__imported__module__$5b$project$5d2f$features$2f$customers$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCustomerStore"].getState();
+const getProductStore = ()=>__TURBOPACK__imported__module__$5b$project$5d2f$features$2f$products$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useProductStore"].getState();
+const getBranchStore = ()=>__TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useBranchStore"].getState();
+const getEmployeeStore = ()=>__TURBOPACK__imported__module__$5b$project$5d2f$features$2f$employees$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEmployeeStore"].getState();
+// Lookup customer by id or name
+const findCustomer = (identifier)=>{
+    if (!identifier) return undefined;
+    const store = getCustomerStore();
+    const normalized = identifier.trim().toUpperCase();
+    // Find by id first
+    const byId = store.data.find((c)=>c.id.toUpperCase() === normalized);
+    if (byId) return byId;
+    // Find by name
+    const byName = store.data.find((c)=>c.name.toUpperCase() === normalized);
+    return byName;
+};
+// Lookup product by id/sku/barcode
+const findProduct = (identifier)=>{
+    if (!identifier) return undefined;
+    const store = getProductStore();
+    const normalized = identifier.trim().toUpperCase();
+    // Find by id
+    const byId = store.data.find((p)=>p.id.toUpperCase() === normalized);
+    if (byId) return byId;
+    // Find by sku
+    const bySku = store.data.find((p)=>p.sku?.toUpperCase() === normalized);
+    if (bySku) return bySku;
+    // Find by barcode
+    const byBarcode = store.data.find((p)=>p.barcode?.toUpperCase() === normalized);
+    return byBarcode;
+};
+// Lookup branch by name
+const findBranch = (name)=>{
+    if (!name) return undefined;
+    const store = getBranchStore();
+    const normalized = name.trim().toLowerCase();
+    return store.data.find((b)=>b.name.toLowerCase().includes(normalized));
+};
+// Lookup employee by name
+const findEmployee = (name)=>{
+    if (!name) return undefined;
+    const store = getEmployeeStore();
+    const normalized = name.trim().toLowerCase();
+    return store.data.find((e)=>e.fullName?.toLowerCase().includes(normalized));
+};
+// Get default branch
+const getDefaultBranch = ()=>{
+    const store = getBranchStore();
+    return store.data.find((b)=>b.isDefault) || store.data[0];
+};
+// Parse date from Sapo format (dd/MM/yyyy HH:mm:ss)
+const parseSapoDate = (dateStr)=>{
+    if (!dateStr) return undefined;
+    // Format: 04/12/2025 16:22:43
+    const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+    if (match) {
+        const [, day, month, year, hour, minute, second] = match;
+        return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+    }
+    // Try standard format
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+        return date.toISOString();
+    }
+    return undefined;
+};
+const sapoOrderFields = [
+    {
+        key: 'orderId',
+        label: 'Mã ĐH (*)',
+        type: 'string',
+        required: true,
+        example: 'SON06712',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'orderDate',
+        label: 'Ngày chứng từ',
+        type: 'string',
+        required: false,
+        example: '04/12/2025 16:22:43',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'branchName',
+        label: 'Chi nhánh',
+        type: 'string',
+        required: false,
+        example: 'Chi nhánh mặc định',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'source',
+        label: 'Nguồn',
+        type: 'string',
+        required: false,
+        example: 'Khác',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'status',
+        label: 'Trạng thái đơn hàng',
+        type: 'string',
+        required: false,
+        example: 'Hoàn thành',
+        group: 'Đơn hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'customerId',
+        label: 'Mã KH',
+        type: 'string',
+        required: false,
+        example: 'KH003818',
+        group: 'Khách hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'customerName',
+        label: 'Tên khách hàng',
+        type: 'string',
+        required: false,
+        example: 'Nguyễn Văn A',
+        group: 'Khách hàng',
+        defaultSelected: true
+    },
+    {
+        key: 'customerPhone',
+        label: 'Điện thoại KH',
+        type: 'string',
+        required: false,
+        example: '0901234567',
+        group: 'Khách hàng'
+    },
+    {
+        key: 'productId',
+        label: 'Mã hàng (*)',
+        type: 'string',
+        required: true,
+        example: 'SP001',
+        group: 'Sản phẩm',
+        defaultSelected: true
+    },
+    {
+        key: 'productName',
+        label: 'Tên hàng',
+        type: 'string',
+        required: false,
+        example: 'Sản phẩm ABC',
+        group: 'Sản phẩm',
+        defaultSelected: true
+    },
+    {
+        key: 'quantity',
+        label: 'Số lượng (*)',
+        type: 'number',
+        required: true,
+        example: '2',
+        group: 'Sản phẩm',
+        defaultSelected: true
+    },
+    {
+        key: 'unitPrice',
+        label: 'Đơn giá',
+        type: 'number',
+        required: false,
+        example: '100000',
+        group: 'Sản phẩm',
+        defaultSelected: true
+    },
+    {
+        key: 'grandTotal',
+        label: 'Khách phải trả',
+        type: 'number',
+        required: false,
+        example: '500000',
+        group: 'Thanh toán',
+        defaultSelected: true
+    },
+    {
+        key: 'paidAmount',
+        label: 'Khách đã trả',
+        type: 'number',
+        required: false,
+        example: '500000',
+        group: 'Thanh toán'
+    },
+    {
+        key: 'salesperson',
+        label: 'Nhân viên bán',
+        type: 'string',
+        required: false,
+        example: 'Nguyễn Văn B',
+        group: 'Nhân viên'
+    },
+    {
+        key: 'trackingCode',
+        label: 'Mã vận đơn',
+        type: 'string',
+        required: false,
+        example: 'S22981905.MB19-05-F2.1209998216',
+        group: 'Giao hàng'
+    },
+    {
+        key: 'carrier',
+        label: 'Đối tác giao hàng',
+        type: 'string',
+        required: false,
+        example: 'Giao hàng tiết kiệm',
+        group: 'Giao hàng'
+    }
+];
+const sapoOrderImportConfig = {
+    entityType: 'orders-sapo',
+    entityDisplayName: 'Đơn hàng (Sapo)',
+    fields: sapoOrderFields,
+    templateFileName: 'Mau_Sapo_Don_Hang.xlsx',
+    sheetName: 'Sheet0',
+    // Import settings
+    upsertKey: 'id',
+    allowUpdate: false,
+    allowInsert: true,
+    requirePreview: true,
+    maxRows: 5000,
+    maxErrorsAllowed: 0,
+    // Pre-transform: Map Sapo column names to internal keys
+    preTransformRawRow: (rawRow)=>{
+        const result = {};
+        for (const [sapoCol, value] of Object.entries(rawRow)){
+            const internalKey = SAPO_COLUMN_MAP[sapoCol];
+            if (internalKey) {
+                result[internalKey] = value;
+            } else {
+                // Keep original key if no mapping
+                result[sapoCol] = value;
+            }
+        }
+        return result;
+    },
+    // Validate each row
+    validateRow: (row, _index, existingData, mode)=>{
+        const errors = [];
+        const importRow = row;
+        // Mã đơn hàng bắt buộc
+        if (!importRow.orderId) {
+            errors.push({
+                field: 'orderId',
+                message: 'Mã đơn hàng không được để trống'
+            });
+        }
+        // Mã hàng bắt buộc (để tạo line item)
+        if (!importRow.productId && !importRow.productName) {
+            errors.push({
+                field: 'productId',
+                message: 'Mã hàng hoặc tên hàng không được để trống'
+            });
+        }
+        // Số lượng phải > 0
+        if (importRow.quantity !== undefined && importRow.quantity <= 0) {
+            errors.push({
+                field: 'quantity',
+                message: 'Số lượng phải lớn hơn 0'
+            });
+        }
+        // Check duplicate orderId in existing data (warning only)
+        if (mode === 'insert-only' && importRow.orderId) {
+            const duplicate = existingData.find((o)=>o.id.toUpperCase() === importRow.orderId.toUpperCase());
+            if (duplicate) {
+                errors.push({
+                    field: 'orderId',
+                    message: `[Warning] Mã đơn hàng "${importRow.orderId}" đã tồn tại - sẽ bỏ qua`
+                });
+            }
+        }
+        return errors;
+    },
+    // Transform: Group rows by orderId and build Order objects
+    beforeImport: async (data)=>{
+        const importRows = data;
+        // Group rows by orderId
+        const orderMap = new Map();
+        for (const row of importRows){
+            const orderId = row.orderId?.trim();
+            if (!orderId) continue;
+            if (!orderMap.has(orderId)) {
+                orderMap.set(orderId, []);
+            }
+            orderMap.get(orderId).push(row);
+        }
+        // Build Order objects
+        const orders = [];
+        const now = new Date().toISOString();
+        const defaultBranch = getDefaultBranch();
+        for (const [orderId, rows] of orderMap.entries()){
+            if (rows.length === 0) continue;
+            const firstRow = rows[0];
+            // Lookup customer
+            const customer = findCustomer(firstRow.customerId || '') || findCustomer(firstRow.customerName || '');
+            // Lookup branch
+            const branch = findBranch(firstRow.branchName || '') || defaultBranch;
+            // Lookup salesperson
+            const salesperson = findEmployee(firstRow.salesperson || '') || findEmployee(firstRow.createdByName || '');
+            // Build line items
+            const lineItems = [];
+            for (const row of rows){
+                // Skip if no product info
+                if (!row.productId && !row.productName) continue;
+                const product = findProduct(row.productId || '') || findProduct(row.barcode || '');
+                const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
+                const unitPrice = Number(row.unitPrice) || (product?.sellingPrice ?? 0);
+                const discount = Number(row.lineDiscountAmount) || 0;
+                lineItems.push({
+                    productSystemId: product?.systemId || (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                    productId: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asBusinessId"])(product?.id || row.productId || ''),
+                    productName: product?.name || row.productName || '',
+                    quantity,
+                    unitPrice,
+                    discount,
+                    discountType: 'fixed',
+                    note: row.productNote
+                });
+            }
+            if (lineItems.length === 0) continue;
+            // Calculate totals
+            const subtotal = lineItems.reduce((sum, item)=>{
+                return sum + item.unitPrice * item.quantity - (item.discount || 0);
+            }, 0);
+            const shippingFee = Number(firstRow.shippingFee) || 0;
+            const orderDiscount = Number(firstRow.orderDiscountAmount) || 0;
+            const grandTotal = Number(firstRow.grandTotal) || subtotal + shippingFee - orderDiscount;
+            const paidAmount = Number(firstRow.paidAmount) || 0;
+            // Build shipping address
+            const shippingAddress = firstRow.shippingStreet ? {
+                street: firstRow.shippingStreet,
+                ward: firstRow.shippingWard || '',
+                district: firstRow.shippingDistrict || '',
+                province: firstRow.shippingProvince || '',
+                contactName: firstRow.recipientName || firstRow.customerName,
+                phone: firstRow.recipientPhone || firstRow.customerPhone,
+                formattedAddress: [
+                    firstRow.shippingStreet,
+                    firstRow.shippingWard,
+                    firstRow.shippingDistrict,
+                    firstRow.shippingProvince
+                ].filter(Boolean).join(', ')
+            } : undefined;
+            // Map statuses
+            const status = SAPO_ORDER_STATUS_MAP[firstRow.status || ''] || 'Đặt hàng';
+            const paymentStatus = SAPO_PAYMENT_STATUS_MAP[firstRow.paymentStatus || ''] || 'Chưa thanh toán';
+            const packagingStatus = SAPO_PACKAGING_STATUS_MAP[firstRow.packagingStatus || ''] || 'Chưa đóng gói';
+            const stockOutStatus = SAPO_STOCK_OUT_STATUS_MAP[firstRow.stockOutStatus || ''] || 'Chưa xuất kho';
+            const returnStatus = SAPO_RETURN_STATUS_MAP[firstRow.returnStatus || ''] || 'Chưa trả hàng';
+            // Determine delivery status from package status
+            let deliveryStatus = 'Chờ đóng gói';
+            if (firstRow.packageStatus) {
+                deliveryStatus = SAPO_DELIVERY_STATUS_MAP[firstRow.packageStatus] || 'Chờ đóng gói';
+            } else if (packagingStatus === 'Đã đóng gói') {
+                deliveryStatus = 'Đang giao hàng';
+            }
+            // Build Order object
+            const order = {
+                systemId: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                id: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asBusinessId"])(orderId),
+                // Customer info
+                customerSystemId: customer?.systemId || (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                customerName: customer?.name || firstRow.customerName || 'Khách lẻ',
+                // Branch & Staff
+                branchSystemId: branch?.systemId || (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                branchName: branch?.name || firstRow.branchName || '',
+                salesperson: salesperson?.fullName || firstRow.salesperson || '',
+                salespersonSystemId: salesperson?.systemId || (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])(''),
+                // Dates
+                orderDate: parseSapoDate(firstRow.orderDate) || now,
+                completedDate: parseSapoDate(firstRow.completedDate),
+                createdAt: parseSapoDate(firstRow.orderDate) || now,
+                createdBy: salesperson?.systemId || (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])('SYSTEM'),
+                updatedAt: now,
+                updatedBy: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$id$2d$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["asSystemId"])('SYSTEM'),
+                // Line items
+                lineItems,
+                // Totals
+                subtotal,
+                shippingFee,
+                tax: 0,
+                orderDiscount,
+                grandTotal,
+                paidAmount,
+                codAmount: Number(firstRow.codAmount) || 0,
+                // Statuses
+                status,
+                paymentStatus,
+                deliveryStatus,
+                printStatus: 'Chưa in',
+                stockOutStatus,
+                returnStatus,
+                // Shipping
+                deliveryMethod: firstRow.carrier ? 'Dịch vụ giao hàng' : 'Nhận tại cửa hàng',
+                shippingAddress,
+                // Other
+                source: `Sapo: ${firstRow.source || 'Import'}`,
+                notes: firstRow.notes,
+                tags: firstRow.tags?.split(',').map((t)=>t.trim()).filter(Boolean),
+                // Initialize arrays - không tạo packagings vì cấu trúc phức tạp
+                payments: [],
+                packagings: []
+            };
+            orders.push(order);
+        }
+        return orders;
+    }
+};
+;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-service.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "PrintService",
+    ()=>PrintService,
+    "default",
+    ()=>__TURBOPACK__default__export__,
+    "formatCurrency",
+    ()=>formatCurrency,
+    "formatDate",
+    ()=>formatDate,
+    "formatDateTime",
+    ()=>formatDateTime,
+    "formatTime",
+    ()=>formatTime,
+    "generateLineItemsHtml",
+    ()=>generateLineItemsHtml,
+    "generatePrintHtml",
+    ()=>generatePrintHtml,
+    "getGeneralSettings",
+    ()=>getGeneralSettings,
+    "getPreviewHtml",
+    ()=>getPreviewHtml,
+    "getStoreData",
+    ()=>getStoreData,
+    "getStoreLogo",
+    ()=>getStoreLogo,
+    "numberToWords",
+    ()=>numberToWords,
+    "printDocument",
+    ()=>printDocument,
+    "replaceVariables",
+    ()=>replaceVariables
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$printer$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/printer/store.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$date$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/date-utils.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$settings$2d$cache$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/settings-cache.ts [app-client] (ecmascript)");
+;
+;
+;
+function getGeneralSettings() {
+    try {
+        const settings = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$settings$2d$cache$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getGeneralSettingsSync"])();
+        return {
+            companyName: settings.storeName,
+            companyAddress: settings.storeAddress,
+            phoneNumber: settings.storePhone,
+            storeName: settings.storeName,
+            storeAddress: settings.storeAddress,
+            storePhone: settings.storePhone,
+            logoUrl: settings.logoUrl
+        };
+    } catch (e) {}
+    return null;
+}
+function getStoreLogo(storeInfoLogo) {
+    if (storeInfoLogo) return storeInfoLogo;
+    try {
+        const settings = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$settings$2d$cache$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getGeneralSettingsSync"])();
+        return settings.logoUrl || undefined;
+    } catch (e) {}
+    return undefined;
+}
+function formatCurrency(amount) {
+    if (amount === undefined || amount === null) return '0';
+    return new Intl.NumberFormat('vi-VN').format(amount);
+}
+function numberToWords(amount) {
+    if (!amount || amount === 0) return 'Không đồng';
+    const units = [
+        '',
+        'một',
+        'hai',
+        'ba',
+        'bốn',
+        'năm',
+        'sáu',
+        'bảy',
+        'tám',
+        'chín'
+    ];
+    const positions = [
+        '',
+        'nghìn',
+        'triệu',
+        'tỷ',
+        'nghìn tỷ',
+        'triệu tỷ'
+    ];
+    const readThreeDigits = (num)=>{
+        const hundred = Math.floor(num / 100);
+        const ten = Math.floor(num % 100 / 10);
+        const unit = num % 10;
+        let result = '';
+        if (hundred > 0) {
+            result += units[hundred] + ' trăm ';
+        }
+        if (ten > 1) {
+            result += units[ten] + ' mươi ';
+            if (unit === 1) {
+                result += 'mốt ';
+            } else if (unit === 5) {
+                result += 'lăm ';
+            } else if (unit > 0) {
+                result += units[unit] + ' ';
+            }
+        } else if (ten === 1) {
+            result += 'mười ';
+            if (unit === 5) {
+                result += 'lăm ';
+            } else if (unit > 0) {
+                result += units[unit] + ' ';
+            }
+        } else if (ten === 0 && hundred > 0 && unit > 0) {
+            result += 'lẻ ' + units[unit] + ' ';
+        } else if (unit > 0) {
+            result += units[unit] + ' ';
+        }
+        return result.trim();
+    };
+    let result = '';
+    let num = Math.abs(Math.round(amount));
+    let posIndex = 0;
+    while(num > 0){
+        const threeDigits = num % 1000;
+        if (threeDigits > 0) {
+            const words = readThreeDigits(threeDigits);
+            result = words + ' ' + positions[posIndex] + ' ' + result;
+        }
+        num = Math.floor(num / 1000);
+        posIndex++;
+    }
+    result = result.trim();
+    // Capitalize first letter
+    result = result.charAt(0).toUpperCase() + result.slice(1) + ' đồng';
+    if (amount < 0) {
+        result = 'Âm ' + result;
+    }
+    return result;
+}
+function formatDate(date) {
+    return (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$date$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDateForDisplay"])(date);
+}
+function formatTime(date) {
+    return (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$date$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTimeForDisplay"])(date);
+}
+function formatDateTime(date) {
+    return (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$date$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDateTimeForDisplay"])(date);
+}
+// ============================================
+// PRINT SERVICE
+// ============================================
+/**
+ * CSS styles cho in ấn
+ */ const PRINT_STYLES = `
+  * { box-sizing: border-box; }
+  body { 
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 20px;
+    color: #000;
+  }
+  h1, h2, h3, h4 { margin: 0.5em 0; }
+  h2 { font-size: 18px; font-weight: bold; }
+  p { margin: 0.3em 0; }
+  table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin: 10px 0;
+  }
+  th, td { 
+    border: 1px solid #333; 
+    padding: 6px 8px; 
+    text-align: left;
+    vertical-align: top;
+  }
+  th { 
+    background: #f0f0f0; 
+    font-weight: bold;
+  }
+  strong { font-weight: bold; }
+  em { font-style: italic; }
+  hr { border: none; border-top: 1px solid #333; margin: 10px 0; }
+  ul { margin: 0.5em 0; padding-left: 25px; list-style-type: disc; }
+  ol { margin: 0.5em 0; padding-left: 25px; list-style-type: decimal; }
+  li { margin: 0.2em 0; display: list-item; }
+  img { max-width: 100%; height: auto; }
+  @media print { 
+    body { padding: 0; } 
+    @page { margin: 15mm; }
+  }
+`;
+function replaceVariables(template, data) {
+    let result = template;
+    // Replace các biến đơn lẻ
+    Object.entries(data).forEach(([key, value])=>{
+        // Nếu không phải array (line items), replace trực tiếp
+        if (!Array.isArray(value)) {
+            const placeholder = key.startsWith('{') ? key : `{${key}}`;
+            const stringValue = value?.toString() || '';
+            result = result.split(placeholder).join(stringValue);
+        }
+    });
+    return result;
+}
+function generateLineItemsHtml(templateRow, items, startIndex = 1) {
+    return items.map((item, index)=>{
+        let row = templateRow;
+        // Replace {line_stt} với số thứ tự
+        row = row.replace(/{line_stt}/g, (startIndex + index).toString());
+        // Replace các biến line_* khác
+        Object.entries(item).forEach(([key, value])=>{
+            const placeholder = key.startsWith('{') ? key : `{${key}}`;
+            const stringValue = value?.toString() || '';
+            row = row.split(placeholder).join(stringValue);
+        });
+        return row;
+    }).join('\n');
+}
+function generatePrintHtml(templateType, data, branchId) {
+    const store = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$printer$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePrintTemplateStore"].getState();
+    const defaultSize = store.getDefaultSize(templateType);
+    const template = store.getTemplate(templateType, defaultSize, branchId);
+    let html = template.content;
+    // Replace variables
+    html = replaceVariables(html, data);
+    return html;
+}
+function printDocument(templateType, data, options) {
+    const store = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$printer$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePrintTemplateStore"].getState();
+    const paperSize = options?.paperSize || store.getDefaultSize(templateType);
+    const template = store.getTemplate(templateType, paperSize, options?.branchId);
+    // Generate HTML content
+    let html = replaceVariables(template.content, data);
+    // Tạo iframe ẩn để in
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-10000px';
+    printFrame.style.left = '-10000px';
+    document.body.appendChild(printFrame);
+    const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+    if (printDoc) {
+        const title = options?.title || `In ${templateType}`;
+        printDoc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>${PRINT_STYLES}</style>
+      </head>
+      <body>${html}</body>
+      </html>
+    `);
+        printDoc.close();
+        // Đợi load xong rồi in
+        setTimeout(()=>{
+            printFrame.contentWindow?.print();
+            // Xóa iframe sau khi in
+            setTimeout(()=>{
+                if (document.body.contains(printFrame)) {
+                    document.body.removeChild(printFrame);
+                }
+            }, 1000);
+        }, 100);
+    }
+}
+function getPreviewHtml(templateType, data, options) {
+    const store = __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$printer$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePrintTemplateStore"].getState();
+    const paperSize = options?.paperSize || store.getDefaultSize(templateType);
+    const template = store.getTemplate(templateType, paperSize, options?.branchId);
+    return replaceVariables(template.content, data);
+}
+function getStoreData(settings) {
+    const now = new Date();
+    const logo = getStoreLogo(settings.logo);
+    return {
+        '{store_logo}': logo ? `<img src="${logo}" alt="Logo" style="max-height:60px"/>` : '',
+        '{store_name}': settings.name || '',
+        '{store_address}': settings.address || '',
+        '{store_phone_number}': settings.phone || '',
+        '{hotline}': settings.hotline || settings.phone || '',
+        '{store_hotline}': settings.hotline || settings.phone || '',
+        '{store_email}': settings.email || '',
+        '{store_fax}': settings.fax || '',
+        '{store_website}': settings.website || '',
+        '{store_tax_code}': settings.taxCode || '',
+        // Print timestamp - always inject current time
+        '{print_date}': formatDate(now),
+        '{print_time}': formatTime(now)
+    };
+}
+const PrintService = {
+    formatCurrency,
+    numberToWords,
+    formatDate,
+    formatTime,
+    formatDateTime,
+    replaceVariables,
+    generateLineItemsHtml,
+    generatePrintHtml,
+    printDocument,
+    getPreviewHtml,
+    getStoreData,
+    getStoreLogo
+};
+const __TURBOPACK__default__export__ = PrintService;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/use-print.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "usePrint",
+    ()=>usePrint
+]);
+/**
+ * Hook để sử dụng Print Service trong các component
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$printer$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/printer/store.ts [app-client] (ecmascript)");
+var _s = __turbopack_context__.k.signature();
+;
+;
+;
+/**
+ * Kiểm tra giá trị có "empty" không (null, undefined, '', '0', 0)
+ */ function isEmptyValue(value) {
+    if (value === undefined || value === null || value === '') return true;
+    // Coi '0' và các biến thể như empty
+    const strValue = String(value).trim();
+    if (strValue === '0' || strValue === '0đ' || strValue === '0 đ') return true;
+    return false;
+}
+/**
+ * Xử lý các điều kiện trong template
+ * Hỗ trợ:
+ * - {{#if has_tax}}...{{/if}} - Điều kiện boolean
+ * - {{#if_empty {field}}}...{{/if_empty}} - Nếu field rỗng
+ * - {{#if_not_empty {field}}}...{{/if_not_empty}} - Nếu field không rỗng
+ * - {{#if_gt {field} value}}...{{/if_gt}} - Nếu field > value (greater than)
+ */ function processConditionals(html, data, lineItems) {
+    let result = html;
+    // 1. Xử lý {{#if_not_empty {field}}}...{{/if_not_empty}}
+    const ifNotEmptyPattern = /\{\{#if_not_empty\s+\{([^}]+)\}\}\}([\s\S]*?)\{\{\/if_not_empty\}\}/gi;
+    result = result.replace(ifNotEmptyPattern, (match, field, content)=>{
+        const key = `{${field}}`;
+        const value = data[key];
+        if (!isEmptyValue(value)) {
+            return content;
+        }
+        return '';
+    });
+    // 2. Xử lý {{#if_empty {field}}}...{{/if_empty}}
+    const ifEmptyPattern = /\{\{#if_empty\s+\{([^}]+)\}\}\}([\s\S]*?)\{\{\/if_empty\}\}/gi;
+    result = result.replace(ifEmptyPattern, (match, field, content)=>{
+        const key = `{${field}}`;
+        const value = data[key];
+        if (isEmptyValue(value)) {
+            return content;
+        }
+        return '';
+    });
+    // 3. Xử lý {{#if_gt {field} value}}...{{/if_gt}} (greater than 0)
+    const ifGtPattern = /\{\{#if_gt\s+\{([^}]+)\}\s+(\d+)\}\}([\s\S]*?)\{\{\/if_gt\}\}/gi;
+    result = result.replace(ifGtPattern, (match, field, compareValue, content)=>{
+        const key = `{${field}}`;
+        const value = data[key];
+        // Parse số từ giá trị (loại bỏ dấu chấm, đ, etc.)
+        const numValue = parseFloat((value || '0').toString().replace(/[^\d.-]/g, ''));
+        const numCompare = parseFloat(compareValue);
+        if (numValue > numCompare) {
+            return content;
+        }
+        return '';
+    });
+    // 4. Xử lý {{#if has_tax}}...{{/if}} - Boolean conditions
+    // has_tax = true nếu total_tax > 0
+    const hasTax = !isEmptyValue(data['{total_tax}']);
+    const hasDiscount = !isEmptyValue(data['{total_discount}']);
+    const hasDeliveryFee = !isEmptyValue(data['{delivery_fee}']);
+    const hasNote = !isEmptyValue(data['{order_note}']);
+    const booleanConditions = {
+        'has_tax': hasTax,
+        'has_discount': hasDiscount,
+        'has_delivery_fee': hasDeliveryFee,
+        'has_note': hasNote,
+        'has_shipping_address': !isEmptyValue(data['{shipping_address}']),
+        'has_customer_email': !isEmptyValue(data['{customer_email}']),
+        'has_customer_phone': !isEmptyValue(data['{customer_phone_number}'])
+    };
+    // Xử lý {{#if condition}}...{{/if}}
+    const ifPattern = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/gi;
+    result = result.replace(ifPattern, (match, condition, content)=>{
+        if (booleanConditions[condition]) {
+            return content;
+        }
+        return '';
+    });
+    // 5. Xử lý {{#unless condition}}...{{/unless}} (ngược lại với if)
+    const unlessPattern = /\{\{#unless\s+(\w+)\}\}([\s\S]*?)\{\{\/unless\}\}/gi;
+    result = result.replace(unlessPattern, (match, condition, content)=>{
+        if (!booleanConditions[condition]) {
+            return content;
+        }
+        return '';
+    });
+    return result;
+}
+/**
+ * Xử lý điều kiện cho line items
+ * Ví dụ: {{#line_if_not_empty {line_tax_amount}}}...{{/line_if_not_empty}}
+ */ function processLineItemConditionals(rowHtml, item) {
+    let result = rowHtml;
+    // Xử lý {{#line_if_not_empty {field}}}...{{/line_if_not_empty}}
+    const lineIfNotEmptyPattern = /\{\{#line_if_not_empty\s+\{([^}]+)\}\}\}([\s\S]*?)\{\{\/line_if_not_empty\}\}/gi;
+    result = result.replace(lineIfNotEmptyPattern, (match, field, content)=>{
+        const key = `{${field}}`;
+        const value = item[key];
+        if (!isEmptyValue(value)) {
+            return content;
+        }
+        return '';
+    });
+    // Xử lý {{#line_if_empty {field}}}...{{/line_if_empty}}
+    const lineIfEmptyPattern = /\{\{#line_if_empty\s+\{([^}]+)\}\}\}([\s\S]*?)\{\{\/line_if_empty\}\}/gi;
+    result = result.replace(lineIfEmptyPattern, (match, field, content)=>{
+        const key = `{${field}}`;
+        const value = item[key];
+        if (isEmptyValue(value)) {
+            return content;
+        }
+        return '';
+    });
+    return result;
+}
+function usePrint(currentBranchId) {
+    _s();
+    const templateStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$printer$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePrintTemplateStore"])();
+    const [isLoading] = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](false);
+    const getTemplateContent = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[getTemplateContent]": (type, paperSize, branchId)=>{
+            // Xác định paperSize sử dụng
+            const size = paperSize || templateStore.getDefaultSize(type);
+            const branch = branchId || currentBranchId;
+            // Lấy template
+            const template = templateStore.getTemplate(type, size, branch);
+            if (template?.content) {
+                return template.content;
+            }
+            // Fallback: thử lấy template không có branch
+            const defaultTemplate = templateStore.getTemplate(type, size);
+            return defaultTemplate?.content || null;
+        }
+    }["usePrint.useCallback[getTemplateContent]"], [
+        templateStore,
+        currentBranchId
+    ]);
+    const processTemplate = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[processTemplate]": (templateContent, data, lineItems)=>{
+            // Bước 1: Xử lý line items nếu có
+            let html = templateContent;
+            console.log('[processTemplate] Starting, lineItems count:', lineItems?.length);
+            if (lineItems && lineItems.length > 0) {
+                // === XỬ LÝ CÚ PHÁP {{#line_items}}...{{/line_items}} ===
+                // Dành cho template lặp toàn bộ section (mỗi employee 1 page)
+                const lineItemsBlockPattern = /\{\{#line_items\}\}([\s\S]*?)\{\{\/line_items\}\}/gi;
+                const lineItemsBlockMatch = html.match(lineItemsBlockPattern);
+                console.log('[processTemplate] Block match found:', !!lineItemsBlockMatch, lineItemsBlockMatch?.length);
+                if (lineItemsBlockMatch && lineItemsBlockMatch.length > 0) {
+                    // Có block {{#line_items}} - lặp cả block cho mỗi item
+                    html = html.replace(lineItemsBlockPattern, {
+                        "usePrint.useCallback[processTemplate]": (match, blockContent)=>{
+                            return lineItems.map({
+                                "usePrint.useCallback[processTemplate]": (item, index)=>{
+                                    let itemHtml = blockContent;
+                                    // Thêm {line_index}
+                                    itemHtml = itemHtml.replace(/\{line_index\}/g, String(index + 1));
+                                    // Replace các biến từ item (line item data)
+                                    Object.entries(item).forEach({
+                                        "usePrint.useCallback[processTemplate]": ([key, value])=>{
+                                            const placeholder = key.startsWith('{') ? key : `{${key}}`;
+                                            const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                                            itemHtml = itemHtml.replace(regex, value?.toString() || '');
+                                        }
+                                    }["usePrint.useCallback[processTemplate]"]);
+                                    // Replace các biến global (data) cho mỗi item page
+                                    Object.entries(data).forEach({
+                                        "usePrint.useCallback[processTemplate]": ([key, value])=>{
+                                            const placeholder = key.startsWith('{') ? key : `{${key}}`;
+                                            const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                                            itemHtml = itemHtml.replace(regex, value?.toString() || '');
+                                        }
+                                    }["usePrint.useCallback[processTemplate]"]);
+                                    return itemHtml;
+                                }
+                            }["usePrint.useCallback[processTemplate]"]).join('\n');
+                        }
+                    }["usePrint.useCallback[processTemplate]"]);
+                // Đã xử lý xong line items theo block mode, skip table mode
+                } else {
+                    // === XỬ LÝ TABLE MODE (cũ) ===
+                    // Tìm tất cả các table trong template
+                    const tablePattern = /<table[^>]*>[\s\S]*?<\/table>/gi;
+                    const tables = html.match(tablePattern);
+                    if (tables) {
+                        // Tìm table chứa {line_stt} - đây là bảng line items
+                        const lineItemsTable = tables.find({
+                            "usePrint.useCallback[processTemplate].lineItemsTable": (table)=>table.includes('{line_stt}')
+                        }["usePrint.useCallback[processTemplate].lineItemsTable"]);
+                        if (lineItemsTable) {
+                            // Tìm tbody trong table này
+                            let tbodyMatch = lineItemsTable.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+                            // Nếu không có tbody, có thể table chỉ có tr trực tiếp
+                            // (một số template không dùng thead/tbody)
+                            if (!tbodyMatch) {
+                                // Tìm tất cả tr trong table (trừ tr trong thead)
+                                const theadMatch = lineItemsTable.match(/<thead[^>]*>[\s\S]*?<\/thead>/i);
+                                let tableWithoutThead = lineItemsTable;
+                                if (theadMatch) {
+                                    tableWithoutThead = lineItemsTable.replace(theadMatch[0], '');
+                                }
+                                // Tìm tr chứa {line_stt}
+                                const rowPattern = /<tr[^>]*>[\s\S]*?\{line_stt\}[\s\S]*?<\/tr>/i;
+                                const rowMatch = tableWithoutThead.match(rowPattern);
+                                if (rowMatch) {
+                                    const templateRow = rowMatch[0];
+                                    // Tạo các row mới từ template
+                                    const rowsHtml = lineItems.map({
+                                        "usePrint.useCallback[processTemplate].rowsHtml": (item)=>{
+                                            let row = templateRow;
+                                            // Xử lý điều kiện cho line item trước
+                                            row = processLineItemConditionals(row, item);
+                                            Object.entries(item).forEach({
+                                                "usePrint.useCallback[processTemplate].rowsHtml": ([key, value])=>{
+                                                    const placeholder = key.startsWith('{') ? key : `{${key}}`;
+                                                    const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                                                    row = row.replace(regex, value?.toString() || '');
+                                                }
+                                            }["usePrint.useCallback[processTemplate].rowsHtml"]);
+                                            return row;
+                                        }
+                                    }["usePrint.useCallback[processTemplate].rowsHtml"]).join('\n    ');
+                                    // Thay thế row mẫu bằng các rows mới
+                                    const newTable = lineItemsTable.replace(templateRow, rowsHtml);
+                                    html = html.replace(lineItemsTable, newTable);
+                                }
+                            } else {
+                                // Có tbody - xử lý như cũ
+                                const tbodyContent = tbodyMatch[1];
+                                // Tìm TẤT CẢ các row trong tbody
+                                const allRowsPattern = /<tr[^>]*>[\s\S]*?<\/tr>/gi;
+                                const allRows = tbodyContent.match(allRowsPattern);
+                                if (allRows && allRows.length > 0) {
+                                    // Tìm row chứa {line_stt} - đây là row mẫu
+                                    const templateRow = allRows.find({
+                                        "usePrint.useCallback[processTemplate]": (row)=>row.includes('{line_stt}')
+                                    }["usePrint.useCallback[processTemplate]"]) || allRows[0];
+                                    // Tạo các row mới từ template
+                                    const rowsHtml = lineItems.map({
+                                        "usePrint.useCallback[processTemplate].rowsHtml": (item)=>{
+                                            let row = templateRow;
+                                            // Xử lý điều kiện cho line item trước
+                                            row = processLineItemConditionals(row, item);
+                                            // Replace từng biến trong item
+                                            Object.entries(item).forEach({
+                                                "usePrint.useCallback[processTemplate].rowsHtml": ([key, value])=>{
+                                                    const placeholder = key.startsWith('{') ? key : `{${key}}`;
+                                                    const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                                                    row = row.replace(regex, value?.toString() || '');
+                                                }
+                                            }["usePrint.useCallback[processTemplate].rowsHtml"]);
+                                            return row;
+                                        }
+                                    }["usePrint.useCallback[processTemplate].rowsHtml"]).join('\n    ');
+                                    // Tạo tbody mới
+                                    const newTbody = `<tbody>\n    ${rowsHtml}\n  </tbody>`;
+                                    // Thay thế tbody cũ trong table
+                                    const newTable = lineItemsTable.replace(tbodyMatch[0], newTbody);
+                                    // Thay thế table cũ bằng table mới trong html
+                                    html = html.replace(lineItemsTable, newTable);
+                                }
+                            }
+                        }
+                    }
+                } // End of else (TABLE MODE)
+            }
+            // Bước 2: Xử lý các điều kiện (conditionals)
+            html = processConditionals(html, data, lineItems);
+            // Bước 3: Thay thế các biến còn lại
+            html = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["replaceVariables"])(html, data);
+            return html;
+        }
+    }["usePrint.useCallback[processTemplate]"], []);
+    const print = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[print]": (type, options)=>{
+            const { data, lineItems, paperSize, branchId } = options;
+            console.log('[usePrint] Starting print for type:', type);
+            console.log('[usePrint] Data keys:', Object.keys(data));
+            console.log('[usePrint] LineItems count:', lineItems?.length || 0);
+            // Lấy template content
+            const size = paperSize || templateStore.getDefaultSize(type);
+            const templateContent = getTemplateContent(type, size, branchId);
+            if (!templateContent) {
+                console.error(`[usePrint] No template found for type: ${type}`);
+                return;
+            }
+            console.log('[usePrint] Template found, length:', templateContent.length);
+            // Xử lý template
+            let html;
+            try {
+                html = processTemplate(templateContent, data, lineItems);
+                console.log('[usePrint] Template processed, html length:', html.length);
+            } catch (err) {
+                console.error('[usePrint] Error processing template:', err);
+                return;
+            }
+            // Tạo iframe ẩn để in
+            const printFrame = document.createElement('iframe');
+            printFrame.style.position = 'absolute';
+            printFrame.style.top = '-10000px';
+            printFrame.style.left = '-10000px';
+            document.body.appendChild(printFrame);
+            const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+            if (printDoc) {
+                // CSS cơ bản cho print - giống với Settings preview
+                const printCSS = `
+        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+        th, td { border: 1px solid #333; padding: 6px 8px; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        .text-center, [style*="text-align: center"] { text-align: center; }
+        .text-right, [style*="text-align: right"] { text-align: right; }
+        img { max-width: 100%; height: auto; }
+        h1, h2, h3 { margin: 8px 0; }
+        p { margin: 4px 0; }
+      `;
+                printDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>In ${type}</title>
+          <style>${printCSS}</style>
+        </head>
+        <body>${html}</body>
+        </html>
+      `);
+                printDoc.close();
+                // Đợi load xong rồi in
+                setTimeout({
+                    "usePrint.useCallback[print]": ()=>{
+                        printFrame.contentWindow?.print();
+                        // Xóa iframe sau khi in
+                        setTimeout({
+                            "usePrint.useCallback[print]": ()=>{
+                                if (document.body.contains(printFrame)) {
+                                    document.body.removeChild(printFrame);
+                                }
+                            }
+                        }["usePrint.useCallback[print]"], 1000);
+                    }
+                }["usePrint.useCallback[print]"], 100);
+            }
+        }
+    }["usePrint.useCallback[print]"], [
+        getTemplateContent,
+        processTemplate
+    ]);
+    /**
+   * In nhiều tài liệu cùng lúc - gộp thành 1 document với page break giữa các tài liệu
+   */ const printMultiple = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[printMultiple]": (type, optionsList)=>{
+            if (optionsList.length === 0) return;
+            // Lấy template content (dùng paperSize của item đầu tiên hoặc default)
+            const firstOptions = optionsList[0];
+            const size = firstOptions.paperSize || templateStore.getDefaultSize(type);
+            const templateContent = getTemplateContent(type, size, firstOptions.branchId);
+            if (!templateContent) {
+                console.error(`[usePrint] No template found for type: ${type}`);
+                return;
+            }
+            // Xử lý từng document và gộp lại với page break
+            const allHtmlParts = optionsList.map({
+                "usePrint.useCallback[printMultiple].allHtmlParts": (options, index)=>{
+                    const html = processTemplate(templateContent, options.data, options.lineItems);
+                    // Thêm page break sau mỗi document (trừ document cuối)
+                    if (index < optionsList.length - 1) {
+                        return `<div class="print-page" style="page-break-after: always; break-after: page;">${html}</div>`;
+                    }
+                    return `<div class="print-page-last">${html}</div>`;
+                }
+            }["usePrint.useCallback[printMultiple].allHtmlParts"]);
+            const combinedHtml = allHtmlParts.join('\n');
+            // Tạo iframe ẩn để in
+            const printFrame = document.createElement('iframe');
+            printFrame.style.position = 'absolute';
+            printFrame.style.top = '-10000px';
+            printFrame.style.left = '-10000px';
+            document.body.appendChild(printFrame);
+            const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+            if (printDoc) {
+                // CSS cơ bản cho print với page break
+                const printCSS = `
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; margin: 0; padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+        th, td { border: 1px solid #333; padding: 6px 8px; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        .text-center, [style*="text-align: center"] { text-align: center; }
+        .text-right, [style*="text-align: right"] { text-align: right; }
+        img { max-width: 100%; height: auto; }
+        h1, h2, h3 { margin: 8px 0; }
+        p { margin: 4px 0; }
+        .print-page { 
+          page-break-after: always !important; 
+          break-after: page !important;
+          page-break-inside: avoid;
+        }
+        .print-page-last { 
+          page-break-after: auto; 
+        }
+        @media print {
+          .print-page { 
+            page-break-after: always !important; 
+            break-after: page !important;
+          }
+          .print-page-last { 
+            page-break-after: auto; 
+          }
+        }
+      `;
+                printDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>In ${optionsList.length} ${type}</title>
+          <style>${printCSS}</style>
+        </head>
+        <body>${combinedHtml}</body>
+        </html>
+      `);
+                printDoc.close();
+                // Đợi load xong rồi in
+                setTimeout({
+                    "usePrint.useCallback[printMultiple]": ()=>{
+                        printFrame.contentWindow?.print();
+                        // Xóa iframe sau khi in
+                        setTimeout({
+                            "usePrint.useCallback[printMultiple]": ()=>{
+                                if (document.body.contains(printFrame)) {
+                                    document.body.removeChild(printFrame);
+                                }
+                            }
+                        }["usePrint.useCallback[printMultiple]"], 1000);
+                    }
+                }["usePrint.useCallback[printMultiple]"], 100);
+            }
+        }
+    }["usePrint.useCallback[printMultiple]"], [
+        templateStore,
+        getTemplateContent,
+        processTemplate
+    ]);
+    /**
+   * In nhiều loại tài liệu khác nhau cùng lúc - gộp thành 1 popup duy nhất
+   * Ví dụ: In đơn hàng + phiếu giao hàng + phiếu đóng gói trong 1 lần
+   */ const printMixedDocuments = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[printMixedDocuments]": (documents)=>{
+            if (documents.length === 0) return;
+            // Xử lý từng document và gộp lại với page break
+            const allHtmlParts = [];
+            documents.forEach({
+                "usePrint.useCallback[printMixedDocuments]": (doc, docIndex)=>{
+                    const { type, options } = doc;
+                    const { data, lineItems, paperSize, branchId } = options;
+                    // Lấy template content cho loại này
+                    const size = paperSize || templateStore.getDefaultSize(type);
+                    const templateContent = getTemplateContent(type, size, branchId);
+                    if (!templateContent) {
+                        console.warn(`[printMixedDocuments] No template found for type: ${type}, skipping`);
+                        return;
+                    }
+                    const html = processTemplate(templateContent, data, lineItems);
+                    // Thêm page break sau mỗi document (trừ document cuối)
+                    if (docIndex < documents.length - 1) {
+                        allHtmlParts.push(`<div class="print-page" style="page-break-after: always; break-after: page;">${html}</div>`);
+                    } else {
+                        allHtmlParts.push(`<div class="print-page-last">${html}</div>`);
+                    }
+                }
+            }["usePrint.useCallback[printMixedDocuments]"]);
+            if (allHtmlParts.length === 0) {
+                console.error('[printMixedDocuments] No documents to print');
+                return;
+            }
+            const combinedHtml = allHtmlParts.join('\n');
+            // Tạo iframe ẩn để in
+            const printFrame = document.createElement('iframe');
+            printFrame.style.position = 'absolute';
+            printFrame.style.top = '-10000px';
+            printFrame.style.left = '-10000px';
+            document.body.appendChild(printFrame);
+            const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+            if (printDoc) {
+                // CSS cơ bản cho print với page break
+                const printCSS = `
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; margin: 0; padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+        th, td { border: 1px solid #333; padding: 6px 8px; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        .text-center, [style*="text-align: center"] { text-align: center; }
+        .text-right, [style*="text-align: right"] { text-align: right; }
+        img { max-width: 100%; height: auto; }
+        h1, h2, h3 { margin: 8px 0; }
+        p { margin: 4px 0; }
+        .print-page { 
+          page-break-after: always !important; 
+          break-after: page !important;
+          page-break-inside: avoid;
+        }
+        .print-page-last { 
+          page-break-after: auto; 
+        }
+        @media print {
+          .print-page { 
+            page-break-after: always !important; 
+            break-after: page !important;
+          }
+          .print-page-last { 
+            page-break-after: auto; 
+          }
+        }
+      `;
+                printDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>In ${documents.length} tài liệu</title>
+          <style>${printCSS}</style>
+        </head>
+        <body>${combinedHtml}</body>
+        </html>
+      `);
+                printDoc.close();
+                // Đợi load xong rồi in
+                setTimeout({
+                    "usePrint.useCallback[printMixedDocuments]": ()=>{
+                        printFrame.contentWindow?.print();
+                        // Xóa iframe sau khi in
+                        setTimeout({
+                            "usePrint.useCallback[printMixedDocuments]": ()=>{
+                                if (document.body.contains(printFrame)) {
+                                    document.body.removeChild(printFrame);
+                                }
+                            }
+                        }["usePrint.useCallback[printMixedDocuments]"], 1000);
+                    }
+                }["usePrint.useCallback[printMixedDocuments]"], 100);
+            }
+        }
+    }["usePrint.useCallback[printMixedDocuments]"], [
+        templateStore,
+        getTemplateContent,
+        processTemplate
+    ]);
+    const getPreview = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[getPreview]": (type, options)=>{
+            const { data, lineItems, paperSize, branchId } = options;
+            // Lấy template content
+            const templateContent = getTemplateContent(type, paperSize, branchId);
+            if (!templateContent) {
+                return '<p style="color: red;">Không tìm thấy mẫu in</p>';
+            }
+            // Xử lý template
+            return processTemplate(templateContent, data, lineItems);
+        }
+    }["usePrint.useCallback[getPreview]"], [
+        getTemplateContent,
+        processTemplate
+    ]);
+    const hasTemplate = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[hasTemplate]": (type, paperSize)=>{
+            const size = paperSize || templateStore.getDefaultSize(type);
+            const template = templateStore.getTemplate(type, size, currentBranchId);
+            return !!template?.content;
+        }
+    }["usePrint.useCallback[hasTemplate]"], [
+        templateStore,
+        currentBranchId
+    ]);
+    const getAvailableSizes = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[getAvailableSizes]": (type)=>{
+            const sizes = [
+                'K57',
+                'K80',
+                'A4',
+                'A5'
+            ];
+            return sizes.filter({
+                "usePrint.useCallback[getAvailableSizes]": (size)=>{
+                    const template = templateStore.getTemplate(type, size, currentBranchId);
+                    return !!template?.content;
+                }
+            }["usePrint.useCallback[getAvailableSizes]"]);
+        }
+    }["usePrint.useCallback[getAvailableSizes]"], [
+        templateStore,
+        currentBranchId
+    ]);
+    const getDefaultSize = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
+        "usePrint.useCallback[getDefaultSize]": (type)=>{
+            return templateStore.getDefaultSize(type);
+        }
+    }["usePrint.useCallback[getDefaultSize]"], [
+        templateStore
+    ]);
+    return {
+        print,
+        printMultiple,
+        printMixedDocuments,
+        getPreview,
+        hasTemplate,
+        getAvailableSizes,
+        getDefaultSize,
+        isLoading
+    };
+}
+_s(usePrint, "9M5k7O5VBx19rR8sRPzswl/QNGg=", false, function() {
+    return [
+        __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$printer$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePrintTemplateStore"]
+    ];
+});
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "formatDateText",
+    ()=>formatDateText,
+    "hidePhoneMiddle",
+    ()=>hidePhoneMiddle
+]);
+/**
+ * Print Mappers - Shared Types
+ * Types và utilities dùng chung cho tất cả mappers
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+const hidePhoneMiddle = (phone)=>{
+    if (!phone || phone.length < 8) return phone || '';
+    return phone.slice(0, 4) + '***' + phone.slice(-3);
+};
+const formatDateText = (date)=>{
+    if (!date) return '';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear();
+    return `Ngày ${day} tháng ${month} năm ${year}`;
+};
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/order.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapOrderLineItems",
+    ()=>mapOrderLineItems,
+    "mapOrderToPrintData",
+    ()=>mapOrderToPrintData
+]);
+/**
+ * Order Mapper - Đơn bán hàng
+ * Chuyển đổi Order entity sang format để in
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapOrderToPrintData(order, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': order.location?.name || storeSettings.name || '',
+        '{location_address}': order.location?.address || storeSettings.address || '',
+        '{location_phone_number}': order.location?.phone || storeSettings.phone || '',
+        '{location_province}': order.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN ĐƠN HÀNG ===
+        '{order_code}': order.code,
+        '{order_qr_code}': '',
+        '{bar_code(code)}': `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(order.code)}" style="height:40px"/>`,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.createdAt),
+        '{created_on_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["formatDateText"])(order.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.modifiedAt),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.modifiedAt),
+        '{issued_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.issuedAt || order.createdAt),
+        '{issued_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.issuedAt || order.createdAt),
+        '{issued_on_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["formatDateText"])(order.issuedAt || order.createdAt),
+        '{account_name}': order.createdBy || '',
+        '{assignee_name}': order.assigneeName || order.createdBy || '',
+        // === TRẠNG THÁI ===
+        '{order_status}': order.status || '',
+        '{payment_status}': order.paymentStatus || '',
+        '{fulfillment_status}': order.fulfillmentStatus || '',
+        '{packed_status}': order.packedStatus || '',
+        '{return_status}': order.returnStatus || '',
+        // === NGUỒN / KÊNH ===
+        '{source}': order.source || '',
+        '{channel}': order.channel || '',
+        '{reference}': order.reference || '',
+        '{tag}': order.tags?.join(', ') || '',
+        '{bar_code(reference_number)}': order.reference ? `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(order.reference)}" style="height:40px"/>` : '',
+        // === GIAO HÀNG ===
+        '{expected_delivery_type}': order.expectedDeliveryType || '',
+        '{expected_payment_method}': order.expectedPaymentMethod || '',
+        '{ship_on_min}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.shipOnMin),
+        '{ship_on_max}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.shipOnMax),
+        '{shipped_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.shippedOn),
+        // === CHÍNH SÁCH ===
+        '{price_list_name}': order.priceListName || '',
+        '{currency_name}': order.currencyName || 'VND',
+        '{tax_treatment}': order.taxTreatment || '',
+        // === KHỐI LƯỢNG ===
+        '{weight_g}': order.totalWeightG?.toString() || '0',
+        '{weight_kg}': order.totalWeightKg?.toString() || '0',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': order.customer?.name || '',
+        '{customer_code}': order.customer?.code || '',
+        '{customer_phone_number}': order.customer?.phone || '',
+        '{customer_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(order.customer?.phone),
+        '{customer_email}': order.customer?.email || '',
+        '{customer_group}': order.customer?.group || '',
+        '{customer_contact}': order.customer?.contactName || order.customer?.name || '',
+        '{customer_contact_phone_number}': order.customer?.contactPhone || order.customer?.phone || '',
+        '{customer_contact_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(order.customer?.contactPhone || order.customer?.phone),
+        '{customer_card}': order.customer?.cardLevel || '',
+        '{customer_tax_number}': order.customer?.taxNumber || '',
+        // === ĐIỂM KHÁCH HÀNG ===
+        '{customer_point}': order.customer?.currentPoint?.toString() || '0',
+        '{customer_point_used}': order.customer?.pointUsed?.toString() || '0',
+        '{customer_point_new}': order.customer?.pointEarned?.toString() || '0',
+        '{customer_point_before_create_invoice}': order.customer?.pointBeforeOrder?.toString() || '0',
+        '{customer_point_after_create_invoice}': order.customer?.pointAfterOrder?.toString() || '0',
+        // === NỢ KHÁCH HÀNG ===
+        '{customer_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.customer?.currentDebt),
+        '{customer_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.customer?.currentDebt || 0),
+        '{customer_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.customer?.previousDebt),
+        '{customer_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.customer?.previousDebt || 0),
+        '{debt_before_create_invoice}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.customer?.debtBeforeOrder || order.customer?.previousDebt),
+        '{debt_before_create_invoice_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.customer?.debtBeforeOrder || order.customer?.previousDebt || 0),
+        '{debt_after_create_invoice}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.customer?.debtAfterOrder || order.customer?.currentDebt),
+        '{debt_after_create_invoice_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.customer?.debtAfterOrder || order.customer?.currentDebt || 0),
+        '{total_amount_and_debt_before_create_invoice}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])((order.customer?.debtBeforeOrder || 0) + order.total),
+        '{total_amount_and_debt_before_create_invoice_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])((order.customer?.debtBeforeOrder || 0) + order.total),
+        // === ĐỊA CHỈ ===
+        '{billing_address}': order.billingAddress || order.customer?.address || '',
+        '{shipping_address}': order.shippingAddress || '',
+        '{shipping_address:full_name}': order.recipient?.name || order.customer?.name || '',
+        '{shipping_address:phone_number}': order.recipient?.phone || order.customer?.phone || '',
+        '{shipping_address:phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(order.recipient?.phone || order.customer?.phone),
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': order.totalQuantity.toString(),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.subtotal),
+        '{total_none_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.subtotalBeforeDiscount || order.subtotal),
+        '{total_line_item_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalLineItemDiscount),
+        '{product_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalLineItemDiscount),
+        '{order_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.orderDiscount),
+        '{order_discount_rate}': order.orderDiscountRate ? `${order.orderDiscountRate}%` : '',
+        '{order_discount_value}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.orderDiscountValue || order.orderDiscount),
+        '{total_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalDiscount),
+        '{discount_details}': order.discountDetails || '',
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalTax),
+        '{total_extra_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalExtraTax),
+        '{total_tax_included_line}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalTaxIncludedLine),
+        '{total_amount_before_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalAmountBeforeTax),
+        '{total_amount_after_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalAmountAfterTax),
+        '{delivery_fee}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.deliveryFee),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.total),
+        '{total_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.total),
+        '{total_remain}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalRemain),
+        '{total_remain_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.totalRemain || 0),
+        // === THANH TOÁN ===
+        '{payment_name}': order.paymentMethod || '',
+        '{payment_customer}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.paidAmount),
+        '{money_return}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.changeAmount),
+        '{payments}': order.payments?.map((p)=>`${p.method}: ${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(p.amount)}`).join(', ') || '',
+        '{payment_qr}': order.paymentQrUrl ? `<img src="${order.paymentQrUrl}" style="max-width:120px;max-height:120px"/>` : '',
+        // === KHUYẾN MẠI ===
+        '{promotion_name}': order.promotionName || '',
+        '{promotion_code}': order.promotionCode || '',
+        '{order_note}': order.note || ''
+    };
+}
+function mapOrderLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_product_name}': item.productName,
+            '{line_variant}': item.variantName || '',
+            '{line_variant_code}': item.variantCode || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_variant_barcode_image}': item.barcode ? `<img src="https://barcodeapi.org/api/128/${item.barcode}" style="height:30px"/>` : '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_image}': item.imageUrl ? `<img src="${item.imageUrl}" style="max-width:50px;max-height:50px"/>` : '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_price_after_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount || item.amount / item.quantity),
+            '{line_price_discount}': `${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount || item.price)} / ${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price)}`,
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_tax_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax_included}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxIncluded),
+            '{line_tax_exclude}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxExclude),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_amount_none_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amountBeforeDiscount || item.price * item.quantity),
+            // Mở rộng
+            '{line_note}': item.note || '',
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{line_product_description}': item.description || '',
+            '{line_weight_g}': item.weightG?.toString() || '',
+            '{line_weight_kg}': item.weightG ? (item.weightG / 1000).toFixed(2) : '',
+            '{bin_location}': item.binLocation || '',
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': '',
+            '{lots_number_code3}': item.lotInfo || '',
+            '{lots_number_code4}': '',
+            '{lots_number_combo}': '',
+            '{packsizes}': '',
+            '{term_name}': item.warrantyPolicy || '',
+            '{term_number}': item.warrantyPeriod || '',
+            '{term_name_combo}': '',
+            '{term_number_combo}': '',
+            '{composite_details}': item.compositeDetails || '',
+            '{line_promotion_or_loyalty}': item.promotionInfo || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/quote.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapQuoteLineItems",
+    ()=>mapQuoteLineItems,
+    "mapQuoteToPrintData",
+    ()=>mapQuoteToPrintData
+]);
+/**
+ * Quote Mapper - Phiếu đơn tạm tính / Báo giá
+ * Đồng bộ với variables/phieu-don-tam-tinh.ts
+ * 
+ * Note: Quote có cấu trúc gần giống Order nên share nhiều biến
+ * Variables coverage: 100%
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapQuoteToPrintData(quote, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': quote.location?.name || storeSettings.name || '',
+        '{location_address}': quote.location?.address || storeSettings.address || '',
+        '{location_phone_number}': quote.location?.phone || storeSettings.phone || '',
+        '{location_province}': quote.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN ĐƠN HÀNG ===
+        '{order_code}': quote.code,
+        '{order_qr_code}': '',
+        '{bar_code(code)}': `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(quote.code)}" style="height:40px"/>`,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(quote.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(quote.createdAt),
+        '{created_on_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["formatDateText"])(quote.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(quote.modifiedAt),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(quote.modifiedAt),
+        '{issued_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(quote.issuedAt || quote.createdAt),
+        '{issued_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(quote.issuedAt || quote.createdAt),
+        '{issued_on_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["formatDateText"])(quote.issuedAt || quote.createdAt),
+        '{account_name}': quote.createdBy || '',
+        '{assignee_name}': quote.assigneeName || quote.createdBy || '',
+        // === TRẠNG THÁI ===
+        '{order_status}': quote.status || '',
+        '{payment_status}': quote.paymentStatus || '',
+        '{fulfillment_status}': quote.fulfillmentStatus || '',
+        '{packed_status}': quote.packedStatus || '',
+        '{return_status}': quote.returnStatus || '',
+        // === NGUỒN / KÊNH ===
+        '{source}': quote.source || '',
+        '{channel}': quote.channel || '',
+        '{reference}': quote.reference || '',
+        '{tag}': quote.tags?.join(', ') || '',
+        '{bar_code(reference_number)}': quote.reference ? `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(quote.reference)}" style="height:40px"/>` : '',
+        // === GIAO HÀNG ===
+        '{expected_delivery_type}': quote.expectedDeliveryType || '',
+        '{expected_payment_method}': quote.expectedPaymentMethod || '',
+        '{ship_on_min}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(quote.shipOnMin),
+        '{ship_on_max}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(quote.shipOnMax),
+        '{shipped_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(quote.shippedOn),
+        // === CHÍNH SÁCH ===
+        '{price_list_name}': quote.priceListName || '',
+        '{currency_name}': quote.currencyName || 'VND',
+        '{tax_treatment}': quote.taxTreatment || '',
+        // === KHỐI LƯỢNG ===
+        '{weight_g}': quote.totalWeightG?.toString() || '0',
+        '{weight_kg}': quote.totalWeightKg?.toString() || '0',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': quote.customer?.name || '',
+        '{customer_code}': quote.customer?.code || '',
+        '{customer_phone_number}': quote.customer?.phone || '',
+        '{customer_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(quote.customer?.phone),
+        '{customer_email}': quote.customer?.email || '',
+        '{customer_group}': quote.customer?.group || '',
+        '{customer_contact}': quote.customer?.contactName || quote.customer?.name || '',
+        '{customer_contact_phone_number}': quote.customer?.contactPhone || quote.customer?.phone || '',
+        '{customer_contact_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(quote.customer?.contactPhone || quote.customer?.phone),
+        '{customer_card}': quote.customer?.cardLevel || '',
+        '{customer_tax_number}': quote.customer?.taxNumber || '',
+        // === ĐIỂM KHÁCH HÀNG ===
+        '{customer_point}': quote.customer?.currentPoint?.toString() || '0',
+        '{customer_point_used}': quote.customer?.pointUsed?.toString() || '0',
+        '{customer_point_new}': quote.customer?.pointEarned?.toString() || '0',
+        '{customer_point_before_create_invoice}': quote.customer?.pointBeforeOrder?.toString() || '0',
+        '{customer_point_after_create_invoice}': quote.customer?.pointAfterOrder?.toString() || '0',
+        // === NỢ KHÁCH HÀNG ===
+        '{customer_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.customer?.currentDebt),
+        '{customer_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(quote.customer?.currentDebt || 0),
+        '{customer_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.customer?.previousDebt),
+        '{customer_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(quote.customer?.previousDebt || 0),
+        '{debt_before_create_invoice}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.customer?.debtBeforeOrder || quote.customer?.previousDebt),
+        '{debt_before_create_invoice_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(quote.customer?.debtBeforeOrder || quote.customer?.previousDebt || 0),
+        '{debt_after_create_invoice}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.customer?.debtAfterOrder || quote.customer?.currentDebt),
+        '{debt_after_create_invoice_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(quote.customer?.debtAfterOrder || quote.customer?.currentDebt || 0),
+        '{total_amount_and_debt_before_create_invoice}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])((quote.customer?.debtBeforeOrder || 0) + quote.total),
+        '{total_amount_and_debt_before_create_invoice_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])((quote.customer?.debtBeforeOrder || 0) + quote.total),
+        // === ĐỊA CHỈ ===
+        '{billing_address}': quote.billingAddress || quote.customer?.address || '',
+        '{shipping_address}': quote.shippingAddress || '',
+        '{shipping_address:full_name}': quote.recipient?.name || quote.customer?.name || '',
+        '{shipping_address:phone_number}': quote.recipient?.phone || quote.customer?.phone || '',
+        '{shipping_address:phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(quote.recipient?.phone || quote.customer?.phone),
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': quote.totalQuantity.toString(),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.subtotal),
+        '{total_none_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.subtotalBeforeDiscount || quote.subtotal),
+        '{total_line_item_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalLineItemDiscount),
+        '{product_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalLineItemDiscount),
+        '{order_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.orderDiscount),
+        '{order_discount_rate}': quote.orderDiscountRate ? `${quote.orderDiscountRate}%` : '',
+        '{order_discount_value}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.orderDiscountValue || quote.orderDiscount),
+        '{total_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalDiscount),
+        '{discount_details}': quote.discountDetails || '',
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalTax),
+        '{total_extra_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalExtraTax),
+        '{total_tax_included_line}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalTaxIncludedLine),
+        '{total_amount_before_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalAmountBeforeTax),
+        '{total_amount_after_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalAmountAfterTax),
+        '{delivery_fee}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.deliveryFee),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.total),
+        '{total_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(quote.total),
+        '{total_remain}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.totalRemain),
+        '{total_remain_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(quote.totalRemain || 0),
+        // === THANH TOÁN ===
+        '{payment_name}': quote.paymentMethod || '',
+        '{payment_customer}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.paidAmount),
+        '{money_return}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(quote.changeAmount),
+        '{payments}': quote.payments?.map((p)=>`${p.method}: ${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(p.amount)}`).join(', ') || '',
+        '{payment_qr}': quote.paymentQrUrl ? `<img src="${quote.paymentQrUrl}" style="max-width:120px;max-height:120px"/>` : '',
+        // === KHUYẾN MẠI ===
+        '{promotion_name}': quote.promotionName || '',
+        '{promotion_code}': quote.promotionCode || '',
+        '{order_note}': quote.note || ''
+    };
+}
+function mapQuoteLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_product_name}': item.productName,
+            '{line_variant}': item.variantName || '',
+            '{line_variant_code}': item.variantCode || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_variant_barcode_image}': item.barcode ? `<img src="https://barcodeapi.org/api/128/${item.barcode}" style="height:30px"/>` : '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_image}': item.imageUrl ? `<img src="${item.imageUrl}" style="max-width:50px;max-height:50px"/>` : '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_price_after_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount || item.amount / item.quantity),
+            '{line_price_discount}': `${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount || item.price)} / ${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price)}`,
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_tax_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax_included}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxIncluded),
+            '{line_tax_exclude}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxExclude),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_amount_none_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amountBeforeDiscount || item.price * item.quantity),
+            // Mở rộng
+            '{line_note}': item.note || '',
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{line_product_description}': item.description || '',
+            '{line_weight_g}': item.weightG?.toString() || '',
+            '{line_weight_kg}': item.weightG ? (item.weightG / 1000).toFixed(2) : '',
+            '{bin_location}': item.binLocation || '',
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': '',
+            '{lots_number_code3}': item.lotInfo || '',
+            '{lots_number_code4}': '',
+            '{lots_number_combo}': '',
+            '{packsizes}': '',
+            '{term_name}': item.warrantyPolicy || '',
+            '{term_number}': item.warrantyPeriod || '',
+            '{term_name_combo}': '',
+            '{term_number_combo}': '',
+            '{composite_details}': item.compositeDetails || '',
+            '{line_promotion_or_loyalty}': item.promotionInfo || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/sales-return.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapSalesReturnLineItems",
+    ()=>mapSalesReturnLineItems,
+    "mapSalesReturnReturnLineItems",
+    ()=>mapSalesReturnReturnLineItems,
+    "mapSalesReturnToPrintData",
+    ()=>mapSalesReturnToPrintData
+]);
+/**
+ * Sales Return Mapper - Đơn đổi trả hàng
+ * Đồng bộ với variables/don-doi-tra-hang.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapSalesReturnToPrintData(ret, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': ret.location?.name || storeSettings.name || '',
+        '{location_address}': ret.location?.address || storeSettings.address || '',
+        '{location_province}': ret.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN ĐƠN TRẢ ===
+        '{order_return_code}': ret.orderReturnCode || ret.code,
+        '{order_code}': ret.orderCode,
+        '{order_qr_code}': ret.orderQrCode ? `<img src="${ret.orderQrCode}" style="max-width:100px;max-height:100px"/>` : '',
+        '{bar_code(code)}': ret.orderBarCode ? `<img src="${ret.orderBarCode}" style="max-height:50px"/>` : '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(ret.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(ret.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(ret.modifiedAt),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(ret.modifiedAt),
+        '{issued_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(ret.issuedAt || ret.createdAt),
+        '{issued_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(ret.issuedAt || ret.createdAt),
+        '{account_name}': ret.createdBy || '',
+        '{assignee_name}': ret.assigneeName || '',
+        // === TRẠNG THÁI ===
+        '{order_status}': ret.orderStatus || '',
+        '{payment_status}': ret.paymentStatus || '',
+        '{fulfillment_status}': ret.fulfillmentStatus || '',
+        '{packed_status}': ret.packedStatus || '',
+        '{return_status}': ret.returnStatus || '',
+        // === NGUỒN / KÊNH ===
+        '{source}': ret.source || '',
+        '{channel}': ret.channel || '',
+        '{reference}': ret.reference || '',
+        '{bar_code(reference_number)}': '',
+        '{tag}': ret.tags?.join(', ') || '',
+        // === CHÍNH SÁCH ===
+        '{price_list_name}': ret.priceListName || '',
+        '{currency_name}': ret.currencyName || 'VND',
+        '{expected_delivery_type}': ret.expectedDeliveryType || '',
+        '{expected_payment_method}': ret.expectedPaymentMethod || '',
+        // === NGÀY GIAO ===
+        '{ship_on_min}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(ret.shipOnMin),
+        '{ship_on_max}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(ret.shipOnMax),
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': ret.customerName,
+        '{customer_code}': ret.customerCode || '',
+        '{customer_phone_number}': ret.customerPhone || '',
+        '{customer_email}': ret.customerEmail || '',
+        '{customer_contact}': ret.customerContact || ret.customerName,
+        '{customer_card}': ret.customerCard || '',
+        '{customer_tax_number}': ret.customerTaxNumber || '',
+        '{customer_point}': ret.customerPoint?.toString() || '0',
+        '{customer_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.customerDebt),
+        '{customer_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(ret.customerDebt || 0),
+        '{customer_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.customerDebtPrev),
+        '{customer_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(ret.customerDebtPrev || 0),
+        '{billing_address}': ret.billingAddress || '',
+        '{shipping_address}': ret.shippingAddress || '',
+        '{shipping_address:full_name}': ret.shippingRecipient || ret.customerName,
+        '{shipping_address:phone_number}': ret.shippingRecipientPhone || ret.customerPhone || '',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': ret.totalQuantity?.toString() || '0',
+        '{return_total_quantity}': ret.returnTotalQuantity?.toString() || '0',
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.total),
+        '{total_none_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalNoneDiscount),
+        '{total_line_item_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalLineItemDiscount),
+        '{order_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.orderDiscount),
+        '{order_discount_rate}': ret.orderDiscountRate ? `${ret.orderDiscountRate}%` : '',
+        '{order_discount_value}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.orderDiscountValue),
+        '{total_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalDiscount),
+        '{product_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.productDiscount),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalTax),
+        '{total_extra_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalExtraTax),
+        '{total_tax_included_line}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalTaxIncludedLine),
+        '{total_amount_before_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalAmountBeforeTax),
+        '{total_amount_after_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalAmountAfterTax),
+        '{delivery_fee}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.deliveryFee),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalAmount),
+        '{total_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(ret.totalAmount || 0),
+        '{return_total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.returnTotalAmount),
+        '{total_order_exchange_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalOrderExchangeAmount),
+        '{order_exchange_payment_note}': ret.orderExchangePaymentNote || '',
+        '{payment_customer}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.paymentCustomer),
+        '{money_return}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.moneyReturn),
+        '{total_remain}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalRemain),
+        '{payment_name}': ret.paymentName || '',
+        '{promotion_name}': ret.promotionName || '',
+        '{promotion_code}': ret.promotionCode || '',
+        '{order_note}': ret.note || '',
+        '{note}': ret.note || '',
+        '{reason_return}': ret.reason || '',
+        '{refund_status}': ret.refundStatus || ''
+    };
+}
+function mapSalesReturnLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_price_after_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxAmount),
+            '{line_tax_included}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxIncluded),
+            '{line_tax_exclude}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxExclude),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_amount_none_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amountNoneDiscount),
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_promotion_or_loyalty}': item.promotionOrLoyalty || '',
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': item.lotInfoQty || '',
+            '{lots_number_code3}': item.lotInfo || '',
+            '{lots_number_code4}': item.lotInfoExpiry || '',
+            '{line_note}': item.note || ''
+        }));
+}
+function mapSalesReturnReturnLineItems(items) {
+    if (!items) return [];
+    return items.map((item, index)=>({
+            '{return_line_stt}': (index + 1).toString(),
+            '{return_line_variant_code}': item.variantCode || '',
+            '{return_line_product_name}': item.productName,
+            '{return_line_variant}': item.variantName || '',
+            '{return_line_unit}': item.unit || 'Cái',
+            '{return_line_quantity}': item.quantity.toString(),
+            '{return_line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{return_line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{return_serials}': item.serial || '',
+            '{return_line_note}': item.note || '',
+            // Map to standard line item variables as well (for templates that use generic names)
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant}': item.variantName || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_note}': item.note || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/packing.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapPackingCompositeLineItems",
+    ()=>mapPackingCompositeLineItems,
+    "mapPackingLineItems",
+    ()=>mapPackingLineItems,
+    "mapPackingToPrintData",
+    ()=>mapPackingToPrintData
+]);
+/**
+ * Packing Mapper - Phiếu đóng gói
+ * Đồng bộ với variables/phieu-dong-goi.ts
+ * 
+ * Variables coverage: 100%
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapPackingToPrintData(packing, storeSettings) {
+    const phone = packing.customerPhoneHide ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(packing.customerPhone || '') : packing.customerPhone || '';
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CỬA HÀNG / CHI NHÁNH ===
+        '{location_name}': packing.location?.name || storeSettings.name || '',
+        '{location_address}': packing.location?.address || storeSettings.address || '',
+        '{location_province}': packing.location?.province || '',
+        '{location_country}': packing.location?.country || 'Việt Nam',
+        '{location_phone}': packing.location?.phone || storeSettings.phone || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU ĐÓNG GÓI ===
+        '{fulfillment_code}': packing.code,
+        '{packing_code}': packing.code,
+        '{order_code}': packing.orderCode,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(packing.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(packing.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(packing.modifiedAt),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(packing.modifiedAt),
+        '{packed_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(packing.packedAt),
+        '{packed_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(packing.packedAt),
+        '{shipped_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(packing.shippedAt),
+        '{shipped_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(packing.shippedAt),
+        '{account_name}': packing.createdBy || '',
+        '{assigned_employee}': packing.assignedEmployee || '',
+        '{fulfillment_status}': packing.fulfillmentStatus || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': packing.customerName,
+        '{customer_code}': packing.customerCode || '',
+        '{customer_phone}': phone,
+        '{customer_phone_number}': phone,
+        '{customer_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(packing.customerPhone || ''),
+        '{customer_email}': packing.customerEmail || '',
+        '{customer_address}': packing.customerAddress || '',
+        '{billing_address}': packing.billingAddress || '',
+        // === THÔNG TIN GIAO HÀNG ===
+        '{shipping_address}': packing.shippingAddress,
+        '{shipping_province}': packing.shippingProvince || '',
+        '{shipping_district}': packing.shippingDistrict || '',
+        '{shipping_ward}': packing.shippingWard || '',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': (packing.totalQuantity ?? 0).toString(),
+        '{subtotal}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.subtotal || 0),
+        '{total_discounts}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.totalDiscount || 0),
+        '{fulfillment_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.fulfillmentDiscount || packing.totalDiscount || 0),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.totalTax || 0),
+        '{total_extra_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.totalExtraTax || 0),
+        '{total_tax_included_line}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.totalTaxIncludedLine || 0),
+        '{total_amount_before_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.totalAmountBeforeTax || 0),
+        '{total_amount_after_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.totalAmountAfterTax || 0),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.total || 0),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.totalAmount || packing.total || 0),
+        '{total_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(packing.totalAmount || packing.total || 0),
+        '{total_weight}': packing.totalWeight?.toString() || '',
+        '{cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.codAmount),
+        '{cod_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(packing.codAmount || 0),
+        '{cod_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(packing.codAmount || 0),
+        // === GHI CHÚ ===
+        '{packing_note}': packing.note || '',
+        '{package_note}': packing.packageNote || packing.note || '',
+        '{note}': packing.note || '',
+        '{order_note}': packing.orderNote || ''
+    };
+}
+function mapPackingLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_product_name_variant_name}': item.productNameVariantName || `${item.productName}${item.variantName ? ' - ' + item.variantName : ''}`,
+            '{line_variant}': item.variantName || '',
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price || 0),
+            '{line_price_after_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount || item.price || 0),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxAmount),
+            '{line_tax_included}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxIncluded || 0),
+            '{line_tax_exclude}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxExclude || 0),
+            '{line_tax}': item.taxName || '',
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount || 0),
+            '{line_product_brand}': item.brand || '',
+            '{line_brand}': item.brand || '',
+            '{line_product_category}': item.category || '',
+            '{line_category}': item.category || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_weight}': item.weight?.toString() || '',
+            '{line_weight_unit}': item.weightUnit || 'g',
+            '{bin_location}': item.binLocation || '',
+            '{line_note}': item.note || '',
+            // Serial/Lot
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': item.lotWithQty || '',
+            '{lots_number_code3}': item.lotWithDates || '',
+            '{lots_number_code4}': item.lotWithDatesQty || '',
+            // Composite
+            '{line_composite_variant_code}': item.compositeVariantCode || '',
+            '{line_composite_variant_name}': item.compositeVariantName || '',
+            '{line_composite_unit}': item.compositeUnit || '',
+            '{line_composite_quantity}': item.compositeQuantity?.toString() || ''
+        }));
+}
+function mapPackingCompositeLineItems(compositeItems) {
+    if (!compositeItems) return [];
+    const results = [];
+    let stt = 1;
+    for (const item of compositeItems){
+        if (item.compositeComponents) {
+            for (const component of item.compositeComponents){
+                results.push({
+                    '{line_stt}': stt.toString(),
+                    '{composite_product_name}': item.productName,
+                    '{composite_component_name}': component.componentName,
+                    '{composite_quantity}': component.quantity.toString()
+                });
+                stt++;
+            }
+        }
+    }
+    return results;
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/delivery.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapDeliveryLineItems",
+    ()=>mapDeliveryLineItems,
+    "mapDeliveryToPrintData",
+    ()=>mapDeliveryToPrintData
+]);
+/**
+ * Delivery Mapper - Phiếu giao hàng
+ * Đồng bộ với variables/phieu-giao-hang.ts
+ * 
+ * Variables coverage: 100%
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+// Helper function để tạo barcode image
+function generateBarcodeImage(code, height = 50) {
+    if (!code) return '';
+    return `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(code)}" style="height:${height}px" alt="barcode"/>`;
+}
+// Helper function để tạo QR code image  
+function generateQRCodeImage(code, size = 100) {
+    if (!code) return '';
+    return `<img src="https://quickchart.io/qr?text=${encodeURIComponent(code)}&size=${size}" style="width:${size}px;height:${size}px" alt="qrcode"/>`;
+}
+function mapDeliveryToPrintData(delivery, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CỬA HÀNG / CHI NHÁNH ===
+        '{location_name}': delivery.location?.name || storeSettings.name || '',
+        '{location_address}': delivery.location?.address || storeSettings.address || '',
+        '{location_phone_number}': delivery.location?.phone || storeSettings.phone || '',
+        '{location_province}': delivery.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU GIAO HÀNG ===
+        '{delivery_code}': delivery.code,
+        '{order_code}': delivery.orderCode,
+        '{order_qr_code}': generateQRCodeImage(delivery.orderCode, 100),
+        '{order_bar_code}': generateBarcodeImage(delivery.orderCode, 50),
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(delivery.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(delivery.createdAt),
+        '{shipped_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(delivery.shippedAt),
+        '{shipped_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(delivery.shippedAt),
+        '{account_name}': delivery.createdBy || '',
+        '{shipper_name}': delivery.shipperName || '',
+        '{delivery_status}': delivery.deliveryStatus || '',
+        // === THÔNG TIN VẬN CHUYỂN ===
+        '{tracking_number}': delivery.trackingCode || '',
+        '{tracking_number_qr_code}': generateQRCodeImage(delivery.trackingCode, 100),
+        '{tracking_number_bar_code}': generateBarcodeImage(delivery.trackingCode, 50),
+        '{shipment_barcode}': generateBarcodeImage(delivery.trackingCode, 50),
+        '{shipment_qrcode}': generateQRCodeImage(delivery.trackingCode, 100),
+        '{carrier_name}': delivery.carrierName || '',
+        '{partner_name}': delivery.carrierName || '',
+        '{delivery_type}': delivery.deliveryType || '',
+        '{service_name}': delivery.serviceName || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': delivery.customerName,
+        '{customer_code}': delivery.customerCode || '',
+        '{customer_phone_number}': delivery.customerPhone || '',
+        '{customer_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(delivery.customerPhone),
+        '{customer_email}': delivery.customerEmail || '',
+        // === THÔNG TIN NGƯỜI NHẬN ===
+        '{receiver_name}': delivery.receiverName || delivery.customerName,
+        '{receiver_phone}': delivery.receiverPhone || delivery.customerPhone || '',
+        '{receiver_phone_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(delivery.receiverPhone || delivery.customerPhone),
+        '{shipping_address}': delivery.shippingAddress,
+        '{city}': delivery.city || '',
+        '{district}': delivery.district || '',
+        '{ward}': delivery.ward || '',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': (delivery.totalQuantity ?? 0).toString(),
+        '{total_weight}': delivery.totalWeight?.toString() || '',
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(delivery.subtotal || 0),
+        '{delivery_fee}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(delivery.deliveryFee || 0),
+        '{cod_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(delivery.codAmount || 0),
+        '{cod_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(delivery.codAmount || 0),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(delivery.totalAmount || 0),
+        '{total_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(delivery.totalAmount || 0),
+        '{note}': delivery.note || ''
+    };
+}
+function mapDeliveryLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price || 0),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount || 0),
+            '{line_weight}': item.weight?.toString() || '',
+            '{line_note}': item.note || '',
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/shipping-label.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapShippingLabelToPrintData",
+    ()=>mapShippingLabelToPrintData
+]);
+/**
+ * Shipping Label Mapper - Nhãn giao hàng
+ * Đồng bộ với variables/nhan-giao-hang.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+// Helper function để tạo barcode image
+function generateBarcodeImage(code, height = 50) {
+    if (!code) return '';
+    // Sử dụng barcodeapi.org - CODE128 format
+    return `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(code)}" style="height:${height}px" alt="barcode"/>`;
+}
+// Helper function để tạo QR code image  
+function generateQRCodeImage(code, size = 100) {
+    if (!code) return '';
+    // Sử dụng quickchart.io cho QR code
+    return `<img src="https://quickchart.io/qr?text=${encodeURIComponent(code)}&size=${size}" style="width:${size}px;height:${size}px" alt="qrcode"/>`;
+}
+function mapShippingLabelToPrintData(label, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': label.location?.name || storeSettings.name || '',
+        '{location_address}': label.location?.address || storeSettings.address || '',
+        '{location_phone_number}': label.location?.phone || storeSettings.phone || '',
+        '{location_province}': label.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN ĐƠN HÀNG ===
+        '{order_code}': label.orderCode,
+        '{order_qr_code}': label.orderQrCode ? `<img src="${label.orderQrCode}" style="max-width:100px;max-height:100px"/>` : '',
+        '{order_bar_code}': label.orderBarCode ? `<img src="${label.orderBarCode}" style="max-height:50px"/>` : '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(label.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(label.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(label.modifiedAt),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(label.modifiedAt),
+        '{received_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(label.receivedOn),
+        '{received_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(label.receivedOn),
+        '{packed_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(label.packedOn),
+        '{packed_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(label.packedOn),
+        '{shipped_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(label.shippedOn),
+        '{account_name}': label.createdBy || '',
+        '{creator_name}': label.creatorName || label.createdBy || '',
+        '{status}': label.status || '',
+        '{pushing_status}': label.pushingStatus || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': label.customerName,
+        '{customer_phone_number}': label.customerPhone || '',
+        '{customer_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(label.customerPhone),
+        '{customer_email}': label.customerEmail || '',
+        '{shipping_address}': label.shippingAddress,
+        '{billing_address}': label.billingAddress || '',
+        '{city}': label.city || '',
+        '{district}': label.district || '',
+        // === THÔNG TIN NGƯỜI NHẬN ===
+        '{receiver_name}': label.receiverName || label.customerName,
+        '{receiver_phone}': label.receiverPhone || label.customerPhone || '',
+        '{receiver_phone_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(label.receiverPhone || label.customerPhone),
+        // === THÔNG TIN VẬN CHUYỂN ===
+        '{tracking_number}': label.trackingCode || '',
+        '{shipment_code}': label.trackingCode || '',
+        '{shipment_barcode}': generateBarcodeImage(label.trackingCode, 50),
+        '{shipment_qrcode}': generateQRCodeImage(label.trackingCode, 100),
+        '{tracking_number_qr_code}': label.trackingQrCode ? `<img src="${label.trackingQrCode}" style="max-width:100px;max-height:100px"/>` : generateQRCodeImage(label.trackingCode, 100),
+        '{tracking_number_bar_code}': label.trackingBarCode ? `<img src="${label.trackingBarCode}" style="max-height:50px"/>` : generateBarcodeImage(label.trackingCode, 50),
+        '{delivery_service_provider}': label.carrierName || '',
+        '{partner_name}': label.carrierName || '',
+        '{delivery_type}': label.deliveryType || '',
+        '{service_name}': label.serviceName || '',
+        '{partner_type}': label.partnerType || '',
+        '{partner_phone_number}': label.partnerPhone || '',
+        // === VNPOST ===
+        '{vnpost_crm_code}': label.vnpostCrmCode || '',
+        '{vnpost_crm_bar_code}': label.vnpostCrmBarCode ? `<img src="${label.vnpostCrmBarCode}" style="max-height:50px"/>` : '',
+        // === SAPO EXPRESS ===
+        '{route_code_se}': label.routeCodeSe || '',
+        '{sorting_code}': label.sortingCode || '',
+        '{sorting_code_bar_code}': label.sortingCodeBarCode ? `<img src="${label.sortingCodeBarCode}" style="max-height:50px"/>` : '',
+        // === NGÀY GIAO ===
+        '{ship_on_min}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(label.shipOnMin),
+        '{ship_on_max}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(label.shipOnMax),
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': label.totalItems.toString(),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.total),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.totalTax),
+        '{delivery_fee}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.deliveryFee),
+        '{cod_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.codAmount),
+        '{cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.codAmount),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.totalAmount),
+        '{fulfillment_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.fulfillmentDiscount),
+        '{freight_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.freightAmount),
+        '{shipper_deposits}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(label.shipperDeposits),
+        '{packing_weight}': label.packingWeight?.toString() || '',
+        // Khối lượng - đổi đơn vị
+        '{total_weight_g}': label.packingWeight ? Math.round(label.packingWeight * 1000).toString() : '0',
+        '{total_weight_kg}': label.packingWeight?.toString() || '0',
+        '{reason_cancel}': label.reasonCancel || '',
+        '{shipment_note}': label.note || '',
+        '{note}': label.note || ''
+    };
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/product-label.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapProductLabelToPrintData",
+    ()=>mapProductLabelToPrintData,
+    "mapProductToLabelPrintData",
+    ()=>mapProductToLabelPrintData
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+const DEFAULT_QR_SIZE = 96;
+const DEFAULT_BARCODE_HEIGHT = 48;
+function generateBarcodeImage(value, height = DEFAULT_BARCODE_HEIGHT) {
+    if (!value) return '';
+    return `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(value)}" style="height:${height}px" alt="barcode"/>`;
+}
+function generateQRCodeImage(value, size = DEFAULT_QR_SIZE) {
+    if (!value) return '';
+    return `<img src="https://quickchart.io/qr?text=${encodeURIComponent(value)}&size=${size}" style="width:${size}px;height:${size}px" alt="qr"/>`;
+}
+function formatWeight(value, unit) {
+    if (value === undefined || value === null) return '';
+    if (unit === 'g') return `${value} g`;
+    if (unit === 'kg') return `${value} kg`;
+    return `${value} ${unit || ''}`.trim();
+}
+function mapProductLabelToPrintData(product, storeSettings) {
+    const barcodeValue = product.barcode || product.sku || product.name;
+    const qrValue = product.qrCodeValue || barcodeValue || product.name;
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        '{product_name}': product.name,
+        '{product_name_vat}': product.nameVat || product.name,
+        '{product_sku}': product.sku,
+        '{product_unit}': product.unit || '',
+        '{product_price}': product.price !== undefined ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(product.price) : '',
+        '{product_brand}': product.brand || '',
+        '{product_category}': product.category || '',
+        '{product_weight}': product.weightText || formatWeight(product.weightValue, product.weightUnit),
+        '{product_origin}': product.origin || '',
+        '{product_ingredients}': product.ingredients || '',
+        '{product_mfg_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(product.manufactureDate),
+        '{product_expiry_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(product.expiryDate),
+        '{product_lot_number}': product.lotNumber || '',
+        '{product_description}': product.description || '',
+        '{product_short_description}': product.shortDescription || product.description || '',
+        '{product_storage_instructions}': product.storageInstructions || '',
+        '{product_barcode}': barcodeValue || '',
+        '{product_barcode_image}': generateBarcodeImage(barcodeValue),
+        '{product_qr_code}': generateQRCodeImage(qrValue),
+        // Tem phụ fields
+        '{product_usage_guide}': product.usageGuide || '',
+        '{product_importer_name}': product.importerName || '',
+        '{product_importer_address}': product.importerAddress || ''
+    };
+}
+function mapProductToLabelPrintData(product, storeSettings, overrides = {}) {
+    const firstPrice = Object.values(product.prices || {})[0];
+    const resolvedPrice = overrides.price ?? product.sellingPrice ?? firstPrice;
+    return mapProductLabelToPrintData({
+        sku: overrides.sku || product.id || product.sku || '',
+        name: overrides.name || product.name,
+        nameVat: overrides.nameVat || product.nameVat || product.name,
+        unit: overrides.unit || product.unit,
+        price: resolvedPrice,
+        brand: overrides.brand || '',
+        category: overrides.category || product.category || '',
+        weightText: overrides.weightText,
+        weightValue: overrides.weightValue ?? product.weight,
+        weightUnit: overrides.weightUnit ?? product.weightUnit,
+        origin: overrides.origin || product.origin,
+        ingredients: overrides.ingredients,
+        manufactureDate: overrides.manufactureDate,
+        expiryDate: overrides.expiryDate,
+        lotNumber: overrides.lotNumber,
+        storageInstructions: overrides.storageInstructions,
+        description: overrides.description || product.description,
+        shortDescription: overrides.shortDescription || product.shortDescription,
+        barcode: overrides.barcode || product.barcode || product.id,
+        qrCodeValue: overrides.qrCodeValue || product.id,
+        // Tem phụ fields from product
+        usageGuide: overrides.usageGuide || product.usageGuide,
+        importerName: overrides.importerName || product.importerName,
+        importerAddress: overrides.importerAddress || product.importerAddress
+    }, storeSettings);
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/purchase-order.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapPurchaseOrderLineItems",
+    ()=>mapPurchaseOrderLineItems,
+    "mapPurchaseOrderToPrintData",
+    ()=>mapPurchaseOrderToPrintData
+]);
+/**
+ * Purchase Order Mapper - Đơn nhập hàng
+ * Đồng bộ với variables/don-nhap-hang.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapPurchaseOrderToPrintData(po, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': po.location?.name || storeSettings.name || '',
+        '{location_address}': po.location?.address || storeSettings.address || '',
+        '{location_province}': po.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN ĐƠN NHẬP ===
+        '{purchase_order_code}': po.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(po.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(po.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(po.modifiedAt),
+        '{received_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(po.receivedOn),
+        '{received_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(po.receivedOn),
+        '{completed_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(po.completedOn || po.receivedOn),
+        '{ended_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(po.completedOn || po.receivedOn),
+        '{cancelled_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(po.cancelledOn),
+        '{due_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(po.dueOn),
+        '{due_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(po.dueOn),
+        '{account_name}': po.createdBy || '',
+        '{activated_account_name}': po.activatedAccountName || po.createdBy || '',
+        '{assignee_name}': po.assigneeName || '',
+        '{reference}': po.reference || '',
+        '{tags}': po.tags?.join(', ') || '',
+        // === TRẠNG THÁI ===
+        '{status}': po.status || '',
+        '{received_status}': po.receivedStatus || '',
+        '{financial_status}': po.financialStatus || '',
+        '{refund_status}': po.refundStatus || '',
+        '{refund_transaction_status}': po.refundTransactionStatus || '',
+        // === THÔNG TIN NHÀ CUNG CẤP ===
+        '{supplier_name}': po.supplierName,
+        '{supplier_code}': po.supplierCode || '',
+        '{order_supplier_code}': po.supplierCode || '',
+        '{supplier_phone}': po.supplierPhone || '',
+        '{supplier_phone_number}': po.supplierPhone || '',
+        '{supplier_email}': po.supplierEmail || '',
+        '{supplier_address}': po.supplierAddress || '',
+        '{billing_address}': po.billingAddress || '',
+        // === NỢ NCC ===
+        '{supplier_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.supplierDebt),
+        '{supplier_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(po.supplierDebt || 0),
+        '{supplier_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.supplierDebtPrev),
+        '{supplier_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(po.supplierDebtPrev || 0),
+        // === KHỐI LƯỢNG ===
+        '{weight_g}': po.totalWeightG?.toString() || '0',
+        '{weight_kg}': po.totalWeightKg?.toString() || '0',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': po.totalQuantity.toString(),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.total),
+        '{total_order}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.total),
+        '{total_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalPrice || po.total),
+        '{total_discounts_rate}': po.totalDiscountsRate ? `${po.totalDiscountsRate}%` : '',
+        '{total_discounts_value}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalDiscountsValue),
+        '{total_discounts}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalDiscounts),
+        '{discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalDiscounts),
+        '{product_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.productDiscount),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalTax),
+        '{tax_vat}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalTax),
+        '{total_extra_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalExtraTax),
+        '{total_tax_included_line}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalTaxIncludedLine),
+        '{total_amount_before_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalAmountBeforeTax),
+        '{total_amount_after_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalAmountAfterTax),
+        '{total_landed_costs}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalLandedCosts),
+        '{total_transaction_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalTransactionAmount),
+        '{total_amount_transaction}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalAmountTransaction),
+        '{total_remain}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(po.totalRemain),
+        '{total_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(po.totalPrice || po.total),
+        '{payments}': po.payments || '',
+        '{note}': po.note || ''
+    };
+}
+function mapPurchaseOrderLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_title}': item.title || item.productName,
+            '{line_product_name}': item.productName || item.title,
+            '{line_variant_code}': item.variantCode || '',
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_ordered_quantity}': item.quantity.toString(),
+            '{line_received_quantity}': item.receivedQuantity?.toString() || '0',
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_price_after_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxAmount),
+            '{line_tax}': item.taxType || '',
+            '{line_tax_included}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxIncluded),
+            '{line_tax_exclude}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxExclude),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{total_line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{total_line_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(item.amount),
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_weight_g}': item.weightG?.toString() || '',
+            '{line_weight_kg}': item.weightKg?.toString() || '',
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': item.lotInfoQty || '',
+            '{lots_number_code3}': item.lotInfo || '',
+            '{lots_number_code4}': item.lotInfoExpiry || '',
+            '{line_note}': item.note || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/stock-in.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapStockInLineItems",
+    ()=>mapStockInLineItems,
+    "mapStockInToPrintData",
+    ()=>mapStockInToPrintData
+]);
+/**
+ * Stock In Mapper - Phiếu nhập kho
+ * Đồng bộ với variables/phieu-nhap-kho.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapStockInToPrintData(stockIn, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': stockIn.location?.name || storeSettings.name || '',
+        '{location_address}': stockIn.location?.address || storeSettings.address || '',
+        '{location_province}': stockIn.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU NHẬP KHO ===
+        '{receipt_code}': stockIn.code,
+        '{stock_in_code}': stockIn.code,
+        '{purchase_order_code}': stockIn.purchaseOrderCode || '',
+        '{order_supplier_code}': stockIn.purchaseOrderCode || '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(stockIn.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(stockIn.modifiedAt),
+        '{received_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(stockIn.receivedOn),
+        '{received_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(stockIn.receivedOn),
+        '{account_name}': stockIn.createdBy || '',
+        '{reference}': stockIn.reference || '',
+        '{stock_in_status}': stockIn.status || '',
+        // === THÔNG TIN NHÀ CUNG CẤP ===
+        '{supplier_name}': stockIn.supplierName || '',
+        '{supplier_code}': stockIn.supplierCode || '',
+        '{supplier_phone}': stockIn.supplierPhone || '',
+        '{supplier_email}': stockIn.supplierEmail || '',
+        '{supplier_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.supplierDebt),
+        '{supplier_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(stockIn.supplierDebt || 0),
+        '{supplier_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.supplierDebtPrev),
+        '{supplier_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(stockIn.supplierDebtPrev || 0),
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': stockIn.totalQuantity.toString(),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.total),
+        '{total_order}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.total),
+        '{total_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.totalPrice || stockIn.total),
+        '{total_discounts}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.totalDiscounts),
+        '{discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.totalDiscounts),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.totalTax),
+        '{tax_vat}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.totalTax),
+        '{total_landed_costs}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.totalLandedCosts),
+        '{total_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(stockIn.totalPrice || stockIn.total),
+        '{paid}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.paid),
+        '{remaining}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(stockIn.remaining),
+        '{note}': stockIn.note || ''
+    };
+}
+function mapStockInLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_ordered_quantity}': item.quantity.toString(),
+            '{line_received_quantity}': item.receivedQuantity?.toString() || '0',
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxAmount),
+            '{line_tax}': item.taxType || '',
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{bin_location}': item.binLocation || '',
+            '{serials}': item.serial || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/stock-transfer.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapStockTransferLineItems",
+    ()=>mapStockTransferLineItems,
+    "mapStockTransferToPrintData",
+    ()=>mapStockTransferToPrintData
+]);
+/**
+ * Stock Transfer Mapper - Phiếu chuyển kho
+ * Đồng bộ với variables/phieu-chuyen-hang.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapStockTransferToPrintData(transfer, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': transfer.location?.name || storeSettings.name || '',
+        '{location_address}': transfer.location?.address || storeSettings.address || '',
+        '{location_province}': transfer.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU CHUYỂN HÀNG ===
+        '{order_code}': transfer.code,
+        '{transfer_code}': transfer.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(transfer.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(transfer.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(transfer.modifiedAt),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(transfer.modifiedAt),
+        '{shipped_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(transfer.shippedOn),
+        '{shipped_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(transfer.shippedOn),
+        '{received_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(transfer.receivedOn),
+        '{received_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(transfer.receivedOn),
+        '{account_name}': transfer.createdBy || '',
+        '{status}': transfer.status || '',
+        '{reference}': transfer.reference || '',
+        // === CHI NHÁNH CHUYỂN ===
+        '{source_location_name}': transfer.sourceLocationName,
+        '{source_location_address}': transfer.sourceLocationAddress || '',
+        // === CHI NHÁNH NHẬN ===
+        '{destination_location_name}': transfer.destinationLocationName,
+        '{target_location_name}': transfer.destinationLocationName,
+        '{destination_location_address}': transfer.destinationLocationAddress || '',
+        // === KHỐI LƯỢNG ===
+        '{weight_g}': transfer.totalWeightG?.toString() || '0',
+        '{weight_kg}': transfer.totalWeightKg?.toString() || '0',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': transfer.totalQuantity?.toString() || '0',
+        '{total_receipt_quantity}': transfer.totalReceiptQuantity?.toString() || '0',
+        '{total_amount_transfer}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(transfer.totalAmountTransfer),
+        '{total_amount_receipt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(transfer.totalAmountReceipt),
+        '{total_fee_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(transfer.totalFeeAmount),
+        '{note}': transfer.note || ''
+    };
+}
+function mapStockTransferLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_variant_image}': item.imageUrl ? `<img src="${item.imageUrl}" style="max-width:50px;max-height:50px"/>` : '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{receipt_quantity}': item.receiptQuantity?.toString() || '',
+            '{change_quantity}': item.changeQuantity?.toString() || '',
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_amount_received}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amountReceived),
+            '{line_weight_g}': item.weightG?.toString() || '',
+            '{line_weight_kg}': item.weightKg?.toString() || '',
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': item.lotInfoQty || '',
+            '{lots_number_code3}': item.lotInfo || '',
+            '{lots_number_code4}': item.lotInfoExpiry || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/inventory-check.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapInventoryCheckLineItems",
+    ()=>mapInventoryCheckLineItems,
+    "mapInventoryCheckToPrintData",
+    ()=>mapInventoryCheckToPrintData
+]);
+/**
+ * Inventory Check Mapper - Phiếu kiểm kho
+ * Đồng bộ với variables/phieu-kiem-hang.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapInventoryCheckToPrintData(check, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': check.location?.name || storeSettings.name || '',
+        '{location_address}': check.location?.address || storeSettings.address || '',
+        '{location_province}': check.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU KIỂM HÀNG ===
+        '{code}': check.code,
+        '{inventory_code}': check.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(check.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(check.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(check.modifiedAt),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(check.modifiedAt),
+        '{adjusted_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(check.adjustedOn),
+        '{adjusted_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(check.adjustedOn),
+        '{account_name}': check.createdBy || '',
+        '{status}': check.status || '',
+        '{inventory_status}': check.status || '',
+        '{reason}': check.reason || '',
+        // === TỔNG ===
+        '{total}': check.totalQuantity?.toString() || '0',
+        '{total_items}': check.totalQuantity?.toString() || '0',
+        '{total_surplus}': check.totalSurplus?.toString() || '0',
+        '{total_shortage}': check.totalShortage?.toString() || '0',
+        '{note}': check.note || ''
+    };
+}
+function mapInventoryCheckLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_stock_quantity}': item.stockQuantity.toString(),
+            '{line_on_hand}': item.stockQuantity.toString(),
+            '{line_after_quantity}': item.afterQuantity.toString(),
+            '{line_real_quantity}': item.afterQuantity.toString(),
+            '{line_change_quantity}': item.changeQuantity.toString(),
+            '{line_difference}': item.changeQuantity.toString(),
+            '{line_reason}': item.reason || '',
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_note}': item.note || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/receipt.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapReceiptToPrintData",
+    ()=>mapReceiptToPrintData
+]);
+/**
+ * Receipt Mapper - Phiếu thu
+ * Đồng bộ với variables/phieu-thu.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapReceiptToPrintData(receipt, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': receipt.location?.name || storeSettings.name || '',
+        '{location_address}': receipt.location?.address || storeSettings.address || '',
+        '{location_province}': receipt.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU THU ===
+        '{receipt_voucher_code}': receipt.code,
+        '{receipt_barcode}': `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(receipt.code)}" style="height:40px"/>`,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(receipt.createdAt),
+        '{issued_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(receipt.issuedAt || receipt.createdAt),
+        '{issued_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(receipt.issuedAt || receipt.createdAt),
+        '{account_name}': receipt.createdBy || '',
+        '{group_name}': receipt.groupName || '',
+        '{counted}': receipt.counted ? 'Có' : 'Không',
+        // === THÔNG TIN NGƯỜI NỘP ===
+        '{object_name}': receipt.payerName,
+        '{object_phone_number}': receipt.payerPhone || '',
+        '{object_address}': receipt.payerAddress || '',
+        '{object_type}': receipt.payerType || '',
+        // === GIÁ TRỊ ===
+        '{amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.amount),
+        '{amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.amount),
+        '{total_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.amount),
+        '{payment_method_name}': receipt.paymentMethod || 'Tiền mặt',
+        '{payment_method}': receipt.paymentMethod || 'Tiền mặt',
+        '{reference}': receipt.reference || '',
+        '{document_root_code}': receipt.documentRootCode || '',
+        '{note}': receipt.note || '',
+        '{description}': receipt.description || receipt.note || '',
+        // === NỢ KHÁCH HÀNG ===
+        '{customer_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.customerDebt),
+        '{customer_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.customerDebt || 0),
+        '{customer_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.customerDebtPrev),
+        '{customer_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.customerDebtPrev || 0),
+        '{customer_debt_before_create_receipt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.customerDebtBefore),
+        '{customer_debt_before_create_receipt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.customerDebtBefore || 0),
+        '{customer_debt_after_create_receipt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.customerDebtAfter),
+        '{customer_debt_after_create_receipt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.customerDebtAfter || 0),
+        // === NỢ NHÀ CUNG CẤP ===
+        '{supplier_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.supplierDebt),
+        '{supplier_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.supplierDebt || 0),
+        '{supplier_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.supplierDebtPrev),
+        '{supplier_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.supplierDebtPrev || 0),
+        '{supplier_debt_before_create_receipt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.supplierDebtBefore),
+        '{supplier_debt_before_create_receipt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.supplierDebtBefore || 0),
+        '{supplier_debt_after_create_receipt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(receipt.supplierDebtAfter),
+        '{supplier_debt_after_create_receipt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(receipt.supplierDebtAfter || 0)
+    };
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/payment.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapPaymentToPrintData",
+    ()=>mapPaymentToPrintData
+]);
+/**
+ * Payment Mapper - Phiếu chi
+ * Đồng bộ với variables/phieu-chi.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+// Helper function để tạo barcode image
+function generateBarcodeImage(code, height = 50) {
+    if (!code) return '';
+    return `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(code)}" style="height:${height}px" alt="barcode"/>`;
+}
+function mapPaymentToPrintData(payment, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': payment.location?.name || storeSettings.name || '',
+        '{location_address}': payment.location?.address || storeSettings.address || '',
+        '{location_province}': payment.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU CHI ===
+        '{payment_voucher_code}': payment.code,
+        '{payment_barcode}': generateBarcodeImage(payment.code),
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(payment.createdAt),
+        '{issued_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(payment.issuedAt || payment.createdAt),
+        '{issued_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(payment.issuedAt || payment.createdAt),
+        '{account_name}': payment.createdBy || '',
+        '{group_name}': payment.groupName || '',
+        '{counted}': payment.counted ? 'Có' : 'Không',
+        // === THÔNG TIN NGƯỜI NHẬN ===
+        '{object_name}': payment.recipientName,
+        '{object_phone_number}': payment.recipientPhone || '',
+        '{object_address}': payment.recipientAddress || '',
+        '{object_type}': payment.recipientType || '',
+        // === GIÁ TRỊ ===
+        '{amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.amount),
+        '{amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.amount),
+        '{total_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.amount),
+        '{payment_method_name}': payment.paymentMethod || 'Tiền mặt',
+        '{payment_method}': payment.paymentMethod || 'Tiền mặt',
+        '{reference}': payment.reference || '',
+        '{document_root_code}': payment.documentRootCode || '',
+        '{note}': payment.note || '',
+        '{description}': payment.description || payment.note || '',
+        // === NỢ KHÁCH HÀNG ===
+        '{customer_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.customerDebt),
+        '{customer_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.customerDebt || 0),
+        '{customer_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.customerDebtPrev),
+        '{customer_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.customerDebtPrev || 0),
+        '{customer_debt_before_create_payment}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.customerDebtBefore),
+        '{customer_debt_before_create_payment_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.customerDebtBefore || 0),
+        '{customer_debt_after_create_payment}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.customerDebtAfter),
+        '{customer_debt_after_create_payment_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.customerDebtAfter || 0),
+        // === NỢ NHÀ CUNG CẤP ===
+        '{supplier_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.supplierDebt),
+        '{supplier_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.supplierDebt || 0),
+        '{supplier_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.supplierDebtPrev),
+        '{supplier_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.supplierDebtPrev || 0),
+        '{supplier_debt_before_create_payment}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.supplierDebtBefore),
+        '{supplier_debt_before_create_payment_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.supplierDebtBefore || 0),
+        '{supplier_debt_after_create_payment}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(payment.supplierDebtAfter),
+        '{supplier_debt_after_create_payment_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(payment.supplierDebtAfter || 0)
+    };
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/warranty.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapWarrantyLineItems",
+    ()=>mapWarrantyLineItems,
+    "mapWarrantyToPrintData",
+    ()=>mapWarrantyToPrintData
+]);
+/**
+ * Warranty Mapper - Phiếu bảo hành
+ * Đồng bộ với variables/phieu-bao-hanh.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapWarrantyToPrintData(warranty, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': warranty.location?.name || storeSettings.name || '',
+        '{location_address}': warranty.location?.address || storeSettings.address || '',
+        '{location_province}': warranty.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU BẢO HÀNH ===
+        '{warranty_card_code}': warranty.code,
+        '{warranty_code}': warranty.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(warranty.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(warranty.modifiedAt),
+        '{account_name}': warranty.createdBy || '',
+        '{status}': warranty.status || '',
+        '{claim_status}': warranty.claimStatus || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': warranty.customerName,
+        '{customer_phone_number}': warranty.customerPhone || '',
+        '{customer_address1}': warranty.customerAddress || '',
+        '{customer_address}': warranty.customerAddress || '',
+        '{customer_group}': warranty.customerGroup || '',
+        // === THÔNG TIN ĐƠN HÀNG ===
+        '{order_code}': warranty.orderCode || '',
+        // === THÔNG TIN SẢN PHẨM (ĐƠN LẺ) ===
+        '{line_product_name}': warranty.productName || '',
+        '{product_name}': warranty.productName || '',
+        '{line_variant_name}': warranty.variantName || '',
+        '{line_variant_sku}': warranty.variantSku || '',
+        '{line_variant_barcode}': warranty.barcode || '',
+        '{serials}': warranty.serialNumber || '',
+        '{serial_number}': warranty.serialNumber || '',
+        '{term_name}': warranty.warrantyPolicyName || '',
+        '{term_number}': warranty.warrantyPeriod || '',
+        '{warranty_duration}': warranty.warrantyPeriod || '',
+        '{warranty_period_days}': warranty.warrantyPeriodDays?.toString() || '',
+        '{start_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(warranty.startDate),
+        '{end_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(warranty.endDate),
+        '{warranty_expired_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(warranty.endDate),
+        '{issue_description}': warranty.issueDescription || '',
+        '{warranty_note}': warranty.note || ''
+    };
+}
+function mapWarrantyLineItems(items) {
+    if (!items) return [];
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_product_name}': item.productName,
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant_sku}': item.variantSku || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{serials}': item.serial || '',
+            '{term_name}': item.warrantyPolicyName || '',
+            '{term_number}': item.warrantyPeriod || '',
+            '{warranty_period_days}': item.warrantyPeriodDays?.toString() || '',
+            '{start_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(item.startDate),
+            '{end_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(item.endDate)
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/supplier-return.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapSupplierReturnLineItems",
+    ()=>mapSupplierReturnLineItems,
+    "mapSupplierReturnToPrintData",
+    ()=>mapSupplierReturnToPrintData
+]);
+/**
+ * Supplier Return Mapper - Phiếu trả hàng NCC
+ * Đồng bộ với variables/phieu-tra-hang-ncc.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapSupplierReturnToPrintData(ret, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': ret.location?.name || storeSettings.name || '',
+        '{location_address}': ret.location?.address || storeSettings.address || '',
+        '{location_province}': ret.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU HOÀN TRẢ ===
+        '{refund_code}': ret.code,
+        '{return_supplier_code}': ret.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(ret.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(ret.modifiedAt),
+        '{account_name}': ret.createdBy || '',
+        '{purchase_order_code}': ret.purchaseOrderCode || '',
+        '{reference}': ret.reference || '',
+        // === THÔNG TIN NHÀ CUNG CẤP ===
+        '{supplier_name}': ret.supplierName,
+        '{supplier_code}': ret.supplierCode || '',
+        '{supplier_phone_number}': ret.supplierPhone || '',
+        '{supplier_email}': ret.supplierEmail || '',
+        '{supplier_address}': ret.supplierAddress || '',
+        '{supplier_address1}': ret.supplierAddress || '',
+        // === TỔNG GIÁ TRỊ ===
+        '{note}': ret.reason || '',
+        '{reason_return}': ret.reason || '',
+        '{total_quantity}': ret.totalQuantity.toString(),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalAmount),
+        '{total_order}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalAmount),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalTax),
+        '{total_landed_costs}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalLandedCosts),
+        '{total_discounts}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalDiscounts),
+        '{total_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.totalPrice),
+        '{discrepancy_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.discrepancyPrice),
+        '{discrepancy_reason}': ret.discrepancyReason || '',
+        '{transaction_refund_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.transactionRefundAmount),
+        '{refunded}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.transactionRefundAmount),
+        '{transaction_refund_method_name}': ret.transactionRefundMethodName || '',
+        '{transaction_refund_method_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.transactionRefundMethodAmount),
+        '{remaining}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(ret.remaining)
+    };
+}
+function mapSupplierReturnLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_sku}': item.variantSku || item.variantCode || '',
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant}': item.variantName || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_price_after_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{tax_lines_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_amount_none_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amountNoneDiscount),
+            '{serials}': item.serial || '',
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': item.lotInfoQty || '',
+            '{lots_number_code3}': item.lotInfo || '',
+            '{lots_number_code4}': item.lotInfoExpiry || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/complaint.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapComplaintLineItems",
+    ()=>mapComplaintLineItems,
+    "mapComplaintToPrintData",
+    ()=>mapComplaintToPrintData
+]);
+/**
+ * Complaint Mapper - Phiếu khiếu nại
+ * Đồng bộ với variables/phieu-khieu-nai.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+const COMPLAINT_STATUS_MAP = {
+    'new': 'Mới',
+    'investigating': 'Đang xử lý',
+    'resolved': 'Đã giải quyết',
+    'closed': 'Đã đóng',
+    'cancelled': 'Đã hủy'
+};
+const COMPLAINT_TYPE_MAP = {
+    'missing-items': 'Thiếu hàng',
+    'damaged-items': 'Hàng hư hỏng',
+    'wrong-items': 'Sai hàng',
+    'late-delivery': 'Giao hàng chậm',
+    'service-quality': 'Chất lượng dịch vụ',
+    'other': 'Khác'
+};
+function mapComplaintToPrintData(complaint, storeSettings) {
+    const phone = complaint.customerPhoneHide ? (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(complaint.customerPhone || '') : complaint.customerPhone || '';
+    const statusVi = COMPLAINT_STATUS_MAP[complaint.status || ''] || complaint.status || '';
+    const typeVi = COMPLAINT_TYPE_MAP[complaint.complaintType || ''] || complaint.complaintType || '';
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': complaint.location?.name || storeSettings.name || '',
+        '{location_address}': complaint.location?.address || storeSettings.address || '',
+        '{location_province}': complaint.location?.province || '',
+        '{location_phone}': complaint.location?.phone || storeSettings.phone || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU KHIẾU NẠI ===
+        '{complaint_code}': complaint.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(complaint.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(complaint.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(complaint.modifiedAt),
+        '{account_name}': complaint.createdBy || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': complaint.customerName,
+        '{customer_code}': complaint.customerCode || '',
+        '{customer_phone}': phone,
+        '{customer_phone_number}': phone,
+        '{customer_phone_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(complaint.customerPhone || ''),
+        '{customer_email}': complaint.customerEmail || '',
+        '{customer_address}': complaint.customerAddress || '',
+        '{customer_group}': complaint.customerGroup || '',
+        // === THÔNG TIN ĐƠN HÀNG LIÊN QUAN ===
+        '{order_code}': complaint.orderCode || '',
+        '{order_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(complaint.orderCreatedAt),
+        '{order_created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(complaint.orderCreatedAt),
+        '{order_total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(complaint.orderTotal),
+        // === THÔNG TIN KHIẾU NẠI ===
+        '{complaint_type}': typeVi,
+        '{complaint_category}': complaint.category || '',
+        '{complaint_priority}': complaint.priority || '',
+        '{complaint_source}': complaint.source || '',
+        '{complaint_subject}': complaint.subject,
+        '{complaint_description}': complaint.description,
+        '{customer_request}': complaint.customerRequest || '',
+        // === SẢN PHẨM LIÊN QUAN ===
+        '{line_product_name}': complaint.productName || '',
+        '{line_variant}': complaint.variantName || '',
+        '{line_variant_code}': complaint.variantCode || '',
+        // === TRẠNG THÁI & XỬ LÝ ===
+        '{complaint_status}': statusVi,
+        '{status}': statusVi,
+        '{assigned_to}': complaint.assignedTo || '',
+        '{assignee_name}': complaint.assignedTo || '',
+        '{resolution}': complaint.resolution || '',
+        '{resolution_note}': complaint.resolutionNote || '',
+        '{resolved_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(complaint.resolvedAt),
+        '{resolved_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(complaint.resolvedAt),
+        '{response_deadline}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(complaint.responseDeadline),
+        // === CHI PHÍ BỒI THƯỜNG ===
+        '{compensation_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(complaint.compensationAmount),
+        '{compensation_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(complaint.compensationAmount || 0),
+        '{note}': complaint.note || '',
+        '{complaint_note}': complaint.note || ''
+    };
+}
+function mapComplaintLineItems(items) {
+    if (!items) return [];
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_product_name}': item.productName,
+            '{line_variant_code}': item.variantCode || '',
+            '{line_quantity}': item.quantity?.toString() || '',
+            '{line_issue}': item.issue || '',
+            '{line_resolution}': item.resolution || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/penalty.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapPenaltyToPrintData",
+    ()=>mapPenaltyToPrintData
+]);
+/**
+ * Penalty Mapper - Phiếu phạt
+ * Đồng bộ với variables/phieu-phat.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapPenaltyToPrintData(penalty, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': penalty.location?.name || storeSettings.name || '',
+        '{location_address}': penalty.location?.address || storeSettings.address || '',
+        '{location_province}': penalty.location?.province || '',
+        '{location_phone}': penalty.location?.phone || storeSettings.phone || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN PHIẾU PHẠT ===
+        '{penalty_code}': penalty.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(penalty.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(penalty.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(penalty.modifiedAt),
+        '{account_name}': penalty.createdBy || '',
+        // === THÔNG TIN NHÂN VIÊN ===
+        '{employee_name}': penalty.employeeName,
+        '{employee_code}': penalty.employeeCode || '',
+        '{employee_phone}': penalty.employeePhone || '',
+        '{employee_email}': penalty.employeeEmail || '',
+        '{employee_position}': penalty.employeePosition || '',
+        '{position_name}': penalty.employeePosition || '',
+        '{department_name}': penalty.department || '',
+        '{department}': penalty.department || '',
+        // === THÔNG TIN VI PHẠM ===
+        '{penalty_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(penalty.penaltyDate),
+        '{penalty_date_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(penalty.penaltyDate),
+        '{violation_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(penalty.penaltyDate),
+        '{violation_type}': penalty.violationType || '',
+        '{violation_description}': penalty.violationDescription || '',
+        '{violation_evidence}': penalty.violationEvidence || '',
+        '{evidence}': penalty.violationEvidence || '',
+        '{violation_count}': penalty.violationCount?.toString() || '',
+        // === THÔNG TIN PHẠT ===
+        '{penalty_type}': penalty.penaltyType,
+        '{penalty_level}': penalty.penaltyLevel || '',
+        '{penalty_reason}': penalty.reason,
+        '{reason}': penalty.reason,
+        '{penalty_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(penalty.amount),
+        '{amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(penalty.amount),
+        '{penalty_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(penalty.amount),
+        '{deduction_method}': penalty.deductionMethod || 'Trừ lương',
+        '{deduction_period}': penalty.deductionPeriod || '',
+        // === PHÊ DUYỆT ===
+        '{status}': penalty.status || '',
+        '{approved_by}': penalty.approvedBy || '',
+        '{approved_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(penalty.approvedAt),
+        '{approved_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(penalty.approvedAt),
+        '{rejected_by}': penalty.rejectedBy || '',
+        '{rejected_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(penalty.rejectedAt),
+        '{rejection_reason}': penalty.rejectionReason || '',
+        // === THÔNG TIN BỔ SUNG ===
+        '{witness_name}': penalty.witnessName || '',
+        '{witness_signature}': penalty.witnessSignature || '',
+        '{employee_acknowledgement}': penalty.employeeAcknowledgement ? 'Đã xác nhận' : '',
+        '{employee_signature_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(penalty.employeeSignatureDate),
+        '{penalty_note}': penalty.note || '',
+        '{note}': penalty.note || ''
+    };
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/supplier-order.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapSupplierOrderLineItems",
+    ()=>mapSupplierOrderLineItems,
+    "mapSupplierOrderToPrintData",
+    ()=>mapSupplierOrderToPrintData
+]);
+/**
+ * Supplier Order Mapper - Đơn đặt hàng nhập (don-dat-hang-nhap)
+ * Đồng bộ với variables/don-dat-hang-nhap.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapSupplierOrderToPrintData(order, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': order.location?.name || storeSettings.name || '',
+        '{location_address}': order.location?.address || storeSettings.address || '',
+        '{location_province}': order.location?.province || '',
+        '{store_province}': storeSettings.province || '',
+        // === THÔNG TIN ĐƠN ĐẶT HÀNG NHẬP ===
+        '{order_supplier_code}': order.code,
+        '{purchase_order_code}': order.code,
+        '{code}': order.code,
+        '{status}': order.status || '',
+        '{received_status}': order.receivedStatus || '',
+        '{financial_status}': order.financialStatus || '',
+        '{refund_status}': order.refundStatus || '',
+        '{refund_transaction_status}': order.refundTransactionStatus || '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.modifiedOn),
+        '{modified_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.modifiedOn),
+        '{received_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.receivedOn),
+        '{received_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.receivedOn),
+        '{due_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.dueOn),
+        '{due_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.dueOn),
+        '{completed_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.completedOn),
+        '{ended_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.endedOn),
+        '{cancelled_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.cancelledOn),
+        '{activated_account_name}': order.createdBy || '',
+        '{account_name}': order.createdBy || '',
+        '{assignee_name}': order.assigneeName || '',
+        '{reference}': order.reference || '',
+        '{billing_address}': order.billingAddress || '',
+        // === THÔNG TIN NHÀ CUNG CẤP ===
+        '{supplier_name}': order.supplierName,
+        '{supplier_code}': order.supplierCode || '',
+        '{supplier_phone}': order.supplierPhone || '',
+        '{supplier_phone_number}': order.supplierPhone || '',
+        '{supplier_email}': order.supplierEmail || '',
+        '{supplier_address}': order.supplierAddress || '',
+        // === NỢ NCC ===
+        '{supplier_debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.supplierDebt),
+        '{supplier_debt_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.supplierDebt || 0),
+        '{supplier_debt_prev}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.supplierDebtPrev),
+        '{supplier_debt_prev_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.supplierDebtPrev || 0),
+        // === KHỐI LƯỢNG ===
+        '{weight_g}': order.totalWeightG?.toString() || '0',
+        '{weight_kg}': order.totalWeightKg?.toString() || '0',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': order.totalQuantity.toString(),
+        '{total_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalPrice),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalPrice),
+        '{total_order}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalPrice),
+        '{total_line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalLineAmount),
+        '{total_line_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.totalLineAmount || 0),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalTax),
+        '{total_extra_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalExtraTax),
+        '{tax_vat}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalTax),
+        '{total_discounts}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalDiscounts),
+        '{discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalDiscounts),
+        '{product_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.productDiscount),
+        '{total_discounts_rate}': order.totalDiscountsRate ? `${order.totalDiscountsRate}%` : '',
+        '{total_discounts_value}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalDiscountsValue),
+        '{total_tax_included_line}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalTaxIncludedLine),
+        '{total_amount_before_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalAmountBeforeTax),
+        '{total_amount_after_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalAmountAfterTax),
+        '{total_amount_text}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["numberToWords"])(order.totalPrice),
+        '{total_transaction_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalTransactionAmount),
+        '{total_remain}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalRemain),
+        '{total_amount_transaction}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalAmountTransaction),
+        '{total_landed_costs}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalLandedCosts),
+        '{payments}': order.payments?.map((p)=>`${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(p.date)}: ${(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(p.amount)} (${p.method})`).join(', ') || '',
+        '{note}': order.note || '',
+        '{tags}': order.tags?.join(', ') || ''
+    };
+}
+function mapSupplierOrderLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_title}': item.title || item.productName,
+            '{line_product_name}': item.productName,
+            '{line_unit}': item.unit || 'Cái',
+            '{line_note}': item.note || '',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_ordered_quantity}': item.quantity.toString(),
+            '{line_received_quantity}': item.receivedQuantity?.toString() || '0',
+            '{line_variant_code}': item.variantCode || '',
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_variant_barcode}': item.barcode || '',
+            '{line_category}': item.category || '',
+            '{line_brand}': item.brand || '',
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_price_after_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.priceAfterDiscount),
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_tax_exclude}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxExclude),
+            '{line_tax_included}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxIncluded),
+            '{line_tax_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.taxAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax}': item.taxType || '',
+            '{line_weight_g}': item.weightG?.toString() || '',
+            '{line_weight_kg}': item.weightKg?.toString() || '',
+            '{serials}': item.serials?.join(', ') || '',
+            '{lots_number_code1}': item.lots?.[0] || '',
+            '{lots_number_code2}': item.lots?.[1] || '',
+            '{lots_number_code3}': item.lots?.[2] || '',
+            '{lots_number_code4}': item.lots?.[3] || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/return-order.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapReturnOrderLineItems",
+    ()=>mapReturnOrderLineItems,
+    "mapReturnOrderToPrintData",
+    ()=>mapReturnOrderToPrintData
+]);
+/**
+ * Return Order Mapper - Đơn trả hàng (don-tra-hang)
+ * Đồng bộ với variables/don-tra-hang.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapReturnOrderToPrintData(order, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': order.location?.name || storeSettings.name || '',
+        '{location_address}': order.location?.address || storeSettings.address || '',
+        '{store_province}': storeSettings.province || '',
+        '{location_province}': order.location?.province || '',
+        // === THÔNG TIN ĐƠN TRẢ ===
+        '{order_return_code}': order.code,
+        '{return_code}': order.code,
+        '{order_code}': order.orderCode || '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(order.createdAt),
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.modifiedAt),
+        '{received_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(order.receivedOn),
+        '{reference}': order.reference || '',
+        '{account_name}': order.createdBy || '',
+        // === TRẠNG THÁI ===
+        '{status}': order.status || '',
+        '{refund_status}': order.refundStatus || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': order.customerName || '',
+        '{customer_code}': order.customerCode || '',
+        '{customer_phone_number}': order.customerPhone || '',
+        '{customer_email}': order.customerEmail || '',
+        '{customer_group}': order.customerGroup || '',
+        '{billing_address}': order.billingAddress || '',
+        // === LÝ DO ===
+        '{reason_return}': order.reasonReturn || '',
+        '{reason}': order.reasonReturn || '',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': order.totalQuantity.toString(),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.totalAmount),
+        '{total_text}': order.totalText || '',
+        '{note}': order.note || ''
+    };
+}
+function mapReturnOrderLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant}': item.variantName || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{line_brand}': item.brand || '',
+            '{serials}': item.serial || '',
+            '{line_note}': item.note || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/handover.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapHandoverLineItems",
+    ()=>mapHandoverLineItems,
+    "mapHandoverToPrintData",
+    ()=>mapHandoverToPrintData
+]);
+/**
+ * Handover Mapper - Phiếu bàn giao tài sản/thiết bị
+ * Đồng bộ với variables/phieu-ban-giao.ts và templates/handover.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapHandoverToPrintData(handover, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN PHIẾU ===
+        '{handover_code}': handover.code,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(handover.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(handover.createdAt),
+        '{handover_type}': handover.handoverType || '',
+        '{status}': handover.status || '',
+        '{note}': handover.note || '',
+        '{account_name}': handover.accountName || '',
+        // === NGƯỜI BÀN GIAO ===
+        '{from_employee}': handover.fromEmployee?.name || '',
+        '{from_employee_code}': handover.fromEmployee?.code || '',
+        '{from_department}': handover.fromEmployee?.department || '',
+        '{from_position}': handover.fromEmployee?.position || '',
+        // === NGƯỜI NHẬN ===
+        '{to_employee}': handover.toEmployee?.name || '',
+        '{to_employee_code}': handover.toEmployee?.code || '',
+        '{to_department}': handover.toEmployee?.department || '',
+        '{to_position}': handover.toEmployee?.position || '',
+        // === TỔNG KẾT ===
+        '{total_items}': handover.totalItems?.toString() || handover.items.length.toString(),
+        '{total_quantity}': handover.totalQuantity?.toString() || handover.items.reduce((sum, item)=>sum + (item.quantity || 0), 0).toString(),
+        '{total_value}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(handover.totalValue || handover.items.reduce((sum, item)=>sum + (item.value || 0), 0))
+    };
+}
+function mapHandoverLineItems(items) {
+    return items.map((item)=>({
+            '{line_item_code}': item.itemCode || '',
+            '{line_item_name}': item.itemName || '',
+            '{line_description}': item.description || '',
+            '{line_serial}': item.serial || '',
+            '{line_quantity}': item.quantity?.toString() || '1',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_condition}': item.condition || 'Tốt',
+            '{line_value}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.value),
+            '{line_note}': item.note || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/refund-confirmation.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapRefundConfirmationLineItems",
+    ()=>mapRefundConfirmationLineItems,
+    "mapRefundConfirmationToPrintData",
+    ()=>mapRefundConfirmationToPrintData
+]);
+/**
+ * Refund Confirmation Mapper - Phiếu xác nhận hoàn (phieu-xac-nhan-hoan)
+ * Đồng bộ với variables/phieu-xac-nhan-hoan.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapRefundConfirmationToPrintData(refund, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': refund.location?.name || storeSettings.name || '',
+        '{location_address}': refund.location?.address || storeSettings.address || '',
+        // === THÔNG TIN PHIẾU XÁC NHẬN HOÀN ===
+        '{hand_over_code}': refund.code,
+        '{printed_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(refund.printedOn),
+        '{current_account_name}': refund.accountName || '',
+        '{account_name}': refund.accountName || '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(refund.createdOn || refund.printedOn),
+        '{created_on_time}': refund.createdOnTime || '',
+        // === THÔNG TIN VẬN CHUYỂN ===
+        '{shipping_provider_name}': refund.shippingProviderName || '',
+        '{service_name}': refund.serviceName || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': refund.customerName || '',
+        '{customer_phone_number}': refund.customerPhoneNumber || '',
+        // === THÔNG TIN NGÂN HÀNG ===
+        '{bank_name}': refund.bankName || '',
+        '{bank_branch}': refund.bankBranch || '',
+        '{bank_account}': refund.bankAccount || '',
+        '{bank_account_name}': refund.bankAccountName || '',
+        // === THÔNG TIN HOÀN TIỀN ===
+        '{refund_code}': refund.refundCode || refund.code,
+        '{refund_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(refund.refundAmount),
+        '{refund_amount_text}': refund.refundAmountText || '',
+        '{refund_method}': refund.refundMethod || '',
+        '{refund_reason}': refund.refundReason || '',
+        '{refund_status}': refund.refundStatus || '',
+        '{refunded_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(refund.refundedOn),
+        // === THÔNG TIN ĐƠN TRẢ HÀNG ===
+        '{return_code}': refund.returnCode || '',
+        '{return_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(refund.returnDate),
+        '{order_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(refund.orderDate),
+        // === TỔNG GIÁ TRỊ ===
+        '{total_cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(refund.totalCod),
+        '{quantity}': refund.quantity?.toString() || refund.orders.length.toString(),
+        '{note}': refund.note || ''
+    };
+}
+function mapRefundConfirmationLineItems(orders) {
+    return orders.map((order)=>({
+            '{order_code}': order.orderCode,
+            '{shipment_code}': order.shipmentCode || '',
+            '{shipping_name}': order.shippingName || '',
+            '{shipping_phone}': order.shippingPhone || '',
+            '{shipping_phone_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(order.shippingPhone || ''),
+            '{shipping_address}': order.shippingAddress || '',
+            '{city}': order.city || '',
+            '{district}': order.district || '',
+            '{cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.cod),
+            '{note}': order.note || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/packing-guide.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapPackingGuideLineItems",
+    ()=>mapPackingGuideLineItems,
+    "mapPackingGuideToPrintData",
+    ()=>mapPackingGuideToPrintData
+]);
+/**
+ * Packing Guide Mapper - Phiếu hướng dẫn đóng gói (phieu-huong-dan-dong-goi)
+ * Đồng bộ với variables/phieu-huong-dan-dong-goi.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapPackingGuideToPrintData(guide, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN PHIẾU HƯỚNG DẪN ĐÓNG GÓI ===
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(guide.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(guide.createdAt),
+        '{list_order_code}': guide.listOrderCode?.join(', ') || '',
+        '{order_code}': guide.orderCode || guide.listOrderCode?.[0] || '',
+        // === NHÂN VIÊN ===
+        '{account_name}': guide.accountName || '',
+        '{account_phone}': guide.accountPhone || '',
+        '{account_email}': guide.accountEmail || '',
+        // === CHI NHÁNH ===
+        '{location_name}': guide.locationName || storeSettings.name || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': guide.customerName || '',
+        '{customer_phone_number}': guide.customerPhoneNumber || '',
+        // === THÔNG TIN VẬN CHUYỂN ===
+        '{shipping_address}': guide.shippingAddress || '',
+        '{cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(guide.cod),
+        // === TỔNG GIÁ TRỊ ===
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(guide.total),
+        '{total_product_quantity}': guide.totalProductQuantity?.toString() || '0',
+        '{total_quantity}': guide.totalQuantity?.toString() || guide.totalProductQuantity?.toString() || '0',
+        '{order_note}': guide.orderNote || '',
+        '{packing_note}': guide.packingNote || ''
+    };
+}
+function mapPackingGuideLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_sku}': item.variantCode || '',
+            '{line_variant_code}': item.variantCode || '',
+            '{line_variant_barcode}': item.variantBarcode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant}': item.variant || item.variantName || '',
+            '{line_variant_options}': item.variantOptions || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_brand}': item.brand || '',
+            '{line_category}': item.category || '',
+            '{bin_location}': item.binLocation || '',
+            '{line_image}': item.image || '',
+            '{line_variant_qrcode}': item.variantQrCode ? `https://quickchart.io/qr?text=${encodeURIComponent(item.variantQrCode)}&size=100` : '',
+            '{composite_details}': item.compositeDetails || '',
+            '{line_product_description}': item.productDescription || '',
+            '{lineitem_note}': item.note || '',
+            '{note_of_store}': item.storeNote || '',
+            '{location_name}': ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/sales-summary.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapSalesSummaryItemsFulfillment",
+    ()=>mapSalesSummaryItemsFulfillment,
+    "mapSalesSummaryItemsReturn",
+    ()=>mapSalesSummaryItemsReturn,
+    "mapSalesSummaryLineItems",
+    ()=>mapSalesSummaryLineItems,
+    "mapSalesSummaryOrdersFinished",
+    ()=>mapSalesSummaryOrdersFinished,
+    "mapSalesSummaryPaymentMethods",
+    ()=>mapSalesSummaryPaymentMethods,
+    "mapSalesSummaryToPrintData",
+    ()=>mapSalesSummaryToPrintData
+]);
+/**
+ * Sales Summary Mapper - Phiếu tổng kết bán hàng (phieu-tong-ket-ban-hang)
+ * Đồng bộ với variables/phieu-tong-ket-ban-hang.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapSalesSummaryToPrintData(summary, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN ===
+        '{location_name}': summary.locationName || storeSettings.name || '',
+        '{account_name}': summary.accountName || '',
+        '{date_print}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(summary.datePrint),
+        '{time_print}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(summary.timePrint || summary.datePrint),
+        '{time_filter}': summary.timeFilter || '',
+        '{source_name}': summary.sourceName || '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(summary.createdOn || summary.datePrint),
+        '{from_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(summary.fromDate),
+        '{to_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(summary.toDate),
+        '{period}': summary.period || '',
+        '{note}': summary.note || '',
+        // === TỔNG QUAN BÁN HÀNG ===
+        '{total_quantity_order_finished}': summary.totalQuantityOrderFinished?.toString() || '0',
+        '{total_quantity_line_item_fulfillment}': summary.totalQuantityLineItemFulfillment?.toString() || '0',
+        '{total_quantity_line_item_return}': summary.totalQuantityLineItemReturn?.toString() || '0',
+        '{total_line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalLineAmount),
+        '{total_order_payment}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalOrderPayment),
+        '{total_order_return_payment}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalOrderReturnPayment),
+        '{total_real_receipt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalRealReceipt),
+        // === TỔNG KẾT ===
+        '{total_orders}': summary.totalOrders?.toString() || summary.totalQuantityOrderFinished?.toString() || '0',
+        '{total_revenue}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalRevenue || summary.totalLineAmount),
+        '{sales_revenue}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.salesRevenue || summary.totalLineAmount),
+        '{delivery_revenue}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.deliveryRevenue),
+        '{total_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalDiscount),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalTax),
+        '{total_returns}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalReturns || summary.totalOrderReturnPayment),
+        '{total_collected}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.totalCollected || summary.totalRealReceipt),
+        // === THỰC THU THEO HÌNH THỨC ===
+        '{real_receipt_cash}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.realReceiptCash),
+        '{real_receipt_transfer}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.realReceiptTransfer),
+        '{real_receipt_mpos}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.realReceiptMpos),
+        '{real_receipt_cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.realReceiptCod),
+        '{real_receipt_online}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.realReceiptOnline),
+        // === CHI TIẾT THANH TOÁN ===
+        '{cash_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.cashAmount || summary.realReceiptCash),
+        '{card_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.cardAmount || summary.realReceiptMpos),
+        '{bank_transfer_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.bankTransferAmount || summary.realReceiptTransfer),
+        '{cod_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.codAmount || summary.realReceiptCod),
+        '{ewallet_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.ewalletAmount || summary.realReceiptOnline),
+        // === NỢ ===
+        '{debt}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.debt),
+        // === TỔNG THU ===
+        '{receipt_in_day}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.receiptInDay),
+        '{receipt_cash}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.receiptCash),
+        '{receipt_transfer}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.receiptTransfer),
+        '{receipt_mpos}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.receiptMpos),
+        '{receipt_cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.receiptCod),
+        '{receipt_online}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.receiptOnline),
+        // === TỔNG CHI ===
+        '{payment_in_day}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.paymentInDay),
+        '{payment_cash}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.paymentCash),
+        '{payment_transfer}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.paymentTransfer),
+        '{payment_mpos}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(summary.paymentMpos)
+    };
+}
+function mapSalesSummaryOrdersFinished(orders) {
+    if (!orders) return [];
+    return orders.map((order)=>({
+            '{stt_order_finish}': order.stt.toString(),
+            '{order_code}': order.orderCode,
+            '{amount_order_finished}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.amount),
+            '{discount_order_finished}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.discount),
+            '{tax_order_finished}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.tax),
+            '{total_order_finished}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(order.total)
+        }));
+}
+function mapSalesSummaryItemsFulfillment(items) {
+    if (!items) return [];
+    return items.map((item)=>({
+            '{stt_item_fulfillment}': item.stt.toString(),
+            '{sku_fulfillment}': item.sku,
+            '{variant_name_fulfillment}': item.variantName,
+            '{quantity_item_fulfilment}': item.quantity.toString(),
+            '{amount_item_fulfilment}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount)
+        }));
+}
+function mapSalesSummaryItemsReturn(items) {
+    if (!items) return [];
+    return items.map((item)=>({
+            '{stt_item_return}': item.stt.toString(),
+            '{sku_return}': item.sku,
+            '{variant_name_return}': item.variantName,
+            '{quantity_item_return}': item.quantity.toString(),
+            '{amount_item_return}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount)
+        }));
+}
+function mapSalesSummaryPaymentMethods(methods) {
+    if (!methods) return [];
+    return methods.map((method)=>({
+            '{payment_method_name}': method.name,
+            '{payment_method_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(method.amount)
+        }));
+}
+function mapSalesSummaryLineItems(items) {
+    if (!items) return [];
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_product_name}': item.productName || '',
+            '{line_quantity}': item.quantity?.toString() || '0',
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount)
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/warranty-request.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapWarrantyRequestLineItems",
+    ()=>mapWarrantyRequestLineItems,
+    "mapWarrantyRequestToPrintData",
+    ()=>mapWarrantyRequestToPrintData
+]);
+/**
+ * Warranty Request Mapper - Phiếu yêu cầu bảo hành (phieu-yeu-cau-bao-hanh)
+ * Đồng bộ với variables/phieu-yeu-cau-bao-hanh.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapWarrantyRequestToPrintData(request, storeSettings) {
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': request.location?.name || storeSettings.name || '',
+        '{location_address}': request.location?.address || storeSettings.address || '',
+        '{store_province}': storeSettings.province || '',
+        '{location_province}': request.location?.province || '',
+        // === THÔNG TIN PHIẾU YÊU CẦU BẢO HÀNH ===
+        '{warranty_claim_card_code}': request.code,
+        '{warranty_request_code}': request.warrantyRequestCode || request.code,
+        '{order_code}': request.orderCode || '',
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.createdAt),
+        '{created_on_time}': request.createdAtTime || '',
+        '{modified_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.modifiedAt),
+        '{account_name}': request.createdBy || '',
+        '{reference}': request.reference || '',
+        '{status}': request.status || '',
+        '{priority}': request.priority || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_code}': request.customerCode || '',
+        '{customer_name}': request.customerName || '',
+        '{customer_phone_number}': request.customerPhone || '',
+        '{customer_address1}': request.customerAddress || '',
+        '{customer_address}': request.customerAddress || '',
+        '{customer_email}': request.customerEmail || '',
+        '{customer_group}': request.customerGroup || '',
+        // === THÔNG TIN SẢN PHẨM ===
+        '{product_code}': request.productCode || '',
+        '{product_name}': request.productName || '',
+        '{serial_number}': request.serialNumber || '',
+        '{purchase_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.purchaseDate),
+        '{warranty_expired_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.warrantyExpiredOn),
+        '{warranty_duration}': request.warrantyDuration || '',
+        // === THÔNG TIN SỰ CỐ ===
+        '{issue_type}': request.issueType || '',
+        '{issue_description}': request.issueDescription || '',
+        '{device_condition}': request.deviceCondition || '',
+        '{accessories}': request.accessories || '',
+        // === XỬ LÝ ===
+        '{received_by}': request.receivedBy || '',
+        '{technician_name}': request.technicianName || '',
+        '{expected_completion_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.expectedCompletionDate),
+        '{note}': request.note || '',
+        // === TAGS ===
+        '{tag}': request.tag || '',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': request.totalQuantity.toString(),
+        '{total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(request.totalAmount)
+    };
+}
+function mapWarrantyRequestLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_product_name}': item.productName,
+            '{line_variant_name}': item.variantName || '',
+            '{line_variant_sku}': item.variantSku || '',
+            '{line_variant_barcode}': item.variantBarcode || '',
+            '{serials}': item.serial || '',
+            '{warranty_card_code}': item.warrantyCardCode || '',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_type}': item.requestType || '',
+            '{line_received_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(item.receivedOn),
+            '{line_status}': item.status || '',
+            '{line_expense_title}': item.expenseTitle || '',
+            '{line_expense_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.expenseAmount),
+            '{line_expense_total_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.expenseTotalAmount)
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/packing-request.mapper.ts [app-client] (ecmascript)", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([
+    "mapPackingRequestLineItems",
+    ()=>mapPackingRequestLineItems,
+    "mapPackingRequestToPrintData",
+    ()=>mapPackingRequestToPrintData
+]);
+/**
+ * Packing Request Mapper - Phiếu yêu cầu đóng gói (phieu-yeu-cau-dong-goi)
+ * Đồng bộ với variables/phieu-yeu-cau-dong-goi.ts
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-service.ts [app-client] (ecmascript)");
+;
+function mapPackingRequestToPrintData(request, storeSettings) {
+    const barcode = request.code ? `https://barcodeapi.org/api/128/${encodeURIComponent(request.code)}` : '';
+    const orderBarcode = request.orderCode ? `https://barcodeapi.org/api/128/${encodeURIComponent(request.orderCode)}` : '';
+    return {
+        ...(0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getStoreData"])(storeSettings),
+        // === THÔNG TIN CHI NHÁNH ===
+        '{location_name}': request.location?.name || storeSettings.name || '',
+        '{location_address}': request.location?.address || storeSettings.address || '',
+        '{store_province}': storeSettings.province || '',
+        '{location_province}': request.location?.province || '',
+        // === THÔNG TIN PHIẾU YÊU CẦU ĐÓNG GÓI ===
+        '{code}': request.code,
+        '{packing_request_code}': request.packingRequestCode || request.code,
+        '{bar_code(code)}': barcode,
+        '{order_code}': request.orderCode || '',
+        '{bar_code(order_code)}': orderBarcode,
+        '{created_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.createdAt),
+        '{created_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(request.createdAt),
+        '{packed_on}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.packedOn),
+        '{packed_on_time}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatTime"])(request.packedOn),
+        '{cancel_date}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.cancelDate),
+        '{ship_on_min}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.shipOnMin),
+        '{ship_on_max}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.shipOnMax),
+        '{deadline}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatDate"])(request.deadline),
+        '{priority}': request.priority || '',
+        // === NHÂN VIÊN ===
+        '{account_name}': request.accountName || '',
+        '{packed_processing_account_name}': request.packedProcessingAccountName || '',
+        '{cancel_account_name}': request.cancelAccountName || '',
+        '{assignee_name}': request.assigneeName || '',
+        '{assigned_employee}': request.assignedEmployee || request.assigneeName || '',
+        // === TRẠNG THÁI ===
+        '{status}': request.status || '',
+        // === THÔNG TIN KHÁCH HÀNG ===
+        '{customer_name}': request.customerName || '',
+        '{customer_phone_number}': request.customerPhone || '',
+        '{customer_phone_number_hide}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["hidePhoneMiddle"])(request.customerPhone || ''),
+        '{customer_email}': request.customerEmail || '',
+        '{shipping_address}': request.shippingAddress || '',
+        // === THÔNG TIN VẬN CHUYỂN ===
+        '{carrier_name}': request.carrierName || '',
+        '{service_name}': request.serviceName || '',
+        '{cod}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(request.cod),
+        // === GHI CHÚ ===
+        '{order_note}': request.orderNote || '',
+        '{packing_note}': request.packingNote || '',
+        '{special_request}': request.specialRequest || '',
+        // === TỔNG GIÁ TRỊ ===
+        '{total_quantity}': request.totalQuantity.toString(),
+        '{total_tax}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(request.totalTax),
+        '{fulfillment_discount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(request.fulfillmentDiscount),
+        '{total}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(request.total),
+        '{total_weight}': request.totalWeight?.toString() || '0'
+    };
+}
+function mapPackingRequestLineItems(items) {
+    return items.map((item, index)=>({
+            '{line_stt}': (index + 1).toString(),
+            '{line_variant_code}': item.variantCode || '',
+            '{line_product_name}': item.productName,
+            '{line_variant}': item.variantName || '',
+            '{line_unit}': item.unit || 'Cái',
+            '{line_quantity}': item.quantity.toString(),
+            '{line_price}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.price),
+            '{line_discount_rate}': item.discountRate ? `${item.discountRate}%` : '',
+            '{line_discount_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.discountAmount),
+            '{line_tax_rate}': item.taxRate ? `${item.taxRate}%` : '',
+            '{line_tax}': item.taxType || '',
+            '{line_amount}': (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$service$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatCurrency"])(item.amount),
+            '{lots_number_code1}': item.lotNumber || '',
+            '{lots_number_code2}': item.lotInfoQty || '',
+            '{lots_number_code3}': item.lotInfo || '',
+            '{lots_number_code4}': item.lotInfoExpiry || '',
+            '{line_note}': item.note || '',
+            '{bin_location}': item.binLocation || ''
+        }));
+}
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-mappers/index.ts [app-client] (ecmascript) <locals>", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([]);
+/**
+ * Print Mappers - Index
+ * Export tất cả mappers từ một nơi
+ */ // Types & Utilities
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$types$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/types.ts [app-client] (ecmascript) <locals>");
+// =============================================
+// MAIN TEMPLATE TYPES (16 loại chính)
+// =============================================
+// Order - Đơn bán hàng
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$order$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/order.mapper.ts [app-client] (ecmascript)");
+// Quote - Báo giá / Đơn tạm tính
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$quote$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/quote.mapper.ts [app-client] (ecmascript)");
+// Sales Return - Đơn đổi trả hàng
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$sales$2d$return$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/sales-return.mapper.ts [app-client] (ecmascript)");
+// Packing - Phiếu đóng gói
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$packing$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/packing.mapper.ts [app-client] (ecmascript)");
+// Delivery - Phiếu giao hàng
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$delivery$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/delivery.mapper.ts [app-client] (ecmascript)");
+// Shipping Label - Nhãn giao hàng
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$shipping$2d$label$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/shipping-label.mapper.ts [app-client] (ecmascript)");
+// Product Label - Tem phụ sản phẩm
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$product$2d$label$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/product-label.mapper.ts [app-client] (ecmascript)");
+// Purchase Order - Đơn đặt hàng nhập
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$purchase$2d$order$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/purchase-order.mapper.ts [app-client] (ecmascript)");
+// Stock In - Phiếu nhập kho
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$stock$2d$in$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/stock-in.mapper.ts [app-client] (ecmascript)");
+// Stock Transfer - Phiếu chuyển kho
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$stock$2d$transfer$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/stock-transfer.mapper.ts [app-client] (ecmascript)");
+// Inventory Check - Phiếu kiểm kho
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$inventory$2d$check$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/inventory-check.mapper.ts [app-client] (ecmascript)");
+// Receipt - Phiếu thu
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$receipt$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/receipt.mapper.ts [app-client] (ecmascript)");
+// Payment - Phiếu chi
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$payment$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/payment.mapper.ts [app-client] (ecmascript)");
+// Warranty - Phiếu bảo hành
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$warranty$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/warranty.mapper.ts [app-client] (ecmascript)");
+// Supplier Return - Phiếu trả hàng NCC
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$supplier$2d$return$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/supplier-return.mapper.ts [app-client] (ecmascript)");
+// Complaint - Phiếu khiếu nại
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$complaint$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/complaint.mapper.ts [app-client] (ecmascript)");
+// Penalty - Phiếu phạt
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$penalty$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/penalty.mapper.ts [app-client] (ecmascript)");
+// =============================================
+// EXTENDED TEMPLATE TYPES (8 loại mở rộng)
+// =============================================
+// Supplier Order - Đơn đặt hàng nhập (don-dat-hang-nhap)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$supplier$2d$order$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/supplier-order.mapper.ts [app-client] (ecmascript)");
+// Return Order - Đơn trả hàng (don-tra-hang)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$return$2d$order$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/return-order.mapper.ts [app-client] (ecmascript)");
+// Handover - Phiếu bàn giao (phieu-ban-giao)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$handover$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/handover.mapper.ts [app-client] (ecmascript)");
+// Refund Confirmation - Phiếu xác nhận hoàn (phieu-xac-nhan-hoan)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$refund$2d$confirmation$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/refund-confirmation.mapper.ts [app-client] (ecmascript)");
+// Packing Guide - Phiếu hướng dẫn đóng gói (phieu-huong-dan-dong-goi)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$packing$2d$guide$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/packing-guide.mapper.ts [app-client] (ecmascript)");
+// Sales Summary - Phiếu tổng kết bán hàng (phieu-tong-ket-ban-hang)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$sales$2d$summary$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/sales-summary.mapper.ts [app-client] (ecmascript)");
+// Warranty Request - Phiếu yêu cầu bảo hành (phieu-yeu-cau-bao-hanh)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$warranty$2d$request$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/warranty-request.mapper.ts [app-client] (ecmascript)");
+// Packing Request - Phiếu yêu cầu đóng gói (phieu-yeu-cau-dong-goi)
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$packing$2d$request$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/packing-request.mapper.ts [app-client] (ecmascript)");
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print-data-mappers.ts [app-client] (ecmascript) <locals>", ((__turbopack_context__) => {
+"use strict";
+
+__turbopack_context__.s([]);
+/**
+ * Print Data Mappers
+ * 
+ * @deprecated File này đã được tách thành thư mục `lib/print-mappers/`
+ * Import từ `@/lib/print-mappers` thay vì file này
+ * 
+ * File này chỉ re-export để đảm bảo backward compatibility
+ */ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$index$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-mappers/index.ts [app-client] (ecmascript) <locals>");
+;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+"[project]/lib/print/order-print-helper.ts [app-client] (ecmascript) <locals>", ((__turbopack_context__) => {
+"use strict";
+
+/**
+ * Order Print Helper
+ * Helpers để chuẩn bị dữ liệu in cho đơn hàng
+ */ __turbopack_context__.s([
+    "convertOrderForPrint",
+    ()=>convertOrderForPrint,
+    "convertPackagingToDeliveryForPrint",
+    ()=>convertPackagingToDeliveryForPrint,
+    "convertToPackingForPrint",
+    ()=>convertToPackingForPrint,
+    "convertToShippingLabelForPrint",
+    ()=>convertToShippingLabelForPrint,
+    "createStoreSettings",
+    ()=>createStoreSettings
+]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$data$2d$mappers$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/print-data-mappers.ts [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$order$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/order.mapper.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$delivery$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/delivery.mapper.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$shipping$2d$label$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/shipping-label.mapper.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$print$2d$mappers$2f$packing$2e$mapper$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/print-mappers/packing.mapper.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$orders$2f$address$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/orders/address-utils.ts [app-client] (ecmascript)");
+;
+;
+function convertOrderForPrint(order, options = {}) {
+    const { customer, createdByEmployee } = options;
+    // Tính tổng số lượng
+    const totalQuantity = order.lineItems.reduce((sum, item)=>sum + item.quantity, 0);
+    // Tính tổng giảm giá dòng
+    const lineDiscounts = order.lineItems.reduce((sum, item)=>{
+        if (item.discountType === 'percentage') {
+            return sum + item.unitPrice * item.quantity * item.discount / 100;
+        }
+        return sum + item.discount * item.quantity;
+    }, 0);
+    // Tổng giảm giá (dòng + đơn)
+    const totalDiscount = lineDiscounts + (order.orderDiscount || 0) + (order.voucherAmount || 0);
+    // Format địa chỉ
+    const shippingAddr = typeof order.shippingAddress === 'string' ? order.shippingAddress : (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$orders$2f$address$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatOrderAddress"])(order.shippingAddress);
+    const billingAddr = typeof order.billingAddress === 'string' ? order.billingAddress : (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$orders$2f$address$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatOrderAddress"])(order.billingAddress);
+    // Get customer first address for fallback
+    const customerFirstAddress = customer?.addresses?.[0];
+    const customerAddressString = customerFirstAddress ? [
+        customerFirstAddress.street,
+        customerFirstAddress.ward,
+        customerFirstAddress.district,
+        customerFirstAddress.province
+    ].filter(Boolean).join(', ') : '';
+    return {
+        code: order.id,
+        createdAt: order.orderDate,
+        createdBy: createdByEmployee?.fullName || order.salesperson,
+        // Trạng thái
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        fulfillmentStatus: order.deliveryStatus,
+        // Customer
+        customer: customer ? {
+            name: customer.name,
+            code: customer.id,
+            phone: customer.phone,
+            email: customer.email,
+            group: customer.customerGroup || '',
+            address: customerAddressString
+        } : {
+            name: order.customerName
+        },
+        billingAddress: billingAddr,
+        shippingAddress: shippingAddr,
+        items: order.lineItems.map((item)=>{
+            const lineDiscount = item.discountType === 'percentage' ? item.unitPrice * item.quantity * item.discount / 100 : item.discount * item.quantity;
+            const lineAmountBeforeTax = item.unitPrice * item.quantity - lineDiscount;
+            // Tính thuế cho từng dòng
+            const taxRate = item.tax || 0; // % thuế (ví dụ: 10)
+            const lineTaxAmount = lineAmountBeforeTax * taxRate / 100;
+            const lineAmount = lineAmountBeforeTax + lineTaxAmount;
+            return {
+                productName: item.productName,
+                variantName: '',
+                variantCode: item.productId,
+                unit: 'Cái',
+                quantity: item.quantity,
+                price: item.unitPrice,
+                discountAmount: lineDiscount,
+                taxAmount: lineTaxAmount,
+                taxRate: taxRate,
+                amount: lineAmount,
+                note: item.note || ''
+            };
+        }),
+        totalQuantity,
+        subtotal: order.subtotal,
+        totalDiscount,
+        totalTax: order.tax,
+        deliveryFee: order.shippingFee,
+        total: order.grandTotal,
+        paymentMethod: order.expectedPaymentMethod || order.payments[0]?.method,
+        paidAmount: order.paidAmount,
+        changeAmount: order.paidAmount > order.grandTotal ? order.paidAmount - order.grandTotal : 0,
+        note: order.notes
+    };
+}
+function convertPackagingToDeliveryForPrint(order, packaging, options = {}) {
+    const { customer } = options;
+    // Format địa chỉ
+    const shippingAddr = typeof order.shippingAddress === 'string' ? order.shippingAddress : (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$orders$2f$address$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatOrderAddress"])(order.shippingAddress);
+    // Lấy contact info từ shipping address nếu là object
+    let recipientName = customer?.name || order.customerName;
+    let recipientPhone = customer?.phone;
+    if (typeof order.shippingAddress === 'object' && order.shippingAddress) {
+        recipientName = order.shippingAddress.contactName || recipientName;
+        recipientPhone = order.shippingAddress.phone || order.shippingAddress.contactPhone || recipientPhone;
+    }
+    return {
+        code: packaging.id,
+        orderCode: order.id,
+        createdAt: packaging.requestDate,
+        createdBy: packaging.requestingEmployeeName,
+        trackingCode: packaging.trackingCode,
+        carrierName: packaging.carrier,
+        // Thông tin khách hàng
+        customerName: customer?.name || order.customerName,
+        customerCode: customer?.id,
+        customerPhone: customer?.phone,
+        customerEmail: customer?.email,
+        // Thông tin người nhận
+        receiverName: recipientName,
+        receiverPhone: recipientPhone,
+        shippingAddress: shippingAddr,
+        // Danh sách sản phẩm
+        items: order.lineItems.map((item)=>({
+                variantCode: item.productId,
+                productName: item.productName,
+                variantName: '',
+                quantity: item.quantity,
+                price: item.unitPrice,
+                amount: item.unitPrice * item.quantity,
+                note: item.note
+            })),
+        // Tổng giá trị
+        totalQuantity: order.lineItems.reduce((sum, item)=>sum + item.quantity, 0),
+        subtotal: order.subtotal,
+        deliveryFee: order.shippingFee,
+        codAmount: packaging.codAmount || order.codAmount,
+        totalAmount: order.grandTotal,
+        note: packaging.noteToShipper
+    };
+}
+function convertToShippingLabelForPrint(order, packaging, options = {}) {
+    const { customer } = options;
+    const shippingAddr = typeof order.shippingAddress === 'string' ? order.shippingAddress : (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$orders$2f$address$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatOrderAddress"])(order.shippingAddress);
+    let recipientName = customer?.name || order.customerName;
+    let recipientPhone = customer?.phone;
+    if (typeof order.shippingAddress === 'object' && order.shippingAddress) {
+        recipientName = order.shippingAddress.contactName || recipientName;
+        recipientPhone = order.shippingAddress.phone || order.shippingAddress.contactPhone || recipientPhone;
+    }
+    const totalItems = order.lineItems.reduce((sum, item)=>sum + item.quantity, 0);
+    return {
+        orderCode: order.id,
+        trackingCode: packaging.trackingCode,
+        carrierName: packaging.carrier,
+        // Thông tin khách hàng
+        customerName: customer?.name || order.customerName,
+        customerPhone: customer?.phone,
+        shippingAddress: shippingAddr,
+        // Thông tin người nhận (nếu khác)
+        receiverName: recipientName,
+        receiverPhone: recipientPhone,
+        totalItems,
+        packingWeight: packaging.weight ? packaging.weight / 1000 : undefined,
+        codAmount: packaging.codAmount || order.codAmount,
+        note: packaging.noteToShipper
+    };
+}
+function convertToPackingForPrint(order, packaging, options = {}) {
+    const { customer, productBinLocations = {}, assignedEmployee } = options;
+    const shippingAddr = typeof order.shippingAddress === 'string' ? order.shippingAddress : (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$orders$2f$address$2d$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["formatOrderAddress"])(order.shippingAddress);
+    let recipientName = customer?.name || order.customerName;
+    let recipientPhone = customer?.phone;
+    if (typeof order.shippingAddress === 'object' && order.shippingAddress) {
+        recipientName = order.shippingAddress.contactName || recipientName;
+        recipientPhone = order.shippingAddress.phone || order.shippingAddress.contactPhone || recipientPhone;
+    }
+    // Extract ward/district from shippingAddress if it's an object
+    const shippingWard = typeof order.shippingAddress === 'object' && order.shippingAddress ? order.shippingAddress.ward : undefined;
+    const shippingDistrict = typeof order.shippingAddress === 'object' && order.shippingAddress ? order.shippingAddress.district : undefined;
+    return {
+        code: packaging.id,
+        createdAt: packaging.requestDate,
+        packedAt: packaging.confirmDate,
+        createdBy: packaging.requestingEmployeeName,
+        orderCode: order.id,
+        fulfillmentStatus: packaging.status,
+        assignedEmployee: assignedEmployee?.fullName || packaging.assignedEmployeeName,
+        customerName: recipientName,
+        customerCode: customer?.id,
+        customerPhone: recipientPhone,
+        customerEmail: customer?.email,
+        shippingAddress: shippingAddr,
+        shippingWard,
+        shippingDistrict,
+        items: order.lineItems.map((item)=>({
+                variantCode: item.productId,
+                productName: item.productName,
+                variantName: '',
+                quantity: item.quantity,
+                binLocation: productBinLocations[item.productSystemId] || ''
+            })),
+        totalQuantity: order.lineItems.reduce((sum, item)=>sum + item.quantity, 0),
+        codAmount: packaging.codAmount || order.codAmount,
+        note: packaging.notes,
+        orderNote: order.notes
+    };
+}
+function createStoreSettings(branch, options) {
+    if (!branch) {
+        return {
+            name: '',
+            address: '',
+            phone: '',
+            email: '',
+            logo: options?.logo || undefined
+        };
+    }
+    return {
+        name: branch.name,
+        address: branch.address || '',
+        phone: branch.phone || '',
+        email: '',
+        logo: options?.logo || undefined
+    };
+}
+;
+if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
+    __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
+}
+}),
+]);
+
+//# sourceMappingURL=lib_fb0b70d8._.js.map

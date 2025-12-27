@@ -1,4 +1,4 @@
-import type { Supplier } from './types';
+import type { Supplier } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export const data: Supplier[] = [

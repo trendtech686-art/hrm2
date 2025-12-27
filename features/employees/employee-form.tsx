@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { employeeFormSchema, validateUniqueId } from "./validation";
-import type { Employee, EmployeeAddress } from "./types";
+import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { SystemId, BusinessId } from '@/lib/id-types';

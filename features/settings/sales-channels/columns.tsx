@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { SalesChannel } from './types';
+import type { SalesChannel } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../../components/data-table/types';
 import { Button } from '../../../components/ui/button';
 import { MoreHorizontal, CheckCircle2 } from 'lucide-react';

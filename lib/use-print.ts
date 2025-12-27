@@ -3,7 +3,7 @@
  */
 
 import * as React from 'react';
-import type { TemplateType, PaperSize } from '../features/settings/printer/types';
+import type { TemplateType, PaperSize } from '@/lib/types/prisma-extended';
 import { 
   PrintData, 
   PrintLineItem,

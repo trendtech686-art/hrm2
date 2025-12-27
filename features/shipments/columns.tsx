@@ -1,7 +1,8 @@
 ﻿import * as React from 'react';
-import { Link, useNavigate } from '@/lib/next-compat';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import Link from 'next/link';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { ShipmentView } from './types';
+import type { ShipmentView } from '@/lib/types/prisma-extended';
 import type { OrderDeliveryStatus, OrderPrintStatus } from '../orders/types';
 import type { ColumnDef } from '../../components/data-table/types';
 import { Badge } from '../../components/ui/badge';
@@ -34,7 +35,7 @@ const printStatusVariants: Record<OrderPrintStatus, "success" | "secondary"> = {
 export const getColumns = (
   onPrintDelivery?: (shipmentId: string) => void,
   onPrintHandover?: (shipmentId: string) => void,
-  navigate?: (path: string) => void,
+  router?: AppRouterInstance,
 ): ColumnDef<ShipmentView>[] => [
     {
       id: "select",
@@ -76,8 +77,8 @@ export const getColumns = (
     { id: 'cancelledAt', accessorKey: 'cancelledAt', header: 'Ngày hủy giao', cell: ({ row }) => formatDate(row.cancelledAt), meta: { displayName: 'Ngày hủy giao' } },
     { id: 'partnerStatus', accessorKey: 'partnerStatus', header: 'Trạng thái đối tác', cell: ({ row }) => row.partnerStatus || '-', meta: { displayName: 'Trạng thái đối tác' } },
     { id: 'payer', accessorKey: 'payer', header: 'Người trả phí', cell: ({ row }) => row.payer || '-', meta: { displayName: 'Người trả phí' } },
-    { id: 'packagingSystemId', accessorKey: 'packagingSystemId', header: 'Mã đóng gói', cell: ({ row }) => <Link to={`/packaging/${row.packagingSystemId}`} className="font-mono text-primary hover:underline">{row.packagingSystemId}</Link>, meta: { displayName: 'Mã đóng gói' } },
-    { id: 'orderId', accessorKey: 'orderId', header: 'Mã đơn hàng', cell: ({ row }) => <Link to={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã đơn hàng' } },
+    { id: 'packagingSystemId', accessorKey: 'packagingSystemId', header: 'Mã đóng gói', cell: ({ row }) => <Link href={`/packaging/${row.packagingSystemId}`} className="font-mono text-primary hover:underline">{row.packagingSystemId}</Link>, meta: { displayName: 'Mã đóng gói' } },
+    { id: 'orderId', accessorKey: 'orderId', header: 'Mã đơn hàng', cell: ({ row }) => <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã đơn hàng' } },
     { id: 'printStatus', accessorKey: 'printStatus', header: 'Trạng thái in', cell: ({ row }) => <Badge variant={printStatusVariants[row.printStatus]}>{row.printStatus}</Badge>, meta: { displayName: 'Trạng thái in' } },
     { id: 'dispatchedAt', accessorKey: 'dispatchedAt', header: 'Ngày xuất kho', cell: ({ row }) => formatDate(row.dispatchedAt), meta: { displayName: 'Ngày xuất kho' } },
     { id: 'totalProductQuantity', accessorKey: 'totalProductQuantity', header: 'Tổng SL SP', cell: ({ row }) => row.totalProductQuantity, meta: { displayName: 'Tổng số lượng sản phẩm' } },
@@ -101,7 +102,7 @@ export const getColumns = (
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate ? navigate(`/orders/${row.orderSystemId}`) : (window.location.href = `/orders/${row.orderSystemId}`)}>
+                        <DropdownMenuItem onClick={() => router ? router.push(`/orders/${row.orderSystemId}`) : (window.location.href = `/orders/${row.orderSystemId}`)}>
                             Xem đơn hàng
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPrintDelivery?.(row.systemId)}>

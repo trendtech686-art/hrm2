@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -236,7 +236,7 @@ interface PkgxProductRow extends PkgxProduct {
 
 export function ProductMappingTab() {
   // Router & Auth
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   
   // Stores
@@ -1591,7 +1591,7 @@ export function ProductMappingTab() {
                         <button
                           onClick={() => {
                             setIsDetailDialogOpen(false);
-                            navigate(`/products?id=${selectedProductForDetail.linkedHrmProduct!.id}`);
+                            router.push(`/products?id=${selectedProductForDetail.linkedHrmProduct!.id}`);
                           }}
                           className="w-full p-2 border rounded bg-green-50 border-green-200 hover:bg-green-100 transition-colors text-left"
                         >

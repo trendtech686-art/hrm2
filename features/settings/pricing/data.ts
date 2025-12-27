@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { PricingPolicy } from './types';
+import type { PricingPolicy } from '@/lib/types/prisma-extended';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: PricingPolicy[] = [

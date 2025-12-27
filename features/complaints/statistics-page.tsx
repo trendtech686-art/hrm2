@@ -8,7 +8,7 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -105,7 +105,7 @@ function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }:
  * Main Statistics Page
  */
 export function ComplaintStatisticsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { complaints } = useComplaintStore();
   const { data: employees } = useEmployeeStore();
 
@@ -140,12 +140,12 @@ export function ComplaintStatisticsPage() {
       variant="outline"
       size="sm"
       className="h-9"
-      onClick={() => navigate(ROUTES.INTERNAL.COMPLAINTS)}
+      onClick={() => router.push(ROUTES.INTERNAL.COMPLAINTS)}
     >
       <ArrowLeft className="h-4 w-4 mr-2" />
       Quay lại
     </Button>,
-  ], [navigate]);
+  ], [router]);
 
   const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => [
     { label: "Trang chủ", href: ROUTES.ROOT },

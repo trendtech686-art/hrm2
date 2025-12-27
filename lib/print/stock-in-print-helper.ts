@@ -3,8 +3,8 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu nhập kho
  */
 
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   StockInForPrint, 
   mapStockInToPrintData, 
@@ -79,7 +79,7 @@ interface PurchaseOrderRef {
 export function convertStockInForPrint(
   stockIn: StockInLike,
   options: {
-    branch?: Branch | null;
+    branch?: { name?: string; address?: string; phone?: string; province?: string } | null;
     supplier?: Supplier | null;
     creator?: Employee | null;
     purchaseOrder?: PurchaseOrderRef | null;
@@ -172,9 +172,10 @@ export function convertStockInForPrint(
 }
 
 /**
- * Tạo StoreSettings từ storeInfo
+ * Tạo StoreSettings từ storeInfo hoặc Branch
  */
 export function createStoreSettings(storeInfo?: {
+  // StoreInfo fields
   companyName?: string;
   brandName?: string;
   hotline?: string;
@@ -184,13 +185,17 @@ export function createStoreSettings(storeInfo?: {
   headquartersAddress?: string;
   province?: string;
   logo?: string;
-}): StoreSettings {
+  // Branch fields (alternative)
+  name?: string;
+  address?: string;
+  phone?: string;
+} | null): StoreSettings {
   // Fallback lấy từ general-settings nếu storeInfo trống
   const generalSettings = getGeneralSettings();
   return {
-    name: storeInfo?.companyName || storeInfo?.brandName || generalSettings?.companyName || '',
-    address: storeInfo?.headquartersAddress || generalSettings?.companyAddress || '',
-    phone: storeInfo?.hotline || generalSettings?.phoneNumber || '',
+    name: storeInfo?.companyName || storeInfo?.brandName || storeInfo?.name || generalSettings?.companyName || '',
+    address: storeInfo?.headquartersAddress || storeInfo?.address || generalSettings?.companyAddress || '',
+    phone: storeInfo?.hotline || storeInfo?.phone || generalSettings?.phoneNumber || '',
     email: storeInfo?.email || generalSettings?.email || '',
     website: storeInfo?.website,
     taxCode: storeInfo?.taxCode,

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { data as initialDataOmit } from './data';
-import type { PurchaseOrder, PurchaseOrderPayment, PurchaseOrderStatus, DeliveryStatus, PaymentStatus, PurchaseOrderReturnStatus, PurchaseOrderRefundStatus } from './types';
+import type { PurchaseOrder, PurchaseOrderPayment, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus, PurchaseOrderPaymentStatus as PaymentStatus, PurchaseOrderReturnStatus, PurchaseOrderRefundStatus } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';

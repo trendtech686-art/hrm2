@@ -1,6 +1,6 @@
 import { createCrudStore, CrudState } from '../../../lib/store-factory';
 import { data as initialData } from './data';
-import type { Branch } from './types';
+import type { Branch } from '@/lib/types/prisma-extended';
 import { SystemId } from '../../../lib/id-types';
 
 export interface BranchStoreState extends CrudState<Branch> {

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { startOfMonth, endOfMonth, isAfter, isBefore, isWithinInterval, isSameDay, differenceInMilliseconds, parse as dateParse } from 'date-fns';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -33,7 +33,7 @@ const COLORS = {
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
 export function CashbookReportsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const { data: receipts } = useReceiptStore();
   const { data: payments } = usePaymentStore();
@@ -198,7 +198,7 @@ export function CashbookReportsPage() {
       variant="outline"
       size="sm"
       className="h-9 gap-2"
-      onClick={() => navigate(ROUTES.FINANCE.CASHBOOK)}
+      onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}
     >
       <FileText className="mr-2 h-4 w-4" />
       Sổ quỹ
@@ -207,7 +207,7 @@ export function CashbookReportsPage() {
       key="receipt"
       size="sm"
       className="h-9 gap-2"
-      onClick={() => navigate(ROUTES.FINANCE.RECEIPT_NEW)}
+      onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}
     >
       <DollarSign className="mr-2 h-4 w-4" />
       Lập phiếu thu
@@ -217,12 +217,12 @@ export function CashbookReportsPage() {
       variant="outline"
       size="sm"
       className="h-9 gap-2"
-      onClick={() => navigate(ROUTES.FINANCE.PAYMENT_NEW)}
+      onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}
     >
       <CreditCard className="mr-2 h-4 w-4" />
       Lập phiếu chi
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   const breadcrumb = React.useMemo(() => ([
     { label: 'Trang chủ', href: ROUTES.ROOT },

@@ -1,5 +1,6 @@
 import * as React from "react";
-import type { Supplier, SupplierStatus } from './types'
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import type { Supplier, SupplierStatus } from '@/lib/types/prisma-extended'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Button } from "../../components/ui/button";
 import { MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
@@ -19,7 +20,7 @@ export const getColumns = (
   onDelete: (systemId: SystemId) => void,
   onRestore: (systemId: SystemId) => void,
   onEdit: (supplier: Supplier) => void,
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
 ): ColumnDef<Supplier>[] => [
   {
     id: "select",

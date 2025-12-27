@@ -1,4 +1,4 @@
-import type { StockHistoryEntry } from './types';
+import type { StockHistoryEntry } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 
 const SEED_AUTHOR = asSystemId('EMP000001');

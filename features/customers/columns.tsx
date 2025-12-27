@@ -1,6 +1,7 @@
 import * as React from "react";
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isValidDate, getDaysDiff } from '@/lib/date-utils';
-import type { Customer } from './types'
+import type { Customer } from '@/lib/types/prisma-extended'
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
 import { getCreditAlertLevel, getCreditAlertBadgeVariant, getCreditAlertText } from './credit-utils';
 import { 
@@ -40,7 +41,7 @@ type ColumnOptions = {
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onRestore: (systemId: string) => void,
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   options?: ColumnOptions,
 ): ColumnDef<Customer>[] => [
   {
@@ -433,7 +434,7 @@ export const getColumns = (
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => navigate(`/customers/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push(`/customers/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(row.systemId)}>
               Chuyển vào thùng rác
             </DropdownMenuItem>

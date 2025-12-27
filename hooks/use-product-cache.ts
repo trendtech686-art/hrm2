@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Product } from '../features/products/types';
+import type { Product } from '@/lib/types/prisma-extended';
 
 /**
  * Hook tạo cache Map cho products để lookup O(1) thay vì O(n)

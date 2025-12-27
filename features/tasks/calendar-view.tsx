@@ -7,7 +7,7 @@ import listPlugin from '@fullcalendar/list';
 import { useTaskStore } from './store';
 import type { Task, TaskPriority } from './types';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { List, ArrowLeft } from 'lucide-react';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 export function TaskCalendarView() {
   usePageHeader();
   const { data: tasks, update } = useTaskStore();
-  const navigate = useNavigate();
+  const router = useRouter();
   const calendarRef = React.useRef<FullCalendar>(null);
 
   const getPriorityColor = (priority: TaskPriority): string => {
@@ -63,7 +63,7 @@ export function TaskCalendarView() {
   // Handle event click - navigate to detail
   const handleEventClick = (info: any) => {
     const task = info.event.extendedProps.task as Task;
-    navigate(`/tasks/${task.systemId}`);
+    router.push(`/tasks/${task.systemId}`);
   };
 
   // Handle event drag & drop - update dates
@@ -125,10 +125,10 @@ export function TaskCalendarView() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Button onClick={() => navigate('/tasks')} size="sm" variant="outline">
+        <Button onClick={() => router.push('/tasks')} size="sm" variant="outline">
           <ArrowLeft className="mr-2 h-4 w-4" /> Về danh sách
         </Button>
-        <Button onClick={() => navigate('/tasks/new')} size="sm">
+        <Button onClick={() => router.push('/tasks/new')} size="sm">
           Tạo công việc mới
         </Button>
       </div>

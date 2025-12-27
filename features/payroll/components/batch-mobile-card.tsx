@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Payroll Batch Mobile Card
  * Hiển thị thông tin batch trên mobile
  */
@@ -6,7 +6,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Calendar, Users, Wallet, MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -51,11 +51,11 @@ type BatchMobileCardProps = {
 };
 
 export function BatchMobileCard({ batch, onDelete, onLock, onUnlock }: BatchMobileCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isLocked = batch.status === 'locked';
 
   const handleCardClick = () => {
-    navigate(ROUTES.PAYROLL.DETAIL.replace(':systemId', batch.systemId));
+    router.push(ROUTES.PAYROLL.DETAIL.replace(':systemId', batch.systemId));
   };
 
   return (

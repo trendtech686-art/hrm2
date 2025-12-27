@@ -2,9 +2,10 @@
 // File: features/employees/tanstack-columns.tsx
 
 import * as React from 'react';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { ColumnDef } from '@tanstack/react-table';
 import { formatDate } from '../../lib/date-utils';
-import type { Employee } from './types';
+import type { Employee } from '@/lib/types/prisma-extended';
 import type { Branch } from '../settings/branches/types';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Badge } from '../../components/ui/badge';
@@ -34,7 +35,7 @@ const formatCurrency = (value?: number) => {
 };
 
 export const createEmployeeColumns = (
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   onDelete: (systemId: string) => void,
   branches: Branch[]
 ): ColumnDef<Employee>[] => [
@@ -67,7 +68,7 @@ export const createEmployeeColumns = (
       <Button
         variant="link"
         className="p-0 h-auto font-semibold text-blue-600 hover:text-blue-800"
-        onClick={() => navigate(`/employees/${info.row.original.systemId}`)}
+        onClick={() => router.push(`/employees/${info.row.original.systemId}`)}
       >
         {info.getValue() as string}
       </Button>
@@ -279,14 +280,14 @@ export const createEmployeeColumns = (
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem
-              onClick={() => navigate(`/employees/${employee.systemId}`)}
+              onClick={() => router.push(`/employees/${employee.systemId}`)}
               className="cursor-pointer"
             >
               <Eye className="mr-2 h-4 w-4" />
               Xem chi tiết
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => navigate(`/employees/${employee.systemId}/edit`)}
+              onClick={() => router.push(`/employees/${employee.systemId}/edit`)}
               className="cursor-pointer"
             >
               <Pencil className="mr-2 h-4 w-4" />

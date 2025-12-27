@@ -2,7 +2,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseDate, getCurrentDate, getStartOfDay, addDays, isDateBefore, isDateSame, toISODate } from '../../lib/date-utils';
-import type { LeaveRequest } from "./types";
+import type { LeaveRequest } from "@/lib/types/prisma-extended";
 import { useEmployeeStore } from "../employees/store";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Button } from "../../components/ui/button";

@@ -1,6 +1,6 @@
 ﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import * as ReactRouterDOM from '@/lib/next-compat';
-import type { StockHistoryEntry } from './types';
+import Link from 'next/link';
+import type { StockHistoryEntry } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../components/data-table/types';
 import type { PurchaseOrder } from '../purchase-orders/types';
 import type { InventoryReceipt } from '../inventory-receipts/types';
@@ -57,9 +57,9 @@ export const getStockHistoryColumns = (
         
         if (linkPath) {
             return (
-                <ReactRouterDOM.Link to={linkPath} className="font-medium text-primary hover:underline">
+                <Link href={linkPath} className="font-medium text-primary hover:underline">
                     {docId}
-                </ReactRouterDOM.Link>
+                </Link>
             );
         }
 

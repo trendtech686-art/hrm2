@@ -16,6 +16,7 @@ export type {
   EmployeeMappingEntry,
   AttendanceImportRow,
   AttendanceSummary,
+  ImportMode,
 } from './types';
 
 // Store

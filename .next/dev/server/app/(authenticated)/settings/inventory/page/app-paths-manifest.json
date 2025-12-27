@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/settings/inventory/page": "app/(authenticated)/settings/inventory/page.js"
+}

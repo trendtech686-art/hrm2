@@ -20,11 +20,11 @@ import type {
   PayrollComponentEntry,
   PayrollTotals,
 } from './payroll-types';
-import type { Penalty } from '../features/settings/penalties/types';
+import type { Penalty } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from './id-types';
 import { usePenaltyStore } from '../features/settings/penalties/store';
 import { useEmployeeSettingsStore } from '../features/settings/employees/employee-settings-store';
-import type { InsuranceRates, TaxSettings, TaxBracket } from '../features/settings/employees/types';
+import type { InsuranceRates, TaxSettings, TaxBracket } from '@/lib/types/prisma-extended';
 
 // =============================================
 // TYPES - Input/Output for Engine

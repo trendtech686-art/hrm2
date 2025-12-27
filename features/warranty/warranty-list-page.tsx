@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Plus, Download, Upload, Filter, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { cn } from '../../lib/utils';
@@ -191,7 +191,7 @@ function KanbanColumn({
  * ✅ Header: Auto-generated title from breadcrumb
  */
 export function WarrantyListPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
   const { data: tickets, hardDelete: deleteWarrantyTicket, _migrate } = useWarrantyStore();
   const { data: orders } = useOrderStore(); // ✅ Add orders
@@ -362,9 +362,9 @@ export function WarrantyListPage() {
   // ==========================================
   const handleEdit = React.useCallback(
     (ticket: WarrantyTicket) => {
-      navigate(`/warranty/${ticket.systemId}/edit`);
+      router.push(`/warranty/${ticket.systemId}/edit`);
     },
-    [navigate]
+    [router]
   );
 
   const startCancelWorkflow = React.useCallback((ticketsToCancel: WarrantyTicket[], options?: { bulk?: boolean }) => {
@@ -463,8 +463,8 @@ export function WarrantyListPage() {
   }, [tickets]);
 
   const handleMarkReturned = React.useCallback((systemId: string) => {
-    navigate(`/warranty/${systemId}`); // Go to detail page to link order
-  }, [navigate]);
+    router.push(`/warranty/${systemId}`); // Go to detail page to link order
+  }, [router]);
 
   const handleCancel = React.useCallback((systemId: string) => {
     const normalizedId = asSystemId(systemId);
@@ -531,11 +531,11 @@ export function WarrantyListPage() {
   // Generate columns
   const columns = React.useMemo(
     () => {
-      const cols = getColumns(handleCancel, handleEdit, navigate, orders); // ✅ Pass orders
+      const cols = getColumns(handleCancel, handleEdit, router.push, orders); // ✅ Pass orders
       console.log('📊 Warranty columns generated:', cols.length, 'columns', cols.map(c => c.id));
       return cols;
     },
-    [handleCancel, handleEdit, navigate, orders] // ✅ Add orders dependency
+    [handleCancel, handleEdit, router, orders] // ✅ Add orders dependency
   );
 
   const hasInitializedColumns = React.useRef(false);
@@ -788,7 +788,7 @@ export function WarrantyListPage() {
       // Statistics (LEFT)
       <Button
         key="statistics"
-        onClick={() => navigate('/warranty/statistics')}
+        onClick={() => router.push('/warranty/statistics')}
         variant="outline"
         size="sm"
         className="h-9"
@@ -819,7 +819,7 @@ export function WarrantyListPage() {
       // Create button (RIGHT)
       <Button
         key="new"
-        onClick={() => navigate('/warranty/new')}
+        onClick={() => router.push('/warranty/new')}
         size="sm"
         className="h-9"
       >
@@ -827,7 +827,7 @@ export function WarrantyListPage() {
         Tạo phiếu mới
       </Button>,
     ],
-    [navigate, viewMode, isPolling, togglePolling]
+    [router, viewMode, isPolling, togglePolling]
   );
   const warrantyStats = React.useMemo(() => {
     return tickets.reduce(
@@ -869,7 +869,7 @@ export function WarrantyListPage() {
           leftActions={
             <>
               <Button
-                onClick={() => navigate('/settings/warranty')}
+                onClick={() => router.push('/settings/warranty')}
                 variant="outline"
                 size="sm"
               >
@@ -940,7 +940,7 @@ export function WarrantyListPage() {
               <WarrantyCard
                 key={ticket.systemId}
                 ticket={ticket}
-                onClick={() => navigate(`/warranty/${ticket.systemId}`)}
+                onClick={() => router.push(`/warranty/${ticket.systemId}`)}
               />
             )}
             pageCount={pageCount}
@@ -962,7 +962,7 @@ export function WarrantyListPage() {
             setColumnOrder={setColumnOrder}
             pinnedColumns={pinnedColumns}
             setPinnedColumns={setPinnedColumns}
-            onRowClick={(ticket) => navigate(`/warranty/${ticket.systemId}`)}
+            onRowClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
             getRowStyle={getRowStyle}
           />
         ) : (
@@ -970,9 +970,9 @@ export function WarrantyListPage() {
             <KanbanColumn
               status="incomplete"
               tickets={ticketsByStatus.incomplete}
-              onTicketClick={(ticket) => navigate(`/warranty/${ticket.systemId}`)}
+              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
               cardColors={cardColors}
-              onEdit={(systemId) => navigate(`/warranty/${systemId}/edit`)}
+              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
               onGetLink={handleGetLink}
               onStartProcessing={handleStartProcessing}
               onMarkProcessed={handleMarkProcessed}
@@ -983,9 +983,9 @@ export function WarrantyListPage() {
             <KanbanColumn
               status="pending"
               tickets={ticketsByStatus.pending}
-              onTicketClick={(ticket) => navigate(`/warranty/${ticket.systemId}`)}
+              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
               cardColors={cardColors}
-              onEdit={(systemId) => navigate(`/warranty/${systemId}/edit`)}
+              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
               onGetLink={handleGetLink}
               onStartProcessing={handleStartProcessing}
               onMarkProcessed={handleMarkProcessed}
@@ -996,9 +996,9 @@ export function WarrantyListPage() {
             <KanbanColumn
               status="processed"
               tickets={ticketsByStatus.processed}
-              onTicketClick={(ticket) => navigate(`/warranty/${ticket.systemId}`)}
+              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
               cardColors={cardColors}
-              onEdit={(systemId) => navigate(`/warranty/${systemId}/edit`)}
+              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
               onGetLink={handleGetLink}
               onStartProcessing={handleStartProcessing}
               onMarkProcessed={handleMarkProcessed}
@@ -1009,9 +1009,9 @@ export function WarrantyListPage() {
             <KanbanColumn
               status="returned"
               tickets={ticketsByStatus.returned}
-              onTicketClick={(ticket) => navigate(`/warranty/${ticket.systemId}`)}
+              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
               cardColors={cardColors}
-              onEdit={(systemId) => navigate(`/warranty/${systemId}/edit`)}
+              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
               onGetLink={handleGetLink}
               onStartProcessing={handleStartProcessing}
               onMarkProcessed={handleMarkProcessed}
@@ -1022,9 +1022,9 @@ export function WarrantyListPage() {
             <KanbanColumn
               status="completed"
               tickets={ticketsByStatus.completed}
-              onTicketClick={(ticket) => navigate(`/warranty/${ticket.systemId}`)}
+              onTicketClick={(ticket) => router.push(`/warranty/${ticket.systemId}`)}
               cardColors={cardColors}
-              onEdit={(systemId) => navigate(`/warranty/${systemId}/edit`)}
+              onEdit={(systemId) => router.push(`/warranty/${systemId}/edit`)}
               onGetLink={handleGetLink}
               onStartProcessing={handleStartProcessing}
               onMarkProcessed={handleMarkProcessed}

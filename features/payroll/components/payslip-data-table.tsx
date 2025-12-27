@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Printer, FileSpreadsheet, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
 import { DataTableColumnCustomizer } from '../../../components/data-table/data-table-column-toggle';
@@ -116,7 +116,7 @@ export function PayslipDataTable({
   onBulkExport,
   className,
 }: PayslipDataTableProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
 
   // Detail dialog state
@@ -295,10 +295,10 @@ export function PayslipDataTable({
   const handleViewEmployee = React.useCallback(
     (row: PayslipRow) => {
       if (row.employeeSystemId) {
-        navigate(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.employeeSystemId));
+        router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.employeeSystemId));
       }
     },
-    [navigate]
+    [router]
   );
 
   // Handle row click - open detail dialog

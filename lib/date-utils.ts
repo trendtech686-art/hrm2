@@ -2,7 +2,8 @@
  * Date utility functions using date-fns
  * Replaces dayjs throughout the application
  * 
- * Reads timezone and time format from general-settings in localStorage
+ * Reads timezone and time format from settings cache (loaded from database)
+ * Falls back to localStorage for backward compatibility
  */
 
 import {
@@ -28,6 +29,7 @@ import {
   setDay,
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { getGeneralSettingsSync } from './settings-cache';
 
 // ===== SETTINGS HELPER =====
 
@@ -44,19 +46,17 @@ const DEFAULT_DATE_SETTINGS: DateSettings = {
 };
 
 /**
- * Get date settings from localStorage
+ * Get date settings from cache (falls back to localStorage)
  */
 export const getDateSettings = (): DateSettings => {
   try {
-    const stored = localStorage.getItem('general-settings');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return {
-        timezone: parsed.timezone || DEFAULT_DATE_SETTINGS.timezone,
-        dateFormat: parsed.dateFormat || DEFAULT_DATE_SETTINGS.dateFormat,
-        timeFormat: parsed.timeFormat || DEFAULT_DATE_SETTINGS.timeFormat,
-      };
-    }
+    // Use settings cache (loaded from database)
+    const settings = getGeneralSettingsSync();
+    return {
+      timezone: settings.timezone || DEFAULT_DATE_SETTINGS.timezone,
+      dateFormat: settings.dateFormat || DEFAULT_DATE_SETTINGS.dateFormat,
+      timeFormat: settings.timeFormat || DEFAULT_DATE_SETTINGS.timeFormat,
+    };
   } catch (e) { /* ignore */ }
   return DEFAULT_DATE_SETTINGS;
 };

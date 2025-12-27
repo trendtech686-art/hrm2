@@ -1,12 +1,12 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useOrderStore } from '../orders/store';
 import { useBranchStore } from '../settings/branches/store';
-import type { PackagingSlip } from './types';
+import type { PackagingSlip } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
@@ -48,16 +48,16 @@ function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; on
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Hủy yêu cầu đóng gói</DialogTitle>
-          <DialogDescription>Vui lòng nhập lý do hủy. Hành động này sẽ cập nhật trạng thái của phiếu đóng gói thành 'Hủy đóng gói'.</DialogDescription>
+          <DialogTitle>H?y y�u c?u d�ng g�i</DialogTitle>
+          <DialogDescription>Vui l�ng nh?p l� do h?y. H�nh d?ng n�y s? c?p nh?t tr?ng th�i c?a phi?u d�ng g�i th�nh 'H?y d�ng g�i'.</DialogDescription>
         </DialogHeader>
         <div className='pt-4'>
-          <Label htmlFor='cancel-reason'>Lý do hủy</Label>
-          <Textarea id='cancel-reason' value={reason} onChange={(e) => setReason(e.target.value)} className='mt-2' placeholder='Nhập lý do...' />
+          <Label htmlFor='cancel-reason'>L� do h?y</Label>
+          <Textarea id='cancel-reason' value={reason} onChange={(e) => setReason(e.target.value)} className='mt-2' placeholder='Nh?p l� do...' />
         </div>
         <DialogFooter>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>Thoát</Button>
-          <Button variant='destructive' onClick={handleConfirm}>Xác nhận Hủy</Button>
+          <Button variant='outline' onClick={() => onOpenChange(false)}>Tho�t</Button>
+          <Button variant='destructive' onClick={handleConfirm}>X�c nh?n H?y</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -72,7 +72,7 @@ export function PackagingPage() {
     const { info: storeInfo } = useStoreInfoStore();
     const { print, printMultiple } = usePrint();
     const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
-    const navigate = useNavigate();
+    const router = useRouter();
     
     // Print dialog state
     const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
@@ -82,10 +82,10 @@ export function PackagingPage() {
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
     usePageHeader({
-        title: 'Phiếu đóng gói',
+        title: 'Phi?u d�ng g�i',
         breadcrumb: [
-            { label: 'Trang chủ', href: '/', isCurrent: false },
-            { label: 'Đóng gói', href: '/packaging', isCurrent: true }
+            { label: 'Trang ch?', href: '/', isCurrent: false },
+            { label: '��ng g�i', href: '/packaging', isCurrent: true }
         ],
         showBackButton: false,
     });
@@ -153,13 +153,13 @@ export function PackagingPage() {
         }
     };
 
-    // Handler để mở dialog in với options
+    // Handler d? m? dialog in v?i options
     const handleBulkPrint = React.useCallback((rows: PackagingSlip[]) => {
         setItemsToPrint(rows);
         setPrintDialogOpen(true);
     }, []);
 
-    // Handler khi xác nhận in từ dialog
+    // Handler khi x�c nh?n in t? dialog
     const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
         if (itemsToPrint.length === 0) return;
 
@@ -206,7 +206,7 @@ export function PackagingPage() {
 
         if (printOptionsList.length > 0) {
             printMultiple('packing', printOptionsList);
-            toast.success(`Đang in ${printOptionsList.length} phiếu đóng gói`);
+            toast.success(`�ang in ${printOptionsList.length} phi?u d�ng g�i`);
         }
         
         setPrintDialogOpen(false);
@@ -253,7 +253,7 @@ export function PackagingPage() {
     }, [allOrders, findCustomerById, findBranchById, storeInfo, print]);
 
     const handleBulkCancelPackaging = React.useCallback((packagingIds: string[]) => {
-        console.log('Hủy Phiếu Đóng Gói:', packagingIds);
+        console.log('H?y Phi?u ��ng G�i:', packagingIds);
         // TODO: Implement bulk cancel logic
     }, []);
 
@@ -315,10 +315,10 @@ export function PackagingPage() {
 
     const allSelectedRows = React.useMemo(() => packagingSlips.filter(p => rowSelection[p.systemId]), [packagingSlips, rowSelection]);
 
-    // Bulk actions với SimplePrintOptionsDialog
+    // Bulk actions v?i SimplePrintOptionsDialog
     const bulkActions = React.useMemo(() => [
         {
-            label: 'In phiếu đóng gói',
+            label: 'In phi?u d�ng g�i',
             icon: Printer,
             onSelect: (rows: PackagingSlip[]) => handleBulkPrint(rows),
         },
@@ -340,12 +340,12 @@ export function PackagingPage() {
     
     React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter]);
 
-    const handleRowClick = (row: PackagingSlip) => navigate('/packaging/' + row.systemId);
+    const handleRowClick = (row: PackagingSlip) => router.push('/packaging/' + row.systemId);
 
     const MobilePackagingCard = ({ packaging }: { packaging: PackagingSlip }) => {
         const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' => {
             const map: Record<string, 'default' | 'secondary' | 'destructive'> = {
-                'Đã đóng gói': 'default', 'Chờ đóng gói': 'secondary', 'Hủy đóng gói': 'destructive'
+                '�� d�ng g�i': 'default', 'Ch? d�ng g�i': 'secondary', 'H?y d�ng g�i': 'destructive'
             };
             return map[status] || 'secondary';
         };
@@ -371,7 +371,7 @@ export function PackagingPage() {
                                 </TouchButton>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='end'>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate('/packaging/' + packaging.systemId); }}>Xem chi tiết</DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push('/packaging/' + packaging.systemId); }}>Xem chi tiết</DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSinglePackaging(packaging.systemId); }}>In Phiếu Đóng Gói</DropdownMenuItem>
                                 {packaging.status === 'Chờ đóng gói' && (
                                     <>
@@ -415,42 +415,42 @@ export function PackagingPage() {
                     leftActions={
                         <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
                             <Download className="h-4 w-4 mr-2" />
-                            Xuất Excel
+                            Xu?t Excel
                         </Button>
                     }
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
             )}
-            <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder='Tìm kiếm phiếu đóng gói (mã phiếu, mã đơn, khách hàng)...'>
+            <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder='T�m ki?m phi?u d�ng g�i (m� phi?u, m� don, kh�ch h�ng)...'>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
+                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='T?t c? chi nh�nh' /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value='all'>Tất cả chi nhánh</SelectItem>
+                        <SelectItem value='all'>T?t c? chi nh�nh</SelectItem>
                         {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='Tất cả trạng thái' /></SelectTrigger>
+                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='T?t c? tr?ng th�i' /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value='all'>Tất cả trạng thái</SelectItem>
-                        <SelectItem value='Chờ đóng gói'>Chờ đóng gói</SelectItem>
-                        <SelectItem value='Đã đóng gói'>Đã đóng gói</SelectItem>
-                        <SelectItem value='Hủy đóng gói'>Hủy đóng gói</SelectItem>
+                        <SelectItem value='all'>T?t c? tr?ng th�i</SelectItem>
+                        <SelectItem value='Ch? d�ng g�i'>Ch? d�ng g�i</SelectItem>
+                        <SelectItem value='�� d�ng g�i'>�� d�ng g�i</SelectItem>
+                        <SelectItem value='H?y d�ng g�i'>H?y d�ng g�i</SelectItem>
                     </SelectContent>
                 </Select>
             </PageFilters>
             {isMobile ? (
                 <div ref={mobileScrollRef} className='space-y-3 pb-4'>
                     {sortedData.length === 0 ? (
-                        <Card><CardContent className='py-12 text-center'><p className='text-muted-foreground'>Không tìm thấy phiếu đóng gói</p></CardContent></Card>
+                        <Card><CardContent className='py-12 text-center'><p className='text-muted-foreground'>Kh�ng t�m th?y phi?u d�ng g�i</p></CardContent></Card>
                     ) : (
                         <>
                             {sortedData.slice(0, mobileLoadedCount).map(packaging => <MobilePackagingCard key={packaging.systemId} packaging={packaging} />)}
                             {mobileLoadedCount < sortedData.length && (
-                                <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>
+                                <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>�ang t?i th�m...</span></div></CardContent></Card>
                             )}
                             {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && (
-                                <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu đóng gói</span></CardContent></Card>
+                                <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>�� hi?n th? t?t c? {sortedData.length} phi?u d�ng g�i</span></CardContent></Card>
                             )}
                         </>
                     )}
@@ -490,7 +490,7 @@ export function PackagingPage() {
                 onOpenChange={setPrintDialogOpen}
                 selectedCount={itemsToPrint.length}
                 onConfirm={handlePrintConfirm}
-                title="In phiếu đóng gói"
+                title="In phi?u d�ng g�i"
             />
             <CancelDialog isOpen={!!cancelDialogState} onOpenChange={(open) => !open && setCancelDialogState(null)} onConfirm={handleConfirmCancel} />
 
@@ -504,7 +504,7 @@ export function PackagingPage() {
                 currentPageData={paginatedData}
                 selectedData={allSelectedRows}
                 currentUser={{
-                    name: authEmployee?.fullName || 'Hệ thống',
+                    name: authEmployee?.fullName || 'H? th?ng',
                     systemId: authEmployee?.systemId || asSystemId('SYSTEM'),
                 }}
             />

@@ -11,21 +11,21 @@ export async function GET(request: Request, { params }: RouteParams) {
     const { systemId } = await params
 
     // Try to find by systemId first, then by slug
-    let wiki = await prisma.wikiPage.findUnique({
+    let wiki = await prisma.wiki.findUnique({
       where: { systemId },
       include: {
-        category: {
-          select: { systemId: true, name: true },
+        author: {
+          select: { systemId: true, fullName: true },
         },
       },
     })
 
     if (!wiki) {
-      wiki = await prisma.wikiPage.findUnique({
+      wiki = await prisma.wiki.findUnique({
         where: { slug: systemId },
         include: {
-          category: {
-            select: { systemId: true, name: true },
+          author: {
+            select: { systemId: true, fullName: true },
           },
         },
       })
@@ -54,16 +54,15 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const { systemId } = await params
     const body = await request.json()
 
-    const wiki = await prisma.wikiPage.update({
+    const wiki = await prisma.wiki.update({
       where: { systemId },
       data: {
         title: body.title,
         slug: body.slug,
         content: body.content,
-        categoryId: body.categoryId || body.category,
+        category: body.categoryId || body.category,
         tags: body.tags,
         isPublished: body.isPublished,
-        updatedBy: body.updatedBy,
       },
     })
 
@@ -94,7 +93,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
-    await prisma.wikiPage.update({
+    await prisma.wiki.update({
       where: { systemId },
       data: { isDeleted: true },
     })

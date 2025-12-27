@@ -44,7 +44,7 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog";
 import { Textarea } from "../../../components/ui/textarea";
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 
 // Component hiển thị ảnh sản phẩm với preview - tương tự LineItemsTable
 const ProductThumbnail = ({ 
@@ -544,8 +544,7 @@ export function ProductSelectionCard({
                         <TableCell>
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
-                              <Link 
-                                to={`/products/${item.product.systemId}`} 
+                              <Link href={`/products/${item.product.systemId}`} 
                                 className="font-medium text-primary hover:underline"
                               >
                                 {item.product.name}
@@ -560,8 +559,7 @@ export function ProductSelectionCard({
                               <div className="flex items-center gap-1 text-xs text-muted-foreground group/info">
                                 <span>{getProductTypeLabel(item.product)}</span>
                                 <span>-</span>
-                                <Link 
-                                  to={`/products/${item.product.systemId}`} 
+                                <Link href={`/products/${item.product.systemId}`} 
                                   className="text-primary hover:underline"
                                 >
                                   {item.product.id}
@@ -730,8 +728,7 @@ export function ProductSelectionCard({
                                     {comboItem.product?.name || 'Sản phẩm không tồn tại'}
                                   </p>
                                   {comboItem.product && (
-                                    <Link
-                                      to={`/products/${comboItem.product.systemId}`}
+                                    <Link href={`/products/${comboItem.product.systemId}`}
                                       className="text-xs text-primary hover:underline"
                                     >
                                       {comboItem.product.id}

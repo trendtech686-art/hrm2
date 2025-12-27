@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { StockLocation } from './types'
+import type { StockLocation } from '@/lib/types/prisma-extended'
 import type { Branch } from '../settings/branches/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Button } from "../../components/ui/button";

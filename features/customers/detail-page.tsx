@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
-import { Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { formatDate as formatDateUtil, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff, parseDate } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { sanitizeToText } from '@/lib/sanitize';
@@ -17,7 +17,7 @@ import {
 } from './intelligence-utils';
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
 import { useCustomerStore } from './store';
-import type { Customer, CustomerAddress } from './types';
+import type { Customer, CustomerAddress } from '@/lib/types/prisma-extended';
 import { useOrderStore } from '../orders/store';
 import { useWarrantyStore } from '../warranty/store';
 import { useComplaintStore } from '../complaints/store';
@@ -158,7 +158,7 @@ const orderColumns: ColumnDef<Order>[] = [
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                    <Link to={`/orders/${row.systemId}`}>
+                    <Link href={`/orders/${row.systemId}`}>
                         <Eye className="mr-2 h-4 w-4" />
                         Xem chi tiết
                     </Link>
@@ -189,9 +189,9 @@ type OrderWithReturns = Order & {
 };
 
 const productColumns: ColumnDef<{ systemId: string, name: string; quantity: number; orderId: string; orderDate: string; orderSystemId: string; productSystemId: string; warrantyMonths: number; warrantyExpiry: string; daysRemaining: number }>[] = [
-    { id: 'orderId', accessorKey: 'orderId', header: 'Mã ĐH', cell: ({ row }) => <Link to={`/orders/${row.orderSystemId}`} className="font-medium text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã ĐH'} },
+    { id: 'orderId', accessorKey: 'orderId', header: 'Mã ĐH', cell: ({ row }) => <Link href={`/orders/${row.orderSystemId}`} className="font-medium text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã ĐH'} },
     { id: 'orderDate', accessorKey: 'orderDate', header: 'Ngày mua', cell: ({ row }) => formatDateUtil(row.orderDate), meta: { displayName: 'Ngày mua'} },
-    { id: 'name', accessorKey: 'name', header: 'Tên sản phẩm', cell: ({ row }) => <Link to={`/products/${row.productSystemId}`} className="font-medium text-primary hover:underline">{row.name}</Link>, meta: { displayName: 'Tên sản phẩm'} },
+    { id: 'name', accessorKey: 'name', header: 'Tên sản phẩm', cell: ({ row }) => <Link href={`/products/${row.productSystemId}`} className="font-medium text-primary hover:underline">{row.name}</Link>, meta: { displayName: 'Tên sản phẩm'} },
     { id: 'quantity', accessorKey: 'quantity', header: 'SL', cell: ({ row }) => row.quantity, meta: { displayName: 'Số lượng'} },
     { id: 'warrantyMonths', accessorKey: 'warrantyMonths', header: 'Bảo hành', cell: ({ row }) => row.warrantyMonths ? `${row.warrantyMonths} tháng` : '—', meta: { displayName: 'Bảo hành'} },
     { id: 'warrantyExpiry', accessorKey: 'warrantyExpiry', header: 'Hết hạn BH', cell: ({ row }) => row.warrantyExpiry ? formatDateUtil(row.warrantyExpiry) : '—', meta: { displayName: 'Hết hạn BH'} },
@@ -210,13 +210,13 @@ const productColumns: ColumnDef<{ systemId: string, name: string; quantity: numb
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                    <Link to={`/products/${row.productSystemId}`}>
+                    <Link href={`/products/${row.productSystemId}`}>
                         <Eye className="mr-2 h-4 w-4" />
                         Xem sản phẩm
                     </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                    <Link to={`/orders/${row.orderSystemId}`}>
+                    <Link href={`/orders/${row.orderSystemId}`}>
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Xem đơn hàng
                     </Link>
@@ -232,7 +232,7 @@ const warrantyColumns: ColumnDef<WarrantyTicket>[] = [
     accessorKey: 'id',
     header: 'Mã BH',
     cell: ({ row }) => (
-      <Link to={`/warranty/${row.systemId}`} className="font-medium text-primary hover:underline">
+      <Link href={`/warranty/${row.systemId}`} className="font-medium text-primary hover:underline">
         {row.id}
       </Link>
     ),
@@ -289,7 +289,7 @@ const warrantyColumns: ColumnDef<WarrantyTicket>[] = [
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link to={`/warranty/${row.systemId}`}>
+            <Link href={`/warranty/${row.systemId}`}>
               <Eye className="mr-2 h-4 w-4" />
               Xem chi tiết
             </Link>
@@ -319,7 +319,7 @@ const complaintColumns: ColumnDef<ComplaintRow>[] = [
     accessorKey: 'id',
     header: 'Mã KN',
     cell: ({ row }) => (
-      <Link to={`/complaints/${row.systemId}`} className="font-medium text-primary hover:underline">
+      <Link href={`/complaints/${row.systemId}`} className="font-medium text-primary hover:underline">
         {row.id}
       </Link>
     ),
@@ -355,7 +355,7 @@ const complaintColumns: ColumnDef<ComplaintRow>[] = [
     accessorKey: 'assignedName',
     header: 'Nhân viên xử lý',
     cell: ({ row }) => row.assignedTo ? (
-      <Link to={`/employees/${row.assignedTo}`} className="text-primary hover:underline">
+      <Link href={`/employees/${row.assignedTo}`} className="text-primary hover:underline">
         {row.assignedName}
       </Link>
     ) : 'Chưa giao',
@@ -366,7 +366,7 @@ const complaintColumns: ColumnDef<ComplaintRow>[] = [
     accessorKey: 'orderCode',
     header: 'Đơn liên quan',
     cell: ({ row }) => (
-      <Link to={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">
+      <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">
         {row.orderCode || row.orderSystemId}
       </Link>
     ),
@@ -385,13 +385,13 @@ const complaintColumns: ColumnDef<ComplaintRow>[] = [
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link to={`/complaints/${row.systemId}`}>
+            <Link href={`/complaints/${row.systemId}`}>
               <Eye className="mr-2 h-4 w-4" />
               Xem chi tiết
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to={`/orders/${row.orderSystemId}`}>
+            <Link href={`/orders/${row.orderSystemId}`}>
               <ExternalLink className="mr-2 h-4 w-4" />
               Xem đơn hàng
             </Link>
@@ -428,11 +428,11 @@ const debtColumns: ColumnDef<any>[] = [
             : row.type === 'sales-return' ? `/returns/${row.originalSystemId}`
             : row.type === 'complaint-payment' ? `/payments/${row.originalSystemId}`
             : `/payments/${row.originalSystemId}`;
-        return <Link to={path} className="font-medium text-primary hover:underline">{row.voucherId}</Link>;
+        return <Link href={path} className="font-medium text-primary hover:underline">{row.voucherId}</Link>;
     }, meta: { displayName: 'Mã phiếu' } },
     { id: 'creator', accessorKey: 'creator', header: 'Người tạo', cell: ({ row }) => {
         return row.creatorId ? (
-            <Link to={`/employees/${row.creatorId}`} className="text-primary hover:underline">{row.creator}</Link>
+            <Link href={`/employees/${row.creatorId}`} className="text-primary hover:underline">{row.creator}</Link>
         ) : (
             <span>{row.creator}</span>
         );
@@ -479,7 +479,7 @@ const debtColumns: ColumnDef<any>[] = [
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
-                        <Link to={path}>
+                        <Link href={path}>
                             <Eye className="mr-2 h-4 w-4" />
                             Xem chi tiết
                         </Link>
@@ -521,8 +521,8 @@ const renderCustomerStatusBadge = (status?: Customer["status"]) => {
 
 
 export function CustomerDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById, update, data, removeMany } = useCustomerStore();
   const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById, data]);
   const [activeTab, setActiveTab] = React.useState('info');
@@ -796,7 +796,7 @@ export function CustomerDetailPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                    <Link to={`/orders/${row.systemId}`}>
+                    <Link href={`/orders/${row.systemId}`}>
                         <Eye className="mr-2 h-4 w-4" />
                         Xem chi tiết
                     </Link>
@@ -1094,20 +1094,20 @@ export function CustomerDetailPage() {
     if (customer) {
       removeMany([customer.systemId]);
       toast.success(`Đã chuyển khách hàng ${customer.name} vào thùng rác`);
-      navigate('/customers');
+      router.push('/customers');
     }
-  }, [customer, removeMany, navigate]);
+  }, [customer, removeMany, router]);
 
   const headerActions = React.useMemo(() => [
     <Button key="delete" variant="outline" size="sm" className="h-9 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)}>
       <Trash2 className="mr-2 h-4 w-4" />
       Chuyển vào thùng rác
     </Button>,
-    <Button key="edit" size="sm" className="h-9" onClick={() => navigate(`/customers/${systemId}/edit`)}>
+    <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/customers/${systemId}/edit`)}>
       <Edit className="mr-2 h-4 w-4" />
       Chỉnh sửa
     </Button>
-  ], [navigate, systemId]);
+  ], [router, systemId]);
 
   // ✅ Build header badges with SLA alerts
   const headerBadges = React.useMemo(() => {
@@ -1180,7 +1180,7 @@ export function CustomerDetailPage() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold">Không tìm thấy khách hàng</h2>
-          <Button onClick={() => navigate('/customers')} className="mt-4">
+          <Button onClick={() => router.push('/customers')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay về danh sách
           </Button>
@@ -1430,7 +1430,7 @@ export function CustomerDetailPage() {
                   <DetailItem 
                     label="Người giới thiệu" 
                     value={customer.referredBy ? findById(asSystemId(customer.referredBy))?.name : undefined}
-                    onClick={customer.referredBy ? () => navigate(`/customers/${customer.referredBy}`) : undefined}
+                    onClick={customer.referredBy ? () => router.push(`/customers/${customer.referredBy}`) : undefined}
                   />
                   <DetailItem label="Bảng giá" value={customer.pricingLevel} />
                 </dl>
@@ -1686,19 +1686,19 @@ export function CustomerDetailPage() {
                   <DetailItem 
                     label="NV phụ trách" 
                     value={customer.accountManagerName || getEmployeeName(customer.accountManagerId)}
-                    onClick={customer.accountManagerId ? () => navigate(`/employees/${customer.accountManagerId}`) : undefined}
+                    onClick={customer.accountManagerId ? () => router.push(`/employees/${customer.accountManagerId}`) : undefined}
                   />
                   <DetailItem label="Ngày tạo" value={formatDateUtil(customer.createdAt)} />
                   <DetailItem 
                     label="Người tạo" 
                     value={getEmployeeName(customer.createdBy)}
-                    onClick={customer.createdBy ? () => navigate(`/employees/${customer.createdBy}`) : undefined}
+                    onClick={customer.createdBy ? () => router.push(`/employees/${customer.createdBy}`) : undefined}
                   />
                   <DetailItem label="Cập nhật" value={formatDateUtil(customer.updatedAt)} />
                   <DetailItem 
                     label="Người cập nhật" 
                     value={getEmployeeName(customer.updatedBy)}
-                    onClick={customer.updatedBy ? () => navigate(`/employees/${customer.updatedBy}`) : undefined}
+                    onClick={customer.updatedBy ? () => router.push(`/employees/${customer.updatedBy}`) : undefined}
                   />
                 </dl>
               </CardContent>
@@ -1829,7 +1829,7 @@ export function CustomerDetailPage() {
               dateFilterColumn="orderDate" 
               dateFilterTitle="Ngày đặt" 
               exportFileName={`Don_hang_${customer.id}`} 
-              onRowClick={(row) => navigate(`/orders/${row.systemId}`)} 
+              onRowClick={(row) => router.push(`/orders/${row.systemId}`)} 
               controlledSearch={orderDrilldownSearch}
               onControlledSearchApplied={handleOrderSearchApplied}
               showCheckbox
@@ -1885,7 +1885,7 @@ export function CustomerDetailPage() {
               dateFilterColumn="createdAt"
               dateFilterTitle="Ngày tạo"
               exportFileName={`Bao_hanh_${customer.id}`}
-              onRowClick={(row) => navigate(`/warranty/${row.systemId}`)}
+              onRowClick={(row) => router.push(`/warranty/${row.systemId}`)}
               controlledSearch={warrantyDrilldownSearch}
               onControlledSearchApplied={handleWarrantySearchApplied}
               showCheckbox
@@ -1961,7 +1961,7 @@ export function CustomerDetailPage() {
               dateFilterColumn="createdAt"
               dateFilterTitle="Ngày tạo"
               exportFileName={`Khieu_nai_${customer.id}`}
-              onRowClick={(row) => navigate(`/complaints/${row.systemId}`)}
+              onRowClick={(row) => router.push(`/complaints/${row.systemId}`)}
               controlledSearch={complaintDrilldownSearch}
               onControlledSearchApplied={handleComplaintSearchApplied}
               showCheckbox

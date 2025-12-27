@@ -3,7 +3,7 @@
  * Based on GHTK API documentation: https://api.ghtk.vn/docs/submit-order/webhook
  */
 
-import type { OrderDeliveryStatus } from '@/features/orders/types';
+import type { OrderDeliveryStatus } from '@/features/orders/store';
 
 export type GHTKStatusId = -1 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 20 | 21 | 123 | 127 | 128 | 45 | 49 | 410;
 

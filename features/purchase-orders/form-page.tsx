@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate, useParams, useSearchParamsWithSetter } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
 import { usePurchaseOrderStore } from './store';
 import { ROUTES } from '../../lib/router';
 import { useBranchStore } from '../settings/branches/store';
@@ -20,7 +21,7 @@ import type { Payment } from '../payments/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { toast } from 'sonner';
 import { getCurrentDate, toISODate, formatDateCustom } from '../../lib/date-utils';
-import type { PurchaseOrder, PaymentStatus, PurchaseOrderStatus, DeliveryStatus } from './types';
+import type { PurchaseOrder, PurchaseOrderPaymentStatus as PaymentStatus, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus } from '@/lib/types/prisma-extended';
 import { Button } from '../../components/ui/button';
 import { SupplierSelectionCard } from './components/supplier-selection-card';
 import { OrderInfoCard } from './components/order-info-card';
@@ -41,7 +42,7 @@ import type { SystemId } from '@/lib/id-types';
 export function PurchaseOrderFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const [searchParams] = useSearchParamsWithSetter();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { add, update, findById, data: allOrders, processInventoryReceipt } = usePurchaseOrderStore();
   const { data: branches } = useBranchStore();
   const { data: employees } = useEmployeeStore();
@@ -69,9 +70,9 @@ export function PurchaseOrderFormPage() {
       toast.error('Không thể sửa đơn', {
         description: 'Đơn đã nhập kho không thể sửa. Vui lòng sử dụng chức năng Hoàn trả để điều chỉnh.',
       });
-      navigate(`/purchase-orders/${existingOrder.systemId}`);
+      router.push(`/purchase-orders/${existingOrder.systemId}`);
     }
-  }, [isEditMode, existingOrder, navigate, toast]);
+  }, [isEditMode, existingOrder, router, toast]);
 
   // Form state
   const [supplierId, setSupplierId] = React.useState<SystemId | null>(
@@ -697,7 +698,7 @@ export function PurchaseOrderFormPage() {
       }
 
       // Chuyển đến trang chi tiết đơn vừa tạo/cập nhật
-      navigate(`/purchase-orders/${createdOrder.systemId}`);
+      router.push(`/purchase-orders/${createdOrder.systemId}`);
     } catch (error) {
       toast.error('Lỗi', {
         description: 'Không thể lưu đơn nhập hàng. Vui lòng thử lại.',
@@ -713,10 +714,10 @@ export function PurchaseOrderFormPage() {
     
     if (hasUnsavedChanges && !isSaving) {
       if (window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn thoát?')) {
-        navigate('/purchase-orders');
+        router.push('/purchase-orders');
       }
     } else {
-      navigate('/purchase-orders');
+      router.push('/purchase-orders');
     }
   };
 

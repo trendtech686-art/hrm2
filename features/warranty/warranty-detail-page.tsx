@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit2, Save, X, MessageSquare, Printer, Link as LinkIcon, XCircle, Bell, Clock, AlertCircle, Copy, Plus, Minus } from 'lucide-react';
 import { format } from 'date-fns';
@@ -110,7 +112,7 @@ const RESPONSE_TEMPLATES = [
 ];
  
 export function WarrantyDetailPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { systemId = '' } = useParams<{ systemId: string }>();
   const { user, employee } = useAuth();
 
@@ -207,7 +209,7 @@ export function WarrantyDetailPage() {
     update,
     updateStatus,
     addHistory,
-    navigate,
+    navigate: ((path: string) => router.push(path)) as any,
   });
 
 
@@ -348,7 +350,7 @@ export function WarrantyDetailPage() {
               if (ticket) {
                 addHistory(ticket.systemId, 'Cập nhật thông tin sản phẩm bảo hành', currentUser.name);
               }
-              navigate(`/warranty/${systemId}/update`);
+              router.push(`/warranty/${systemId}/update`);
             }}
           >
             <Edit2 className="h-4 w-4 mr-2" />
@@ -421,7 +423,7 @@ export function WarrantyDetailPage() {
             if (ticket) {
               addHistory(ticket.systemId, 'Mở chế độ chỉnh sửa', currentUser.name);
             }
-            navigate(`/warranty/${systemId}/edit`);
+            router.push(`/warranty/${systemId}/edit`);
           }}
         >
           <Edit2 className="h-4 w-4 mr-2" />
@@ -449,7 +451,7 @@ export function WarrantyDetailPage() {
     }
 
     return actionButtons;
-  }, [ticket, systemId, isReturned, currentUser.name, navigate, addHistory, handleStatusChange, handleCompleteTicket, openReminderModal, isCompletingTicket]);
+  }, [ticket, systemId, isReturned, currentUser.name, router, addHistory, handleStatusChange, handleCompleteTicket, openReminderModal, isCompletingTicket]);
 
   // Page header - title auto-generated from breadcrumb, Badge below title
   const statusBadge = ticket ? (

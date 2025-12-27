@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
-import type { CostAdjustment, CostAdjustmentItem, CostAdjustmentType, CostAdjustmentStatus } from './types';
+import type { CostAdjustment, CostAdjustmentItem, CostAdjustmentType, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
 import { useProductStore } from '../products/store';
 import type { Product } from '../products/types';
 

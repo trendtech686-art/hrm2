@@ -1,0 +1,145 @@
+// ========================================
+// PKGX Integration Tables
+// ========================================
+
+/// Danh mục từ website PKGX (phukiengiaxuong.com.vn)
+model PkgxCategory {
+  id            Int       @id                  // cat_id từ PKGX
+  name          String                         // Tên danh mục
+  parentId      Int?                           // Parent category ID
+  sortOrder     Int       @default(0)          // Thứ tự sắp xếp
+  isShow        Int       @default(1)          // Hiển thị (1=hiện, 0=ẩn)
+  catDesc       String?   @db.Text             // Mô tả ngắn
+  longDesc      String?   @db.Text             // Mô tả dài (HTML)
+  keywords      String?                        // SEO keywords
+  metaTitle     String?                        // Meta title
+  metaDesc      String?   @db.Text             // Meta description
+  catAlias      String?                        // Slug/alias
+  style         String?                        // Template style
+  grade         Int?                           // Cấp độ danh mục
+  filterAttr    String?                        // Filter attributes
+  syncedAt      DateTime  @default(now())      // Lần sync cuối
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  mappings      PkgxCategoryMapping[]
+
+  @@map("pkgx_categories")
+}
+
+/// Thương hiệu từ website PKGX
+model PkgxBrand {
+  id               Int       @id               // brand_id từ PKGX
+  name             String                      // Tên thương hiệu
+  logo             String?                     // Logo URL
+  description      String?   @db.Text          // Mô tả (brand_desc)
+  siteUrl          String?                     // Website URL
+  sortOrder        Int       @default(0)       // Thứ tự sắp xếp
+  isShow           Int       @default(1)       // Hiển thị (1=hiện, 0=ẩn)
+  keywords         String?                     // SEO keywords
+  metaTitle        String?                     // Meta title
+  metaDesc         String?   @db.Text          // Meta description
+  shortDescription String?   @db.Text          // Mô tả ngắn
+  longDescription  String?   @db.Text          // Mô tả dài
+  syncedAt         DateTime  @default(now())   // Lần sync cuối
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  mappings         PkgxBrandMapping[]
+
+  @@map("pkgx_brands")
+}
+
+/// Mapping danh mục HRM → PKGX
+model PkgxCategoryMapping {
+  systemId          String    @id @default(uuid())
+  hrmCategoryId     String                     // Category systemId trong HRM (FK to Category)
+  hrmCategoryName   String                     // Cache tên danh mục HRM
+  pkgxCategoryId    Int                        // cat_id trên PKGX
+  pkgxCategoryName  String                     // Cache tên danh mục PKGX
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String?
+  updatedBy         String?
+
+  // Relations
+  pkgxCategory      PkgxCategory @relation(fields: [pkgxCategoryId], references: [id], onDelete: Cascade)
+
+  @@unique([hrmCategoryId])                    // Mỗi HRM category chỉ map 1 PKGX category
+  @@unique([pkgxCategoryId])                   // Mỗi PKGX category chỉ map 1 HRM category
+  @@map("pkgx_category_mappings")
+}
+
+/// Mapping thương hiệu HRM → PKGX
+model PkgxBrandMapping {
+  systemId        String    @id @default(uuid())
+  hrmBrandId      String                       // Brand systemId trong HRM (FK to Brand)
+  hrmBrandName    String                       // Cache tên thương hiệu HRM
+  pkgxBrandId     Int                          // brand_id trên PKGX
+  pkgxBrandName   String                       // Cache tên thương hiệu PKGX
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       String?
+  updatedBy       String?
+
+  // Relations
+  pkgxBrand       PkgxBrand @relation(fields: [pkgxBrandId], references: [id], onDelete: Cascade)
+
+  @@unique([hrmBrandId])                       // Mỗi HRM brand chỉ map 1 PKGX brand
+  @@unique([pkgxBrandId])                      // Mỗi PKGX brand chỉ map 1 HRM brand
+  @@map("pkgx_brand_mappings")
+}
+
+/// Mapping bảng giá HRM → các loại giá PKGX
+model PkgxPriceMapping {
+  systemId       String    @id @default(uuid())
+  priceType      String    @unique            // shopPrice, marketPrice, partnerPrice, acePrice, dealPrice
+  pricingPolicyId String?                     // FK to PricingPolicy systemId
+  description    String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdBy      String?
+  updatedBy      String?
+
+  @@map("pkgx_price_mappings")
+}
+
+/// Log đồng bộ PKGX
+model PkgxSyncLog {
+  systemId      String    @id @default(uuid())
+  syncType      String                         // categories, brands, products, all
+  action        String                         // sync, create, update, delete
+  status        String                         // success, error, partial
+  itemsTotal    Int       @default(0)
+  itemsSuccess  Int       @default(0)
+  itemsFailed   Int       @default(0)
+  errorMessage  String?   @db.Text
+  details       Json?                          // Chi tiết sync (items synced, errors, etc.)
+  syncedAt      DateTime  @default(now())
+  syncedBy      String?
+
+  @@map("pkgx_sync_logs")
+}
+
+/// Cấu hình kết nối PKGX
+model PkgxConfig {
+  systemId        String    @id @default(uuid())
+  apiUrl          String
+  apiKey          String?
+  enabled         Boolean   @default(false)
+  autoSync        Boolean   @default(false)
+  syncInterval    Int       @default(60)       // Phút
+  lastSyncAt      DateTime?
+  connectionStatus String   @default("disconnected") // connected, disconnected, error
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  updatedBy       String?
+
+  @@map("pkgx_config")
+}

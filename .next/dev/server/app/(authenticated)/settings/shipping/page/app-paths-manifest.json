@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/settings/shipping/page": "app/(authenticated)/settings/shipping/page.js"
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import {
   Store,
   MapPin,
@@ -301,7 +301,7 @@ const settingsTableData: SettingsTableItem[] = settingsSections.flatMap((section
 export function SettingsPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const isMobile = !useMediaQuery("(min-width: 768px)");
-  const navigate = useNavigate();
+  const router = useRouter();
   const filteredSettings = React.useMemo(() => {
     if (!searchQuery) return settingsTableData;
     const lowercasedQuery = searchQuery.toLowerCase();
@@ -330,8 +330,8 @@ export function SettingsPage() {
   });
 
   const handleNavigate = React.useCallback((href: string) => {
-    navigate(href);
-  }, [navigate]);
+    router.push(href);
+  }, [router]);
 
   return (
     <div className="space-y-4">

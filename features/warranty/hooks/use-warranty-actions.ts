@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { toast } from 'sonner';
-import type { NavigateFunction } from '@/lib/next-compat';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { calculateWarrantyProcessingState } from '../components/logic/processing';
 import type { WarrantyTicket } from '../types';
 import type { Order } from '../../orders/types';
@@ -22,7 +22,7 @@ interface UseWarrantyActionsOptions {
   update: (systemId: string, updates: Partial<WarrantyTicket>) => void;
   updateStatus: (systemId: string, status: WarrantyTicket['status'], reason?: string) => void;
   addHistory: (ticketSystemId: string, action: string, performedBy: string, note?: string) => void;
-  navigate: NavigateFunction;
+  navigate: AppRouterInstance;
 }
 
 export function useWarrantyActions({
@@ -197,12 +197,12 @@ export function useWarrantyActions({
       toast.error('Phiếu chưa gán nhân viên phụ trách');
       return;
     }
-    navigate(`/employees/${currentTicket.employeeSystemId}`);
+    navigate.push(`/employees/${currentTicket.employeeSystemId}`);
   }, [navigate, requireTicket]);
 
   const handleNavigateOrder = React.useCallback(() => {
     if (!linkedOrder) return;
-    navigate(`/orders/${linkedOrder.systemId}`);
+    navigate.push(`/orders/${linkedOrder.systemId}`);
   }, [linkedOrder, navigate]);
 
   return {

@@ -1,6 +1,7 @@
 import * as React from "react";
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
-import type { Employee } from './types'
+import type { Employee } from '@/lib/types/prisma-extended'
 import type { Branch } from "../settings/branches/types";
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
@@ -40,7 +41,7 @@ const formatAddress = (address: any): string => {
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onRestore: (systemId: string) => void,
-  navigate: (path: string) => void,
+  router: AppRouterInstance,
   branches: Branch[]
 ): ColumnDef<Employee>[] => [
   {
@@ -581,7 +582,7 @@ export const getColumns = (
               <DropdownMenuItem 
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/employees/${employee.systemId}/edit`);
+                  router.push(`/employees/${employee.systemId}/edit`);
                 }}
               >
                 Chỉnh sửa
@@ -590,7 +591,7 @@ export const getColumns = (
               <DropdownMenuItem 
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/payroll?employee=${employee.systemId}`);
+                  router.push(`/payroll?employee=${employee.systemId}`);
                 }}
               >
                 Xem bảng lương
@@ -598,7 +599,7 @@ export const getColumns = (
               <DropdownMenuItem 
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/attendance?employee=${employee.systemId}`);
+                  router.push(`/attendance?employee=${employee.systemId}`);
                 }}
               >
                 Xem chấm công

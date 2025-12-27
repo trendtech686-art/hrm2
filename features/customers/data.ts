@@ -1,4 +1,4 @@
-import type { Customer, CustomerStatus } from './types'
+import type { Customer, CustomerStatus } from '@/lib/types/prisma-extended'
 import { asSystemId, asBusinessId } from '@/lib/id-types'
 
 export const data: Customer[] = [

@@ -1,6 +1,6 @@
 import { createCrudStore } from '../../../lib/store-factory';
 import { data as initialData } from './data';
-import type { ReceiptType } from './types';
+import type { ReceiptType } from '@/lib/types/prisma-extended';
 import { toISODate, getCurrentDate } from '../../../lib/date-utils';
 
 const baseStore = createCrudStore<ReceiptType>(initialData, 'receipt-types', {

@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { useParams } from '@/lib/next-compat';
+import { useParams } from 'next/navigation';
 import { Package, Clock, CheckCircle, CheckCircle2, XCircle, AlertCircle, Phone, MapPin, Link as LinkIcon, Calendar, User, Image as ImageIcon, ExternalLink, Truck, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';

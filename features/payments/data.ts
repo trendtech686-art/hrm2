@@ -1,4 +1,4 @@
-import type { Payment } from './types';
+import type { Payment } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 
 export const data: Payment[] = [

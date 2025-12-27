@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { Supplier } from './types';
+import type { Supplier } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';

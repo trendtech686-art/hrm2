@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
-import type { Ward } from "./types"
+import type { Ward } from '@/lib/types/prisma-extended'
 
 import { Button } from "../../../components/ui/button"
 import {

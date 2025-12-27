@@ -1,4 +1,4 @@
-import type { Order } from './types';
+import type { Order } from '@/lib/types/prisma-extended';
 import { asBusinessId, asSystemId } from '../../lib/id-types';
 
 const zeroDiscountLine = (productSystemId: ReturnType<typeof asSystemId>, productId: ReturnType<typeof asBusinessId>, productName: string, quantity: number, unitPrice: number) => ({

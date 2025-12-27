@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       where: { systemId },
       include: {
         order: true,
-        branch: true,
+        customers: true,
       },
     })
 
@@ -50,7 +50,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
       include: {
         order: true,
-        branch: true,
+        customers: true,
       },
     })
 

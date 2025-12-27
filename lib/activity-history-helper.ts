@@ -3,10 +3,12 @@
  * 
  * Helper để tạo các entry lịch sử hoạt động một cách nhất quán
  * Dùng chung cho tất cả các modules trong hệ thống
+ * 
+ * NOTE: Đã remove import useEmployeeStore để tránh circular dependency
+ * và cải thiện compile time
  */
 
 import type { HistoryEntry } from '../components/ActivityHistory';
-import { useEmployeeStore } from '../features/employees/store';
 import { getCurrentUserInfo as getAuthUserInfo } from '../contexts/auth-context';
 import type { SystemId } from './id-types';
 
@@ -15,34 +17,27 @@ export type { HistoryEntry } from '../components/ActivityHistory';
 
 /**
  * Lấy thông tin người dùng hiện tại từ auth context
+ * NOTE: Avatar lookup từ employee store đã bị remove để tránh circular dependency
  */
 export function getCurrentUserInfo(): { systemId: string; name: string; avatar?: string } {
   const authInfo = getAuthUserInfo();
   
-  // Try to get avatar from employee store
-  if (authInfo.systemId && authInfo.systemId !== 'SYSTEM') {
-    const employees = useEmployeeStore.getState().data;
-    const employee = employees.find(e => e.systemId === authInfo.systemId);
-    if (employee) {
-      return {
-        systemId: authInfo.systemId,
-        name: authInfo.name,
-        avatar: employee.avatarUrl,
-      };
-    }
-  }
-  
   return {
-    systemId: authInfo.systemId,
-    name: authInfo.name,
+    systemId: authInfo.systemId || 'SYSTEM',
+    name: authInfo.name || 'Hệ thống',
+    avatar: undefined, // Avatar will be fetched by component if needed
   };
 }
 
 /**
  * Lấy thông tin nhân viên từ systemId
+ * NOTE: This function now requires employee data to be passed in
+ * to avoid circular dependency with employee store
  */
-export function getEmployeeInfo(employeeSystemId: SystemId | string): { systemId: string; name: string; avatar?: string } {
-  const employees = useEmployeeStore.getState().data;
+export function getEmployeeInfoFromData(
+  employeeSystemId: SystemId | string,
+  employees: Array<{ systemId: string; fullName: string; avatarUrl?: string }>
+): { systemId: string; name: string; avatar?: string } {
   const employee = employees.find(e => e.systemId === employeeSystemId);
   
   if (employee) {
@@ -54,6 +49,17 @@ export function getEmployeeInfo(employeeSystemId: SystemId | string): { systemId
   }
   
   // Fallback to system
+  return {
+    systemId: String(employeeSystemId) || 'SYSTEM',
+    name: 'Hệ thống',
+  };
+}
+
+/**
+ * @deprecated Use getEmployeeInfoFromData instead
+ */
+export function getEmployeeInfo(employeeSystemId: SystemId | string): { systemId: string; name: string; avatar?: string } {
+  // Return minimal info without employee store lookup
   return {
     systemId: String(employeeSystemId) || 'SYSTEM',
     name: 'Hệ thống',
@@ -90,8 +96,6 @@ export function createHistoryEntry(
 
 /**
  * Tạo history entry cho action "created"
- * @param user - User info object
- * @param description - Mô tả chi tiết hành động
  */
 export function createCreatedEntry(
   user: { systemId: string; name: string; avatar?: string },
@@ -102,8 +106,6 @@ export function createCreatedEntry(
 
 /**
  * Tạo history entry cho action "updated"
- * @param user - User info object
- * @param description - Mô tả chi tiết hành động
  */
 export function createUpdatedEntry(
   user: { systemId: string; name: string; avatar?: string },
@@ -114,10 +116,6 @@ export function createUpdatedEntry(
 
 /**
  * Tạo history entry cho action "status_changed"
- * @param user - User info object
- * @param oldStatus - Trạng thái cũ
- * @param newStatus - Trạng thái mới
- * @param description - Mô tả chi tiết hành động
  */
 export function createStatusChangedEntry(
   user: { systemId: string; name: string; avatar?: string },

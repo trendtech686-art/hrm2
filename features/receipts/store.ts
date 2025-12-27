@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
-import type { Receipt } from './types';
+import type { Receipt } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
 import { 
   findNextAvailableBusinessId, 

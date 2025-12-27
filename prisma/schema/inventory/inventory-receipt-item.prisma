@@ -1,41 +1,13 @@
-// ═══════════════════════════════════════════════════════════════
-// INVENTORY RECEIPT ITEM MODEL
-// ═══════════════════════════════════════════════════════════════
-
 model InventoryReceiptItem {
-  systemId          String            @id @default(uuid())
-  
-  // Parent Receipt
-  receiptId         String
-  inventoryReceipt  InventoryReceipt  @relation(fields: [receiptId], references: [systemId])
-  
-  // Product
-  productId         String
-  productName       String
-  productSku        String?
-  
-  // Quantity
-  quantity          Int
-  receivedQuantity  Int               @default(0)
-  
-  // Cost
-  unitCost          Decimal           @db.Decimal(15, 2)
-  lineTotal         Decimal           @db.Decimal(15, 2)
-  
-  // Tracking
-  lotNumber         String?
-  serialNumber      String?
-  expiryDate        DateTime?
-  
-  // Location
-  locationId        String?
-  
-  // Notes
-  notes             String?
-  
-  // Audit
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  
+  systemId         String           @id @default(uuid())
+  receiptId        String
+  productId        String
+  productName      String
+  productSku       String
+  quantity         Int
+  unitCost         Decimal          @default(0) @db.Decimal(15, 2)
+  totalCost        Decimal          @default(0) @db.Decimal(15, 2)
+  inventoryReceipt InventoryReceipt @relation(fields: [receiptId], references: [systemId], onDelete: Cascade)
+
   @@map("inventory_receipt_items")
 }

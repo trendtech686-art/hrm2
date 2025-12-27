@@ -1,12 +1,18 @@
 import * as React from 'react';
-import { useEmployeeStore } from '../features/employees/store';
-import type { Employee } from '../features/employees/types';
+import { useSession, signOut } from 'next-auth/react';
+// REMOVED: Heavy import causing slow compile
+// import { useEmployeeStore } from '../features/employees/store';
+import type { Employee } from '@/lib/types/prisma-extended';
+import { loadGeneralSettings, clearGeneralSettingsCache } from '../lib/settings-cache';
 
 interface User {
+  systemId: string;
   email: string;
-  name: string;
-  role: 'admin' | 'user';
-  employeeId?: string; // Link to Employee systemId
+  fullName?: string;
+  name?: string;
+  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'admin' | 'user';
+  employeeId?: string;
+  employee?: Employee;
   verified?: boolean;
 }
 
@@ -22,64 +28,90 @@ interface AuthContextType {
   employee: Employee | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (user: User) => void;
-  logout: () => void;
+  isLoading: boolean;
+  logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextType | null>(null);
 
+// In-memory user cache
+let cachedUser: User | null = null;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { data: employees } = useEmployeeStore();
-  const [user, setUser] = React.useState<User | null>(() => {
-    // Check if running on client side
-    if (typeof window === 'undefined') return null;
-    const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const { data: session, status } = useSession();
+  // REMOVED: Heavy store import - use employee from session instead
+  // const { data: employees } = useEmployeeStore();
+  const [user, setUser] = React.useState<User | null>(cachedUser);
+  const isLoading = status === 'loading';
+
+  // Load general settings when authenticated
+  React.useEffect(() => {
+    if (status === 'authenticated') {
+      // Load settings from database into cache
+      loadGeneralSettings().catch(console.error);
+    } else if (status === 'unauthenticated') {
+      // Clear settings cache on logout
+      clearGeneralSettingsCache();
+    }
+  }, [status]);
+
+  // Sync user from NextAuth session
+  React.useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      const sessionUser = session.user as any;
+      const userObj: User = {
+        systemId: sessionUser.id || sessionUser.systemId || '',
+        email: sessionUser.email || '',
+        fullName: sessionUser.name,
+        name: sessionUser.name || sessionUser.email,
+        role: sessionUser.role || 'STAFF',
+        employeeId: sessionUser.employeeId,
+        employee: sessionUser.employee,
+      };
+      cachedUser = userObj;
+      setUser(userObj);
+    } else if (status === 'unauthenticated') {
+      cachedUser = null;
+      setUser(null);
+    }
+  }, [session, status]);
 
   // Find employee based on email or employeeId
+  // SIMPLIFIED: Use employee from session directly instead of store lookup
   const employee = React.useMemo(() => {
     if (!user) return null;
     
-    // First try by employeeId
-    if (user.employeeId) {
-      const emp = employees.find(e => e.systemId === user.employeeId);
-      if (emp) return emp;
-    }
+    // Use employee from user data if available (from NextAuth session)
+    if (user.employee) return user.employee as Employee;
     
-    // Then try by email
-    const emp = employees.find(e => 
-      e.workEmail?.toLowerCase() === user.email.toLowerCase() ||
-      e.personalEmail?.toLowerCase() === user.email.toLowerCase()
-    );
-    
-    // Auto-link employee if found
-    if (emp && !user.employeeId) {
-      const updatedUser = { ...user, employeeId: emp.systemId };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      return emp;
-    }
-    
-    return emp || null;
-  }, [user, employees]);
+    // Return null - employee lookup should be done by components that need it
+    return null;
+  }, [user]);
 
-  const login = React.useCallback((newUser: User) => {
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
+  // Logout via NextAuth
+  const logout = React.useCallback(async () => {
+    try {
+      await signOut({ redirect: false });
+      cachedUser = null;
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   }, []);
 
-  const logout = React.useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('user');
+  // Refresh user - just trigger session refresh
+  const refreshUser = React.useCallback(async () => {
+    // NextAuth session will be refreshed automatically
+    // This is a no-op placeholder for compatibility
   }, []);
 
   const updateUser = React.useCallback((updates: Partial<User>) => {
     setUser(prev => {
       if (!prev) return null;
       const updated = { ...prev, ...updates };
-      localStorage.setItem('user', JSON.stringify(updated));
+      cachedUser = updated;
       return updated;
     });
   }, []);
@@ -89,12 +121,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       employee,
       isAuthenticated: !!user,
-      isAdmin: user?.role === 'admin',
-      login,
+      isAdmin: user?.role === 'ADMIN' || user?.role === 'admin',
+      isLoading,
       logout,
       updateUser,
+      refreshUser,
     }),
-    [user, employee, login, logout, updateUser]
+    [user, employee, isLoading, logout, updateUser, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -104,7 +137,7 @@ export function useAuth() {
   const context = React.useContext(AuthContext);
   if (!context) {
     // Development warning
-    if (import.meta.env.DEV) {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       console.warn('useAuth must be used within AuthProvider - returning default values');
     }
     // Return safe defaults instead of throwing
@@ -113,32 +146,28 @@ export function useAuth() {
       employee: null,
       isAuthenticated: false,
       isAdmin: false,
-      login: () => {},
-      logout: () => {},
+      isLoading: true,
+      logout: async () => {},
       updateUser: () => {},
+      refreshUser: async () => {},
     };
   }
   return context;
 }
 
 // Helper to get current user systemId for store tracking
+// NOTE: This is now async-first, but provides sync fallback for backwards compat
 export function getCurrentUserInfo(): CurrentUserInfo {
-  try {
-    const stored = localStorage.getItem('user');
-    if (!stored) {
-      return { systemId: 'SYSTEM', name: 'Hệ thống' };
-    }
-    const user = JSON.parse(stored);
+  // Use cached user if available
+  if (cachedUser) {
     return {
-      systemId: user.employeeId || 'SYSTEM',
-      name: user.name || 'Hệ thống',
-      email: user.email,
-      role: user.role,
+      systemId: cachedUser.employeeId || cachedUser.systemId || 'SYSTEM',
+      name: cachedUser.fullName || cachedUser.name || 'Hệ thống',
+      email: cachedUser.email,
+      role: cachedUser.role,
     };
-  } catch (error) {
-    console.error('Không thể đọc thông tin user hiện tại:', error);
-    return { systemId: 'SYSTEM', name: 'Hệ thống' };
   }
+  return { systemId: 'SYSTEM', name: 'Hệ thống' };
 }
 
 export function getCurrentUserSystemId(): string {

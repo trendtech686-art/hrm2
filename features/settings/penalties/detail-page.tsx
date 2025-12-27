@@ -1,7 +1,8 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
 import { usePenaltyStore, usePenaltyTypeStore } from './store';
 import { useEmployeeStore } from '../../employees/store';
@@ -33,14 +34,14 @@ const formatCurrency = (value?: number) => {
 };
 
 const statusConfig: Record<PenaltyStatus, { label: string; variant: "warning" | "success" | "secondary" }> = {
-  "Chưa thanh toán": { label: "Chưa thanh toán", variant: "warning" },
-  "Đã thanh toán": { label: "Đã thanh toán", variant: "success" },
-  "Đã hủy": { label: "Đã hủy", variant: "secondary" },
+  "Chua thanh to�n": { label: "Chua thanh to�n", variant: "warning" },
+  "�� thanh to�n": { label: "�� thanh to�n", variant: "success" },
+  "�� h?y": { label: "�� h?y", variant: "secondary" },
 };
 
 export function PenaltyDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById } = usePenaltyStore();
   const { data: penaltyTypes } = usePenaltyTypeStore();
   const { findById: findEmployeeById } = useEmployeeStore();
@@ -92,7 +93,7 @@ export function PenaltyDetailPage() {
       content,
       author: {
         systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
+        name: authEmployee?.fullName || 'H? th?ng',
         avatar: authEmployee?.avatar,
       },
       createdAt: new Date().toISOString(),
@@ -114,7 +115,7 @@ export function PenaltyDetailPage() {
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-    name: authEmployee?.fullName || 'Hệ thống',
+    name: authEmployee?.fullName || 'H? th?ng',
     avatar: authEmployee?.avatar,
   }), [authEmployee]);
 
@@ -126,10 +127,10 @@ export function PenaltyDetailPage() {
         variant="outline" 
         size="sm"
         className="h-9"
-        onClick={() => navigate('/penalties')}
+        onClick={() => router.push('/penalties')}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Quay lại
+        Quay l?i
       </Button>
     ];
     
@@ -143,39 +144,39 @@ export function PenaltyDetailPage() {
           onClick={handlePrint}
         >
           <Printer className="mr-2 h-4 w-4" />
-          In phiếu
+          In phi?u
         </Button>
       );
     }
     
-    if (penalty && penalty.status !== 'Đã hủy') {
+    if (penalty && penalty.status !== '�� h?y') {
       actions.push(
         <Button 
           key="edit" 
           size="sm"
           className="h-9"
-          onClick={() => navigate(`/penalties/${systemId}/edit`)}
+          onClick={() => router.push(`/penalties/${systemId}/edit`)}
         >
           <Edit className="mr-2 h-4 w-4" />
-          Chỉnh sửa
+          Ch?nh s?a
         </Button>
       );
     }
     
     return actions;
-  }, [navigate, systemId, penalty]);
+  }, [router, systemId, penalty]);
 
   // Page header
   usePageHeader({
-    title: penalty ? `Phiếu phạt ${penalty.id}` : 'Chi tiết phiếu phạt',
+    title: penalty ? `Phi?u ph?t ${penalty.id}` : 'Chi ti?t phi?u ph?t',
     badge: penalty ? <Badge variant={statusConfig[penalty.status].variant}>{statusConfig[penalty.status].label}</Badge> : undefined,
     breadcrumb: penalty ? [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Phiếu phạt', href: '/penalties', isCurrent: false },
+      { label: 'Trang ch?', href: '/', isCurrent: false },
+      { label: 'Phi?u ph?t', href: '/penalties', isCurrent: false },
       { label: penalty.id, href: `/penalties/${systemId}`, isCurrent: true }
     ] : [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Phiếu phạt', href: '/penalties', isCurrent: true }
+      { label: 'Trang ch?', href: '/', isCurrent: false },
+      { label: 'Phi?u ph?t', href: '/penalties', isCurrent: true }
     ],
     actions: headerActions,
     showBackButton: true,
@@ -186,7 +187,7 @@ export function PenaltyDetailPage() {
     return (
       <Card>
         <CardContent className="p-8 text-center text-muted-foreground">
-          Không tìm thấy phiếu phạt
+          Kh�ng t�m th?y phi?u ph?t
         </CardContent>
       </Card>
     );
@@ -198,24 +199,23 @@ export function PenaltyDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Thông tin chính */}
+      {/* Th�ng tin ch�nh */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Thông tin phiếu phạt</CardTitle>
+          <CardTitle className="text-lg font-semibold">Th�ng tin phi?u ph?t</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          {/* Số tiền phạt - Highlighted */}
+          {/* S? ti?n ph?t - Highlighted */}
           <div className="md:col-span-2 p-4 rounded-lg bg-destructive/5 border border-destructive/20">
-            <p className="text-sm text-muted-foreground mb-1">Số tiền phạt</p>
-            <p className="text-2xl font-bold text-destructive">{formatCurrency(penalty.amount)} ₫</p>
+            <p className="text-sm text-muted-foreground mb-1">S? ti?n ph?t</p>
+            <p className="text-2xl font-bold text-destructive">{formatCurrency(penalty.amount)} ?</p>
           </div>
           
-          {/* Nhân viên bị phạt */}
+          {/* Nh�n vi�n b? ph?t */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Nhân viên bị phạt</p>
+            <p className="text-sm text-muted-foreground mb-1">Nh�n vi�n b? ph?t</p>
             {penalizedEmployee ? (
-              <Link 
-                to={generatePath(ROUTES.HRM.EMPLOYEE_VIEW, { systemId: penalty.employeeSystemId })} 
+              <Link href={generatePath(ROUTES.HRM.EMPLOYEE_VIEW, { systemId: penalty.employeeSystemId })} 
                 className="font-medium text-primary hover:underline"
               >
                 {penalty.employeeName}
@@ -225,44 +225,43 @@ export function PenaltyDetailPage() {
             )}
           </div>
           
-          {/* Ngày lập phiếu */}
+          {/* Ng�y l?p phi?u */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Ngày lập phiếu</p>
+            <p className="text-sm text-muted-foreground mb-1">Ng�y l?p phi?u</p>
             <p className="font-medium">{formatDateCustom(new Date(penalty.issueDate), 'dd/MM/yyyy')}</p>
           </div>
           
-          {/* Loại phạt */}
+          {/* Lo?i ph?t */}
           {penalty.penaltyTypeName && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Loại phạt</p>
+              <p className="text-sm text-muted-foreground mb-1">Lo?i ph?t</p>
               <p className="font-medium">{penalty.penaltyTypeName}</p>
             </div>
           )}
           
-          {/* Phân loại */}
+          {/* Ph�n lo?i */}
           {penalty.category && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Phân loại</p>
+              <p className="text-sm text-muted-foreground mb-1">Ph�n lo?i</p>
               <Badge variant="outline" className={penaltyCategoryColors[penalty.category]}>
                 {penaltyCategoryLabels[penalty.category]}
               </Badge>
             </div>
           )}
           
-          {/* Trạng thái */}
+          {/* Tr?ng th�i */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Trạng thái</p>
+            <p className="text-sm text-muted-foreground mb-1">Tr?ng th�i</p>
             <Badge variant={statusConfig[penalty.status].variant}>
               {statusConfig[penalty.status].label}
             </Badge>
           </div>
           
-          {/* Người lập phiếu */}
+          {/* Ngu?i l?p phi?u */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Người lập phiếu</p>
+            <p className="text-sm text-muted-foreground mb-1">Ngu?i l?p phi?u</p>
             {issuerEmployee ? (
-              <Link 
-                to={generatePath(ROUTES.HRM.EMPLOYEE_VIEW, { systemId: penalty.issuerSystemId! })} 
+              <Link href={generatePath(ROUTES.HRM.EMPLOYEE_VIEW, { systemId: penalty.issuerSystemId! })} 
                 className="font-medium text-primary hover:underline"
               >
                 {penalty.issuerName}
@@ -272,27 +271,26 @@ export function PenaltyDetailPage() {
             )}
           </div>
           
-          {/* Lý do - Full width */}
+          {/* L� do - Full width */}
           <div className="md:col-span-2">
-            <p className="text-sm text-muted-foreground mb-1">Lý do phạt</p>
+            <p className="text-sm text-muted-foreground mb-1">L� do ph?t</p>
             <p className="font-medium whitespace-pre-wrap bg-muted/50 rounded-md p-3">{penalty.reason}</p>
           </div>
         </CardContent>
       </Card>
       
-      {/* Liên kết */}
+      {/* Li�n k?t */}
       {(penalty.linkedComplaintSystemId || penalty.linkedOrderSystemId || penalty.deductedInPayrollId) && (
         <Card>
           <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Liên kết</CardTitle>
+          <CardTitle className="text-lg font-semibold">Li�n k?t</CardTitle>
         </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            {/* Khiếu nại liên quan */}
+            {/* Khi?u n?i li�n quan */}
             {penalty.linkedComplaintSystemId && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Khiếu nại liên quan</p>
-                <Link 
-                  to={`/complaints/${penalty.linkedComplaintSystemId}`} 
+                <p className="text-sm text-muted-foreground mb-1">Khi?u n?i li�n quan</p>
+                <Link href={`/complaints/${penalty.linkedComplaintSystemId}`} 
                   className="font-medium font-mono text-primary hover:underline"
                 >
                   {penalty.linkedComplaintSystemId}
@@ -300,12 +298,11 @@ export function PenaltyDetailPage() {
               </div>
             )}
             
-            {/* Đơn hàng liên quan */}
+            {/* �on h�ng li�n quan */}
             {penalty.linkedOrderSystemId && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Đơn hàng liên quan</p>
-                <Link 
-                  to={`/orders/${penalty.linkedOrderSystemId}`} 
+                <p className="text-sm text-muted-foreground mb-1">�on h�ng li�n quan</p>
+                <Link href={`/orders/${penalty.linkedOrderSystemId}`} 
                   className="font-medium font-mono text-primary hover:underline"
                 >
                   {penalty.linkedOrderSystemId}
@@ -313,13 +310,13 @@ export function PenaltyDetailPage() {
               </div>
             )}
             
-            {/* Đã trừ vào bảng lương */}
+            {/* �� tr? v�o b?ng luong */}
             {penalty.deductedInPayrollId && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Đã trừ vào bảng lương</p>
+                <p className="text-sm text-muted-foreground mb-1">�� tr? v�o b?ng luong</p>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-200">
-                    Đã trừ lương
+                    �� tr? luong
                   </Badge>
                   {penalty.deductedAt && (
                     <span className="text-sm text-muted-foreground">
@@ -333,12 +330,12 @@ export function PenaltyDetailPage() {
         </Card>
       )}
       
-      {/* Thông tin hệ thống */}
+      {/* Th�ng tin h? th?ng */}
       <Card>
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           {penalty.createdAt && (
             <p>
-              Ngày tạo:{' '}
+              Ng�y t?o:{' '}
               <span className="text-foreground font-medium">
                 {formatDateCustom(new Date(penalty.createdAt), 'dd/MM/yyyy HH:mm')}
               </span>
@@ -346,7 +343,7 @@ export function PenaltyDetailPage() {
           )}
           {penalty.updatedAt && penalty.updatedAt !== penalty.createdAt && (
             <p>
-              Cập nhật lần cuối:{' '}
+              C?p nh?t l?n cu?i:{' '}
               <span className="text-foreground font-medium">
                 {formatDateCustom(new Date(penalty.updatedAt), 'dd/MM/yyyy HH:mm')}
               </span>
@@ -364,15 +361,15 @@ export function PenaltyDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="Bình luận"
-        placeholder="Thêm bình luận về phiếu phạt..."
+        title="B�nh lu?n"
+        placeholder="Th�m b�nh lu?n v? phi?u ph?t..."
       />
 
       {/* Activity History */}
       <ActivityHistory
         history={penalty.activityHistory || []}
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có lịch sử hoạt động"
+        title="L?ch s? ho?t d?ng"
+        emptyMessage="Chua c� l?ch s? ho?t d?ng"
         showFilters={false}
         groupByDate
         maxHeight="400px"

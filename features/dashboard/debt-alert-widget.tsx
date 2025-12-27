@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { AlertTriangle, Phone, MessageSquare, DollarSign, ShoppingBag, ChevronRight } from "lucide-react";
@@ -108,7 +108,7 @@ const CustomerDebtCard = ({ customer, onClick }: CustomerDebtCardProps) => {
 };
 
 export function DebtAlertWidget() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const customers = useCustomerStore((state) => state.data);
   
@@ -139,7 +139,7 @@ export function DebtAlertWidget() {
   }
 
   const handleCustomerClick = (systemId: string) => {
-    navigate(`/customers/${systemId}`);
+    router.push(`/customers/${systemId}`);
   };
 
   const criticalCount = allDebtCustomers.filter(c => {

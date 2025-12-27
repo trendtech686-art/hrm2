@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Badge } from '../../../../components/ui/badge';
 import { ExternalLink } from 'lucide-react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import type { Order } from '../../../orders/types';
 import type { WarrantyTransaction } from '../../types/transactions';
 import type { SettlementMethod } from '../../types';
@@ -42,8 +42,7 @@ export function WarrantyTransactionItem({ transaction, orders, settlementMethod 
             <span className={`text-sm font-medium ${transaction.status === 'cancelled' ? 'line-through' : ''}`}>
               {transaction.kind === 'payment' ? 'Phiếu chi:' : 'Phiếu thu:'}
             </span>
-            <Link
-              to={transaction.kind === 'payment' ? `/payments/${transaction.systemId}` : `/receipts/${transaction.systemId}`}
+            <Link href={transaction.kind === 'payment' ? `/payments/${transaction.systemId}` : `/receipts/${transaction.systemId}`}
               className={`text-sm text-primary hover:underline font-semibold ${
                 transaction.status === 'cancelled' ? 'line-through' : ''
               }`}
@@ -92,8 +91,7 @@ export function WarrantyTransactionItem({ transaction, orders, settlementMethod 
           {linkedOrder && (
             <div className="flex items-center gap-1 text-xs">
               <span className="text-muted-foreground">Đơn hàng:</span>
-              <Link
-                to={`/orders/${linkedOrder.systemId}`}
+              <Link href={`/orders/${linkedOrder.systemId}`}
                 className="text-primary hover:underline font-medium inline-flex items-center gap-1"
                 onClick={event => event.stopPropagation()}
               >

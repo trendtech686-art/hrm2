@@ -1,0 +1,266 @@
+model AuditLog {
+  systemId   String   @id
+  entityType String
+  entityId   String
+  action     String
+  userId     String?
+  userName   String?
+  oldData    Json?
+  newData    Json?
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  entityName String?
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model File {
+  systemId     String   @id
+  entityType   String
+  entityId     String
+  documentType String?
+  originalName String
+  filename     String
+  filepath     String
+  filesize     Int
+  mimetype     String
+  uploadedAt   DateTime @default(now())
+  uploadedBy   String?
+
+  @@index([entityType, entityId])
+  @@map("files")
+}
+
+model Inventory {
+  systemId        String        @id
+  productId       String
+  locationId      String
+  quantity        Int           @default(0)
+  minQuantity     Int           @default(0)
+  maxQuantity     Int?
+  reservedQty     Int           @default(0)
+  lastRestockDate DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime
+  location        StockLocation @relation(fields: [locationId], references: [systemId])
+  product         Product       @relation(fields: [productId], references: [systemId])
+
+  @@unique([productId, locationId])
+  @@index([locationId])
+  @@index([productId])
+  @@map("inventory")
+}
+
+model OrderLineItem {
+  systemId     String        @id
+  orderId      String
+  productId    String
+  productSku   String
+  productName  String
+  quantity     Int
+  unitPrice    Decimal       @db.Decimal(15, 2)
+  discount     Decimal       @default(0) @db.Decimal(15, 2)
+  discountType DiscountType?
+  tax          Decimal       @default(0) @db.Decimal(5, 2)
+  taxId        String?       // Reference to Tax.systemId
+  total        Decimal       @db.Decimal(15, 2)
+  note         String?
+  order        Order         @relation(fields: [orderId], references: [systemId], onDelete: Cascade)
+  product      Product       @relation(fields: [productId], references: [systemId])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_line_items")
+}
+
+model Wiki {
+  systemId    String    @id
+  id          String    @unique
+  title       String
+  content     String
+  category    String?
+  tags        String[]
+  isPublished Boolean   @default(false)
+  viewCount   Int       @default(0)
+  authorId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  deletedAt   DateTime?
+  isDeleted   Boolean   @default(false)
+  slug        String?   @unique
+  author      Employee? @relation(fields: [authorId], references: [systemId])
+
+  @@map("wikis")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EARLY_LEAVE
+  HALF_DAY
+  WORK_FROM_HOME
+}
+
+enum CashAccountType {
+  CASH
+  BANK
+  WALLET
+}
+
+enum CashTransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum ContractType {
+  PROBATION
+  ONE_YEAR
+  TWO_YEARS
+  THREE_YEARS
+  INDEFINITE
+}
+
+enum CostAdjustmentStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum CustomerLifecycle {
+  LEAD
+  NEW
+  REPEAT
+  LOYAL
+  VIP
+  DORMANT
+  CHURNED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DeliveryMethod {
+  PICKUP
+  SHIPPING
+}
+
+enum DeliveryStatus {
+  PENDING_PACK
+  PACKED
+  PENDING_SHIP
+  SHIPPING
+  DELIVERED
+  RESCHEDULED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum InventoryCheckStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InventoryReceiptStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum InventoryReceiptType {
+  PURCHASE
+  TRANSFER_IN
+  RETURN
+  ADJUSTMENT
+  OTHER
+}
+
+enum PackagingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentType {
+  SUPPLIER_PAYMENT
+  EMPLOYEE_PAYMENT
+  OPERATING_EXPENSE
+  OTHER_EXPENSE
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSING
+  COMPLETED
+  PAID
+}
+
+enum PricingLevel {
+  RETAIL
+  WHOLESALE
+  VIP
+  PARTNER
+}
+
+enum ProductType {
+  PHYSICAL
+  SERVICE
+  DIGITAL
+  COMBO
+}
+
+enum PurchaseReturnStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReceiptType {
+  CUSTOMER_PAYMENT
+  OTHER_INCOME
+}
+
+enum SalesReturnStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+}
+
+enum StockTransferStatus {
+  DRAFT
+  PENDING
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum WarrantyPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WeightUnit {
+  GRAM
+  KILOGRAM
+}

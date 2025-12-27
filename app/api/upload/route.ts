@@ -22,11 +22,9 @@ import {
   EntityType,
 } from '@/lib/upload-utils'
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable Next.js body parser for file uploads
-  },
-}
+// Route Segment Config - App Router uses these exports instead of config object
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 // POST /api/upload
 export async function POST(request: NextRequest) {
@@ -84,23 +82,18 @@ export async function POST(request: NextRequest) {
     const publicUrl = getPublicUrl(relativePath)
     
     // Save metadata to database
-    const fileRecord = await prisma.fileUpload.create({
+    const fileRecord = await prisma.file.create({
       data: {
         systemId: uuidv4(),
-        fileName: fileName,
+        filename: fileName,
         originalName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-        storagePath: filePath,
-        publicUrl: publicUrl,
+        mimetype: file.type,
+        filesize: file.size,
+        filepath: relativePath,
         entityType: entityType,
-        entityId: entityId || null,
-        metadata: {
-          hash: fileHash,
-          uploadedAt: new Date().toISOString(),
-        },
-        isPublic: true,
-        createdBy: fields.userId || null,
+        entityId: entityId || '',
+        documentType: fields.documentType || null,
+        uploadedBy: fields.userId || null,
       },
     })
     
@@ -109,10 +102,10 @@ export async function POST(request: NextRequest) {
       message: 'Upload thành công',
       data: {
         id: fileRecord.systemId,
-        fileName: fileRecord.fileName,
+        fileName: fileRecord.filename,
         originalName: fileRecord.originalName,
-        mimeType: fileRecord.mimeType,
-        fileSize: fileRecord.fileSize,
+        mimeType: fileRecord.mimetype,
+        fileSize: fileRecord.filesize,
         url: publicUrl,
         entityType: entityType,
         entityId: entityId,
@@ -135,7 +128,7 @@ export async function GET(request: NextRequest) {
   const entityId = searchParams.get('entityId')
   
   try {
-    const where: Record<string, unknown> = { isDeleted: false }
+    const where: Record<string, unknown> = {}
     
     if (entityType) {
       where.entityType = entityType
@@ -144,9 +137,9 @@ export async function GET(request: NextRequest) {
       where.entityId = entityId
     }
     
-    const files = await prisma.fileUpload.findMany({
+    const files = await prisma.file.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { uploadedAt: 'desc' },
       take: 100,
     })
     
@@ -154,14 +147,14 @@ export async function GET(request: NextRequest) {
       success: true,
       data: files.map(f => ({
         id: f.systemId,
-        fileName: f.fileName,
+        fileName: f.filename,
         originalName: f.originalName,
-        mimeType: f.mimeType,
-        fileSize: f.fileSize,
-        url: f.publicUrl,
+        mimeType: f.mimetype,
+        fileSize: f.filesize,
+        url: `/uploads/${f.filepath}`,
         entityType: f.entityType,
         entityId: f.entityId,
-        createdAt: f.createdAt,
+        createdAt: f.uploadedAt,
       })),
     })
     

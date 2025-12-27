@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate, useParams } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { DepartmentForm, DepartmentFormValues } from './department-form';
 import { useDepartmentStore } from './store';
 import { useSettingsPageHeader } from '../use-settings-page-header';
@@ -10,7 +10,7 @@ import { SettingsActionButton } from '../../../components/settings/SettingsActio
 import { ROUTES, generatePath } from '../../../lib/router';
 
 export function DepartmentFormPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { findById, update, add } = useDepartmentStore();
   
@@ -22,7 +22,7 @@ export function DepartmentFormPage() {
     <SettingsActionButton
       key="cancel"
       variant="outline"
-      onClick={() => navigate(backPath)}
+      onClick={() => router.push(backPath)}
     >
       Hủy
     </SettingsActionButton>,
@@ -33,7 +33,7 @@ export function DepartmentFormPage() {
     >
       {isEditMode ? 'Cập nhật' : 'Tạo mới'}
     </SettingsActionButton>,
-  ], [backPath, navigate, isEditMode]);
+  ], [backPath, router, isEditMode]);
 
   useSettingsPageHeader({
     title: isEditMode ? `Chỉnh sửa phòng ban${department?.name ? ` • ${department.name}` : ''}` : 'Thêm phòng ban mới',
@@ -66,7 +66,7 @@ export function DepartmentFormPage() {
         jobTitleIds: [],
       });
     }
-    navigate(backPath);
+    router.push(backPath);
   };
 
   return (

@@ -9,7 +9,7 @@ import type {
   PkgxBrandFromApi,
   PkgxGalleryResponse,
   PkgxGalleryImage,
-} from '../../features/settings/pkgx/types';
+} from '@/lib/types/prisma-extended';
 import { PKGX_API_CONFIG } from '../../features/settings/pkgx/constants';
 
 // ========================================

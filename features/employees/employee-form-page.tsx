@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit } from 'lucide-react';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useEmployeeStore } from './store';
@@ -18,14 +18,14 @@ import {
   CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import type { Employee } from './types';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { toast } from 'sonner';
 import { useEmployeeCompStore } from './employee-comp-store';
 import { useShallow } from 'zustand/react/shallow';
 
 export function EmployeeFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { findById, persistence } = useEmployeeStore();
   const { updateDocumentFiles, clearStagingDocuments } = useDocumentStore();
   const { assignComponents, removeProfile } = useEmployeeCompStore(
@@ -39,8 +39,8 @@ export function EmployeeFormPage() {
 
   // Handle cancel navigation
   const handleCancel = React.useCallback(() => {
-    navigate('/employees');
-  }, [navigate]);
+    router.push('/employees');
+  }, [router]);
 
   const actions = React.useMemo(() => [
     <Button key="cancel" type="button" variant="outline" onClick={handleCancel} size="sm" className="h-9">
@@ -186,7 +186,7 @@ export function EmployeeFormPage() {
       
       // Navigate to employee detail page after save
       console.log('🔗 Navigating to:', `/employees/${targetEmployeeSystemId}`);
-      navigate(`/employees/${targetEmployeeSystemId}`);
+      router.push(`/employees/${targetEmployeeSystemId}`);
     } catch (error) {
       console.error('Employee form submission failed:', error);
       toast.error("Lỗi khi lưu thông tin", {

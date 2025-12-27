@@ -1,7 +1,7 @@
 import Fuse from 'fuse.js';
 import type { IFuseOptions } from 'fuse.js';
 import { isDateAfter, isDateBefore } from '../../lib/date-utils';
-import type { Product, ProductStatus, ProductType } from './types';
+import type { Product, ProductStatus, ProductType } from '@/lib/types/prisma-extended';
 import { useProductStore } from './store';
 
 export type ProductSortKey = 'name' | 'id' | 'createdAt' | 'status' | 'type';

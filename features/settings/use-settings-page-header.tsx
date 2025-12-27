@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useLocation } from '@/lib/next-compat';
+import { usePathname } from 'next/navigation';
 import { Settings2 } from 'lucide-react';
 import { usePageHeader, type PageHeaderState, type PageHeaderDocLink } from '../../contexts/page-header-context';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
@@ -21,7 +21,7 @@ const isHomeCrumb = (item: BreadcrumbItem) => item.href === '/' || normalizeLabe
 const isSettingsCrumb = (item: BreadcrumbItem) => item.href === '/settings' || normalizeLabel(item.label) === 'cài đặt';
 
 export function useSettingsPageHeader(options: SettingsPageHeaderOptions) {
-  const location = useLocation();
+  const pathname = usePathname();
   const { title, icon, docLink, breadcrumb, ...rest } = options;
 
   const normalizedDocLink = React.useMemo<PageHeaderDocLink | undefined>(() => {
@@ -45,12 +45,12 @@ export function useSettingsPageHeader(options: SettingsPageHeaderOptions) {
   const normalizedBreadcrumb = React.useMemo(() => {
     const custom = (breadcrumb ?? []).map((item) => ({
       ...item,
-      href: item.href || location.pathname,
+      href: item.href || pathname,
     }));
 
     let merged: BreadcrumbItem[] = custom.length
       ? [...custom]
-      : [{ label: title, href: location.pathname, isCurrent: true }];
+      : [{ label: title, href: pathname, isCurrent: true }];
 
     if (!merged.some(isHomeCrumb)) {
       merged = [{ ...baseBreadcrumb[0] }, ...merged];
@@ -70,7 +70,7 @@ export function useSettingsPageHeader(options: SettingsPageHeaderOptions) {
       ...item,
       isCurrent: index === merged.length - 1,
     }));
-  }, [breadcrumb, location.pathname, title]);
+  }, [breadcrumb, pathname, title]);
 
   return usePageHeader({
     ...rest,

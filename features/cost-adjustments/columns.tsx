@@ -1,6 +1,6 @@
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
-import type { CostAdjustment, CostAdjustmentStatus } from './types';
+import Link from 'next/link';
+import type { CostAdjustment, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../components/data-table/types';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -64,12 +64,12 @@ export const getColumns = (
     accessorKey: 'id',
     header: 'Mã phiếu',
     cell: ({ row }) => (
-      <ReactRouterDOM.Link
-        to={`/cost-adjustments/${(row as any).systemId}`}
+      <Link
+        href={`/cost-adjustments/${(row as any).systemId}`}
         className="font-medium text-primary hover:underline"
       >
         {(row as any).id}
-      </ReactRouterDOM.Link>
+      </Link>
     ),
     meta: { displayName: 'Mã phiếu' },
   },

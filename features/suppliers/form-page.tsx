@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { useSupplierStore } from './store';
 import { SupplierForm, type SupplierFormValues } from './supplier-form';
 import {
@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import type { Supplier } from './types';
+import type { Supplier } from '@/lib/types/prisma-extended';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { toast } from 'sonner';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
@@ -20,8 +20,8 @@ import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 
 export function SupplierFormPage() {
-  const { systemId: systemIdParam } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId: systemIdParam } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById, add, update } = useSupplierStore();
 
   const supplierSystemId = React.useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
@@ -51,11 +51,11 @@ export function SupplierFormPage() {
       add(payload as Omit<Supplier, 'systemId'>);
       toast.success(`Đã thêm nhà cung cấp "${values.name}"`);
     }
-    navigate(ROUTES.PROCUREMENT.SUPPLIERS);
+    router.push(ROUTES.PROCUREMENT.SUPPLIERS);
   };
 
   const handleCancel = () => {
-    navigate(ROUTES.PROCUREMENT.SUPPLIERS);
+    router.push(ROUTES.PROCUREMENT.SUPPLIERS);
   };
 
   const isEditing = Boolean(supplier);

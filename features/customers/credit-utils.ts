@@ -1,4 +1,4 @@
-import type { Customer } from './types';
+import type { Customer } from '@/lib/types/prisma-extended';
 
 export type CreditAlertLevel = 'safe' | 'warning' | 'danger' | 'exceeded';
 

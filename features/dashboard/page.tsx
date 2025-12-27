@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateAfter, isDateBefore, addDays, subtractDays } from '../../lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useOrderStore } from '../orders/store';
@@ -32,7 +32,7 @@ export function DashboardPage() {
     const { data: orders } = useOrderStore();
     const { data: customers } = useCustomerStore();
     const { data: employees } = useEmployeeStore();
-    const navigate = useNavigate();
+    const router = useRouter();
 
     const headerActions = React.useMemo(() => [
         <Button
@@ -40,7 +40,7 @@ export function DashboardPage() {
             variant="outline"
             size="sm"
             className="h-9"
-            onClick={() => navigate('/reports')}
+            onClick={() => router.push('/reports')}
         >
             Xem báo cáo
         </Button>,
@@ -48,11 +48,11 @@ export function DashboardPage() {
             key="new-order"
             size="sm"
             className="h-9"
-            onClick={() => navigate('/orders/new')}
+            onClick={() => router.push('/orders/new')}
         >
             Tạo đơn hàng
         </Button>,
-    ], [navigate]);
+    ], [router]);
     
     usePageHeader({
         title: 'Tổng quan hoạt động',
@@ -160,7 +160,7 @@ export function DashboardPage() {
         return (
             <Card 
                 className={`group ${variantStyles[variant]} hover:-translate-y-0.5 transition-all duration-200 cursor-pointer`}
-                onClick={link ? () => navigate(link) : undefined}
+                onClick={link ? () => router.push(link) : undefined}
             >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className={`${isMobile ? 'text-h6' : 'text-h5'} font-medium`}>{title}</CardTitle>
@@ -179,7 +179,7 @@ export function DashboardPage() {
     const MobileOrderCard = ({ order }: { order: typeof recentOrders[0] }) => (
         <Card 
             className="hover:shadow-md transition-shadow cursor-pointer" 
-            onClick={() => navigate(`/orders/${order.systemId}`)}
+            onClick={() => router.push(`/orders/${order.systemId}`)}
         >
             <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-2">
@@ -298,7 +298,7 @@ export function DashboardPage() {
                         <TouchButton 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => navigate('/orders')}
+                            onClick={() => router.push('/orders')}
                         >
                             Xem tất cả
                         </TouchButton>
@@ -323,7 +323,7 @@ export function DashboardPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {recentOrders.map(order => (
-                                        <TableRow key={order.systemId} onClick={() => navigate(`/orders/${order.systemId}`)} className="cursor-pointer">
+                                        <TableRow key={order.systemId} onClick={() => router.push(`/orders/${order.systemId}`)} className="cursor-pointer">
                                             <TableCell>
                                                 <div className="font-medium">{order.customerName}</div>
                                                 <div className="text-xs text-muted-foreground">{order.id}</div>

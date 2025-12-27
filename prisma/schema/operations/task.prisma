@@ -1,62 +1,73 @@
-// ═══════════════════════════════════════════════════════════════
-// TASK MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: TASK0000000001 (English, 10 digits)
-// BusinessId: CV0000000001 (Vietnamese - Công việc, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Task {
-  systemId          String        @id           // TASK0000000001
-  id                String        @unique       // CV0000000001
+  systemId                              String       @id
+  id                                    String       @unique
+  title                                 String
+  description                           String?
+  assigneeId                            String?
+  creatorId                             String
+  status                                TaskStatus   @default(TODO)
+  priority                              TaskPriority @default(MEDIUM)
+  dueDate                               DateTime?
+  completedAt                           DateTime?
+  tags                                  String[]
+  createdAt                             DateTime     @default(now())
+  updatedAt                             DateTime     @updatedAt
   
-  // Basic info
-  title             String
-  description       String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Branch
-  branchId          String?
-  branch            Branch?       @relation(fields: [branchId], references: [systemId])
+  // Task classification
+  type                  String?      // Task type from settings (Phát triển, Thiết kế, etc.)
   
-  // Category
-  category          String?
-  tags              String[]
+  // Multiple assignees
+  assignees             Json?        // Array of TaskAssignee { systemId, employeeSystemId, employeeName, role, assignedAt, assignedBy }
   
-  // Priority & Status
-  priority          TaskPriority  @default(MEDIUM)
-  status            TaskStatus    @default(TODO)
+  // Legacy assignee info (backward compatibility, auto-populated from assignees[0])
+  assigneeName          String?
+  assignerId            String?      // Assigner systemId
+  assignerName          String?
   
   // Dates
-  startDate         DateTime?
-  dueDate           DateTime?
-  completedDate     DateTime?
+  startDate             DateTime?
+  completedDate         DateTime?
   
-  // Estimated time (hours)
-  estimatedHours    Decimal?      @db.Decimal(5, 2)
-  actualHours       Decimal?      @db.Decimal(5, 2)
+  // Time estimation & tracking
+  estimatedHours        Decimal?     @db.Decimal(6, 2)
+  actualHours           Decimal?     @db.Decimal(6, 2)
+  progress              Int          @default(0) // 0-100
   
-  // Assignment
-  assignedTo        String?
+  // Timer tracking
+  timerRunning          Boolean      @default(false)
+  timerStartedAt        DateTime?
+  totalTrackedSeconds   Int          @default(0)
   
-  // Parent task (for subtasks)
-  parentId          String?
-  parent            Task?         @relation("TaskHierarchy", fields: [parentId], references: [systemId])
-  subtasks          Task[]        @relation("TaskHierarchy")
+  // Subtasks
+  subtasks              Json?        // Array of { id, title, completed }
   
-  // Relations
-  comments          TaskComment[]
+  // Comments & attachments
+  comments              Json?        // Array of TaskComment
+  attachments           Json?        // Array of TaskAttachment
   
-  // Attachments
-  attachments       String[]
+  // Activity history
+  activities            Json?        // Array of TaskActivity
   
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
+  // Completion evidence (for user tasks)
+  requiresEvidence      Boolean      @default(false)
+  completionEvidence    Json?        // CompletionEvidence { images, note, submittedAt, submittedBy, submittedByName }
+  approvalStatus        String?      // 'pending' | 'approved' | 'rejected'
+  approvalHistory       Json?        // Array of ApprovalHistory
+  rejectionReason       String?      // Latest rejection reason
   
   // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  createdBy             String?
+  updatedBy             String?
+  isDeleted             Boolean      @default(false)
   
+  // === RELATIONS ===
+  employees_tasks_assigneeIdToemployees Employee?    @relation("tasks_assigneeIdToemployees", fields: [assigneeId], references: [systemId])
+  employees_tasks_creatorIdToemployees  Employee     @relation("tasks_creatorIdToemployees", fields: [creatorId], references: [systemId])
+
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@index([status])
   @@map("tasks")
 }

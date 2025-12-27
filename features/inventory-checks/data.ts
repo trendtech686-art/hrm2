@@ -4,7 +4,7 @@
  */
 
 import { asSystemId, asBusinessId } from '../../lib/id-types';
-import type { InventoryCheck } from './types';
+import type { InventoryCheck } from '@/lib/types/prisma-extended';
 
 export const data = [
   {

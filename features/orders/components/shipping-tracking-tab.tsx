@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { formatDateTime } from '@/lib/date-utils';
 import type { Order, Packaging } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -52,8 +52,7 @@ export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
         <div className="space-y-4">
             {/* Link to packaging detail */}
             <div className="text-sm text-muted-foreground text-center">
-                <Link 
-                    to={`/packaging/${shippingPackaging.systemId}`}
+                <Link href={`/packaging/${shippingPackaging.systemId}`}
                     className="text-primary hover:underline"
                 >
                     Xem chi tiết phiếu đóng gói →

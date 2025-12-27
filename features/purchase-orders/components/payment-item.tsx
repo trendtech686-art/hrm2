@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { Banknote, Printer, ChevronRight, ChevronDown } from 'lucide-react';
@@ -39,8 +39,7 @@ export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
         <div className="border rounded-md bg-background text-sm">
              <div className="flex items-center p-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
                 <Banknote className="h-4 w-4 text-green-500 mr-3 flex-shrink-0" />
-                <Link 
-                  to={item.type === 'payment' ? `/payments/${item.systemId}` : `/receipts/${item.systemId}`}
+                <Link href={item.type === 'payment' ? `/payments/${item.systemId}` : `/receipts/${item.systemId}`}
                   className="font-semibold font-mono text-primary hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -74,7 +73,7 @@ export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
                             label="Người tạo" 
                             className="py-1 border-0"
                             value={creator ? (
-                                <Link to={`/employees/${creator.systemId}`} className="text-primary hover:underline">
+                                <Link href={`/employees/${creator.systemId}`} className="text-primary hover:underline">
                                     {creator.fullName}
                                 </Link>
                             ) : item.creator}

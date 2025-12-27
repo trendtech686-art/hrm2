@@ -1,5 +1,5 @@
-import type { Brand } from '@/features/settings/inventory/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { Brand } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 
 /**
  * Brand Import/Export Configuration

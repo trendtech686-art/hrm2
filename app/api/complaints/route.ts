@@ -99,7 +99,7 @@ export async function POST(request: Request) {
         category: body.category,
         priority: body.priority || 'MEDIUM',
         status: body.status || 'OPEN',
-        assignedTo: body.assigneeId || body.assignedTo,
+        assigneeId: body.assigneeId || body.assignedTo,
       },
       include: {
         customer: true,

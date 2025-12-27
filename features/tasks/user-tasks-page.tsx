@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useTaskStore } from './store';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -17,7 +17,7 @@ import type { Task } from './types';
 import { toast } from 'sonner';
 
 export function UserTasksPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { employee } = useAuth();
   const { data: allTasks, update } = useTaskStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,7 +166,7 @@ export function UserTasksPage() {
     if (task.completionEvidence) {
       setEvidenceTask(task);
     } else {
-      navigate(`/tasks/${task.systemId}`);
+      router.push(`/tasks/${task.systemId}`);
     }
   };
 

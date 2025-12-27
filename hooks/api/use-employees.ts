@@ -5,7 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
-import type { Employee } from '@/features/employees/types'
+import type { Employee } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types'
 
 // ============================================================

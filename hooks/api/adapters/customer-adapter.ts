@@ -10,7 +10,7 @@ import {
   useUpdateCustomer, 
   useDeleteCustomer 
 } from '@/hooks/api/use-customers'
-import type { Customer } from '@/features/customers/types'
+import type { Customer } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types'
 
 export function useCustomerStoreV2() {

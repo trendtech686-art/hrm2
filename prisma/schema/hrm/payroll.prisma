@@ -1,50 +1,23 @@
-// ═══════════════════════════════════════════════════════════════
-// PAYROLL MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PAYROLL000001 (English)
-// BusinessId: BL000001 (Vietnamese - Bảng lương)
-// ═══════════════════════════════════════════════════════════════
-
 model Payroll {
-  systemId        String    @id           // PAYROLL000001
-  id              String    @unique       // BL000001
-  
-  // Period
-  month           Int
+  systemId        String        @id
+  id              String        @unique
   year            Int
-  periodStart     DateTime
-  periodEnd       DateTime
-  
-  // Status
-  status          String    @default("DRAFT") // DRAFT, PROCESSING, APPROVED, PAID
-  
-  // Summary
-  totalEmployees  Int       @default(0)
-  totalGross      Decimal   @default(0) @db.Decimal(15, 2)
-  totalDeductions Decimal   @default(0) @db.Decimal(15, 2)
-  totalNet        Decimal   @default(0) @db.Decimal(15, 2)
-  
-  // Approval
-  approvedBy      String?
-  approvedAt      DateTime?
+  month           Int
+  branchId        String?
+  status          PayrollStatus @default(DRAFT)
+  totalEmployees  Int           @default(0)
+  totalGross      Decimal       @default(0) @db.Decimal(15, 2)
+  totalDeductions Decimal       @default(0) @db.Decimal(15, 2)
+  totalNet        Decimal       @default(0) @db.Decimal(15, 2)
+  processedAt     DateTime?
+  processedBy     String?
   paidAt          DateTime?
-  
-  // Relations
-  items           PayrollItem[]
-  
-  // Notes
-  notes           String?
-  
-  // Soft delete
-  isDeleted       Boolean   @default(false)
-  deletedAt       DateTime?
-  
-  // Audit
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  paidBy          String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   createdBy       String?
-  updatedBy       String?
-  
-  @@unique([month, year])
+  items           PayrollItem[]
+
+  @@unique([year, month, branchId])
   @@map("payrolls")
 }

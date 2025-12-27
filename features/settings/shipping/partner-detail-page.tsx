@@ -6,7 +6,7 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Button } from '../../../components/ui/button';
 import { Plus } from 'lucide-react';
@@ -29,7 +29,7 @@ const PARTNER_NAMES: Record<string, string> = {
 
 export function ShippingPartnerDetailPage() {
   const { code } = useParams<{ code: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   
   const [config, setConfig] = React.useState(() => loadShippingConfig());
   const [accountDialogOpen, setAccountDialogOpen] = React.useState(false);

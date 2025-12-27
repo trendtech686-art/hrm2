@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
-import type { Product, WebsiteSeoData } from "./types";
+import type { Product, WebsiteSeoData } from "@/lib/types/prisma-extended";
 import { useProductStore } from "./store";
 import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useUnitStore } from "../settings/units/store";

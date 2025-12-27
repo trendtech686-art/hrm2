@@ -1,78 +1,107 @@
-// ═══════════════════════════════════════════════════════════════
-// ORDER MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: ORDER0000000001 (English, 10 digits)
-// BusinessId: DH0000000001 (Vietnamese - Đơn hàng, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Order {
-  systemId          String        @id           // ORDER0000000001
-  id                String        @unique       // DH0000000001
+  systemId             String          @id
+  id                   String          @unique
+  customerId           String
+  customerName         String
+  branchId             String
+  branchName           String
+  salespersonId        String
+  salespersonName      String
+  orderDate            DateTime        @default(now())
+  expectedDeliveryDate DateTime?
+  approvedDate         DateTime?
+  completedDate        DateTime?
+  cancelledDate        DateTime?
+  shippingAddress      Json?
+  billingAddress       Json?
+  status               OrderStatus     @default(PENDING)
+  paymentStatus        PaymentStatus   @default(UNPAID)
+  deliveryStatus       DeliveryStatus  @default(PENDING_PACK)
+  deliveryMethod       DeliveryMethod  @default(SHIPPING)
+  subtotal             Decimal         @db.Decimal(15, 2)
+  shippingFee          Decimal         @default(0) @db.Decimal(15, 2)
+  tax                  Decimal         @default(0) @db.Decimal(15, 2)
+  discount             Decimal         @default(0) @db.Decimal(15, 2)
+  discountType         DiscountType?
+  grandTotal           Decimal         @db.Decimal(15, 2)
+  paidAmount           Decimal         @default(0) @db.Decimal(15, 2)
+  codAmount            Decimal         @default(0) @db.Decimal(15, 2)
+  shippingCarrier      String?
+  trackingCode         String?
+  notes                String?
+  cancellationReason   String?
+  tags                 String[]
+  source               String?
+  externalReference    String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  createdBy            String?
+  updatedBy            String?
   
-  // Customer
-  customerId        String?
-  customer          Customer?     @relation(fields: [customerId], references: [systemId])
-  customerName      String?
-  customerPhone     String?
-  customerEmail     String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Branch
-  branchId          String?
-  branch            Branch?       @relation(fields: [branchId], references: [systemId])
+  // Assigned staff
+  assignedPackerId      String?
+  assignedPackerName    String?
   
-  // Order details
-  orderDate         DateTime      @default(now())
-  expectedDate      DateTime?
-  completedDate     DateTime?
+  // Sales return linking (for exchange orders)
+  sourceSalesReturnId        String?        // Business ID of source sales return
+  linkedSalesReturnSystemId  String?        // SystemId of linked sales return
+  linkedSalesReturnValue     Decimal?       @db.Decimal(15, 2) // Value to subtract
   
-  // Status
-  status            OrderStatus   @default(DRAFT)
-  paymentStatus     PaymentStatus @default(PENDING)
+  // Expected payment
+  expectedPaymentMethod String?        // Tiền mặt, Chuyển khoản, etc.
   
-  // Shipping
-  shippingAddress   String?
-  shippingProvince  String?
-  shippingDistrict  String?
-  shippingWard      String?
-  shippingMethod    String?
-  shippingFee       Decimal       @default(0) @db.Decimal(15, 2)
-  shippingNote      String?
+  // External references
+  referenceUrl          String?        // Link đơn hàng bên ngoài
   
-  // Amounts
-  subtotal          Decimal       @default(0) @db.Decimal(15, 2)
-  discount          Decimal       @default(0) @db.Decimal(15, 2)
-  discountPercent   Decimal       @default(0) @db.Decimal(5, 2)
-  tax               Decimal       @default(0) @db.Decimal(15, 2)
-  total             Decimal       @default(0) @db.Decimal(15, 2)
-  paidAmount        Decimal       @default(0) @db.Decimal(15, 2)
-  remainingAmount   Decimal       @default(0) @db.Decimal(15, 2)
+  // Service fees (installation, warranty, etc.)
+  serviceFees           Json?          // Array<{ id, name, amount }>
   
-  // Sales info
-  salesPersonId     String?
-  salesChannel      String?
-  source            String?
+  // Additional statuses
+  printStatus           PrintStatus    @default(NOT_PRINTED)
+  stockOutStatus        StockOutStatus @default(NOT_STOCKED_OUT)
+  returnStatus          ReturnStatus   @default(NO_RETURN)
   
-  // Notes
-  notes             String?
-  internalNotes     String?
+  // Cancellation metadata
+  cancellationMetadata  Json?          // { restockItems, notifyCustomer, emailNotifiedAt }
   
-  // Relations
-  items             OrderItem[]
-  payments          OrderPayment[]
-  shipments         Shipment[]
-  receipts          Receipt[]
-  warranties        Warranty[]
-  packagings        Packaging[]
+  // Dispatch info
+  dispatchedDate             DateTime?
+  dispatchedByEmployeeId     String?
+  dispatchedByEmployeeName   String?
   
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
+  // Order-level discount & promotions
+  orderDiscount         Decimal?       @db.Decimal(15, 2)
+  orderDiscountType     DiscountType?
+  orderDiscountReason   String?        // Lý do chiết khấu
+  voucherCode           String?        // Mã giảm giá
+  voucherAmount         Decimal?       @db.Decimal(15, 2)
   
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  // Shipping info (legacy structure)
+  shippingInfo          Json?          // { carrier, service, trackingCode }
   
+  // Subtasks for workflow
+  subtasks              Json?          // Array of workflow subtasks
+  
+  // Activity history
+  activityHistory       Json?          // Array of HistoryEntry
+
+  // === RELATIONS ===
+  lineItems            OrderLineItem[]
+  payments             OrderPayment[]
+  packagings           Packaging[]
+  branch               Branch          @relation(fields: [branchId], references: [systemId])
+  customer             Customer        @relation(fields: [customerId], references: [systemId])
+  salesperson          Employee        @relation(fields: [salespersonId], references: [systemId])
+  receipts             Receipt[]
+  sales_returns        SalesReturn[]
+  shipments            Shipment[]
+  warranties           Warranty[]
+
+  @@index([branchId])
+  @@index([customerId])
+  @@index([orderDate])
+  @@index([status])
   @@map("orders")
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import { data as initialData } from './data';
-import type { Customer } from './types';
+import type { Customer } from '@/lib/types/prisma-extended';
 import { SystemId, BusinessId } from '../../lib/id-types';
 import { calculateLifecycleStage } from './lifecycle-utils';
 import { getHighRiskDebtCustomers } from './credit-utils';

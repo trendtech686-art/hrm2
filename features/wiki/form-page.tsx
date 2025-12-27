@@ -1,11 +1,11 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { useWikiStore } from './store';
 import { useEmployeeStore } from '../employees/store';
-import type { WikiArticle } from './types';
+import type { WikiArticle } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -24,9 +24,9 @@ type WikiFormValues = {
 };
 
 export function WikiFormPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
-  const location = ReactRouterDOM.useLocation();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
+  const pathname = usePathname();
   const { findById, add, update, data: articles } = useWikiStore();
   const { data: employees } = useEmployeeStore();
   
@@ -38,14 +38,14 @@ export function WikiFormPage() {
       key="cancel"
       variant="outline"
       className="h-9 gap-2"
-      onClick={() => navigate(article ? `/wiki/${article.systemId}` : '/wiki')}
+      onClick={() => router.push(article ? `/wiki/${article.systemId}` : '/wiki')}
     >
       Hủy
     </Button>,
     <Button key="save" type="submit" form="wiki-form" className="h-9 gap-2">
       Lưu
     </Button>
-  ]), [article, navigate]);
+  ]), [article, router]);
 
   usePageHeader({
     title: isEdit ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới',
@@ -55,7 +55,7 @@ export function WikiFormPage() {
       ...(isEdit
         ? [
             { label: article?.title ?? 'Bài viết', href: `/wiki/${article?.systemId ?? ''}`, isCurrent: false },
-            { label: 'Chỉnh sửa', href: location.pathname, isCurrent: true },
+            { label: 'Chỉnh sửa', href: pathname, isCurrent: true },
           ]
         : [
             { label: 'Tạo mới', href: '/wiki/new', isCurrent: true },
@@ -86,10 +86,10 @@ export function WikiFormPage() {
 
     if (article) {
       update(article.systemId, finalData);
-      navigate(`/wiki/${article.systemId}`);
+      router.push(`/wiki/${article.systemId}`);
     } else {
       add(finalData);
-      navigate('/wiki');
+      router.push('/wiki');
     }
   };
 

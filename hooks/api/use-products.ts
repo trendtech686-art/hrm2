@@ -5,7 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
-import type { Product } from '@/features/products/types'
+import type { Product } from '@/lib/types/prisma-extended'
 
 // ============================================================
 // API Functions

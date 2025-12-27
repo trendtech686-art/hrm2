@@ -1,6 +1,6 @@
 import * as React from "react";
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
-import type { Receipt } from './types';
+import type { Receipt } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

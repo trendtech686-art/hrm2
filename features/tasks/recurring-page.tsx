@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useRecurringTaskStore } from './recurring-store';
 import { useTaskStore } from './store';
 import { useEmployeeStore } from '../employees/store';
@@ -53,7 +53,7 @@ const frequencyLabels: Record<RecurrenceFrequency, string> = {
 };
 
 export function RecurringTasksPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const recurringStore = useRecurringTaskStore();
   const taskStore = useTaskStore();
   const { data: employees } = useEmployeeStore();

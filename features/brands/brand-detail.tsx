@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { Link, useLocation, useNavigate, useParams } from '@/lib/next-compat';
+import Link from 'next/link';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import { 
   Save, 
   X, 
@@ -92,10 +93,10 @@ type BrandFormValues = z.infer<typeof brandFormSchema>;
 
 export function BrandDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
   
-  const isEditMode = location.pathname.endsWith('/edit');
+  const isEditMode = pathname?.endsWith('/edit') ?? false;
   
   const { data, update, remove } = useBrandStore();
   
@@ -199,25 +200,25 @@ export function BrandDetailPage() {
     });
     
     toast.success('Đã cập nhật thương hiệu');
-    navigate(`/brands/${systemId}`);
+    router.push(`/brands/${systemId}`);
   };
 
   const handleDelete = () => {
     if (!systemId) return;
     remove(asSystemId(systemId));
     toast.success('Đã xóa thương hiệu');
-    navigate('/brands');
+    router.push('/brands');
   };
 
   const handleSwitchToEdit = () => {
-    navigate(`/brands/${systemId}/edit`);
+    router.push(`/brands/${systemId}/edit`);
   };
 
   // Header actions
   const headerActions = React.useMemo(() => {
     if (isEditMode) {
       return [
-        <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => navigate(`/brands/${systemId}`)}>
+        <Button key="cancel" variant="outline" size="sm" className="h-9" onClick={() => router.push(`/brands/${systemId}`)}>
           <X className="mr-2 h-4 w-4" />
           Hủy
         </Button>,
@@ -237,7 +238,7 @@ export function BrandDetailPage() {
         Chỉnh sửa
       </Button>
     ];
-  }, [isEditMode, systemId, navigate, form]);
+  }, [isEditMode, systemId, router, form]);
 
   usePageHeader({
     actions: headerActions,
@@ -249,7 +250,7 @@ export function BrandDetailPage() {
       <div className="flex items-center justify-center h-[50vh]">
         <div className="text-center">
           <p className="text-muted-foreground">Không tìm thấy thương hiệu</p>
-          <Button variant="link" onClick={() => navigate('/brands')}>
+          <Button variant="link" onClick={() => router.push('/brands')}>
             Quay lại danh sách
           </Button>
         </div>

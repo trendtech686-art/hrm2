@@ -1,13 +1,14 @@
 import { usePrintTemplateStore } from '@/features/settings/printer/store';
-import { TemplateType, PaperSize } from '@/features/settings/printer/types';
+import { TemplateType, PaperSize } from '@/lib/types/prisma-extended';
 import { formatDateForDisplay, formatTimeForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
+import { getGeneralSettingsSync } from '@/lib/settings-cache';
 
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
 
 /**
- * Lấy general-settings từ localStorage
+ * Lấy general-settings từ cache (loaded from database)
  */
 export function getGeneralSettings(): {
   companyName?: string;
@@ -17,12 +18,21 @@ export function getGeneralSettings(): {
   website?: string;
   taxCode?: string;
   logoUrl?: string;
+  storeName?: string;
+  storeAddress?: string;
+  storePhone?: string;
 } | null {
   try {
-    const stored = localStorage.getItem('general-settings');
-    if (stored) {
-      return JSON.parse(stored);
-    }
+    const settings = getGeneralSettingsSync();
+    return {
+      companyName: settings.storeName,
+      companyAddress: settings.storeAddress,
+      phoneNumber: settings.storePhone,
+      storeName: settings.storeName,
+      storeAddress: settings.storeAddress,
+      storePhone: settings.storePhone,
+      logoUrl: settings.logoUrl,
+    };
   } catch (e) { /* ignore */ }
   return null;
 }
@@ -33,11 +43,8 @@ export function getGeneralSettings(): {
 export function getStoreLogo(storeInfoLogo?: string): string | undefined {
   if (storeInfoLogo) return storeInfoLogo;
   try {
-    const generalSettings = localStorage.getItem('general-settings');
-    if (generalSettings) {
-      const parsed = JSON.parse(generalSettings);
-      return parsed.logoUrl || undefined;
-    }
+    const settings = getGeneralSettingsSync();
+    return settings.logoUrl || undefined;
   } catch (e) { /* ignore */ }
   return undefined;
 }

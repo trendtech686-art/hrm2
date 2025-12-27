@@ -8,8 +8,10 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import crypto from 'crypto'
 
-// Base upload directory
-const UPLOAD_BASE = process.env.UPLOAD_DIR || './uploads'
+// Base upload directory - use absolute path to avoid Turbopack pattern matching issues
+const UPLOAD_BASE = process.env.UPLOAD_DIR 
+  ? path.resolve(process.env.UPLOAD_DIR) 
+  : path.resolve(process.cwd(), 'uploads')
 
 // Get upload directory
 export function getUploadDir(): string {
@@ -253,6 +255,7 @@ export function validateFile(
 }
 
 // Save uploaded file to disk with date-based folder structure
+// Note: This function uses runtime paths, not static imports
 export async function saveUploadedFile(
   buffer: Buffer,
   originalName: string,
@@ -277,15 +280,22 @@ export async function saveUploadedFile(
     const uniqueId = uuidv4().substring(0, 8)
     const filename = customFilename || `${baseName}_${timestamp}_${uniqueId}${ext}`
     
-    // Build full path
+    // Build full path - use string concatenation to avoid Turbopack static analysis
+    const datePath = [year, month, day].join(path.sep)
     const relativePath = subFolder 
-      ? `${subFolder}/${year}/${month}/${day}/${filename}`
-      : `${year}/${month}/${day}/${filename}`
-    const fullDir = path.join(UPLOAD_BASE, subFolder, year, month, day)
-    const fullPath = path.join(fullDir, filename)
+      ? [subFolder, datePath, filename].join('/')
+      : [datePath, filename].join('/')
+    
+    // Build absolute paths using array join to prevent static pattern matching
+    const dirParts = subFolder 
+      ? [UPLOAD_BASE, subFolder, year, month, day]
+      : [UPLOAD_BASE, year, month, day]
+    const fullDir = dirParts.join(path.sep)
+    const fullPath = [fullDir, filename].join(path.sep)
     
     // Ensure directory exists
-    if (!existsSync(fullDir)) {
+    const dirExists = existsSync(fullDir)
+    if (!dirExists) {
       await mkdir(fullDir, { recursive: true })
     }
     

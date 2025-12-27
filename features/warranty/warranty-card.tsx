@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDateTime } from '../../lib/date-utils';
 import type { WarrantyTicket } from './types';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
@@ -24,7 +24,7 @@ interface WarrantyCardProps {
 // ✅ OPTIMIZATION: Memoize component to prevent unnecessary re-renders
 // Only re-render if ticket data or callbacks change
 export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, onDelete, onClick }: WarrantyCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Ignore right-click
@@ -35,7 +35,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
     if (onClick) {
       onClick(ticket);
     } else {
-      navigate(`/warranty/${ticket.systemId}`);
+      router.push(`/warranty/${ticket.systemId}`);
     }
   };
 

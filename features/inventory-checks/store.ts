@@ -1,5 +1,5 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory';
-import type { InventoryCheck } from './types';
+import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
 import { data as initialData } from './data';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';

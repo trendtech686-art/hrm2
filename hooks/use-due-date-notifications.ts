@@ -299,41 +299,27 @@ export function useDueDateNotifications(
 
 /**
  * Hook for managing notification settings
+ * NOTE: localStorage has been removed - settings now stored in memory only
+ * For persistent settings, use /api/user-preferences
  */
 export function useNotificationSettings(storageKey: string = 'hrm-due-date-notification-settings') {
+  // In-memory cache for settings
+  const settingsRef = useRef<NotificationSettings>(DEFAULT_SETTINGS);
+  
   const getSettings = useCallback((): NotificationSettings => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-      }
-    } catch (error) {
-      console.error('Failed to load notification settings:', error);
-    }
-    return DEFAULT_SETTINGS;
-  }, [storageKey]);
+    return settingsRef.current;
+  }, []);
 
   const saveSettings = useCallback((settings: Partial<NotificationSettings>) => {
-    try {
-      const current = getSettings();
-      const updated = { ...current, ...settings };
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-      return updated;
-    } catch (error) {
-      console.error('Failed to save notification settings:', error);
-      return getSettings();
-    }
-  }, [getSettings, storageKey]);
+    const updated = { ...settingsRef.current, ...settings };
+    settingsRef.current = updated;
+    return updated;
+  }, []);
 
   const resetSettings = useCallback(() => {
-    try {
-      localStorage.removeItem(storageKey);
-      return DEFAULT_SETTINGS;
-    } catch (error) {
-      console.error('Failed to reset notification settings:', error);
-      return DEFAULT_SETTINGS;
-    }
-  }, [storageKey]);
+    settingsRef.current = DEFAULT_SETTINGS;
+    return DEFAULT_SETTINGS;
+  }, []);
 
   return {
     getSettings,

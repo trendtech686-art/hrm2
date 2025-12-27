@@ -1,59 +1,18 @@
-// ═══════════════════════════════════════════════════════════════
-// WIKI PAGE MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: WIKI000001 (English, 6 digits)
-// BusinessId: TL000001 (Vietnamese - Tài liệu, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model WikiPage {
-  systemId          String        @id           // WIKI000001
-  id                String        @unique       // TL000001
-  
-  // Basic info
-  title             String
-  slug              String        @unique
-  content           String?
-  
-  // Category
-  categoryId        String?
-  category          WikiCategory? @relation(fields: [categoryId], references: [systemId])
-  
-  // Hierarchy
-  parentId          String?
-  parent            WikiPage?     @relation("WikiHierarchy", fields: [parentId], references: [systemId])
-  children          WikiPage[]    @relation("WikiHierarchy")
-  
-  // Display
-  sortOrder         Int           @default(0)
-  icon              String?
-  
-  // Status
-  status            String        @default("draft") // draft, published, archived
-  isPublished       Boolean       @default(false)
-  publishedAt       DateTime?
-  
-  // Tags
-  tags              String[]
-  
-  // SEO
-  metaTitle         String?
-  metaDescription   String?
-  
-  // Attachments
-  attachments       String[]
-  
-  // Version tracking
-  version           Int           @default(1)
-  
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  systemId   String   @id
+  id         String   @unique
+  title      String
+  content    String?  @db.Text // Markdown content
+  category   String?
+  tags       String[]
+  author     String?  // Employee Name
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
+  isDeleted  Boolean  @default(false)
+  deletedAt  DateTime?
+
+  @@index([category])
   @@map("wiki_pages")
 }

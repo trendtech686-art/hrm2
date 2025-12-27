@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { useLeaveStore } from './store';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -14,7 +14,7 @@ import { Badge } from '../../components/ui/badge';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { useAuth } from '../../contexts/auth-context';
-import type { LeaveStatus } from './types';
+import type { LeaveStatus } from '@/lib/types/prisma-extended';
 
 const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = {
     "Chờ duyệt": "warning",
@@ -23,8 +23,8 @@ const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive">
 };
 
 export function LeaveDetailPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById } = useLeaveStore();
   const { employee: authEmployee } = useAuth();
   const request = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
@@ -78,13 +78,13 @@ export function LeaveDetailPage() {
         key="edit"
         size="sm"
         className="h-9"
-        onClick={() => navigate('/leaves')}
+        onClick={() => router.push('/leaves')}
       >
         <Edit className="mr-2 h-4 w-4" />
         Sửa đơn
       </Button>
     ];
-  }, [request, navigate]);
+  }, [request, router]);
 
   const statusBadge = React.useMemo(() => {
     if (!request) return undefined;
@@ -106,7 +106,7 @@ export function LeaveDetailPage() {
     return (
         <div className="text-center p-8">
             <h2 className="text-h3 font-bold">Không tìm thấy đơn nghỉ phép</h2>
-            <Button onClick={() => navigate('/leaves')} className="mt-4">Quay về danh sách</Button>
+            <Button onClick={() => router.push('/leaves')} className="mt-4">Quay về danh sách</Button>
         </div>
     );
   }

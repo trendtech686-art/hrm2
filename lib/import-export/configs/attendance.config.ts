@@ -9,7 +9,7 @@
  * - Mã NV máy CC khác mã NV hệ thống → cần mapping
  */
 
-import type { ImportExportConfig, FieldConfig, AttendanceImportRow } from '../types';
+import type { ImportExportConfig, FieldConfig, AttendanceImportRow } from '@/lib/import-export/types';
 
 // ============================================
 // FIELD DEFINITIONS

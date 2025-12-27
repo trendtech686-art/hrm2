@@ -1,49 +1,29 @@
-// ═══════════════════════════════════════════════════════════════
-// BRAND MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: BRAND000001 (English, 6 digits)
-// BusinessId: TH000001 (Vietnamese - Thương hiệu, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Brand {
-  systemId          String        @id           // BRAND000001
-  id                String        @unique       // TH000001
-  
-  // Basic info
-  name              String        @unique
-  description       String?
-  
-  // Contact
-  website           String?
-  email             String?
-  phone             String?
-  
-  // Display
-  logoUrl           String?
-  bannerUrl         String?
-  sortOrder         Int           @default(0)
-  
-  // SEO
-  slug              String?       @unique
-  metaTitle         String?
-  metaDescription   String?
-  
-  // Status
-  isActive          Boolean       @default(true)
-  isFeatured        Boolean       @default(false)
-  
-  // Relations
-  products          Product[]
-  
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  systemId         String    @id
+  id               String    @unique
+  name             String
+  description      String?   // Mô tả chung (HRM internal)
+  website          String?
+  logo             String?
+  logoUrl          String?
+  thumbnail        String?
+  // SEO Fields (NEW) - Default/HRM internal
+  seoTitle         String?
+  metaDescription  String?
+  seoKeywords      String?   // Từ khóa SEO
+  shortDescription String?   // Mô tả ngắn
+  longDescription  String?   @db.Text // Mô tả dài (HTML)
+  // Multi-website SEO (NEW) - SEO riêng cho từng website
+  websiteSeo       Json?     // Key: 'pkgx' | 'web2' | ...
+  // Settings
+  isActive         Boolean   @default(true)
+  isDeleted        Boolean   @default(false)
+  sortOrder        Int?      @default(0)
+  // Timestamps
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+  products         Product[]
+
   @@map("brands")
 }

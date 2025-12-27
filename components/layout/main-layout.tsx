@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react';
-import { Outlet } from '@/lib/next-compat';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { useUiStore } from '../../lib/ui-store';
@@ -53,8 +52,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <main className="flex-1 w-full">
                 {/* Content area with vertical padding only */}
                 <div className="py-4 mobile:py-3">
-                  {/* Support both Next.js children and react-router Outlet */}
-                  {children || <Outlet />}
+                  {children}
                 </div>
               </main>
             </div>

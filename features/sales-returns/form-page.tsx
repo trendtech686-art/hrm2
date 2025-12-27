@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react';
-// FIX: Use named imports for react-router-dom to fix module export errors.
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 // FIX: Changed 'FieldArray as useFieldArray' to 'useFieldArray' to correctly import the hook from 'react-hook-form'.
 import { useForm, useFieldArray, Controller, useWatch, FormProvider, useFormContext } from 'react-hook-form';
 import { toISODateTime } from '../../lib/date-utils';
@@ -14,9 +14,9 @@ import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { useProductImage } from '../products/components/product-image';
 
 // types
-import type { Order } from '../orders/types';
-import type { SalesReturn, ReturnLineItem, LineItem as ExchangeLineItem } from './types';
-import type { Product } from '../products/types';
+import type { Order } from '@/lib/types/prisma-extended';
+import type { SalesReturn, ReturnLineItem, LineItem as ExchangeLineItem } from '@/lib/types/prisma-extended';
+import type { Product } from '@/lib/types/prisma-extended';
 
 // Stores
 import { useOrderStore } from '../orders/store';
@@ -230,8 +230,7 @@ const ReturnItemRow = React.memo(({
                         />
                         <div>
                             <div className="flex items-center gap-2">
-                                <Link 
-                                    to={`/products/${field.productSystemId}`}
+                                <Link href={`/products/${field.productSystemId}`}
                                     className="font-medium text-primary hover:underline"
                                 >
                                     {field.productName}
@@ -245,8 +244,7 @@ const ReturnItemRow = React.memo(({
                             <div className="flex items-center gap-1 text-body-xs text-muted-foreground group/info flex-wrap">
                                 <span>{getProductTypeLabel(product)}</span>
                                 <span>-</span>
-                                <Link 
-                                    to={`/products/${field.productSystemId}`}
+                                <Link href={`/products/${field.productSystemId}`}
                                     className="hover:text-primary hover:underline"
                                 >
                                     {field.productId}
@@ -987,7 +985,7 @@ const SalesReturnSummary = () => {
 
 export function SalesReturnFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Stores
   const { data: orderData, findById: findOrder } = useOrderStore();
@@ -1242,7 +1240,7 @@ export function SalesReturnFormPage() {
             variant="outline"
             type="button"
             className="h-9 px-4"
-            onClick={() => navigate(backDestination)}
+            onClick={() => router.push(backDestination)}
         >
             Thoát
         </Button>,
@@ -1255,7 +1253,7 @@ export function SalesReturnFormPage() {
         >
             {isSubmitting ? 'Đang xử lý...' : 'Hoàn trả'}
         </Button>
-    ], [navigate, backDestination, isSubmitting]);
+    ], [router, backDestination, isSubmitting]);
 
     const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => {
         const items: BreadcrumbItem[] = [
@@ -1630,12 +1628,12 @@ export function SalesReturnFormPage() {
         });
         // Navigate to the new exchange order
         setTimeout(() => {
-            navigate(`/orders/${newOrderSystemId}`);
+            router.push(`/orders/${newOrderSystemId}`);
         }, 500);
     } else if (newReturn) {
         toast.success('Tạo phiếu trả hàng thành công!');
         // Navigate back to original order if no exchange order
-        navigate(`/orders/${order.systemId}`);
+        router.push(`/orders/${order.systemId}`);
     }
     
     setIsSubmitting(false);
@@ -1655,7 +1653,7 @@ export function SalesReturnFormPage() {
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4 text-body-sm">
                             <p>Khách hàng: <a className="font-semibold text-primary hover:underline">{customer.name}</a></p>
-                            <p>Mã đơn hàng gốc: <Link to={`/orders/${order.systemId}`} className="font-semibold text-primary hover:underline">{order.id}</Link></p>
+                            <p>Mã đơn hàng gốc: <Link href={`/orders/${order.systemId}`} className="font-semibold text-primary hover:underline">{order.id}</Link></p>
                             <FormField 
                                 control={control} 
                                 name="branchSystemId" 

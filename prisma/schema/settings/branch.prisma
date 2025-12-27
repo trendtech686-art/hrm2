@@ -1,64 +1,28 @@
-// ═══════════════════════════════════════════════════════════════
-// BRANCH MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: BRANCH000001 (English)
-// BusinessId: CN000001 (Vietnamese - Chi nhánh)
-// ═══════════════════════════════════════════════════════════════
-
 model Branch {
-  systemId    String   @id           // BRANCH000001
-  id          String   @unique       // CN000001
-  name        String
-  address     String?
-  phone       String?
-  website     String?
-  thumbnail   String?
-  isDefault   Boolean  @default(false)
-  
-  // Address details for shipping
-  province    String?
-  provinceId  String?
-  district    String?
-  districtId  Int?
-  ward        String?
-  wardCode    String?
-  
-  // Manager
-  managerId   String?
-  
-  // Relations
-  employees           Employee[]
-  orders              Order[]
-  inventories         Inventory[]
-  stockLocations      StockLocation[]
-  stockTransfersFrom  StockTransfer[]   @relation("TransferFrom")
-  stockTransfersTo    StockTransfer[]   @relation("TransferTo")
-  purchaseOrders      PurchaseOrder[]
-  purchaseReturns     PurchaseReturn[]
-  salesReturns        SalesReturn[]
-  receipts            Receipt[]
-  payments            Payment[]
-  cashAccounts        CashAccount[]
-  shipments           Shipment[]
-  warranties          Warranty[]
-  complaints          Complaint[]
-  tasks               Task[]
-  inventoryChecks     InventoryCheck[]
-  inventoryReceipts   InventoryReceipt[]
-  costAdjustments     CostAdjustment[]
-  packagings          Packaging[]
-  penalties           Penalty[]
-  productInventory    ProductInventory[]
-  
-  // Soft delete
-  isDeleted   Boolean  @default(false)
-  deletedAt   DateTime?
-  
-  // Audit
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  
+  systemId         String             @id
+  id               String             @unique
+  name             String
+  address          String?
+  phone            String?
+  isDefault        Boolean            @default(false)
+  province         String?
+  provinceId       String?
+  district         String?
+  districtId       Int?
+  ward             String?
+  wardCode         String?
+  managerId        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  deletedAt        DateTime?
+  isDeleted        Boolean            @default(false)
+  thumbnail        String?
+  website          String?
+  employees        Employee[]
+  orders           Order[]
+  productInventory ProductInventory[]
+
   @@map("branches")
 }

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
 import { usePricingPolicyStore } from "./store";
-import type { PricingPolicy } from "./types";
+import type { PricingPolicy } from '@/lib/types/prisma-extended';
 import { PricingPolicyForm, type PricingPolicyFormValues } from "./form";
 import { PricingTable } from "./pricing-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";

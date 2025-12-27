@@ -14,7 +14,7 @@ import { Button } from '../../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { PlusCircle, Trash2, AlertCircle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
-import type { EmployeeSettings } from './types';
+import type { EmployeeSettings } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value: number) => 
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);

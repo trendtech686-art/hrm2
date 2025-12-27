@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createCrudStore } from '../../lib/store-factory';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils';
 import { data as initialData } from './data';
-import type { WikiArticle } from './types';
+import type { WikiArticle } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
 type WikiState = {

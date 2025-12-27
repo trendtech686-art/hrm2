@@ -14,7 +14,7 @@
  */
 
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { Control, useWatch } from 'react-hook-form';
 import { Package, Eye, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
@@ -200,15 +200,13 @@ const ComboItemRow = React.memo(({
                     />
                     {product ? (
                         <div className="min-w-0">
-                            <Link 
-                                to={`/products/${product.systemId}`}
+                            <Link href={`/products/${product.systemId}`}
                                 className="font-medium text-primary hover:underline block truncate"
                             >
                                 {product.name}
                             </Link>
                             <p className="text-xs text-muted-foreground">
-                                <Link 
-                                    to={`/products/${product.systemId}`}
+                                <Link href={`/products/${product.systemId}`}
                                     className="hover:text-primary hover:underline"
                                 >
                                     {product.id}

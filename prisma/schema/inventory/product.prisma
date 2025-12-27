@@ -1,92 +1,132 @@
-// ═══════════════════════════════════════════════════════════════
-// PRODUCT MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PROD000001 (English, 6 digits)
-// BusinessId: SP000001 (Vietnamese - Sản phẩm, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Product {
-  systemId          String              @id           // PROD000001
-  id                String              @unique       // SP000001
+  systemId             String              @id
+  id                   String              @unique
+  name                 String
+  description          String?
+  shortDescription     String?
+  thumbnailImage       String?
+  imageUrl             String?
+  galleryImages        String[]
+  type                 ProductType         @default(PHYSICAL)
+  brandId              String?
+  unit                 String              @default("Cái")
+  costPrice            Decimal             @default(0) @db.Decimal(15, 2)
+  sellingPrice         Decimal?            @db.Decimal(15, 2)
+  minPrice             Decimal?            @db.Decimal(15, 2)
+  taxRate              Decimal?            @db.Decimal(5, 2)
+  isStockTracked       Boolean             @default(true)
+  reorderLevel         Int?
+  safetyStock          Int?
+  maxStock             Int?
+  weight               Decimal?            @db.Decimal(10, 2)
+  weightUnit           WeightUnit          @default(GRAM)
+  barcode              String?
+  warrantyPeriodMonths Int?                @default(12)
+  primarySupplierId    String?
+  isPublished          Boolean             @default(false)
+  isFeatured           Boolean             @default(false)
+  sortOrder            Int?
+  seoTitle             String?
+  seoDescription       String?
+  seoKeywords          String?
+  slug                 String?             @unique
+  totalSold            Int?                @default(0)
+  viewCount            Int?                @default(0)
+  status               ProductStatus       @default(ACTIVE)
+  isDeleted            Boolean             @default(false)
+  deletedAt            DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  createdBy            String?
+  updatedBy            String?
+  sku                  String?             @default("") @db.VarChar(100)
   
-  // Basic info
-  name              String
-  sku               String              @unique
-  barcode           String?
-  description       String?
-  shortDescription  String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Category & Brand
-  categoryId        String?
-  category          Category?           @relation(fields: [categoryId], references: [systemId])
-  brandId           String?
-  brand             Brand?              @relation(fields: [brandId], references: [systemId])
+  // SEO & Content
+  ktitle               String?             // Tiêu đề SEO-friendly
+  videoLinks           String[]            // Video links (YouTube, TikTok, etc.)
+  seoPkgx              Json?               // SEO data for PKGX website
+  seoTrendtech         Json?               // SEO data for Trendtech website
   
-  // Pricing
-  costPrice         Decimal             @default(0) @db.Decimal(15, 2)
-  sellingPrice      Decimal             @default(0) @db.Decimal(15, 2)
-  wholesalePrice    Decimal             @default(0) @db.Decimal(15, 2)
-  minPrice          Decimal             @default(0) @db.Decimal(15, 2)
+  // Classification
+  productTypeSystemId  String?             // Link to ProductType.systemId from settings
+  categorySystemIds    String[]            // Multi-category array
+  categories           String[]            // Category paths array
+  subCategory          String?             // Legacy sub-category
+  subCategories        String[]            // Multi sub-category array
+  warehouseLocation    String?             // Location label
+  storageLocationSystemId String?          // Link to StorageLocation.systemId
+  tags                 String[]            // Tags for filtering
   
-  // Tax
-  taxable           Boolean             @default(true)
-  taxRate           Decimal             @default(0) @db.Decimal(5, 2)
+  // External IDs
+  pkgxId               Int?                // PKGX website ID
+  trendtechId          Int?                // Trendtech website ID
   
-  // Inventory
-  unit              String?
-  weight            Decimal?            @db.Decimal(10, 3)
-  dimensions        String?
-  minStock          Int                 @default(0)
-  maxStock          Int?
+  // Purchasing
+  lastPurchasePrice    Decimal?            @db.Decimal(15, 2)
+  lastPurchaseDate     DateTime?
   
-  // Status
-  status            ProductStatus       @default(ACTIVE)
-  isActive          Boolean             @default(true)
-  isFeatured        Boolean             @default(false)
-  isService         Boolean             @default(false)
-  isCombo           Boolean             @default(false)
+  // Inventory by branch (JSON maps)
+  inventoryByBranch    Json?               // { branchSystemId: quantity }
+  committedByBranch    Json?               // { branchSystemId: committed }
+  inTransitByBranch    Json?               // { branchSystemId: inTransit }
   
-  // Images
-  imageUrl          String?
-  images            String[]
+  // Dimensions
+  dimensions           Json?               // { length, width, height } in cm
   
-  // Warranty
-  warrantyMonths    Int?
-  warrantyTerms     String?
+  // Internal Notes
+  sellerNote           String?             // Ghi chú nội bộ người bán
   
-  // SEO
-  slug              String?
-  metaTitle         String?
-  metaDescription   String?
+  // Tem phụ fields
+  nameVat              String?             // Tên sản phẩm VAT (tên đầy đủ cho hóa đơn/tem)
+  origin               String?             // Xuất xứ / Địa chỉ sản xuất
+  usageGuide           String?             // Hướng dẫn sử dụng
+  importerSystemId     String?             // Link to Importer.systemId
+  importerName         String?             // Override tên đơn vị nhập khẩu
+  importerAddress      String?             // Override địa chỉ nhập khẩu
   
-  // Supplier
-  supplierId        String?
-  supplier          Supplier?           @relation(fields: [supplierId], references: [systemId])
+  // Combo fields (when type === 'combo')
+  comboItems           Json?               // Array of ComboItem { productSystemId, quantity }
+  comboPricingType     String?             // 'fixed' | 'sum_discount_percent' | 'sum_discount_amount'
+  comboDiscount        Decimal?            @db.Decimal(15, 2)
   
-  // Relations
-  orderItems        OrderItem[]
-  purchaseItems     PurchaseOrderItem[]
-  inventories       Inventory[]
-  productInventory  ProductInventory[]
-  comboItems        ComboItem[]         @relation("combo")
-  inCombos          ComboItem[]         @relation("component")
-  stockTransferItems StockTransferItem[]
-  warranties        Warranty[]
-  prices            ProductPrice[]
-  categories        ProductCategory[]
+  // E-commerce fields
+  pkgxSlug             String?             // URL-friendly slug for PKGX
+  trendtechSlug        String?             // URL-friendly slug for Trendtech
+  isNewArrival         Boolean             @default(false)
+  isBestSeller         Boolean             @default(false)
+  isOnSale             Boolean             @default(false)
+  publishedAt          DateTime?           // Ngày đăng lên web
   
-  // Custom fields
-  customFields      Json?
+  // Variant fields
+  hasVariants          Boolean             @default(false)
+  variantAttributes    Json?               // Array of VariantAttribute { name, code, options[] }
+  variants             Json?               // Array of ProductVariant
   
-  // Soft delete
-  isDeleted         Boolean             @default(false)
-  deletedAt         DateTime?
+  // Sales Analytics
+  totalRevenue         Decimal?            @db.Decimal(15, 2)
+  lastSoldDate         DateTime?
   
-  // Audit
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  // Lifecycle
+  launchedDate         DateTime?           // Ngày ra mắt
+  discontinuedDate     DateTime?           // Ngày ngừng kinh doanh
   
+  // Activity History
+  activityHistory      Json?               // Array of HistoryEntry
+
+  // === RELATIONS ===
+  inventoryRecords     Inventory[]
+  orderLineItems       OrderLineItem[]
+  productCategories    ProductCategory[]
+  productInventory     ProductInventory[]
+  prices               ProductPrice[]
+  brand                Brand?              @relation(fields: [brandId], references: [systemId])
+  purchaseItems        PurchaseOrderItem[]
+  warranties           Warranty[]
+
+  @@index([brandId])
+  @@index([isPublished])
+  @@index([status])
   @@map("products")
 }

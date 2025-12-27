@@ -1,4 +1,4 @@
-import type { InventoryReceipt } from './types';
+import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 
 function daysAgo(days: number): string {

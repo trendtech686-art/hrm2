@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -45,7 +45,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export function CostAdjustmentFormPage() {
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeStore();
@@ -163,7 +163,7 @@ export function CostAdjustmentFormPage() {
       );
       
       toast.success('Đã tạo phiếu điều chỉnh giá vốn');
-      navigate(`/cost-adjustments/${adjustment.systemId}`);
+      router.push(`/cost-adjustments/${adjustment.systemId}`);
     } catch (error) {
       toast.error('Có lỗi xảy ra khi tạo phiếu');
     } finally {
@@ -176,7 +176,7 @@ export function CostAdjustmentFormPage() {
       <Button 
         variant="outline" 
         className="h-9"
-        onClick={() => navigate('/cost-adjustments')}
+        onClick={() => router.push('/cost-adjustments')}
         disabled={isSubmitting}
       >
         <X className="mr-2 h-4 w-4" />
@@ -192,7 +192,7 @@ export function CostAdjustmentFormPage() {
         {isSubmitting ? 'Đang lưu...' : 'Tạo phiếu'}
       </Button>
     </div>
-  ), [navigate, isSubmitting, fields.length, customIdError]);
+  ), [router, isSubmitting, fields.length, customIdError]);
   
   const breadcrumb = React.useMemo(() => [
     { label: 'Trang chủ', href: ROUTES.ROOT },

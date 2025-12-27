@@ -2,7 +2,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import type { Supplier } from "./types"
+import type { Supplier } from '@/lib/types/prisma-extended'
 import { useEmployeeStore } from "../employees/store"
 import { useSupplierStore } from "./store";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead

@@ -1,34 +1,13 @@
-// ═══════════════════════════════════════════════════════════════
-// STOCK TRANSFER ITEM MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: STITEM0000000001 (English, 10 digits)
-// BusinessId: CTCK0000000001 (Vietnamese - Chi tiết chuyển kho, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model StockTransferItem {
-  systemId          String        @id           // STITEM0000000001
-  id                String        @unique       // CTCK0000000001
-  
-  // Parent Transfer
-  transferId        String
-  stockTransfer     StockTransfer @relation(fields: [transferId], references: [systemId])
-  
-  // Product
-  productId         String
-  product           Product       @relation(fields: [productId], references: [systemId])
-  productName       String
-  productSku        String?
-  
-  // Quantity
-  quantity          Int
-  receivedQuantity  Int           @default(0)
-  
-  // Notes
-  notes             String?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  
+  systemId      String        @id
+  transferId    String
+  productId     String
+  productName   String
+  productSku    String
+  quantity      Int
+  receivedQty   Int           @default(0)
+  stockTransfer StockTransfer @relation(fields: [transferId], references: [systemId], onDelete: Cascade)
+
+  @@index([transferId])
   @@map("stock_transfer_items")
 }

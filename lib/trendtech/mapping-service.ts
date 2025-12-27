@@ -5,7 +5,7 @@
  */
 
 import type { SystemId } from '../id-types';
-import type { Product } from '../../features/products/types';
+import type { Product } from '@/lib/types/prisma-extended';
 import { useTrendtechSettingsStore } from '../../features/settings/trendtech/store';
 import type { TrendtechProductPayload, TrendtechProduct } from './types';
 

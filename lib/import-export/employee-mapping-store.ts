@@ -6,7 +6,6 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { EmployeeMappingEntry } from './types';
 
 // Generate simple ID
@@ -18,6 +17,7 @@ const generateMappingId = (): string => {
 
 interface EmployeeMappingState {
   mappings: EmployeeMappingEntry[];
+  initialized: boolean;
   
   // Actions
   addMapping: (entry: Omit<EmployeeMappingEntry, 'id' | 'createdAt' | 'updatedAt'>) => string;
@@ -91,11 +91,11 @@ function namesMatch(machineName: string, systemName: string): boolean {
 }
 
 export const useEmployeeMappingStore = create<EmployeeMappingState>()(
-  persist(
-    (set, get) => ({
-      mappings: [],
-      
-      addMapping: (entry) => {
+  (set, get) => ({
+    mappings: [],
+    initialized: false,
+    
+    addMapping: (entry) => {
         const id = generateMappingId();
         const now = new Date().toISOString();
         const newEntry: EmployeeMappingEntry = {
@@ -199,12 +199,26 @@ export const useEmployeeMappingStore = create<EmployeeMappingState>()(
         
         return { mapped, unmapped };
       },
-    }),
-    {
-      name: 'hrm-employee-mapping',
-      version: 1,
-    }
-  )
+      
+      loadFromAPI: async () => {
+        if (get().initialized) return;
+        try {
+          // NOTE: Employee mappings are typically small dataset
+          const response = await fetch('/api/employee-mappings?limit=100');
+          if (response.ok) {
+            const json = await response.json();
+            const data = json.data || [];
+            if (data.length > 0) {
+              set({ mappings: data, initialized: true });
+            } else {
+              set({ initialized: true });
+            }
+          }
+        } catch (error) {
+          console.error('[Employee Mapping Store] loadFromAPI error:', error);
+        }
+      },
+    })
 );
 
 // ============================================

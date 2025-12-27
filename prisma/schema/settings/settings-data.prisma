@@ -1,0 +1,21 @@
+model SettingsData {
+  systemId    String    @id @default(uuid())
+  id          String
+  name        String
+  type        String
+  description String?
+  isActive    Boolean   @default(true)
+  isDefault   Boolean   @default(false)
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+
+  @@unique([id, type])
+  @@index([type])
+  @@index([isActive])
+  @@map("settings_data")
+}

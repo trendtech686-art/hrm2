@@ -1,36 +1,14 @@
-// ═══════════════════════════════════════════════════════════════
-// SETTING MODEL
-// ═══════════════════════════════════════════════════════════════
-// System settings stored as key-value pairs
-// ═══════════════════════════════════════════════════════════════
-
 model Setting {
-  systemId          String        @id @default(uuid())
-  
-  // Key
-  key               String        @unique
-  group             String?       // general, company, invoice, email, etc.
-  
-  // Value
-  value             String?
-  valueType         String        @default("string") // string, number, boolean, json
-  
-  // Metadata
-  label             String?
-  description       String?
-  
-  // Constraints
-  isReadOnly        Boolean       @default(false)
-  isSystem          Boolean       @default(false)
-  
-  // Branch specific
-  branchId          String?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  updatedBy         String?
-  
-  @@unique([key, branchId])
+  systemId    String   @id @default(uuid())
+  key         String
+  value       Json
+  type        String
+  category    String
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+  group       String
+
+  @@unique([key, group])
   @@map("settings")
 }

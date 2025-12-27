@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, Link2, FolderEdit, FileUp, Download } from "lucide-react";
 import { asSystemId, asBusinessId, type SystemId } from "@/lib/id-types";
@@ -32,7 +32,7 @@ import { categoryImportExportConfig } from "@/lib/import-export/configs/category
 import { useAuth } from "@/contexts/auth-context";
 
 export function ProductCategoriesPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const { employee: authEmployee } = useAuth();
   
@@ -132,8 +132,8 @@ export function ProductCategoriesPage() {
   }, [rowSelection, update]);
 
   const handleRowClick = React.useCallback((category: ProductCategory) => {
-    navigate(`/categories/${category.systemId}`);
-  }, [navigate]);
+    router.push(`/categories/${category.systemId}`);
+  }, [router]);
 
   // PKGX Sync Hook
   const { handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId } = usePkgxCategorySync();
@@ -272,7 +272,7 @@ export function ProductCategoriesPage() {
   const columns = React.useMemo(() => getColumns(
     handleDelete, 
     handleToggleActive, 
-    navigate, 
+    router.push, 
     data,
     handleUpdateName,
     handleUpdateSortOrder,
@@ -285,7 +285,7 @@ export function ProductCategoriesPage() {
     getPkgxCatId,
     handlePkgxLink,
     handlePkgxUnlink,
-  ), [handleDelete, handleToggleActive, navigate, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink]);
+  ), [handleDelete, handleToggleActive, router, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink]);
 
   // Export config
   const exportConfig = {
@@ -443,11 +443,11 @@ export function ProductCategoriesPage() {
 
   // Header actions
   const headerActions = React.useMemo(() => [
-    <Button key="add" size="sm" className="h-9" onClick={() => navigate('/categories/new')}>
+    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/categories/new')}>
       <Plus className="mr-2 h-4 w-4" />
       Thêm danh mục
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   // Dùng auto-generated title từ PATH_PATTERNS
   usePageHeader({
@@ -527,7 +527,7 @@ export function ProductCategoriesPage() {
                   category={category}
                   onDelete={handleDelete}
                   onToggleActive={handleToggleActive}
-                  navigate={navigate}
+                  navigate={router.push}
                   handleRowClick={handleRowClick}
                   childCount={data.filter(c => c.parentId === category.systemId && !c.isDeleted).length}
                 />
@@ -808,7 +808,7 @@ export function ProductCategoriesPage() {
                 category={category}
                 onDelete={handleDelete}
                 onToggleActive={handleToggleActive}
-                navigate={navigate}
+                navigate={router.push}
                 handleRowClick={handleRowClick}
                 childCount={data.filter(c => c.parentId === category.systemId && !c.isDeleted).length}
               />

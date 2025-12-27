@@ -3,7 +3,7 @@
  * Server-side search for orders to handle large datasets
  */
 
-import type { Order } from './types';
+import type { Order } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from './address-utils';
 
 export interface OrderSearchResult {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { EmployeeSettings, LeaveType, SalaryComponent, WorkShift } from './types';
+import type { EmployeeSettings, LeaveType, SalaryComponent, WorkShift } from '@/lib/types/prisma-extended';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import { generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, findNextAvailableBusinessId } from '../../../lib/id-utils';
 import { getPrefix, type EntityType } from '../../../lib/smart-prefix';

@@ -1,6 +1,6 @@
 ﻿import * as React from "react";
 import { formatDate } from '@/lib/date-utils';
-import type { LeaveRequest, LeaveStatus } from './types';
+import type { LeaveRequest, LeaveStatus } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
 import { Badge } from "../../components/ui/badge";

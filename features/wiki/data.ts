@@ -1,4 +1,4 @@
-import type { WikiArticle } from './types';
+import type { WikiArticle } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 

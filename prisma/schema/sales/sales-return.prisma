@@ -1,50 +1,87 @@
-// ═══════════════════════════════════════════════════════════════
-// SALES RETURN MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: SRET0000000001 (English, 10 digits)
-// BusinessId: TH0000000001 (Vietnamese - Trả hàng, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model SalesReturn {
-  systemId          String            @id           // SRET0000000001
-  id                String            @unique       // TH0000000001
+  systemId   String            @id
+  id         String            @unique
+  orderId    String
+  customerId String?
+  employeeId String?
+  branchId   String?
+  returnDate DateTime          @default(now())
+  status     SalesReturnStatus @default(PENDING)
+  reason     String?
+  subtotal   Decimal           @default(0) @db.Decimal(15, 2)
+  total      Decimal           @default(0) @db.Decimal(15, 2)
+  refunded   Decimal           @default(0) @db.Decimal(15, 2)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  createdBy  String?
+  updatedBy  String?
   
-  // Original Order
-  orderId           String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Customer
-  customerId        String?
-  customer          Customer?         @relation(fields: [customerId], references: [systemId])
-  customerName      String?
+  // Order & customer info (denormalized)
+  orderSystemId        String?
+  orderBusinessId      String?
+  customerSystemId     String?
+  customerName         String?
+  branchSystemId       String?
+  branchName           String?
   
-  // Branch
-  branchId          String?
-  branch            Branch?           @relation(fields: [branchId], references: [systemId])
+  // Notes & references
+  note                 String?        // Short note
+  notes                String?        // Detailed notes
+  reference            String?        // External reference code
   
-  // Return details
-  returnDate        DateTime          @default(now())
-  reason            String?
-  status            ReturnStatus      @default(PENDING)
+  // Return items
+  returnItems          Json?          // Array of ReturnLineItem
+  totalReturnValue     Decimal        @default(0) @db.Decimal(15, 2)
+  isReceived           Boolean        @default(false)  // Items received & added to inventory
   
-  // Amounts
-  subtotal          Decimal           @default(0) @db.Decimal(15, 2)
-  refundAmount      Decimal           @default(0) @db.Decimal(15, 2)
+  // Exchange items (new items customer takes)
+  exchangeItems        Json?          // Array of LineItem
+  exchangeOrderSystemId String?       // Link to new order for exchange
+  subtotalNew          Decimal        @default(0) @db.Decimal(15, 2)
+  shippingFeeNew       Decimal        @default(0) @db.Decimal(15, 2)
+  discountNew          Decimal?       @db.Decimal(15, 2)
+  discountNewType      String?
+  grandTotalNew        Decimal        @default(0) @db.Decimal(15, 2)
   
-  // Notes
-  notes             String?
+  // Shipping info for exchange order
+  deliveryMethod       String?
+  shippingPartnerId    String?
+  shippingServiceId    String?
+  shippingAddress      Json?
+  packageInfo          Json?
+  configuration        Json?
   
-  // Relations
-  items             SalesReturnItem[]
+  // Financial summary
+  finalAmount          Decimal        @default(0) @db.Decimal(15, 2)  // +customer pays, -company refunds
   
-  // Soft delete
-  isDeleted         Boolean           @default(false)
-  deletedAt         DateTime?
+  // Refund methods (single - deprecated)
+  refundMethod         String?
+  refundAmount         Decimal?       @db.Decimal(15, 2)
+  accountSystemId      String?
   
-  // Audit
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  // Multiple refunds/payments
+  refunds              Json?          // Array of SalesReturnPayment
+  payments             Json?          // Array of SalesReturnPayment
   
+  // Voucher links
+  paymentVoucherSystemId   String?    // Single refund (deprecated)
+  paymentVoucherSystemIds  String[]   // Multiple refunds
+  receiptVoucherSystemIds  String[]   // Multiple customer payments
+  
+  // Creator info
+  creatorSystemId      String?
+  creatorName          String?
+  
+  // Activity History
+  activityHistory      Json?
+  
+  // === RELATIONS ===
+  items      SalesReturnItem[]
+  orders     Order             @relation(fields: [orderId], references: [systemId])
+
+  @@index([orderId])
+  @@index([status])
   @@map("sales_returns")
 }

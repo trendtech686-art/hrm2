@@ -1,60 +1,13 @@
-import type { BusinessId, SystemId } from '@/lib/id-types';
-import type { HistoryEntry } from '@/lib/activity-history-helper';
+// Re-export types from prisma-extended
+export type { 
+  Penalty, 
+  PenaltyStatus, 
+  PenaltyCategory, 
+  PenaltyType 
+} from '@/lib/types/prisma-extended';
 
-export type PenaltyStatus = 'Chưa thanh toán' | 'Đã thanh toán' | 'Đã hủy';
-export type PenaltyCategory = 'complaint' | 'attendance' | 'performance' | 'other';
-
-export type Penalty = {
-  systemId: SystemId;
-  id: BusinessId;
-  employeeSystemId: SystemId;
-  employeeName: string;
-  reason: string;
-  amount: number;
-  issueDate: string; // YYYY-MM-DD
-  status: PenaltyStatus;
-  issuerName: string; // Employee Name of the issuer
-  issuerSystemId?: SystemId; // Employee SystemId of the issuer
-  
-  // Linked entities
-  linkedComplaintSystemId?: SystemId; // Link to Complaint (if penalty from complaint)
-  linkedOrderSystemId?: SystemId; // Link to Order (if applicable)
-  
-  // Penalty type
-  penaltyTypeSystemId?: SystemId; // Link to PenaltyType settings
-  penaltyTypeName?: string; // Cached name
-  category?: PenaltyCategory;
-  
-  // Payroll integration
-  deductedInPayrollId?: string; // ID of payroll where this was deducted
-  deductedAt?: string; // Date when deducted from salary
-  
-  // Audit
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: SystemId;
-  updatedBy?: SystemId;
-  activityHistory?: HistoryEntry[];
-};
-
-// =============================================
-// PENALTY TYPE - Settings for penalty categories
-// =============================================
-
-export type PenaltyType = {
-  systemId: SystemId;
-  id: BusinessId;
-  name: string; // VD: "Làm hỏng hàng khách", "Đi làm trễ"
-  description?: string;
-  defaultAmount: number; // Mức phạt mặc định
-  category: PenaltyCategory;
-  isActive: boolean;
-  order: number; // For sorting in UI
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: SystemId;
-  updatedBy?: SystemId;
-};
+// Import types for use in constants
+import type { PenaltyStatus, PenaltyCategory } from '@/lib/types/prisma-extended';
 
 // =============================================
 // CONSTANTS

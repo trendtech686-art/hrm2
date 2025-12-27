@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { Link, useLocation } from '@/lib/next-compat';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Users, Command, FileText, Building2, UserCog, Clock, CalendarOff, Landmark, Target,
   Briefcase, Package, ShoppingCart, Truck, History, Banknote, BookUser, Wrench,
@@ -144,12 +145,12 @@ function SidebarNavLink({
   label: string; 
   collapsed?: boolean 
 }) {
-  const location = useLocation();
-  const isActive = location.pathname === href || (href !== "/" && location.pathname.startsWith(href) && href !== '/dashboard');
+  const pathname = usePathname();
+  const isActive = pathname === href || (href !== "/" && pathname.startsWith(href) && href !== '/dashboard');
 
   const linkContent = (
     <Link
-      to={href}
+      href={href}
       className={cn(
         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
         collapsed && 'justify-center px-2',
@@ -205,7 +206,7 @@ export function Sidebar() {
     return (
         <SidebarPrimitive>
             <SidebarHeader>
-                <Link to="/" className="flex items-center gap-2 font-semibold text-lg overflow-hidden">
+                <Link href="/" className="flex items-center gap-2 font-semibold text-lg overflow-hidden">
                     <Command className="h-6 w-6 shrink-0" />
                     {!isSidebarCollapsed && <span className="truncate">ACME ERP</span>}
                 </Link>
@@ -260,7 +261,7 @@ export function Sidebar() {
                                     className="h-9 w-10 rounded-lg"
                                     asChild
                                 >
-                                    <Link to="/profile">
+                                    <Link href="/profile">
                                         <Avatar className="h-8 w-8">
                                             <AvatarImage src={loggedInUser?.avatarUrl} />
                                             <AvatarFallback className="text-xs">
@@ -277,7 +278,7 @@ export function Sidebar() {
                         </Tooltip>
                     </TooltipProvider>
                 ) : (
-                    <Link to="/profile" className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted transition-colors">
+                    <Link href="/profile" className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted transition-colors">
                         <Avatar className="h-8 w-8">
                             <AvatarImage src={loggedInUser?.avatarUrl} />
                             <AvatarFallback className="text-xs">

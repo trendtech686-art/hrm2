@@ -1,50 +1,60 @@
-// ═══════════════════════════════════════════════════════════════
-// STOCK TRANSFER MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: STRANS0000000001 (English, 10 digits)
-// BusinessId: CK0000000001 (Vietnamese - Chuyển kho, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model StockTransfer {
-  systemId          String              @id           // STRANS0000000001
-  id                String              @unique       // CK0000000001
+  systemId     String              @id
+  id           String              @unique
+  fromBranchId String
+  toBranchId   String
+  employeeId   String?
+  transferDate DateTime            @default(now())
+  receivedDate DateTime?
+  status       StockTransferStatus @default(DRAFT)
+  notes        String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  createdBy    String?
+  updatedBy    String?
   
-  // Source
-  fromBranchId      String?
-  fromBranch        Branch?             @relation("TransferFrom", fields: [fromBranchId], references: [systemId])
-  fromLocationId    String?
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
-  // Destination
-  toBranchId        String?
-  toBranch          Branch?             @relation("TransferTo", fields: [toBranchId], references: [systemId])
-  toLocationId      String?
+  // Reference code
+  referenceCode        String?
   
-  // Transfer details
-  transferDate      DateTime            @default(now())
-  expectedDate      DateTime?
-  completedDate     DateTime?
+  // Branch info (denormalized)
+  fromBranchSystemId   String?
+  fromBranchName       String?
+  toBranchSystemId     String?
+  toBranchName         String?
   
-  // Status
-  status            TransferStatus      @default(PENDING)
+  // Created by info
+  createdDate          DateTime     @default(now())
+  createdBySystemId    String?
+  createdByName        String?
   
-  // Notes
-  reason            String?
-  notes             String?
+  // Transfer confirmation
+  transferredDate      DateTime?
+  transferredBySystemId String?
+  transferredByName    String?
   
-  // Relations
-  items             StockTransferItem[]
+  // Receive confirmation
+  receivedBySystemId   String?
+  receivedByName       String?
   
-  // Soft delete
-  isDeleted         Boolean             @default(false)
-  deletedAt         DateTime?
+  // Cancellation
+  cancelledDate        DateTime?
+  cancelledBySystemId  String?
+  cancelledByName      String?
+  cancelReason         String?
   
-  // Audit
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  approvedBy        String?
-  approvedAt        DateTime?
+  // Items (stored as JSON)
+  transferItems        Json?        // Array of StockTransferItem with receivedQuantity
   
+  // Note
+  note                 String?
+  
+  // === RELATIONS ===
+  items        StockTransferItem[]
+
+  @@index([fromBranchId])
+  @@index([status])
+  @@index([toBranchId])
   @@map("stock_transfers")
 }

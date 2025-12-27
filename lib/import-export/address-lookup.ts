@@ -10,7 +10,7 @@
  */
 
 import { useProvinceStore } from '@/features/settings/provinces/store';
-import type { EmployeeAddress, AddressInputLevel } from '@/features/employees/types';
+import type { EmployeeAddress, AddressInputLevel } from '@/lib/types/prisma-extended';
 
 // Common aliases for provinces
 // KEY = name in provinces-data (TP HCM, Hà Nội, etc.)

@@ -1,39 +1,15 @@
-// ═══════════════════════════════════════════════════════════════
-// INVENTORY CHECK ITEM MODEL
-// ═══════════════════════════════════════════════════════════════
-
 model InventoryCheckItem {
-  systemId          String          @id @default(uuid())
-  
-  // Parent Check
-  checkId           String
-  inventoryCheck    InventoryCheck  @relation(fields: [checkId], references: [systemId])
-  
-  // Product
-  productId         String
-  productName       String
-  productSku        String?
-  
-  // Quantities
-  systemQuantity    Int             // Quantity in system
-  actualQuantity    Int             // Actual counted quantity
-  variance          Int             @default(0) // actualQuantity - systemQuantity
-  
-  // Cost
-  unitCost          Decimal         @default(0) @db.Decimal(15, 2)
-  varianceValue     Decimal         @default(0) @db.Decimal(15, 2)
-  
-  // Status
-  status            String          @default("pending") // pending, counted, verified
-  
-  // Notes
-  notes             String?
-  
-  // Audit
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  countedBy         String?
-  countedAt         DateTime?
-  
+  systemId       String         @id @default(uuid())
+  checkId        String
+  productId      String
+  productName    String
+  productSku     String
+  systemQty      Int
+  actualQty      Int
+  difference     Int
+  notes          String?
+  inventoryCheck InventoryCheck @relation(fields: [checkId], references: [systemId], onDelete: Cascade)
+
+  @@index([checkId])
   @@map("inventory_check_items")
 }

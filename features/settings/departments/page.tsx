@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { 
   DndContext, 
   DragOverlay,
@@ -19,7 +19,7 @@ import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useDepartmentStore } from './store';
 import { useEmployeeStore } from '../../employees/store';
 import { useJobTitleStore } from '../job-titles/store';
-import type { Department } from './types';
+import type { Department } from '@/lib/types/prisma-extended';
 import type { Employee } from '../../employees/types';
 import type { JobTitle } from '../job-titles/types';
 import { cn } from '../../../lib/utils';
@@ -402,7 +402,7 @@ const ManageJobTitlesDialog = React.memo(function ManageJobTitlesDialog({ isOpen
 export function DepartmentsPage() {
   const { data: departments, update: updateDepartment } = useDepartmentStore();
   const { data: employees, update: updateEmployee } = useEmployeeStore();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const [isDeptFormOpen, setIsDeptFormOpen] = React.useState(false);
   const [isJobTitleFormOpen, setIsJobTitleFormOpen] = React.useState(false);
@@ -537,12 +537,12 @@ export function DepartmentsPage() {
     </SettingsActionButton>,
     <SettingsActionButton 
       key="view-org-chart"
-      onClick={() => navigate('/departments/organization-chart')}
+      onClick={() => router.push('/departments/organization-chart')}
     >
       <Users className="h-4 w-4" />
       Sơ đồ tổ chức
     </SettingsActionButton>
-  ], [navigate]);
+  ], [router]);
 
   useSettingsPageHeader({
     title: 'Quản lý Phòng ban',
@@ -708,7 +708,7 @@ export function DepartmentsPage() {
                 <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>Đóng</Button>
                 <Button onClick={() => {
                     setIsDetailDialogOpen(false);
-                    navigate(`/employees/${selectedEmployee!.systemId}`);
+                    router.push(`/employees/${selectedEmployee!.systemId}`);
                 }}>Xem chi tiết</Button>
             </DialogFooter>
         </DialogContent>

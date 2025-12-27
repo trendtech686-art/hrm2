@@ -1,7 +1,7 @@
 ﻿import * as React from "react";
-import { Link, useNavigate } from '@/lib/next-compat';
+import Link from 'next/link';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
-import type { PurchaseOrder, PurchaseOrderStatus } from './types'
+import type { PurchaseOrder, PurchaseOrderStatus } from '@/lib/types/prisma-extended'
 import type { Branch } from '../settings/branches/types';
 import { Checkbox } from "../../components/ui/checkbox"
 import { Badge } from "../../components/ui/badge"
@@ -62,7 +62,7 @@ export const getColumns = (
     id: "id",
     accessorKey: "id",
     header: "Mã đơn nhập hàng",
-    cell: ({ row }) => <div className="text-body-sm font-medium text-primary hover:underline"><Link to={`/purchase-orders/${row.systemId}`}>{row.id}</Link></div>,
+    cell: ({ row }) => <div className="text-body-sm font-medium text-primary hover:underline"><Link href={`/purchase-orders/${row.systemId}`}>{row.id}</Link></div>,
     meta: { displayName: "Mã đơn nhập hàng" },
     size: 150,
   },

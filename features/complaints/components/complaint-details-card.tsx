@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { cn } from "../../../lib/utils";
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, currentUser, employees }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   return (
     <Card>
@@ -105,7 +105,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
             <div className="flex items-center gap-2 md:col-span-2">
               <span className="text-muted-foreground">Người chịu trách nhiệm:</span>
               <button
-                onClick={() => navigate(`/employees/${complaint.responsibleUserId}`)}
+                onClick={() => router.push(`/employees/${complaint.responsibleUserId}`)}
                 className="font-medium text-primary hover:underline"
               >
                 {employees.find((e) => e.systemId === complaint.responsibleUserId)?.fullName}

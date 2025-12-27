@@ -4,8 +4,8 @@
  * Nhập/Xuất phiếu chi
  */
 
-import type { Payment, PaymentStatus, PaymentCategory } from '@/features/payments/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { Payment, PaymentStatus, PaymentCategory } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useCustomerStore } from '@/features/customers/store';
 import { useSupplierStore } from '@/features/suppliers/store';
 import { useEmployeeStore } from '@/features/employees/store';

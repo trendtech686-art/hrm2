@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react";
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, Link2, Unlink, FileUp, Download } from "lucide-react";
 import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
@@ -35,7 +35,7 @@ import { brandImportExportConfig } from "@/lib/import-export/configs/brand.confi
 import { useAuth } from "@/contexts/auth-context";
 
 export function BrandsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const { employee: authEmployee } = useAuth();
   
@@ -123,8 +123,8 @@ export function BrandsPage() {
   }, [rowSelection, update]);
 
   const handleRowClick = React.useCallback((brand: Brand) => {
-    navigate(`/brands/${brand.systemId}`);
-  }, [navigate]);
+    router.push(`/brands/${brand.systemId}`);
+  }, [router]);
 
   // PKGX Sync Hook
   const { handleSyncBasicInfo, handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
@@ -183,7 +183,7 @@ export function BrandsPage() {
   const columns = React.useMemo(() => getColumns(
     handleDelete, 
     handleToggleActive, 
-    navigate,
+    router.push,
     handleUpdateName,
     // PKGX handlers - used by PkgxBrandActionsCell
     hasPkgxMapping,
@@ -191,7 +191,7 @@ export function BrandsPage() {
     handlePkgxLink,
     handlePkgxUnlink,
     handlePkgxViewDetail,
-  ), [handleDelete, handleToggleActive, navigate, handleUpdateName, hasPkgxMapping, getPkgxBrandId, handlePkgxLink, handlePkgxUnlink, handlePkgxViewDetail]);
+  ), [handleDelete, handleToggleActive, router, handleUpdateName, hasPkgxMapping, getPkgxBrandId, handlePkgxLink, handlePkgxUnlink, handlePkgxViewDetail]);
 
   // Bulk actions config
   const bulkActions = React.useMemo(() => [
@@ -494,11 +494,11 @@ export function BrandsPage() {
 
   // Header actions
   const headerActions = React.useMemo(() => [
-    <Button key="add" size="sm" className="h-9" onClick={() => navigate('/brands/new')}>
+    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/brands/new')}>
       <Plus className="mr-2 h-4 w-4" />
       Thêm thương hiệu
     </Button>
-  ], [navigate]);
+  ], [router]);
 
   // Dùng auto-generated title từ PATH_PATTERNS
   usePageHeader({
@@ -570,7 +570,7 @@ export function BrandsPage() {
                   brand={brand}
                   onDelete={handleDelete}
                   onToggleActive={handleToggleActive}
-                  navigate={navigate}
+                  navigate={router.push}
                   handleRowClick={handleRowClick}
                 />
               ))}
@@ -626,7 +626,7 @@ export function BrandsPage() {
                 brand={brand}
                 onDelete={handleDelete}
                 onToggleActive={handleToggleActive}
-                navigate={navigate}
+                navigate={router.push}
                 handleRowClick={handleRowClick}
               />
             )}

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat'
+import { useRouter } from 'next/navigation'
 import { useEmployeeStore } from "./store"
 import { useBranchStore } from "../settings/branches/store";
 import { usePageHeader } from "../../contexts/page-header-context"
@@ -12,7 +12,7 @@ import { Button } from "../../components/ui/button"
 import { Plus, Upload, Download, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import Fuse from 'fuse.js'
-import type { Employee } from "./types"
+import type { Employee } from '@/lib/types/prisma-extended'
 
 /**
  * 🚀 VIRTUALIZED EMPLOYEES PAGE
@@ -24,7 +24,7 @@ import type { Employee } from "./types"
  */
 
 export function EmployeesVirtualizedPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const employeeStore = useEmployeeStore()
   const { data: allEmployees } = employeeStore
   const { data: branchesRaw } = useBranchStore()
@@ -121,10 +121,10 @@ export function EmployeesVirtualizedPage() {
         employeeStore.restore(asSystemId(systemId))
         toast.success('Đã khôi phục nhân viên')
       },
-      navigate,
+      router,
       branchesRaw
     ),
-    [employeeStore, navigate, branchesRaw]
+    [employeeStore, router, branchesRaw]
   )
 
   // Page header actions
@@ -140,7 +140,7 @@ export function EmployeesVirtualizedPage() {
     <Button key="reset" variant="destructive" size="sm" onClick={handleResetData}>
       🔄 Reset 20K Rows
     </Button>,
-    <Button key="add" size="sm" onClick={() => navigate('/employees/add')}>
+    <Button key="add" size="sm" onClick={() => router.push('/employees/add')}>
       <Plus className="mr-2 h-4 w-4" />
       Thêm mới
     </Button>,
@@ -152,7 +152,7 @@ export function EmployeesVirtualizedPage() {
       <Download className="mr-2 h-4 w-4" />
       Export
     </Button>,
-  ], [navigate])
+  ], [router])
 
   usePageHeader({ 
     title: `👥 Nhân viên (Virtualized) - ${allEmployees.length.toLocaleString()} rows`,
@@ -267,7 +267,7 @@ export function EmployeesVirtualizedPage() {
         setExpanded={setExpanded}
         onBulkDelete={handleBulkDelete}
         allSelectedRows={selectedRows}
-        onRowClick={(employee) => navigate(`/employees/${employee.systemId}`)}
+        onRowClick={(employee) => router.push(`/employees/${employee.systemId}`)}
         estimateRowHeight={53}
         overscan={10}
       />

@@ -1,5 +1,5 @@
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { Tax } from './types';
+import type { Tax } from '@/lib/types/prisma-extended';
 import { buildSeedAuditFields } from '@/lib/seed-audit';
 
 export const data: Tax[] = [

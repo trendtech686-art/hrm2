@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useInventoryCheckStore } from './store';
 import { useProductStore } from '../products/store';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
@@ -51,7 +52,7 @@ import {
 
 export function InventoryCheckDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isMobile } = useBreakpoint();
   const { findById, balanceCheck, cancelCheck } = useInventoryCheckStore();
   const { findById: findProductById } = useProductStore();
@@ -163,7 +164,7 @@ export function InventoryCheckDetailPage() {
     if (!confirm('Bạn có chắc muốn hủy phiếu kiểm hàng này?')) return;
     cancelCheck(check.systemId as SystemId, 'Hủy từ trang chi tiết');
     toast.success('Đã hủy phiếu kiểm hàng');
-    navigate('/inventory-checks');
+    router.push('/inventory-checks');
   };
 
   const { findById: findBranchById } = useBranchStore();
@@ -210,7 +211,7 @@ export function InventoryCheckDetailPage() {
         variant="outline"
         size="sm"
         className="h-9"
-        onClick={() => navigate(`/inventory-checks/${check.systemId}/edit`)}
+        onClick={() => router.push(`/inventory-checks/${check.systemId}/edit`)}
       >
         <Pencil className="mr-2 h-4 w-4" />
         Sửa
@@ -244,7 +245,7 @@ export function InventoryCheckDetailPage() {
     }
 
     return btns;
-  }, [check, handleCancel, navigate]);
+  }, [check, handleCancel, router]);
 
   // Breadcrumb with check id
   const breadcrumb = React.useMemo(() => [
@@ -458,8 +459,7 @@ export function InventoryCheckDetailPage() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-0.5">
-                        <Link
-                          to={`/products/${item.productSystemId}`}
+                        <Link href={`/products/${item.productSystemId}`}
                           className="font-medium text-primary hover:underline block"
                         >
                           {item.productName}
@@ -467,8 +467,7 @@ export function InventoryCheckDetailPage() {
                         <div className="flex items-center gap-1 text-body-xs text-muted-foreground">
                           <span>{productTypeName}</span>
                           <span>-</span>
-                          <Link
-                            to={`/products/${item.productSystemId}`}
+                          <Link href={`/products/${item.productSystemId}`}
                             className="text-primary hover:underline"
                           >
                             {item.productId}
@@ -520,8 +519,7 @@ export function InventoryCheckDetailPage() {
                     <div className="flex-1">
                       <div className="font-medium">{item.productName}</div>
                       <div className="text-body-sm text-muted-foreground">
-                        <Link
-                          to={`/products/${item.productSystemId}`}
+                        <Link href={`/products/${item.productSystemId}`}
                           className="text-primary hover:underline font-medium"
                         >
                           {item.productId}

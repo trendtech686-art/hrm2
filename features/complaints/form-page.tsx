@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from "react";
-import { useParams, useNavigate, useLocation, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
@@ -129,9 +130,8 @@ const ProductThumbnailCell = ({
  * Form Page - Tạo/Sửa khiếu nại
  */
 export function ComplaintFormPage() {
-  const { systemId } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { setPageHeader } = usePageHeader();
   
   const { getComplaintById, addComplaint, updateComplaint } = useComplaintStore();
@@ -485,7 +485,7 @@ export function ComplaintFormPage() {
       variant="outline"
       size="sm"
       className="h-9"
-      onClick={() => navigate(ROUTES.INTERNAL.COMPLAINTS)}
+      onClick={() => router.push(ROUTES.INTERNAL.COMPLAINTS)}
       disabled={isSubmitting}
     >
       Hủy
@@ -502,7 +502,7 @@ export function ComplaintFormPage() {
     >
       {isSubmitting ? "Đang lưu..." : isEditing ? "Cập nhật" : "Tạo khiếu nại"}
     </Button>,
-  ]), [isEditing, isSubmitting, navigate, selectedOrder]);
+  ]), [isEditing, isSubmitting, router, selectedOrder]);
 
   const headerSubtitle = React.useMemo(() => {
     if (complaint) {
@@ -788,7 +788,7 @@ export function ComplaintFormPage() {
       if (isEditing && systemId) {
         updateComplaint(asSystemId(systemId), complaintData as any);
         toast.success("Đã cập nhật khiếu nại");
-        navigate(`/complaints/${systemId}`); // Navigate to detail page
+        router.push(`/complaints/${systemId}`); // Navigate to detail page
       } else {
         const newSystemId = addComplaint(complaintData as any);
         
@@ -812,7 +812,7 @@ export function ComplaintFormPage() {
         });
         
         complaintNotifications.onCreate("Đã tạo khiếu nại mới và gửi thông báo cho nhân viên");
-        navigate(`/complaints/${newSystemId}`); // Navigate to detail page
+        router.push(`/complaints/${newSystemId}`); // Navigate to detail page
       }
     } catch (error) {
       console.error("Error submitting complaint:", error);
@@ -1068,7 +1068,7 @@ export function ComplaintFormPage() {
                                   <span>{productTypeLabel}</span>
                                   <span>-</span>
                                   <Link 
-                                    to={`/products/${item.productSystemId}`} 
+                                    href={`/products/${item.productSystemId}`} 
                                     className="text-primary hover:underline"
                                   >
                                     {item.productId}

@@ -4,8 +4,8 @@
  * Nhập/Xuất danh sách nhà cung cấp
  */
 
-import type { Supplier, SupplierStatus } from '@/features/suppliers/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { Supplier, SupplierStatus } from '@/lib/types/prisma-extended';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 // ============================================

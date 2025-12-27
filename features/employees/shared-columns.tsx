@@ -7,7 +7,7 @@
 
 import * as React from "react";
 import { formatDateCustom } from '../../lib/date-utils';
-import type { Employee } from './types';
+import type { Employee } from '@/lib/types/prisma-extended';
 import type { Branch } from "../settings/branches/types";
 import { Checkbox } from "../../components/ui/checkbox";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";

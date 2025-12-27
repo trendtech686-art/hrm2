@@ -1,52 +1,78 @@
-// ═══════════════════════════════════════════════════════════════
-// RECEIPT MODEL (Thu tiền)
-// ═══════════════════════════════════════════════════════════════
-// SystemId: REC0000000001 (English, 10 digits)
-// BusinessId: PT0000000001 (Vietnamese - Phiếu thu, 10 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model Receipt {
-  systemId          String        @id           // REC0000000001
-  id                String        @unique       // PT0000000001
+  systemId      String      @id
+  id            String      @unique
+  type          ReceiptType
+  customerId    String?
+  branchId      String
+  employeeId    String?
+  accountId     String?
+  referenceType String?
+  referenceId   String?
+  amount        Decimal     @db.Decimal(15, 2)
+  paymentMethod String?
+  receiptDate   DateTime    @default(now())
+  description   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  createdBy     String?
+  method        String?
+  orderId       String?
   
-  // Related Order
-  orderId           String?
-  order             Order?        @relation(fields: [orderId], references: [systemId])
-  
-  // Customer
-  customerId        String?
-  customerName      String?
-  
-  // Branch
-  branchId          String?
-  branch            Branch?       @relation(fields: [branchId], references: [systemId])
-  
-  // Cash Account
-  cashAccountId     String?
-  cashAccount       CashAccount?  @relation(fields: [cashAccountId], references: [systemId])
-  
-  // Payment details
-  receiptDate       DateTime      @default(now())
-  amount            Decimal       @db.Decimal(15, 2)
-  paymentMethod     String?       // cash, card, bank_transfer
-  reference         String?       // transaction ref
+  // === MISSING FIELDS FROM types.ts (Phase 7) ===
   
   // Status
-  status            String        @default("completed") // draft, completed, cancelled
+  status             String       @default("completed") // 'completed' | 'cancelled'
+  category           String?      // 'sale' | 'complaint_penalty' | 'warranty_additional' | etc.
+  cancelledAt        DateTime?
   
-  // Notes
-  description       String?
-  notes             String?
+  // Payer info (Link to TargetGroup settings)
+  payerTypeSystemId  String?      // Link to TargetGroup
+  payerTypeName      String?      // Cached name
+  payerName          String?
+  payerSystemId      String?      // Link to customer/supplier/employee
   
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
+  // Payment Method (Link to PaymentMethod settings)
+  paymentMethodSystemId   String?
+  paymentMethodName       String?
   
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
+  // Account & Type (Link to settings)
+  accountSystemId             String?
+  paymentReceiptTypeSystemId  String?
+  paymentReceiptTypeName      String?
   
+  // Branch info
+  branchSystemId     String?
+  branchName         String?
+  
+  // Date fields
+  recognitionDate    DateTime?    // Ngày ghi nhận
+  
+  // Links to other documents
+  originalDocumentId        String?   // Link to Order/Complaint/Warranty (Business ID)
+  purchaseOrderSystemId     String?   // Link to purchase order
+  purchaseOrderId           String?   // Cache business id for display
+  linkedWarrantySystemId    String?   // Link to Warranty
+  linkedComplaintSystemId   String?   // Link to Complaint
+  linkedOrderSystemId       String?   // Link to Order
+  linkedSalesReturnSystemId String?   // Link to Sales Return
+  
+  // Customer info (denormalized)
+  customerSystemId   String?
+  customerName       String?
+  
+  // Financial
+  affectsDebt        Boolean      @default(true)
+  runningBalance     Decimal?     @db.Decimal(15, 2)
+  orderAllocations   Json?        // Array of { orderSystemId, orderId, amount }
+  
+  // Activity History
+  activityHistory    Json?
+  
+  // === RELATIONS ===
+  customers     Customer?   @relation(fields: [customerId], references: [systemId])
+  order         Order?      @relation(fields: [orderId], references: [systemId])
+
+  @@index([customerId])
+  @@index([type])
   @@map("receipts")
 }

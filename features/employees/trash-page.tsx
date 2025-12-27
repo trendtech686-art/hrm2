@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
@@ -13,13 +13,13 @@ import { Card, CardContent } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { getApiUrl } from "../../lib/api-config"
-import type { Employee } from "./types"
+import type { Employee } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types';
 
 export function EmployeesTrashPage() {
   const { data, getDeleted, restore, permanentDelete } = useEmployeeStore();
   const { data: branchesRaw } = useBranchStore();
-  const navigate = useNavigate();
+  const router = useRouter();
   
   usePageHeader({
     title: 'Thùng rác nhân viên',
@@ -30,7 +30,7 @@ export function EmployeesTrashPage() {
     ],
     showBackButton: false,
     actions: [
-      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => navigate('/employees')}>
+      <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees')}>
         Quay lại danh sách
       </Button>,
     ],
@@ -93,9 +93,9 @@ export function EmployeesTrashPage() {
   const columns = React.useMemo(
     () => {
       // Pass real handlers to columns for button clicks
-      return getColumns(navigate, handleRestoreFromColumn, handleDeleteFromColumn, branches);
+      return getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn, branches);
     },
-    [navigate, handleRestoreFromColumn, handleDeleteFromColumn, branches, data] // Add data to re-create columns on store update
+    [router, handleRestoreFromColumn, handleDeleteFromColumn, branches, data] // Add data to re-create columns on store update
   );
 
   const getInitials = (name: string) => {

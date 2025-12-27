@@ -13,7 +13,7 @@ import { persist } from 'zustand/middleware';
 import type { SystemId, BusinessId } from '../../lib/id-types';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { generateSystemId, generateBusinessId, getMaxSystemIdCounter, getMaxBusinessIdCounter } from '../../lib/id-utils';
-import type { Shipment } from './types';
+import type { Shipment } from '@/lib/types/prisma-extended';
 
 // ========================================
 // CONSTANTS

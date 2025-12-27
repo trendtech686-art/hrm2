@@ -1,59 +1,16 @@
-// ═══════════════════════════════════════════════════════════════
-// PRICING POLICY MODEL
-// ═══════════════════════════════════════════════════════════════
-// SystemId: PP000001 (English, 6 digits)
-// BusinessId: CSGIA000001 (Vietnamese - Chính sách giá, 6 digits)
-// ═══════════════════════════════════════════════════════════════
-
 model PricingPolicy {
-  systemId          String        @id           // PP000001
-  id                String        @unique       // CSGIA000001
-  
-  // Basic info
-  name              String
-  code              String?       @unique
-  description       String?
-  
-  // Type
-  type              String        // discount, markup, special
-  
-  // Discount/Markup
-  discountType      String?       // percentage, fixed
-  discountValue     Decimal       @default(0) @db.Decimal(15, 2)
-  discountPercent   Decimal       @default(0) @db.Decimal(5, 2)
-  
-  // Conditions
-  minQuantity       Int?
-  minAmount         Decimal?      @db.Decimal(15, 2)
-  maxAmount         Decimal?      @db.Decimal(15, 2)
-  
-  // Validity
-  startDate         DateTime?
-  endDate           DateTime?
-  
-  // Scope
-  applyToAll        Boolean       @default(false)
-  customerGroups    String[]      // customer group IDs
-  productCategories String[]      // category IDs
-  
-  // Priority
-  priority          Int           @default(0)
-  
-  // Status
-  isActive          Boolean       @default(true)
-  
-  // Relations
-  prices            ProductPrice[]
-  
-  // Soft delete
-  isDeleted         Boolean       @default(false)
-  deletedAt         DateTime?
-  
-  // Audit
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  
+  systemId    String         @id
+  id          String         @unique
+  name        String
+  description String?
+  type        String?        // 'Nhập hàng' | 'Bán hàng'
+  isDefault   Boolean        @default(false)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  prices      ProductPrice[]
+
   @@map("pricing_policies")
 }

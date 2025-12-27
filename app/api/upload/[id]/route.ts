@@ -17,11 +17,11 @@ export async function GET(
   try {
     const { id } = await params
     
-    const file = await prisma.fileUpload.findUnique({
+    const file = await prisma.file.findUnique({
       where: { systemId: id },
     })
     
-    if (!file || file.isDeleted) {
+    if (!file) {
       return NextResponse.json(
         { success: false, message: 'File không tồn tại' },
         { status: 404 }
@@ -32,14 +32,14 @@ export async function GET(
       success: true,
       data: {
         id: file.systemId,
-        fileName: file.fileName,
+        fileName: file.filename,
         originalName: file.originalName,
-        mimeType: file.mimeType,
-        fileSize: file.fileSize,
-        url: file.publicUrl,
+        mimeType: file.mimetype,
+        fileSize: file.filesize,
+        url: `/uploads/${file.filepath}`,
         entityType: file.entityType,
         entityId: file.entityId,
-        createdAt: file.createdAt,
+        createdAt: file.uploadedAt,
       },
     })
     
@@ -60,7 +60,7 @@ export async function DELETE(
   try {
     const { id } = await params
     
-    const file = await prisma.fileUpload.findUnique({
+    const file = await prisma.file.findUnique({
       where: { systemId: id },
     })
     
@@ -77,10 +77,10 @@ export async function DELETE(
     
     if (hardDelete) {
       // Delete from disk
-      await deleteFileFromDisk(file.storagePath)
+      await deleteFileFromDisk(file.filepath)
       
       // Delete from database
-      await prisma.fileUpload.delete({
+      await prisma.file.delete({
         where: { systemId: id },
       })
       
@@ -89,13 +89,11 @@ export async function DELETE(
         message: 'File đã được xóa vĩnh viễn',
       })
     } else {
-      // Soft delete
-      await prisma.fileUpload.update({
+      // Hard delete (soft delete not supported in schema)
+      await deleteFileFromDisk(file.filepath)
+      
+      await prisma.file.delete({
         where: { systemId: id },
-        data: {
-          isDeleted: true,
-          deletedAt: new Date(),
-        },
       })
       
       return NextResponse.json({
@@ -122,11 +120,11 @@ export async function PATCH(
     const { id } = await params
     const body = await request.json()
     
-    const file = await prisma.fileUpload.findUnique({
+    const file = await prisma.file.findUnique({
       where: { systemId: id },
     })
     
-    if (!file || file.isDeleted) {
+    if (!file) {
       return NextResponse.json(
         { success: false, message: 'File không tồn tại' },
         { status: 404 }
@@ -142,17 +140,11 @@ export async function PATCH(
     if (body.entityId !== undefined) {
       updateData.entityId = body.entityId
     }
-    if (body.isPublic !== undefined) {
-      updateData.isPublic = body.isPublic
-    }
-    if (body.metadata !== undefined) {
-      updateData.metadata = {
-        ...(file.metadata as object || {}),
-        ...body.metadata,
-      }
+    if (body.documentType !== undefined) {
+      updateData.documentType = body.documentType
     }
     
-    const updated = await prisma.fileUpload.update({
+    const updated = await prisma.file.update({
       where: { systemId: id },
       data: updateData,
     })

@@ -1,0 +1,23 @@
+model ShippingPartner {
+  systemId      String   @id @default(uuid())
+  id            String   @unique
+  name          String
+  code          String   @unique // GHN, GHTK, VNPost, etc.
+  description   String?
+  logo          String?
+  website       String?
+  // Connection status
+  isActive      Boolean  @default(true)
+  isConnected   Boolean  @default(false)
+  // Configuration (JSON structure)
+  services      Json?    // Available shipping services
+  credentials   Json?    // API credentials (encrypted)
+  configuration Json?    // Partner-specific config
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  @@map("shipping_partners")
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate, useLocation } from '@/lib/next-compat';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '../../components/ui/input-otp';
@@ -11,15 +11,15 @@ import { ROUTES } from '../../lib/router';
 const CORRECT_OTP = '123456'; // Mock OTP for testing
 
 export function OtpVerificationPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [otp, setOtp] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [countdown, setCountdown] = React.useState(60);
   const [canResend, setCanResend] = React.useState(false);
 
-  const email = location.state?.email || 'user@example.com';
-  const from = location.state?.from || 'login';
+  const email = searchParams.get('email') || 'user@example.com';
+  const from = searchParams.get('from') || 'login';
 
   // Countdown timer for resend
   React.useEffect(() => {
@@ -52,11 +52,11 @@ export function OtpVerificationPage() {
             role: 'user',
             verified: true
           }));
-          navigate(ROUTES.DASHBOARD);
+          router.push(ROUTES.DASHBOARD);
         } else {
           // For password reset or other flows
           toast.info('OTP đã được xác thực');
-          navigate('/login');
+          router.push('/login');
         }
       } else {
         toast.error('Mã OTP không đúng. Vui lòng thử lại.date');
@@ -146,7 +146,7 @@ export function OtpVerificationPage() {
                 href="/login"
                 onClick={(e) => {
                   e.preventDefault();
-                  navigate('/login');
+                  router.push('/login');
                 }}
                 className="text-muted-foreground underline underline-offset-4 hover:text-primary"
               >

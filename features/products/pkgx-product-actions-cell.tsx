@@ -8,7 +8,7 @@ import * as React from 'react';
 import { MoreHorizontal, RefreshCw, FileText, DollarSign, Package, Search, AlignLeft, Tag, Image, ExternalLink, Upload, Link2, Unlink } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import type { Product } from './types';
+import type { Product } from '@/lib/types/prisma-extended';
 import { usePkgxEntitySync } from '../settings/pkgx/hooks';
 import type { HrmProductData } from '../settings/pkgx/hooks';
 import { PkgxSyncConfirmDialog } from '../settings/pkgx/components/pkgx-sync-confirm-dialog';

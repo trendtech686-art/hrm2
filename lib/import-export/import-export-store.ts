@@ -6,7 +6,6 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { ImportLogEntry, ExportLogEntry } from './types';
 
 const MAX_LOGS = 200;  // Giới hạn để tránh localStorage quá tải
@@ -21,6 +20,7 @@ const generateLogId = (prefix: string): string => {
 interface ImportExportState {
   importLogs: ImportLogEntry[];
   exportLogs: ExportLogEntry[];
+  initialized: boolean;
   
   // Actions
   addImportLog: (log: Omit<ImportLogEntry, 'id'>) => string;
@@ -41,12 +41,12 @@ interface ImportExportState {
 }
 
 export const useImportExportStore = create<ImportExportState>()(
-  persist(
-    (set, get) => ({
-      importLogs: [],
-      exportLogs: [],
-      
-      addImportLog: (log) => {
+  (set, get) => ({
+    importLogs: [],
+    exportLogs: [],
+    initialized: false,
+    
+    addImportLog: (log) => {
         const id = generateLogId('IMP');
         const newLog: ImportLogEntry = { ...log, id };
         
@@ -113,12 +113,25 @@ export const useImportExportStore = create<ImportExportState>()(
           set({ importLogs: [], exportLogs: [] });
         }
       },
-    }),
-    {
-      name: 'hrm-import-export-logs',
-      version: 1,
-    }
-  )
+      
+      loadFromAPI: async () => {
+        if (get().initialized) return;
+        try {
+          const response = await fetch('/api/import-export-logs?limit=500');
+          if (response.ok) {
+            const json = await response.json();
+            const data = json.data || {};
+            set({ 
+              importLogs: data.importLogs || [], 
+              exportLogs: data.exportLogs || [],
+              initialized: true 
+            });
+          }
+        } catch (error) {
+          console.error('[Import Export Store] loadFromAPI error:', error);
+        }
+      },
+    })
 );
 
 // ============================================

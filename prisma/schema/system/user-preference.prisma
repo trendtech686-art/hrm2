@@ -1,0 +1,25 @@
+model UserPreference {
+  systemId  String    @id @default(dbgenerated("(gen_random_uuid())::character varying")) @db.VarChar(255)
+  userId    String    @db.VarChar(255)
+  key       String    @db.VarChar(255)
+  value     Json      @default("{}")
+  category  String?   @db.VarChar(100)
+  createdAt DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt DateTime? @default(now()) @updatedAt @db.Timestamp(6)
+
+  @@unique([userId, key])
+  @@index([userId], map: "idx_user_preferences_user")
+  @@map("user_preferences")
+}
+
+model ActiveTimer {
+  systemId    String    @id @default(dbgenerated("(gen_random_uuid())::character varying")) @db.VarChar(255)
+  userId      String    @unique @db.VarChar(255)
+  taskId      String    @db.VarChar(255)
+  startTime   DateTime  @db.Timestamp(6)
+  description String?
+  createdAt   DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime? @default(now()) @updatedAt @db.Timestamp(6)
+
+  @@map("active_timers")
+}

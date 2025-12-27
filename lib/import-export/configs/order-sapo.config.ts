@@ -18,8 +18,8 @@
  * - Trạng thái xuất kho → stockOutStatus
  */
 
-import type { Order, LineItem, OrderAddress, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, PackagingStatus } from '@/features/orders/types';
-import type { ImportExportConfig, FieldConfig } from '../types';
+import type { Order, LineItem, OrderAddress, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, PackagingStatus } from '@/features/orders/store';
+import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import { useCustomerStore } from '@/features/customers/store';
 import { useProductStore } from '@/features/products/store';
 import { useBranchStore } from '@/features/settings/branches/store';

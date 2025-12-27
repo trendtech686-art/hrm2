@@ -1,6 +1,6 @@
 
 import * as React from 'react';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import { PlusCircle, Package } from 'lucide-react';
 import type { Product } from '../../products/types';
 import type { ProductFormValues } from '../../products/validation';

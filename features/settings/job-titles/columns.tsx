@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { JobTitle } from './types'
+import type { JobTitle } from '@/lib/types/prisma-extended'
 // FIX: Replaced missing `DataTableRowActions` component with an inline `DropdownMenu` implementation to resolve module error.
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { Button } from "../../../components/ui/button";

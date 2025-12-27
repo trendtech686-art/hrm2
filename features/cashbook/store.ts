@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { data as initialData } from './data';
-import type { CashAccount } from './types';
+import type { CashAccount } from '@/lib/types/prisma-extended';
 import { findNextAvailableBusinessId, generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, type EntityType } from '../../lib/id-utils';
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 

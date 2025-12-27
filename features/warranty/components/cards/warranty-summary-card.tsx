@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Separator } from '../../../../components/ui/separator';
 import { Badge } from '../../../../components/ui/badge';
-import { Link } from '@/lib/next-compat';
+import Link from 'next/link';
 import type { WarrantyProduct } from '../../types';
 import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
@@ -239,16 +239,14 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
 
                     <div className="mt-2 flex flex-wrap gap-3 text-body-xs text-muted-foreground">
                       {method.paymentVoucherId && (
-                        <Link
-                          to={`/payments/${method.paymentVoucherId}`}
+                        <Link href={`/payments/${method.paymentVoucherId}`}
                           className="text-primary hover:underline"
                         >
                           Xem phiếu chi
                         </Link>
                       )}
                       {method.linkedOrderSystemId && (
-                        <Link
-                          to={`/orders/${method.linkedOrderSystemId}`}
+                        <Link href={`/orders/${method.linkedOrderSystemId}`}
                           className="text-primary hover:underline"
                         >
                           Xem đơn hàng

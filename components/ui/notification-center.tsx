@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, X, Check, CheckCheck } from 'lucide-react';
 import { Badge } from './badge';
 import { Button } from './button';
@@ -11,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from './dropdown-menu';
 import { formatDateTime } from '../../lib/date-utils';
-import { useNavigate } from '@/lib/next-compat';
 import { cn } from '../../lib/utils';
 
 /**
@@ -144,7 +144,7 @@ const notificationIcons: Record<Notification['type'], React.ReactNode> = {
 };
 
 export function NotificationCenter() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll } = useNotificationStore();
   const [open, setOpen] = React.useState(false);
 
@@ -154,10 +154,10 @@ export function NotificationCenter() {
     
     // Navigate if has link
     if (notification.link) {
-      navigate(notification.link);
+      router.push(notification.link);
       setOpen(false);
     }
-  }, [markAsRead, navigate]);
+  }, [markAsRead, router]);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

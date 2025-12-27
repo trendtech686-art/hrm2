@@ -133,6 +133,16 @@ export const ENTITY_PREFIXES = {
   // ========================================
   'users': 'USER',             // User accounts (for admin management)
   
+  // ========================================
+  // PKGX INTEGRATION (phukiengiaxuong.com.vn)
+  // ========================================
+  'pkgx-categories': 'PKGXCAT',        // Danh mục PKGX
+  'pkgx-brands': 'PKGXBRAND',          // Thương hiệu PKGX
+  'pkgx-category-mappings': 'CATMAP',  // Mapping danh mục HRM → PKGX
+  'pkgx-brand-mappings': 'BRANDMAP',   // Mapping thương hiệu HRM → PKGX
+  'pkgx-price-mappings': 'PRICEMAP',   // Mapping bảng giá HRM → PKGX
+  'pkgx-sync-logs': 'PKGXLOG',         // Log đồng bộ PKGX
+  
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

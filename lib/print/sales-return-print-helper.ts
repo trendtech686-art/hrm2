@@ -3,17 +3,18 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu trả hàng
  */
 
-import type { SalesReturn, ReturnLineItem } from '../../features/sales-returns/types';
-import type { Customer } from '../../features/customers/types';
-import type { Branch } from '../../features/settings/branches/types';
-import type { Employee } from '../../features/employees/types';
-import type { Order } from '../../features/orders/types';
+import type { SalesReturn, ReturnLineItem } from '../../features/sales-returns/store';
+import type { Customer } from '@/lib/types/prisma-extended';
+import type { Branch } from '@/lib/types/prisma-extended';
+import type { Employee } from '@/lib/types/prisma-extended';
+import type { Order } from '../../features/orders/store';
 import { 
   SalesReturnForPrint, 
   mapSalesReturnToPrintData, 
   mapSalesReturnLineItems,
 } from '../print-mappers/sales-return.mapper';
 import type { StoreSettings } from '../print-service';
+import { getGeneralSettingsSync } from '../settings-cache';
 
 /**
  * Chuyển đổi SalesReturn entity sang SalesReturnForPrint
@@ -117,11 +118,8 @@ export function convertSalesReturnForPrint(
 function getStoreLogo(storeInfoLogo?: string): string | undefined {
   if (storeInfoLogo) return storeInfoLogo;
   try {
-    const generalSettings = localStorage.getItem('general-settings');
-    if (generalSettings) {
-      const parsed = JSON.parse(generalSettings);
-      return parsed.logoUrl || undefined;
-    }
+    const settings = getGeneralSettingsSync();
+    return settings.logoUrl || undefined;
   } catch (e) { /* ignore */ }
   return undefined;
 }

@@ -1,1 +1,4 @@
-export type EmployeeRole = 'Manager' | 'Sales' | 'Warehouse' | 'Admin';
+/**
+ * Re-export EmployeeRole from centralized prisma-extended.ts
+ */
+export { type EmployeeRole } from '@/lib/types/prisma-extended';

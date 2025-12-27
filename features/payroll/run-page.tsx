@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { Users, Wallet, Calendar as CalendarIcon, CheckCircle2, Check } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -401,7 +401,7 @@ function getEmployeeSelectionColumns(
 }
 
 export function PayrollRunPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: employeeData, getActive } = useEmployeeStore();
   const { data: leaveRequests } = useLeaveStore();
   const lockedMonths = useAttendanceStore((state) => state.lockedMonths);
@@ -707,9 +707,9 @@ export function PayrollRunPage() {
         description: payrollBlockingReasons[0],
       });
       if (!isSelectedMonthLocked || snapshotBlockingEmployees.length) {
-        navigate(ROUTES.HRM.ATTENDANCE);
+        router.push(ROUTES.HRM.ATTENDANCE);
       } else if (pendingLeavesInMonth.length) {
-        navigate(ROUTES.HRM.LEAVES);
+        router.push(ROUTES.HRM.LEAVES);
       }
       return;
     }
@@ -762,7 +762,7 @@ export function PayrollRunPage() {
     toast.success('Đã tạo bảng lương', { 
       description: `Bạn có thể xem chi tiết để duyệt hoặc khóa batch.${penaltyMessage}` 
     });
-    navigate(ROUTES.PAYROLL.DETAIL.replace(':systemId', batch.systemId));
+    router.push(ROUTES.PAYROLL.DETAIL.replace(':systemId', batch.systemId));
   };
 
   const headerActions = React.useMemo(
@@ -772,7 +772,7 @@ export function PayrollRunPage() {
         variant="outline"
         size="sm"
         className="h-9"
-        onClick={() => navigate(ROUTES.PAYROLL.TEMPLATES)}
+        onClick={() => router.push(ROUTES.PAYROLL.TEMPLATES)}
       >
         Quản lý mẫu
       </Button>,
@@ -781,12 +781,12 @@ export function PayrollRunPage() {
         variant="ghost"
         size="sm"
         className="h-9"
-        onClick={() => navigate(ROUTES.PAYROLL.LIST)}
+        onClick={() => router.push(ROUTES.PAYROLL.LIST)}
       >
         Thoát
       </Button>,
     ],
-    [navigate]
+    [router]
   );
 
   usePageHeader({
@@ -904,7 +904,7 @@ export function PayrollRunPage() {
                   Khóa chấm công trước khi chạy lương để cố định dữ liệu attendance và tránh chỉnh sửa sau khi trả lương.
                 </AlertDescription>
                 <div className="mt-3">
-                  <Button size="sm" className="h-8" onClick={() => navigate(ROUTES.HRM.ATTENDANCE)}>
+                  <Button size="sm" className="h-8" onClick={() => router.push(ROUTES.HRM.ATTENDANCE)}>
                     Mở trang Chấm công
                   </Button>
                 </div>
@@ -1077,7 +1077,7 @@ export function PayrollRunPage() {
                       </ul>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {!isSelectedMonthLocked && (
-                          <Button size="sm" className="h-8" onClick={() => navigate(ROUTES.HRM.ATTENDANCE)}>
+                          <Button size="sm" className="h-8" onClick={() => router.push(ROUTES.HRM.ATTENDANCE)}>
                             Khóa chấm công
                           </Button>
                         )}
@@ -1086,7 +1086,7 @@ export function PayrollRunPage() {
                             variant="outline"
                             size="sm"
                             className="h-8"
-                            onClick={() => navigate(ROUTES.HRM.LEAVES)}
+                            onClick={() => router.push(ROUTES.HRM.LEAVES)}
                           >
                             Xem đơn nghỉ chờ duyệt
                           </Button>

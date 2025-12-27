@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
-import type { StockTransfer, StockTransferStatus } from './types';
+import type { StockTransfer, StockTransferStatus } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 
@@ -83,8 +83,8 @@ type FullEditFormData = z.infer<typeof fullEditSchema>;
 type LimitedEditFormData = z.infer<typeof limitedEditSchema>;
 
 export function StockTransferEditPage() {
-  const { systemId } = ReactRouterDOM.useParams<{ systemId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
   const { findById, update } = useStockTransferStore();
   const { data: branches } = useBranchStore();
   const { data: allProducts, findById: findProductById } = useProductStore();
@@ -155,7 +155,7 @@ export function StockTransferEditPage() {
         type="button" 
         variant="outline" 
         className="h-9"
-        onClick={() => navigate(`/stock-transfers/${systemId}`)}
+        onClick={() => router.push(`/stock-transfers/${systemId}`)}
         disabled={isSubmitting}
       >
         <X className="mr-2 h-4 w-4" />
@@ -171,7 +171,7 @@ export function StockTransferEditPage() {
         {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
       </Button>
     </div>
-  ), [navigate, systemId, isSubmitting, canFullEdit, fields.length]);
+  ), [router, systemId, isSubmitting, canFullEdit, fields.length]);
 
   // Breadcrumb
   const breadcrumb = React.useMemo(() => {
@@ -294,7 +294,7 @@ export function StockTransferEditPage() {
       });
 
       toast.success('Đã cập nhật phiếu chuyển kho');
-      navigate(`/stock-transfers/${transfer.systemId}`);
+      router.push(`/stock-transfers/${transfer.systemId}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -326,7 +326,7 @@ export function StockTransferEditPage() {
       update(transfer.systemId, payload);
 
       toast.success('Đã cập nhật phiếu chuyển kho');
-      navigate(`/stock-transfers/${transfer.systemId}`);
+      router.push(`/stock-transfers/${transfer.systemId}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -338,7 +338,7 @@ export function StockTransferEditPage() {
       <div className="flex flex-col items-center justify-center py-12">
         <Package className="h-12 w-12 text-muted-foreground mb-4" />
         <h2 className="text-lg font-semibold">Không tìm thấy phiếu chuyển kho</h2>
-        <Button variant="link" onClick={() => navigate('/stock-transfers')}>
+        <Button variant="link" onClick={() => router.push('/stock-transfers')}>
           Quay lại danh sách
         </Button>
       </div>
@@ -353,7 +353,7 @@ export function StockTransferEditPage() {
         <p className="text-muted-foreground mt-2">
           Phiếu có trạng thái "{getStatusLabel(transfer.status)}" không thể chỉnh sửa.
         </p>
-        <Button variant="link" onClick={() => navigate(`/stock-transfers/${systemId}`)}>
+        <Button variant="link" onClick={() => router.push(`/stock-transfers/${systemId}`)}>
           Quay lại chi tiết phiếu
         </Button>
       </div>

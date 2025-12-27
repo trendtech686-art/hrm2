@@ -1,6 +1,6 @@
 import * as React from "react";
 import { formatDateCustom } from '../../lib/date-utils';
-import type { Payment } from './types';
+import type { Payment } from '@/lib/types/prisma-extended';
 import type { CashAccount } from "../cashbook/types";
 import type { SystemId } from '../../lib/id-types';
 import { Checkbox } from "../../components/ui/checkbox";

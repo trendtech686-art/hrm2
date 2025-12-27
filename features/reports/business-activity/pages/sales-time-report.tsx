@@ -9,7 +9,7 @@
 
 import * as React from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { useNavigate } from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
 import { 
@@ -156,7 +156,7 @@ const DISPLAY_OPTIONS = [
 ];
 
 export function SalesTimeReportPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   
   // State
   const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);

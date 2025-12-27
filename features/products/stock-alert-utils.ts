@@ -1,4 +1,4 @@
-import type { Product } from './types';
+import type { Product } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 import { useSlaSettingsStore } from '../settings/inventory/sla-settings-store';
 

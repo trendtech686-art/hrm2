@@ -2,7 +2,7 @@ import * as React from 'react';
 import { usePageHeader } from '../../../contexts/page-header-context';
 import { useProductStore } from '../../products/store';
 import { useBranchStore } from '../../settings/branches/store';
-import type { InventoryReportRow, ProductTypeFilter } from './types';
+import type { InventoryReportRow, ProductTypeFilter } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
 import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar';

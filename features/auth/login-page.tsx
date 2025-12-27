@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate, useLocation } from '@/lib/next-compat';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -9,14 +10,12 @@ import { Label } from '../../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router';
-import { useAuth } from '../../contexts/auth-context';
 import { useEmployeeStore } from '../employees/store';
 import { verifyPassword, checkRateLimit, sanitizeInput } from '../../lib/security-utils';
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { login } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: employees, findById } = useEmployeeStore();
   
   // Lấy 2 nhân viên đầu tiên có email và password
@@ -31,8 +30,8 @@ export function LoginPage() {
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // Get the page user was trying to access
-  const from = (location.state as any)?.from || ROUTES.DASHBOARD;
+  // Get the page user was trying to access (use searchParams in Next.js)
+  const from = ROUTES.DASHBOARD;
 
   // Auto-fill when employee selection changes
   React.useEffect(() => {
@@ -77,19 +76,19 @@ export function LoginPage() {
       const isPasswordValid = await verifyPassword(password, employee.password);
       
       if (isPasswordValid) {
-        // Xác định role (có thể dựa vào employee.role hoặc logic khác)
-        const role = employee.role === 'Admin' ? 'admin' : 'user';
-        
-        // Login with employee data
-        login({
+        // Login with NextAuth credentials provider
+        const result = await signIn('credentials', {
           email: employee.workEmail || sanitizedEmail,
-          name: employee.fullName,
-          role: role,
-          employeeId: employee.systemId
+          password: password,
+          redirect: false,
         });
         
-        toast.success(`Đăng nhập thành công! Chào mừng ${employee.fullName}`);
-        navigate(from, { replace: true });
+        if (result?.error) {
+          toast.error('Email hoặc mật khẩu không đúng');
+        } else {
+          toast.success(`Đăng nhập thành công! Chào mừng ${employee.fullName}`);
+          router.replace(from);
+        }
       } else {
         toast.error('Email hoặc mật khẩu không đúng');
       }

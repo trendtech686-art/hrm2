@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from "react";
-import { Link, useNavigate } from '@/lib/next-compat';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PlusCircle, Trash2, MoreVertical, Phone, Mail, Building2, Clock, UserX, CreditCard, HeartPulse, X, FileSpreadsheet, Download } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
@@ -10,7 +11,7 @@ import Fuse from 'fuse.js';
 import { useCustomerStore } from "./store";
 import { useCustomerTypeStore } from "../settings/customers/customer-types-store";
 import { useBranchStore } from "../settings/branches/store";
-import { type Customer } from "./types";
+import { type Customer } from "@/lib/types/prisma-extended";
 import { getColumns } from "./columns";
 import { BulkActionConfirmDialog } from "./components/bulk-action-confirm-dialog";
 import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams, type CustomerSortKey } from "./customer-service";
@@ -117,7 +118,7 @@ export function CustomersPage() {
   );
   const customerTypes = useCustomerTypeStore();
   const { data: branches } = useBranchStore();
-  const navigate = useNavigate();
+  const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   // Use computed debt from orders/receipts instead of static currentDebt field
@@ -131,13 +132,13 @@ export function CustomersPage() {
   const headerActions = React.useMemo(
     () => [
       <Button key="trash" variant="outline" size="sm" className="h-9" asChild>
-        <Link to="/customers/trash">
+        <Link href="/customers/trash">
           <Trash2 className="mr-2 h-4 w-4" />
           Thùng rác ({deletedCount})
         </Link>
       </Button>,
       <Button key="add" size="sm" className="h-9" asChild>
-        <Link to="/customers/new">
+        <Link href="/customers/new">
           <PlusCircle className="mr-2 h-4 w-4" />
           Thêm khách hàng
         </Link>
@@ -169,7 +170,7 @@ export function CustomersPage() {
     }
     const storageKey = "customers-column-visibility";
     const stored = window.localStorage.getItem(storageKey);
-    const cols = getColumns(() => {}, () => {}, navigate);
+    const cols = getColumns(() => {}, () => {}, router);
     const allColumnIds = cols.map((column) => column.id).filter(Boolean) as string[];
     if (stored) {
       try {
@@ -227,8 +228,8 @@ export function CustomersPage() {
   const slaIndex = slaEngine.index;
   const slaSummary = slaEngine.summary;
   const columns = React.useMemo(
-    () => getColumns(handleDelete, handleRestore, navigate, { slaIndex }),
-    [handleDelete, handleRestore, navigate, slaIndex]
+    () => getColumns(handleDelete, handleRestore, router, { slaIndex }),
+    [handleDelete, handleRestore, router, slaIndex]
   );
 
   React.useEffect(() => {
@@ -484,9 +485,9 @@ export function CustomersPage() {
 
   const handleRowClick = React.useCallback(
     (customer: Customer) => {
-      navigate(`/customers/${customer.systemId}`);
+      router.push(`/customers/${customer.systemId}`);
     },
-    [navigate]
+    [router]
   );
 
   // Active customers (non-deleted) for import/export operations
@@ -669,7 +670,7 @@ export function CustomersPage() {
                   <DropdownMenuItem
                     onClick={(event) => {
                       event.stopPropagation();
-                      navigate(`/customers/${customer.systemId}/edit`);
+                      router.push(`/customers/${customer.systemId}/edit`);
                     }}
                   >
                     Chỉnh sửa
@@ -725,7 +726,7 @@ export function CustomersPage() {
         <div className="flex-shrink-0 space-y-4">
           {isMobile ? (
             <div className="space-y-3">
-              <TouchButton onClick={() => navigate("/customers/new")} size="default" className="w-full min-h-touch">
+              <TouchButton onClick={() => router.push("/customers/new")} size="default" className="w-full min-h-touch">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Thêm khách hàng
               </TouchButton>

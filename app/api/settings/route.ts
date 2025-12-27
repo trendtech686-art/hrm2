@@ -61,18 +61,21 @@ export async function POST(request: Request) {
 
     const setting = await prisma.setting.upsert({
       where: {
-        key: body.key,
+        key_group: {
+          key: body.key,
+          group: body.group,
+        },
       },
       update: {
         value: body.value,
         description: body.description,
-        group: body.group,
       },
       create: {
         systemId: `SET${String(Date.now()).slice(-6).padStart(6, '0')}`,
         key: body.key,
         group: body.group,
-        valueType: body.type || 'string',
+        type: body.type || 'string',
+        category: body.category || 'system',
         value: body.value,
         description: body.description,
       },
@@ -104,18 +107,21 @@ export async function PUT(request: Request) {
       body.settings.map((setting: any) =>
         prisma.setting.upsert({
           where: {
-            key: setting.key,
+            key_group: {
+              key: setting.key,
+              group: setting.group,
+            },
           },
           update: {
             value: setting.value,
             description: setting.description,
-            group: setting.group,
           },
           create: {
             systemId: `SET${String(Date.now()).slice(-6).padStart(6, '0')}`,
             key: setting.key,
             group: setting.group,
-            valueType: setting.type || 'string',
+            type: setting.type || 'string',
+            category: setting.category || 'system',
             value: setting.value,
             description: setting.description,
           },

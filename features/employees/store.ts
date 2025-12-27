@@ -1,6 +1,6 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import { data as initialData } from './data';
-import type { Employee } from './types';
+import type { Employee } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
 import Fuse from 'fuse.js';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';

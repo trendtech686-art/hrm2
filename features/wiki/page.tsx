@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
-import * as ReactRouterDOM from '@/lib/next-compat';
+import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
 import { useWikiStore } from './store';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -10,19 +10,19 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Search, PlusCircle, User, Calendar } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
-import type { WikiArticle } from './types';
+import type { WikiArticle } from '@/lib/types/prisma-extended';
 import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 
 function ArticleCard({ article }: { article: WikiArticle }) {
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   const contentSnippet = article.content.split('\n').find(line => line.trim() && !line.trim().startsWith('#')) || '';
 
   return (
     <Card 
       className="cursor-pointer hover:shadow-md hover:-translate-y-1 transition-transform duration-200"
-      onClick={() => navigate(`/wiki/${article.systemId}`)}
+      onClick={() => router.push(`/wiki/${article.systemId}`)}
       tabIndex={0}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate(`/wiki/${article.systemId}`)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && router.push(`/wiki/${article.systemId}`)}
     >
       <CardHeader>
         <CardTitle>{article.title}</CardTitle>
@@ -43,7 +43,7 @@ function ArticleCard({ article }: { article: WikiArticle }) {
 
 export function WikiPage() {
   const { data: articles } = useWikiStore();
-  const navigate = ReactRouterDOM.useNavigate();
+  const router = useRouter();
   
   const articleStats = React.useMemo(() => {
     return {
@@ -54,11 +54,11 @@ export function WikiPage() {
   }, [articles]);
 
   const headerActions = React.useMemo(() => ([
-    <Button key="add" size="sm" className="h-9 gap-2" onClick={() => navigate('/wiki/new')}>
+    <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push('/wiki/new')}>
       <PlusCircle className="mr-2 h-4 w-4" />
       Thêm bài viết
     </Button>
-  ]), [navigate]);
+  ]), [router]);
 
   usePageHeader({
     title: 'Wiki nội bộ',
@@ -103,7 +103,7 @@ export function WikiPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button size="sm" className="h-9 gap-2" onClick={() => navigate('/wiki/new')}>
+        <Button size="sm" className="h-9 gap-2" onClick={() => router.push('/wiki/new')}>
           <PlusCircle className="mr-2 h-4 w-4" /> Tạo bài viết mới
         </Button>
       </div>

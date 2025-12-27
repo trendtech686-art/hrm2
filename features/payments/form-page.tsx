@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
 import { usePaymentStore } from './store';
 import { PaymentForm, type PaymentFormValues } from './payment-form';
-import type { Payment } from './types';
+import type { Payment } from '@/lib/types/prisma-extended';
 import { useCashbookStore } from '../cashbook/store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
@@ -18,7 +18,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export function PaymentFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const paymentStore = usePaymentStore();
   const { findById, add, update } = paymentStore;
   const payments: Payment[] = paymentStore.data ?? [];
@@ -40,14 +40,14 @@ export function PaymentFormPage() {
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" size="sm" className="h-9" onClick={() => navigate(ROUTES.FINANCE.PAYMENTS)}>
+    <Button key="cancel" type="button" variant="outline" size="sm" className="h-9" onClick={() => router.push(ROUTES.FINANCE.PAYMENTS)}>
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
     <Button key="save" type="submit" form="payment-form" size="sm" className="h-9">
       Lưu
     </Button>
-  ], [navigate]);
+  ], [router]);
   
   const fallbackBreadcrumb = React.useMemo(() => ([
     { label: 'Trang chủ', href: '/', isCurrent: false },
@@ -69,7 +69,7 @@ export function PaymentFormPage() {
       if (payment) {
         update(payment.systemId, { ...payment, ...values });
         toast.success("Cập nhật phiếu chi thành công");
-        navigate(`${ROUTES.FINANCE.PAYMENTS}/${payment.systemId}`);
+        router.push(`${ROUTES.FINANCE.PAYMENTS}/${payment.systemId}`);
       } else {
         const newPayment = add({
           ...values,
@@ -78,9 +78,9 @@ export function PaymentFormPage() {
         } as any);
         toast.success("Tạo phiếu chi thành công");
         if (newPayment) {
-          navigate(`${ROUTES.FINANCE.PAYMENTS}/${newPayment.systemId}`);
+          router.push(`${ROUTES.FINANCE.PAYMENTS}/${newPayment.systemId}`);
         } else {
-          navigate(ROUTES.FINANCE.PAYMENTS);
+          router.push(ROUTES.FINANCE.PAYMENTS);
         }
       }
     } catch (error) {

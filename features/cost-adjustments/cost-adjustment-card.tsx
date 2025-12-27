@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useNavigate } from '@/lib/next-compat';
-import type { CostAdjustment } from './types';
+import { useRouter } from 'next/navigation';
+import type { CostAdjustment } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -37,7 +37,7 @@ interface CostAdjustmentCardProps {
 }
 
 export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdjustmentCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const isDraft = adjustment.status === 'draft';
   
   // Calculate totals
@@ -72,7 +72,7 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/cost-adjustments/${adjustment.systemId}`)}>
+              <DropdownMenuItem onClick={() => router.push(`/cost-adjustments/${adjustment.systemId}`)}>
                 <Eye className="mr-2 h-4 w-4" />
                 Xem chi tiết
               </DropdownMenuItem>
@@ -92,7 +92,7 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuItem onClick={() => navigate(`/cost-adjustments/${adjustment.systemId}`)}>
+              <DropdownMenuItem onClick={() => router.push(`/cost-adjustments/${adjustment.systemId}`)}>
                 <Printer className="mr-2 h-4 w-4" />
                 In phiếu
               </DropdownMenuItem>

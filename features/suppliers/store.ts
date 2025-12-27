@@ -1,6 +1,6 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import { data as initialData } from './data';
-import type { Supplier } from './types';
+import type { Supplier } from '@/lib/types/prisma-extended';
 import type { SystemId } from '../../lib/id-types';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import Fuse from 'fuse.js';

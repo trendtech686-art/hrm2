@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from '@/lib/next-compat';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { formatDateTime as formatDateTimeUtil } from '../../lib/date-utils';
 import { useSalesReturnStore } from './store';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -32,7 +33,7 @@ import { Badge } from '../../components/ui/badge';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { DetailField } from '../../components/ui/detail-field';
 import { Separator } from '../../components/ui/separator';
-import type { SalesReturn } from './types';
+import type { SalesReturn } from '@/lib/types/prisma-extended';
 import { useReceiptStore } from '../receipts/store';
 import { usePaymentStore } from '../payments/store';
 import type { Receipt } from '../receipts/types';
@@ -69,7 +70,7 @@ const formatDate = (dateString?: string) => {
 
 export function SalesReturnDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
-    const navigate = useNavigate();
+    const router = useRouter();
     const { findById } = useSalesReturnStore();
     const { findById: findReceiptById } = useReceiptStore();
     const { findById: findPaymentById } = usePaymentStore();
@@ -327,7 +328,7 @@ export function SalesReturnDetailPage() {
             <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                     <h2 className="text-h2">Không tìm thấy phiếu trả hàng</h2>
-                    <Button onClick={() => navigate(ROUTES.SALES.RETURNS)} className="mt-4">
+                    <Button onClick={() => router.push(ROUTES.SALES.RETURNS)} className="mt-4">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Quay về danh sách
                     </Button>
@@ -360,8 +361,7 @@ export function SalesReturnDetailPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <DetailField label="Đơn hàng gốc">
-                            <Link 
-                                to={`/orders/${salesReturn.orderSystemId}`} 
+                            <Link href={`/orders/${salesReturn.orderSystemId}`} 
                                 className="text-primary hover:underline font-medium"
                             >
                                 {salesReturn.orderId}
@@ -369,8 +369,7 @@ export function SalesReturnDetailPage() {
                         </DetailField>
                         <DetailField label="Khách hàng">
                             {customer ? (
-                                <Link 
-                                    to={`/customers/${customer.systemId}`}
+                                <Link href={`/customers/${customer.systemId}`}
                                     className="text-primary hover:underline font-medium cursor-pointer"
                                 >
                                     {salesReturn.customerName}
@@ -382,8 +381,7 @@ export function SalesReturnDetailPage() {
                         <DetailField label="Chi nhánh" value={salesReturn.branchName} />
                         <DetailField label="Người tạo">
                             {creator ? (
-                                <Link 
-                                    to={`/employees/${creator.systemId}`}
+                                <Link href={`/employees/${creator.systemId}`}
                                     className="text-primary hover:underline font-medium cursor-pointer"
                                 >
                                     {salesReturn.creatorName}
@@ -452,8 +450,7 @@ export function SalesReturnDetailPage() {
                                 <Separator />
                                 <DetailField label="Chứng từ thanh toán">
                                     <div className="flex items-center gap-2">
-                                        <Link 
-                                            to={`/${'id' in relatedTransaction && relatedTransaction.id.startsWith('PT-') ? 'receipts' : 'payments'}/${relatedTransaction.systemId}`} 
+                                        <Link href={`/${'id' in relatedTransaction && relatedTransaction.id.startsWith('PT-') ? 'receipts' : 'payments'}/${relatedTransaction.systemId}`} 
                                             className="text-primary hover:underline font-medium"
                                         >
                                             {relatedTransaction.id}
