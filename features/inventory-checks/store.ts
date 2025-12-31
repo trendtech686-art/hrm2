@@ -69,7 +69,7 @@ const augmentedMethods = {
 
       check.items.forEach(item => {
         const difference = (item.actualQuantity ?? 0) - (item.systemQuantity ?? 0);
-        if (difference === 0) return;
+        if (difference === 0 || !check.branchSystemId) return;
 
         productStore.updateInventory(
           item.productSystemId,
@@ -89,7 +89,7 @@ const augmentedMethods = {
           quantityChange: difference,
           newStockLevel: item.actualQuantity ?? 0,
           documentId: check.id,
-          branchSystemId: check.branchSystemId,
+          branchSystemId: check.branchSystemId!, // Already checked above
           branch: check.branchName || 'Chi nhánh',
         });
       });

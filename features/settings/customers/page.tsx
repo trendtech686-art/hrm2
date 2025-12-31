@@ -57,7 +57,7 @@ export default function CustomerSettingsPage() {
   const registerLifecycleStageActions = React.useMemo(() => registerActions('lifecycle-stages'), [registerActions]);
   const registerSlaActions = React.useMemo(() => registerActions('sla'), [registerActions]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editingItem, setEditingItem] = React.useState<any>(null);
+  const [editingItem, setEditingItem] = React.useState<BaseSetting | null>(null);
 
   // Stores
   const customerTypes = useCustomerTypeStore();
@@ -77,6 +77,7 @@ export default function CustomerSettingsPage() {
     'credit-ratings': creditRatings.getActive(),
     'lifecycle-stages': lifecycleStages.getActive(),
     'sla': slaSettings.getActive(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- .data deps trigger recalculation when store data changes, getActive() reads from data
   }), [
     customerTypes.data,
     customerGroups.data,
@@ -110,7 +111,7 @@ export default function CustomerSettingsPage() {
     actions: headerActions,
   });
 
-  const handleEdit = React.useCallback((item: any) => {
+  const handleEdit = React.useCallback((item: BaseSetting) => {
     setEditingItem(item);
     setDialogOpen(true);
   }, []);
@@ -157,7 +158,7 @@ export default function CustomerSettingsPage() {
     // If turning on, turn off others in the same group
     if (value) {
       const currentData = activeDataMap[activeTab as keyof typeof activeDataMap] || [];
-      currentData.forEach((otherItem: any) => {
+      currentData.forEach((otherItem: BaseSetting & { isDefault?: boolean }) => {
         if (otherItem.systemId !== item.systemId && otherItem.isDefault) {
           const updatedOther = { ...otherItem, isDefault: false };
           switch (activeTab) {
@@ -243,49 +244,49 @@ export default function CustomerSettingsPage() {
     setDeleteDialog({ isOpen: false, item: null });
   };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: Record<string, unknown>) => {
     try {
       switch (activeTab) {
         case 'types':
           if (editingItem) {
             customerTypes.update(editingItem.systemId, { ...editingItem, ...data });
           } else {
-            customerTypes.add(data);
+            customerTypes.add(data as Omit<CustomerType, 'systemId'>);
           }
           break;
         case 'groups':
           if (editingItem) {
             customerGroups.update(editingItem.systemId, { ...editingItem, ...data });
           } else {
-            customerGroups.add(data);
+            customerGroups.add(data as Omit<CustomerGroup, 'systemId'>);
           }
           break;
         case 'sources':
           if (editingItem) {
             customerSources.update(editingItem.systemId, { ...editingItem, ...data });
           } else {
-            customerSources.add(data);
+            customerSources.add(data as Omit<CustomerSource, 'systemId'>);
           }
           break;
         case 'payment-terms':
           if (editingItem) {
             paymentTerms.update(editingItem.systemId, { ...editingItem, ...data });
           } else {
-            paymentTerms.add(data);
+            paymentTerms.add(data as Omit<PaymentTerm, 'systemId'>);
           }
           break;
         case 'credit-ratings':
           if (editingItem) {
             creditRatings.update(editingItem.systemId, { ...editingItem, ...data });
           } else {
-            creditRatings.add(data);
+            creditRatings.add(data as Omit<CreditRating, 'systemId'>);
           }
           break;
         case 'lifecycle-stages':
           if (editingItem) {
             lifecycleStages.update(editingItem.systemId, { ...editingItem, ...data });
           } else {
-            lifecycleStages.add(data);
+            lifecycleStages.add(data as Omit<LifecycleStage, 'systemId'>);
           }
           break;
         case 'sla':
@@ -624,7 +625,7 @@ export default function CustomerSettingsPage() {
         <PaymentTermFormDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          initialData={editingItem}
+          initialData={editingItem as PaymentTerm | null}
           onSubmit={handleSubmit}
           existingIds={getExistingIds()}
         />
@@ -634,7 +635,7 @@ export default function CustomerSettingsPage() {
         <CreditRatingFormDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          initialData={editingItem}
+          initialData={editingItem as CreditRating | null}
           onSubmit={handleSubmit}
           existingIds={getExistingIds()}
         />
@@ -654,7 +655,7 @@ export default function CustomerSettingsPage() {
         <CustomerSlaSettingFormDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          initialData={editingItem}
+          initialData={editingItem as CustomerSlaSetting | null}
           onSubmit={handleSubmit}
           existingIds={getExistingIds()}
         />

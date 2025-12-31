@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
+import { OptimizedImage } from '../../../components/ui/optimized-image';
 import { Image, Eye, AlertCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { CompletionEvidence, ApprovalStatus } from '../types';
@@ -84,10 +85,12 @@ export function EvidenceThumbnailGrid({
                 className="relative aspect-square rounded overflow-hidden border bg-muted group cursor-pointer"
                 onClick={onViewFullEvidence}
               >
-                <img 
+                <OptimizedImage 
                   src={imageData} 
                   alt={`Evidence ${idx + 1}`}
                   className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                  fill
+                  unoptimized
                 />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Eye className="h-5 w-5 text-white" />

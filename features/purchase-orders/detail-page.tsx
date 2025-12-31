@@ -4,22 +4,19 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ROUTES } from '../../lib/router';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate, toISODateTime } from '@/lib/date-utils';
+import { formatDateTime, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate } from '@/lib/date-utils';
 import { useForm } from 'react-hook-form';
 import { usePurchaseOrderStore } from './store';
 import { useSupplierStore } from '../suppliers/store';
 import { usePaymentStore } from '../payments/store';
 import { useReceiptStore } from '../receipts/store';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
-import { Separator } from '../../components/ui/separator';
-import { ArrowLeft, Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, History, Plus, Edit2, ChevronDown, ChevronRight, Banknote, Landmark, Lock, Trash2, MoreVertical, Wallet, CreditCard, AlertCircle, Eye } from 'lucide-react';
-import { useProductImage } from '../products/components/product-image';
+import { Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, ChevronDown, ChevronRight, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogFooter as FormDialogFooter } from '../../components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { useInventoryReceiptStore } from '../inventory-receipts/store';
 import { useProductStore } from '../products/store';
 import { useStockHistoryStore } from '../stock-history/store';
@@ -35,12 +32,9 @@ import { Input } from '../../components/ui/input';
 import { NumberInput } from '../../components/ui/number-input';
 import { DetailField } from '../../components/ui/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { RelatedDataTable } from '../../components/data-table/related-data-table';
-import type { ColumnDef } from '../../components/data-table/types';
 import type { InventoryReceipt } from '../inventory-receipts/types';
 import { ActivityHistory } from '../../components/ActivityHistory';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { Timeline, TimelineItem } from '../../components/ui/timeline';
 import { usePurchaseReturnStore } from '../purchase-returns/store';
 import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
 import { Badge } from '../../components/ui/badge';
@@ -61,12 +55,9 @@ import {
 } from '../../lib/print/purchase-order-print-helper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { 
-  PrintData, 
-  PrintLineItem,
   formatCurrency,
   formatTime,
   numberToWords,
-  getStoreData,
   StoreSettings
 } from '../../lib/print-mappers/types';
 import { createPaymentDocument } from '../finance/document-helpers';
@@ -343,7 +334,7 @@ function InventoryReceiptDetailView({
 
 // Updated to use combined transactions
 function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPrintReturn }: { purchaseReturn: PurchaseReturn, allTransactions: (Payment | Receipt)[], onPrintReturn?: () => void }) {
-    const totalReturnValue = purchaseReturn.items.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
+    const _totalReturnValue = purchaseReturn.items.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
   
     const refundReceipt = React.useMemo(() => {
       if (purchaseReturn.refundAmount <= 0) return null;
@@ -406,7 +397,7 @@ function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPrintRetu
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {purchaseReturn.items.map((item, index) => (
+                {purchaseReturn.items.map((item, _index) => (
                   <TableRow key={item.productSystemId}>
                     <TableCell>
                       <Link href={`/products/${item.productSystemId}`}
@@ -581,21 +572,8 @@ export function PurchaseOrderDetailPage() {
   const { findById, processInventoryReceipt, finishOrder, cancelOrder } = usePurchaseOrderStore();
   const purchaseOrder = findById(systemId!);
   
-  // Early return if purchase order not found
-  if (!purchaseOrder) {
-    return (
-      <div className="p-8">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-h2 mb-4">Không tìm thấy đơn hàng</h2>
-          <p className="text-body-sm text-muted-foreground mb-6">Đơn hàng với mã {systemId} không tồn tại hoặc đã bị xóa.</p>
-          <Button onClick={() => router.push('/purchase-orders')}>
-            Quay lại danh sách
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks must be called before any early returns (React hooks rules)
+  // Move all hook calls here before the conditional return
   const { data: suppliers } = useSupplierStore();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
   const { data: allPayments } = usePaymentStore();
@@ -604,9 +582,9 @@ export function PurchaseOrderDetailPage() {
   const { data: allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
   const { data: products, updateInventory, findById: findProductById } = useProductStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
-  const { data: paymentTypes } = usePaymentTypeStore();
-  const { accounts } = useCashbookStore();
-  const branches = useBranchStore();
+  const { data: _paymentTypes } = usePaymentTypeStore();
+  const { accounts: _accounts } = useCashbookStore();
+  const _branches = useBranchStore();
   const { findByPurchaseOrderSystemId, add: addPurchaseReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = asSystemId(authEmployee?.systemId ?? 'SYSTEM');
@@ -615,7 +593,7 @@ export function PurchaseOrderDetailPage() {
   const { findById: findEmployeeById, data: employees } = useEmployeeStore();
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
-    const productType = findProductTypeById(productTypeSystemId as any);
+    const productType = findProductTypeById(asSystemId(productTypeSystemId));
     return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
 
@@ -903,7 +881,7 @@ export function PurchaseOrderDetailPage() {
     });
   }, [purchaseOrder, findBranchById, storeInfo, print, suppliers]);
 
-  const printButton = React.useMemo(() => (
+  const _printButton = React.useMemo(() => (
     <Button variant="outline" size="sm" onClick={handlePrint}>
       <Printer className="mr-2 h-4 w-4" /> In
     </Button>
@@ -928,7 +906,7 @@ export function PurchaseOrderDetailPage() {
   const actions = React.useMemo(() => {
     if (!purchaseOrder) return [];
     const isTerminalStatus = purchaseOrder.status === 'Kết thúc' || purchaseOrder.status === 'Đã hủy';
-    const isCompleted = purchaseOrder.status === 'Hoàn thành';
+    const _isCompleted = purchaseOrder.status === 'Hoàn thành';
     
     // Theo chuẩn Sapo: Chỉ cho phép sửa/hủy đơn CHƯA nhập kho
     const canEdit = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
@@ -1002,12 +980,12 @@ export function PurchaseOrderDetailPage() {
 
   usePageHeader({ 
     actions,
-    title: purchaseOrder.id ? `Đơn nhập hàng ${purchaseOrder.id}` : 'Chi tiết đơn nhập hàng',
-    badge: <Badge variant={statusBadgeVariant}>{purchaseOrder.status}</Badge>,
+    title: purchaseOrder?.id ? `Đơn nhập hàng ${purchaseOrder.id}` : 'Chi tiết đơn nhập hàng',
+    badge: purchaseOrder ? <Badge variant={statusBadgeVariant}>{purchaseOrder.status}</Badge> : undefined,
     breadcrumb: [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Đơn nhập hàng', href: ROUTES.PROCUREMENT.PURCHASE_ORDERS, isCurrent: false },
-      { label: purchaseOrder.id || 'Chi tiết', href: `${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}`, isCurrent: true }
+      { label: purchaseOrder?.id || 'Chi tiết', href: `${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder?.systemId || ''}`, isCurrent: true }
     ],
     showBackButton: true,
     backPath: ROUTES.PROCUREMENT.PURCHASE_ORDERS
@@ -1018,7 +996,8 @@ export function PurchaseOrderDetailPage() {
     return suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
   }, [purchaseOrder, suppliers]);
 
-  const handlePrintPayment = React.useCallback((e: React.MouseEvent, item: any) => {
+  const handlePrintPayment = React.useCallback((e: React.MouseEvent, item: { type: 'payment' | 'refund'; amount: number; id: string; date: string; method: string; creator: string; description: string }) => {
+      if (!purchaseOrder) return;
       e.stopPropagation();
       
       const isPayment = item.type === 'payment';
@@ -1133,7 +1112,7 @@ export function PurchaseOrderDetailPage() {
       id: p.id,
       date: p.date,
       amount: p.amount,
-      method: p.paymentMethodName || (p as any).paymentMethod || 'Không xác định',
+      method: p.paymentMethodName || (p as unknown as { paymentMethod?: string }).paymentMethod || 'Không xác định',
       creator: p.createdBy,
       description: p.description,
     }));
@@ -1145,7 +1124,7 @@ export function PurchaseOrderDetailPage() {
       id: r.id,
       date: r.date,
       amount: r.amount,
-      method: r.paymentMethodName || (r as any).paymentMethod || 'Không xác định',
+      method: r.paymentMethodName || (r as unknown as { paymentMethod?: string }).paymentMethod || 'Không xác định',
       creator: r.createdBy,
       description: r.description,
     }));
@@ -1176,12 +1155,16 @@ export function PurchaseOrderDetailPage() {
 
   const canPay = amountRemainingOnThisOrder > 0 && purchaseOrder?.status !== 'Đã hủy' && purchaseOrder?.status !== 'Kết thúc';
 
+  // Early return if purchase order not found - after all hooks have been called
   if (!purchaseOrder) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Không tìm thấy đơn nhập hàng</h2>
-          <Button onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="mt-4"><ArrowLeft className="mr-2 h-4 w-4" />Quay về danh sách</Button>
+      <div className="p-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-h2 mb-4">Không tìm thấy đơn hàng</h2>
+          <p className="text-body-sm text-muted-foreground mb-6">Đơn hàng với mã {systemId} không tồn tại hoặc đã bị xóa.</p>
+          <Button onClick={() => router.push('/purchase-orders')}>
+            Quay lại danh sách
+          </Button>
         </div>
       </div>
     );
@@ -1496,10 +1479,10 @@ export function PurchaseOrderDetailPage() {
       );
   }
   
-  const statusVariants = {
+  const _statusVariants = {
     "Đặt hàng": "secondary", "Đang giao dịch": "warning", "Hoàn thành": "success", "Đã hủy": "destructive", "Kết thúc": "default", "Đã trả hàng": "destructive"
   }
-  const paymentStatusVariants = {
+  const _paymentStatusVariants = {
     "Chưa thanh toán": "warning", "Thanh toán một phần": "warning", "Đã thanh toán": "success"
   }
 
@@ -1689,13 +1672,13 @@ export function PurchaseOrderDetailPage() {
 
                               <TableRow>
                                   <TableCell colSpan={9} className="text-right text-muted-foreground">
-                                    Chiết khấu {purchaseOrder.discountType === 'percentage' && purchaseOrder.discount > 0 ? `(${purchaseOrder.discount}%)` : ''}
+                                    Chiết khấu {purchaseOrder.discountType === 'percentage' && (purchaseOrder.discount ?? 0) > 0 ? `(${purchaseOrder.discount}%)` : ''}
                                   </TableCell>
                                   <TableCell className="text-right text-red-600">
                                     -{formatCurrency(
                                       purchaseOrder.discountType === 'percentage'
-                                        ? ((purchaseOrder.subtotal || 0) * purchaseOrder.discount / 100)
-                                        : purchaseOrder.discount
+                                        ? ((purchaseOrder.subtotal || 0) * (purchaseOrder.discount ?? 0) / 100)
+                                        : (purchaseOrder.discount ?? 0)
                                     )}
                                   </TableCell>
                               </TableRow>

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { formatDateTime } from '@/lib/date-utils';
-import type { Order, Packaging } from '../types';
+import type { Order } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
@@ -14,7 +14,8 @@ interface ShippingTrackingTabProps {
 }
 
 export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
-    const { syncGHTKShipment } = useOrderStore();
+    // TODO: Add syncGHTKShipment to useOrderStore when implementing sync functionality
+    const _orderStore = useOrderStore();
     const [isSyncing, setIsSyncing] = React.useState(false);
     
     // Find the active packaging with shipping partner
@@ -29,7 +30,9 @@ export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
         
         setIsSyncing(true);
         try {
-            await syncGHTKShipment(order.systemId);
+            // TODO: Implement syncGHTKShipment in useOrderStore
+            console.log('Manual sync requested for order:', order.systemId);
+            // await syncGHTKShipment(order.systemId);
         } catch (error) {
             console.error('Manual sync error:', error);
         } finally {

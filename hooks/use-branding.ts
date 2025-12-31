@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 
-const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:3001';
+const serverUrl = (import.meta as { env?: { VITE_SERVER_URL?: string } }).env?.VITE_SERVER_URL || 'http://localhost:3001';
 
 interface BrandingInfo {
   logoUrl: string | null;

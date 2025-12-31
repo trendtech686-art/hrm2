@@ -26,16 +26,16 @@ export function ProductSearchCombobox({
   excludeProductIds = [],
   showPrice = false,
   showStock = true,
-  branchSystemId,
+  branchSystemId: _branchSystemId,
 }: ProductSearchComboboxProps) {
-  const { data: allProducts, getActive } = useProductStore();
+  const { data: _allProducts, getActive } = useProductStore();
   const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
 
   // Only show active products not yet added
   const availableProducts = React.useMemo(() => {
     const active = getActive();
     return active.filter(p => !excludeProductIds.includes(p.systemId));
-  }, [allProducts, getActive, excludeProductIds]);
+  }, [getActive, excludeProductIds]);
 
   // Get total inventory across ALL branches
   const getInventory = (product: Product): number => {
@@ -84,6 +84,7 @@ export function ProductSearchCombobox({
   };
 
   const renderOption = (option: ComboboxOption) => {
+    const meta = option.metadata as { unit?: string; stock?: number; availableStock?: number; price?: number } | undefined;
     return (
       <div className="flex items-center gap-3 w-full">
         <div className="w-10 h-9 flex-shrink-0 bg-muted rounded flex items-center justify-center">
@@ -93,14 +94,14 @@ export function ProductSearchCombobox({
           <p className="font-medium truncate">{option.label}</p>
           <p className="text-xs text-muted-foreground">
             {option.subtitle}
-            {option.metadata?.unit && ` | ${option.metadata.unit}`}
-            {showStock && ` | Tồn: ${option.metadata?.stock || 0}`}
-            {showStock && ` | Có thể bán: ${option.metadata?.availableStock || 0}`}
+            {meta?.unit && ` | ${meta.unit}`}
+            {showStock && ` | Tồn: ${meta?.stock || 0}`}
+            {showStock && ` | Có thể bán: ${meta?.availableStock || 0}`}
           </p>
         </div>
         {showPrice && (
           <div className="text-sm font-semibold text-right flex-shrink-0">
-            {formatCurrency(option.metadata?.price)}
+            {formatCurrency(meta?.price)}
           </div>
         )}
       </div>

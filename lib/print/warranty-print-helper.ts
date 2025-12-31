@@ -107,7 +107,7 @@ export function convertWarrantyForPrint(
     linkedOrderId?: string;
   } = {}
 ): WarrantyForPrint {
-  const { branch, customer, creator, technician, linkedOrderId } = options;
+  const { branch, customer, creator, linkedOrderId } = options;
 
   // Map trạng thái sang tiếng Việt
   const statusMap: Record<string, string> = {
@@ -120,7 +120,7 @@ export function convertWarrantyForPrint(
     'cancelled': 'Đã hủy',
   };
 
-  const typeMap: Record<string, string> = {
+  const _typeMap: Record<string, string> = {
     'warranty': 'Bảo hành',
     'repair': 'Sửa chữa',
   };
@@ -137,7 +137,7 @@ export function convertWarrantyForPrint(
   return {
     // Thông tin cơ bản
     code: warranty.id,
-    createdAt: warranty.createdAt,
+    createdAt: warranty.createdAt ?? new Date(),
     modifiedAt: warranty.updatedAt,
     createdBy: creator?.fullName || warranty.createdByName || warranty.employeeName,
     
@@ -198,7 +198,7 @@ export function convertWarrantyRequestForPrint(
   const { branch, customer, creator } = options;
 
   // Map trạng thái sang tiếng Việt
-  const statusMap: Record<string, string> = {
+  const _statusMap: Record<string, string> = {
     'pending': 'Chờ xử lý',
     'approved': 'Đã duyệt',
     'rejected': 'Từ chối',
@@ -215,7 +215,7 @@ export function convertWarrantyRequestForPrint(
   return {
     // Thông tin cơ bản
     code: request.id,
-    createdAt: request.createdAt,
+    createdAt: request.createdAt ?? new Date(),
     createdBy: creator?.fullName || request.createdByName,
     
     // Chi nhánh

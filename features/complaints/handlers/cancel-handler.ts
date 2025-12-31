@@ -25,7 +25,7 @@ interface User {
 export async function handleCancelComplaint(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: any) => void
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('[CANCEL] Starting cancel process...');
@@ -52,22 +52,22 @@ export async function handleCancelComplaint(
     ];
     
     // STEP 4: Merge histories (giữ history cũ + thêm mới)
-    const existingHistory = (complaint as any).cancelledPaymentsReceipts || [];
+    const existingHistory = complaint.cancelledPaymentsReceipts || [];
     const cancelledPaymentsReceipts = [...existingHistory, ...cancelledPaymentsReceiptsHistory];
     
-    const existingInventoryHistory = (complaint as any).inventoryHistory || [];
+    const existingInventoryHistory = complaint.inventoryHistory || [];
     const updatedInventoryHistory = inventoryHistory 
       ? [...existingInventoryHistory, inventoryHistory]
       : existingInventoryHistory;
     
     // STEP 5: Build update object - CHỈ UPDATE NHỮNG GÌ CẦN
-    const updates = {
+    const updates: Partial<Complaint> = {
       status: "cancelled" as const,
       cancelledBy: currentUser.systemId,
       cancelledAt: new Date(),
       timeline,
       cancelledPaymentsReceipts,
-      inventoryHistory: updatedInventoryHistory,
+      inventoryHistory: updatedInventoryHistory as Complaint['inventoryHistory'],
     };
     
     console.log('[CANCEL] Updating complaint with:', {
@@ -75,8 +75,8 @@ export async function handleCancelComplaint(
       cancelledPaymentsReceiptsCount: cancelledPaymentsReceipts.length,
       inventoryHistoryCount: updatedInventoryHistory.length,
       preservedFields: {
-        inventoryAdjustment: !!(complaint as any).inventoryAdjustment,
-        compensationMetadata: !!(complaint as any).compensationMetadata,
+        inventoryAdjustment: !!complaint.inventoryAdjustment,
+        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
       }
     });
     

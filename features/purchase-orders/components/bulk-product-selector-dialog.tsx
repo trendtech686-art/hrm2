@@ -38,10 +38,10 @@ export function BulkProductSelectorDialog({
   open,
   onOpenChange,
   onConfirm,
-  excludeProductIds = [],
-  existingProductIds = [],
+  excludeProductIds: _excludeProductIds = [],
+  existingProductIds: _existingProductIds = [],
 }: BulkProductSelectorDialogProps) {
-  const { data: products, getActive } = useProductStore();
+  const { data: _products, getActive } = useProductStore();
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = React.useState(0);
@@ -58,7 +58,7 @@ export function BulkProductSelectorDialog({
   // Get available products - Filter out combo products (can't import combos)
   const availableProducts = React.useMemo(() => {
     return getActive().filter(p => p.type !== 'combo');
-  }, [products, getActive]);
+  }, [getActive]);
 
   // Preview state
   const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({

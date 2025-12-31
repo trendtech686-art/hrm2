@@ -1,6 +1,5 @@
 import * as React from "react";
 import { DataTableActions } from "../../components/data-table/data-table-actions";
-import type { DataTableToolbarProps } from "../../components/data-table/data-table-toolbar";
 import type { ColumnDef } from "../../components/data-table/types";
 
 interface DataTableHeaderActionsProps<TData> extends React.HTMLAttributes<HTMLDivElement> {
@@ -12,7 +11,7 @@ interface DataTableHeaderActionsProps<TData> extends React.HTMLAttributes<HTMLDi
     importer: (data: Omit<TData, 'id'>[]) => void;
     fileName: string;
     existingData?: TData[];
-    getUniqueKey?: (item: any) => string;
+    getUniqueKey?: (item: TData | Omit<TData, 'id'>) => string;
   } | undefined;
   columnCustomizerProps: {
     columns: ColumnDef<TData>[];

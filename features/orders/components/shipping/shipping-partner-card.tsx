@@ -4,9 +4,8 @@
  */
 
 import * as React from 'react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroupItem } from '@/components/ui/radio-group';
 import { Package, Zap, DollarSign } from 'lucide-react';
 import type { ShippingService } from './types';
 
@@ -33,7 +32,7 @@ export function ShippingPartnerCard({
   partnerName,
   services,
   selectedServiceId,
-  onServiceSelect,
+  onServiceSelect: _onServiceSelect,
   disabled = false,
 }: ShippingPartnerCardProps) {
   const style = partnerStyles[partnerCode] || { bg: 'bg-gray-500', logo: partnerCode };

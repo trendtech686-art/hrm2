@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, CashTransactionType } from '@/generated/prisma/client'
 
 // GET /api/cash-transactions - List all cash transactions
 export async function GET(request: Request) {
@@ -14,14 +15,14 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Prisma.CashTransactionWhereInput = {}
 
     if (accountId) {
       where.accountId = accountId
     }
 
     if (type) {
-      where.type = type
+      where.type = type as CashTransactionType
     }
 
     if (fromDate || toDate) {

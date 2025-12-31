@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 
 type ModalType = 'dialog' | 'dropdown' | 'popover' | 'sheet' | 'drawer' | 'select' | 'custom';

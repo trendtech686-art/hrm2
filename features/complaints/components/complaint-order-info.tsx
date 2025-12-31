@@ -10,8 +10,15 @@ import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface Props {
   complaint: Complaint;
-  relatedOrder: any;
-  employees: any[];
+  relatedOrder: { 
+    shippingAddress?: unknown; 
+    packagings?: Array<{ systemId: string; trackingCode?: string; requestDate?: Date | string }>; 
+    salesperson?: string; 
+    orderDate?: Date | string; 
+    grandTotal?: number;
+    expectedDeliveryDate?: Date | string;
+  } | null;
+  employees: Array<{ systemId: string; fullName: string }>;
 }
 
 export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, relatedOrder, employees }) => {

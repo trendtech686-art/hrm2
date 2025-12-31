@@ -69,7 +69,7 @@ export function convertReceiptForPrint(
   return {
     // Thông tin cơ bản
     code: receipt.id,
-    createdAt: receipt.createdAt || receipt.date,
+    createdAt: (receipt.createdAt ?? receipt.date) ?? new Date(),
     issuedAt: receipt.issuedAt,
     createdBy: creator?.fullName || receipt.createdByName,
     

@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { NextRequest } from 'next/server'
+import type { Prisma } from '@/generated/prisma/client'
 
 const SETTING_KEY = 'payroll-templates'
 const SETTING_GROUP = 'hrm'
+
+interface PayrollTemplate {
+  systemId: string
+  [key: string]: unknown
+}
 
 type RouteParams = { params: Promise<{ systemId: string }> }
 
@@ -19,8 +25,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    const templates = (setting?.value as any[]) || []
-    const template = templates.find((t: any) => t.systemId === systemId)
+    const templates = (setting?.value as PayrollTemplate[]) || []
+    const template = templates.find((t) => t.systemId === systemId)
 
     if (!template) {
       return NextResponse.json(
@@ -52,8 +58,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    const templates = (setting?.value as any[]) || []
-    const existingIndex = templates.findIndex((t: any) => t.systemId === systemId)
+    const templates = (setting?.value as PayrollTemplate[]) || []
+    const existingIndex = templates.findIndex((t) => t.systemId === systemId)
     
     if (existingIndex < 0) {
       return NextResponse.json(
@@ -72,7 +78,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         },
       },
       data: {
-        value: templates,
+        value: templates as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
     })
@@ -99,8 +105,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    const templates = (setting?.value as any[]) || []
-    const filteredTemplates = templates.filter((t: any) => t.systemId !== systemId)
+    const templates = (setting?.value as PayrollTemplate[]) || []
+    const filteredTemplates = templates.filter((t) => t.systemId !== systemId)
 
     await prisma.setting.update({
       where: {
@@ -110,7 +116,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         },
       },
       data: {
-        value: filteredTemplates,
+        value: filteredTemplates as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
     })

@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Global Shipping Config Tab - V2
  * Global settings for all shipping partners
@@ -35,17 +37,17 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
     return fullConfig.global;
   });
 
-  const [hasChanges, setHasChanges] = useState(false);
+  const [_hasChanges, setHasChanges] = useState(false);
 
   const handleChange = <K extends keyof GlobalShippingConfig>(
     section: K,
     field: string,
-    value: any
+    value: unknown
   ) => {
     setConfig(prev => ({
       ...prev,
       [section]: {
-        ...(prev[section] as any),
+        ...(prev[section] as Record<string, unknown>),
         [field]: value,
       },
     }));
@@ -55,7 +57,7 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
   const handleSave = useCallback(() => {
     try {
       const fullConfig = loadShippingConfig();
-      const newConfig = updateGlobalConfig(fullConfig, config);
+      const _newConfig = updateGlobalConfig(fullConfig, config);
       // Note: updateGlobalConfig already saves to localStorage
       
       setHasChanges(false);

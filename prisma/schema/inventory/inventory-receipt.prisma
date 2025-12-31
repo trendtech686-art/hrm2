@@ -13,32 +13,32 @@ model InventoryReceipt {
   updatedAt     DateTime               @updatedAt
   createdBy     String?
   updatedBy     String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Purchase order linking
-  purchaseOrderId          String?    // Business ID for display
-  purchaseOrderSystemId    String?    // SystemId for FK
-  
+  purchaseOrderId       String? // Business ID for display
+  purchaseOrderSystemId String? // SystemId for FK
+
   // Supplier info (denormalized)
-  supplierSystemId         String?
-  supplierName             String?
-  
+  supplierSystemId String?
+  supplierName     String?
+
   // Receiver info
-  receiverSystemId         String?
-  receiverName             String?
-  receivedDate             DateTime?
-  
+  receiverSystemId String?
+  receiverName     String?
+  receivedDate     DateTime?
+
   // Branch info (denormalized)
-  branchSystemId           String?
-  branchName               String?
-  warehouseName            String?
-  
+  branchSystemId String?
+  branchName     String?
+  warehouseName  String?
+
   // Items (stored as JSON)
-  receiptItems             Json?      // Array of InventoryReceiptLineItem
-  
+  receiptItems Json? // Array of InventoryReceiptLineItem
+
   // === RELATIONS ===
-  items         InventoryReceiptItem[]
+  items InventoryReceiptItem[]
 
   @@map("inventory_receipts")
 }

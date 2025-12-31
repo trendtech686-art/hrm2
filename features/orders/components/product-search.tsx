@@ -1,6 +1,5 @@
 
 import * as React from 'react';
-import Link from 'next/link';
 import { PlusCircle, Package } from 'lucide-react';
 import type { Product } from '../../products/types';
 import type { ProductFormValues } from '../../products/validation';
@@ -9,7 +8,7 @@ import { useUnitStore } from '../../settings/units/store';
 import { usePricingPolicyStore } from '../../settings/pricing/store';
 import { useBranchStore } from '../../settings/branches/store';
 import { useImageStore } from '../../products/image-store';
-import { FileUploadAPI } from '../../../lib/file-upload-api';
+import { FileUploadAPI, type StagingFile, type ServerFile } from '../../../lib/file-upload-api';
 import { LazyImage } from '../../../components/ui/lazy-image';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -26,7 +25,7 @@ const formatCurrency = (value?: number) => {
 };
 
 const SimplifiedProductForm = ({ onSubmit }: { onSubmit: (values: ProductFormValues) => void; }) => {
-    const { data: products } = useProductStore();
+    const { data: _products } = useProductStore();
     const unitData = useUnitStore(state => state.data);
     const { data: pricingPolicies } = usePricingPolicyStore();
 
@@ -111,7 +110,7 @@ const SimplifiedProductForm = ({ onSubmit }: { onSubmit: (values: ProductFormVal
 };
 
 
-export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, defaultPolicyId, branchSystemId }: { 
+export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, defaultPolicyId, branchSystemId: _branchSystemId }: { 
     onSelectProduct: (product: Product) => void;
     onAddProduct: (values: ProductFormValues) => void;
     disabled: boolean;
@@ -126,27 +125,27 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
     // Only show active products
     const availableProducts = React.useMemo(() => {
         return getActive();
-    }, [allProducts, getActive]);
+    }, [getActive]);
 
-    const getComboStockRecord = (product: Product): Record<SystemId, number> => {
+    const getComboStockRecord = React.useCallback((product: Product): Record<SystemId, number> => {
         if (!isComboProduct(product) || !product.comboItems?.length) {
             return {};
         }
         return calculateComboStockAllBranches(product.comboItems, allProducts);
-    };
+    }, [allProducts]);
 
     // Calculate total inventory (on-hand stock) aggregated across branches
-    const getTotalInventory = (product: Product): number => {
+    const getTotalInventory = React.useCallback((product: Product): number => {
         if (isComboProduct(product) && product.comboItems?.length) {
             const comboStock = getComboStockRecord(product);
             return Object.values(comboStock).reduce((sum, qty) => sum + qty, 0);
         }
         const inventoryByBranch = product.inventoryByBranch || {};
         return Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
-    };
+    }, [getComboStockRecord]);
 
     // Calculate available stock (on-hand - committed) aggregated across branches
-    const getAvailableStock = (product: Product): number => {
+    const getAvailableStock = React.useCallback((product: Product): number => {
         if (isComboProduct(product) && product.comboItems?.length) {
             const comboStock = getComboStockRecord(product);
             return Object.values(comboStock).reduce((sum, qty) => sum + qty, 0);
@@ -157,9 +156,9 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
             const committed = committedByBranch[branchId as SystemId] || 0;
             return sum + Math.max(0, (stock as number) - committed);
         }, 0);
-    };
+    }, [getComboStockRecord]);
 
-    const getBranchStockLines = (product: Product) => {
+    const getBranchStockLines = React.useCallback((product: Product) => {
         if (isComboProduct(product) && product.comboItems?.length) {
             const comboStock = getComboStockRecord(product);
             return branches
@@ -187,14 +186,14 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
                 };
             })
             .filter(detail => detail.stock > 0 || detail.available > 0);
-    };
+    }, [branches, getComboStockRecord]);
 
-    const getCostPrice = (product: Product): number => {
+    const getCostPrice = React.useCallback((product: Product): number => {
         if (isComboProduct(product) && product.comboItems?.length) {
             return calculateComboCostPrice(product.comboItems, allProducts);
         }
         return product.costPrice || 0;
-    };
+    }, [allProducts]);
 
     // ✅ Convert to ComboboxOption format (no "Add new" in options anymore)
     const options: ComboboxOption[] = React.useMemo(() => {
@@ -229,7 +228,7 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
                 }
             } satisfies ComboboxOption;
         });
-    }, [availableProducts, defaultPolicyId, branches]);
+    }, [availableProducts, defaultPolicyId, getTotalInventory, getAvailableStock, getBranchStockLines, getCostPrice]);
 
     const handleChange = (option: ComboboxOption | null) => {
         if (option) {
@@ -263,13 +262,13 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
             if (!lastFetched && productSystemId) {
                 FileUploadAPI.getProductFiles(productSystemId)
                     .then(files => {
-                        const mapToServerFile = (f: any) => ({
+                        const mapToServerFile = (f: ServerFile) => ({
                             id: f.id, sessionId: '', name: f.name, originalName: f.originalName,
                             slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
                             status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: f.metadata
                         });
-                        updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile));
-                        updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapToServerFile));
+                        updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile) as unknown as StagingFile[]);
+                        updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapToServerFile) as unknown as StagingFile[]);
                     })
                     .catch(() => {});
             }
@@ -290,19 +289,20 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
     });
 
     const renderOption = (option: ComboboxOption) => {
+        const metadata = option.metadata as { unit?: string; price?: number; stock?: number; availableStock?: number } | undefined;
         return (
             <div className="flex items-center gap-3 w-full py-1">
                 <ProductOptionThumbnail productSystemId={option.value} />
                 <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{option.label}</p>
                     <p className="text-xs text-muted-foreground">
-                        {option.subtitle} | ĐVT: {option.metadata?.unit || 'Chiếc'}
+                        {option.subtitle} | ĐVT: {metadata?.unit || 'Chiếc'}
                     </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                    <p className="font-semibold">{formatCurrency(option.metadata?.price)}</p>
+                    <p className="font-semibold">{formatCurrency(metadata?.price)}</p>
                     <p className="text-xs text-muted-foreground">
-                        Tồn: {option.metadata?.stock || 0} | Bán: {option.metadata?.availableStock || 0}
+                        Tồn: {metadata?.stock || 0} | Bán: {metadata?.availableStock || 0}
                     </p>
                 </div>
             </div>

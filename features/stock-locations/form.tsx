@@ -1,7 +1,8 @@
+'use client';
+
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import type { StockLocation } from '@/lib/types/prisma-extended';
-import { useStockLocationStore } from "./store";
 import { useBranchStore } from "../settings/branches/store";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";

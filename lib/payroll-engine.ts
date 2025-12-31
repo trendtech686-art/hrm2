@@ -24,7 +24,7 @@ import type { Penalty } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from './id-types';
 import { usePenaltyStore } from '../features/settings/penalties/store';
 import { useEmployeeSettingsStore } from '../features/settings/employees/employee-settings-store';
-import type { InsuranceRates, TaxSettings, TaxBracket } from '@/lib/types/prisma-extended';
+import type { InsuranceRates, TaxBracket } from '@/lib/types/prisma-extended';
 
 // =============================================
 // TYPES - Input/Output for Engine
@@ -171,7 +171,6 @@ const evaluateFormula = (formula: string, context: FormulaContext): number => {
     const contextKeys = Object.keys(safeContext);
     const contextValues = Object.values(safeContext);
 
-    // eslint-disable-next-line no-new-func
     const fn = new Function(...contextKeys, `return ${formula};`);
     const result = fn(...contextValues);
 

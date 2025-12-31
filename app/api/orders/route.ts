@@ -1,5 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, OrderStatus } from '@/generated/prisma/client'
+
+// Interface for order line item input
+interface OrderLineItemInput {
+  productSystemId: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  discountType?: string;
+  tax?: number;
+  note?: string;
+}
 
 // GET /api/orders - List all orders
 export async function GET(request: Request) {
@@ -16,7 +28,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Prisma.OrderWhereInput = {}
 
     if (search) {
       where.OR = [
@@ -27,7 +39,7 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status
+      where.status = status as OrderStatus
     }
 
     if (customerId) {
@@ -146,7 +158,7 @@ export async function POST(request: Request) {
     // Calculate totals from line items
     let subtotal = 0
     const lineItemsData = await Promise.all(
-      body.lineItems.map(async (item: any) => {
+      body.lineItems.map(async (item: OrderLineItemInput) => {
         const product = await prisma.product.findUnique({
           where: { systemId: item.productSystemId },
         })
@@ -218,18 +230,19 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(order, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating order:', error)
     
-    if (error.code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Order ID already exists' },
         { status: 400 }
       )
     }
 
+    const message = error instanceof Error ? error.message : 'Failed to create order'
     return NextResponse.json(
-      { error: error.message || 'Failed to create order' },
+      { error: message },
       { status: 500 }
     )
   }

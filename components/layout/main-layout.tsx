@@ -7,9 +7,7 @@ import { useUiStore } from '../../lib/ui-store';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { cn } from '../../lib/utils';
 import { ModalProvider } from '../../contexts/modal-context';
-import { ResponsiveContainer } from '../ui/responsive-container';
 import { PageHeader } from './page-header';
-import { useIdlePreload } from '../../hooks/use-route-prefetch';
 
 // Component to initialize UI store state based on media query
 function UiStateInitializer() {

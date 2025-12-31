@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { UserRole } from '@/generated/prisma/client'
 import bcrypt from 'bcryptjs'
 
 // GET /api/users - List all users
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Parameters<typeof prisma.user.findMany>[0]['where'] = {}
 
     if (search) {
       where.OR = [
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     }
 
     if (role) {
-      where.role = role
+      where.role = role as UserRole
     }
 
     const [users, total] = await Promise.all([

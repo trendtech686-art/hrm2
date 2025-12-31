@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 
 const SETTING_KEY = 'payroll-templates'
 const SETTING_GROUP = 'hrm'
 
 // GET /api/payroll/templates - Get all payroll templates
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
     const setting = await prisma.setting.findFirst({
       where: {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       },
     })
 
-    const templates = (setting?.value as any[]) || []
+    const templates = (setting?.value as unknown[]) || []
     templates.push(body)
 
     await prisma.setting.upsert({
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
         },
       },
       update: {
-        value: templates,
+        value: templates as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'hrm',
-        value: templates,
+        value: templates as unknown as Prisma.InputJsonValue,
         description: 'Payroll templates',
       },
     })
@@ -89,7 +90,7 @@ export async function PUT(request: Request) {
         },
       },
       update: {
-        value: templates,
+        value: templates as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -98,7 +99,7 @@ export async function PUT(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'hrm',
-        value: templates,
+        value: templates as unknown as Prisma.InputJsonValue,
         description: 'Payroll templates',
       },
     })

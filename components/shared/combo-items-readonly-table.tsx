@@ -15,6 +15,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Package, Eye } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
+import { OptimizedImage } from '../ui/optimized-image';
 import { useProductStore } from '../../features/products/store';
 import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
 import { usePricingPolicyStore } from '../../features/settings/pricing/store';
@@ -52,7 +53,7 @@ const ProductThumbnailCell = ({
                 className={`group/thumbnail relative w-10 h-10 rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
             >
-                <img src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={40} height={40} />
                 {onPreview && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -99,7 +100,7 @@ export function ComboItemsReadOnlyTable({
     showStock = true,
     onImagePreview,
 }: ComboItemsReadOnlyTableProps) {
-    const { findById: findProductById, data: allProducts } = useProductStore();
+    const { findById: findProductById, data: _allProducts } = useProductStore();
     const { findById: findProductTypeById } = useProductTypeStore();
     const { data: pricingPolicies } = usePricingPolicyStore();
     const { data: branches } = useBranchStore();
@@ -178,7 +179,7 @@ export function ComboItemsReadOnlyTable({
 
     // Calculate totals
     const totalOriginalPrice = itemsWithDetails.reduce((sum, item) => sum + item.lineTotal, 0);
-    const totalCostPrice = itemsWithDetails.reduce((sum, item) => sum + item.lineCostTotal, 0);
+    const _totalCostPrice = itemsWithDetails.reduce((sum, item) => sum + item.lineCostTotal, 0);
 
     // Calculate column count
     let colCount = 4; // Sản phẩm, SL, Đơn giá, Thành tiền

@@ -10,87 +10,49 @@ import { Label } from '../../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router';
-import { useEmployeeStore } from '../employees/store';
-import { verifyPassword, checkRateLimit, sanitizeInput } from '../../lib/security-utils';
+
+// Test accounts (từ seed.ts)
+const TEST_ACCOUNTS = [
+  { email: 'admin@erp.local', password: 'password123', role: 'Admin', name: 'Quản trị viên' },
+  { email: 'sales@erp.local', password: 'password123', role: 'Sales', name: 'Nhân viên bán hàng' },
+];
 
 export function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { data: employees, findById } = useEmployeeStore();
+  const _searchParams = useSearchParams();
   
-  // Lấy 2 nhân viên đầu tiên có email và password
-  const availableEmployees = React.useMemo(() => {
-    return employees
-      .filter(emp => emp.workEmail && emp.password)
-      .slice(0, 2);
-  }, [employees]);
-
-  const [selectedEmployeeIndex, setSelectedEmployeeIndex] = React.useState(0);
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
+  const [selectedAccountIndex, setSelectedAccountIndex] = React.useState(0);
+  const [email, setEmail] = React.useState(TEST_ACCOUNTS[0].email);
+  const [password, setPassword] = React.useState(TEST_ACCOUNTS[0].password);
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // Get the page user was trying to access (use searchParams in Next.js)
+  // Get the page user was trying to access
   const from = ROUTES.DASHBOARD;
 
-  // Auto-fill when employee selection changes
+  // Auto-fill when account selection changes
   React.useEffect(() => {
-    if (availableEmployees.length > 0) {
-      const selectedEmployee = availableEmployees[selectedEmployeeIndex];
-      setEmail(selectedEmployee.workEmail || '');
-      setPassword(selectedEmployee.password || '');
-    }
-  }, [selectedEmployeeIndex, availableEmployees]);
+    const selectedAccount = TEST_ACCOUNTS[selectedAccountIndex];
+    setEmail(selectedAccount.email);
+    setPassword(selectedAccount.password);
+  }, [selectedAccountIndex]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Rate limiting check
-    const rateLimitKey = `login:${sanitizeInput(email)}`;
-    const rateLimit = checkRateLimit(rateLimitKey, 5, 60000); // 5 attempts per minute
-    
-    if (!rateLimit.allowed) {
-      const waitSeconds = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
-      toast.error(`Quá nhiều lần thử. Vui lòng đợi ${waitSeconds} giây.`);
-      return;
-    }
-    
     setIsLoading(true);
 
     try {
-      // Sanitize input
-      const sanitizedEmail = sanitizeInput(email);
+      // Login with NextAuth credentials provider
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
       
-      // Find employee by email first
-      const employee = employees.find(
-        emp => emp.workEmail?.toLowerCase() === sanitizedEmail.toLowerCase()
-      );
-      
-      if (!employee || !employee.password) {
+      if (result?.error) {
         toast.error('Email hoặc mật khẩu không đúng');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Verify password (supports both hashed and plain text for migration)
-      const isPasswordValid = await verifyPassword(password, employee.password);
-      
-      if (isPasswordValid) {
-        // Login with NextAuth credentials provider
-        const result = await signIn('credentials', {
-          email: employee.workEmail || sanitizedEmail,
-          password: password,
-          redirect: false,
-        });
-        
-        if (result?.error) {
-          toast.error('Email hoặc mật khẩu không đúng');
-        } else {
-          toast.success(`Đăng nhập thành công! Chào mừng ${employee.fullName}`);
-          router.replace(from);
-        }
       } else {
-        toast.error('Email hoặc mật khẩu không đúng');
+        toast.success('Đăng nhập thành công!');
+        router.replace(from);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -100,45 +62,30 @@ export function LoginPage() {
     }
   };
 
-  if (availableEmployees.length === 0) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Không có tài khoản</CardTitle>
-            <CardDescription>
-              Chưa có nhân viên nào được cấu hình email và mật khẩu
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-h3">Đăng nhập</CardTitle>
           <CardDescription>
-            Chọn loại tài khoản để tự động điền thông tin đăng nhập
+            Chọn tài khoản test hoặc nhập thông tin đăng nhập
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
-              {/* Employee Selection */}
+              {/* Test Account Selection */}
               <div className="grid gap-2">
-                <Label>Loại tài khoản (Test)</Label>
+                <Label>Tài khoản test</Label>
                 <RadioGroup 
-                  value={selectedEmployeeIndex.toString()} 
-                  onValueChange={(value) => setSelectedEmployeeIndex(parseInt(String(value)))}
+                  value={selectedAccountIndex.toString()} 
+                  onValueChange={(value) => setSelectedAccountIndex(parseInt(String(value)))}
                 >
-                  {availableEmployees.map((emp, index) => (
-                    <div key={emp.systemId} className="flex items-center space-x-2">
-                      <RadioGroupItem value={index.toString()} id={`emp-${index}`} />
-                      <Label htmlFor={`emp-${index}`} className="font-normal cursor-pointer">
-                        {emp.role || 'User'} - {emp.fullName} ({emp.workEmail})
+                  {TEST_ACCOUNTS.map((account, index) => (
+                    <div key={account.email} className="flex items-center space-x-2">
+                      <RadioGroupItem value={index.toString()} id={`acc-${index}`} />
+                      <Label htmlFor={`acc-${index}`} className="font-normal cursor-pointer">
+                        {account.role} - {account.name} ({account.email})
                       </Label>
                     </div>
                   ))}

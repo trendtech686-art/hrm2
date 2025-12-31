@@ -26,7 +26,6 @@ import {
   addMonths as dateFnsAddMonths,
   subMonths as dateFnsSubMonths,
   getDay,
-  setDay,
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { getGeneralSettingsSync } from './settings-cache';
@@ -57,7 +56,7 @@ export const getDateSettings = (): DateSettings => {
       dateFormat: settings.dateFormat || DEFAULT_DATE_SETTINGS.dateFormat,
       timeFormat: settings.timeFormat || DEFAULT_DATE_SETTINGS.timeFormat,
     };
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
   return DEFAULT_DATE_SETTINGS;
 };
 
@@ -298,9 +297,9 @@ export const parseDateTime = (dateTimeString: string): Date | null => {
 /**
  * Check if date is valid
  */
-export const isValidDate = (date: any): boolean => {
+export const isValidDate = (date: unknown): boolean => {
   if (!date) return false;
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = typeof date === 'string' ? new Date(date) : date as Date;
   return isValid(d);
 };
 

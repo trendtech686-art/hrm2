@@ -75,10 +75,10 @@ export function DataTableExportDialog<TData>({
     const headers = columnsToExport.map(col => col.meta?.displayName ?? col.id);
     
     const mappedData = dataToExport.map(row => {
-        const rowData: Record<string, any> = {};
+        const rowData: Record<string, unknown> = {};
         columnsToExport.forEach(col => {
             const key = col.accessorKey as keyof TData;
-            rowData[col.meta?.displayName ?? col.id] = (row as any)[key as string];
+            rowData[col.meta?.displayName ?? col.id] = row[key];
         });
         return rowData;
     });
@@ -121,7 +121,7 @@ export function DataTableExportDialog<TData>({
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Giới hạn kết quả xuất</Label>
-                <RadioGroup value={exportScope} onValueChange={(v) => setExportScope(v as any)}>
+                <RadioGroup value={exportScope} onValueChange={(v) => setExportScope(v as 'all' | 'filtered' | 'page')}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="filtered" id="filtered" />
                     <Label htmlFor="filtered">Kết quả đã lọc ({filteredData.length} dòng)</Label>

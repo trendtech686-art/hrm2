@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, expect, vi } from 'vitest';
 import type { Product } from '../types';
 import { fetchProductsPage, getFilteredProductsSnapshot, DEFAULT_PRODUCT_SORT, type ProductQueryParams } from '../product-service';
-import { asBusinessId, asSystemId } from '../../../lib/id-types';
+import { asBusinessId, asSystemId, type SystemId } from '../../../lib/id-types';
 
 const mockStoreState = { data: [] as Product[] };
 
@@ -37,7 +37,7 @@ describe('product-service filtering pipeline', () => {
         name: 'Sữa tươi Vinamilk',
         status: 'active',
         type: 'physical',
-        categorySystemId: 'cat-1' as any,
+        categorySystemId: 'cat-1' as SystemId,
         unit: 'Hộp',
         costPrice: 10000,
         prices: {},
@@ -53,7 +53,7 @@ describe('product-service filtering pipeline', () => {
         name: 'Dịch vụ bảo trì máy',
         status: 'inactive',
         type: 'service',
-        categorySystemId: 'cat-2' as any,
+        categorySystemId: 'cat-2' as SystemId,
         unit: 'Gói',
         costPrice: 20000,
         prices: {},
@@ -69,7 +69,7 @@ describe('product-service filtering pipeline', () => {
         name: 'Thẻ quà tặng điện tử',
         status: 'active',
         type: 'digital',
-        categorySystemId: 'cat-1' as any,
+        categorySystemId: 'cat-1' as SystemId,
         unit: 'Thẻ',
         costPrice: 0,
         prices: {},

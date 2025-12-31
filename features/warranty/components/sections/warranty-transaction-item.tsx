@@ -16,7 +16,7 @@ interface WarrantyTransactionItemProps {
 
 export function WarrantyTransactionItem({ transaction, orders, settlementMethod }: WarrantyTransactionItemProps) {
   const paymentTransaction = transaction.kind === 'payment' ? transaction : null;
-  const receiptTransaction = transaction.kind === 'receipt' ? transaction : null;
+  const _receiptTransaction = transaction.kind === 'receipt' ? transaction : null;
   const linkedOrder = paymentTransaction?.linkedOrderSystemId
     ? orders.find(order => order.systemId === paymentTransaction.linkedOrderSystemId)
     : null;

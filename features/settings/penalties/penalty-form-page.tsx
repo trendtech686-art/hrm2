@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { usePenaltyStore } from './store';
+import type { Penalty } from './types';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { PenaltyForm } from './form';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -66,12 +67,12 @@ export function PenaltyFormPage() {
     ]
   });
 
-  const handleSubmit = (values: any) => {
+  const handleSubmit = (values: Record<string, unknown>) => {
     if (isEdit && penalty) {
       update(penalty.systemId, { ...penalty, ...values });
       toast.success('Đã cập nhật phiếu phạt');
     } else {
-      add(values);
+      add(values as Omit<Penalty, 'systemId'>);
       toast.success('Đã tạo phiếu phạt mới');
     }
     router.push('/penalties');

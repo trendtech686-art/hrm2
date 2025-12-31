@@ -1,10 +1,10 @@
 import * as React from "react";
-import { toast } from 'sonner';
-import { formatDate, formatDateTime } from '../../lib/date-utils';
+import { formatDateTime } from '../../lib/date-utils';
 import type { WarrantyTicket } from './types';
 import type { Order } from '../orders/types';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, WARRANTY_SETTLEMENT_STATUS_LABELS, WARRANTY_SETTLEMENT_STATUS_COLORS } from './types';
+import { WARRANTY_STATUS_COLORS, WARRANTY_SETTLEMENT_STATUS_LABELS, WARRANTY_SETTLEMENT_STATUS_COLORS, WARRANTY_STATUS_LABELS } from './types';
 import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils';
+import { toast } from 'sonner';
 import { Checkbox } from "../../components/ui/checkbox";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
 import { Badge } from "../../components/ui/badge";
@@ -62,7 +62,7 @@ export const getColumns = (
         sortKey="id"
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => (
@@ -120,7 +120,7 @@ export const getColumns = (
         sortKey="customerName"
         isSorted={sorting?.id === 'customerName'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'customerName', desc: s.id === 'customerName' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s) => ({ id: 'customerName', desc: s.id === 'customerName' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => (
@@ -271,7 +271,7 @@ export const getColumns = (
         sortKey="status"
         isSorted={sorting?.id === 'status'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'status', desc: s.id === 'status' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s) => ({ id: 'status', desc: s.id === 'status' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => (
@@ -349,7 +349,7 @@ export const getColumns = (
       // Get vouchers and calculate
       // REMOVED: useVoucherStore no longer exists
       // const vouchers = useVoucherStore.getState().data;
-      const vouchers: any[] = [];
+      const vouchers: { linkedWarrantySystemId?: string; amount?: number }[] = [];
       const relatedVouchers = vouchers.filter(v => v.linkedWarrantySystemId === row.systemId);
       const totalPaid = relatedVouchers.reduce((sum, v) => sum + (v.amount || 0), 0);
       
@@ -415,8 +415,8 @@ export const getColumns = (
       let replaced = row.summary?.totalReplaced;
       if (replaced === undefined || replaced === null) {
         replaced = row.products
-          ?.filter((p: any) => p.resolution === 'replace')
-          .reduce((sum: number, p: any) => sum + (p.quantity || 1), 0) || 0;
+          ?.filter((p: { resolution?: string }) => p.resolution === 'replace')
+          .reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0) || 0;
       }
       if (replaced === 0) return <span className="text-muted-foreground text-body-xs">—</span>;
       return <div className="text-center text-green-600 font-medium">{replaced}</div>;
@@ -436,8 +436,8 @@ export const getColumns = (
       let returned = row.summary?.totalReturned;
       if (returned === undefined || returned === null) {
         returned = row.products
-          ?.filter((p: any) => p.resolution === 'return')
-          .reduce((sum: number, p: any) => sum + (p.quantity || 1), 0) || 0;
+          ?.filter((p: { resolution?: string }) => p.resolution === 'return')
+          .reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0) || 0;
       }
       if (returned === 0) return <span className="text-muted-foreground text-body-xs">—</span>;
       return <div className="text-center text-blue-600 font-medium">{returned}</div>;
@@ -459,11 +459,11 @@ export const getColumns = (
       let deduction = row.summary?.totalDeduction;
       
       if (outOfStock === undefined || outOfStock === null || deduction === undefined || deduction === null) {
-        const outOfStockProducts = row.products?.filter((p: any) => 
+        const outOfStockProducts = row.products?.filter((p: { resolution?: string }) => 
           p.resolution === 'out_of_stock' || p.resolution === 'deduct'
         ) || [];
-        outOfStock = outOfStockProducts.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
-        deduction = outOfStockProducts.reduce((sum: number, p: any) => {
+        outOfStock = outOfStockProducts.reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0);
+        deduction = outOfStockProducts.reduce((sum: number, p: { resolution?: string; deductionAmount?: number; quantity?: number; unitPrice?: number }) => {
           if (p.resolution === 'deduct') return sum + (p.deductionAmount || 0);
           if (p.resolution === 'out_of_stock') return sum + ((p.quantity || 1) * (p.unitPrice || 0));
           return sum;
@@ -648,7 +648,7 @@ export const getColumns = (
         sortKey="createdAt"
         isSorted={sorting?.id === 'createdAt'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => (

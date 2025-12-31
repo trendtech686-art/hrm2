@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "../../lib/utils"
@@ -33,7 +35,7 @@ const Collapsible = ({
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
   
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
-  const setOpen = setControlledOpen !== undefined ? setControlledOpen : setInternalOpen;
+  const _setOpen = setControlledOpen !== undefined ? setControlledOpen : setInternalOpen;
   
   const handleOpenChange = (newOpen: boolean) => {
     if (setControlledOpen) {
@@ -49,7 +51,7 @@ const Collapsible = ({
 const CollapsibleTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
->(({ children, asChild = false, onClick, ...props }, ref) => {
+>(({ children, asChild: _asChild = false, onClick, ...props }, ref) => {
   const { open, setOpen } = useCollapsible();
   
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -57,14 +59,16 @@ const CollapsibleTrigger = React.forwardRef<
     onClick?.(e);
   };
 
-  if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
-      ref,
-      onClick: (e: React.MouseEvent) => {
-        handleClick(e as any);
-        // FIX: Cast `children.props` to `any` to safely access and call the original `onClick` handler if it exists.
-        if ((children.props as any).onClick) {
-          (children.props as any).onClick(e);
+  if (_asChild && React.isValidElement(children)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return React.cloneElement(children as any, {
+      ref: ref,
+      onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+        handleClick(e);
+        // FIX: Cast `children.props` to access and call the original `onClick` handler if it exists.
+        const childProps = children.props as React.HTMLAttributes<HTMLButtonElement>;
+        if (childProps.onClick) {
+          childProps.onClick(e);
         }
       },
       "data-state": open ? "open" : "closed",

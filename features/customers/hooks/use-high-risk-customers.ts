@@ -19,11 +19,11 @@ import type { Customer } from '../types';
  */
 export function useHighRiskDebtCustomers(): Customer[] {
   const getHighRiskDebtCustomers = useCustomerStore(state => state.getHighRiskDebtCustomers);
-  const data = useCustomerStore(state => state.data); // For reactivity
+  const _data = useCustomerStore(state => state.data); // For reactivity
   
   return useMemo(() => {
     return getHighRiskDebtCustomers();
-  }, [getHighRiskDebtCustomers, data]);
+  }, [getHighRiskDebtCustomers]);
 }
 
 /**
@@ -31,11 +31,11 @@ export function useHighRiskDebtCustomers(): Customer[] {
  */
 export function useOverdueDebtCustomers(): Customer[] {
   const getOverdueDebtCustomers = useCustomerStore(state => state.getOverdueDebtCustomers);
-  const data = useCustomerStore(state => state.data);
+  const _data = useCustomerStore(state => state.data);
   
   return useMemo(() => {
     return getOverdueDebtCustomers();
-  }, [getOverdueDebtCustomers, data]);
+  }, [getOverdueDebtCustomers]);
 }
 
 /**
@@ -43,11 +43,11 @@ export function useOverdueDebtCustomers(): Customer[] {
  */
 export function useDueSoonCustomers(): Customer[] {
   const getDueSoonCustomers = useCustomerStore(state => state.getDueSoonCustomers);
-  const data = useCustomerStore(state => state.data);
+  const _data = useCustomerStore(state => state.data);
   
   return useMemo(() => {
     return getDueSoonCustomers();
-  }, [getDueSoonCustomers, data]);
+  }, [getDueSoonCustomers]);
 }
 
 /**
@@ -55,11 +55,11 @@ export function useDueSoonCustomers(): Customer[] {
  */
 export function useCustomersBySegment(segment: CustomerSegment | string): Customer[] {
   const getCustomersBySegment = useCustomerStore(state => state.getCustomersBySegment);
-  const data = useCustomerStore(state => state.data);
+  const _data = useCustomerStore(state => state.data);
   
   return useMemo(() => {
     return getCustomersBySegment(segment);
-  }, [getCustomersBySegment, segment, data]);
+  }, [getCustomersBySegment, segment]);
 }
 
 /**
@@ -71,7 +71,7 @@ export function useAtRiskCustomers(): {
   total: number;
 } {
   const activeCustomers = useCustomerStore(state => state.getActive());
-  const data = useCustomerStore(state => state.data);
+  const _data = useCustomerStore(state => state.data);
   
   return useMemo(() => {
     const highRisk: Customer[] = [];
@@ -91,7 +91,7 @@ export function useAtRiskCustomers(): {
       mediumRisk,
       total: highRisk.length + mediumRisk.length,
     };
-  }, [activeCustomers, data]);
+  }, [activeCustomers]);
 }
 
 /**

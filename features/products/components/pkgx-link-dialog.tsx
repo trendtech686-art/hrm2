@@ -41,26 +41,7 @@ export function PkgxLinkDialog({
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [hasFetched, setHasFetched] = React.useState(false);
 
-  // Load PKGX products khi mở dialog - chỉ chạy 1 lần
-  React.useEffect(() => {
-    if (open && !hasFetched) {
-      if (cachedPkgxProducts && cachedPkgxProducts.length > 0) {
-        setPkgxProductsLocal(cachedPkgxProducts);
-        setHasFetched(true);
-      } else {
-        loadPkgxProducts();
-      }
-    }
-  }, [open, hasFetched, cachedPkgxProducts]);
-
-  // Reset state khi đóng dialog
-  React.useEffect(() => {
-    if (!open) {
-      setSelectedPkgxProduct(null);
-    }
-  }, [open]);
-
-  const loadPkgxProducts = async () => {
+  const loadPkgxProducts = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetchPkgxProducts(1, 1000);
@@ -77,7 +58,26 @@ export function PkgxLinkDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setPkgxProducts]);
+
+  // Load PKGX products khi mở dialog - chỉ chạy 1 lần
+  React.useEffect(() => {
+    if (open && !hasFetched) {
+      if (cachedPkgxProducts && cachedPkgxProducts.length > 0) {
+        setPkgxProductsLocal(cachedPkgxProducts);
+        setHasFetched(true);
+      } else {
+        loadPkgxProducts();
+      }
+    }
+  }, [open, hasFetched, cachedPkgxProducts, loadPkgxProducts]);
+
+  // Reset state khi đóng dialog
+  React.useEffect(() => {
+    if (!open) {
+      setSelectedPkgxProduct(null);
+    }
+  }, [open]);
 
   // Filter out products that are already linked
   const { data: hrmProducts } = useProductStore();
@@ -108,7 +108,7 @@ export function PkgxLinkDialog({
       const pkgxId = Number(selectedPkgxProduct.value);
       
       // Update HRM product with pkgxId
-      update(product.systemId as any, { pkgxId });
+      update(product.systemId, { pkgxId });
       
       // Log to console
       console.log('[PKGX Link]', {

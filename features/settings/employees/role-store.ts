@@ -29,7 +29,7 @@ const getDefaultRoles = (): CustomRole[] => [
 
 export const useRoleStore = create<RoleStore>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       roles: getDefaultRoles(),
       addRole: (name, description) => set((state) => ({
         roles: [...state.roles, {

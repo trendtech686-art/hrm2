@@ -13,15 +13,14 @@ import {
   DragEndEvent,
   DragOverEvent
 } from '@dnd-kit/core';
-import { Search, Users, Crown, MoreHorizontal, PlusCircle, Eye, Copy, Check, GripVertical } from 'lucide-react';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { Search, Users, Crown, Eye, Copy, Check } from 'lucide-react';
+import { formatDate } from '@/lib/date-utils';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useDepartmentStore } from './store';
 import { useEmployeeStore } from '../../employees/store';
-import { useJobTitleStore } from '../job-titles/store';
+import { asSystemId } from '@/lib/id-types';
 import type { Department } from '@/lib/types/prisma-extended';
 import type { Employee } from '../../employees/types';
-import type { JobTitle } from '../job-titles/types';
 import { cn } from '../../../lib/utils';
 import { Button } from '../../../components/ui/button';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
@@ -31,7 +30,6 @@ import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SortableCard } from '../../../components/settings/SortableCard';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog';
 import { DepartmentForm, type DepartmentFormValues } from './department-form';
 import { JobTitlesPageContent } from '../job-titles/page-content';
 import { Separator } from '../../../components/ui/separator';
@@ -262,7 +260,7 @@ const UnassignedColumn = React.memo(function UnassignedColumn({
   employees,
   onViewEmployee,
   activeId,
-  overId,
+  overId: _overId,
 }: {
   employees: Employee[];
   onViewEmployee: (employee: Employee) => void;
@@ -469,31 +467,32 @@ export function DepartmentsPage() {
     }
 
     performActualDrop(employee, department, isManager, employeeId, departmentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- performActualDrop is defined after but stable since it uses same deps
   }, [employees, departments, updateEmployee, updateDepartment]);
 
-  const performActualDrop = (employee: any, department: any, isManager: boolean, employeeId: string, departmentId: string) => {
+  const performActualDrop = (employee: Employee, department: Department, isManager: boolean, employeeId: string, departmentId: string) => {
     // Update employee's department
-    updateEmployee(employee.systemId, { ...employee, department: department.name } as any);
+    updateEmployee(employee.systemId, { ...employee, department: department.name as Employee['department'] });
 
     // Update manager status
     if (isManager) {
         // If there was an old manager, demote them
         const oldManager = employees.find(e => e.systemId === department.managerId);
         if(oldManager && oldManager.systemId !== employeeId) {
-            updateEmployee(oldManager.systemId, {...oldManager, jobTitle: 'Nhân viên'} as any);
+            updateEmployee(oldManager.systemId, {...oldManager, jobTitle: 'Nhân viên'});
             toast.info("Đã hạ chức trưởng phòng cũ", {
               description: `${oldManager.fullName} không còn là trưởng phòng ${department.name}`
             });
         }
-        updateDepartment(departmentId as any, { ...department, managerId: employee.systemId });
-        updateEmployee(employeeId as any, { ...employee, department: department.name, jobTitle: 'Trưởng phòng' } as any);
+        updateDepartment(asSystemId(departmentId), { ...department, managerId: employee.systemId });
+        updateEmployee(asSystemId(employeeId), { ...employee, department: department.name as Employee['department'], jobTitle: 'Trưởng phòng' });
         toast.success("Đã bổ nhiệm trưởng phòng", {
           description: `${employee.fullName} là trưởng phòng ${department.name}`
         });
     } else {
         // If the dropped employee was the manager, unset them
         if (department.managerId === employee.systemId) {
-            updateDepartment(departmentId as any, { ...department, managerId: undefined });
+            updateDepartment(asSystemId(departmentId), { ...department, managerId: undefined });
         }
         toast.success("Đã thêm nhân viên", {
           description: `${employee.fullName} vào ${department.name}`

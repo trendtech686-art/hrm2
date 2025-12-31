@@ -130,5 +130,5 @@ export function usePaymentsByDateRange(startDate: string, endDate: string) {
 }
 
 export function usePaymentsByCategory(category: Payment['category']) {
-  return usePayments({ category: category as any });
+  return usePayments({ category });
 }

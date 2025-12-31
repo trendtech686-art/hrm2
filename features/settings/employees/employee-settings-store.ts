@@ -707,7 +707,7 @@ export const useEmployeeSettingsStore = create<EmployeeSettingsState>()(
             baseSalaryComponent.type = 'formula';
             baseSalaryComponent.formula = 'baseSalary * (workDays / standardWorkDays)';
             baseSalaryComponent.description = 'Lương theo ngày công thực tế = Lương HĐ × (Ngày công / Ngày chuẩn)';
-            delete (baseSalaryComponent as any).amount;
+            delete (baseSalaryComponent as { amount?: unknown }).amount;
           }
           
           // Cập nhật OT ngày thường (SALCOMP000010) nếu công thức chưa đúng

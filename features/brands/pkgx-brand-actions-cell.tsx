@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { MoreHorizontal, RefreshCw, Globe, Search, AlignLeft, Eye, Link2, Unlink, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, RefreshCw, Globe, Search, AlignLeft, Eye, Link2, Unlink } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import type { Brand } from '../settings/inventory/types';

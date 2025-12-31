@@ -3,7 +3,7 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu chuyển kho
  */
 
-import type { StockTransfer, StockTransferItem } from '@/lib/types/prisma-extended';
+import type { StockTransfer } from '@/lib/types/prisma-extended';
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { 

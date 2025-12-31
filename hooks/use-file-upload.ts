@@ -231,7 +231,7 @@ export function useAvatarUpload(entityType: 'employees' | 'customers', entityId?
 
 // Hook for product images
 export function useProductImages(productId?: string) {
-  const { upload, uploadMultiple, isUploading, error, progress } = useFileUpload()
+  const { upload: _upload, uploadMultiple, isUploading, error, progress } = useFileUpload()
   const { files, deleteFile, refetch } = useEntityFiles('products', productId)
   
   const uploadImages = useCallback(async (imageFiles: File[]) => {

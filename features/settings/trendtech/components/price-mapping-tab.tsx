@@ -7,6 +7,7 @@ import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTrendtechSettingsStore } from '../store';
 import { usePricingPolicyStore } from '../../pricing/store';
+import type { SystemId } from '@/lib/id-types';
 
 export function PriceMappingTab() {
   const { settings, updatePriceMapping, addLog } = useTrendtechSettingsStore();
@@ -16,10 +17,10 @@ export function PriceMappingTab() {
   const { priceMapping } = settings;
 
   const handleUpdateMapping = (field: 'price' | 'compareAtPrice', policyId: string | null) => {
-    updatePriceMapping(field, policyId as any);
+    updatePriceMapping(field, policyId as SystemId | null);
     
-    const policyName = policyId 
-      ? pricingPolicies.find(p => p.systemId === policyId)?.name || 'Unknown'
+    const policyName = policyId && policyId.length > 0
+      ? pricingPolicies.find(p => String(p.systemId) === policyId)?.name || 'Unknown'
       : 'Không chọn';
     
     addLog({
@@ -34,7 +35,7 @@ export function PriceMappingTab() {
 
   const getPolicyName = (policyId: string | null) => {
     if (!policyId) return 'Chưa chọn';
-    return pricingPolicies.find(p => p.systemId === policyId)?.name || 'Unknown';
+    return pricingPolicies.find(p => String(p.systemId) === policyId)?.name || 'Unknown';
   };
 
   return (
@@ -78,7 +79,7 @@ export function PriceMappingTab() {
                 <SelectContent>
                   <SelectItem value="none">-- Không chọn --</SelectItem>
                   {pricingPolicies.map((policy) => (
-                    <SelectItem key={policy.systemId} value={policy.systemId}>
+                    <SelectItem key={String(policy.systemId)} value={String(policy.systemId)}>
                       {policy.name}
                     </SelectItem>
                   ))}
@@ -129,7 +130,7 @@ export function PriceMappingTab() {
                 <SelectContent>
                   <SelectItem value="none">-- Không chọn --</SelectItem>
                   {pricingPolicies.map((policy) => (
-                    <SelectItem key={policy.systemId} value={policy.systemId}>
+                    <SelectItem key={String(policy.systemId)} value={String(policy.systemId)}>
                       {policy.name}
                     </SelectItem>
                   ))}

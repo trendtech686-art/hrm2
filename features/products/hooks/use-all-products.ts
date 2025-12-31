@@ -20,7 +20,7 @@ export function useAllProducts() {
 
 export function useActiveProducts() {
   const { data, isLoading } = useAllProducts();
-  const activeProducts = data.filter(p => !p.isDeleted && (p as any).isActive !== false);
+  const activeProducts = data.filter(p => !p.isDeleted && (p as { isActive?: boolean }).isActive !== false);
   
   return { data: activeProducts, isLoading };
 }

@@ -256,7 +256,7 @@ export function lookupAddressIds(address: Partial<EmployeeAddress> | null | unde
   // === STRATEGY: Lookup từ ward trước (có đầy đủ thông tin) ===
   if (address.ward) {
     const allWards = store.wards;
-    const normalizedWardInput = normalizeText(address.ward);
+    const _normalizedWardInput = normalizeText(address.ward);
     const wardWithoutPrefix = removeCommonPrefixes(address.ward);
     
     // Filter wards by level

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Search, AlignLeft, Globe, FolderEdit, DollarSign, Package, Tag, FileText } from 'lucide-react';
+import { RefreshCw, Search, AlignLeft, FolderEdit, DollarSign, Package, Tag } from 'lucide-react';
 import { updateCategory, updateCategoryBasic, updateBrand, updateProduct as updatePkgxProduct } from '../../../../lib/pkgx/api-service';
 import type { LucideIcon } from 'lucide-react';
 
@@ -141,12 +141,12 @@ export interface UsePkgxEntitySyncOptions {
     action: PkgxSyncLogAction;
     status: 'success' | 'error' | 'info';
     message: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }) => void;
   /** For products - get PKGX category ID from HRM category */
-  getPkgxCatIdByHrmCategory?: (hrmCategoryId: string) => number | undefined;
+  getPkgxCatIdByHrmCategory?: (hrmCategoryId: string) => number | null | undefined;
   /** For products - get PKGX brand ID from HRM brand */
-  getPkgxBrandIdByHrmBrand?: (hrmBrandId: string) => number | undefined;
+  getPkgxBrandIdByHrmBrand?: (hrmBrandId: string) => number | null | undefined;
 }
 
 // ========================================
@@ -268,7 +268,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
       confirmAction.action();
     }
     setConfirmAction({ open: false, title: '', description: '', action: null });
-  }, [confirmAction.action]);
+  }, [confirmAction]);
   
   // Cancel confirm dialog
   const cancelConfirm = React.useCallback(() => {
@@ -287,7 +287,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     setIsSyncing(true);
     try {
       const pkgxSeo = hrmCategory.websiteSeo?.pkgx;
-      let payload: Record<string, any> = {};
+      let payload: Record<string, unknown> = {};
       let successMessage = '';
       
       switch (actionKey) {
@@ -303,7 +303,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
           successMessage = `Đã đồng bộ tất cả cho danh mục: ${hrmCategory.name}`;
           break;
           
-        case 'sync_basic':
+        case 'sync_basic': {
           payload = {
             cat_name: hrmCategory.name,
             is_show: hrmCategory.isActive !== false ? 1 : 0,
@@ -324,6 +324,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
           }
           setIsSyncing(false);
           return basicResponse.success;
+        }
           
         case 'sync_seo':
           payload = {
@@ -361,7 +362,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
       }
       
       return response.success;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi khi đồng bộ danh mục');
       return false;
     } finally {
@@ -381,7 +382,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     setIsSyncing(true);
     try {
       const pkgxSeo = hrmBrand.websiteSeo?.pkgx;
-      let payload: Record<string, any> = {};
+      let payload: Record<string, unknown> = {};
       let successMessage = '';
       
       switch (actionKey) {
@@ -442,7 +443,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
       }
       
       return response.success;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi khi đồng bộ thương hiệu');
       return false;
     } finally {
@@ -461,7 +462,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
   ) => {
     setIsSyncing(true);
     try {
-      let payload: Record<string, any> = {};
+      let payload: Record<string, unknown> = {};
       let successMessage = '';
       
       switch (actionKey) {
@@ -574,7 +575,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
       }
       
       return response.success;
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi khi đồng bộ sản phẩm');
       return false;
     } finally {

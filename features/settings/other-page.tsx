@@ -1,8 +1,9 @@
 import * as React from 'react';
-import { Save, Monitor, Globe, Bell, Shield, Upload, Plug, Gauge, Building, Clock, Mail, Palette, Image, FileText, Database, MessageSquare, Send, UserCog, CheckCircle, XCircle, AlertTriangle, Trash2, RefreshCw, HardDrive, Cpu, MemoryStick, Wifi, Server, Activity, Zap, Settings, Download, Cloud, FolderArchive, Code, History, GitBranch, Calendar, ExternalLink, Play, Pause, RotateCcw, Info, Terminal, Package, Layers, FileCode, ChevronRight, CircleDot, Smartphone, Key, QrCode, Eye, EyeOff, ImagePlus, Camera, Search, Plus, Pencil, Lock, ChevronLeft, ChevronsLeft, ChevronsRight, FileX, ScrollText, Target, FileEdit } from 'lucide-react';
+import { Save, Monitor, Globe, Bell, Shield, Upload, Gauge, Building, Clock, Mail, Palette, Image, FileText, Database, MessageSquare, Send, UserCog, CheckCircle, XCircle, AlertTriangle, Trash2, RefreshCw, HardDrive, Cpu, MemoryStick, Server, Activity, Zap, Settings, FolderArchive, Code, ExternalLink, Info, Terminal, Package, Layers, FileCode, ChevronRight, Smartphone, Eye, ImagePlus, Search, Plus, Pencil, Lock, ChevronLeft, ChevronsLeft, ChevronsRight, FileX, ScrollText, Target, FileEdit } from 'lucide-react';
 import { useSettingsPageHeader } from './use-settings-page-header';
 import { TabsContent } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { OptimizedImage } from '../../components/ui/optimized-image';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -16,11 +17,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { SettingsVerticalTabs } from '../../components/settings/SettingsVerticalTabs';
 import { SettingsActionButton } from '../../components/settings/SettingsActionButton';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Textarea } from '../../components/ui/textarea';
 import { TipTapEditor } from '../../components/ui/tiptap-editor';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { useTabActionRegistry, type RegisterTabActions } from './use-tab-action-registry';
-import { useGlobalSettingsStore, useDefaultPageSize, usePageSizeOptions } from './global-settings-store';
 import { useNotificationSettings } from '../../hooks/use-due-date-notifications';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { toast } from 'sonner';
@@ -88,7 +87,7 @@ function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
     try {
       const stored = localStorage.getItem('general-settings');
       if (stored) return { ...DEFAULT_GENERAL_SETTINGS, ...JSON.parse(stored) };
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return DEFAULT_GENERAL_SETTINGS;
   });
   
@@ -169,7 +168,7 @@ function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt chung');
       setHasChanges(false);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     } finally {
       setIsSaving(false);
@@ -308,7 +307,7 @@ function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
               <div className="flex items-start gap-4">
                 <div className="w-32 h-16 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
                   {settings.logoUrl ? (
-                    <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                    <OptimizedImage src={settings.logoUrl} alt="Logo" width={128} height={64} className="max-w-full max-h-full object-contain" unoptimized />
                   ) : (
                     <Image className="h-8 w-8 text-muted-foreground" />
                   )}
@@ -342,7 +341,7 @@ function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
                   {settings.faviconUrl ? (
-                    <img src={settings.faviconUrl} alt="Favicon" className="max-w-full max-h-full object-contain" />
+                    <OptimizedImage src={settings.faviconUrl} alt="Favicon" width={64} height={64} className="max-w-full max-h-full object-contain" unoptimized />
                   ) : (
                     <Image className="h-6 w-6 text-muted-foreground" />
                   )}
@@ -534,7 +533,7 @@ function SecurityTabContent({ isActive, onRegisterActions }: TabContentProps) {
     try {
       const stored = localStorage.getItem('security-settings');
       if (stored) return { ...DEFAULT_SECURITY_SETTINGS, ...JSON.parse(stored) };
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return DEFAULT_SECURITY_SETTINGS;
   });
   
@@ -557,7 +556,7 @@ function SecurityTabContent({ isActive, onRegisterActions }: TabContentProps) {
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt bảo mật');
       setHasChanges(false);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     } finally {
       setIsSaving(false);
@@ -806,7 +805,7 @@ function MediaTabContent({ isActive, onRegisterActions }: TabContentProps) {
     try {
       const stored = localStorage.getItem('media-settings');
       if (stored) return { ...DEFAULT_MEDIA_SETTINGS, ...JSON.parse(stored) };
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return DEFAULT_MEDIA_SETTINGS;
   });
   
@@ -829,7 +828,7 @@ function MediaTabContent({ isActive, onRegisterActions }: TabContentProps) {
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt tệp tin');
       setHasChanges(false);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     } finally {
       setIsSaving(false);
@@ -1163,7 +1162,7 @@ function IntegrationTabContent({ isActive, onRegisterActions }: TabContentProps)
     try {
       const stored = localStorage.getItem('integration-settings');
       if (stored) return { ...DEFAULT_INTEGRATION_SETTINGS, ...JSON.parse(stored) };
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return DEFAULT_INTEGRATION_SETTINGS;
   });
   
@@ -1187,7 +1186,7 @@ function IntegrationTabContent({ isActive, onRegisterActions }: TabContentProps)
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt tích hợp');
       setHasChanges(false);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     } finally {
       setIsSaving(false);
@@ -1391,7 +1390,7 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
     try {
       localStorage.setItem('test', 'test');
       localStorage.removeItem('test');
-    } catch (e) {
+    } catch (_e) {
       localStorageStatus = 'error';
       localStorageInfo = 'Không khả dụng';
     }
@@ -1416,8 +1415,8 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const calculateStorage = () => {
     // Calculate localStorage usage
     let localStorageUsed = 0;
-    for (let key in localStorage) {
-      if (localStorage.hasOwnProperty(key)) {
+    for (const key in localStorage) {
+      if (Object.hasOwn(localStorage, key)) {
         localStorageUsed += localStorage.getItem(key)?.length || 0;
       }
     }
@@ -1425,8 +1424,8 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
 
     // Calculate sessionStorage usage
     let sessionStorageUsed = 0;
-    for (let key in sessionStorage) {
-      if (sessionStorage.hasOwnProperty(key)) {
+    for (const key in sessionStorage) {
+      if (Object.hasOwn(sessionStorage, key)) {
         sessionStorageUsed += sessionStorage.getItem(key)?.length || 0;
       }
     }
@@ -1470,7 +1469,7 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     switch (type) {
-      case 'cache':
+      case 'cache': {
         // Clear cache-related localStorage items
         const cacheKeys = Object.keys(localStorage).filter(key => 
           key.includes('cache') || key.includes('query') || key.includes('temp')
@@ -1478,6 +1477,7 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
         cacheKeys.forEach(key => localStorage.removeItem(key));
         toast.success(`Đã xóa ${cacheKeys.length} mục cache`);
         break;
+      }
       case 'logs':
         setDbStats(prev => ({ ...prev, oldLogs: 0 }));
         toast.success('Đã xóa log cũ');
@@ -1491,7 +1491,7 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
         setDbStats(prev => ({ ...prev, orphanedRecords: 0 }));
         toast.success('Đã xóa dữ liệu mồ côi');
         break;
-      case 'all':
+      case 'all': {
         const keysToKeep = ['general-settings', 'security-settings', 'media-settings'];
         Object.keys(localStorage).forEach(key => {
           if (!keysToKeep.includes(key)) {
@@ -1502,6 +1502,7 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
         setDbStats({ totalRecords: dbStats.totalRecords, orphanedRecords: 0, duplicateRecords: 0, oldLogs: 0, tempData: 0 });
         toast.success('Đã dọn dẹp toàn bộ hệ thống');
         break;
+      }
     }
     
     calculateStorage();
@@ -1555,8 +1556,8 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
     const cookiesEnabled = navigator.cookieEnabled ? 'Có' : 'Không';
     const doNotTrack = navigator.doNotTrack === '1' ? 'Có' : 'Không';
     const online = navigator.onLine ? 'Online' : 'Offline';
-    const deviceMemory = (navigator as any).deviceMemory ? `${(navigator as any).deviceMemory} GB` : 'N/A';
-    const connection = (navigator as any).connection;
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ? `${(navigator as Navigator & { deviceMemory?: number }).deviceMemory} GB` : 'N/A';
+    const connection = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
     const networkType = connection?.effectiveType || 'N/A';
     
     return {
@@ -2264,7 +2265,7 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
 // ═══════════════════════════════════════════════════════════════
 
 function NotificationTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { getSettings, saveSettings, resetSettings } = useNotificationSettings();
+  const { getSettings, saveSettings, resetSettings: _resetSettings } = useNotificationSettings();
   const [settings, setSettings] = React.useState(getSettings());
   const [hasChanges, setHasChanges] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -2292,7 +2293,7 @@ function NotificationTabContent({ isActive, onRegisterActions }: TabContentProps
       saveSettings(settings);
       setHasChanges(false);
       toast.success('Đã lưu cài đặt thông báo');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     } finally {
       setIsSaving(false);
@@ -2682,7 +2683,7 @@ function EmailTemplateTabContent({ isActive, onRegisterActions }: TabContentProp
   const [isSaving, setIsSaving] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
-  const [editingTemplate, setEditingTemplate] = React.useState<EmailTemplate | null>(null);
+  const [_editingTemplate, _setEditingTemplate] = React.useState<EmailTemplate | null>(null);
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -2887,7 +2888,7 @@ function EmailTemplateTabContent({ isActive, onRegisterActions }: TabContentProp
   };
 
   // Get trigger label
-  const getTriggerLabel = (category: string, trigger: string) => {
+  const _getTriggerLabel = (category: string, trigger: string) => {
     const options = triggerOptions[category as keyof typeof triggerOptions] || [];
     return options.find(o => o.value === trigger)?.label || trigger;
   };
@@ -3548,7 +3549,7 @@ function WebsiteTabContent({ isActive, onRegisterActions }: TabContentProps) {
     try {
       const stored = localStorage.getItem('website-settings');
       if (stored) return { ...DEFAULT_WEBSITE_SETTINGS, ...JSON.parse(stored) };
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return DEFAULT_WEBSITE_SETTINGS;
   });
   
@@ -3556,7 +3557,7 @@ function WebsiteTabContent({ isActive, onRegisterActions }: TabContentProps) {
     try {
       const stored = localStorage.getItem('redirects-301');
       if (stored) return JSON.parse(stored);
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return SAMPLE_REDIRECTS;
   });
   
@@ -3681,7 +3682,7 @@ function WebsiteTabContent({ isActive, onRegisterActions }: TabContentProps) {
       originalRedirects.current = JSON.stringify(redirects);
       setHasChanges(false);
       toast.success('Đã lưu cài đặt website');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lưu cài đặt thất bại');
     } finally {
       setIsSaving(false);

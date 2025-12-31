@@ -4,8 +4,7 @@ import { Button } from './button';
 import { toast } from 'sonner';
 import { Eye, X, Download, File, RotateCcw } from 'lucide-react';
 import { FileUploadAPI } from '../../lib/file-upload-api';
-import { getFileUrl, getBaseUrl } from '../../lib/api-config';
-import { ProgressiveImage } from './progressive-image';
+import { getFileUrl } from '../../lib/api-config';
 import type { StagingFile } from '../../lib/file-upload-api';
 import { useLazyImage } from '../../hooks/use-lazy-image';
 import {
@@ -52,7 +51,7 @@ export function ExistingDocumentsViewer({
   gridTemplateClass = 'grid-cols-5',
 }: ExistingDocumentsViewerProps) {
   const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
-  const [bulkDeleteAlertOpen, setBulkDeleteAlertOpen] = React.useState(false);
+  const [_bulkDeleteAlertOpen, _setBulkDeleteAlertOpen] = React.useState(false);
   const [fileToDelete, setFileToDelete] = React.useState<StagingFile | null>(null);
   const [deleteMode, setDeleteMode] = React.useState<'mark' | 'direct'>('direct');
 

@@ -1,5 +1,5 @@
-import type { Customer, DebtStatus, DebtTransaction } from '@/lib/types/prisma-extended';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, addDays, getDaysDiff, isDateBefore, toISODate } from '@/lib/date-utils';
+import type { Customer, DebtStatus, DebtTransaction as _DebtTransaction } from '@/lib/types/prisma-extended';
+import { formatDate, formatDateTime as _formatDateTime, formatDateTimeSeconds as _formatDateTimeSeconds, formatDateCustom as _formatDateCustom, getCurrentDate, addDays, getDaysDiff, isDateBefore, toISODate } from '@/lib/date-utils';
 /**
  * Tính ngày đến hạn dựa trên ngày đơn hàng và payment terms
  */

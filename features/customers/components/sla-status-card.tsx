@@ -3,7 +3,7 @@ import type { Customer } from '../types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
-import { Bell, Check, Clock, MoreHorizontal, HelpCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { Check, Clock, MoreHorizontal, HelpCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useCustomerSlaEngineStore } from '../sla/store';

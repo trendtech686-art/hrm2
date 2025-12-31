@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 
 type OrderFormValues = {
   tags?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 type OrderTagsProps = {

@@ -25,7 +25,7 @@ interface User {
 export async function handleReopenAfterResolved(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: any) => void
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('[REOPEN-AFTER-RESOLVE] Starting...');
@@ -58,8 +58,8 @@ export async function handleReopenAfterResolved(
     console.log('[REOPEN-AFTER-RESOLVE] Updating with:', {
       status: updates.status,
       preservedFields: {
-        inventoryAdjustment: !!(complaint as any).inventoryAdjustment,
-        compensationMetadata: !!(complaint as any).compensationMetadata,
+        inventoryAdjustment: !!complaint.inventoryAdjustment,
+        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
         verification: complaint.verification,
       }
     });

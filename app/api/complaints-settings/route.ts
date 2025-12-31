@@ -20,8 +20,52 @@ const SETTING_KEYS: Record<ComplaintsSettingType, string> = {
 
 const GROUP = 'complaints'
 
+// Type definitions for settings values
+interface SlaSetting {
+  responseTime: number
+  resolveTime: number
+}
+
+interface SlaSettings {
+  low: SlaSetting
+  medium: SlaSetting
+  high: SlaSetting
+  urgent: SlaSetting
+}
+
+interface NotificationSettings {
+  emailOnCreate: boolean
+  emailOnAssign: boolean
+  emailOnVerified: boolean
+  emailOnResolved: boolean
+  emailOnOverdue: boolean
+  smsOnOverdue: boolean
+  inAppNotifications: boolean
+}
+
+interface TrackingSettings {
+  enabled: boolean
+  allowCustomerComments: boolean
+  showEmployeeName: boolean
+  showTimeline: boolean
+}
+
+interface ReminderSettings {
+  enabled: boolean
+  intervals: {
+    firstReminder: number
+    secondReminder: number
+    escalation: number
+  }
+  notifyAssignee: boolean
+  notifyCreator: boolean
+  notifyManager: boolean
+}
+
+type ComplaintsSettingValue = SlaSettings | NotificationSettings | TrackingSettings | ReminderSettings | unknown[]
+
 // Default values
-const DEFAULTS: Record<ComplaintsSettingType, any> = {
+const DEFAULTS: Record<ComplaintsSettingType, ComplaintsSettingValue> = {
   'sla': {
     low: { responseTime: 240, resolveTime: 48 },
     medium: { responseTime: 120, resolveTime: 24 },

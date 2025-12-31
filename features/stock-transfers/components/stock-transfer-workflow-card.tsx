@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
@@ -66,7 +67,7 @@ export function StockTransferWorkflowCard({
           <div className="text-center py-4 text-muted-foreground">
             <p className="text-sm">Chưa cấu hình quy trình</p>
             <p className="text-xs mt-1">
-              Vào <a href="/settings/workflow-templates" className="text-primary hover:underline">Cài đặt → Quy trình</a> để thiết lập
+              Vào <Link href="/settings/workflow-templates" className="text-primary hover:underline">Cài đặt → Quy trình</Link> để thiết lập
             </p>
           </div>
         </CardContent>

@@ -33,9 +33,7 @@ import {
   X, 
   Save, 
   Calendar as CalendarIcon,
-  ChevronDown,
   Star,
-  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -68,7 +66,7 @@ export interface FilterConfig {
   type: FilterType;
   placeholder?: string;
   options?: FilterOption[]; // For select/multi-select/tags
-  defaultValue?: any;
+  defaultValue?: unknown;
   description?: string;
 }
 
@@ -76,7 +74,7 @@ export interface FilterPreset {
   id: string;
   name: string;
   icon?: React.ReactNode;
-  filters: Record<string, any>;
+  filters: Record<string, unknown>;
   isStarred?: boolean;
 }
 
@@ -85,13 +83,13 @@ export interface AdvancedFilterPanelProps {
   filters: FilterConfig[];
   
   /** Current filter values */
-  values: Record<string, any>;
+  values: Record<string, unknown>;
   
   /** Callback when filters change */
-  onChange: (values: Record<string, any>) => void;
+  onChange: (values: Record<string, unknown>) => void;
   
   /** Callback when filters are applied */
-  onApply?: (values: Record<string, any>) => void;
+  onApply?: (values: Record<string, unknown>) => void;
   
   /** Callback when filters are reset */
   onReset?: () => void;
@@ -180,20 +178,20 @@ export function AdvancedFilterPanel({
 
   // Count active filters
   const activeFilterCount = React.useMemo(() => {
-    return Object.entries(values).filter(([key, value]) => {
+    return Object.entries(values).filter(([_key, value]) => {
       if (value === null || value === undefined || value === '') return false;
       if (Array.isArray(value)) return value.length > 0;
-      if (typeof value === 'object' && value.from === undefined && value.to === undefined) return false;
+      if (typeof value === 'object' && (value as { from?: unknown; to?: unknown }).from === undefined && (value as { from?: unknown; to?: unknown }).to === undefined) return false;
       return true;
     }).length;
   }, [values]);
 
-  const handleFilterChange = (filterId: string, value: any) => {
+  const handleFilterChange = (filterId: string, value: unknown) => {
     onChange({ ...values, [filterId]: value });
   };
 
   const handleReset = () => {
-    const resetValues: Record<string, any> = {};
+    const resetValues: Record<string, unknown> = {};
     filters.forEach((filter) => {
       resetValues[filter.id] = filter.defaultValue ?? null;
     });
@@ -380,8 +378,8 @@ function FilterInput({
   onChange,
 }: {
   filter: FilterConfig;
-  value: any;
-  onChange: (value: any) => void;
+  value: unknown;
+  onChange: (value: unknown) => void;
 }) {
   switch (filter.type) {
     case 'text':
@@ -389,7 +387,7 @@ function FilterInput({
         <Input
           id={filter.id}
           placeholder={filter.placeholder}
-          value={value || ''}
+          value={(value as string) || ''}
           onChange={(e) => onChange(e.target.value)}
           className="h-9"
         />
@@ -397,7 +395,7 @@ function FilterInput({
 
     case 'select':
       return (
-        <Select value={value || ''} onValueChange={onChange}>
+        <Select value={(value as string) || ''} onValueChange={onChange}>
           <SelectTrigger className="h-9">
             <SelectValue placeholder={filter.placeholder || 'Chọn...'} />
           </SelectTrigger>
@@ -414,8 +412,8 @@ function FilterInput({
         </Select>
       );
 
-    case 'multi-select':
-      const selectedValues = Array.isArray(value) ? value : [];
+    case 'multi-select': {
+      const selectedValues = Array.isArray(value) ? (value as string[]) : [];
       return (
         <div className="space-y-2 border rounded-md p-3">
           {filter.options?.map((option) => (
@@ -427,7 +425,7 @@ function FilterInput({
                   if (checked) {
                     onChange([...selectedValues, option.value]);
                   } else {
-                    onChange(selectedValues.filter((v: string) => v !== option.value));
+                    onChange(selectedValues.filter((v) => v !== option.value));
                   }
                 }}
               />
@@ -442,6 +440,7 @@ function FilterInput({
           ))}
         </div>
       );
+    }
 
     case 'date':
       return (
@@ -455,13 +454,13 @@ function FilterInput({
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {value ? format(new Date(value), 'dd/MM/yyyy', { locale: vi }) : filter.placeholder || 'Chọn ngày'}
+              {value ? format(new Date(value as string | number | Date), 'dd/MM/yyyy', { locale: vi }) : filter.placeholder || 'Chọn ngày'}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0">
             <Calendar
               mode="single"
-              selected={value ? new Date(value) : undefined}
+              selected={value ? new Date(value as string | number | Date) : undefined}
               onSelect={(date) => onChange(date?.toISOString())}
               locale={vi}
             />
@@ -469,8 +468,8 @@ function FilterInput({
         </Popover>
       );
 
-    case 'date-range':
-      const dateRange = value || { from: undefined, to: undefined };
+    case 'date-range': {
+      const dateRange = (value as { from?: string; to?: string }) || { from: undefined, to: undefined };
       return (
         <div className="flex gap-2">
           <Popover>
@@ -508,27 +507,29 @@ function FilterInput({
           </Popover>
         </div>
       );
+    }
 
-    case 'number-range':
-      const numRange = value || { min: '', max: '' };
+    case 'number-range': {
+      const numRange = (value as { min?: string; max?: string }) || { min: '', max: '' };
       return (
         <div className="flex gap-2">
           <Input
             type="number"
             placeholder="Từ"
-            value={numRange.min}
+            value={numRange.min || ''}
             onChange={(e) => onChange({ ...numRange, min: e.target.value })}
             className="h-9"
           />
           <Input
             type="number"
             placeholder="Đến"
-            value={numRange.max}
+            value={numRange.max || ''}
             onChange={(e) => onChange({ ...numRange, max: e.target.value })}
             className="h-9"
           />
         </div>
       );
+    }
 
     case 'boolean':
       return (
@@ -544,7 +545,7 @@ function FilterInput({
         </div>
       );
 
-    case 'tags':
+    case 'tags': {
       const selectedTags = Array.isArray(value) ? value : [];
       return (
         <div className="space-y-2">
@@ -574,6 +575,7 @@ function FilterInput({
           </div>
         </div>
       );
+    }
 
     default:
       return null;
@@ -583,7 +585,7 @@ function FilterInput({
 /**
  * Hook for managing filter state
  */
-export function useAdvancedFilters(initialValues: Record<string, any> = {}) {
+export function useAdvancedFilters(initialValues: Record<string, unknown> = {}) {
   const [filterValues, setFilterValues] = React.useState(initialValues);
   const [presets, setPresets] = React.useState<FilterPreset[]>([]);
 

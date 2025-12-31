@@ -3,14 +3,13 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useCostAdjustmentStore } from './store';
-import { getColumns, getStatusOptions } from './columns';
+import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
 import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { costAdjustmentImportExportConfig, flattenCostAdjustmentsForExport } from '../../lib/import-export/configs/cost-adjustment.config';
+import { costAdjustmentImportExportConfig } from '../../lib/import-export/configs/cost-adjustment.config';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { Button } from '../../components/ui/button';
@@ -21,8 +20,8 @@ import { useMediaQuery } from '../../lib/use-media-query';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { CostAdjustmentCard } from './cost-adjustment-card';
-import type { CostAdjustment, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
-import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
+import type { CostAdjustment } from '@/lib/types/prisma-extended';
+import { isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
 import { useAuth } from '../../contexts/auth-context';
 import { asSystemId } from '../../lib/id-types';
 import {
@@ -89,7 +88,7 @@ export function CostAdjustmentListPage() {
       logo: storeInfo?.logo,
     };
     const printData = convertCostAdjustmentForPrint(adjustment, {
-      creatorName: adjustment.createdByName,
+      creatorName: adjustment.createdByName ?? undefined,
     });
     print('cost-adjustment', {
       data: mapCostAdjustmentToPrintData(printData, storeSettings),
@@ -120,7 +119,7 @@ export function CostAdjustmentListPage() {
   
   // Filters
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [dateFilter, setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
+  const [dateFilter, _setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
 
   // Import/Export dialogs
   const [showImportDialog, setShowImportDialog] = React.useState(false);
@@ -250,6 +249,7 @@ export function CostAdjustmentListPage() {
       const endDate = end ? getEndOfDay(end) : null;
       
       filtered = filtered.filter(a => {
+        if (!a.createdDate) return false;
         const rowDate = new Date(a.createdDate);
         if (!isValidDate(rowDate)) return false;
         if (startDate && !endDate) return isDateAfter(rowDate, startDate) || isDateSame(rowDate, startDate);
@@ -272,14 +272,14 @@ export function CostAdjustmentListPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'createdDate') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -380,7 +380,7 @@ export function CostAdjustmentListPage() {
       skipped: skippedCount,
       errors,
     };
-  }, [adjustments, employee]);
+  }, [employee]);
 
   // Bulk cancel handler
   const handleBulkCancel = React.useCallback(() => {
@@ -442,7 +442,7 @@ export function CostAdjustmentListPage() {
       }
       
       setRowSelection({});
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể hoàn tất hành động');
     } finally {
       setIsConfirmLoading(false);
@@ -476,7 +476,7 @@ export function CostAdjustmentListPage() {
     const printOptionsList = itemsToPrint.map(adjustment => {
       const printData = convertCostAdjustmentForPrint(adjustment, { 
         branch,
-        creatorName: adjustment.createdByName,
+        creatorName: adjustment.createdByName ?? undefined,
       });
       return {
         data: mapCostAdjustmentToPrintData(printData, storeSettings),
@@ -543,7 +543,7 @@ export function CostAdjustmentListPage() {
   ], []);
 
   // Export config
-  const exportConfig = {
+  const _exportConfig = {
     fileName: 'Danh_sach_dieu_chinh_gia_von',
     columns,
   };

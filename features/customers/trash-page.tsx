@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { formatDate, formatDateTime } from '@/lib/date-utils'
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useCustomerStore } from "./store"
@@ -14,6 +13,7 @@ import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { ArrowLeft, RotateCcw, Trash2, Phone, Mail, Building2 } from "lucide-react"
 import type { Customer } from "@/lib/types/prisma-extended"
+import { formatDateTime } from "@/lib/format-utils"
 import type { SystemId } from '@/lib/id-types'
 
 export function CustomersTrashPage() {
@@ -37,7 +37,8 @@ export function CustomersTrashPage() {
   });
   
   // React to store changes by depending on data array
-  const deletedCustomers = React.useMemo(() => getDeleted(), [data]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
+  const deletedCustomers = React.useMemo(() => getDeleted(), [getDeleted, data]);
 
   // Handlers for column actions
   const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
@@ -57,7 +58,7 @@ export function CustomersTrashPage() {
 
   const columns = React.useMemo(
     () => getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn),
-    [router, handleRestoreFromColumn, handleDeleteFromColumn, data]
+    [router, handleRestoreFromColumn, handleDeleteFromColumn]
   );
 
   const getInitials = (name: string) => {

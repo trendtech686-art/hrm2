@@ -5,7 +5,6 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
 import { Calendar } from "./calendar"
-import { Input } from "./input"
 import { useModal } from "../../contexts/modal-context"
 
 // Format date as dd/MM/yyyy HH:mm (GMT+7)
@@ -40,13 +39,14 @@ const DateTimePickerPopoverContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
 >(({ className, align = "center", sideOffset = 4, id = "date-time-picker", ...props }, ref) => {
   const [open, setOpen] = React.useState(false);
+  const dataState = props["data-state"];
   React.useEffect(() => {
-    if (props["data-state"] === "open") {
+    if (dataState === "open") {
       setOpen(true);
     } else {
       setOpen(false);
     }
-  }, [props["data-state"]]);
+  }, [dataState]);
   
   // Sử dụng modal context để quản lý z-index mà không có overlay
   const { zIndex } = useModal(id, open, 'popover');

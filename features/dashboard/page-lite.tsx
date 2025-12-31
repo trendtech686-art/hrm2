@@ -22,12 +22,9 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { 
-  Package, 
   Truck, 
   DollarSign, 
-  Users, 
   UserCheck, 
-  TrendingUp,
   ShoppingCart,
   ArrowRight,
 } from 'lucide-react'
@@ -157,7 +154,7 @@ export function DashboardPageLite() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data?.recentOrders?.slice(0, 5).map((order: any) => (
+                  {data?.recentOrders?.slice(0, 5).map((order: { systemId: string; id: string; customerName?: string; grandTotal: number; status: string }) => (
                     <TableRow 
                       key={order.systemId}
                       className="cursor-pointer hover:bg-muted/50"
@@ -206,7 +203,7 @@ export function DashboardPageLite() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data?.topProducts?.map((product: any) => (
+                  {data?.topProducts?.map((product: { systemId: string; name: string; total_quantity: number; total_revenue: string | number }) => (
                     <TableRow 
                       key={product.systemId}
                       className="cursor-pointer hover:bg-muted/50"

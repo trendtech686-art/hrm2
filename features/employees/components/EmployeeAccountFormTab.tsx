@@ -67,7 +67,7 @@ export function EmployeeAccountFormTab({
     try {
       await navigator.clipboard.writeText(password);
       toast.success('Đã copy mật khẩu vào clipboard');
-    } catch (err) {
+    } catch (_err) {
       toast.error('Không thể copy mật khẩu');
     }
   };

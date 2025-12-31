@@ -179,7 +179,7 @@ function calculateMatchScore(
 ): number {
   const normalizedInput = normalizeText(input);
   const normalizedWard = normalizeText(wardName);
-  const normalizedDistrict = normalizeText(districtName);
+  const _normalizedDistrict = normalizeText(districtName);
   
   // Remove prefix để so sánh core name
   const coreInput = normalizedInput.replace(/^(phuong|xa|thi tran|tt)\s+/i, '').trim();

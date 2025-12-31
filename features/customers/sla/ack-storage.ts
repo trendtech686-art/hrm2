@@ -1,5 +1,5 @@
 import { SLA_ACKNOWLEDGEMENTS_KEY } from './constants';
-import type { CustomerSlaAckMap, CustomerSlaAcknowledgement, CustomerSlaType, SlaActivityLog, SlaActionType } from './types';
+import type { CustomerSlaAckMap, CustomerSlaAcknowledgement, CustomerSlaType, SlaActivityLog } from './types';
 import type { SystemId } from '@/lib/id-types';
 
 const SLA_ACTIVITY_LOG_KEY = 'customer-sla-activity-log';

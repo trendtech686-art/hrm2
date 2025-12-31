@@ -19,13 +19,14 @@ export function SupplierCombobox({
   value,
   onValueChange,
   placeholder = "Chọn nhà cung cấp...",
-  className,
+  className: _className,
 }: SupplierComboboxProps) {
   const { data: suppliers, getActive } = useSupplierStore();
   const [showAddDialog, setShowAddDialog] = React.useState(false);
 
   // Only show active suppliers
-  const activeSuppliers = React.useMemo(() => getActive(), [suppliers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- suppliers triggers re-render when store changes
+  const activeSuppliers = React.useMemo(() => getActive(), [suppliers, getActive]);
 
   // Find selected supplier
   const selectedSupplier = React.useMemo(

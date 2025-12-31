@@ -1,14 +1,13 @@
 import { create } from 'zustand';
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
 import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
-import { toast } from 'sonner';
 import { asSystemId } from '../../../lib/id-types';
 import type { SystemId } from '../../../lib/id-types';
 import {
   notifyWarrantyCreated,
 } from '../notification-utils';
 import { triggerWarrantyDataUpdate } from '../use-realtime-updates';
-import type { WarrantyTicket, WarrantyProduct } from '../types';
+import type { WarrantyTicket } from '../types';
 import type { WarrantyStore } from '../types';
 
 // Import base store và các modules
@@ -85,7 +84,7 @@ baseStore.setState({
     return newTicket;
   },
   
-  update: (systemId: SystemId, updates: any) => {
+  update: (systemId: SystemId, updates: Partial<WarrantyTicket>) => {
     const oldTicket = baseStore.getState().data.find(t => t.systemId === systemId);
     if (!oldTicket) return;
     
@@ -138,7 +137,7 @@ baseStore.setState({
   },
 });
 
-export const useWarrantyStore = create<WarrantyStore>()((set, get) => ({
+export const useWarrantyStore = create<WarrantyStore>()((_set, _get) => ({
   ...baseStore.getState(),
   
   // Warranty-specific methods
@@ -169,5 +168,5 @@ export const useWarrantyStore = create<WarrantyStore>()((set, get) => ({
 
 // Subscribe to base store changes
 baseStore.subscribe((state) => {
-  useWarrantyStore.setState(state as any);
+  useWarrantyStore.setState(state as unknown as Parameters<typeof useWarrantyStore.setState>[0]);
 });

@@ -12,46 +12,46 @@ model StockTransfer {
   updatedAt    DateTime            @updatedAt
   createdBy    String?
   updatedBy    String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Reference code
-  referenceCode        String?
-  
+  referenceCode String?
+
   // Branch info (denormalized)
-  fromBranchSystemId   String?
-  fromBranchName       String?
-  toBranchSystemId     String?
-  toBranchName         String?
-  
+  fromBranchSystemId String?
+  fromBranchName     String?
+  toBranchSystemId   String?
+  toBranchName       String?
+
   // Created by info
-  createdDate          DateTime     @default(now())
-  createdBySystemId    String?
-  createdByName        String?
-  
+  createdDate       DateTime @default(now())
+  createdBySystemId String?
+  createdByName     String?
+
   // Transfer confirmation
-  transferredDate      DateTime?
+  transferredDate       DateTime?
   transferredBySystemId String?
-  transferredByName    String?
-  
+  transferredByName     String?
+
   // Receive confirmation
-  receivedBySystemId   String?
-  receivedByName       String?
-  
+  receivedBySystemId String?
+  receivedByName     String?
+
   // Cancellation
-  cancelledDate        DateTime?
-  cancelledBySystemId  String?
-  cancelledByName      String?
-  cancelReason         String?
-  
+  cancelledDate       DateTime?
+  cancelledBySystemId String?
+  cancelledByName     String?
+  cancelReason        String?
+
   // Items (stored as JSON)
-  transferItems        Json?        // Array of StockTransferItem with receivedQuantity
-  
+  transferItems Json? // Array of StockTransferItem with receivedQuantity
+
   // Note
-  note                 String?
-  
+  note String?
+
   // === RELATIONS ===
-  items        StockTransferItem[]
+  items StockTransferItem[]
 
   @@index([fromBranchId])
   @@index([status])

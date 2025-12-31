@@ -34,7 +34,9 @@ export function StockLocationsPage() {
       try {
         const parsed = JSON.parse(stored);
         if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore JSON parse errors - use default
+      }
     }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -49,7 +51,7 @@ export function StockLocationsPage() {
   const handleEdit = React.useCallback((item: StockLocation) => { setEditingItem(item); setIsFormOpen(true); }, []);
   const handleDeleteRequest = React.useCallback((id: string) => { setIdToDelete(asSystemId(id)); setIsAlertOpen(true); }, []);
   
-  const locationSummary = React.useMemo(() => {
+  const _locationSummary = React.useMemo(() => {
     if (!data.length) {
       return 'Chưa có điểm lưu kho nào, hãy tạo điểm đầu tiên để gán cho chi nhánh.';
     }

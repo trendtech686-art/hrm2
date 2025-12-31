@@ -8,7 +8,6 @@
  */
 
 import { useMemo } from 'react';
-import { useCustomerStore } from '../store';
 import { 
   getDebtStatus, 
   getDebtStatusVariant,

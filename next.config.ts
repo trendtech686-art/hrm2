@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   // Cho phép import từ các folder bên ngoài src/app
   transpilePackages: [],
   
-  // Tắt strict mode tạm thời trong quá trình migration
-  reactStrictMode: false,
+  // React Strict Mode - enabled to catch potential issues
+  reactStrictMode: true,
   
   // Output standalone cho Docker deployment
   // Note: Tạm tắt standalone vì Turbopack có bug với symlink trên Windows

@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * Organization Chart Page - Refactored
  * Clean, modular, performant
@@ -139,7 +141,7 @@ function OrgChartFlow() {
     if (forceAutoLayout) {
       setForceAutoLayout(false);
       setTimeout(() => {
-        const { fitView } = (window as any).__reactFlowInstance || {};
+        const { fitView } = (window as unknown as { __reactFlowInstance?: { fitView: (options: { duration: number; padding: number }) => void } }).__reactFlowInstance || {};
         if (fitView) fitView({ duration: 200, padding: 0.2 });
       }, 100);
     }
@@ -161,7 +163,7 @@ function OrgChartFlow() {
   ]);
 
   // Export data for JSON export
-  const exportData = React.useMemo(() => ({
+  const _exportData = React.useMemo(() => ({
     employees: employees.filter(e => e.employmentStatus === 'Đang làm việc'),
     structure: nodes.map(n => ({
       id: n.id,
@@ -265,7 +267,7 @@ function OrgChartFlow() {
           nodeDragThreshold={1}
           onInit={(instance) => {
             // Store instance for export
-            (window as any).__reactFlowInstance = instance;
+            (window as unknown as { __reactFlowInstance?: unknown }).__reactFlowInstance = instance;
           }}
         >
           <Background gap={16} />

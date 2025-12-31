@@ -5,10 +5,10 @@ import { generateSystemId, findNextAvailableBusinessId } from '../../lib/id-util
 import { getPrefix } from '../../lib/smart-prefix';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';
 import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
-import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
+import { asBusinessId, asSystemId, type SystemId } from '../../lib/id-types';
 
 const STORAGE_KEY = 'hrm-payroll-template-store';
-const TEMPLATE_ENTITY: 'payroll-templates' = 'payroll-templates';
+const TEMPLATE_ENTITY = 'payroll-templates' as const;
 
 const resolveActorSystemId = () => asSystemId(getCurrentUserSystemId() || 'SYSTEM00000000');
 

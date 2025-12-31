@@ -4,7 +4,7 @@ import { auth } from '@/auth'
 import { v4 as uuidv4 } from 'uuid'
 
 // GET /api/settings/pkgx/brand-mappings - List all brand mappings
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const mappings = await prisma.pkgxBrandMapping.findMany({
       where: { isActive: true },

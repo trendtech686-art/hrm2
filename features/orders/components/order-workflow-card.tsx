@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import type { Order } from '../types';
@@ -28,15 +29,19 @@ export function OrderWorkflowCard({
         assigneeId: s.assigneeId,
         assigneeName: s.assigneeName,
         parentId: s.parentId,
-        metadata: s.metadata,
-      }));
+        metadata: (s.metadata as Record<string, unknown>) ?? undefined,
+      })) satisfies Subtask[];
     }
     
     // Get default workflow template for orders
     const template = getWorkflowTemplate('orders');
     if (template.length > 0) {
-      // Save to order
-      onUpdateOrder(order.systemId, { subtasks: template });
+      // Save to order - cast to Order's subtasks format
+      const orderSubtasks = template.map(t => ({
+        ...t,
+        metadata: (t.metadata as Record<string, unknown>) ?? undefined,
+      }));
+      onUpdateOrder(order.systemId, { subtasks: orderSubtasks });
       return template;
     }
     
@@ -54,7 +59,12 @@ export function OrderWorkflowCard({
           : subtask
       );
 
-      onUpdateOrder(order.systemId, { subtasks: updatedSubtasks });
+      // Cast to Order's subtasks format
+      const orderSubtasks = updatedSubtasks.map(s => ({
+        ...s,
+        metadata: (s.metadata as Record<string, unknown>) ?? undefined,
+      }));
+      onUpdateOrder(order.systemId, { subtasks: orderSubtasks });
 
       const action = completed ? 'Hoàn thành bước' : 'Bỏ hoàn thành bước';
       toast.success(`${action}: ${toggledSubtask.title}`);
@@ -77,7 +87,7 @@ export function OrderWorkflowCard({
           <div className="text-center py-4 text-muted-foreground">
             <p className="text-sm">Chưa cấu hình quy trình</p>
             <p className="text-xs mt-1">
-              Vào <a href="/settings/workflow-templates" className="text-primary hover:underline">Cài đặt → Quy trình</a> để thiết lập
+              Vào <Link href="/settings/workflow-templates" className="text-primary hover:underline">Cài đặt → Quy trình</Link> để thiết lập
             </p>
           </div>
         </CardContent>

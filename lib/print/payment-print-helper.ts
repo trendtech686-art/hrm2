@@ -101,12 +101,12 @@ export function convertPaymentForPrint(
   return {
     // Thông tin cơ bản
     code: codeValue,
-    createdAt: dateValue,
+    createdAt: dateValue ?? new Date(),
     issuedAt: payment.issuedAt,
-    createdBy: creator?.fullName || payment.createdByName,
+    createdBy: creator?.fullName ?? payment.createdByName ?? '',
     
     // Thông tin người nhận
-    recipientName: payment.recipientName || payment.customerName,
+    recipientName: payment.recipientName || payment.customerName || '',
     recipientPhone: payment.recipientPhone,
     recipientAddress: payment.recipientAddress,
     recipientType: recipientTypeValue,

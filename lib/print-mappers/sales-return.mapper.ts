@@ -12,7 +12,6 @@ import {
   numberToWords,
   getStoreData,
   StoreSettings,
-  hidePhoneMiddle
 } from './types';
 
 export interface SalesReturnForPrint {

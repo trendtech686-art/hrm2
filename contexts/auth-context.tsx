@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { useSession, signOut } from 'next-auth/react';
 // REMOVED: Heavy import causing slow compile
@@ -60,13 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync user from NextAuth session
   React.useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      const sessionUser = session.user as any;
+      const sessionUser = session.user as unknown as {
+        id?: string;
+        systemId?: string;
+        email?: string | null;
+        name?: string | null;
+        role?: string;
+        employeeId?: string;
+        employee?: Employee;
+      };
       const userObj: User = {
         systemId: sessionUser.id || sessionUser.systemId || '',
         email: sessionUser.email || '',
-        fullName: sessionUser.name,
-        name: sessionUser.name || sessionUser.email,
-        role: sessionUser.role || 'STAFF',
+        fullName: sessionUser.name ?? undefined,
+        name: sessionUser.name || sessionUser.email || undefined,
+        role: (sessionUser.role || 'STAFF') as User['role'],
         employeeId: sessionUser.employeeId,
         employee: sessionUser.employee,
       };

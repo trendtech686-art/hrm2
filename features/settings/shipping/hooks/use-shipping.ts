@@ -90,7 +90,7 @@ export function useShippingPartnerMutations(options: MutationCallbacks = {}) {
   });
 
   const connect = useMutation({
-    mutationFn: ({ systemId, credentials }: { systemId: string; credentials: Record<string, any> }) =>
+    mutationFn: ({ systemId, credentials }: { systemId: string; credentials: Record<string, unknown> }) =>
       connectShippingPartner(systemId, credentials),
     onSuccess: () => { invalidate(); options.onSuccess?.(); },
     onError: options.onError,

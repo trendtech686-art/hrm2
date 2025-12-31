@@ -25,7 +25,7 @@ export function normalizeFieldKey(value?: string | number | null) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function buildNormalizedRowKeyMap(row: Record<string, any>) {
+function buildNormalizedRowKeyMap(row: Record<string, unknown>) {
   return Object.keys(row).reduce<Record<string, string>>((acc, key) => {
     const normalizedKey = normalizeFieldKey(key);
     if (normalizedKey && !(normalizedKey in acc)) {
@@ -65,7 +65,7 @@ function findMatchingKeyForIdentifier(normalizedRowKeyMap: Record<string, string
 }
 
 function getBranchInventoryValue(
-  row: Record<string, any>,
+  row: Record<string, unknown>,
   normalizedRowKeyMap: Record<string, string>,
   identifiers: Set<string>,
 ) {
@@ -82,7 +82,7 @@ function getBranchInventoryValue(
 }
 
 function getFallbackInventoryValue(
-  row: Record<string, any>,
+  row: Record<string, unknown>,
   normalizedRowKeyMap: Record<string, string>,
 ) {
   for (const key of FALLBACK_INVENTORY_KEYS) {
@@ -96,8 +96,8 @@ function getFallbackInventoryValue(
   return null;
 }
 
-export function transformImportedRows(rows: any[], options: ProductImportOptions) {
-  return rows.map((item: any, index: number) => {
+export function transformImportedRows(rows: Record<string, unknown>[], options: ProductImportOptions) {
+  return rows.map((item, index: number) => {
     if (!item.name) {
       throw new Error(`Dòng ${index + 1} thiếu tên sản phẩm`);
     }

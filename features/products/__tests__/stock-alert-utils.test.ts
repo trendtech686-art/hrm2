@@ -3,7 +3,7 @@
  * ═══════════════════════════════════════════════════════════════
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { SystemId } from '@/lib/id-types';
+import type { SystemId, BusinessId } from '@/lib/id-types';
 import type { Product } from '../types';
 import {
   getTotalAvailableStock,
@@ -21,7 +21,7 @@ import { useSlaSettingsStore } from '@/features/settings/inventory/sla-settings-
 // Helper to create mock products
 const createProduct = (overrides: Partial<Product> = {}): Product => ({
   systemId: 'prod-1' as SystemId,
-  id: 'SKU001' as any,
+  id: 'SKU001' as BusinessId,
   name: 'Test Product',
   type: 'physical',
   status: 'active',

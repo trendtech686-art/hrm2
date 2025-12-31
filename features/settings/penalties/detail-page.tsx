@@ -49,7 +49,7 @@ export function PenaltyDetailPage() {
   const { print } = usePrint();
   const { info: storeInfo } = useStoreInfoStore();
   
-  const penalty = React.useMemo(() => (systemId ? findById(systemId as any) : null), [systemId, findById]);
+  const penalty = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
   
   // Get employee details
   const penalizedEmployee = React.useMemo(() => {
@@ -62,7 +62,7 @@ export function PenaltyDetailPage() {
     return findEmployeeById(penalty.issuerSystemId);
   }, [penalty?.issuerSystemId, findEmployeeById]);
 
-  const handlePrint = () => {
+  const handlePrint = React.useCallback(() => {
     if (!penalty) return;
     
     const storeSettings = createStoreSettings(storeInfo);
@@ -72,7 +72,7 @@ export function PenaltyDetailPage() {
     });
     
     print('penalty', { data: mapPenaltyToPrintData(forPrint, storeSettings) });
-  };
+  }, [penalty, storeInfo, penalizedEmployee, issuerEmployee, print]);
 
   // Comments state with localStorage persistence
   type PenaltyComment = CommentType<SystemId>;
@@ -164,7 +164,7 @@ export function PenaltyDetailPage() {
     }
     
     return actions;
-  }, [router, systemId, penalty]);
+  }, [router, systemId, penalty, handlePrint]);
 
   // Page header
   usePageHeader({
@@ -193,7 +193,7 @@ export function PenaltyDetailPage() {
     );
   }
 
-  const penaltyType = penalty.penaltyTypeSystemId 
+  const _penaltyType = penalty.penaltyTypeSystemId 
     ? penaltyTypes.find(pt => pt.systemId === penalty.penaltyTypeSystemId)
     : null;
 

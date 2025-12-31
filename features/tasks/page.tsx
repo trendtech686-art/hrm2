@@ -17,8 +17,8 @@ import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Repeat, Settings } from "lucide-react"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { TaskCard } from "./task-card";
-import { TaskKanbanView } from "./kanban-view";
+import { TaskCard } from "./components/task-card";
+import { TaskKanbanView } from "./components/kanban-view";
 import Fuse from "fuse.js"
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ import type { SystemId } from '../../lib/id-types';
 
 export function TasksPage() {
   const store = useTaskStore();
-  const { data: allTasks, remove, add, update, getMyTasks, restoreTimer } = store;
+  const { data: allTasks, remove, update, restoreTimer } = store;
   const { data: employees } = useEmployeeStore();
   const { isMobile } = useBreakpoint();
   const { isAdmin, employee } = useAuth();
@@ -67,7 +67,9 @@ export function TasksPage() {
       try {
         const parsed = JSON.parse(stored);
         if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore JSON parse errors - use default
+      }
     }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -189,14 +191,14 @@ export function TasksPage() {
     const data = [...filteredData];
     if (sorting.id) {
       data.sort((a, b) => {
-        const aVal = (a as any)[sorting.id];
-        const bVal = (b as any)[sorting.id];
+        const aVal = (a as Record<string, unknown>)[sorting.id];
+        const bVal = (b as Record<string, unknown>)[sorting.id];
         if (!aVal) return 1;
         if (!bVal) return -1;
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'dueDate') {
-          const aTime = aVal ? new Date(aVal).getTime() : 0;
-          const bTime = bVal ? new Date(bVal).getTime() : 0;
+          const aTime = aVal ? new Date(aVal as string | number | Date).getTime() : 0;
+          const bTime = bVal ? new Date(bVal as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aVal < bVal) return sorting.desc ? 1 : -1;
@@ -314,7 +316,7 @@ export function TasksPage() {
     return actionButtons;
   }, [viewMode, router, isAdmin]);
 
-  const taskStats = React.useMemo(() => {
+  const _taskStats = React.useMemo(() => {
     return tasks.reduce(
       (acc, task) => {
         acc.total += 1;
@@ -336,7 +338,7 @@ export function TasksPage() {
       label: "Đánh dấu Đang thực hiện",
       onSelect: (selectedRows: Task[]) => {
         selectedRows.forEach(task => {
-          update(task.systemId as any, { ...task, status: "Đang thực hiện" });
+          update(task.systemId, { ...task, status: "Đang thực hiện" });
         });
         toast.success("Đã cập nhật trạng thái", {
           description: `${selectedRows.length} công việc đã chuyển sang "Đang thực hiện"`,
@@ -349,7 +351,7 @@ export function TasksPage() {
       onSelect: (selectedRows: Task[]) => {
         const now = new Date().toISOString().split('T')[0];
         selectedRows.forEach(task => {
-          update(task.systemId as any, { ...task, status: "Hoàn thành", progress: 100, completedDate: now });
+          update(task.systemId, { ...task, status: "Hoàn thành", progress: 100, completedDate: now });
         });
         toast.success("Đã cập nhật trạng thái", {
           description: `${selectedRows.length} công việc đã chuyển sang "Hoàn thành"`,
@@ -361,7 +363,7 @@ export function TasksPage() {
       label: "Đánh dấu Đang chờ",
       onSelect: (selectedRows: Task[]) => {
         selectedRows.forEach(task => {
-          update(task.systemId as any, { ...task, status: "Đang chờ" });
+          update(task.systemId, { ...task, status: "Đang chờ" });
         });
         toast.success("Đã cập nhật trạng thái", {
           description: `${selectedRows.length} công việc đã chuyển sang "Đang chờ"`,
@@ -371,7 +373,7 @@ export function TasksPage() {
     },
     {
       label: "Xóa các công việc đã chọn",
-      onSelect: (selectedRows: Task[]) => {
+      onSelect: (_selectedRows: Task[]) => {
         setIdToDelete(null); // Clear single delete ID for bulk delete
         setIsAlertOpen(true);
       }
@@ -435,7 +437,7 @@ export function TasksPage() {
             onSearchChange={setGlobalFilter}
             searchPlaceholder="Tìm kiếm công việc..."
           >
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
               <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
@@ -446,7 +448,7 @@ export function TasksPage() {
                 <SelectItem value="Đã hủy">Đã hủy</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as any)}>
+            <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as typeof priorityFilter)}>
               <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Độ ưu tiên" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả độ ưu tiên</SelectItem>

@@ -14,6 +14,7 @@ vi.mock('../../../contexts/auth-context.tsx', () => ({
 // Import after mocks
 import { useProductStore } from '../store';
 import { asSystemId, asBusinessId } from '../../../lib/id-types';
+import type { Product } from '../types';
 
 describe('Product Store', () => {
   beforeEach(() => {
@@ -90,7 +91,7 @@ describe('Product Store', () => {
         status: 'active' as const,
       };
       
-      const result = useProductStore.getState().add(newProduct as any);
+      const result = useProductStore.getState().add(newProduct as Omit<Product, 'systemId'>);
       
       expect(result).toBeDefined();
       expect(result?.name).toBe('Test Product');
@@ -108,7 +109,7 @@ describe('Product Store', () => {
         status: 'active' as const,
       };
       
-      const result = store.add(newProduct as any);
+      const result = store.add(newProduct as Omit<Product, 'systemId'>);
       
       expect(result?.systemId).toBeDefined();
     });
@@ -125,7 +126,7 @@ describe('Product Store', () => {
         status: 'active' as const,
       };
       
-      const result = store.add(newProduct as any);
+      const result = store.add(newProduct as unknown as Omit<Product, 'systemId'>);
       
       expect(result?.categorySystemId).toBe('CAT001');
     });
@@ -142,7 +143,7 @@ describe('Product Store', () => {
         status: 'active' as const,
       };
       
-      const result = store.add(newProduct as any);
+      const result = store.add(newProduct as unknown as Omit<Product, 'systemId'>);
       
       expect(result?.taxRate).toBe(10);
     });
@@ -313,7 +314,7 @@ describe('Product Store', () => {
         status: 'active' as const,
       };
       
-      const result = store.add(newProduct as any);
+      const result = store.add(newProduct as Omit<Product, 'systemId'>);
       
       expect(result?.barcode).toBe('8934567890123');
     });
@@ -329,7 +330,7 @@ describe('Product Store', () => {
         status: 'active' as const,
       };
       
-      const result = store.add(newProduct as any);
+      const result = store.add(newProduct as Omit<Product, 'systemId'>);
       
       expect(result?.sku).toBe('SKU-UNIQUE-001');
     });
@@ -348,7 +349,7 @@ describe('Product Store', () => {
         status: 'active' as const,
       };
       
-      const result = store.add(newProduct as any);
+      const result = store.add(newProduct as Omit<Product, 'systemId'>);
       
       expect(result?.unit).toBe('Hộp');
     });
@@ -363,7 +364,7 @@ describe('Product Store', () => {
       // Filter products with inventory below threshold
       const lowStockProducts = products.filter(p => {
         const totalInventory = Object.values(p.inventoryByBranch || {}).reduce(
-          (sum: number, val: any) => sum + (typeof val === 'number' ? val : 0), 
+          (sum: number, val: number | undefined) => sum + (typeof val === 'number' ? val : 0), 
           0
         );
         return totalInventory < 10;
@@ -378,7 +379,7 @@ describe('Product Store', () => {
       
       const outOfStockProducts = products.filter(p => {
         const totalInventory = Object.values(p.inventoryByBranch || {}).reduce(
-          (sum: number, val: any) => sum + (typeof val === 'number' ? val : 0), 
+          (sum: number, val: number | undefined) => sum + (typeof val === 'number' ? val : 0), 
           0
         );
         return totalInventory === 0;

@@ -2,7 +2,7 @@
  * Print Templates API Layer
  */
 
-import type { PrintTemplate, TemplateType, PaperSize } from '@/lib/types/prisma-extended';
+import type { PrintTemplate, TemplateType } from '@/lib/types/prisma-extended';
 
 const BASE_URL = '/api/settings/print-templates';
 

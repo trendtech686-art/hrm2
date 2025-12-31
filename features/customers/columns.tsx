@@ -1,13 +1,13 @@
 import * as React from "react";
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isValidDate, getDaysDiff } from '@/lib/date-utils';
+import { formatDate, formatDateTime as _formatDateTime, formatDateTimeSeconds as _formatDateTimeSeconds, formatDateCustom as _formatDateCustom, getCurrentDate, isValidDate as _isValidDate, getDaysDiff } from '@/lib/date-utils';
 import type { Customer } from '@/lib/types/prisma-extended'
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
 import { getCreditAlertLevel, getCreditAlertBadgeVariant, getCreditAlertText } from './credit-utils';
 import { 
   calculateHealthScore, 
   getHealthScoreLevel,
-  calculateRFMScores,
+  calculateRFMScores as _calculateRFMScores,
   getCustomerSegment,
   getSegmentLabel,
   getSegmentBadgeVariant,
@@ -76,7 +76,7 @@ export const getColumns = (
         sortKey="id"
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => <div className="font-medium">{row.id}</div>,
@@ -94,7 +94,7 @@ export const getColumns = (
         sortKey="name"
         isSorted={sorting?.id === 'name'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => row.name,
@@ -201,7 +201,7 @@ export const getColumns = (
     cell: ({ row }) => {
         const status = row.status;
         const variant = status === "Đang giao dịch" ? "success" : "secondary";
-        return <Badge variant={variant as any}>{status}</Badge>
+        return <Badge variant={variant as "success" | "secondary"}>{status}</Badge>
     },
     meta: {
       displayName: "Trạng thái",

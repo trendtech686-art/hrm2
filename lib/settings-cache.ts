@@ -39,7 +39,7 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
 // In-memory cache
 let settingsCache: GeneralSettings | null = null
 let isLoading = false
-let loadPromise: Promise<GeneralSettings> | null = null
+let loadPromise: Promise<GeneralSettings | null> | null = null
 
 /**
  * Load general settings from database API
@@ -53,7 +53,8 @@ export async function loadGeneralSettings(): Promise<GeneralSettings> {
 
   // Prevent multiple simultaneous loads
   if (loadPromise) {
-    return loadPromise
+    const result = await loadPromise
+    return result ?? DEFAULT_GENERAL_SETTINGS
   }
 
   isLoading = true
@@ -75,7 +76,7 @@ export async function loadGeneralSettings(): Promise<GeneralSettings> {
 
         // Parse array format
         if (data.data && Array.isArray(data.data)) {
-          const parsed = data.data.reduce((acc: Record<string, any>, item: any) => {
+          const parsed = (data.data as Array<{key: string; value: unknown}>).reduce((acc: Record<string, unknown>, item) => {
             acc[item.key] = item.value
             return acc
           }, {})
@@ -97,7 +98,8 @@ export async function loadGeneralSettings(): Promise<GeneralSettings> {
   })()
 
   try {
-    return await loadPromise
+    const result = await loadPromise
+    return result ?? DEFAULT_GENERAL_SETTINGS
   } finally {
     isLoading = false
     loadPromise = null

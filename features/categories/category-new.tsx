@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -30,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store';
+import { asSystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
 import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
@@ -79,10 +79,10 @@ export function CategoryNewPage() {
   // Image upload states
   const [imageFiles, setImageFiles] = React.useState<StagingFile[]>([]);
   const [imageSessionId, setImageSessionId] = React.useState<string | undefined>();
-  const [pkgxImageFiles, setPkgxImageFiles] = React.useState<StagingFile[]>([]);
-  const [pkgxImageSessionId, setPkgxImageSessionId] = React.useState<string | undefined>();
-  const [trendtechImageFiles, setTrendtechImageFiles] = React.useState<StagingFile[]>([]);
-  const [trendtechImageSessionId, setTrendtechImageSessionId] = React.useState<string | undefined>();
+  const [pkgxImageFiles, _setPkgxImageFiles] = React.useState<StagingFile[]>([]);
+  const [_pkgxImageSessionId, _setPkgxImageSessionId] = React.useState<string | undefined>();
+  const [trendtechImageFiles, _setTrendtechImageFiles] = React.useState<StagingFile[]>([]);
+  const [_trendtechImageSessionId, _setTrendtechImageSessionId] = React.useState<string | undefined>();
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
@@ -116,7 +116,7 @@ export function CategoryNewPage() {
     return parent ? (parent.level ?? 0) + 1 : 0;
   }, [watchedParentId, data]);
 
-  const handleSubmit = async (formData: CategoryFormValues) => {
+  const handleSubmit = React.useCallback(async (formData: CategoryFormValues) => {
     // Confirm image staging files
     let imageUrl = '';
     let pkgxOgImage = '';
@@ -148,7 +148,7 @@ export function CategoryNewPage() {
     // add() will auto-generate systemId, businessId, path, level
     const newCategory = add({
       name: formData.name,
-      parentId: formData.parentId ? (formData.parentId as any) : undefined,
+      parentId: formData.parentId ? asSystemId(formData.parentId) : undefined,
       thumbnailImage: imageUrl || undefined,
       isActive: formData.isActive ?? true,
       websiteSeo: {
@@ -161,11 +161,11 @@ export function CategoryNewPage() {
           ogImage: trendtechOgImage || undefined,
         },
       },
-    } as any);
+    });
     
     toast.success('Đã tạo danh mục mới');
     router.push(`/categories/${newCategory.systemId}`);
-  };
+  }, [imageFiles, imageSessionId, pkgxImageFiles, trendtechImageFiles, add, router]);
 
   // Header actions
   const headerActions = React.useMemo(() => [
@@ -177,7 +177,7 @@ export function CategoryNewPage() {
       <Save className="mr-2 h-4 w-4" />
       Lưu
     </Button>
-  ], [router, form]);
+  ], [router, form, handleSubmit]);
 
   usePageHeader({
     actions: headerActions,

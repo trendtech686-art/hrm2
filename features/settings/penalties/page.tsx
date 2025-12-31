@@ -75,12 +75,12 @@ export function PenaltiesPage() {
   const storedLayoutRef = React.useRef(readStoredColumnLayout());
 
   const { data: penalties, addMultiple, update } = usePenaltyStore();
-  const { data: penaltyTypes } = usePenaltyTypeStore();
+  const { data: _penaltyTypes } = usePenaltyTypeStore();
   const { data: employees } = useEmployeeStore();
   const { data: branches } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
   const router = useRouter();
-  const { print, printMultiple } = usePrint();
+  const { print: _print, printMultiple } = usePrint();
   
   // Print dialog state
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
@@ -266,14 +266,14 @@ export function PenaltiesPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
         // Special handling for date columns
         if (sorting.id === 'issueDate' || sorting.id === 'createdAt') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -291,7 +291,7 @@ export function PenaltiesPage() {
     return sortedData.slice(start, end);
   }, [sortedData, pagination]);
 
-  const numSelected = Object.keys(rowSelection).length;
+  const _numSelected = Object.keys(rowSelection).length;
   const allSelectedRows = React.useMemo(() => 
     penalties.filter(p => rowSelection[p.systemId]),
   [penalties, rowSelection]);
@@ -327,14 +327,14 @@ export function PenaltiesPage() {
   const importConfig: ImportConfig<Penalty> = {
     importer: (items) => {
       const itemsWithoutSystemId = items.map(item => {
-        const { systemId, ...rest } = item as any;
+        const { systemId: _systemId, ...rest } = item as Penalty & { systemId: string };
         return rest as Omit<Penalty, 'systemId'>;
       });
       addMultiple(itemsWithoutSystemId);
     },
     fileName: 'Mau_Nhap_Phieu_phat',
     existingData: penalties,
-    getUniqueKey: (item: any) => item.id
+    getUniqueKey: (item: Penalty) => item.id
   }
 
   // Bulk print handlers

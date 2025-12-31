@@ -1,22 +1,18 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Printer, 
   Save, 
-  RotateCcw, 
-  Copy, 
   Check, 
   Code,
-  Eye,
   Search,
-  Plus,
-  X,
   Bold,
   Italic,
   Strikethrough,
   Underline as UnderlineIcon,
   Table as TableIcon,
   Image as ImageIcon,
-  Smile,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -28,15 +24,11 @@ import {
   Undo,
   Redo,
   Minus,
-  TableProperties,
   Rows,
   Columns,
   Trash2,
-  Link,
   Link2,
-  Link2Off,
-  Upload,
-  Loader2
+  Upload
 } from 'lucide-react';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { usePrintTemplateStore } from './store';
@@ -69,19 +61,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
+
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -112,7 +96,7 @@ const PAPER_SIZES: { value: PaperSize; label: string }[] = [
   { value: 'K57', label: 'Khổ in K57' },
 ];
 
-const FONT_SIZES = [
+const _FONT_SIZES = [
   { value: '10px', label: '10' },
   { value: '12px', label: '12' },
   { value: '14px', label: '14' },
@@ -1342,13 +1326,13 @@ export function PrintTemplatesPage() {
             {imageUrl && (
               <div className="border rounded-lg p-2">
                 <p className="text-xs text-muted-foreground mb-2">Xem trước:</p>
-                <img 
+                <OptimizedImage 
                   src={imageUrl} 
                   alt="Preview" 
+                  width={300}
+                  height={128}
                   className="max-h-32 mx-auto"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
+                  unoptimized
                 />
               </div>
             )}

@@ -16,7 +16,7 @@ import { useCustomerStore } from '@/features/customers/store';
 import { useProductStore } from '@/features/products/store';
 import { useBranchStore } from '@/features/settings/branches/store';
 import { useEmployeeStore } from '@/features/employees/store';
-import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+import { asSystemId, asBusinessId } from '@/lib/id-types';
 import type { Customer } from '@/lib/types/prisma-extended';
 
 // ============================================

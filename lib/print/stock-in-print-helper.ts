@@ -3,7 +3,6 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu nhập kho
  */
 
-import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   StockInForPrint, 
@@ -110,7 +109,7 @@ export function convertStockInForPrint(
   return {
     // Thông tin cơ bản
     code: stockIn.id,
-    createdAt: stockIn.createdAt || stockIn.receivedDate,
+    createdAt: (stockIn.createdAt ?? stockIn.receivedDate) ?? new Date(),
     receivedOn: stockIn.receivedDate,
     createdBy: creator?.fullName || stockIn.receiverName || stockIn.createdByName,
     purchaseOrderCode: purchaseOrder?.id || purchaseOrder?.code || stockIn.purchaseOrderId,

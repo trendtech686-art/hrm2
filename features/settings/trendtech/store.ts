@@ -448,7 +448,7 @@ export const useTrendtechSettingsStore = create<TrendtechSettingsStore>()(
       version: 1,
       partialize: (state) => {
         // Exclude trendtechProducts from localStorage - keep only in memory
-        const { trendtechProducts, trendtechProductsLastFetch, ...settingsToSave } = state.settings;
+        const { trendtechProducts: _trendtechProducts, trendtechProductsLastFetch: _trendtechProductsLastFetch, ...settingsToSave } = state.settings;
         return {
           settings: settingsToSave,
         };

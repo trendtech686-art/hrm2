@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
 import { useImageStore } from './image-store';
-import { FileUploadAPI } from '@/lib/file-upload-api';
+import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
 import { calculateComboStock } from './combo-utils';
 
 export function ProductFormPage() {
@@ -40,12 +40,12 @@ export function ProductFormPage() {
   // Check if creating a combo from query param
   const isComboMode = searchParams.get('type') === 'combo';
   
-  const handleCancel = () => {
+  const handleCancel = React.useCallback(() => {
     if (product) {
       imageStore.clearStagingImages(product.systemId);
     }
     router.push('/products');
-  };
+  }, [product, router, imageStore]);
 
   const headerActions = React.useMemo(() => [
     <Button 
@@ -139,7 +139,7 @@ export function ProductFormPage() {
       return updatedProduct;
     } else {
       // Create mode - add new product
-      const defaultBranch = branches.find(b => b.isDefault);
+      const _defaultBranch = branches.find(b => b.isDefault);
       const inventoryByBranch: Record<SystemId, number> = {};
       
       branches.forEach(branch => {
@@ -205,8 +205,8 @@ export function ProductFormPage() {
 
   const confirmAllImages = async (
     productSystemId: string,
-    productData: any,
-    imageFiles: Record<string, any[]>
+    productData: { name?: string; id?: string },
+    imageFiles: Record<string, StagingFile[]>
   ) => {
     try {
       console.log('[ConfirmImages] Starting confirm with:', { productSystemId, imageFiles });

@@ -7,9 +7,6 @@ import { SupplierForm, type SupplierFormValues } from './supplier-form';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import type { Supplier } from '@/lib/types/prisma-extended';
@@ -54,9 +51,9 @@ export function SupplierFormPage() {
     router.push(ROUTES.PROCUREMENT.SUPPLIERS);
   };
 
-  const handleCancel = () => {
+  const handleCancel = React.useCallback(() => {
     router.push(ROUTES.PROCUREMENT.SUPPLIERS);
-  };
+  }, [router]);
 
   const isEditing = Boolean(supplier);
 

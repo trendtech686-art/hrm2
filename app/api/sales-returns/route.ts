@@ -9,6 +9,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
+
+// Interface for sales return item input
+interface SalesReturnItemInput {
+  systemId: string;
+  productId?: string;
+  quantity?: number;
+  unitPrice?: number;
+  returnValue?: number;
+  reason?: string;
+}
 
 // GET - List sales returns with pagination and filters
 export async function GET(request: NextRequest) {
@@ -17,11 +28,11 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
-    const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    const _includeDeleted = searchParams.get('includeDeleted') === 'true';
     
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.SalesReturnWhereInput = {};
     
     // Note: SalesReturn table doesn't have isDeleted field
     
@@ -83,8 +94,8 @@ export async function POST(request: NextRequest) {
       refunded,
       items,
       createdBy,
-      createdAt,
-      updatedAt,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
     } = body;
 
     // Create sales return with items
@@ -105,7 +116,7 @@ export async function POST(request: NextRequest) {
         createdBy: createdBy || null,
         // Create items if provided
         items: items?.length ? {
-          create: items.map((item: any) => ({
+          create: items.map((item: SalesReturnItemInput) => ({
             systemId: item.systemId,
             productId: item.productId || null,
             quantity: item.quantity || 1,

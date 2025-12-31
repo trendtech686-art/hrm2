@@ -1,5 +1,5 @@
 import type { Customer, CustomerLifecycleStage } from '@/lib/types/prisma-extended';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
+import { getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 /**
  * Tự động tính toán giai đoạn vòng đời khách hàng dựa trên hành vi
  */

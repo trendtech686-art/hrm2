@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '../../lib/utils';
-import { Globe, ExternalLink } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
 // =============================================================================

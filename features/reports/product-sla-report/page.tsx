@@ -17,10 +17,9 @@ import {
     getTotalOnHandStock, 
     getTotalAvailableStock,
     getSuggestedOrderQuantity,
-    STOCK_ALERT_CONFIG 
 } from '../../products/stock-alert-utils';
 
-const formatNumber = (value?: number) => new Intl.NumberFormat('vi-VN').format(value ?? 0);
+const _formatNumber = (value?: number) => new Intl.NumberFormat('vi-VN').format(value ?? 0);
 
 export function ProductSlaReportPage() {
     const { data: products } = useProductStore();
@@ -109,12 +108,12 @@ export function ProductSlaReportPage() {
         const sorted = [...filteredData];
         if (sorting.id) {
           sorted.sort((a, b) => {
-            const aValue = (a as any)[sorting.id];
-            const bValue = (b as any)[sorting.id];
+            const aValue = (a as unknown as Record<string, unknown>)[sorting.id];
+            const bValue = (b as unknown as Record<string, unknown>)[sorting.id];
             // Special handling for date columns
             if (sorting.id === 'createdAt') {
-              const aTime = aValue ? new Date(aValue).getTime() : 0;
-              const bTime = bValue ? new Date(bValue).getTime() : 0;
+              const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+              const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
               return sorting.desc ? bTime - aTime : aTime - bTime;
             }
             if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -155,7 +154,7 @@ export function ProductSlaReportPage() {
         ],
         showBackButton: false,
         actions: headerActions,
-    }), [alertCounts, alertFilter, headerActions]));
+    }), [headerActions]));
 
     return (
         <div className="h-full flex flex-col space-y-4">

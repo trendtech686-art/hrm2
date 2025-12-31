@@ -305,7 +305,7 @@ export const getColumns = (
         sortKey="id"
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -332,7 +332,7 @@ export const getColumns = (
         sortKey="name"
         isSorted={sorting?.id === 'name'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -414,7 +414,7 @@ export const getColumns = (
         sortKey="sortOrder"
         isSorted={sorting?.id === 'sortOrder'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'sortOrder', desc: s.id === 'sortOrder' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'sortOrder', desc: s.id === 'sortOrder' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -467,7 +467,7 @@ export const getColumns = (
         sortKey="level"
         isSorted={sorting?.id === 'level'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'level', desc: s.id === 'level' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'level', desc: s.id === 'level' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -627,7 +627,7 @@ export const getColumns = (
         sortKey="createdAt"
         isSorted={sorting?.id === 'createdAt'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {

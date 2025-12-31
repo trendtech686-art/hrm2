@@ -10,15 +10,7 @@ import type {
   ShippingCalculationRequest,
   ShippingCalculationResult,
   ShippingService,
-  ShippingCacheKey,
 } from '../components/shipping/types';
-
-// Import shipping services
-import { GHNService } from '../../settings/shipping/integrations/ghn-service';
-import { GHTKService } from '../../settings/shipping/integrations/ghtk-service';
-import { VTPService } from '../../settings/shipping/integrations/vtp-service';
-import { JNTService } from '../../settings/shipping/integrations/jnt-service';
-import { SPXService } from '../../settings/shipping/integrations/spx-service';
 
 // Cache for shipping calculations (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
@@ -184,14 +176,14 @@ export function useShippingCalculator() {
               const pickAddressId = request.fromWardCode || '';
               
               // ✅ FIX: Get API token from correct field (apiToken, not token)
-              const apiToken = (defaultAccount.credentials as any).apiToken || '';
-              const partnerCodeStr = (defaultAccount.credentials as any).partnerCode || 'GHTK';
+              const apiToken = (defaultAccount.credentials as { apiToken?: string; partnerCode?: string }).apiToken || '';
+              const partnerCodeStr = (defaultAccount.credentials as { apiToken?: string; partnerCode?: string }).partnerCode || 'GHTK';
               
               console.log('🔑 [GHTK Token Debug]', {
                 hasDefaultAccount: !!defaultAccount,
                 accountId: defaultAccount.id,
                 credentialsKeys: Object.keys(defaultAccount.credentials || {}),
-                hasApiToken: !!(defaultAccount.credentials as any).apiToken,
+                hasApiToken: !!(defaultAccount.credentials as { apiToken?: string }).apiToken,
                 apiTokenLength: apiToken.length,
                 partnerCode: partnerCodeStr
               });
@@ -205,7 +197,7 @@ export function useShippingCalculator() {
                 throw new Error(`Khối lượng tối thiểu của GHTK là 100g. Hiện tại: ${request.weight}g`);
               }
               
-              const requestBody: any = {
+              const requestBody: Record<string, unknown> = {
                 apiToken: apiToken,
                 partnerCode: partnerCodeStr,
                 province: request.toProvince || '',
@@ -279,7 +271,7 @@ export function useShippingCalculator() {
               if (fees.success && fees.fee) {
                 const feeData = fees.fee;
                 const standardFee = feeData.fee || 0;
-                const insuranceFee = feeData.insurance_fee || 0;
+                const _insuranceFee = feeData.insurance_fee || 0;
                 const deliveryType = feeData.delivery_type || '';
                 
                 // Xác định tên gói cước dựa trên delivery_type
@@ -411,7 +403,7 @@ export function useShippingCalculator() {
           status: 'success' as const,
           services,
         };
-      } catch (error: any) {
+      } catch (error) {
         return {
           partnerId: partnerCode,
           partnerCode,
@@ -419,7 +411,7 @@ export function useShippingCalculator() {
           accountSystemId: '',
           status: 'error' as const,
           services: [],
-          error: error.message || 'Không thể tính phí',
+          error: error instanceof Error ? error.message : 'Không thể tính phí',
         };
       }
     });

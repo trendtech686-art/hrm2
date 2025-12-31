@@ -1,12 +1,11 @@
 import * as React from "react";
-import { formatDate, formatDateCustom } from '@/lib/date-utils';
+import { formatDateCustom } from '@/lib/date-utils';
 import type { Receipt } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TouchButton } from "@/components/mobile/touch-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Calendar, DollarSign, User, Building2, FileText, XCircle, Eye, Pencil } from "lucide-react";
+import { MoreHorizontal, Calendar, User, Building2, FileText, XCircle, Eye, Pencil } from "lucide-react";
 import type { SystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
@@ -38,7 +37,7 @@ export interface MobileReceiptCardProps {
 }
 
 export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick }: MobileReceiptCardProps) => {
-    const getInitials = (name: string) => {
+    const _getInitials = (name: string) => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     };
 

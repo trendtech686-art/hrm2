@@ -24,7 +24,7 @@ type JobTitleFormProps = {
 }
 
 export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormProps) {
-  const { data: jobTitles } = useJobTitleStore();
+  const { data: _jobTitles } = useJobTitleStore();
   const form = useForm<JobTitleFormValues>({
     defaultValues: initialData || {
       id: "", // ✅ Empty string = auto-generate

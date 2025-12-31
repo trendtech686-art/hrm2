@@ -2,7 +2,7 @@
  * Employee Settings API Layer
  */
 
-import type { WorkShift, LeaveType, SalaryComponent, InsuranceRates, TaxBracket } from '@/lib/types/prisma-extended';
+import type { WorkShift, LeaveType, SalaryComponent, InsuranceRates } from '@/lib/types/prisma-extended';
 
 const BASE_URL = '/api/settings/employees';
 

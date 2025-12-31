@@ -6,15 +6,14 @@
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
-import { Package, Clock, CheckCircle, CheckCircle2, XCircle, AlertCircle, Phone, MapPin, Link as LinkIcon, Calendar, User, Image as ImageIcon, ExternalLink, Truck, DollarSign } from 'lucide-react';
+import { Package, Clock, CheckCircle, CheckCircle2, XCircle, AlertCircle, Phone, MapPin, Calendar, User, Image as ImageIcon, ExternalLink, Truck, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
-import { Button } from '../../components/ui/button';
 import { formatDateTime } from '../../lib/date-utils';
 import { cn } from '../../lib/utils';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, SETTLEMENT_TYPE_LABELS, SETTLEMENT_STATUS_LABELS } from './types';
+import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
 import type { WarrantyStatus } from './types';
 import type { PublicWarrantyTicket } from './public-warranty-api';
 import { 
@@ -36,7 +35,7 @@ const ImagePreviewDialog = React.lazy(() =>
  * Get status icon
  */
 function getStatusIcon(status: WarrantyStatus) {
-  const icons: Record<WarrantyStatus, any> = {
+  const icons: Record<WarrantyStatus, React.ElementType> = {
     incomplete: AlertCircle,
     pending: Clock,
     processed: CheckCircle,

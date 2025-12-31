@@ -7,6 +7,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
+
+// Interface for stock transfer item input
+interface StockTransferItemInput {
+  systemId: string;
+  productId: string;
+  quantity?: number;
+  notes?: string;
+}
 
 // GET - List stock transfers
 export async function GET(request: NextRequest) {
@@ -19,11 +28,10 @@ export async function GET(request: NextRequest) {
     
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.StockTransferWhereInput = {};
     
-    if (!includeDeleted) {
-      where.isDeleted = false;
-    }
+    // Note: StockTransfer model doesn't have isDeleted field
+    // Filter by status instead if needed
     
     if (search) {
       where.OR = [
@@ -95,7 +103,7 @@ export async function POST(request: NextRequest) {
         notes: notes || null,
         createdBy: createdBy || null,
         items: items?.length ? {
-          create: items.map((item: any) => ({
+          create: items.map((item: StockTransferItemInput) => ({
             systemId: item.systemId,
             productId: item.productId,
             quantity: item.quantity || 1,

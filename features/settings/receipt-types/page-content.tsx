@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
-import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
+import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { useReceiptTypeStore } from "./store";
 import type { ReceiptType } from '@/lib/types/prisma-extended';
 import { ReceiptTypeForm, type ReceiptTypeFormValues } from "./form";

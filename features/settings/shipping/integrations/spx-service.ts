@@ -244,18 +244,18 @@ export class SPXService {
    */
   private async makeRequest<T>(
     path: string,
-    params: any
+    params: Record<string, unknown>
   ): Promise<T> {
     const timestamp = Math.floor(Date.now() / 1000);
     const { shop_id, access_token, ...bodyParams } = params;
     
-    const signature = await this.generateSignature(path, timestamp, access_token, shop_id);
+    const signature = await this.generateSignature(path, timestamp, access_token as string, Number(shop_id));
     
     const url = new URL(`${this.getBaseUrl()}${path}`);
     url.searchParams.append('partner_id', this.partnerId.toString());
     url.searchParams.append('timestamp', timestamp.toString());
-    url.searchParams.append('access_token', access_token);
-    url.searchParams.append('shop_id', shop_id.toString());
+    url.searchParams.append('access_token', access_token as string);
+    url.searchParams.append('shop_id', String(shop_id));
     url.searchParams.append('sign', signature);
 
     const response = await fetch(url.toString(), {

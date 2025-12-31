@@ -45,7 +45,7 @@ export const getColumns = (
         sortKey="id"
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => (
@@ -158,7 +158,7 @@ export const getColumns = (
     accessorKey: 'note',
     header: 'Ghi chú',
     cell: ({ row }) => (
-      <div className="max-w-[240px] truncate" title={row.note}>{row.note}</div>
+      <div className="max-w-[240px] truncate" title={row.note ?? undefined}>{row.note}</div>
     ),
     meta: { displayName: 'Ghi chú' },
   },

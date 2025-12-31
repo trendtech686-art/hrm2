@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { NextRequest } from 'next/server'
+import type { Prisma } from '@/generated/prisma/client'
 
 const SETTING_KEY = 'employee-payroll-profiles'
 const SETTING_GROUP = 'hrm'
+
+interface PayrollProfile {
+  employeeSystemId: string
+  [key: string]: unknown
+}
 
 type RouteParams = { params: Promise<{ employeeSystemId: string }> }
 
@@ -21,8 +27,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    const profiles = (setting?.value as any[]) || []
-    const existingIndex = profiles.findIndex((p: any) => p.employeeSystemId === employeeSystemId)
+    const profiles = (setting?.value as PayrollProfile[]) || []
+    const existingIndex = profiles.findIndex((p) => p.employeeSystemId === employeeSystemId)
     
     if (existingIndex >= 0) {
       profiles[existingIndex] = { ...profiles[existingIndex], ...body }
@@ -38,7 +44,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         },
       },
       update: {
-        value: profiles,
+        value: profiles as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -47,12 +53,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'hrm',
-        value: profiles,
+        value: profiles as unknown as Prisma.InputJsonValue,
         description: 'Employee payroll profiles',
       },
     })
 
-    return NextResponse.json({ data: profiles.find((p: any) => p.employeeSystemId === employeeSystemId) })
+    return NextResponse.json({ data: profiles.find((p) => p.employeeSystemId === employeeSystemId) })
   } catch (error) {
     console.error('Error updating payroll profile:', error)
     return NextResponse.json(
@@ -75,8 +81,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    const profiles = (setting?.value as any[]) || []
-    const filteredProfiles = profiles.filter((p: any) => p.employeeSystemId !== employeeSystemId)
+    const profiles = (setting?.value as PayrollProfile[]) || []
+    const filteredProfiles = profiles.filter((p) => p.employeeSystemId !== employeeSystemId)
 
     await prisma.setting.update({
       where: {
@@ -86,7 +92,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         },
       },
       data: {
-        value: filteredProfiles,
+        value: filteredProfiles as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
     })

@@ -21,49 +21,49 @@ model PurchaseOrder {
   updatedBy    String?
   deletedAt    DateTime?
   isDeleted    Boolean             @default(false)
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Supplier & branch info (denormalized)
-  supplierSystemId     String?
-  supplierName         String?
-  branchSystemId       String?
-  branchName           String?
-  
+  supplierSystemId String?
+  supplierName     String?
+  branchSystemId   String?
+  branchName       String?
+
   // Buyer/creator info
-  buyerSystemId        String?
-  buyer                String?      // Employee who created PO
-  creatorSystemId      String?
-  creatorName          String?
-  
+  buyerSystemId   String?
+  buyer           String? // Employee who created PO
+  creatorSystemId String?
+  creatorName     String?
+
   // Delivery & payment status
-  deliveryDate         DateTime?    // was expectedDeliveryDate
-  deliveryStatus       String       @default("Chưa nhập")  // 'Chưa nhập' | 'Đã nhập một phần' | 'Đã nhập'
-  paymentStatus        String       @default("Chưa thanh toán")  // Payment status
-  returnStatus         String?      // 'Chưa hoàn trả' | 'Hoàn hàng một phần' | 'Hoàn hàng toàn bộ'
-  refundStatus         String?      // 'Chưa hoàn tiền' | 'Hoàn tiền một phần' | 'Hoàn tiền toàn bộ'
-  
+  deliveryDate   DateTime? // was expectedDeliveryDate
+  deliveryStatus String    @default("Chưa nhập") // 'Chưa nhập' | 'Đã nhập một phần' | 'Đã nhập'
+  paymentStatus  String    @default("Chưa thanh toán") // Payment status
+  returnStatus   String? // 'Chưa hoàn trả' | 'Hoàn hàng một phần' | 'Hoàn hàng toàn bộ'
+  refundStatus   String? // 'Chưa hoàn tiền' | 'Hoàn tiền một phần' | 'Hoàn tiền toàn bộ'
+
   // Line items (stored as JSON for flexibility)
-  lineItems            Json?        // Array of PurchaseOrderLineItem
-  
+  lineItems Json? // Array of PurchaseOrderLineItem
+
   // Financial
-  discountType         String?      // 'percentage' | 'fixed'
-  shippingFee          Decimal      @default(0) @db.Decimal(15, 2)
-  grandTotal           Decimal      @default(0) @db.Decimal(15, 2)
-  
+  discountType String? // 'percentage' | 'fixed'
+  shippingFee  Decimal @default(0) @db.Decimal(15, 2)
+  grandTotal   Decimal @default(0) @db.Decimal(15, 2)
+
   // Linked receipts
-  inventoryReceiptIds  String[]     // Array of inventory receipt IDs
-  
+  inventoryReceiptIds String[] // Array of inventory receipt IDs
+
   // External reference
-  reference            String?
-  
+  reference String?
+
   // Activity History
-  activityHistory      Json?
-  
+  activityHistory Json?
+
   // === RELATIONS ===
-  payments     Payment[]
-  items        PurchaseOrderItem[]
-  supplier     Supplier            @relation(fields: [supplierId], references: [systemId])
+  payments Payment[]
+  items    PurchaseOrderItem[]
+  supplier Supplier            @relation(fields: [supplierId], references: [systemId])
 
   @@index([orderDate])
   @@index([status])

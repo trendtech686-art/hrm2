@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, SalesCustomerReportRow, ChartType } from '../types';
+import type { SystemId } from '@/lib/id-types';
 import { Users, DollarSign, TrendingUp, Filter, ShoppingCart } from 'lucide-react';
 
 const getDefaultDateRange = (): ReportDateRange => ({
@@ -126,8 +127,8 @@ export function SalesCustomerReportPage() {
   const { data, summary } = useSalesCustomerReport(dateRange);
   
   const tableData = React.useMemo(() => {
-    const summaryRow: SalesCustomerReportRow & { systemId: string; _isSummary: boolean } = {
-      customerSystemId: '__summary__' as any,
+    const summaryRow: SalesCustomerReportRow & { systemId: SystemId; _isSummary: boolean } = {
+      customerSystemId: '__summary__' as SystemId,
       customerName: 'Tổng',
       customerCode: '',
       customerGroup: '',
@@ -139,13 +140,13 @@ export function SalesCustomerReportPage() {
       revenue: summary.revenue,
       grossProfit: summary.grossProfit,
       averageOrderValue: 0,
-      systemId: '__summary__',
+      systemId: '__summary__' as SystemId,
       _isSummary: true,
     };
     
     return [summaryRow, ...data.map(row => ({
       ...row,
-      systemId: row.customerSystemId as string,
+      systemId: row.customerSystemId,
       _isSummary: false,
     }))];
   }, [data, summary]);
@@ -156,8 +157,8 @@ export function SalesCustomerReportPage() {
       sorted.sort((a, b) => {
         if (a._isSummary) return -1;
         if (b._isSummary) return 1;
-        const aVal = (a as any)[sorting.id];
-        const bVal = (b as any)[sorting.id];
+        const aVal = (a as unknown as Record<string, unknown>)[sorting.id];
+        const bVal = (b as unknown as Record<string, unknown>)[sorting.id];
         if (aVal === bVal) return 0;
         if (aVal == null) return 1;
         if (bVal == null) return -1;

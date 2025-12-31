@@ -22,7 +22,7 @@ type DepartmentFormProps = {
 }
 
 export function DepartmentForm({ initialData, onSubmit }: DepartmentFormProps) {
-  const { data: departments } = useDepartmentStore();
+  const { data: _departments } = useDepartmentStore();
   const form = useForm<DepartmentFormValues>({
     defaultValues: initialData || {
       id: '',

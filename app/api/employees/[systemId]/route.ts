@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/employees/[systemId] - Get single employee
 export async function GET(
@@ -124,10 +125,10 @@ export async function PUT(
     })
 
     return NextResponse.json(employee)
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error updating employee:', error)
 
-    if (error.code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Email already exists' },
         { status: 400 }

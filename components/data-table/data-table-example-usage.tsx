@@ -3,13 +3,13 @@ import { DataTableActions } from './data-table-actions';
 import { DataTableToolbar } from './data-table-toolbar';
 import type { ColumnDef } from './types';
 
-interface ExampleProps {
+interface _ExampleProps {
   // This is just an example component to demonstrate usage
 }
 
 export function ExampleUsage<TData extends { id: string }>() {
   // Example state for the data table
-  const [data, setData] = React.useState<TData[]>([]);
+  const [data, _setData] = React.useState<TData[]>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['id']);
@@ -26,7 +26,7 @@ export function ExampleUsage<TData extends { id: string }>() {
   // Example filtered data based on search
   const filteredData = React.useMemo(() => {
     return data;
-  }, [data, search]);
+  }, [data]);
   
   // Example page data
   const pageData = filteredData.slice(0, 10);

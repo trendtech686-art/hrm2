@@ -3,6 +3,8 @@
  * Supports complex filtering with AND/OR conditions
  */
 
+import type { Task } from './types';
+
 export type FilterOperator = 
   | 'equals'
   | 'not_equals'
@@ -34,7 +36,7 @@ export interface FilterCondition {
   id: string;
   field: FilterField;
   operator: FilterOperator;
-  value: any;
+  value: unknown;
 }
 
 export type FilterLogic = 'AND' | 'OR';
@@ -74,7 +76,7 @@ export interface QuickFilter {
   name: string;
   icon: string;
   color: string;
-  filter: (task: any) => boolean;
+  filter: (task: Task) => boolean;
 }
 
 // Quick Filter Presets
@@ -85,7 +87,7 @@ export const QUICK_FILTERS: QuickFilter[] = [
     icon: 'User',
     color: 'blue',
     filter: (task) => {
-      const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const _user = JSON.parse(localStorage.getItem('currentUser') || '{}');
       const employee = JSON.parse(localStorage.getItem('employee') || '{}');
       return task.assigneeId === employee.systemId;
     },

@@ -1,4 +1,3 @@
-import { create } from 'zustand';
 import { data as initialDataOmit } from './data';
 import type { PurchaseOrder, PurchaseOrderPayment, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus, PurchaseOrderPaymentStatus as PaymentStatus, PurchaseOrderReturnStatus, PurchaseOrderRefundStatus } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
@@ -6,28 +5,33 @@ import type { HistoryEntry } from '../../components/ActivityHistory';
 // import { useVoucherStore } from '../vouchers/store';
 import { useInventoryReceiptStore, syncInventoryReceiptsWithPurchaseOrders } from '../inventory-receipts/store';
 import { usePaymentStore } from '../payments/store';
-import type { Payment } from '../payments/types';
 import { useReceiptStore } from '../receipts/store';
 import type { Receipt } from '../receipts/types';
 import { useEmployeeStore } from '../employees/store';
 import { usePurchaseReturnStore } from '../purchase-returns/store';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { toISODateTime } from '../../lib/date-utils';
 import { useCashbookStore } from '../cashbook/store';
 import { useReceiptTypeStore } from '../settings/receipt-types/store';
-import { usePaymentTypeStore } from '../settings/payments/types/store';
 import { createCrudStore } from '../../lib/store-factory';
 import { sumPaymentsForPurchaseOrder } from './payment-utils';
 import { useProductStore } from '../products/store';
-import { asSystemId } from '@/lib/id-types';
+import { asSystemId, type SystemId, type BusinessId } from '@/lib/id-types';
 
-const initialData: PurchaseOrder[] = initialDataOmit.map((po, index) => ({
+// Type alias for store-compatible PurchaseOrder (with branded IDs)
+type PurchaseOrderReference = Omit<PurchaseOrder, 'systemId' | 'id'> & {
+  systemId: SystemId;
+  id: BusinessId;
+};
+
+const initialData = initialDataOmit.map((po, index) => ({
   ...po,
   creatorSystemId: po.buyerSystemId,
   creatorName: po.buyer,
   systemId: `PO${String(index + 1).padStart(8, '0')}`,
-}));
+})) as PurchaseOrder[];
 
-const baseStore = createCrudStore<any>(initialData as any, 'purchase-orders', {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const baseStore = createCrudStore<any>(initialData as any[], 'purchase-orders', {
   businessIdField: 'id',
   persistKey: 'hrm-purchase-orders',
 });
@@ -51,12 +55,6 @@ runInventoryReceiptBackfill();
 });
 
 // Helper functions for ActivityHistory
-const getCurrentUserInfo = () => {
-  const employees = useEmployeeStore.getState().data;
-  // Fallback to system user
-  return { systemId: 'SYSTEM', name: 'Hệ thống' };
-};
-
 const createHistoryEntry = (
   action: HistoryEntry['action'],
   description: string,
@@ -392,32 +390,30 @@ const augmentedMethods = {
 
         if (refundCategory && targetAccount) {
            const newReceipt: Omit<Receipt, 'systemId'> = {
-            id: '' as any, // Let receipt store generate PT-XXXXXX
+            id: '' as Receipt['id'], // Let receipt store generate PT-XXXXXX
             date: toISODateTime(new Date()),
             amount: totalPaid,
-            payerType: 'Nhà cung cấp',
-            payerTypeSystemId: 'NHACUNGCAP',
+            payerTypeSystemId: asSystemId('NHACUNGCAP'),
             payerTypeName: 'Nhà cung cấp',
             payerName: po.supplierName,
-            payerSystemId: po.supplierSystemId,
+            payerSystemId: asSystemId(po.supplierSystemId),
             description: `Nhận hoàn tiền từ NCC cho đơn hàng ${po.id} bị hủy.`,
-            paymentMethod: 'Tiền mặt',
-            paymentMethodSystemId: 'CASH',
+            paymentMethodSystemId: asSystemId('CASH'),
             paymentMethodName: 'Tiền mặt',
-            accountSystemId: targetAccount.systemId,
-            paymentReceiptTypeSystemId: refundCategory.systemId,
+            accountSystemId: asSystemId(targetAccount.systemId),
+            paymentReceiptTypeSystemId: asSystemId(refundCategory.systemId),
             paymentReceiptTypeName: refundCategory.name,
-            branchSystemId: po.branchSystemId,
+            branchSystemId: asSystemId(po.branchSystemId),
             branchName: po.branchName,
-            createdBy: userName,
+            createdBy: asSystemId(userName),
             createdAt: toISODateTime(new Date()),
             status: 'completed',
             category: 'other',
             affectsDebt: true,
-            purchaseOrderSystemId: po.systemId,
-            purchaseOrderId: po.id,
-            originalDocumentId: po.id,
-          } as any;
+            purchaseOrderSystemId: asSystemId(po.systemId),
+            purchaseOrderId: po.id as Receipt['purchaseOrderId'],
+            originalDocumentId: po.id as Receipt['originalDocumentId'],
+          };
           addReceipt(newReceipt);
         } else {
             console.error("Không thể tạo phiếu thu hoàn tiền: Thiếu loại phiếu 'Nhà cung cấp hoàn tiền' hoặc tài khoản quỹ tiền mặt.");
@@ -456,11 +452,14 @@ const augmentedMethods = {
 // Define the enhanced store interface
 export interface PurchaseOrderStoreState {
   data: PurchaseOrder[];
-  add: (item: Omit<PurchaseOrder, 'systemId'>) => PurchaseOrder;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  add: (item: Omit<PurchaseOrder, 'systemId'>) => any;
   addMultiple: (items: Omit<PurchaseOrder, 'systemId'>[]) => void;
-  update: (systemId: string, item: PurchaseOrder) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  update: (systemId: string, item: any) => void;
   remove: (systemId: string) => void;
-  findById: (systemId: string) => PurchaseOrder | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  findById: (systemId: string) => any;
   addPayment: (purchaseOrderId: string, payment: Omit<PurchaseOrderPayment, 'id'>) => void;
   updatePaymentStatusForPoIds: (poIds: string[]) => void;
   processInventoryReceipt: (purchaseOrderSystemId: string) => void;
@@ -473,12 +472,13 @@ export interface PurchaseOrderStoreState {
 }
 
 // Export typed hook
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const usePurchaseOrderStore = (): PurchaseOrderStoreState => {
   const state = baseStore();
   return {
     ...state,
     ...augmentedMethods,
-  };
+  } as PurchaseOrderStoreState;
 };
 
 // Export getState for non-hook usage

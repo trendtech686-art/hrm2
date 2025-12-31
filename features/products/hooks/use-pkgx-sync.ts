@@ -456,8 +456,8 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     toast.loading('Đang lấy thông tin hình ảnh...', { id: 'pkgx-sync-images' });
 
     // ===== STEP 1: Fetch ảnh từ HRM server =====
-    let thumbnailUrls: string[] = [];
-    let galleryUrls: string[] = [];
+    const thumbnailUrls: string[] = [];
+    const galleryUrls: string[] = [];
 
     // Helper: Kiểm tra URL có thể truy cập từ internet không
     const isPublicUrl = (url: string): boolean => {

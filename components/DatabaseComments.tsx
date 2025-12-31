@@ -41,7 +41,7 @@ export function DatabaseComments({ entityType, entityId, className }: DatabaseCo
           
           if (data && data.length > 0) {
             // Transform API data to component format
-            const transformed = data.map((c: any) => ({
+            const transformed = data.map((c: { systemId: string; content: string; createdBy?: string; createdByName?: string; createdAt: string; updatedAt: string; attachments?: Array<{ id: string; fileName: string; fileUrl: string }> }) => ({
               id: asSystemId(c.systemId),
               content: c.content,
               author: {
@@ -164,7 +164,7 @@ export function DatabaseComments({ entityType, entityId, className }: DatabaseCo
 /**
  * Migrate localStorage comments to database
  */
-async function migrateComments(
+async function _migrateComments(
   entityType: string,
   entityId: string,
   comments: CommentType<SystemId>[]

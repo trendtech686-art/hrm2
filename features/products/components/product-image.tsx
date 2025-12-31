@@ -14,6 +14,20 @@ import { FileUploadAPI } from '@/lib/file-upload-api';
 import { LazyImage } from '@/components/ui/lazy-image';
 import { cn } from '@/lib/utils';
 
+interface ServerFile {
+  id: string;
+  name: string;
+  originalName: string;
+  slug: string;
+  filename: string;
+  size: number;
+  type: string;
+  url: string;
+  uploadedAt: string;
+  metadata: string;
+  documentName?: string;
+}
+
 interface ProductImageProps {
   productSystemId: string;
   productData?: {
@@ -73,7 +87,7 @@ export function ProductImage({
         .then(files => {
           if (!files || !Array.isArray(files)) return;
           
-          const mapToServerFile = (f: any) => ({
+          const mapToServerFile = (f: ServerFile) => ({
             id: f.id,
             sessionId: '',
             name: f.name,
@@ -88,8 +102,8 @@ export function ProductImage({
             metadata: f.metadata
           });
 
-          const thumbnailFiles = files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile);
-          const galleryFiles = files.filter(f => f.documentName === 'gallery').map(mapToServerFile);
+          const thumbnailFiles = (files.filter(f => f.documentName === 'thumbnail') as ServerFile[]).map(mapToServerFile);
+          const galleryFiles = (files.filter(f => f.documentName === 'gallery') as ServerFile[]).map(mapToServerFile);
           
           updatePermanentImages(productSystemId, 'thumbnail', thumbnailFiles);
           updatePermanentImages(productSystemId, 'gallery', galleryFiles);
@@ -146,7 +160,7 @@ export function useProductImage(
         .then(files => {
           if (!files || !Array.isArray(files)) return;
           
-          const mapToServerFile = (f: any) => ({
+          const mapToServerFile = (f: ServerFile) => ({
             id: f.id,
             sessionId: '',
             name: f.name,
@@ -161,8 +175,8 @@ export function useProductImage(
             metadata: f.metadata
           });
 
-          const thumbnailFiles = files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile);
-          const galleryFiles = files.filter(f => f.documentName === 'gallery').map(mapToServerFile);
+          const thumbnailFiles = (files.filter(f => f.documentName === 'thumbnail') as ServerFile[]).map(mapToServerFile);
+          const galleryFiles = (files.filter(f => f.documentName === 'gallery') as ServerFile[]).map(mapToServerFile);
           
           updatePermanentImages(productSystemId, 'thumbnail', thumbnailFiles);
           updatePermanentImages(productSystemId, 'gallery', galleryFiles);

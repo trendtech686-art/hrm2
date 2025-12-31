@@ -54,7 +54,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       reason,
       notes,
       updatedBy,
-      ...otherFields
+      ..._otherFields
     } = body;
 
     const salesReturn = await prisma.salesReturn.update({

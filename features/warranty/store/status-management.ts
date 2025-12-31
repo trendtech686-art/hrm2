@@ -3,7 +3,7 @@ import type { SystemId } from '../../../lib/id-types';
 import type { WarrantyTicket, WarrantyStatus } from '../types';
 import { baseStore, originalUpdate, getCurrentUserName } from './base-store';
 import { addHistory } from './product-management';
-import { deductWarrantyStock, rollbackWarrantyStock } from './stock-management';
+import { deductWarrantyStock } from './stock-management';
 import {
   notifyWarrantyProcessing,
   notifyWarrantyProcessed,
@@ -100,7 +100,7 @@ export function updateStatus(ticketSystemId: SystemId, newStatus: WarrantyTicket
     originalUpdate(ticketSystemId, {
       ...baseUpdate,
       stockDeducted: true,
-    } as any);
+    } as Parameters<typeof originalUpdate>[1]);
   } else if (newStatus === 'completed' && ticket.stockDeducted) {
     console.log('[COMPLETED - SKIP DEDUCT] Đã trừ kho rồi, bỏ qua:', {
       ticketId: ticket.id,
@@ -110,10 +110,10 @@ export function updateStatus(ticketSystemId: SystemId, newStatus: WarrantyTicket
     });
     
     // Chỉ update status, KHÔNG trừ kho nữa
-    originalUpdate(ticketSystemId, baseUpdate as any);
+    originalUpdate(ticketSystemId, baseUpdate as Parameters<typeof originalUpdate>[1]);
   } else {
     // Normal status update (không phải completed)
-    originalUpdate(ticketSystemId, baseUpdate as any);
+    originalUpdate(ticketSystemId, baseUpdate as Parameters<typeof originalUpdate>[1]);
   }
   
   // KHÔNG ROLLBACK KHO khi mở lại từ completed

@@ -121,7 +121,7 @@ export function PayrollTemplatesSettingsContent() {
     }
   }, [templateStore, deleteConfirmId]);
 
-  const handleSetDefault = React.useCallback((systemId: SystemId) => {
+  const _handleSetDefault = React.useCallback((systemId: SystemId) => {
     templateStore.setDefaultTemplate(systemId);
     toast.success('Đã đặt mặc định', { description: 'Mẫu này sẽ được chọn sẵn khi chạy lương.' });
   }, [templateStore]);

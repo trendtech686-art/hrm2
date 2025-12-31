@@ -142,7 +142,7 @@ export function CategoryMappingTab() {
   [paginatedPkgxData, rowSelection]);
   
   // Get selected PKGX categories that are NOT mapped (for bulk mapping)
-  const selectedUnmappedCategories = React.useMemo(() => 
+  const _selectedUnmappedCategories = React.useMemo(() => 
     allSelectedPkgxRows.filter(c => !c.mappedToHrm),
   [allSelectedPkgxRows]);
   
@@ -187,7 +187,7 @@ export function CategoryMappingTab() {
           aria-label="Select all"
         />
       ),
-      cell: ({ row, isSelected, onToggleSelect }) => (
+      cell: ({ row: _row, isSelected, onToggleSelect }) => (
         <Checkbox
           checked={isSelected}
           onCheckedChange={onToggleSelect}
@@ -347,6 +347,7 @@ export function CategoryMappingTab() {
         );
       },
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleUnlinkCategory and handleQuickMap are stable functions defined after
   ], [settings.categories, hrmCategories, findMapping, entitySync]);
   
   // Mappings columns
@@ -385,6 +386,7 @@ export function CategoryMappingTab() {
         </div>
       ),
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleOpenDialog and handleDelete are stable functions
   ], []);
   
   const handleQuickMap = (pkgxCategory: PkgxCategoryRow) => {
@@ -417,11 +419,17 @@ export function CategoryMappingTab() {
     try {
       const response = await getCategoryById(catId);
       if (response.success && response.data?.data) {
-        setSelectedCategoryForDetail(response.data.data as any);
+        // API returns array, get first element
+        const categories = response.data.data;
+        if (Array.isArray(categories) && categories.length > 0) {
+          setSelectedCategoryForDetail(categories[0]);
+        } else {
+          toast.error('Không tìm thấy danh mục');
+        }
       } else {
         toast.error(response.error || 'Không thể lấy thông tin danh mục');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi khi lấy thông tin danh mục');
     } finally {
       setIsLoadingDetail(false);
@@ -449,9 +457,9 @@ export function CategoryMappingTab() {
       // Push name
       if (hrmCategory.name) payload.cat_name = hrmCategory.name;
       // Push description (nếu HRM category có field này)
-      if ((hrmCategory as any).description) payload.cat_desc = (hrmCategory as any).description;
+      if ((hrmCategory as { description?: string }).description) payload.cat_desc = (hrmCategory as { description?: string }).description;
       // Push keywords (nếu HRM category có field này)
-      if ((hrmCategory as any).seoKeywords) payload.keywords = (hrmCategory as any).seoKeywords;
+      if ((hrmCategory as { seoKeywords?: string }).seoKeywords) payload.keywords = (hrmCategory as { seoKeywords?: string }).seoKeywords;
       
       const response = await updateCategory(pkgxCatId, payload);
       if (response.success) {
@@ -469,7 +477,7 @@ export function CategoryMappingTab() {
       } else {
         toast.error(response.error || 'Không thể cập nhật danh mục');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi khi đẩy thông tin danh mục');
     } finally {
       setIsPushing(false);
@@ -509,6 +517,7 @@ export function CategoryMappingTab() {
       };
       validation.validateAsync(input);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hrmCategories, settings.categories, and validation are used for lookup only when selection changes
   }, [selectedHrmCategory, selectedPkgxCategory, isDialogOpen]);
   
   const handleSave = () => {

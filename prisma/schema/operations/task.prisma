@@ -1,70 +1,70 @@
 model Task {
-  systemId                              String       @id
-  id                                    String       @unique
-  title                                 String
-  description                           String?
-  assigneeId                            String?
-  creatorId                             String
-  status                                TaskStatus   @default(TODO)
-  priority                              TaskPriority @default(MEDIUM)
-  dueDate                               DateTime?
-  completedAt                           DateTime?
-  tags                                  String[]
-  createdAt                             DateTime     @default(now())
-  updatedAt                             DateTime     @updatedAt
-  
+  systemId    String       @id
+  id          String       @unique
+  title       String
+  description String?
+  assigneeId  String?
+  creatorId   String
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  completedAt DateTime?
+  tags        String[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Task classification
-  type                  String?      // Task type from settings (Phát triển, Thiết kế, etc.)
-  
+  type String? // Task type from settings (Phát triển, Thiết kế, etc.)
+
   // Multiple assignees
-  assignees             Json?        // Array of TaskAssignee { systemId, employeeSystemId, employeeName, role, assignedAt, assignedBy }
-  
+  assignees Json? // Array of TaskAssignee { systemId, employeeSystemId, employeeName, role, assignedAt, assignedBy }
+
   // Legacy assignee info (backward compatibility, auto-populated from assignees[0])
-  assigneeName          String?
-  assignerId            String?      // Assigner systemId
-  assignerName          String?
-  
+  assigneeName String?
+  assignerId   String? // Assigner systemId
+  assignerName String?
+
   // Dates
-  startDate             DateTime?
-  completedDate         DateTime?
-  
+  startDate     DateTime?
+  completedDate DateTime?
+
   // Time estimation & tracking
-  estimatedHours        Decimal?     @db.Decimal(6, 2)
-  actualHours           Decimal?     @db.Decimal(6, 2)
-  progress              Int          @default(0) // 0-100
-  
+  estimatedHours Decimal? @db.Decimal(6, 2)
+  actualHours    Decimal? @db.Decimal(6, 2)
+  progress       Int      @default(0) // 0-100
+
   // Timer tracking
-  timerRunning          Boolean      @default(false)
-  timerStartedAt        DateTime?
-  totalTrackedSeconds   Int          @default(0)
-  
+  timerRunning        Boolean   @default(false)
+  timerStartedAt      DateTime?
+  totalTrackedSeconds Int       @default(0)
+
   // Subtasks
-  subtasks              Json?        // Array of { id, title, completed }
-  
+  subtasks Json? // Array of { id, title, completed }
+
   // Comments & attachments
-  comments              Json?        // Array of TaskComment
-  attachments           Json?        // Array of TaskAttachment
-  
+  comments    Json? // Array of TaskComment
+  attachments Json? // Array of TaskAttachment
+
   // Activity history
-  activities            Json?        // Array of TaskActivity
-  
+  activities Json? // Array of TaskActivity
+
   // Completion evidence (for user tasks)
-  requiresEvidence      Boolean      @default(false)
-  completionEvidence    Json?        // CompletionEvidence { images, note, submittedAt, submittedBy, submittedByName }
-  approvalStatus        String?      // 'pending' | 'approved' | 'rejected'
-  approvalHistory       Json?        // Array of ApprovalHistory
-  rejectionReason       String?      // Latest rejection reason
-  
+  requiresEvidence   Boolean @default(false)
+  completionEvidence Json? // CompletionEvidence { images, note, submittedAt, submittedBy, submittedByName }
+  approvalStatus     String? // 'pending' | 'approved' | 'rejected'
+  approvalHistory    Json? // Array of ApprovalHistory
+  rejectionReason    String? // Latest rejection reason
+
   // Audit
-  createdBy             String?
-  updatedBy             String?
-  isDeleted             Boolean      @default(false)
-  
+  createdBy String?
+  updatedBy String?
+  isDeleted Boolean @default(false)
+
   // === RELATIONS ===
-  employees_tasks_assigneeIdToemployees Employee?    @relation("tasks_assigneeIdToemployees", fields: [assigneeId], references: [systemId])
-  employees_tasks_creatorIdToemployees  Employee     @relation("tasks_creatorIdToemployees", fields: [creatorId], references: [systemId])
+  employees_tasks_assigneeIdToemployees Employee? @relation("tasks_assigneeIdToemployees", fields: [assigneeId], references: [systemId])
+  employees_tasks_creatorIdToemployees  Employee  @relation("tasks_creatorIdToemployees", fields: [creatorId], references: [systemId])
 
   @@index([assigneeId])
   @@index([dueDate])

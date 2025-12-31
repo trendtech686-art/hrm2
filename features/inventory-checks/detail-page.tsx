@@ -11,7 +11,7 @@ import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Check, Pencil, XCircle, Printer } from 'lucide-react';
 import { usePrint } from '../../lib/use-print';
 import { 
@@ -24,8 +24,8 @@ import { useBranchStore } from '../settings/branches/store';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from 'sonner';
-import { SystemId, BusinessId, asSystemId } from '../../lib/id-types';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { type SystemId, asSystemId } from '../../lib/id-types';
+import { ActivityHistory } from '../../components/ActivityHistory';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
@@ -53,14 +53,14 @@ import {
 export function InventoryCheckDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { isMobile } = useBreakpoint();
+  const { isMobile: _isMobile } = useBreakpoint();
   const { findById, balanceCheck, cancelCheck } = useInventoryCheckStore();
   const { findById: findProductById } = useProductStore();
   const { findById: findProductTypeById } = useProductTypeStore();
   const [showBalanceDialog, setShowBalanceDialog] = React.useState(false);
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
-    const productType = findProductTypeById(productTypeSystemId as any);
+    const productType = findProductTypeById(productTypeSystemId as SystemId);
     return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
   const [activeTab, setActiveTab] = React.useState('all');
@@ -148,14 +148,14 @@ export function InventoryCheckDetailPage() {
     try {
       await balanceCheck(check.systemId as SystemId);
       toast.success('Đã cân bằng phiếu kiểm hàng');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể cân bằng phiếu, vui lòng thử lại');
     } finally {
       setShowBalanceDialog(false);
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = React.useCallback(() => {
     if (!check) return;
     if (check.status !== 'draft') {
       toast.error('Chỉ có thể hủy phiếu đang ở trạng thái Nháp');
@@ -165,7 +165,7 @@ export function InventoryCheckDetailPage() {
     cancelCheck(check.systemId as SystemId, 'Hủy từ trang chi tiết');
     toast.success('Đã hủy phiếu kiểm hàng');
     router.push('/inventory-checks');
-  };
+  }, [check, cancelCheck, router]);
 
   const { findById: findBranchById } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
@@ -245,7 +245,7 @@ export function InventoryCheckDetailPage() {
     }
 
     return btns;
-  }, [check, handleCancel, router]);
+  }, [check, handleCancel, router, handlePrint]);
 
   // Breadcrumb with check id
   const breadcrumb = React.useMemo(() => [
@@ -373,7 +373,7 @@ export function InventoryCheckDetailPage() {
             </div>
             <div>
               <div className="text-body-sm text-muted-foreground">Ngày tạo</div>
-              <div>{formatDateCustom(new Date(check.createdAt), 'dd/MM/yyyy HH:mm')}</div>
+              <div>{check.createdAt ? formatDateCustom(new Date(check.createdAt), 'dd/MM/yyyy HH:mm') : ''}</div>
             </div>
             <div>
               <div className="text-body-sm text-muted-foreground">Người tạo</div>

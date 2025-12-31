@@ -3,8 +3,6 @@
  * For real-time shipping partner integration
  */
 
-import type { PartnerAccount } from '@/lib/types/shipping-config';
-
 /**
  * Delivery method options
  */

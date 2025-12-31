@@ -17,7 +17,7 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
       <div className="flex items-start justify-between">
         <div>
           <div className="font-medium">{item.id}</div>
-          <div className="text-body-sm text-muted-foreground">{item.branchName} • {formatDateCustom(new Date(item.createdAt), 'dd/MM/yyyy')}</div>
+          <div className="text-body-sm text-muted-foreground">{item.branchName} • {item.createdAt ? formatDateCustom(new Date(item.createdAt), 'dd/MM/yyyy') : ''}</div>
         </div>
         <div>
           <Badge>{item.status === 'draft' ? 'Nháp' : item.status === 'balanced' ? 'Đã cân bằng' : 'Đã hủy'}</Badge>

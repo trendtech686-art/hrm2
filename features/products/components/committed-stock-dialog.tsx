@@ -203,7 +203,7 @@ export function CommittedStockDialog({
                     <TableCell className="truncate max-w-[250px]" title={item.customerName}>{item.customerName}</TableCell>
                     <TableCell className="text-right text-body-sm font-medium text-orange-600">{item.quantity}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(item.type, item.status) as any}>
+                      <Badge variant={getStatusBadgeVariant(item.type, item.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'}>
                         {getStatusLabel(item.type, item.status)}
                       </Badge>
                     </TableCell>

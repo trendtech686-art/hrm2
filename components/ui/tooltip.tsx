@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
@@ -92,23 +94,25 @@ const TooltipTrigger = React.forwardRef<
   };
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
+    const childProps = children.props as React.HTMLAttributes<HTMLElement>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return React.cloneElement(children as any, {
       ref: handleRef,
-      onMouseEnter: (e: React.MouseEvent) => {
+      onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
         handleOpen();
-        (children.props as any).onMouseEnter?.(e);
+        childProps.onMouseEnter?.(e);
       },
-      onMouseLeave: (e: React.MouseEvent) => {
+      onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
         handleClose();
-        (children.props as any).onMouseLeave?.(e);
+        childProps.onMouseLeave?.(e);
       },
-      onFocus: (e: React.FocusEvent) => {
+      onFocus: (e: React.FocusEvent<HTMLElement>) => {
         handleOpen();
-        (children.props as any).onFocus?.(e);
+        childProps.onFocus?.(e);
       },
-      onBlur: (e: React.FocusEvent) => {
+      onBlur: (e: React.FocusEvent<HTMLElement>) => {
         handleClose();
-        (children.props as any).onBlur?.(e);
+        childProps.onBlur?.(e);
       },
       ...props,
     });
@@ -203,7 +207,7 @@ const TooltipContent = React.forwardRef<
       {open && (
         <motion.div
           ref={contentRef}
-          style={style as any}
+          style={style}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}

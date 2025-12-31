@@ -3,8 +3,8 @@
  * ═══════════════════════════════════════════════════════════════
  */
 import { describe, it, expect } from 'vitest';
-import type { SystemId } from '@/lib/id-types';
-import type { Product, ComboItem, ComboPricingType } from '../types';
+import type { SystemId, BusinessId } from '@/lib/id-types';
+import type { Product, ComboItem } from '../types';
 import {
   isComboProduct,
   canAddToCombo,
@@ -24,7 +24,7 @@ import {
 // Helper to create mock products
 const createProduct = (overrides: Partial<Product> = {}): Product => ({
   systemId: 'prod-1' as SystemId,
-  id: 'SKU001' as any,
+  id: 'SKU001' as BusinessId,
   name: 'Test Product',
   type: 'physical',
   status: 'active',

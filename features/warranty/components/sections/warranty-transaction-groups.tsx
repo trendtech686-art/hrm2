@@ -15,10 +15,7 @@ interface WarrantyTransactionGroupsProps {
 }
 
 export function WarrantyTransactionGroups({ groups, totalPayment, orders, settlementMethods = [] }: WarrantyTransactionGroupsProps) {
-  if (!groups.length) {
-    return null;
-  }
-
+  // All hooks must be called before any early returns (React hooks rules)
   const methodByVoucherId = React.useMemo(() => {
     const map = new Map<string, SettlementMethod>();
     settlementMethods.forEach(method => {
@@ -28,6 +25,10 @@ export function WarrantyTransactionGroups({ groups, totalPayment, orders, settle
     });
     return map;
   }, [settlementMethods]);
+
+  if (!groups.length) {
+    return null;
+  }
 
   return (
     <div className="space-y-4 pt-4 border-t">

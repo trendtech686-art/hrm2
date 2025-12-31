@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { useWarrantyStore } from '@/features/warranty/store';
 import type { ResolutionType, WarrantyStatus, WarrantyStore } from '@/features/warranty/types';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, RESOLUTION_LABELS } from '@/features/warranty/types';
+import { WARRANTY_STATUS_COLORS, RESOLUTION_LABELS } from '@/features/warranty/types';
 import { WARRANTY_STATUS_MAP, WARRANTY_RESOLUTION_MAP } from '@/components/StatusBadge';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
@@ -32,7 +32,7 @@ describe('useWarrantyStore guards', () => {
     const state = useWarrantyStore.getState();
 
     REQUIRED_METHODS.forEach((method) => {
-      expect(typeof (state as any)[method]).toBe('function');
+      expect(typeof (state as unknown as Record<string, unknown>)[method]).toBe('function');
     });
   });
 

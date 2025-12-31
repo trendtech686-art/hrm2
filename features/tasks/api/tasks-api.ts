@@ -53,12 +53,12 @@ export interface TaskUpdateInput extends Partial<TaskCreateInput> {
   actualHours?: number;
   completedAt?: string;
   completedDate?: string; // Alias for completedAt
-  subtasks?: any[]; // Allow subtasks updates
-  comments?: any[]; // Allow comments updates
-  activities?: any[]; // Allow activities updates
+  subtasks?: unknown[]; // Allow subtasks updates
+  comments?: unknown[]; // Allow comments updates
+  activities?: unknown[]; // Allow activities updates
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
-  completionEvidence?: any; // Allow completion evidence updates
+  completionEvidence?: unknown; // Allow completion evidence updates
 }
 
 const BASE_URL = '/api/tasks';

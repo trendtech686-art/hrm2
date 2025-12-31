@@ -1,8 +1,10 @@
+'use client';
+
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import type { AttendanceDataRow, DailyRecord } from '../types';
+import type { AttendanceDataRow as _AttendanceDataRow, DailyRecord } from '../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
@@ -72,11 +74,11 @@ const isDateWithinRange = (target: Date, start: Date, end: Date) => {
 
 export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave, monthDate }: AttendanceEditDialogProps) {
     const leaveStore = useLeaveStore();
-    const leaveRequests = leaveStore?.data ?? [];
+    const leaveRequests = React.useMemo(() => leaveStore?.data ?? [], [leaveStore?.data]);
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
     });
-    const { handleSubmit, control, reset, watch, formState: { errors } } = form;
+    const { handleSubmit, control, reset, watch, formState: { errors: _errors } } = form;
 
     const status = watch('status');
 

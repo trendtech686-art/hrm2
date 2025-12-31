@@ -13,7 +13,6 @@ import { FileText, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { usePaymentStore } from '../../../payments/store';
 import { useReceiptStore } from '../../../receipts/store';
-import type { Payment } from '../../../payments/types';
 import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
 import type { SettlementMethod } from '../../types';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
@@ -26,7 +25,7 @@ interface WarrantyPaymentHistoryCardProps {
 
 export function WarrantyPaymentHistoryCard({
   warrantySystemId,
-  warrantyId,
+  warrantyId: _warrantyId,
 }: WarrantyPaymentHistoryCardProps) {
   const router = useRouter();
   const { data: payments } = usePaymentStore();
@@ -42,7 +41,7 @@ export function WarrantyPaymentHistoryCard({
   );
 
   const warrantyReceipts = React.useMemo(() => 
-    receipts.filter(r => (r as any).linkedWarrantySystemId === warrantySystemId && (r as any).status !== 'cancelled')
+    receipts.filter(r => (r as { linkedWarrantySystemId?: string; status?: string }).linkedWarrantySystemId === warrantySystemId && (r as { status?: string }).status !== 'cancelled')
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [receipts, warrantySystemId]
   );
@@ -113,7 +112,7 @@ export function WarrantyPaymentHistoryCard({
         <CardContent className="space-y-3">
           {allTransactions.map(transaction => {
           const isPayment = transaction.type === 'payment';
-          const doc = transaction.data as any;
+          const doc = transaction.data as { amount?: number; createdAt: string; systemId: string; id?: string; status?: string; description?: string };
           const amount = doc.amount || 0;
           const date = new Date(doc.createdAt).toLocaleDateString('vi-VN', {
             day: '2-digit',

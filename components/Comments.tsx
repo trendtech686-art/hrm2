@@ -5,7 +5,7 @@ import { Textarea } from './ui/textarea';
 import { CommentEditor } from './ui/comment-editor';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { MessageSquare, Reply, Edit2, Trash2, Send, FileText } from 'lucide-react';
+import { MessageSquare, Reply, Send, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -39,7 +39,7 @@ interface CommentsProps<
   entityType: string;
   entityId: EntityId;
   comments: Comment<AuthorId, CommentId>[];
-  onAddComment?: (content: string, parentIdOrAttachments?: CommentId | string[], parentId?: CommentId) => void;
+  onAddComment?: (content: string, attachments?: string[], parentId?: CommentId) => void;
   onUpdateComment?: (commentId: CommentId, content: string) => void;
   onDeleteComment?: (commentId: CommentId) => void;
   readOnly?: boolean;
@@ -152,7 +152,7 @@ export function Comments<
   const handleAddComment = () => {
     if (!newCommentText.trim() || !onAddComment) return;
     
-    onAddComment(newComment.trim(), undefined, undefined); // Send HTML content
+    onAddComment(newComment.trim(), [], undefined); // Send HTML content
     setNewComment('');
     setNewCommentText('');
     if (enableDraftSaving) {
@@ -163,7 +163,7 @@ export function Comments<
   const handleAddReply = (parentId: CommentId) => {
     if (!replyContent.trim() || !onAddComment) return;
     
-    onAddComment(replyContent.trim(), undefined, parentId);
+    onAddComment(replyContent.trim(), [], parentId);
     setReplyContent('');
     setReplyingTo(null);
   };
@@ -176,7 +176,7 @@ export function Comments<
     setEditContent('');
   };
 
-  const handleDeleteComment = (commentId: CommentId) => {
+  const _handleDeleteComment = (commentId: CommentId) => {
     if (!onDeleteComment) return;
     
     if (confirm('Bạn có chắc muốn xóa bình luận này?')) {
@@ -184,7 +184,7 @@ export function Comments<
     }
   };
 
-  const startEdit = (comment: Comment<AuthorId, CommentId>) => {
+  const _startEdit = (comment: Comment<AuthorId, CommentId>) => {
     setEditingId(comment.id);
     setEditContent(comment.content);
   };
@@ -207,7 +207,7 @@ export function Comments<
   const renderComment = (comment: Comment<AuthorId, CommentId>, depth: number = 0) => {
     const isEditing = editingId === comment.id;
     const isReplying = replyingTo === comment.id;
-    const isOwn = currentUser?.systemId === comment.author.systemId;
+    const _isOwn = currentUser?.systemId === comment.author.systemId;
     const children = commentTree.childrenMap.get(comment.id) || [];
     const createdAtDate = new Date(comment.createdAt);
     const updatedAtDate = comment.updatedAt ? new Date(comment.updatedAt) : null;

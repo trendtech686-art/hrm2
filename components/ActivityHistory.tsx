@@ -66,10 +66,10 @@ export interface HistoryEntry {
   description: string;
   content?: React.ReactNode;
   metadata?: {
-    oldValue?: any;
-    newValue?: any;
+    oldValue?: unknown;
+    newValue?: unknown;
     field?: string | undefined;
-    [key: string]: any;
+    [key: string]: unknown;
   } | undefined;
 }
 
@@ -178,7 +178,7 @@ export function ActivityHistory({
 
   // Get action icon and color
   const getActionStyle = (action: string) => {
-    const styles: Record<string, { icon: any; color: string; bgColor: string }> = {
+    const styles: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bgColor: string }> = {
       created: { icon: Plus, color: 'text-green-600', bgColor: 'bg-green-100' },
       updated: { icon: Edit, color: 'text-blue-600', bgColor: 'bg-blue-100' },
       deleted: { icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-100' },
@@ -228,7 +228,7 @@ export function ActivityHistory({
           {/* Metadata - Note (e.g. reopen reason) */}
           {showMetadata && entry.metadata?.note && (
             <div className="text-sm text-muted-foreground italic border-l-2 border-muted pl-3 mt-1">
-              {entry.metadata.note}
+              {String(entry.metadata.note)}
             </div>
           )}
 

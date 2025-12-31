@@ -20,22 +20,12 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
-import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '../../../components/ui/table';
 import { 
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '../../../components/ui/dialog';
@@ -46,20 +36,11 @@ import {
   TabsTrigger,
 } from '../../../components/ui/tabs';
 import { 
-  Settings, 
   RefreshCw, 
-  AlertTriangle, 
   CheckCircle2, 
-  Info,
   Search,
   TrendingUp,
   Hash,
-  ArrowLeft,
-  Copy,
-  Eye,
-  Download,
-  Upload,
-  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSettingsPageHeader } from '../use-settings-page-header';
@@ -67,9 +48,7 @@ import {
   ID_CONFIG, 
   getEntityCategories, 
   type EntityType,
-  type EntityIDConfig,
 } from '../../../lib/id-config';
-import { findNextAvailableBusinessId } from '../../../lib/id-utils';
 
 // ✅ Import reusable components
 import { StatsCard } from '../../../components/settings/stats-card';
@@ -104,7 +83,7 @@ interface CounterInfo extends CounterTableRow {
 }
 
 export function IDCounterSettingsPage() {
-  const router = useRouter();
+  const _router = useRouter();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
   const [selectedEntity, setSelectedEntity] = React.useState<CounterInfo | null>(null);
@@ -127,8 +106,8 @@ export function IDCounterSettingsPage() {
     const addCounter = (
       entityType: EntityType,
       counter: number,
-      items: any[],
-      lastItem?: any
+      items: unknown[],
+      lastItem?: { id?: string }
     ) => {
       const config = ID_CONFIG[entityType];
       if (!config) return;
@@ -153,11 +132,11 @@ export function IDCounterSettingsPage() {
 
     // Employees
     const empStore = useEmployeeStore.getState();
-    addCounter('employees', (empStore as any).businessIdCounter || 0, empStore.data, empStore.data[empStore.data.length - 1]);
+    addCounter('employees', (empStore as { businessIdCounter?: number }).businessIdCounter || 0, empStore.data, empStore.data[empStore.data.length - 1]);
 
     // Customers
     const custStore = useCustomerStore.getState();
-    addCounter('customers', (custStore as any).businessIdCounter || 0, custStore.data, custStore.data[custStore.data.length - 1]);
+    addCounter('customers', (custStore as { businessIdCounter?: number }).businessIdCounter || 0, custStore.data, custStore.data[custStore.data.length - 1]);
 
     // Vouchers - Skip (handled by receipts/payments separately)
     // const voucherStore = useVoucherStore.getState();
@@ -271,7 +250,7 @@ export function IDCounterSettingsPage() {
     if (selectedCategory !== 'all') {
       const categories = getEntityCategories();
       const categoryEntities = categories[selectedCategory] || [];
-      filtered = filtered.filter(item => categoryEntities.includes(item.entityType as any));
+      filtered = filtered.filter(item => categoryEntities.includes(item.entityType as EntityType));
     }
     
     return filtered;

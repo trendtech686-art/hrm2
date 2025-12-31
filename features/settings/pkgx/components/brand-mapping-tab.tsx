@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { OptimizedImage } from '../../../../components/ui/optimized-image';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
-import { Label } from '../../../../components/ui/label';
+import { Label as _Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
 import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, Globe, Link2 } from 'lucide-react';
 import { Checkbox } from '../../../../components/ui/checkbox';
@@ -142,7 +143,7 @@ export function BrandMappingTab() {
   [paginatedPkgxData, rowSelection]);
   
   // Get selected PKGX brands that are NOT mapped (for bulk mapping)
-  const selectedUnmappedBrands = React.useMemo(() => 
+  const _selectedUnmappedBrands = React.useMemo(() => 
     allSelectedPkgxRows.filter(b => !b.mappedToHrm),
   [allSelectedPkgxRows]);
   
@@ -187,7 +188,7 @@ export function BrandMappingTab() {
           aria-label="Select all"
         />
       ),
-      cell: ({ row, isSelected, onToggleSelect }) => (
+      cell: ({ row: _row, isSelected, onToggleSelect }) => (
         <Checkbox
           checked={isSelected}
           onCheckedChange={() => onToggleSelect(!isSelected)}
@@ -333,6 +334,7 @@ export function BrandMappingTab() {
         );
       },
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleUnlinkBrand and handleQuickMap are stable functions defined after
   ], [hrmBrands, findMapping, entitySync]);
   
   // Mappings columns
@@ -371,6 +373,7 @@ export function BrandMappingTab() {
         </div>
       ),
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleOpenDialog and handleDelete are stable functions
   ], []);
   
   const handleQuickMap = (pkgxBrand: PkgxBrandRow) => {
@@ -427,6 +430,7 @@ export function BrandMappingTab() {
       };
       validation.validateAsync(input);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hrmBrands, settings.brands, and validation are used for lookup only when selection changes
   }, [selectedHrmBrand, selectedPkgxBrand, isDialogOpen]);
   
   const handleSave = () => {
@@ -522,7 +526,7 @@ export function BrandMappingTab() {
   };
   
   // View brand detail
-  const handleViewDetail = async (pkgxBrandId: number) => {
+  const _handleViewDetail = async (pkgxBrandId: number) => {
     setIsLoadingDetail(true);
     setIsDetailDialogOpen(true);
     try {
@@ -533,7 +537,7 @@ export function BrandMappingTab() {
         toast.error('Không tìm thấy thương hiệu');
         setIsDetailDialogOpen(false);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể tải thông tin thương hiệu');
       setIsDetailDialogOpen(false);
     } finally {
@@ -815,10 +819,13 @@ export function BrandMappingTab() {
                     {selectedBrandForDetail.brand_logo && (
                       <div className="col-span-2">
                         <span className="text-muted-foreground">Logo:</span>
-                        <img 
+                        <OptimizedImage 
                           src={selectedBrandForDetail.brand_logo} 
                           alt={selectedBrandForDetail.brand_name}
+                          width={200}
+                          height={64}
                           className="mt-2 h-16 object-contain"
+                          unoptimized
                         />
                       </div>
                     )}

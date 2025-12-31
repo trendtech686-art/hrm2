@@ -121,21 +121,21 @@ const getPricingPolicySystemId = (columnName: string): string | null => {
 };
 
 // Helper: Get pricing policy code (id) from systemId  
-const getPricingPolicyCode = (systemId: string): string => {
+const _getPricingPolicyCode = (systemId: string): string => {
   const policies = getAllPricingPolicies();
   const policy = policies.find(p => p.systemId === systemId);
   return policy?.id || systemId;
 };
 
 // Helper: Get pricing policy name from systemId  
-const getPricingPolicyName = (systemId: string): string => {
+const _getPricingPolicyName = (systemId: string): string => {
   const policies = getAllPricingPolicies();
   const policy = policies.find(p => p.systemId === systemId);
   return policy?.name || systemId;
 };
 
 // Helper: Check if a column name matches a pricing policy (by id or name)
-const isPricingPolicyColumn = (columnName: string): boolean => {
+const _isPricingPolicyColumn = (columnName: string): boolean => {
   return getPricingPolicySystemId(columnName) !== null;
 };
 

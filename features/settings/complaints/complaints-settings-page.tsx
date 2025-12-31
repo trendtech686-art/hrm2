@@ -452,7 +452,7 @@ export function ComplaintsSettingsPage() {
     });
   };
 
-  const handleResetSLA = () => {
+  const _handleResetSLA = () => {
     const nextDefaults = clone(defaultSLA);
     setSLA(nextDefaults);
     setStoreSection('sla', nextDefaults);
@@ -527,7 +527,7 @@ export function ComplaintsSettingsPage() {
     setDeleteTemplateId(null);
   };
 
-  const handleResetTemplates = () => {
+  const _handleResetTemplates = () => {
     const defaults = clone(defaultTemplates);
     setTemplates(defaults);
     setStoreSection('templates', defaults);
@@ -560,7 +560,7 @@ export function ComplaintsSettingsPage() {
     });
   };
 
-  const handleResetNotifications = () => {
+  const _handleResetNotifications = () => {
     const defaults = clone(defaultNotifications);
     setNotifications(defaults);
     setStoreSection('notifications', defaults);
@@ -587,7 +587,7 @@ export function ComplaintsSettingsPage() {
     });
   };
 
-  const handleResetPublicTracking = () => {
+  const _handleResetPublicTracking = () => {
     const defaults = clone(defaultPublicTracking);
     setPublicTracking(defaults);
     setStoreSection('publicTracking', defaults);
@@ -614,7 +614,7 @@ export function ComplaintsSettingsPage() {
     });
   };
 
-  const handleResetReminders = () => {
+  const _handleResetReminders = () => {
     const defaults = clone(defaultReminders);
     setReminders(defaults);
     setStoreSection('reminders', defaults);
@@ -722,7 +722,7 @@ export function ComplaintsSettingsPage() {
     });
   };
 
-  const handleResetCardColors = () => {
+  const _handleResetCardColors = () => {
     const defaults = clone(defaultCardColors);
     setCardColors(defaults);
     setStoreSection('cardColors', defaults);
@@ -793,7 +793,7 @@ export function ComplaintsSettingsPage() {
     toast.success('Đã cập nhật trạng thái');
   };
 
-  const handleResetTypes = () => {
+  const _handleResetTypes = () => {
     const defaults = clone(defaultComplaintTypes);
     setComplaintTypes(defaults);
     setStoreSection('complaintTypes', defaults);

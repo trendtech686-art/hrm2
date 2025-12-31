@@ -45,13 +45,14 @@ const MonthPickerPopoverContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
 >(({ className, align = "start", sideOffset = 4, id = "month-picker", ...props }, ref) => {
   const [open, setOpen] = React.useState(false);
+  const dataState = props["data-state"];
   React.useEffect(() => {
-    if (props["data-state"] === "open") {
+    if (dataState === "open") {
       setOpen(true);
     } else {
       setOpen(false);
     }
-  }, [props["data-state"]]);
+  }, [dataState]);
   
   const { zIndex } = useModal(id, open, 'popover');
   

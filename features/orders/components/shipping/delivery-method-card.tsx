@@ -5,7 +5,6 @@
  */
 
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,7 +44,7 @@ interface DeliveryMethodCardProps {
   grandTotal?: number | undefined; // ✅ Order grand total for auto-filling orderValue
   
   // ✅ NEW: Props for API preview
-  previewData?: any; // Data that will be sent to API
+  previewData?: Record<string, unknown> | undefined; // Data that will be sent to API
   
   // ✅ NEW: Hide tabs and only show shipping-partner content
   hideTabs?: boolean | undefined;
@@ -387,8 +386,8 @@ export function DeliveryMethodCard({
                   if (selectedService?.partnerCode === 'GHTK') {
                     // Tag 10: Cho xem hàng
                     // Note: GHTK only has "Cho xem hàng" tag, other options don't have specific tags
-                    const currentTags = (selectedService as any).tags || [];
-                    let newTags = currentTags.filter((t: number) => t !== 10); // Remove tag 10 first
+                    const currentTags = (selectedService as { tags?: number[] }).tags || [];
+                    const newTags = currentTags.filter((t: number) => t !== 10); // Remove tag 10 first
                     
                     if (value === 'view-only') {
                       newTags.push(10); // Add tag 10 for "Cho xem hàng"
@@ -538,23 +537,23 @@ export function DeliveryMethodCard({
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="font-medium">Mã đơn:</span>{' '}
-                      <span className="font-mono text-green-700">{previewData?.orderId || 'N/A'}</span>
+                      <span className="font-mono text-green-700">{String(previewData?.orderId ?? 'N/A')}</span>
                     </div>
                     <div>
                       <span className="font-medium">Kho lấy hàng:</span>{' '}
-                      <span className="font-mono text-orange-700">{previewData?.pickAddressId || 'Chưa chọn'}</span>
+                      <span className="font-mono text-orange-700">{String(previewData?.pickAddressId ?? 'Chưa chọn')}</span>
                     </div>
                     <div>
                       <span className="font-medium">Khách hàng:</span>{' '}
-                      <span className="text-gray-800">{previewData?.customerName || 'N/A'}</span>
+                      <span className="text-gray-800">{String(previewData?.customerName ?? 'N/A')}</span>
                     </div>
                     <div>
                       <span className="font-medium">Tổng cân nặng:</span>{' '}
-                      <span className="text-gray-800">{previewData?.totalWeight || 0}g</span>
+                      <span className="text-gray-800">{String(previewData?.totalWeight ?? 0)}g</span>
                     </div>
                     <div>
                       <span className="font-medium">COD:</span>{' '}
-                      <span className="text-gray-800">{new Intl.NumberFormat('vi-VN').format(previewData?.pickMoney || 0)}đ</span>
+                      <span className="text-gray-800">{new Intl.NumberFormat('vi-VN').format(Number(previewData?.pickMoney) || 0)}đ</span>
                     </div>
                     <div>
                       <span className="font-medium">Vận chuyển:</span>{' '}

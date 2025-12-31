@@ -340,7 +340,7 @@ export class GHNService {
    * Hủy đơn hàng
    * API: POST /v2/switch-status/cancel
    */
-  async cancelOrder(orderCodes: string[]): Promise<{ code: number; message: string; data?: any }> {
+  async cancelOrder(orderCodes: string[]): Promise<{ code: number; message: string; data?: unknown }> {
     const url = `${GHN_BASE_URL}/v2/switch-status/cancel`;
 
     const response = await fetch(url, {
@@ -367,7 +367,7 @@ export class GHNService {
   async updateOrder(
     orderCode: string,
     updates: Partial<GHNCreateOrderParams>
-  ): Promise<{ code: number; message: string; data?: any }> {
+  ): Promise<{ code: number; message: string; data?: unknown }> {
     const url = `${GHN_BASE_URL}/v2/shipping-order/update`;
 
     const payload = {

@@ -15,14 +15,14 @@ export interface BrandValidationError {
   code: string;
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface BrandValidationWarning {
   code: string;
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface BrandMappingInput {

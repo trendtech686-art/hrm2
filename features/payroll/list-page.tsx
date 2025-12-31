@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ClipboardList, PlusCircle, ShieldCheck, Wallet, Printer, XCircle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -29,8 +30,14 @@ import {
   mapPayrollBatchToPrintData,
   mapPayrollBatchLineItems,
 } from '../../lib/print/payroll-print-helper';
-import { SimplePrintOptionsDialog, SimplePrintOptionsResult, PaperSize } from '../../components/shared/simple-print-options-dialog';
 import { formatDateForDisplay } from '@/lib/date-utils';
+
+// ✅ Dynamic import for print dialog - only loaded when printing
+const SimplePrintOptionsDialog = dynamic(
+  () => import('../../components/shared/simple-print-options-dialog').then(mod => ({ default: mod.SimplePrintOptionsDialog })),
+  { ssr: false }
+);
+import type { SimplePrintOptionsResult, PaperSize } from '../../components/shared/simple-print-options-dialog';
 
 type FilterValues = {
   status: 'all' | 'draft' | 'reviewed' | 'locked' | 'cancelled';
@@ -61,7 +68,7 @@ const formatMonthKey = (monthKey: string) => {
   return `Tháng ${month}/${year}`;
 };
 
-const formatDate = (value: string) => {
+const _formatDate = (value: string) => {
   if (!value) {
     return '—';
   }
@@ -98,7 +105,7 @@ export function PayrollListPage() {
   const router = useRouter();
   const { batches, updateBatchStatus, payslips } = usePayrollBatchStore();
   const defaultPageSize = useDefaultPageSize();
-  const { print } = usePrint();
+  const { print: _print } = usePrint();
   const { data: employees } = useEmployeeStore();
   const { data: departments } = useDepartmentStore();
   const { info: storeInfo } = useStoreInfoStore();
@@ -216,7 +223,7 @@ export function PayrollListPage() {
     onCancel: handleCancel,
   }), [router.push, handleLock, handleUnlock, handleCancel]);
 
-  const filteredBatches = React.useMemo(() => {
+  const _filteredBatches = React.useMemo(() => {
     return batches
       .filter((batch) => matchesStatusFilter(batch, filters.status))
       .filter((batch) => matchesMonthFilter(batch, filters.monthKey))
@@ -313,14 +320,14 @@ export function PayrollListPage() {
     // Apply sorting
     if (sorting.id) {
       result = [...result].sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as unknown as Record<string, unknown>)[sorting.id];
+        const bValue = (b as unknown as Record<string, unknown>)[sorting.id];
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'payrollDate') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;

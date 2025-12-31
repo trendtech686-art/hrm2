@@ -12,7 +12,7 @@ export type ComboboxOption = {
   label: string;
   subtitle?: string | undefined; // For additional info like ID, phone
   acText?: string | undefined; // Accent-stripped text for resilient search
-  metadata?: any | undefined; // Optional metadata for custom rendering
+  metadata?: unknown | undefined; // Optional metadata for custom rendering
 };
 
 type VirtualizedComboboxProps = {
@@ -241,7 +241,7 @@ export function VirtualizedCombobox({
                   })
                 ) : (
                   /* Fallback: render first few items without virtualization */
-                  displayOptions.slice(0, 10).map((option, index) => {
+                  displayOptions.slice(0, 10).map((option, _index) => {
                     const isSelected = value?.value === option.value;
                     return (
                       <div

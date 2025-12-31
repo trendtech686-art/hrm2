@@ -52,14 +52,14 @@ export function ReceiptDetailPage() {
     [receiptSystemId, findById]
   );
 
-  const handlePrint = () => {
+  const handlePrint = React.useCallback(() => {
     if (!receipt) return;
     
     const storeSettings = createStoreSettings(storeInfo);
     const forPrint = convertReceiptForPrint(receipt);
     
     print('receipt', { data: mapReceiptToPrintData(forPrint, storeSettings) });
-  };
+  }, [receipt, storeInfo, print]);
 
   // Get current employee for comments
   const currentEmployee = React.useMemo(() => {
@@ -197,7 +197,7 @@ export function ReceiptDetailPage() {
     }
 
     return actions;
-  }, [router, receipt]);
+  }, [router, receipt, handlePrint]);
   
   usePageHeader({ 
     title: receipt ? `Phiếu thu ${receipt.id}` : 'Chi tiết phiếu thu',

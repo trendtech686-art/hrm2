@@ -141,7 +141,7 @@ async function fetchEvaluation(): Promise<CustomerSlaIndex | null> {
   }
 }
 
-async function saveEvaluationToDb(data: CustomerSlaIndex, timestamp: string): Promise<void> {
+async function saveEvaluationToDb(data: CustomerSlaIndex, _timestamp: string): Promise<void> {
   try {
     await fetch('/api/customer-sla', {
       method: 'POST',

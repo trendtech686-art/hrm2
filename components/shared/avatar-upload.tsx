@@ -8,7 +8,6 @@ import { useCallback, useState } from 'react'
 import { Camera, User, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { useAvatarUpload } from '@/hooks/use-file-upload'
 
 interface AvatarUploadProps {
@@ -69,7 +68,7 @@ export function AvatarUpload({
     try {
       const result = await uploadAvatar(file)
       onChange?.(result.url)
-    } catch (err) {
+    } catch (_err) {
       // Reset preview on error
       setPreviewUrl(null)
     }

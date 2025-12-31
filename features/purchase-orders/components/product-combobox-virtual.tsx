@@ -21,43 +21,43 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+// Calculate total inventory (on-hand stock) - pure function, no component state dependency
+const getTotalInventory = (product: { inventoryByBranch?: Record<string, number> }): number => {
+  if (!product.inventoryByBranch) return 0;
+  const values = Object.values(product.inventoryByBranch) as number[];
+  return values.reduce((sum: number, qty: number) => sum + (qty || 0), 0);
+};
+
+// Calculate available stock (on-hand - committed) - pure function, no component state dependency
+const getAvailableStock = (product: { inventoryByBranch?: Record<string, number>; committedByBranch?: Record<string, number> }): number => {
+  const onHand = getTotalInventory(product);
+  if (!product.committedByBranch) return onHand;
+  const committedValues = Object.values(product.committedByBranch) as number[];
+  const committed: number = committedValues.reduce((sum: number, qty: number) => sum + (qty || 0), 0);
+  return onHand - committed;
+};
+
 export function ProductCombobox({
   value,
   onValueChange,
   placeholder = "Tìm kiếm sản phẩm...",
-  className,
+  className: _className,
   excludeProductIds = [],
 }: ProductComboboxProps) {
-  const { data: products, getActive } = useProductStore();
+  const { getActive } = useProductStore();
   const [showAddDialog, setShowAddDialog] = React.useState(false);
 
   // Only show active products not yet added - exclude combos (can't import combos)
   const availableProducts = React.useMemo(() => {
     const active = getActive();
     return active.filter((p) => !excludeProductIds.includes(p.systemId) && p.type !== 'combo');
-  }, [products, excludeProductIds]);
+  }, [excludeProductIds, getActive]);
 
   // Find selected product
   const selectedProduct = React.useMemo(
     () => availableProducts.find((p) => p.systemId === value),
     [availableProducts, value]
   );
-
-  // Calculate total inventory (on-hand stock)
-  const getTotalInventory = (product: any): number => {
-    if (!product.inventoryByBranch) return 0;
-    const values = Object.values(product.inventoryByBranch) as number[];
-    return values.reduce((sum: number, qty: number) => sum + (qty || 0), 0);
-  };
-
-  // Calculate available stock (on-hand - committed)
-  const getAvailableStock = (product: any): number => {
-    const onHand = getTotalInventory(product);
-    if (!product.committedByBranch) return onHand;
-    const committedValues = Object.values(product.committedByBranch) as number[];
-    const committed: number = committedValues.reduce((sum: number, qty: number) => sum + (qty || 0), 0);
-    return onHand - committed;
-  };
 
   // Convert to ComboboxOption format with "Add new" button at top
   const options: ComboboxOption[] = React.useMemo(() => {
@@ -133,7 +133,7 @@ export function ProductCombobox({
           }
 
           // Normal product render - giống bulk selector
-          const meta = (option as any).metadata;
+          const meta = (option as { metadata?: { stock?: number; unitName?: string; costPrice?: number; availableStock?: number } }).metadata;
           return (
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <div className="w-10 h-9 flex-shrink-0 bg-muted rounded flex items-center justify-center">

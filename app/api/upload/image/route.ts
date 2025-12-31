@@ -12,7 +12,6 @@ import {
   parseFormData,
   validateFileType,
   validateFileSize,
-  generateFileName,
   generateFileHash,
   saveFileToDisk,
   getPublicUrl,
@@ -92,10 +91,10 @@ export async function POST(request: NextRequest) {
     const baseName = file.name.replace(/\.[^/.]+$/, '')
     const timestamp = Date.now()
     const fileName = `${timestamp}-${baseName}${ext}`
-    const fileHash = generateFileHash(buffer)
+    const _fileHash = generateFileHash(buffer)
     
     // Save main image
-    const { filePath, relativePath } = await saveFileToDisk(
+    const { filePath: _filePath, relativePath } = await saveFileToDisk(
       buffer,
       entityType,
       fileName,

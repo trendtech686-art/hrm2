@@ -13,7 +13,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, _request) {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
@@ -57,10 +57,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: user.systemId,
             email: user.email,
             name: user.employee?.fullName || user.email,
-            role: user.role,
-            employeeId: user.employeeId,
+            role: user.role as string,
+            employeeId: user.employeeId ?? undefined,
             employee: user.employee ? {
               systemId: user.employee.systemId,
+              name: user.employee.fullName,
               fullName: user.employee.fullName,
               departmentName: user.employee.department?.name || null,
               branchName: user.employee.branch?.name || null,

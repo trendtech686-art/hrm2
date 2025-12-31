@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Trash2, ChevronDown, ChevronsRight } from "lucide-react"
+import { Trash2, ChevronDown } from "lucide-react"
 import { cn } from "../../lib/utils"
 import {
   Table,
@@ -72,18 +72,18 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
   sorting,
   setSorting,
   columnVisibility,
-  setColumnVisibility,
+  setColumnVisibility: _setColumnVisibility,
   columnOrder,
-  setColumnOrder,
+  setColumnOrder: _setColumnOrder,
   pinnedColumns,
-  setPinnedColumns,
+  setPinnedColumns: _setPinnedColumns,
   onRowClick,
   className,
-  estimateRowHeight = 53,
-  overscan = 10,
-  hasNextPage,
-  isFetchingNextPage,
-  fetchNextPage,
+  estimateRowHeight: _estimateRowHeight = 53,
+  overscan: _overscan = 10,
+  hasNextPage: _hasNextPage,
+  isFetchingNextPage: _isFetchingNextPage,
+  fetchNextPage: _fetchNextPage,
 }: VirtualizedDataTableProps<TData>) {
   
   const tableContainerRef = React.useRef<HTMLDivElement>(null)
@@ -121,15 +121,15 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
       })
     }
 
-    const leftPinned = cols.filter(c => pinnedColumns.includes(c.id) && (c.meta as any)?.sticky === 'left')
-    const rightPinned = cols.filter(c => pinnedColumns.includes(c.id) && (c.meta as any)?.sticky === 'right')
+    const leftPinned = cols.filter(c => pinnedColumns.includes(c.id) && c.meta?.sticky === 'left')
+    const rightPinned = cols.filter(c => pinnedColumns.includes(c.id) && c.meta?.sticky === 'right')
     const middle = cols.filter(c => !pinnedColumns.includes(c.id))
 
     return [...leftPinned, ...middle, ...rightPinned]
   }, [columns, columnVisibility, columnOrder, pinnedColumns])
 
-  const leftStickyColumns = displayColumns.filter(c => (c.meta as any)?.sticky === 'left')
-  const rightStickyColumns = displayColumns.filter(c => (c.meta as any)?.sticky === 'right')
+  const leftStickyColumns = displayColumns.filter(c => c.meta?.sticky === 'left')
+  const rightStickyColumns = displayColumns.filter(c => c.meta?.sticky === 'right')
 
   const leftOffsets = React.useMemo(() => {
     let offset = 0
@@ -204,7 +204,7 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
             )}
             <TableRow className="h-9">
               {displayColumns.map((column, colIndex) => {
-                const stickyMeta = (column.meta as any)?.sticky
+                const stickyMeta = column.meta?.sticky
                 const hasFixedSize = column.size !== undefined
                 const colSize = column.size || 150
                 
@@ -223,17 +223,17 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
                 if (stickyMeta === 'left') {
                   const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id)
                   if (stickyIndex !== -1) {
-                    (style as any).position = 'sticky';
-                    (style as any).left = `${leftOffsets[stickyIndex]}px`;
-                    (style as any).top = 0;
+                    style.position = 'sticky';
+                    style.left = `${leftOffsets[stickyIndex]}px`;
+                    style.top = 0;
                     thClassName = cn(thClassName, "z-30 bg-muted")
                   }
                 } else if (stickyMeta === 'right') {
                   const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id)
                   if (stickyIndex !== -1) {
-                    (style as any).position = 'sticky';
-                    (style as any).right = `${rightOffsets[stickyIndex]}px`;
-                    (style as any).top = 0;
+                    style.position = 'sticky';
+                    style.right = `${rightOffsets[stickyIndex]}px`;
+                    style.top = 0;
                     thClassName = cn(thClassName, "z-30 bg-muted shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]")
                   }
                 }
@@ -251,7 +251,6 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
                     })}
                   >
                     {typeof column.header === 'function' 
-                      // @ts-ignore
                       ? column.header({ 
                           isAllPageRowsSelected, 
                           isSomePageRowsSelected, 
@@ -276,7 +275,7 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
         <Table ref={bodyTableRef}>
           <TableBody>
             {data.length > 0 ? (
-              data.map((row, index) => {
+              data.map((row) => {
 
                 return (
                   <React.Fragment key={row.systemId}>
@@ -287,7 +286,7 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
                     >
                       {displayColumns.map((column, colIndex) => {
                         const isInteractiveColumn = ['select', 'control', 'actions', 'expander'].includes(column.id)
-                        const stickyMeta = (column.meta as any)?.sticky
+                        const stickyMeta = column.meta?.sticky
                         const hasFixedSize = column.size !== undefined
                         const colSize = column.size || 150
                         
@@ -306,15 +305,15 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
                         if (stickyMeta === 'left') {
                           const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id)
                           if (stickyIndex !== -1) {
-                            (style as any).position = 'sticky';
-                            (style as any).left = `${leftOffsets[stickyIndex]}px`;
+                            style.position = 'sticky';
+                            style.left = `${leftOffsets[stickyIndex]}px`;
                             tdClassName = "z-10 bg-background group-hover:bg-muted/50 group-data-[state=selected]:bg-muted transition-colors"
                           }
                         } else if (stickyMeta === 'right') {
                           const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id)
                           if (stickyIndex !== -1) {
-                            (style as any).position = 'sticky';
-                            (style as any).right = `${rightOffsets[stickyIndex]}px`;
+                            style.position = 'sticky';
+                            style.right = `${rightOffsets[stickyIndex]}px`;
                             tdClassName = "z-10 bg-background group-hover:bg-muted/50 group-data-[state=selected]:bg-muted transition-colors shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                           }
                         }

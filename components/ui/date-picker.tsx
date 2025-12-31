@@ -33,13 +33,14 @@ const DatePickerPopoverContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
 >(({ className, align = "center", sideOffset = 4, id = "date-picker", ...props }, ref) => {
   const [open, setOpen] = React.useState(false);
+  const dataState = props["data-state"];
   React.useEffect(() => {
-    if (props["data-state"] === "open") {
+    if (dataState === "open") {
       setOpen(true);
     } else {
       setOpen(false);
     }
-  }, [props["data-state"]]);
+  }, [dataState]);
   
   // Sử dụng modal context để quản lý z-index mà không có overlay
   const { zIndex } = useModal(id, open, 'popover');

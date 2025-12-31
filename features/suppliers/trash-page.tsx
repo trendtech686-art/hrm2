@@ -30,7 +30,8 @@ export function SuppliersTrashPage() {
     breadcrumb,
   });
   
-  const deletedSuppliers = React.useMemo(() => getDeleted(), [data]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
+  const deletedSuppliers = React.useMemo(() => getDeleted(), [getDeleted, data]);
 
   const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
     restore(systemId);
@@ -49,6 +50,7 @@ export function SuppliersTrashPage() {
 
   const columns = React.useMemo(
     () => getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-creation when store changes
     [router, handleRestoreFromColumn, handleDeleteFromColumn, data]
   );
 

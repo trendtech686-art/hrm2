@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CustomFieldDefinition, CustomFieldValue } from '../features/tasks/custom-fields-types';
+import type { CustomFieldDefinition } from '../features/tasks/custom-fields-types';
 import { validateFieldValue, formatFieldValue } from '../features/tasks/custom-fields-types';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,8 +17,8 @@ import { cn } from '@/lib/utils';
 
 interface CustomFieldInputProps {
   field: CustomFieldDefinition;
-  value?: any;
-  onChange: (value: any) => void;
+  value?: unknown;
+  onChange: (value: unknown) => void;
   error?: string;
   disabled?: boolean;
 }
@@ -35,7 +35,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
     }
   };
 
-  const handleChange = (newValue: any) => {
+  const handleChange = (newValue: unknown) => {
     onChange(newValue);
     if (touched) {
       const validation = validateFieldValue(field, newValue);
@@ -52,7 +52,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
         return (
           <Input
             type={field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : field.type === 'phone' ? 'tel' : 'text'}
-            value={value || ''}
+            value={(value as string) || ''}
             onChange={(e) => handleChange(e.target.value)}
             onBlur={handleBlur}
             disabled={disabled}
@@ -65,7 +65,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
       case 'textarea':
         return (
           <Textarea
-            value={value || ''}
+            value={(value as string) || ''}
             onChange={(e) => handleChange(e.target.value)}
             onBlur={handleBlur}
             disabled={disabled}
@@ -80,7 +80,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
         return (
           <Input
             type="number"
-            value={value ?? ''}
+            value={(value as string | number) ?? ''}
             onChange={(e) => handleChange(e.target.value ? parseFloat(e.target.value) : null)}
             onBlur={handleBlur}
             disabled={disabled}
@@ -97,7 +97,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
           <div className="relative">
             <Input
               type="number"
-              value={value ?? ''}
+              value={(value as string | number) ?? ''}
               onChange={(e) => handleChange(e.target.value ? parseFloat(e.target.value) : null)}
               onBlur={handleBlur}
               disabled={disabled}
@@ -118,7 +118,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
           <div className="relative">
             <Input
               type="number"
-              value={value ?? ''}
+              value={(value as string | number) ?? ''}
               onChange={(e) => handleChange(e.target.value ? parseFloat(e.target.value) : null)}
               onBlur={handleBlur}
               disabled={disabled}
@@ -138,7 +138,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
         return (
           <Input
             type="date"
-            value={value || ''}
+            value={(value as string) || ''}
             onChange={(e) => handleChange(e.target.value)}
             onBlur={handleBlur}
             disabled={disabled}
@@ -167,7 +167,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
       case 'select':
         return (
           <Select
-            value={value || ''}
+            value={(value as string) || ''}
             onValueChange={handleChange}
             disabled={disabled ?? false}
           >
@@ -193,7 +193,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
           </Select>
         );
 
-      case 'multiselect':
+      case 'multiselect': {
         const selectedValues = Array.isArray(value) ? value : [];
         return (
           <div className="space-y-2">
@@ -252,9 +252,10 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
             </Select>
           </div>
         );
+      }
 
       default:
-        return <Input value={value || ''} onChange={(e) => handleChange(e.target.value)} disabled />;
+        return <Input value={(value as string) || ''} onChange={(e) => handleChange(e.target.value)} disabled />;
     }
   };
 
@@ -283,7 +284,7 @@ export function CustomFieldInput({ field, value, onChange, error, disabled }: Cu
 // Display component for readonly view
 interface CustomFieldDisplayProps {
   field: CustomFieldDefinition;
-  value?: any;
+  value?: unknown;
 }
 
 export function CustomFieldDisplay({ field, value }: CustomFieldDisplayProps) {

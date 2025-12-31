@@ -178,7 +178,7 @@ export class JNTService {
    * Generate signature for authentication (if required)
    * Implementation depends on J&T's authentication method
    */
-  private generateSignature(params: any): string {
+  private generateSignature(_params: Record<string, unknown>): string {
     // TODO: Implement based on J&T's signature algorithm
     // Usually MD5 or SHA256 hash of params + secret
     return this.apiSecret || '';
@@ -327,7 +327,7 @@ export class JNTService {
   async cancelOrder(
     billCode: string,
     reason?: string
-  ): Promise<{ code: string; msg: string; data?: any }> {
+  ): Promise<{ code: string; msg: string; data?: unknown }> {
     const url = `${this.getBaseUrl()}/order/cancel`;
 
     const response = await fetch(url, {
@@ -357,7 +357,7 @@ export class JNTService {
   async updateOrder(
     billCode: string,
     updates: Partial<JNTCreateOrderParams>
-  ): Promise<{ code: string; msg: string; data?: any }> {
+  ): Promise<{ code: string; msg: string; data?: unknown }> {
     const url = `${this.getBaseUrl()}/order/update`;
 
     const payload = {

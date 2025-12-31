@@ -81,19 +81,19 @@ export async function deleteBrand(systemId: string): Promise<void> {
 }
 
 // Importers
-export async function fetchImporters(): Promise<any[]> {
+export async function fetchImporters(): Promise<Record<string, unknown>[]> {
   const res = await fetch(`${BASE_URL}/importers`);
   if (!res.ok) throw new Error('Failed to fetch');
   return res.json();
 }
 
-export async function createImporter(data: any): Promise<any> {
+export async function createImporter(data: Record<string, unknown>): Promise<Record<string, unknown>> {
   const res = await fetch(`${BASE_URL}/importers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
   if (!res.ok) throw new Error('Failed to create');
   return res.json();
 }
 
-export async function updateImporter(systemId: string, data: any): Promise<any> {
+export async function updateImporter(systemId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
   const res = await fetch(`${BASE_URL}/importers/${systemId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
   if (!res.ok) throw new Error('Failed to update');
   return res.json();

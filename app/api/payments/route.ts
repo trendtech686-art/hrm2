@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 
 // GET /api/payments - List all payments (phiếu chi)
 export async function GET(request: Request) {
@@ -13,12 +14,12 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Prisma.PaymentWhereInput = {}
 
     if (search) {
       where.OR = [
         { id: { contains: search, mode: 'insensitive' } },
-        { supplier: { name: { contains: search, mode: 'insensitive' } } },
+        { suppliers: { name: { contains: search, mode: 'insensitive' } } },
       ]
     }
 

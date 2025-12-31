@@ -6,17 +6,18 @@ import Link from 'next/link';
 // FIX: Changed 'FieldArray as useFieldArray' to 'useFieldArray' to correctly import the hook from 'react-hook-form'.
 import { useForm, useFieldArray, Controller, useWatch, FormProvider, useFormContext } from 'react-hook-form';
 import { toISODateTime } from '../../lib/date-utils';
-import { ArrowLeft, PlusCircle, Trash2, CheckCircle2, AlertTriangle, PackageOpen, Package, ChevronDown, ChevronRight, Eye, StickyNote, Pencil } from 'lucide-react';
+import { PlusCircle, Trash2, CheckCircle2, AlertTriangle, PackageOpen, Package, ChevronDown, ChevronRight, Eye, StickyNote, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { OptimizedImage } from '../../components/ui/optimized-image';
 import { useProductImage } from '../products/components/product-image';
 
 // types
-import type { Order } from '@/lib/types/prisma-extended';
-import type { SalesReturn, ReturnLineItem, LineItem as ExchangeLineItem } from '@/lib/types/prisma-extended';
+import type { ReturnLineItem, LineItem as ExchangeLineItem, PackageInfo } from '@/lib/types/prisma-extended';
 import type { Product } from '@/lib/types/prisma-extended';
+import { asSystemId } from '@/lib/id-types';
 
 // Stores
 import { useOrderStore } from '../orders/store';
@@ -31,7 +32,7 @@ import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '../../components/ui/form';
+import { FormControl, FormField, FormItem, FormLabel } from '../../components/ui/form';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
 import { NumberInput } from '../../components/ui/number-input';
 import { CurrencyInput } from '../../components/ui/currency-input';
@@ -48,7 +49,6 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
-import { useInventoryReceiptStore } from '../inventory-receipts/store';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
 import { usePricingPolicyStore } from '../settings/pricing/store';
 // FIX: Add missing import for `Label` component.
@@ -64,6 +64,14 @@ import type { Subtask } from '../../components/shared/subtask-list';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
     return new Intl.NumberFormat('vi-VN').format(value);
+};
+
+// Product type label fallbacks (defined at module level for stable reference)
+const productTypeFallbackLabels: Record<string, string> = {
+    physical: 'Hàng hóa',
+    combo: 'Combo',
+    service: 'Dịch vụ',
+    digital: 'Sản phẩm số',
 };
 
 // Component hiển thị ảnh sản phẩm với preview - copy từ order-detail-page
@@ -93,7 +101,7 @@ const ProductThumbnailCell = ({
                 className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
             >
-                <img src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                 {onPreview && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -144,16 +152,16 @@ type FormValues = {
   deliveryMethod: string;
   shippingPartnerId?: string;
   shippingServiceId?: string;
-  shippingAddress?: any;
-  packageInfo?: any;
-  configuration?: any;
+  shippingAddress?: Record<string, unknown>;
+  packageInfo?: Record<string, unknown>;
+  configuration?: Record<string, unknown>;
   // Workflow subtasks
   subtasks?: Subtask[];
 };
 
 
 // Component to handle complex calculations
-const FinancialCalculations = () => {
+const _FinancialCalculations = () => {
     // ... existing code ...
     return null; // Deprecated
 };
@@ -171,15 +179,15 @@ const ReturnItemRow = React.memo(({
     getProductTypeLabel
 }: {
     index: number;
-    field: any;
-    control: any;
-    setValue: any;
-    products: any[];
+    field: FormLineItem & { id: string };
+    control: ReturnType<typeof useForm<FormValues>>['control'];
+    setValue: ReturnType<typeof useForm<FormValues>>['setValue'];
+    products: Product[];
     expandedCombos: Record<string, boolean>;
     toggleComboRow: (id: string) => void;
     handlePreview: (img: string, title: string) => void;
     handleOpenReturnNoteDialog: (index: number) => void;
-    getProductTypeLabel: (p: any) => string;
+    getProductTypeLabel: (p: Product | null) => string;
 }) => {
     const returnQuantity = useWatch({ control, name: `items.${index}.returnQuantity` });
     const unitPrice = useWatch({ control, name: `items.${index}.unitPrice` });
@@ -189,8 +197,8 @@ const ReturnItemRow = React.memo(({
     const isCombo = product?.type === 'combo' && (product?.comboItems?.length ?? 0) > 0;
     const isExpanded = expandedCombos[field.productSystemId] ?? false;
     const comboItems = isCombo && product?.comboItems
-        ? product.comboItems.map((ci: any) => {
-            const childProduct = products.find((p: any) => p.systemId === ci.productSystemId);
+        ? product.comboItems.map((ci: { productSystemId: string; quantity: number }) => {
+            const childProduct = products.find((p) => p.systemId === ci.productSystemId);
             return { ...ci, product: childProduct };
             })
         : [];
@@ -317,7 +325,7 @@ const ReturnItemRow = React.memo(({
                 <TableCell className="text-right font-semibold">{formatCurrency(totalValue)}</TableCell>
             </TableRow>
             {/* Combo child rows */}
-            {isCombo && isExpanded && comboItems.map((ci: any, ciIndex: number) => (
+            {isCombo && isExpanded && comboItems.map((ci: { productSystemId: string; quantity: number; product?: Product }, ciIndex: number) => (
                 <TableRow key={`${field.id}-combo-${ciIndex}`} className="bg-muted/40">
                     <TableCell className="text-center text-muted-foreground pl-8">
                         <span className="text-muted-foreground/60">└</span>
@@ -346,7 +354,9 @@ const ReturnItemRow = React.memo(({
 
 const ReturnTableFooter = () => {
     const { control } = useFormContext<FormValues>();
-    const watchedReturnItems = useWatch({ control, name: "items" }) || [];
+    const watchedReturnItemsRaw = useWatch({ control, name: "items" });
+    // Memoize to prevent new array reference on each render
+    const watchedReturnItems = React.useMemo(() => watchedReturnItemsRaw || [], [watchedReturnItemsRaw]);
     
     const totalReturnValue = React.useMemo(() => 
         watchedReturnItems.reduce((sum, item) => sum + ((item.returnQuantity || 0) * (item.unitPrice || 0)), 0), 
@@ -379,10 +389,15 @@ const SalesReturnSummary = () => {
     const { systemId } = useParams<{ systemId: string }>();
     
     // Watch everything needed for calculations
-    const watchedReturnItems = useWatch({ control, name: "items" }) || [];
-    const watchedExchangeItems = useWatch({ control, name: "exchangeItems" }) || [];
-    const watchedPayments = useWatch({ control, name: "payments" }) || [];
-    const watchedRefunds = useWatch({ control, name: "refunds" }) || [];
+    const watchedReturnItemsRaw = useWatch({ control, name: "items" });
+    const watchedExchangeItemsRaw = useWatch({ control, name: "exchangeItems" });
+    const watchedPaymentsRaw = useWatch({ control, name: "payments" });
+    const watchedRefundsRaw = useWatch({ control, name: "refunds" });
+    // Memoize to prevent new array reference on each render
+    const watchedReturnItems = React.useMemo(() => watchedReturnItemsRaw || [], [watchedReturnItemsRaw]);
+    const watchedExchangeItems = React.useMemo(() => watchedExchangeItemsRaw || [], [watchedExchangeItemsRaw]);
+    const watchedPayments = React.useMemo(() => watchedPaymentsRaw || [], [watchedPaymentsRaw]);
+    const watchedRefunds = React.useMemo(() => watchedRefundsRaw || [], [watchedRefundsRaw]);
     const watchedOrderDiscount = useWatch({ control, name: "orderDiscount" }) || 0;
     const watchedOrderDiscountType = useWatch({ control, name: "orderDiscountType" }) || 'fixed';
     const watchedShippingFee = useWatch({ control, name: "shippingFee" }) || 0;
@@ -988,7 +1003,7 @@ export function SalesReturnFormPage() {
   const router = useRouter();
 
   // Stores
-  const { data: orderData, findById: findOrder } = useOrderStore();
+  const { data: _orderData, findById: findOrder } = useOrderStore();
   const order = findOrder(systemId!);
   const { data: customerData, findById: findCustomer } = useCustomerStore();
   const customers = customerData; // For GHTK API
@@ -1001,8 +1016,8 @@ export function SalesReturnFormPage() {
     const { add: addProduct, data: allProducts } = useProductStore(); // For GHTK API
     const products = React.useMemo(() => Array.isArray(allProducts) ? allProducts : [], [allProducts]);
     const { findById: findProductTypeById } = useProductTypeStore();
-  const { accounts } = useCashbookStore();
-  const { data: paymentMethodsData } = usePaymentMethodStore();
+  const { accounts: _accounts } = useCashbookStore();
+  const { data: _paymentMethodsData } = usePaymentMethodStore();
   const { data: pricingPolicies } = usePricingPolicyStore();
   
   // Get default selling price policy
@@ -1027,19 +1042,11 @@ export function SalesReturnFormPage() {
   
   // Combo expand state for return items
   const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
-
-  // Product type label fallbacks
-  const productTypeFallbackLabels: Record<string, string> = {
-    physical: 'Hàng hóa',
-    combo: 'Combo',
-    service: 'Dịch vụ',
-    digital: 'Sản phẩm số',
-  };
   
-  const getProductTypeLabel = React.useCallback((product: any) => {
+  const getProductTypeLabel = React.useCallback((product: Product | null) => {
     if (!product) return 'Hàng hóa';
-    if (product.productTypeId) {
-      const productType = findProductTypeById(product.productTypeId);
+    if (product.productTypeSystemId) {
+      const productType = findProductTypeById(product.productTypeSystemId);
       if (productType?.name) return productType.name;
     }
     return productTypeFallbackLabels[product.type] || 'Hàng hóa';
@@ -1114,7 +1121,7 @@ export function SalesReturnFormPage() {
   }, [editingReturnNoteIndex, tempReturnNote, setValue]);
 
   // Handlers cho dialog ghi chú sản phẩm đổi
-  const handleOpenExchangeNoteDialog = React.useCallback((index: number) => {
+  const _handleOpenExchangeNoteDialog = React.useCallback((index: number) => {
     const currentNote = getValues(`exchangeItems.${index}.note`) || '';
     setTempExchangeNote(currentNote);
     setEditingExchangeNoteIndex(index);
@@ -1168,7 +1175,7 @@ export function SalesReturnFormPage() {
       // Reset form với data mới
       reset({
           branchSystemId,
-          items: initialItems as any,
+          items: initialItems,
           isReceived: true,
           exchangeItems: [],
           payments: [],
@@ -1279,7 +1286,7 @@ export function SalesReturnFormPage() {
         showBackButton: true,
         backPath: backDestination,
         actions: headerActions,
-    }), [order, customer?.name, order?.branchName, backDestination, headerActions, breadcrumb]);
+    }), [order, customer?.name, backDestination, headerActions, breadcrumb]);
 
     usePageHeader(pageHeaderConfig);
 
@@ -1325,8 +1332,9 @@ export function SalesReturnFormPage() {
       });
   };
 
-  const handleAddProduct = (values: any) => {
-      addProduct(values as any);
+  const _handleAddProduct = (_values: ExchangeLineItem) => {
+      // Note: This function is deprecated. Use appendExchangeItem directly
+      // addProduct expects Product, not LineItem
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -1408,34 +1416,35 @@ export function SalesReturnFormPage() {
         orderId: order.id,
         customerSystemId: customer.systemId,
         customerName: customer.name,
-        branchSystemId: values.branchSystemId,  // ✅ Đúng tên field: branchSystemId
+        branchSystemId: asSystemId(values.branchSystemId),  // ✅ Đúng tên field: branchSystemId
         branchName: branch.name,
         returnDate: toISODateTime(new Date()),
         reason: values.returnReason || values.notes,
         notes: values.notes,
         reference: values.reference,
-        items: returnItems.map(({ total, returnableQuantity, orderedQuantity, originalUnitPrice, ...rest }) => ({
+        items: returnItems.map(({ total: _total, returnableQuantity: _returnableQuantity, orderedQuantity: _orderedQuantity, originalUnitPrice: _originalUnitPrice, ...rest }) => ({
             ...rest, 
             totalValue: rest.returnQuantity * rest.unitPrice,
             note: rest.note?.trim() || undefined,
         })),
         totalReturnValue,
         isReceived: values.isReceived, // ✅ Pass isReceived flag to control inventory update
-        exchangeItems: values.exchangeItems.map(({ total, ...rest }) => rest),
+        exchangeItems: values.exchangeItems.map(({ total: _total, ...rest }) => rest),
         subtotalNew: subtotalExchangeValue, // ✅ Use subtotal (before discount & shipping)
         shippingFeeNew: values.shippingFee || 0,
         grandTotalNew: totalExchangeValue, // ✅ Total after discount & shipping)
         finalAmount,
-        payments: finalAmount > 0 ? values.payments : undefined,
-        refunds: finalAmount < 0 ? values.refunds : undefined, // ✅ Use new refunds array
+        payments: finalAmount > 0 ? values.payments?.map(p => ({ ...p, accountSystemId: asSystemId(p.accountSystemId) })) : undefined,
+        refunds: finalAmount < 0 ? values.refunds?.map(r => ({ ...r, accountSystemId: asSystemId(r.accountSystemId) })) : undefined, // ✅ Use new refunds array
         creatorName,
         creatorId: creatorSystemId,
+        creatorSystemId: asSystemId(creatorSystemId as string), // ✅ Also pass creatorSystemId for SalesReturn type
         // ✅ Pass shipping info for exchange order
         deliveryMethod: values.deliveryMethod,
         shippingPartnerId: values.shippingPartnerId,
         shippingServiceId: values.shippingServiceId,
         shippingAddress: values.shippingAddress,
-        packageInfo: values.packageInfo,
+        packageInfo: values.packageInfo as unknown as PackageInfo | undefined,
         configuration: values.configuration,
     };
     
@@ -1504,15 +1513,15 @@ export function SalesReturnFormPage() {
             // Build full address: Try all possible address fields
             // Address may be split across: street, address, fullAddress, houseNumber, etc.
             const addressParts = [
-                shippingAddress.houseNumber,
-                shippingAddress.street,
-                shippingAddress.address,
-                shippingAddress.fullAddress,
-            ].filter(Boolean);
+                shippingAddress.houseNumber as string | undefined,
+                shippingAddress.street as string | undefined,
+                shippingAddress.address as string | undefined,
+                shippingAddress.fullAddress as string | undefined,
+            ].filter(Boolean) as string[];
             
-            const customerAddress = addressParts.length > 0 
+            const customerAddress: string = addressParts.length > 0 
                 ? addressParts.join(', ')
-                : (shippingAddress.address || shippingAddress.street || shippingAddress.fullAddress || '');
+                : ((shippingAddress.address || shippingAddress.street || shippingAddress.fullAddress || '') as string);
             
             console.log('🏠 [GHTK] Built customer address:', customerAddress);
             
@@ -1536,7 +1545,14 @@ export function SalesReturnFormPage() {
             });
 
             // Get pickup info from GHTK account settings
-            const pickupAddress = ghtkAccount.pickupAddresses?.[0]; // Use first pickup address
+            const pickupAddress = (ghtkAccount.pickupAddresses as Array<{
+                partnerWarehouseName?: string;
+                partnerWarehouseAddress?: string;
+                partnerWarehouseTel?: string;
+                partnerWarehouseProvince?: string;
+                partnerWarehouseDistrict?: string;
+                partnerWarehouseWard?: string;
+            }>)?.[0]; // Use first pickup address
             if (!pickupAddress) {
                 toast.error('Lỗi cấu hình', { 
                     description: 'Chưa cấu hình địa chỉ lấy hàng GHTK' 
@@ -1550,28 +1566,28 @@ export function SalesReturnFormPage() {
                 orderId: `RETURN_${order?.id}_${Date.now()}`,
                 
                 // Pickup info from partner warehouse
-                pickName: pickupAddress.partnerWarehouseName || 'Cửa hàng',
-                pickAddress: pickupAddress.partnerWarehouseAddress || '',
-                pickTel: pickupAddress.partnerWarehouseTel || '',
-                pickProvince: pickupAddress.partnerWarehouseProvince || '',
-                pickDistrict: pickupAddress.partnerWarehouseDistrict || '',
-                pickWard: pickupAddress.partnerWarehouseWard || '',
+                pickName: pickupAddress.partnerWarehouseName as string || 'Cửa hàng',
+                pickAddress: pickupAddress.partnerWarehouseAddress as string || '',
+                pickTel: pickupAddress.partnerWarehouseTel as string || '',
+                pickProvince: pickupAddress.partnerWarehouseProvince as string || '',
+                pickDistrict: pickupAddress.partnerWarehouseDistrict as string || '',
+                pickWard: pickupAddress.partnerWarehouseWard as string || '',
                 
                 // Customer info from FORM (user may have edited)
-                customerName: shippingAddress.name || customer.name || '',
-                customerTel: shippingAddress.phone || customer.phone || '',
+                customerName: (shippingAddress.name as string) || customer.name || '',
+                customerTel: (shippingAddress.phone as string) || customer.phone || '',
                 // Use the fully built address with all parts
                 customerAddress: customerAddress,
-                customerProvince: shippingAddress.province || '',
-                customerDistrict: shippingAddress.district || '',
-                customerWard: shippingAddress.ward || '',
+                customerProvince: (shippingAddress.province as string) || '',
+                customerDistrict: (shippingAddress.district as string) || '',
+                customerWard: (shippingAddress.ward as string) || '',
                 customerHamlet: 'Khác',
                 
                 // Products
                 products,
                 
                 // Payment
-                pickMoney: values.packageInfo?.codAmount || 0,
+                pickMoney: (values.packageInfo?.codAmount as number) || 0,
                 // ✅ value = "Giá trị hàng hoá" = finalAmount if > 0, else totalExchangeValue
                 value: finalAmount > 0 ? finalAmount : totalExchangeValue,
                 isFreeship: (values.packageInfo?.codAmount || 0) === 0 ? 1 : 0,
@@ -1592,11 +1608,11 @@ export function SalesReturnFormPage() {
                 toast.success('Đã tạo đơn GHTK thành công', { 
                     description: `Mã vận đơn: ${result.order.label}` 
                 });
-                // Update packageInfo with tracking code
+                // Update packageInfo with tracking code (stored in extended Record<string, unknown>)
                 returnPayload.packageInfo = {
-                    ...returnPayload.packageInfo,
+                    ...(returnPayload.packageInfo || { weight: 0, length: 0, width: 0, height: 0, codAmount: 0 }),
                     trackingCode: result.order.label,
-                };
+                } as unknown as PackageInfo;
             } else {
                 toast.error('Tạo đơn GHTK thất bại', { 
                     description: result.message || 'Vui lòng kiểm tra lại thông tin' 
@@ -1604,10 +1620,10 @@ export function SalesReturnFormPage() {
                 setIsSubmitting(false);
                 return; // Don't create return if GHTK failed
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('❌ GHTK create order error:', error);
             toast.error('Lỗi tạo đơn GHTK', { 
-                description: error?.message || 'Vui lòng thử lại sau' 
+                description: (error as Error)?.message || 'Vui lòng thử lại sau' 
             });
             setIsSubmitting(false);
             return; // Don't create return if GHTK failed
@@ -1879,7 +1895,8 @@ export function SalesReturnFormPage() {
                     ) : (
                         <LineItemsTable
                             disabled={isFullyReadOnly}
-                            fields={exchangeFields}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            fields={exchangeFields.map(f => ({ ...f, systemId: f.id, tax: f.tax ?? 0 })) as any[]}
                             remove={removeExchange}
                             pricingPolicyId={selectedPricingPolicy}
                             fieldName="exchangeItems"

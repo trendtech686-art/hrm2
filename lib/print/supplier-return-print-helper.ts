@@ -71,7 +71,7 @@ export function convertSupplierReturnForPrint(
   const { branch, creator, supplier, purchaseOrder } = options;
 
   // Map trạng thái sang tiếng Việt
-  const statusMap: Record<string, string> = {
+  const _statusMap: Record<string, string> = {
     'draft': 'Nháp',
     'pending': 'Chờ xử lý',
     'approved': 'Đã duyệt',
@@ -83,7 +83,7 @@ export function convertSupplierReturnForPrint(
   return {
     // Thông tin cơ bản
     code: supplierReturn.id,
-    createdAt: supplierReturn.createdAt || supplierReturn.returnDate,
+    createdAt: (supplierReturn.createdAt ?? supplierReturn.returnDate) ?? new Date(),
     createdBy: creator?.fullName || supplierReturn.creatorName || supplierReturn.createdByName,
     purchaseOrderCode: purchaseOrder?.id || supplierReturn.purchaseOrderId,
     reference: supplierReturn.reference || supplierReturn.reason,

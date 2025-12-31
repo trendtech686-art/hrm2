@@ -232,12 +232,13 @@ export function validateField<T>(
       }
       break;
 
-    case 'boolean':
+    case 'boolean': {
       const boolValues = ['true', 'false', '1', '0', 'yes', 'no', 'có', 'không'];
       if (typeof value === 'string' && !boolValues.includes(value.toLowerCase())) {
         errors.push({ field: fieldKey, message: `${field.label} phải là Có/Không` });
       }
       break;
+    }
   }
 
   // Custom validator

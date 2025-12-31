@@ -12,7 +12,7 @@ import {
   Calendar 
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getDueDateWarning, type DueDateWarning } from '@/features/warranty/utils/due-date-helpers';
+import { getDueDateWarning } from '@/features/warranty/utils/due-date-helpers';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,

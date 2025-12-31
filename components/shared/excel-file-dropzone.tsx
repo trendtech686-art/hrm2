@@ -9,7 +9,7 @@
  */
 
 import * as React from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useDropzone, type FileRejection, type FileError } from 'react-dropzone';
 import { toast } from 'sonner';
 import { 
   FileSpreadsheet, 
@@ -122,12 +122,12 @@ export function ExcelFileDropzone({
     }
   }, [uploadToServer, currentSessionId, onSessionChange]);
 
-  const onDrop = React.useCallback(async (acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = React.useCallback(async (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     // Handle rejected files
     if (rejectedFiles.length > 0) {
       rejectedFiles.forEach(rejection => {
         const { file, errors } = rejection;
-        errors.forEach((error: any) => {
+        errors.forEach((error: FileError) => {
           switch (error.code) {
             case 'file-too-large':
               toast.error(`File "${file.name}" quá lớn`, {

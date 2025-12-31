@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '../../lib/date-utils';
+import { formatDateTime, formatDateCustom, parseDate } from '../../lib/date-utils';
 import { cn } from '../../lib/utils';
 const Timeline = React.forwardRef<
   HTMLDivElement,

@@ -141,7 +141,7 @@ export function QuickAddSupplierDialog({
       if (onSuccess && addedSupplier) {
         onSuccess(addedSupplier.systemId);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể thêm nhà cung cấp. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Card, CardContent } from "../ui/card";
-import { ResponsiveDataTable } from "../data-table/responsive-data-table";
+import { ResponsiveDataTable, BulkAction } from "../data-table/responsive-data-table";
+import type { ColumnDef } from "../data-table/types";
 import { DataTableToolbar } from "../data-table/data-table-toolbar";
 import { DataTableColumnCustomizer } from "../data-table/data-table-column-toggle";
 import { DataTableExportDialog } from "../data-table/data-table-export-dialog";
@@ -11,8 +12,9 @@ import { Button } from "../ui/button";
 import { useMediaQuery } from "../../lib/use-media-query";
 import { PlusCircle } from "lucide-react";
 
-interface DataPageLayoutProps<T> {
+interface DataPageLayoutProps<T extends { systemId: string }> {
   // Data & Columns
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: any[];
   data: T[];
   allData: T[];
@@ -62,10 +64,11 @@ interface DataPageLayoutProps<T> {
   // Export/Import Configs
   exportConfig?: {
     fileName: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     columns: any[];
   };
   importConfig?: {
-    importer: (data: any[]) => void;
+    importer: (data: unknown[]) => void;
     fileName: string;
   };
   
@@ -78,7 +81,7 @@ interface DataPageLayoutProps<T> {
   additionalFilters?: React.ReactNode;
 }
 
-export function DataPageLayout<T>({
+export function DataPageLayout<T extends { systemId: string }>({
   columns,
   data,
   allData,
@@ -218,8 +221,8 @@ export function DataPageLayout<T>({
                 </CardContent>
               </Card>
             ) : (
-              data.map((item: any, index) => (
-                <div key={item.systemId || item.id || index}>
+              data.map((item, index) => (
+                <div key={(item as { systemId?: string; id?: string }).systemId || (item as { id?: string }).id || index}>
                   {renderMobileCard(item)}
                 </div>
               ))
@@ -252,9 +255,9 @@ export function DataPageLayout<T>({
         ) : (
           <div className="w-full">
             <ResponsiveDataTable
-              columns={columns}
-              data={data as any}
-              renderMobileCard={renderMobileCard as any}
+              columns={columns as ColumnDef<{ systemId: string }>[]}
+              data={data as { systemId: string }[]}
+              renderMobileCard={renderMobileCard as (item: { systemId: string }, index: number) => React.ReactNode}
               pageCount={pageCount}
               pagination={pagination}
               setPagination={setPagination}
@@ -262,8 +265,8 @@ export function DataPageLayout<T>({
               rowSelection={rowSelection}
               setRowSelection={setRowSelection}
               onBulkDelete={onBulkDelete}
-              bulkActions={bulkActions as any}
-              allSelectedRows={allSelectedRows as any}
+              bulkActions={bulkActions as BulkAction<{ systemId: string }>[] | undefined}
+              allSelectedRows={allSelectedRows as { systemId: string }[]}
               sorting={sorting}
               setSorting={setSorting}
               expanded={expanded}
@@ -274,7 +277,7 @@ export function DataPageLayout<T>({
               setColumnOrder={setColumnOrder}
               pinnedColumns={pinnedColumns}
               setPinnedColumns={setPinnedColumns}
-              onRowClick={onRowClick as any}
+              onRowClick={onRowClick as ((row: { systemId: string }) => void) | undefined}
             />
           </div>
         )}

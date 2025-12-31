@@ -17,7 +17,6 @@ import {
 } from '../../../../components/ui/alert-dialog';
 import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket } from '../../types';
-import { WARRANTY_STATUS_LABELS } from '../../types';
 import { useWarrantyStore } from '../../store';
 import { useAuth } from '../../../../contexts/auth-context';
 
@@ -29,8 +28,8 @@ interface WarrantyReopenFromReturnedDialogProps {
 
 export function WarrantyReopenFromReturnedDialog({ open, onOpenChange, ticket }: WarrantyReopenFromReturnedDialogProps) {
   const [reopenReason, setReopenReason] = React.useState('');
-  const { user: currentUser } = useAuth();
-  const { update, updateStatus, addHistory } = useWarrantyStore();
+  const { user: _currentUser } = useAuth();
+  const { update, updateStatus, addHistory: _addHistory } = useWarrantyStore();
 
   const handleReopen = React.useCallback(() => {
     if (!ticket || !reopenReason.trim()) {

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ChevronRight, User, Menu, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"
 import { useUiStore } from '../../lib/ui-store';
-import { ResponsiveContainer } from '../ui/responsive-container';
 import { usePageHeaderContext } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { toast } from 'sonner';

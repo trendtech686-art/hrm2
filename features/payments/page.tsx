@@ -24,7 +24,6 @@ import { useAuth } from "../../contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
-import { DataTableImportDialog } from "../../components/data-table/data-table-import-dialog";
 import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
@@ -33,7 +32,6 @@ import { PageFilters } from "../../components/layout/page-filters";
 import { useMediaQuery } from "../../lib/use-media-query";
 import { ROUTES, generatePath } from "../../lib/router";
 import { toast } from "sonner";
-import { toISODate, toISODateTime } from '../../lib/date-utils';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
 import { getColumns } from "./columns";
 import { asSystemId, type SystemId } from "../../lib/id-types";
@@ -50,7 +48,7 @@ export function PaymentsPage() {
     const router = useRouter();
     const isMobile = useMediaQuery("(max-width: 768px)");
 
-    const { data: payments, remove } = usePaymentStore();
+    const { data: payments, remove: _remove } = usePaymentStore();
     const { data: receipts } = useReceiptStore();
     const { accounts } = useCashbookStore();
     const { data: branches } = useBranchStore();
@@ -113,7 +111,9 @@ export function PaymentsPage() {
         if (stored) {
             try {
                 return JSON.parse(stored);
-            } catch (e) {}
+            } catch (_e) {
+                // Ignore JSON parse errors - use default
+            }
         }
         return {};
     });
@@ -145,7 +145,7 @@ export function PaymentsPage() {
         setIsAlertOpen(true);
     }, []);
     
-    const handleEdit = React.useCallback((payment: Payment) => {
+    const _handleEdit = React.useCallback((payment: Payment) => {
         router.push(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }));
     }, [router]);
     
@@ -212,7 +212,7 @@ export function PaymentsPage() {
         setIsBulkDeleteAlertOpen(false);
     };
 
-    const handleAddNew = () => {
+    const _handleAddNew = () => {
         router.push(ROUTES.FINANCE.PAYMENT_NEW);
     };
     
@@ -391,12 +391,12 @@ export function PaymentsPage() {
       const sorted = [...dataWithRunningBalance];
       if (sorting.id) {
         sorted.sort((a, b) => {
-          const aValue = (a as any)[sorting.id];
-          const bValue = (b as any)[sorting.id];
+          const aValue = (a as Record<string, unknown>)[sorting.id];
+          const bValue = (b as Record<string, unknown>)[sorting.id];
           // Special handling for date columns - parse as Date for proper comparison
           if (sorting.id === 'createdAt' || sorting.id === 'date') {
-            const aTime = aValue ? new Date(aValue).getTime() : 0;
-            const bTime = bValue ? new Date(bValue).getTime() : 0;
+            const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+            const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
             // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
             if (aTime === bTime) {
               const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
@@ -502,7 +502,7 @@ export function PaymentsPage() {
         });
         
         if (addedCount > 0 || updatedCount > 0) {
-            const messages = [];
+            const messages: string[] = [];
             if (addedCount > 0) messages.push(`${addedCount} phiếu chi mới`);
             if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
             toast.success(`Đã import: ${messages.join(', ')}`);

@@ -1,6 +1,5 @@
 import type { Order } from '../../orders/types';
-import type { WarrantyProduct } from '../types';
-import { parseDate, addMonths, isDateBefore, toISODate, getCurrentDate } from '../../../lib/date-utils';
+import { parseDate, addMonths, toISODate, getCurrentDate } from '../../../lib/date-utils';
 
 /**
  * Thông tin bảo hành của sản phẩm từ đơn hàng
@@ -82,7 +81,7 @@ export function getProductPurchaseHistory(
 
     for (const item of matchingItems) {
       // Lấy thời gian bảo hành (từ sản phẩm hoặc mặc định 12 tháng)
-      const warrantyMonths = (item as any).warrantyPeriodMonths || defaultWarrantyMonths;
+      const warrantyMonths = (item as { warrantyPeriodMonths?: number }).warrantyPeriodMonths || defaultWarrantyMonths;
       
       // Tính ngày hết hạn
       const expiryDate = calculateWarrantyExpiry(order.orderDate, warrantyMonths);

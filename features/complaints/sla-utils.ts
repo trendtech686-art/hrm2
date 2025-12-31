@@ -33,7 +33,7 @@ function loadSLASettings() {
 export function checkOverdue(complaint: Complaint): OverdueStatus {
   const now = new Date();
   const createdAt = new Date(complaint.createdAt);
-  const priority = (complaint as any).priority || 'medium';
+  const priority = complaint.priority || 'medium';
   
   // Load SLA from localStorage
   const slaSettings = loadSLASettings();

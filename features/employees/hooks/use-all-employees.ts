@@ -31,7 +31,7 @@ export function useAllEmployees() {
 export function useActiveEmployees() {
   const { data, isLoading, isError, error } = useAllEmployees();
   
-  const activeEmployees = data.filter(e => !e.isDeleted && (e as any).isActive !== false);
+  const activeEmployees = data.filter(e => !e.isDeleted && (e as { isActive?: boolean }).isActive !== false);
   
   return {
     data: activeEmployees,

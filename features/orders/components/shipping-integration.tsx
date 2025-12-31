@@ -1,14 +1,12 @@
 import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { DeliveryMethodCard } from './shipping/delivery-method-card';
-import { DeliveryAddressCard } from './shipping/delivery-address-card';
-import { PackageInfoCard } from './shipping/package-info-card';
-import { useDebounce } from '../hooks/use-debounce';
-import { GHTKService, type GHTKCreateOrderParams } from '../../settings/shipping/integrations/ghtk-service';
-import { useShippingPartnerStore } from '../../settings/shipping/store';
-import { loadShippingConfig } from '../../../lib/utils/shipping-config-migration';
-import { useGlobalShippingConfig } from '../hooks/use-global-shipping-config'; // ✅ Import global config hook
-import { getGHTKCredentials } from '../../../lib/utils/get-shipping-credentials'; // ✅ Import helper
+import { useDebounce } from '@/features/orders/hooks/use-debounce';
+import { GHTKService, type GHTKCreateOrderParams } from '@/features/settings/shipping/integrations/ghtk-service';
+import { useShippingPartnerStore } from '@/features/settings/shipping/store';
+import { loadShippingConfig } from '@/lib/utils/shipping-config-migration';
+import { useGlobalShippingConfig } from '@/features/orders/hooks/use-global-shipping-config'; // ✅ Import global config hook
+import { getGHTKCredentials } from '@/lib/utils/get-shipping-credentials'; // ✅ Import helper
 import { toast } from 'sonner';
 import type { 
   DeliveryMethod, 
@@ -18,16 +16,56 @@ import type {
   ShippingAddress,
   PackageInfo
 } from './shipping/types';
-import type { OrderFormValues } from '../order-form-page';
-import { useShippingSettingsStore } from '../../settings/shipping/shipping-settings-store';
-import { useProductStore } from '../../products/store';
-import { useProvinceStore } from '../../settings/provinces/store';
-import { useBranchStore } from '../../settings/branches/store';
+import type { OrderFormValues } from './order-form-page';
+import { useShippingSettingsStore } from '@/features/settings/shipping/shipping-settings-store';
+import { useProductStore } from '@/features/products/store';
+import { useProvinceStore } from '@/features/settings/provinces/store';
+import { useBranchStore } from '@/features/settings/branches/store';
 import { useOrderStore } from '../store'; // ✅ Import order store
 import { asSystemId } from '@/lib/id-types';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
-import { Loader2, PackageCheck } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Product, Branch, Customer } from '@/lib/types/prisma-extended';
+
+// Type for line items in shipping integration
+interface ShippingLineItem {
+  productSystemId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  productId: string;
+}
+
+// Type for pickup address configuration
+interface PickupAddressConfig {
+  name?: string;
+  address?: string;
+  province?: string;
+  district?: string;
+  ward?: string;
+  phone?: string;
+}
+
+// Type for customer address configuration
+interface CustomerAddressConfig {
+  name: string;
+  address?: string;
+  province: string;
+  district?: string;
+  ward: string;
+  phone: string;
+}
+
+// Type for return address configuration
+interface ReturnAddressConfig {
+  returnName?: string;
+  returnAddress?: string;
+  returnProvince?: string;
+  returnDistrict?: string;
+  returnWard?: string;
+  returnStreet?: string;
+  returnTel?: string;
+  returnEmail?: string;
+}
 
 /**
  * Generate unique order ID for shipping partner
@@ -58,8 +96,8 @@ function generateShippingOrderId(): string {
  * 3. Products have weight → Use product weights
  */
 function calculateProductWeights(
-  lineItems: any[],
-  findProductById: (id: string) => any,
+  lineItems: ShippingLineItem[],
+  findProductById: (id: string) => Product | undefined,
   userEnteredWeight: number
 ): Array<{ name: string; weight: number; quantity: number; price: number; productCode: string }> {
   // Build initial products list with weights from database
@@ -121,8 +159,8 @@ function calculateProductWeights(
 function buildPickupParams(
   hasPickAddressId: boolean,
   pickAddressId: string | undefined,
-  currentBranch: any,
-  pickupAddress: any
+  currentBranch: Branch | undefined,
+  pickupAddress: PickupAddressConfig | undefined
 ) {
   // ⚠️ Removed excessive console.log to prevent infinite loop in useMemo
   // Only log once when actually submitting order (see ghtk-service.ts for detailed logs)
@@ -156,7 +194,7 @@ function buildPickupParams(
  * ✅ Helper: Build customer address params
  */
 function buildCustomerParams(
-  customerAddress: any,
+  customerAddress: CustomerAddressConfig,
   specificAddress?: string
 ) {
   return {
@@ -175,7 +213,7 @@ function buildCustomerParams(
  */
 function buildReturnAddressParams(
   useReturnAddress: number | undefined,
-  returnConfig: any
+  returnConfig: ReturnAddressConfig | undefined
 ) {
   if (useReturnAddress === 1 && returnConfig?.returnName) {
     return {
@@ -198,7 +236,7 @@ interface ShippingIntegrationProps {
   disabled?: boolean;
   onChangeDeliveryAddress?: () => void; // ✅ Add callback for opening edit address dialog
   hideTabs?: boolean; // ✅ Hide tabs and only show shipping-partner content
-  customer?: any; // ✅ Optional customer prop (if not provided, will watch from form)
+  customer?: Customer | null; // ✅ Optional customer prop (if not provided, will watch from form)
 }
 
 /**
@@ -208,12 +246,12 @@ interface ShippingIntegrationProps {
 export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTabs, customer: customerProp }: ShippingIntegrationProps) {
   const { control, setValue, getValues } = useFormContext<OrderFormValues>();
   const { settings: shippingSettings } = useShippingSettingsStore();
-  const { globalConfig, getDimensions, getWeight, getDefaultShippingOptions } = useGlobalShippingConfig(); // ✅ Get global config
+  const { globalConfig: _globalConfig, getDimensions, getWeight: _getWeight, getDefaultShippingOptions: _getDefaultShippingOptions } = useGlobalShippingConfig(); // ✅ Get global config
   const { findById: findProductByIdBase } = useProductStore();
   const { data: provinces, getWardsByProvinceId } = useProvinceStore();
   const { findById: findBranchByIdBase } = useBranchStore();
-  const { data: partners } = useShippingPartnerStore();
-  const { data: allOrders } = useOrderStore(); // ✅ Get all orders for ID generation
+  const { data: _partners } = useShippingPartnerStore();
+  const { data: _allOrders } = useOrderStore(); // ✅ Get all orders for ID generation
 
   const findProductById = React.useCallback(
     (id?: string | null) => {
@@ -242,11 +280,12 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   }, [watchedBranchSystemId]);
   const lineItems = useWatch({ control, name: 'lineItems' });
   const grandTotal = useWatch({ control, name: 'grandTotal' });
-  const payments = useWatch({ control, name: 'payments' }) || [];
+  const watchedPayments = useWatch({ control, name: 'payments' });
+  const payments = React.useMemo(() => watchedPayments || [], [watchedPayments]);
   const deliveryMethod = useWatch({ control, name: 'deliveryMethod' }) as DeliveryMethod || 'deliver-later';
-  const trackingCode = useWatch({ control, name: 'trackingCode' });
-  const configuration = useWatch({ control, name: 'configuration' }); // ✅ Watch configuration for tags, transport, dates
-  const shippingNote = useWatch({ control, name: 'shippingNote' }); // ✅ Watch shipping note
+  const _trackingCode = useWatch({ control, name: 'trackingCode' });
+  const _configuration = useWatch({ control, name: 'configuration' }); // ✅ Watch configuration for tags, transport, dates
+  const _shippingNote = useWatch({ control, name: 'shippingNote' }); // ✅ Watch shipping note
   const formWeight = useWatch({ control, name: 'weight' }); // ✅ Watch weight from form
   const formShippingAddress = useWatch({ control, name: 'shippingAddress' }); // ✅ Watch selected shipping address
   
@@ -258,10 +297,10 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   // State for shipping
   const [selectedService, setSelectedService] = React.useState<ShippingService | null>(null);
   const [shippingConfig, setShippingConfig] = React.useState<SelectedShippingConfig | null>(null);
-  const [editingPackage, setEditingPackage] = React.useState(false);
-  const [creatingShipment, setCreatingShipment] = React.useState(false);
+  const [_editingPackage, _setEditingPackage] = React.useState(false);
+  const [_creatingShipment, _setCreatingShipment] = React.useState(false);
   const [serviceOptions, setServiceOptions] = React.useState<Partial<SelectedShippingConfig['options']>>({}); // ✅ Track service options for recalculation
-  const [lastApiParams, setLastApiParams] = React.useState<any>(null); // ✅ Store last API params for preview
+  const [_lastApiParams, _setLastApiParams] = React.useState<Record<string, unknown> | null>(null); // ✅ Store last API params for preview
   
   // State for editable package info
   const [customWeight, setCustomWeight] = React.useState<number | null>(null);
@@ -287,12 +326,10 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     if (shippingSettings.weightSource === 'product' && lineItems) {
       // ⚠️ Removed console.log to prevent infinite loop spam
       
-      let hasProductWithoutWeight = false;
       const total = lineItems.reduce((sum, item) => {
         const product = findProductById(item.productSystemId);
         
         if (!product || !product.weight) {
-          hasProductWithoutWeight = true;
           return sum;
         }
         const weightInGrams = product.weightUnit === 'kg' ? product.weight * 1000 : product.weight;
@@ -306,7 +343,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   }, [shippingSettings.weightSource, shippingSettings.customWeight, lineItems, findProductById]);
 
   // Debounce weight to avoid excessive recalculations
-  const debouncedWeight = useDebounce(totalWeight, 300);
+  const _debouncedWeight = useDebounce(totalWeight, 300);
 
   // ✅ PHASE 3: Auto-fill weight into form field when delivery method is shipping-partner
   React.useEffect(() => {
@@ -322,6 +359,9 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       }
     }
   }, [deliveryMethod, totalWeight, customWeight, formWeight, setValue]);
+
+  // Memoize the stringified shipping address for stable comparison
+  const shippingAddressKey = React.useMemo(() => JSON.stringify(formShippingAddress), [formShippingAddress]);
 
   // Get customer shipping address
   const customerAddress: ShippingAddress | null = React.useMemo(() => {
@@ -340,16 +380,17 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       if (shippingAddr.province) {
         const province = provinces.find(p => p.name === shippingAddr.province);
         if (province) {
-          const result = {
+          const districtIdNum = typeof shippingAddr.districtId === 'string' ? parseInt(shippingAddr.districtId) : (shippingAddr.districtId || 0);
+          const result: ShippingAddress = {
             name: customer.name,
             phone: customer.phone,
             address: shippingAddr.street || '',
             province: shippingAddr.province,
             provinceId: parseInt(province.id),
             district: shippingAddr.district || '',
-            districtId: shippingAddr.districtId || 0,
+            districtId: districtIdNum,
             ward: shippingAddr.ward || '',
-            wardCode: shippingAddr.wardCode
+            wardCode: ((shippingAddr as Record<string, unknown>).wardCode as string) || undefined
           };
           // console.log('✅ [Customer Address] From form shippingAddress field:', result); // Removed
           return result;
@@ -376,9 +417,9 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
             province: shippingAddr.province,
             provinceId: parseInt(province.id),
             district: shippingAddr.district || '',
-            districtId: shippingAddr.districtId || 0,
+            districtId: typeof shippingAddr.districtId === 'string' ? parseInt(shippingAddr.districtId) : (shippingAddr.districtId || 0),
             ward: shippingAddr.ward || '',
-            wardCode: shippingAddr.wardCode
+            wardCode: (shippingAddr as Record<string, unknown>).wardCode as string | undefined
           };
           // ⚠️ Removed console.log
           return result;
@@ -413,26 +454,13 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     };
     // ⚠️ Removed console.log
     return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shippingAddressKey needed for deep comparison of nested address object
   }, [
     customer, 
     formShippingAddress,
-    // ✅ CRITICAL: Add specific fields to trigger recalculation when address changes
-    formShippingAddress?.province,
-    formShippingAddress?.district,
-    formShippingAddress?.ward,
-    formShippingAddress?.street,
-    formShippingAddress?.id,
-    formShippingAddress?.provinceId,
-    formShippingAddress?.districtId,
-    formShippingAddress?.wardId,
-    formShippingAddress?.wardCode,
-    // ✅ SUPER CRITICAL: Stringify entire object to catch ALL changes
-    JSON.stringify(formShippingAddress),
+    shippingAddressKey,
     provinces, 
     getWardsByProvinceId, 
-    customerProvince, 
-    customerDistrict, 
-    customerStreet
   ]);
 
   // ✅ Auto-set default shipping address to form when customer changes
@@ -472,7 +500,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     
     // ✅ Store default settings for fee calculation
     if (defaultAccount.defaultSettings) {
-      (window as any).__ghtkDefaultSettings = defaultAccount.defaultSettings;
+      (window as unknown as Record<string, unknown>).__ghtkDefaultSettings = defaultAccount.defaultSettings;
     }
 
     // ✅ V2: Find pickup address for this branch
@@ -582,7 +610,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       return null;
     }
     
-    const ghtkDefaults = (window as any).__ghtkDefaultSettings || {};
+    const ghtkDefaults = (window as unknown as Record<string, unknown>).__ghtkDefaultSettings as Record<string, unknown> || {};
 
     const result = {
       fromProvinceId: pickupAddress.provinceId,
@@ -605,12 +633,12 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       codAmount: packageInfo.codAmount,
       insuranceValue: packageInfo.insuranceValue,
       options: {
-        transport: serviceOptions?.transport || ghtkDefaults.transport || 'road',
-        tags: serviceOptions?.tags || ghtkDefaults.tags || [],
-        deliverWorkShift: serviceOptions?.deliverWorkShift || ghtkDefaults.deliverWorkShift || 1,
-        pickWorkShift: serviceOptions?.pickWorkShift || ghtkDefaults.pickWorkShift || 1,
-        orderValue: serviceOptions?.orderValue || grandTotal || 0,
-        pickAddressId: serviceOptions?.pickAddressId,
+        transport: (serviceOptions?.transport as 'road' | 'fly') || (ghtkDefaults.transport as 'road' | 'fly') || 'road',
+        tags: (serviceOptions?.tags as number[]) || (ghtkDefaults.tags as number[]) || [],
+        deliverWorkShift: (serviceOptions?.deliverWorkShift as 1 | 2) || (ghtkDefaults.deliverWorkShift as 1 | 2) || 1,
+        pickWorkShift: (serviceOptions?.pickWorkShift as 1 | 2) || (ghtkDefaults.pickWorkShift as 1 | 2) || 1,
+        orderValue: (serviceOptions?.orderValue as number) || grandTotal || 0,
+        pickAddressId: serviceOptions?.pickAddressId as string | undefined,
       }
     };
     
@@ -618,6 +646,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     console.log('✅ [Shipping Request] Built request with weight:', result.weight, 'g');
     
     return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- serviceOptions fields trigger recalculation
   }, [
     pickupAddress, 
     customerAddress, 
@@ -635,7 +664,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     packageInfo.insuranceValue,
     grandTotal,
     serviceOptions?.transport,
-    JSON.stringify(serviceOptions?.tags || []),
+    serviceOptions?.tags,
     serviceOptions?.deliverWorkShift,
     serviceOptions?.pickWorkShift,
     serviceOptions?.orderValue,
@@ -674,7 +703,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   }, [setValue]);
 
   // Handle config save - memoized with useCallback
-  const handleConfigSave = React.useCallback((options: Partial<SelectedShippingConfig['options']>) => {
+  const _handleConfigSave = React.useCallback((options: Partial<SelectedShippingConfig['options']>) => {
     if (!selectedService) return;
 
 
@@ -709,7 +738,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   }, [selectedService, packageInfo, branchSystemId, customerAddress, setValue]);
 
   // Handle package info change - memoized with useCallback
-  const handlePackageChange = React.useCallback((info: PackageInfo) => {
+  const _handlePackageChange = React.useCallback((info: PackageInfo) => {
     setValue('weight', info.weight);
     setValue('length', info.length);
     setValue('width', info.width);
@@ -810,24 +839,24 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
 
     // ✅ Use helper function to calculate product weights (DRY - Don't Repeat Yourself)
     const userEnteredWeight = packageInfo.weight || 0;
-    const products = calculateProductWeights(lineItems, findProductById, userEnteredWeight);
+    const products = calculateProductWeights(lineItems as ShippingLineItem[], findProductById, userEnteredWeight);
 
-    const params: any = {
+    const params: Partial<GHTKCreateOrderParams> = {
       orderId: String(orderId),
       
       // ✅ Use helper functions to build params (DRY)
       ...buildPickupParams(
         !!formValues.configuration?.pickAddressId,
-        formValues.configuration?.pickAddressId,
+        formValues.configuration?.pickAddressId as string | undefined,
         currentBranch,
         pickupAddress
       ),
       
-      ...buildCustomerParams(customerAddress, formValues.configuration?.specificAddress),
+      ...buildCustomerParams(customerAddress as CustomerAddressConfig, formValues.configuration?.specificAddress as string | undefined),
       
       ...buildReturnAddressParams(
-        formValues.configuration?.useReturnAddress,
-        formValues.configuration
+        (formValues.configuration?.useReturnAddress as boolean | undefined) ? 1 : 0,
+        formValues.configuration as Record<string, unknown>
       ),
       
       // Products
@@ -835,9 +864,9 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       
       // Payment
       pickMoney: packageInfo.codAmount || 0,
-      value: formValues.configuration?.orderValue || 0,
+      value: (formValues.configuration?.orderValue as number) || 0,
       isFreeship: formValues.configuration?.payer === 'SHOP' ? 1 : 0, // ✅ Convert to 0/1
-      failedDeliveryFee: formValues.configuration?.failedDeliveryFee, // ✅ Thêm field này
+      failedDeliveryFee: formValues.configuration?.failedDeliveryFee as number | undefined, // ✅ Thêm field này
       
       // Package info
       weightOption: shippingSettings.weightUnit,
@@ -845,13 +874,13 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       totalBox: lineItems.reduce((sum, item) => sum + item.quantity, 0), // ✅ Thêm totalBox
       
       // Dates & configuration
-      pickDate: formValues.configuration?.pickDate,
-      deliverDate: formValues.configuration?.deliverDate,
-      pickWorkShift: formValues.configuration?.pickWorkShift,
-      deliverWorkShift: formValues.configuration?.deliverWorkShift,
+      pickDate: formValues.configuration?.pickDate as string | undefined,
+      deliverDate: formValues.configuration?.deliverDate as string | undefined,
+      pickWorkShift: formValues.configuration?.pickWorkShift as 1 | 2 | undefined,
+      deliverWorkShift: formValues.configuration?.deliverWorkShift as 1 | 2 | undefined,
       transport: (formValues.configuration?.transport as 'road' | 'fly') || 'road',
       tags: (formValues.configuration?.ghtkTags as number[]) || [], // ✅ Tags cho GHTK
-      note: shippingConfig?.options?.note, // ✅ Shipping note
+      note: shippingConfig?.options?.note as string | undefined, // ✅ Shipping note
     };
 
     return params;
@@ -862,7 +891,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     packageInfo,
     branchSystemId,
     shippingConfig,
-    configuration,
     shippingSettings.weightUnit,
     pickupAddress,
     findBranchById,
@@ -871,7 +899,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   ]);
 
   // Handle create shipment order
-  const handleCreateShipment = React.useCallback(async () => {
+  const _handleCreateShipment = React.useCallback(async () => {
     if (!selectedService || !shippingConfig || !customerAddress || !pickupAddress) {
       toast.error('Thiếu thông tin', { description: 'Vui lòng chọn dịch vụ vận chuyển và cấu hình đầy đủ' });
       return;
@@ -924,7 +952,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     }
     
     // Required: value > 0 (insurance value)
-    const orderValue = formValues.configuration?.orderValue || grandTotal;
+    const orderValue = (formValues.configuration?.orderValue as number) || grandTotal;
     if (!orderValue || orderValue <= 0) {
       validationErrors.push('Giá trị hàng hoá phải lớn hơn 0');
     }
@@ -935,10 +963,12 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     }
     
     // Validate work shifts (must be 1 or 2, or undefined)
-    if (formValues.configuration?.pickWorkShift && ![1, 2].includes(formValues.configuration.pickWorkShift)) {
+    const pickWorkShift = formValues.configuration?.pickWorkShift as number | undefined;
+    const deliverWorkShift = formValues.configuration?.deliverWorkShift as number | undefined;
+    if (pickWorkShift && ![1, 2].includes(pickWorkShift)) {
       validationErrors.push('Ca lấy hàng phải là 1 (sáng) hoặc 2 (chiều)');
     }
-    if (formValues.configuration?.deliverWorkShift && ![1, 2].includes(formValues.configuration.deliverWorkShift)) {
+    if (deliverWorkShift && ![1, 2].includes(deliverWorkShift)) {
       validationErrors.push('Ca giao hàng phải là 1 (sáng) hoặc 2 (chiều)');
     }
     
@@ -962,7 +992,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       return;
     }
 
-    setCreatingShipment(true);
+    _setCreatingShipment(true);
 
     try {
       // Currently only support GHTK
@@ -980,7 +1010,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
 
         console.log('📤 [Create Shipment] Params gửi lên GHTK (100% GIỐNG preview):', params); // ✅ Log để verify
         
-        const result = await ghtkService.createOrder(params);
+        const result = await ghtkService.createOrder(params as GHTKCreateOrderParams);
 
         if (result.success && result.order) {
           const trackingCode = result.order.label;
@@ -1032,9 +1062,9 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
         duration: 5000,
       });
     } finally {
-      setCreatingShipment(false);
+      _setCreatingShipment(false);
     }
-  }, [selectedService, shippingConfig, customerAddress, pickupAddress, branchSystemId, lineItems, packageInfo, grandTotal, shippingSettings.weightUnit, getValues, setValue, findBranchById, findProductById, partners]);
+  }, [selectedService, shippingConfig, customerAddress, pickupAddress, branchSystemId, lineItems, packageInfo, grandTotal, getValues, setValue, findBranchById, previewParams]);
 
   // ⚠️ REMOVED: previewData - Đã merge vào previewParams để tránh duplicate logic
   // previewData đã bị xóa vì nó duplicate logic với previewParams
@@ -1043,7 +1073,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   // ✅ Store previewParams globally for order-form-page to access (avoid infinite loop from setValue)
   React.useEffect(() => {
     if (previewParams && deliveryMethod === 'shipping-partner') {
-      (window as any).__ghtkPreviewParams = previewParams;
+      (window as unknown as Record<string, unknown>).__ghtkPreviewParams = previewParams;
     }
   }, [previewParams, deliveryMethod]);
 

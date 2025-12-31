@@ -20,7 +20,7 @@ export const getColumns = (
   onDelete: (systemId: SystemId) => void,
   onRestore: (systemId: SystemId) => void,
   onEdit: (supplier: Supplier) => void,
-  router: AppRouterInstance,
+  _router: AppRouterInstance,
 ): ColumnDef<Supplier>[] => [
   {
     id: "select",
@@ -149,7 +149,7 @@ export const getColumns = (
     header: "Trạng thái",
     cell: ({ row }) => {
         const variant = statusVariants[row.status];
-        return <Badge variant={variant as any}>{row.status}</Badge>
+        return <Badge variant={variant as "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | null | undefined}>{row.status}</Badge>
     },
     meta: { displayName: "Trạng thái" },
   },

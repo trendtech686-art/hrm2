@@ -21,35 +21,35 @@ model Shipment {
   updatedAt        DateTime       @updatedAt
   createdBy        String?
   trackingNumber   String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Linking
-  packagingSystemId    String?    // Link to Packaging
-  orderSystemId        String?
-  orderBusinessId      String?    // DH000001
-  
+  packagingSystemId String? // Link to Packaging
+  orderSystemId     String?
+  orderBusinessId   String? // DH000001
+
   // Carrier details
-  service              String?    // Service name (Chuẩn, Nhanh)
-  
+  service String? // Service name (Chuẩn, Nhanh)
+
   // Status details
-  deliveryStatus       String?    // Chờ lấy hàng, Đang giao, etc.
-  printStatus          String     @default("Chưa in")  // Đã in, Chưa in
-  reconciliationStatus String?    // Chưa đối soát, Đã đối soát
-  partnerStatus        String?    // Status from carrier API
-  
+  deliveryStatus       String? // Chờ lấy hàng, Đang giao, etc.
+  printStatus          String  @default("Chưa in") // Đã in, Chưa in
+  reconciliationStatus String? // Chưa đối soát, Đã đối soát
+  partnerStatus        String? // Status from carrier API
+
   // Financial
-  shippingFeeToPartner Decimal?   @db.Decimal(15, 2)
-  payer                String?    // 'Người gửi' | 'Người nhận'
-  
+  shippingFeeToPartner Decimal? @db.Decimal(15, 2)
+  payer                String? // 'Người gửi' | 'Người nhận'
+
   // Dates
-  dispatchedAt         DateTime?  // Ngày xuất kho
-  cancelledAt          DateTime?  // Ngày hủy
-  
+  dispatchedAt DateTime? // Ngày xuất kho
+  cancelledAt  DateTime? // Ngày hủy
+
   // Physical properties
-  dimensions           String?    // 'DxRxC cm'
-  noteToShipper        String?    // Ghi chú cho shipper
-  
+  dimensions    String? // 'DxRxC cm'
+  noteToShipper String? // Ghi chú cho shipper
+
   // GHTK specific fields
   ghtkStatusId         Int?
   ghtkReasonCode       String?
@@ -58,14 +58,14 @@ model Shipment {
   estimatedPickTime    DateTime?
   estimatedDeliverTime DateTime?
   lastSyncedAt         DateTime?
-  actualWeight         Decimal?   @db.Decimal(10, 3)
-  actualFee            Decimal?   @db.Decimal(15, 2)
-  
+  actualWeight         Decimal?  @db.Decimal(10, 3)
+  actualFee            Decimal?  @db.Decimal(15, 2)
+
   // Activity History
-  activityHistory      Json?
-  
+  activityHistory Json?
+
   // === RELATIONS ===
-  order            Order          @relation(fields: [orderId], references: [systemId])
+  order Order @relation(fields: [orderId], references: [systemId])
 
   @@index([carrier])
   @@index([orderId])

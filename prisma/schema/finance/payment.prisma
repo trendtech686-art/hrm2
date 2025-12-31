@@ -1,6 +1,6 @@
 model Payment {
-  systemId        String         @id
-  id              String         @unique
+  systemId        String      @id
+  id              String      @unique
   type            PaymentType
   supplierId      String?
   employeeId      String?
@@ -8,70 +8,70 @@ model Payment {
   accountId       String?
   referenceType   String?
   referenceId     String?
-  amount          Decimal        @db.Decimal(15, 2)
+  amount          Decimal     @db.Decimal(15, 2)
   paymentMethod   String?
-  paymentDate     DateTime       @default(now())
+  paymentDate     DateTime    @default(now())
   description     String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   createdBy       String?
   method          String?
   purchaseOrderId String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Status
-  status             String       @default("completed") // 'completed' | 'cancelled'
-  category           String?      // 'purchase' | 'complaint_refund' | 'warranty_refund' | etc.
-  cancelledAt        DateTime?
-  
+  status      String    @default("completed") // 'completed' | 'cancelled'
+  category    String? // 'purchase' | 'complaint_refund' | 'warranty_refund' | etc.
+  cancelledAt DateTime?
+
   // Recipient info (Link to TargetGroup settings)
-  recipientTypeSystemId  String?  // Link to TargetGroup
-  recipientTypeName      String?  // Cached name
-  recipientName          String?
-  recipientSystemId      String?  // Link to customer/supplier/employee
-  
+  recipientTypeSystemId String? // Link to TargetGroup
+  recipientTypeName     String? // Cached name
+  recipientName         String?
+  recipientSystemId     String? // Link to customer/supplier/employee
+
   // Payment Method (Link to PaymentMethod settings)
-  paymentMethodSystemId   String?
-  paymentMethodName       String?
-  
+  paymentMethodSystemId String?
+  paymentMethodName     String?
+
   // Account & Type (Link to settings)
-  accountSystemId             String?
-  paymentReceiptTypeSystemId  String?
-  paymentReceiptTypeName      String?
-  
+  accountSystemId            String?
+  paymentReceiptTypeSystemId String?
+  paymentReceiptTypeName     String?
+
   // Branch info
-  branchSystemId     String?
-  branchName         String?
-  
+  branchSystemId String?
+  branchName     String?
+
   // Date fields
-  recognitionDate    DateTime?    // Ngày ghi nhận (cho thanh toán trả sau)
-  
+  recognitionDate DateTime? // Ngày ghi nhận (cho thanh toán trả sau)
+
   // Links to other documents
-  originalDocumentId        String?   // Link to Order/Complaint/Warranty (Business ID)
-  purchaseOrderSystemId     String?   // Link to purchase order (systemId)
-  purchaseOrderBusinessId   String?   // Cache business id for display
-  linkedWarrantySystemId    String?   // Link to Warranty
-  linkedComplaintSystemId   String?   // Link to Complaint
-  linkedOrderSystemId       String?   // Link to Order
-  linkedSalesReturnSystemId String?   // Link to Sales Return
-  linkedPayrollBatchSystemId String?  // Link to PayrollBatch
-  linkedPayslipSystemId     String?   // Link to Payslip
-  
+  originalDocumentId         String? // Link to Order/Complaint/Warranty (Business ID)
+  purchaseOrderSystemId      String? // Link to purchase order (systemId)
+  purchaseOrderBusinessId    String? // Cache business id for display
+  linkedWarrantySystemId     String? // Link to Warranty
+  linkedComplaintSystemId    String? // Link to Complaint
+  linkedOrderSystemId        String? // Link to Order
+  linkedSalesReturnSystemId  String? // Link to Sales Return
+  linkedPayrollBatchSystemId String? // Link to PayrollBatch
+  linkedPayslipSystemId      String? // Link to Payslip
+
   // Customer info (denormalized)
-  customerSystemId   String?
-  customerName       String?
-  
+  customerSystemId String?
+  customerName     String?
+
   // Financial
-  affectsDebt        Boolean      @default(true)
-  runningBalance     Decimal?     @db.Decimal(15, 2)
-  
+  affectsDebt    Boolean  @default(true)
+  runningBalance Decimal? @db.Decimal(15, 2)
+
   // Activity History
-  activityHistory    Json?
-  
+  activityHistory Json?
+
   // === RELATIONS ===
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [systemId])
-  suppliers       Supplier?      @relation(fields: [supplierId], references: [systemId])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [systemId])
+  suppliers     Supplier?      @relation(fields: [supplierId], references: [systemId])
 
   @@index([supplierId])
   @@index([type])

@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter, useParams } from 'next/navigation';
 import { useProductStore } from './store';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
@@ -10,13 +10,12 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { ArrowLeft, Edit, Info, Printer, TrendingUp, AlertTriangle, Eye, Trash2, Package, Video, Globe, Truck, FileText, ShoppingCart, BarChart3, Clock, MapPin } from 'lucide-react';
+import { Edit, Info, Printer, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video } from 'lucide-react';
 import { usePrint } from '@/lib/use-print';
 import { mapProductToLabelPrintData } from '@/lib/print-mappers/product-label.mapper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { DetailField } from '../../components/ui/detail-field';
 import { Badge } from '../../components/ui/badge';
-import { Separator } from '../../components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { LazyImage } from '../../components/ui/lazy-image';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
@@ -42,9 +41,9 @@ import { InTransitStockDialog } from './components/in-transit-stock-dialog';
 import { useImageStore } from './image-store';
 import { FileUploadAPI } from '@/lib/file-upload-api';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
-import { calculateComboStock, calculateComboCostPrice, isComboProduct } from './combo-utils';
+import { calculateComboStock, isComboProduct } from './combo-utils';
 import { StockAlertBadges } from './components/stock-alert-badges';
-import { getProductStockAlerts, getTotalAvailableStock, getTotalOnHandStock, getSuggestedOrderQuantity } from './stock-alert-utils';
+import { getProductStockAlerts, getTotalOnHandStock, getSuggestedOrderQuantity } from './stock-alert-utils';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store';
 import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
@@ -381,7 +380,7 @@ function ComboInventoryCard({
   onInTransitClick?: (branch: { systemId: SystemId; name: string }) => void;
 }) {
   // Get combo items with product details
-  const comboItemsWithDetails = React.useMemo(() => {
+  const _comboItemsWithDetails = React.useMemo(() => {
     if (!product.comboItems) return [];
     return product.comboItems.map(item => {
       const childProduct = allProducts.find(p => p.systemId === item.productSystemId);
@@ -517,7 +516,7 @@ export function ProductDetailPage() {
   const { data: allStockTransfers } = useStockTransferStore();
   const { findById: findProductTypeById } = useProductTypeStore();
   const { findById: findCategoryById } = useProductCategoryStore();
-  const { findById: findStorageLocationById } = useStorageLocationStore();
+  const { findById: _findStorageLocationById } = useStorageLocationStore();
   const { findById: findBrandById } = useBrandStore();
   const { employee: authEmployee } = useAuth();
   
@@ -529,6 +528,7 @@ export function ProductDetailPage() {
   const [inTransitBranch, setInTransitBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
 
   // Include allProducts in deps to trigger re-render when store updates (e.g. after PKGX link)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- allProducts triggers re-render when store updates
   const product = React.useMemo(() => (systemId ? findProductById(asSystemId(systemId)) : null), [systemId, findProductById, allProducts]);
   const productSystemId = product?.systemId ?? null;
   const supplier = React.useMemo(() => (product?.primarySupplierSystemId ? findSupplierById(product.primarySupplierSystemId) : null), [product, findSupplierById]);
@@ -553,7 +553,7 @@ export function ProductDetailPage() {
     }
   }, [comments, systemId]);
 
-  const handleAddComment = React.useCallback((content: string, parentId?: string) => {
+  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
     const newComment: ProductComment = {
       id: asSystemId(`comment-${Date.now()}`),
       content,
@@ -683,7 +683,7 @@ export function ProductDetailPage() {
   
   // Subscribe to store changes properly
   const permanentImagesState = useImageStore(state => state.permanentImages);
-  const permanentMetaState = useImageStore(state => state.permanentMeta);
+  const _permanentMetaState = useImageStore(state => state.permanentMeta);
   
   const permanentFiles = React.useMemo(() => ({
     thumbnail: productSystemId ? (permanentImagesState[productSystemId]?.thumbnail || []) : [],
@@ -941,7 +941,7 @@ export function ProductDetailPage() {
     
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant={getStatusBadgeVariant(product.status) as any}>
+        <Badge variant={getStatusBadgeVariant(product.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'}>
           {getStatusLabel(product.status)}
         </Badge>
         {stockAlerts.isCritical && (
@@ -1030,7 +1030,7 @@ export function ProductDetailPage() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant={getStatusBadgeVariant(product.status) as any}>
+                  <Badge variant={getStatusBadgeVariant(product.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'}>
                     {getStatusLabel(product.status)}
                   </Badge>
                   <Badge variant="outline">{getTypeLabel(product.type)}</Badge>

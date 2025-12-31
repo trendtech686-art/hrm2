@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { cn } from "../../lib/utils"
@@ -51,22 +53,26 @@ const HoverCardTrigger = ({ children, asChild }: { children?: React.ReactNode, a
 
   const handleRef = (node: HTMLElement) => {
     (triggerRef as React.MutableRefObject<HTMLElement | null>).current = node;
-    if (asChild && React.isValidElement(children) && (children as any).ref) {
-      const childRef = (children as any).ref;
-      if (typeof childRef === 'function') childRef(node);
-      else if (childRef) childRef.current = node;
+    if (asChild && React.isValidElement(children)) {
+      const childWithRef = children as React.ReactElement & { ref?: React.Ref<HTMLElement> };
+      if (childWithRef.ref) {
+        if (typeof childWithRef.ref === 'function') childWithRef.ref(node);
+        else if (childWithRef.ref && typeof childWithRef.ref === 'object') (childWithRef.ref as React.MutableRefObject<HTMLElement | null>).current = node;
+      }
     }
   }
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
-        onMouseEnter: (e: React.MouseEvent) => {
+    const childProps = children.props as React.HTMLAttributes<HTMLElement>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return React.cloneElement(children as any, {
+        onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
           handleOpen();
-          (children.props as any).onMouseEnter?.(e);
+          childProps.onMouseEnter?.(e);
         },
-        onMouseLeave: (e: React.MouseEvent) => {
+        onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
             handleClose();
-            (children.props as any).onMouseLeave?.(e);
+            childProps.onMouseLeave?.(e);
         },
         ref: handleRef,
     });
@@ -79,7 +85,7 @@ const HoverCardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & { align?: 'start' | 'center' | 'end' }
 >(({ children, className, align = 'center', ...props }, forwardedRef) => {
-  const { open, setOpen, triggerRef, openTimeoutRef, closeTimeoutRef } = useHoverCard();
+  const { open, setOpen, triggerRef, openTimeoutRef: _openTimeoutRef, closeTimeoutRef } = useHoverCard();
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [style, setStyle] = React.useState<React.CSSProperties>({ position: 'fixed', top: '-9999px', left: '-9999px' });
 

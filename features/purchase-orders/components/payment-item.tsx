@@ -17,7 +17,7 @@ interface PaymentItemProps {
         creator: string;
         description: string;
     };
-    onPrint: (e: React.MouseEvent, item: any) => void;
+    onPrint: (e: React.MouseEvent, item: PaymentItemProps['item']) => void;
 }
 
 const formatCurrency = (value?: number) => {

@@ -9,38 +9,38 @@ model AttendanceRecord {
   notes      String?
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Employee info (denormalized for row display)
-  employeeSystemId     String?
-  employeeBusinessId   String?      // Mã hiển thị cho người dùng (NV001)
-  fullName             String?
-  department           String?
-  
+  employeeSystemId   String?
+  employeeBusinessId String? // Mã hiển thị cho người dùng (NV001)
+  fullName           String?
+  department         String?
+
   // Morning session
-  morningCheckOut      DateTime?    // Sáng - Tan làm (giờ ra sáng)
-  
+  morningCheckOut DateTime? // Sáng - Tan làm (giờ ra sáng)
+
   // Afternoon session
-  afternoonCheckIn     DateTime?    // Chiều - Làm việc (giờ vào chiều)
-  
+  afternoonCheckIn DateTime? // Chiều - Làm việc (giờ vào chiều)
+
   // Overtime
-  overtimeCheckIn      DateTime?
-  overtimeCheckOut     DateTime?
-  
+  overtimeCheckIn  DateTime?
+  overtimeCheckOut DateTime?
+
   // Summary fields
-  workDays             Int          @default(0)
-  leaveDays            Int          @default(0)
-  absentDays           Int          @default(0)
-  lateArrivals         Int          @default(0)
-  earlyDepartures      Int          @default(0)
-  otHours              Decimal?     @db.Decimal(5, 2)
-  otHoursWeekday       Decimal?     @db.Decimal(5, 2)
-  otHoursWeekend       Decimal?     @db.Decimal(5, 2)
-  otHoursHoliday       Decimal?     @db.Decimal(5, 2)
-  
+  workDays        Int      @default(0)
+  leaveDays       Int      @default(0)
+  absentDays      Int      @default(0)
+  lateArrivals    Int      @default(0)
+  earlyDepartures Int      @default(0)
+  otHours         Decimal? @db.Decimal(5, 2)
+  otHoursWeekday  Decimal? @db.Decimal(5, 2)
+  otHoursWeekend  Decimal? @db.Decimal(5, 2)
+  otHoursHoliday  Decimal? @db.Decimal(5, 2)
+
   // === RELATIONS ===
-  employee   Employee         @relation(fields: [employeeId], references: [systemId])
+  employee Employee @relation(fields: [employeeId], references: [systemId])
 
   @@unique([employeeId, date])
   @@index([date])

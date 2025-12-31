@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '../../lib/date-utils';
+import { formatDate, formatDateTime } from '../../lib/date-utils';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useOrderStore } from './store';
-import type { Order, OrderMainStatus, OrderPayment, Packaging, PackagingStatus, OrderDeliveryStatus } from '@/lib/types/prisma-extended';
+import type { Order, OrderMainStatus, OrderDeliveryStatus, OrderPayment, OrderAddress, Customer } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from './address-utils';
 import { toast } from 'sonner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
@@ -17,33 +17,30 @@ import { useCustomerStore } from '../customers/store';
 import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
 import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
 import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
-import { ArrowLeft, Edit, Printer, Check, Copy, Settings, ChevronDown, Users, Truck, CheckCircle2, FileWarning, PackageSearch, Package, PackageCheck, MoreHorizontal, Ban, File, Calendar, User, Info, MessageSquare, Banknote, PlusCircle, ThumbsUp, PackageX, ChevronRight, Undo2, Store, Clock, Eye, StickyNote, ArrowDownLeft } from 'lucide-react';
+import { ArrowLeft, Printer, Check, Copy, ChevronDown, CheckCircle2, FileWarning, Package, Info, ChevronRight, Eye, StickyNote, ArrowDownLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEmployeeStore } from '../employees/store';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '../../components/ui/form';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { CurrencyInput } from '../../components/ui/currency-input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { DetailField } from '../../components/ui/detail-field';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { Textarea } from '../../components/ui/textarea';
-import { useShippingPartnerStore } from '../settings/shipping/store';
 import { useProductStore } from '../products/store';
-import { ProductImage, useProductImage } from '../products/components/product-image';
+import { useProductImage } from '../products/components/product-image';
 import { useWarrantyStore } from '../warranty/store';
 import { useComplaintStore } from '../complaints/store';
 import Link from 'next/link';
 import { Spinner } from '../../components/ui/spinner';
+import { OptimizedImage } from '../../components/ui/optimized-image';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Timeline, TimelineItem } from '../../components/ui/timeline';
 import { Combobox, type ComboboxOption } from '../../components/ui/combobox';
 import { PackagingInfo } from './components/packaging-info';
 import { CancelShipmentDialog } from './components/cancel-shipment-dialog';
@@ -59,10 +56,8 @@ import { useReceiptStore } from '../receipts/store';
 import { usePaymentStore } from '../payments/store';
 import type { Receipt } from '../receipts/types';
 import type { Payment } from '../payments/types';
-import { useShippingSettingsStore } from '../settings/shipping/shipping-settings-store';
-import { PartnerShipmentForm } from './components/partner-shipment-form';
 import { ShippingIntegration } from './components/shipping-integration';
-import type { OrderFormValues } from './order-form-page';
+import type { OrderFormValues } from './components/order-form-page';
 import { useAuth } from '../../contexts/auth-context';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { OrderWorkflowCard } from './components/order-workflow-card';
@@ -110,7 +105,7 @@ const ProductThumbnailCell = ({
                 className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
             >
-                <img src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                 {onPreview && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -144,19 +139,19 @@ const formatNumber = (value?: number) => {
 
 
 
-const formatAddress = (street?: string, ward?: string, province?: string) => {
+const _formatAddress = (street?: string, ward?: string, province?: string) => {
     return [street, ward, province].filter(Boolean).join(', ');
 };
 
-const getCustomerAddress = (customer: any, type: 'shipping' | 'billing'): string => {
+const getCustomerAddress = (customer: { addresses?: Array<{ type?: string; isDefault?: boolean; street?: string; ward?: string; district?: string; province?: string }> }, type: 'shipping' | 'billing'): string => {
     if (!customer?.addresses || customer.addresses.length === 0) return '';
     
     // Find address by type, or use default if type not found
-    let address = customer.addresses.find((addr: any) => addr.type === type);
+    let address = customer.addresses.find((addr) => addr.type === type);
     
     // Fallback to default address if specific type not found
     if (!address) {
-        address = customer.addresses.find((addr: any) => addr.isDefault);
+        address = customer.addresses.find((addr) => addr.isDefault);
     }
     
     // Fallback to first address
@@ -176,7 +171,7 @@ const getCustomerAddress = (customer: any, type: 'shipping' | 'billing'): string
 };
 
 // ✅ Helper to format address object or string
-const formatAddressObject = (address: any): string => formatOrderAddress(address);
+const formatAddressObject = (address: string | OrderAddress | Record<string, unknown>): string => formatOrderAddress(address);
 
 const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
     "Đặt hàng": "secondary",
@@ -195,7 +190,7 @@ const productTypeFallbackLabels: Record<string, string> = {
 type OrderComment = CommentType<SystemId>;
 
 // A simple deterministic hash function to generate stable mock prices
-function simpleHash(str: string): number {
+function _simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -427,9 +422,9 @@ function CreateShipmentDialog({
 }: { 
     isOpen: boolean; 
     onOpenChange: (open: boolean) => void; 
-    onSubmit: (data: Partial<OrderFormValues>) => Promise<any>;
+    onSubmit: (data: Partial<OrderFormValues>) => Promise<void>;
     order: Order | null;
-    customer: any;
+    customer: Customer | null;
 }) {
     const [isLoading, setIsLoading] = React.useState(false);
     const form = useForm<OrderFormValues>();
@@ -452,13 +447,9 @@ function CreateShipmentDialog({
         if (!order) return;
         setIsLoading(true);
         try {
-            const result = await onSubmit(data);
-            if (result && result.success) {
-                toast.success('Thành công', { description: result.message });
-                onOpenChange(false);
-            } else {
-                toast.error('Lỗi', { description: result?.message || 'Không thể tạo đơn vận chuyển' });
-            }
+            await onSubmit(data);
+            toast.success('Thành công', { description: 'Đã tạo đơn vận chuyển' });
+            onOpenChange(false);
         } catch (error) {
             console.error('[CreateShipmentDialog] Error:', error);
             toast.error('Lỗi', { description: 'Có lỗi xảy ra khi tạo đơn vận chuyển' });
@@ -541,7 +532,10 @@ function PackerSelectionDialog({
           <Combobox
             value={selectedEmployee}
             onChange={setSelectedEmployee}
-            onSearch={searchEmployees as any}
+            onSearch={async (query: string, page: number) => {
+              const result = await searchEmployees(query, page, 100);
+              return { items: result.items, hasNextPage: result.hasNextPage };
+            }}
             placeholder="Tìm nhân viên..."
             searchPlaceholder="Tìm kiếm..."
             emptyPlaceholder="Không tìm thấy nhân viên."
@@ -558,7 +552,7 @@ function PackerSelectionDialog({
   );
 }
 
-const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order: Order; salesReturnsForOrder: SalesReturn[]; orderComments: OrderComment[] }) => {
+const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments: _orderComments }: { order: Order; salesReturnsForOrder: SalesReturn[]; orderComments: OrderComment[] }) => {
     const { data: receipts } = useReceiptStore();
     const { data: payments } = usePaymentStore();
     const { data: warranties } = useWarrantyStore();
@@ -834,9 +828,9 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments }: { order
     );
 };
 
-const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesReturns, getProductTypeLabel }: { order: Order; costOfGoods: number; profit: number; totalDiscount: number; salesReturns: SalesReturn[]; getProductTypeLabel: (productSystemId: SystemId) => string; }) => {
+const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesReturns, getProductTypeLabel: _getProductTypeLabel }: { order: Order; costOfGoods: number; profit: number; totalDiscount: number; salesReturns: SalesReturn[]; getProductTypeLabel: (productSystemId: SystemId) => string; }) => {
     // Calculate warranty payments (negative amounts linked to warranty)
-    const warrantyPayments = (order?.payments || []).filter(p => p.amount < 0 && (p as any).linkedWarrantySystemId);
+    const warrantyPayments = (order?.payments || []).filter(p => p.amount < 0 && (p as OrderPayment).linkedWarrantySystemId);
     const totalWarrantyDeduction = warrantyPayments.reduce((sum, p) => sum + Math.abs(p.amount), 0);
     
     // Check if any line item has tax
@@ -935,7 +929,7 @@ const ProductInfoCard = ({ order, costOfGoods, profit, totalDiscount, salesRetur
     )
 }
 
-const getFinancialResolutionText = (returnSlip: SalesReturn, allTransactions: (Receipt | Payment)[]) => {
+const _getFinancialResolutionText = (returnSlip: SalesReturn, allTransactions: (Receipt | Payment)[]) => {
     const transactionSystemId = returnSlip.paymentVoucherSystemId || returnSlip.receiptVoucherSystemIds?.[0];
     const transaction = transactionSystemId ? allTransactions.find(t => t.systemId === transactionSystemId) : null;
     const transactionLink = transaction ? (
@@ -1162,7 +1156,7 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                 // Tính số tiền thực tế đã hoàn/thu
                                                 const totalRefunded = (returnSlip.refunds || []).reduce((sum, r) => sum + (r.amount || 0), 0) || returnSlip.refundAmount || 0;
                                                 const totalPaid = (returnSlip.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-                                                const actualAmount = totalPaid - totalRefunded;
+                                                const _actualAmount = totalPaid - totalRefunded;
                                                 
                                                 // Nếu không có hoàn tiền và không có thanh toán → hiển thị dấu "-"
                                                 if (totalRefunded === 0 && totalPaid === 0) {
@@ -1213,8 +1207,8 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                     </TableRow>
                                                                 </TableHeader>
                                                                 <TableBody>
-                                                                    {returnSlip.items.map((item: any, index: number) => {
-                                                                        const product = allProducts.find((p: any) => p.systemId === item.productSystemId);
+                                                                    {returnSlip.items.map((item: { productSystemId: string; returnQuantity: number; unitPrice: number; totalValue: number; productName?: string; productId?: string; note?: string }, index: number) => {
+                                                                        const product = allProducts.find((p) => p.systemId === item.productSystemId);
                                                                         const productType = getProductTypeLabel?.(item.productSystemId) || '---';
                                                                         const isCombo = product?.type === 'combo';
                                                                         const comboKey = `return-${returnSlip.systemId}-${item.productSystemId}`;
@@ -1291,8 +1285,8 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                     <TableCell className="text-right font-medium">{formatCurrency(item.totalValue)}</TableCell>
                                                                                 </TableRow>
                                                                                 {/* Combo children rows */}
-                                                                                {isCombo && isComboExpanded && comboChildren.map((comboItem: any, childIndex: number) => {
-                                                                                    const childProduct = allProducts.find((p: any) => p.systemId === comboItem.productSystemId);
+                                                                                {isCombo && isComboExpanded && comboChildren.map((comboItem: { productSystemId: string; productName?: string; quantity?: number }, childIndex: number) => {
+                                                                                    const childProduct = allProducts.find((p) => p.systemId === comboItem.productSystemId);
                                                                                     return (
                                                                                         <TableRow key={`${comboKey}-child-${childIndex}`} className="bg-muted/40">
                                                                                             <TableCell className="text-center text-muted-foreground pl-8">
@@ -1359,9 +1353,9 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                         </TableRow>
                                                                     </TableHeader>
                                                                     <TableBody>
-                                                                        {returnSlip.exchangeItems.map((item: any, index: number) => {
+                                                                        {returnSlip.exchangeItems.map((item: { productSystemId: string; quantity: number; unitPrice: number; discount: number; discountType?: 'percentage' | 'fixed'; productName?: string; productId?: string; note?: string }, index: number) => {
                                                                             const lineTotal = item.quantity * item.unitPrice - (item.discountType === 'percentage' ? (item.quantity * item.unitPrice * item.discount / 100) : item.discount);
-                                                                            const product = allProducts.find((p: any) => p.systemId === item.productSystemId);
+                                                                            const product = allProducts.find((p) => p.systemId === item.productSystemId);
                                                                             const productType = getProductTypeLabel?.(item.productSystemId) || '---';
                                                                             const isCombo = product?.type === 'combo';
                                                                             const comboKey = `exchange-${returnSlip.systemId}-${item.productSystemId}`;
@@ -1439,8 +1433,8 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
                                                                                         <TableCell className="text-right font-medium">{formatCurrency(lineTotal)}</TableCell>
                                                                                     </TableRow>
                                                                                     {/* Combo children rows */}
-                                                                                    {isCombo && isComboExpanded && comboChildren.map((comboItem: any, childIndex: number) => {
-                                                                                        const childProduct = allProducts.find((p: any) => p.systemId === comboItem.productSystemId);
+                                                                                    {isCombo && isComboExpanded && comboChildren.map((comboItem: { productSystemId: string; productName?: string; quantity?: number }, childIndex: number) => {
+                                                                                        const childProduct = allProducts.find((p) => p.systemId === comboItem.productSystemId);
                                                                                         return (
                                                                                             <TableRow key={`${comboKey}-child-${childIndex}`} className="bg-muted/40">
                                                                                                 <TableCell className="text-center text-muted-foreground pl-8">
@@ -1511,7 +1505,8 @@ export function OrderDetailPage() {
     const router = useRouter();
 
     const orderStore = useOrderStore();
-    const orders: Order[] = orderStore.data ?? [];
+    const ordersData = orderStore.data;
+    const orders = React.useMemo(() => ordersData ?? [], [ordersData]);
     const order = React.useMemo(() => {
         if (params.systemId) {
             const systemIdParam = asSystemId(params.systemId);
@@ -1543,7 +1538,7 @@ export function OrderDetailPage() {
     const { data: allPayments } = usePaymentStore();
     const complaints = useComplaintStore((state) => state.complaints);
     const slaEngine = useCustomerSlaEvaluation();
-    const { data: branches, findById: findBranchById } = useBranchStore();
+    const { data: _branches, findById: findBranchById } = useBranchStore();
     const { info: storeInfo } = useStoreInfoStore();
     const { print } = usePrint();
     
@@ -1567,7 +1562,7 @@ export function OrderDetailPage() {
     const customerOrders = React.useMemo(() => {
         if (!customer) return [];
         return orders.filter(o => o.customerSystemId === customer.systemId);
-    }, [customer?.systemId, orders]);
+    }, [customer, orders]);
     // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
     const deliveredCustomerOrders = React.useMemo(
         () => customerOrders.filter(o => 
@@ -1616,7 +1611,7 @@ export function OrderDetailPage() {
             totalOrders: customerOrders.length,
             lastOrderDate: lastOrderDate ?? customer.lastPurchaseDate ?? order?.orderDate ?? null,
         };
-    }, [customer, customerOrders, deliveredCustomerOrders, order?.grandTotal, order?.orderDate]);
+    }, [customer, customerOrders, deliveredCustomerOrders, order]);
 
     const customerDebtBalance = React.useMemo(() => {
         if (!customer) return 0;
@@ -1657,7 +1652,7 @@ export function OrderDetailPage() {
     const customerWarranties = React.useMemo(() => {
         if (!customer) return [];
         return warranties.filter(ticket => ticket.customerPhone === customer.phone);
-    }, [customer?.phone, warranties]);
+    }, [customer, warranties]);
 
     const customerWarrantyCount = customerWarranties.length;
 
@@ -1668,7 +1663,7 @@ export function OrderDetailPage() {
     const customerComplaints = React.useMemo(() => {
         if (!customer) return [];
         return complaints.filter(complaint => complaint.customerSystemId === customer.systemId);
-    }, [customer?.systemId, complaints]);
+    }, [customer, complaints]);
 
     const customerComplaintCount = customerComplaints.length;
 
@@ -1791,9 +1786,9 @@ export function OrderDetailPage() {
     // Branding for print
     const { logoUrl } = useBranding();
 
-    const getTypeName = (id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined;
+    const _getTypeName = (id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined;
     const getGroupName = (id?: string) => id ? customerGroups.findById(asSystemId(id))?.name : undefined;
-    const getSourceName = (id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined;
+    const _getSourceName = (id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined;
     const getEmployeeName = (id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined;
 
     // Get salesperson employee for print
@@ -1880,7 +1875,7 @@ export function OrderDetailPage() {
         window.localStorage.setItem(commentStorageKey, JSON.stringify(serializable));
     }, [commentStorageKey]);
 
-    const handleAddOrderComment = React.useCallback((content: string, parentId?: string) => {
+    const handleAddOrderComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
         if (!order) return;
         const trimmed = content.trim();
         if (!trimmed) return;
@@ -2070,7 +2065,7 @@ export function OrderDetailPage() {
             return undefined;
         }
 
-        const explicitPacker = order.assignedPackerSystemId || (order as any).assignedPackerSystemId || (order as any).packerId;
+        const explicitPacker = order.assignedPackerSystemId || (order as { packerId?: string }).packerId;
         if (explicitPacker) {
             return asSystemId(explicitPacker);
         }
@@ -2109,6 +2104,7 @@ export function OrderDetailPage() {
                     setIsSyncing(false);
                 });
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when order systemId changes
     }, [order?.systemId]);
 
     const handleConfirmCancel = async () => { 
@@ -2128,8 +2124,7 @@ export function OrderDetailPage() {
             p.carrier === 'GHTK' && 
             p.trackingCode && 
             p.status !== 'Hủy đóng gói' &&
-            p.deliveryStatus !== 'Đã giao hàng' &&
-            p.deliveryStatus !== 'Hoàn tất giao hàng'
+            p.deliveryStatus !== 'Đã giao hàng'
         );
         
         if (ghtkPackaging && ghtkPackaging.trackingCode) {
@@ -2166,10 +2161,10 @@ export function OrderDetailPage() {
                     );
                     return;
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error('[Cancel Order] GHTK cancel error:', error);
                 toast.error(
-                    `Lỗi khi hủy vận đơn GHTK: ${error.message}`,
+                    `Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Unknown error'}`,
                     {
                         description: 'Bạn có muốn tiếp tục hủy đơn hàng không?',
                         action: {
@@ -2203,12 +2198,16 @@ export function OrderDetailPage() {
             requestPackaging(order.systemId, currentEmployeeSystemId, assignedEmployeeId);
         }
     }, [order, requestPackaging, currentEmployeeSystemId]);
-    const handleConfirmPackaging = (packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId, currentEmployeeSystemId); } };
+    const handleConfirmPackaging = React.useCallback((packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId, currentEmployeeSystemId); } }, [order, confirmPackaging, currentEmployeeSystemId]);
     const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, currentEmployeeSystemId, reason); setCancelPackagingState(null); }};
     const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } };
-    const handleShippingSubmit = (data: any) => { if (order && activePackaging) { return confirmPartnerShipment(order.systemId, activePackaging.systemId, data); } return Promise.resolve({success: false, message: 'Đơn hàng không hợp lệ'}); };
+    const handleShippingSubmit = async (data: Record<string, unknown>) => { 
+        if (order && activePackaging) { 
+            await confirmPartnerShipment(order.systemId, activePackaging.systemId, data); 
+        } 
+    };
     
-    const handleDispatch = (packagingSystemId: SystemId) => { 
+    const handleDispatch = React.useCallback((packagingSystemId: SystemId) => { 
         if (order) { 
             const pkg = order.packagings.find(p => p.systemId === packagingSystemId);
             if (pkg?.deliveryMethod === 'Nhận tại cửa hàng') {
@@ -2217,7 +2216,7 @@ export function OrderDetailPage() {
                 dispatchFromWarehouse(order.systemId, packagingSystemId, currentEmployeeSystemId); 
             }
         } 
-    };
+    }, [order, confirmInStorePickup, dispatchFromWarehouse, currentEmployeeSystemId]);
 
     const handleCompleteDelivery = (packagingSystemId: SystemId) => { if (order) { completeDelivery(order.systemId, packagingSystemId, currentEmployeeSystemId); }};
     const handleFailDeliverySubmit = (reason: string) => { if (order && cancelShipmentState) { failDelivery(order.systemId, cancelShipmentState.packagingSystemId, currentEmployeeSystemId, reason); setCancelShipmentState(null); }};
@@ -2238,8 +2237,8 @@ export function OrderDetailPage() {
                         setCancelShipmentState(null);
                         return;
                     }
-                } catch (error: any) {
-                    toast.error(`⚠️ Lỗi khi hủy vận đơn GHTK: ${error.message || 'Không rõ lỗi'}\n\nVui lòng hủy trên hệ thống đối tác.`);
+                } catch (error: unknown) {
+                    toast.error(`⚠️ Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Không rõ lỗi'}\n\nVui lòng hủy trên hệ thống đối tác.`);
                     setCancelShipmentState(null);
                     return;
                 }
@@ -2267,8 +2266,8 @@ export function OrderDetailPage() {
                         setCancelShipmentState(null);
                         return;
                     }
-                } catch (error: any) {
-                    toast.error(`⚠️ Lỗi khi hủy vận đơn GHTK: ${error.message || 'Không rõ lỗi'}\n\nVui lòng hủy trên hệ thống đối tác.`);
+                } catch (error: unknown) {
+                    toast.error(`⚠️ Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Không rõ lỗi'}\n\nVui lòng hủy trên hệ thống đối tác.`);
                     setCancelShipmentState(null);
                     return;
                 }
@@ -2293,8 +2292,8 @@ export function OrderDetailPage() {
             } else {
                 toast.error(`Lỗi: ${result.message}`);
             }
-        } catch (error: any) {
-            toast.error(`Lỗi: ${error.message || 'Không thể hủy vận đơn'}`);
+        } catch (error: unknown) {
+            toast.error(`Lỗi: ${error instanceof Error ? error.message : 'Không thể hủy vận đơn'}`);
         }
     };
 
@@ -2444,7 +2443,7 @@ export function OrderDetailPage() {
         }
 
         return actions;
-    }, [order, isActionable, router, setIsCancelAlertOpen, activePackaging, handleRequestPackagingClick]);
+    }, [order, isActionable, router, setIsCancelAlertOpen, activePackaging, handleRequestPackagingClick, handleConfirmPackaging, handleDispatch]);
 
     const displayStatus = React.useMemo(() => {
         if (!order) return undefined;
@@ -2529,7 +2528,7 @@ export function OrderDetailPage() {
     // ✅ Ưu tiên địa chỉ đã lưu trong đơn hàng, fallback về địa chỉ mặc định của khách hàng
     const shippingAddress = formatAddressObject(order.shippingAddress) || (customer ? getCustomerAddress(customer, 'shipping') : '');
     const billingAddress = formatAddressObject(order.billingAddress) || (customer ? getCustomerAddress(customer, 'billing') : '');
-    const isBillingSameAsShipping = shippingAddress === billingAddress || !billingAddress;
+    const _isBillingSameAsShipping = shippingAddress === billingAddress || !billingAddress;
 
 
     const renderMainPackagingActionButtons = () => {
@@ -2986,8 +2985,8 @@ export function OrderDetailPage() {
                                                                 issuedAt: refund.date,
                                                                 createdBy: findEmployeeById(refund.createdBy)?.fullName || refund.createdBy,
                                                                 recipientName: order.customerName,
-                                                                recipientPhone: order.customerPhone,
-                                                                recipientAddress: order.customerAddress,
+                                                                recipientPhone: (typeof order.shippingAddress === 'object' ? order.shippingAddress?.contactPhone : '') || '',
+                                                                recipientAddress: (typeof order.shippingAddress === 'object' ? order.shippingAddress?.formattedAddress : order.shippingAddress) || '',
                                                                 recipientType: 'Khách hàng',
                                                                 amount: refund.amount,
                                                                 description: refund.description,

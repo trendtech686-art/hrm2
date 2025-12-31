@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 
 // GET /api/settings/pkgx/categories - List all PKGX categories
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const categories = await prisma.pkgxCategory.findMany({
       orderBy: [
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 // POST /api/settings/pkgx/categories - Sync categories from PKGX API
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
+    const _session = await auth()
     const body = await request.json()
     const { categories } = body
 

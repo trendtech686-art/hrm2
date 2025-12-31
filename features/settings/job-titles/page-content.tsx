@@ -24,7 +24,7 @@ import type { JobTitle } from '@/lib/types/prisma-extended'
 import { Button } from "../../../components/ui/button"
 import { PlusCircle } from "lucide-react"
 import Fuse from "fuse.js"
-import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types"
+import { asBusinessId, type SystemId } from "@/lib/id-types"
 import { Input } from "../../../components/ui/input"
 import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable"
 

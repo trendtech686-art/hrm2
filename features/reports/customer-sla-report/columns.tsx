@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
-import { MoreHorizontal, Phone, Mail, Eye } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import type { ColumnDef } from '../../../components/data-table/types';
 import type { CustomerSlaAlert, DebtAlert, CustomerHealthAlert, SlaAlertLevel } from './types';
 import { formatDaysRemaining } from './sla-utils';

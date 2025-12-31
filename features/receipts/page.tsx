@@ -21,7 +21,6 @@ import { useAuth } from "../../contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
-import { DataTableImportDialog } from "@/components/data-table/data-table-import-dialog";
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,7 +29,7 @@ import { PageFilters } from "@/components/layout/page-filters";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { ROUTES, generatePath } from "@/lib/router";
 import { toast } from "sonner";
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '@/lib/date-utils';
+import { formatDateCustom } from '@/lib/date-utils';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
 import { getColumns } from "./columns";
 import { MobileReceiptCard } from "./card";
@@ -43,12 +42,12 @@ import {
 } from "@/lib/print/receipt-print-helper";
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "@/components/shared/simple-print-options-dialog";
 
-const formatCurrency = (value?: number) => {
+const _formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-const formatDateDisplay = (dateString?: string) => {
+const _formatDateDisplay = (dateString?: string) => {
   if (!dateString) return '';
   return formatDateCustom(new Date(dateString), "dd/MM/yyyy");
 };
@@ -58,7 +57,7 @@ export function ReceiptsPage() {
     const navigateTo = React.useCallback((path: string) => router.push(path), [router]);
     const isMobile = useMediaQuery("(max-width: 768px)");
 
-    const { data: receipts, remove } = useReceiptStore();
+    const { data: receipts, remove: _remove } = useReceiptStore();
     const { accounts } = useCashbookStore();
     const { data: branches } = useBranchStore();
     const { data: receiptTypes } = useReceiptTypeStore();
@@ -114,7 +113,9 @@ export function ReceiptsPage() {
         if (stored) {
             try {
                 return JSON.parse(stored);
-            } catch (e) {}
+            } catch (_e) {
+                // Ignore JSON parse errors - use default
+            }
         }
         return {};
     });
@@ -146,7 +147,7 @@ export function ReceiptsPage() {
         setIsAlertOpen(true);
     }, []);
     
-    const handleEdit = React.useCallback((receipt: Receipt) => {
+    const _handleEdit = React.useCallback((receipt: Receipt) => {
         router.push(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }));
     }, [router]);
     
@@ -213,7 +214,7 @@ export function ReceiptsPage() {
         setIsBulkDeleteAlertOpen(false);
     };
 
-    const handleAddNew = () => {
+    const _handleAddNew = () => {
         router.push(ROUTES.FINANCE.RECEIPT_NEW);
     };
     
@@ -303,12 +304,12 @@ export function ReceiptsPage() {
     }, [filteredData]);
     
     // ✅ Status badge variant
-    const getStatusVariant = (status?: string): "default" | "destructive" => {
+    const _getStatusVariant = (status?: string): "default" | "destructive" => {
         return status === 'cancelled' ? 'destructive' : 'default';
     };
     
     // ✅ Status label
-    const getStatusLabel = (status?: string): string => {
+    const _getStatusLabel = (status?: string): string => {
         return status === 'cancelled' ? 'Đã hủy' : 'Hoàn thành';
     };
     
@@ -318,12 +319,12 @@ export function ReceiptsPage() {
       const sorted = [...dataWithRunningBalance];
       if (sorting.id) {
         sorted.sort((a, b) => {
-          const aValue = (a as any)[sorting.id];
-          const bValue = (b as any)[sorting.id];
+          const aValue = (a as Record<string, unknown>)[sorting.id];
+          const bValue = (b as Record<string, unknown>)[sorting.id];
           // Special handling for date columns - parse as Date for proper comparison
           if (sorting.id === 'createdAt' || sorting.id === 'date') {
-            const aTime = aValue ? new Date(aValue).getTime() : 0;
-            const bTime = bValue ? new Date(bValue).getTime() : 0;
+            const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+            const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
             return sorting.desc ? bTime - aTime : aTime - bTime;
           }
           if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -383,7 +384,7 @@ export function ReceiptsPage() {
       });
       
       if (addedCount > 0 || updatedCount > 0) {
-        const messages = [];
+        const messages: string[] = [];
         if (addedCount > 0) messages.push(`${addedCount} phiếu thu mới`);
         if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
         toast.success(`Đã import: ${messages.join(', ')}`);

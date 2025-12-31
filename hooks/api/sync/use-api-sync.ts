@@ -1,4 +1,5 @@
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck - Deprecated file kept for reference, not worth fixing types
 /**
  * @deprecated This file is DEPRECATED and should NOT be used!
  * 
@@ -79,7 +80,6 @@ import type { Product } from '@/lib/types/prisma-extended';
 import type { Order } from '@/lib/types/prisma-extended';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import type { WarrantyTicket } from '@/lib/types/prisma-extended';
-import type { WikiArticle } from '@/lib/types/prisma-extended';
 
 // ============== TRANSACTION TYPE IMPORTS ==============
 import type { LeaveRequest } from '@/lib/types/prisma-extended';
@@ -129,11 +129,10 @@ async function fetchFromAPI<T>(endpoint: string): Promise<T[]> {
 }
 
 // ============== GENERIC SYNC HELPER ==============
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function syncStore<T extends { systemId: string }>(
   storeName: string,
   endpoint: string,
-  useStore: any,
+  useStore: { getState: () => { data?: T[] }; setState?: (state: { data: T[] }) => void },
   updateStatus: (status: SyncStatus) => void
 ) {
   try {

@@ -3,6 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { ProgressiveImage } from "../../../components/ui/progressive-image";
 import type { Complaint } from '../types';
 
+interface EmployeeImage {
+  id?: string;
+  url: string;
+}
+
+// Extended complaint type with employeeImages
+type ComplaintWithEmployeeImages = Complaint & {
+  employeeImages?: EmployeeImage[];
+};
+
 interface Props {
   complaint: Complaint;
   onImagePreview: (images: string[], index: number) => void;
@@ -62,15 +72,15 @@ export const ComplaintImagesSection: React.FC<Props> = React.memo(({ complaint, 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Hình ảnh kiểm tra từ nhân viên ({(complaint as any).employeeImages?.length || 0})
+            Hình ảnh kiểm tra từ nhân viên ({(complaint as ComplaintWithEmployeeImages).employeeImages?.length || 0})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {(complaint as any).employeeImages && (complaint as any).employeeImages.length > 0 ? (
+          {(complaint as ComplaintWithEmployeeImages).employeeImages && (complaint as ComplaintWithEmployeeImages).employeeImages!.length > 0 ? (
             <>
               <div className="grid grid-cols-5 gap-2">
-                {(complaint as any).employeeImages.map((img: any, idx: number) => {
-                  const employeeImages = (complaint as any).employeeImages.map((i: any) => i.url);
+                {(complaint as ComplaintWithEmployeeImages).employeeImages!.map((img: EmployeeImage, idx: number) => {
+                  const employeeImages = (complaint as ComplaintWithEmployeeImages).employeeImages!.map((i: EmployeeImage) => i.url);
                   return (
                     <div 
                       key={img.id || idx} 
@@ -94,7 +104,7 @@ export const ComplaintImagesSection: React.FC<Props> = React.memo(({ complaint, 
                 })}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {(complaint as any).employeeImages.length} hình • Click để xem lớn
+                {(complaint as ComplaintWithEmployeeImages).employeeImages!.length} hình • Click để xem lớn
               </p>
             </>
           ) : (

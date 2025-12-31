@@ -3,8 +3,8 @@
 import * as React from "react";
 import { useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
-import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, Link2, FolderEdit, FileUp, Download } from "lucide-react";
-import { asSystemId, asBusinessId, type SystemId } from "@/lib/id-types";
+import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, FolderEdit, FileUp, Download } from "lucide-react";
+import { asSystemId, asBusinessId } from "@/lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useProductCategoryStore } from "../settings/inventory/product-category-store";
 import type { ProductCategory } from "../settings/inventory/types";
@@ -13,7 +13,6 @@ import { ResponsiveDataTable } from "@/components/data-table/responsive-data-tab
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
-import { DataTableExportDialog } from "@/components/data-table/data-table-export-dialog";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { PageToolbar } from "@/components/layout/page-toolbar";
 import { PageFilters } from "@/components/layout/page-filters";
@@ -64,7 +63,7 @@ export function ProductCategoriesPage() {
     const storageKey = 'categories-column-visibility';
     const stored = localStorage.getItem(storageKey);
     if (stored) {
-      try { return JSON.parse(stored); } catch (e) {}
+      try { return JSON.parse(stored); } catch (_e) { /* Ignore JSON parse errors */ }
     }
     return {};
   });
@@ -201,8 +200,8 @@ export function ProductCategoriesPage() {
               updatedAt: new Date().toISOString(),
             };
             // Remove fields that shouldn't be overwritten
-            delete (updatedFields as any).systemId;
-            delete (updatedFields as any).createdAt;
+            delete (updatedFields as Partial<ProductCategory> & { systemId?: unknown }).systemId;
+            delete (updatedFields as Partial<ProductCategory> & { createdAt?: unknown }).createdAt;
             
             // Recalculate path if parentId changed
             if (item.parentId && item.parentId !== existingCategory.parentId) {
@@ -288,7 +287,7 @@ export function ProductCategoriesPage() {
   ), [handleDelete, handleToggleActive, router, data, handleUpdateName, handleUpdateSortOrder, handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId, handlePkgxLink, handlePkgxUnlink]);
 
   // Export config
-  const exportConfig = {
+  const _exportConfig = {
     fileName: 'Danh_muc_san_pham',
     columns,
   };
@@ -390,11 +389,11 @@ export function ProductCategoriesPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         if (sorting.id === 'createdAt') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (sorting.id === 'level') {
@@ -402,8 +401,10 @@ export function ProductCategoriesPage() {
           const bNum = typeof bValue === 'number' ? bValue : 0;
           return sorting.desc ? bNum - aNum : aNum - bNum;
         }
-        if (aValue < bValue) return sorting.desc ? 1 : -1;
-        if (aValue > bValue) return sorting.desc ? -1 : 1;
+        const aStr = String(aValue ?? '');
+        const bStr = String(bValue ?? '');
+        if (aStr < bStr) return sorting.desc ? 1 : -1;
+        if (aStr > bStr) return sorting.desc ? -1 : 1;
         return 0;
       });
     }

@@ -19,8 +19,36 @@ const SETTING_KEYS: Record<WarrantySettingType, string> = {
 
 const GROUP = 'warranty'
 
+// Type definitions for settings values
+interface SlaTargets {
+  response: number
+  processing: number
+  return: number
+}
+
+interface NotificationSettings {
+  emailOnCreate: boolean
+  emailOnAssign: boolean
+  emailOnProcessing: boolean
+  emailOnProcessed: boolean
+  emailOnReturned: boolean
+  emailOnOverdue: boolean
+  smsOnOverdue: boolean
+  inAppNotifications: boolean
+  reminderNotifications: boolean
+}
+
+interface TrackingSettings {
+  enabled: boolean
+  allowCustomerComments: boolean
+  showEmployeeName: boolean
+  showTimeline: boolean
+}
+
+type WarrantySettingValue = SlaTargets | NotificationSettings | TrackingSettings | unknown[]
+
 // Default values
-const DEFAULTS: Record<WarrantySettingType, any> = {
+const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
   'sla-targets': {
     response: 2 * 60,      // 2 hours
     processing: 24 * 60,   // 24 hours

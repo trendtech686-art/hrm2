@@ -103,7 +103,7 @@ export function PenaltyConfirmDialog({
   const handleConfirm = () => {
     const selected = penalties
       .filter(p => selectedIds.has(p.previewId))
-      .map(({ isDuplicate, violation, previewId, ...penalty }) => penalty);
+      .map(({ isDuplicate: _isDuplicate, violation: _violation, previewId: _previewId, ...penalty }) => penalty);
     onConfirm(selected);
     onOpenChange(false);
   };

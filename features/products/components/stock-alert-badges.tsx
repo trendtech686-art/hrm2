@@ -3,7 +3,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
 import { AlertTriangle, AlertCircle, PackageX, TrendingUp } from 'lucide-react';
 import type { Product } from '../types';
-import { getProductStockAlerts, STOCK_ALERT_CONFIG, type StockAlert, type StockAlertType } from '../stock-alert-utils';
+import { getProductStockAlerts, STOCK_ALERT_CONFIG, type StockAlertType } from '../stock-alert-utils';
 
 const AlertIcon = ({ type }: { type: StockAlertType }) => {
   switch (type) {

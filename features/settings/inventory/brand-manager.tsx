@@ -8,12 +8,9 @@ import {
   Globe,
   Tags,
   ExternalLink,
-  Copy,
-  Check,
   MoreVertical,
   Power,
   Pencil,
-  Upload,
   Image as ImageIcon,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -28,7 +25,7 @@ import { Switch } from '../../../components/ui/switch';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Separator } from '../../../components/ui/separator';
+import { OptimizedImage } from '../../../components/ui/optimized-image';
 import {
   Form,
   FormControl,
@@ -55,8 +52,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
-import type { Brand, WebsiteSeoData } from './types';
-import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
+import type { Brand } from './types';
+import { type SystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '../../../components/ui/new-documents-upload';
 import { FileUploadAPI, type StagingFile } from '../../../lib/file-upload-api';
@@ -153,7 +150,7 @@ function BrandListItem({
         brand.logo ? 'bg-background border' : 'bg-primary/10'
       )}>
         {brand.logo ? (
-          <img src={brand.logo} alt={brand.name} className="w-8 h-8 object-contain" />
+          <OptimizedImage src={brand.logo} alt={brand.name} className="w-8 h-8 object-contain" width={32} height={32} />
         ) : (
           <Tags className="h-5 w-5 text-primary" />
         )}
@@ -544,9 +541,11 @@ function BrandDetailForm({
                     {brand?.logo && logoFiles.length === 0 && (
                       <div className="flex items-center gap-4">
                         <div className="w-24 h-24 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
-                          <img 
+                          <OptimizedImage 
                             src={brand.logo} 
                             alt="Logo hiện tại" 
+                            width={96}
+                            height={96}
                             className="max-w-full max-h-full object-contain"
                           />
                         </div>

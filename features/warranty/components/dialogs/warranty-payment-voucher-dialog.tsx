@@ -20,7 +20,6 @@ import {
 } from '../../../../components/ui/dialog';
 import { Button } from '../../../../components/ui/button';
 import { Label } from '../../../../components/ui/label';
-import { Input } from '../../../../components/ui/input';
 import { CurrencyInput } from '../../../../components/ui/currency-input';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
@@ -85,11 +84,9 @@ export function WarrantyPaymentVoucherDialog({
   warrantyId,
   warrantySystemId,
   customer,
-  defaultAmount = 0,
   linkedOrderId,
   branchSystemId,
   branchName,
-  existingPayments = [],
 }: WarrantyPaymentVoucherDialogProps) {
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
@@ -183,7 +180,7 @@ export function WarrantyPaymentVoucherDialog({
   const settlementType = watch('settlementType');
   const selectedOrderId = watch('selectedOrderId');
   const paymentMethodSystemId = watch('paymentMethodSystemId');
-  const accountSystemId = watch('accountSystemId');
+  const _accountSystemId = watch('accountSystemId');
   const amount = watch('amount');
   const mixedOrderAmount = watch('mixedOrderAmount');
   const mixedCashAmount = watch('mixedCashAmount');
@@ -501,7 +498,7 @@ export function WarrantyPaymentVoucherDialog({
       amount: -orderAmount,
       createdBy: orderPayment.createdBy,
       description: `Trừ tiền bảo hành ${warrantyId}`,
-      linkedWarrantySystemId: warrantySystemId,
+      linkedWarrantySystemId: asSystemId(warrantySystemId),
     };
 
     updateOrder(order.systemId, {
@@ -746,14 +743,14 @@ export function WarrantyPaymentVoucherDialog({
             amount: -values.amount, // ÂM vì đây là trả tiền khách (giảm công nợ)
             createdBy: newPayment.createdBy,
             description: `Trừ tiền bảo hành ${warrantyId}`,
-            linkedWarrantySystemId: warrantySystemId,
+            linkedWarrantySystemId: asSystemId(warrantySystemId),
           };
 
           // Update order: add payment and increase paidAmount
           const updatedPayments = [...order.payments, orderPayment];
           const newPaidAmount = (order.paidAmount || 0) + values.amount;
 
-          updateOrder(linkedOrderSystemId, {
+          updateOrder(asSystemId(linkedOrderSystemId), {
             payments: updatedPayments,
             paidAmount: newPaidAmount,
           });

@@ -3,8 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Printer } from 'lucide-react';
-import { toast } from 'sonner';
+import { Printer, ArrowLeft } from 'lucide-react';
 
 import { useInventoryReceiptStore } from './store';
 import { usePurchaseOrderStore } from '../purchase-orders/store';
@@ -20,13 +19,13 @@ import {
 } from '../../lib/print/stock-in-print-helper';
 import { useBranchStore } from '../settings/branches/store';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
-import { numberToWords } from '../../lib/print-mappers/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '../../lib/date-utils';
+import { numberToWords } from '../../lib/print-service';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ActivityHistory } from '../../components/ActivityHistory';
 import { useAuth } from '../../contexts/auth-context';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -67,13 +66,13 @@ export function InventoryReceiptDetailPage() {
     }
   }, [comments, systemId]);
 
-  const handleAddComment = React.useCallback((content: string, parentId?: string) => {
+  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
     const newComment: InventoryReceiptComment = {
       id: asSystemId(`comment-${Date.now()}`),
       content,
       author: {
         systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'H? th?ng',
+        name: authEmployee?.fullName || 'Há»‡ thá»‘ng',
       },
       createdAt: new Date(),
       parentId: parentId as SystemId | undefined,
@@ -161,7 +160,7 @@ export function InventoryReceiptDetailPage() {
 
   const badge = React.useMemo(() => {
     if (!receipt) return undefined;
-    const label = receipt.branchName || 'Chua g?n chi nhánh';
+    const label = receipt.branchName || 'Chua g?n chi nhï¿½nh';
     return (
       <Badge variant="outline" className="uppercase tracking-wide">
         {label}
@@ -171,7 +170,7 @@ export function InventoryReceiptDetailPage() {
 
   usePageHeader({
     title: receipt ? `Phi?u nh?p kho ${receipt.id}` : 'Chi ti?t phi?u nh?p',
-    subtitle: receipt?.supplierName ? `Nhà cung c?p: ${receipt.supplierName}` : undefined,
+    subtitle: receipt?.supplierName ? `Nhï¿½ cung c?p: ${receipt.supplierName}` : undefined,
     breadcrumb: [
       { label: 'Trang ch?', href: ROUTES.DASHBOARD, isCurrent: false },
       { label: 'Phi?u nh?p kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: false },
@@ -186,10 +185,10 @@ export function InventoryReceiptDetailPage() {
     return (
       <Card>
         <CardContent className="py-10 text-center space-y-4">
-          <p className="text-h3 font-semibold">Không tìm th?y phi?u nh?p kho.</p>
+          <p className="text-h3 font-semibold">Khï¿½ng tï¿½m th?y phi?u nh?p kho.</p>
           <Button className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Quay l?i danh sách
+            Quay l?i danh sï¿½ch
           </Button>
         </CardContent>
       </Card>
@@ -205,13 +204,13 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="grid gap-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <DetailField label="Mã phi?u">{receipt.id}</DetailField>
-            <DetailField label="Ngày nh?p">{receivedDateLabel}</DetailField>
-            <DetailField label="Chi nhánh">{receipt.branchName || 'Không xác d?nh'}</DetailField>
-            <DetailField label="Kho hàng">{receipt.warehouseName || 'Không xác d?nh'}</DetailField>
+            <DetailField label="Mï¿½ phi?u">{receipt.id}</DetailField>
+            <DetailField label="Ngï¿½y nh?p">{receivedDateLabel}</DetailField>
+            <DetailField label="Chi nhï¿½nh">{receipt.branchName || 'Khï¿½ng xï¿½c d?nh'}</DetailField>
+            <DetailField label="Kho hï¿½ng">{receipt.warehouseName || 'Khï¿½ng xï¿½c d?nh'}</DetailField>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <DetailField label="Nhà cung c?p">
+            <DetailField label="Nhï¿½ cung c?p">
               {supplier ? (
                 <Link href={ROUTES.PROCUREMENT.SUPPLIER_VIEW.replace(':systemId', supplier.systemId)}
                   className="text-primary hover:underline font-medium"
@@ -222,7 +221,7 @@ export function InventoryReceiptDetailPage() {
                 receipt.supplierName
               )}
             </DetailField>
-            <DetailField label="Ðon mua hàng">
+            <DetailField label="ï¿½on mua hï¿½ng">
               {purchaseOrder ? (
                 <Link href={ROUTES.PROCUREMENT.PURCHASE_ORDER_VIEW.replace(':systemId', purchaseOrder.systemId)}
                   className="text-primary hover:underline font-medium"
@@ -233,7 +232,7 @@ export function InventoryReceiptDetailPage() {
                 receipt.purchaseOrderId
               )}
             </DetailField>
-            <DetailField label="Ngu?i nh?n hàng">
+            <DetailField label="Ngu?i nh?n hï¿½ng">
               {receiver ? (
                 <Link href={ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', receiver.systemId)}
                   className="text-primary hover:underline font-medium"
@@ -246,7 +245,7 @@ export function InventoryReceiptDetailPage() {
             </DetailField>
           </div>
           {receipt.notes && (
-            <DetailField label="Ghi chú">
+            <DetailField label="Ghi chï¿½">
               <span className="text-body-sm text-muted-foreground">{receipt.notes}</span>
             </DetailField>
           )}
@@ -256,9 +255,9 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="p-0">
           <div className="p-6">
-            <h3 className="text-h3 font-semibold">Danh sách s?n ph?m</h3>
+            <h3 className="text-h3 font-semibold">Danh sï¿½ch s?n ph?m</h3>
             <p className="text-body-sm text-muted-foreground">
-              T?ng {receipt.items.length} m?t hàng · {totalQuantity} don v? · {formatCurrency(totalValue)}
+              T?ng {receipt.items.length} m?t hï¿½ng ï¿½ {totalQuantity} don v? ï¿½ {formatCurrency(totalValue)}
             </p>
           </div>
           <div className="border-t">
@@ -267,12 +266,12 @@ export function InventoryReceiptDetailPage() {
                 <TableRow>
                   <TableHead className="w-[60px] text-center">STT</TableHead>
                   <TableHead className="w-[60px]">?nh</TableHead>
-                  <TableHead>Mã s?n ph?m</TableHead>
-                  <TableHead>Tên s?n ph?m</TableHead>
+                  <TableHead>Mï¿½ s?n ph?m</TableHead>
+                  <TableHead>Tï¿½n s?n ph?m</TableHead>
                   <TableHead className="text-center">SL d?t</TableHead>
                   <TableHead className="text-center">SL th?c nh?p</TableHead>
-                  <TableHead className="text-right">Ðon giá</TableHead>
-                  <TableHead className="text-right">Thành ti?n</TableHead>
+                  <TableHead className="text-right">ï¿½on giï¿½</TableHead>
+                  <TableHead className="text-right">Thï¿½nh ti?n</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -343,15 +342,15 @@ export function InventoryReceiptDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="Bình lu?n"
-        placeholder="Thêm bình lu?n v? phi?u nh?p kho..."
+        title="Bï¿½nh lu?n"
+        placeholder="Thï¿½m bï¿½nh lu?n v? phi?u nh?p kho..."
       />
 
       {/* Activity History */}
       <ActivityHistory
         history={[]}
         title="L?ch s? ho?t d?ng"
-        emptyMessage="Chua có l?ch s? ho?t d?ng"
+        emptyMessage="Chua cï¿½ l?ch s? ho?t d?ng"
         groupByDate
         maxHeight="400px"
       />

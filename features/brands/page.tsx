@@ -3,8 +3,8 @@
 import * as React from "react";
 import { useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
-import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, Link2, Unlink, FileUp, Download } from "lucide-react";
-import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
+import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, FileUp, Download, ExternalLink, Unlink } from "lucide-react";
+import { asSystemId, asBusinessId, type SystemId as _SystemId } from "@/lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useBrandStore } from "../settings/inventory/brand-store";
 import type { Brand } from "../settings/inventory/types";
@@ -13,7 +13,6 @@ import { ResponsiveDataTable } from "@/components/data-table/responsive-data-tab
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
-import { DataTableExportDialog } from "@/components/data-table/data-table-export-dialog";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { PageToolbar } from "@/components/layout/page-toolbar";
 import { PageFilters } from "@/components/layout/page-filters";
@@ -26,7 +25,6 @@ import { usePkgxBrandSync } from "./hooks/use-pkgx-brand-sync";
 import { usePkgxSettingsStore } from "../settings/pkgx/store";
 import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync";
 import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog";
-import { updateBrand } from "@/lib/pkgx/api-service";
 import { PkgxBrandLinkDialog } from "./components/pkgx-link-dialog";
 import { PkgxBrandDetailDialog } from "./components/pkgx-brand-detail-dialog";
 import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
@@ -67,7 +65,7 @@ export function BrandsPage() {
     const storageKey = 'brands-column-visibility';
     const stored = localStorage.getItem(storageKey);
     if (stored) {
-      try { return JSON.parse(stored); } catch (e) {}
+      try { return JSON.parse(stored); } catch (_e) { /* Ignore JSON parse errors */ }
     }
     return {};
   });
@@ -127,8 +125,8 @@ export function BrandsPage() {
   }, [router]);
 
   // PKGX Sync Hook
-  const { handleSyncBasicInfo, handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
-  const pkgxSettings = usePkgxSettingsStore((s) => s.settings);
+  const { handleSyncBasicInfo: _handleSyncBasicInfo, handleSyncSeo: _handleSyncSeo, handleSyncDescription: _handleSyncDescription, handleSyncAll: _handleSyncAll, hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
+  const _pkgxSettings = usePkgxSettingsStore((s) => s.settings);
   const deleteBrandMapping = usePkgxSettingsStore((s) => s.deleteBrandMapping);
   const getBrandMappingByHrmId = usePkgxSettingsStore((s) => s.getBrandMappingByHrmId);
   
@@ -139,7 +137,7 @@ export function BrandsPage() {
     triggerBulkSync,
     executeAction: executeBulkAction,
     cancelConfirm: cancelBulkConfirm,
-    getPkgxBrandId: hookGetPkgxBrandId,
+    getPkgxBrandId: _hookGetPkgxBrandId,
   } = usePkgxBulkSync({ entityType: 'brand' });
   
   // PKGX Link Dialog state
@@ -285,7 +283,7 @@ export function BrandsPage() {
 
   // Import handler
   const handleImport = React.useCallback(async (data: Partial<Brand>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
-    const currentEmployeeSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
+    const _currentEmployeeSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
     
     const results = {
       success: 0,
@@ -319,8 +317,8 @@ export function BrandsPage() {
               updatedAt: new Date().toISOString(),
             };
             // Remove fields that shouldn't be overwritten
-            delete (updatedFields as any).systemId;
-            delete (updatedFields as any).createdAt;
+            delete (updatedFields as Partial<Brand> & { systemId?: unknown }).systemId;
+            delete (updatedFields as Partial<Brand> & { createdAt?: unknown }).createdAt;
             
             update(existingBrand.systemId, updatedFields);
             results.updated++;
@@ -365,7 +363,7 @@ export function BrandsPage() {
   }, [activeBrands, add, update, authEmployee?.systemId]);
 
   // Export config
-  const exportConfig = {
+  const _exportConfig = {
     fileName: 'Thuong_hieu',
     columns,
   };
@@ -446,15 +444,17 @@ export function BrandsPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         if (sorting.id === 'createdAt') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
-        if (aValue < bValue) return sorting.desc ? 1 : -1;
-        if (aValue > bValue) return sorting.desc ? -1 : 1;
+        const aStr = String(aValue ?? '');
+        const bStr = String(bValue ?? '');
+        if (aStr < bStr) return sorting.desc ? 1 : -1;
+        if (aStr > bStr) return sorting.desc ? -1 : 1;
         return 0;
       });
     }

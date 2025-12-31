@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
-import type { Product, WebsiteSeoData } from "@/lib/types/prisma-extended";
+import type { Product } from "@/lib/types/prisma-extended";
 import { useProductStore } from "./store";
 import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useUnitStore } from "../settings/units/store";
@@ -106,7 +106,7 @@ type ProductFormCompleteProps = {
 export function ProductFormComplete({ 
   initialData, 
   onSubmit, 
-  onCancel,
+  onCancel: _onCancel,
   isEditMode = false,
   defaultType,
 }: ProductFormCompleteProps) {
@@ -114,7 +114,7 @@ export function ProductFormComplete({
   const { data: pricingPolicies } = usePricingPolicyStore();
   const { data: units } = useUnitStore();
   const { data: suppliers } = useSupplierStore();
-  const { data: branches } = useBranchStore();
+  const { data: _branches } = useBranchStore();
   const { settings: slaSettings } = useSlaSettingsStore();
   const { settings: logisticsSettings } = useProductLogisticsSettingsStore();
   const { getActive: getActiveStorageLocations } = useStorageLocationStore();
@@ -126,9 +126,9 @@ export function ProductFormComplete({
   // ═══════════════════════════════════════════════════════════════
   // IMAGE MANAGEMENT - Load existing images for edit mode
   // ═══════════════════════════════════════════════════════════════
-  const [isLoadingImages, setIsLoadingImages] = React.useState(false);
-  const [loadedThumbnails, setLoadedThumbnails] = React.useState<StagingFile[]>([]);
-  const [loadedGallery, setLoadedGallery] = React.useState<StagingFile[]>([]);
+  const [_isLoadingImages, setIsLoadingImages] = React.useState(false);
+  const [_loadedThumbnails, setLoadedThumbnails] = React.useState<StagingFile[]>([]);
+  const [_loadedGallery, setLoadedGallery] = React.useState<StagingFile[]>([]);
 
   // Load images from server when editing
   React.useEffect(() => {
@@ -184,6 +184,7 @@ export function ProductFormComplete({
           setIsLoadingImages(false);
         });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setThumbnailStagingFiles/setGalleryStagingFiles are stable setState from useImageUpload
   }, [initialData?.systemId, isEditMode]);
 
   // Image upload management - THUMBNAIL (single main image)
@@ -221,10 +222,10 @@ export function ProductFormComplete({
   } = useImageUpload(galleryUploadOptions);
 
   // Combined check for any images
-  const hasImages = hasThumbnailImages || hasGalleryImages;
+  const _hasImages = hasThumbnailImages || hasGalleryImages;
 
   // Combined confirm function
-  const confirmImages = async (productId: string, values: Record<string, any>) => {
+  const _confirmImages = async (productId: string, values: Record<string, unknown>) => {
     const results = await Promise.all([
       hasThumbnailImages ? confirmThumbnailImages(productId, { ...values, documentName: 'thumbnail' }) : Promise.resolve(null),
       hasGalleryImages ? confirmGalleryImages(productId, { ...values, documentName: 'gallery' }) : Promise.resolve(null),
@@ -302,7 +303,7 @@ export function ProductFormComplete({
     [activeImporters]
   );
 
-  const defaultImporter = React.useMemo(
+  const _defaultImporter = React.useMemo(
     () => getDefaultImporter(),
     [getDefaultImporter]
   );

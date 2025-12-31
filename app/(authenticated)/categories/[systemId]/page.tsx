@@ -1,3 +1,11 @@
-"use client"
+import type { Metadata } from 'next'
 import { CategoryDetailPage } from '@/features/categories/category-detail'
-export default CategoryDetailPage
+
+export const metadata: Metadata = {
+  title: 'Chi tiết danh mục',
+  description: 'Xem thông tin danh mục',
+}
+
+export default function Page() {
+  return <CategoryDetailPage />
+}

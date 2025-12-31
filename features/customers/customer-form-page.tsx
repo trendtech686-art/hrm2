@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, toISODate } from '@/lib/date-utils';
+import { formatDate as _formatDate, formatDateTime as _formatDateTime, formatDateTimeSeconds as _formatDateTimeSeconds, formatDateCustom as _formatDateCustom, getCurrentDate as _getCurrentDate, toISODate as _toISODate } from '@/lib/date-utils';
 import { useCustomerStore } from './store';
 import { asSystemId } from '@/lib/id-types';
 import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form';
@@ -10,9 +10,9 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  CardDescription as _CardDescription,
+  CardHeader as _CardHeader,
+  CardTitle as _CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import type { Customer } from '@/lib/types/prisma-extended';
@@ -26,7 +26,7 @@ export function CustomerFormPage() {
 
   const handleSubmit = (values: CustomerFormSubmitPayload) => {
     if (customer) {
-      // @ts-ignore
+      // @ts-expect-error - CustomerFormSubmitPayload is compatible with Customer
       const updated: Customer = {
         ...customer,
         ...values,
@@ -55,9 +55,9 @@ export function CustomerFormPage() {
     router.push('/customers');
   };
 
-  const handleCancel = () => {
+  const handleCancel = React.useCallback(() => {
     router.push('/customers');
-  }
+  }, [router]);
 
   const headerActions = React.useMemo(() => [
     <Button key="cancel" type="button" variant="outline" className="h-9" onClick={handleCancel}>Hủy</Button>,

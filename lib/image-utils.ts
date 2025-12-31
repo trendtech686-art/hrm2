@@ -104,7 +104,7 @@ export async function compressImageToWebP(
         try {
           const webpDataUrl = canvas.toDataURL('image/webp', quality);
           resolve(webpDataUrl);
-        } catch (error) {
+        } catch (_error) {
           // Fallback to JPEG if WebP not supported
           const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
           resolve(jpegDataUrl);
@@ -192,7 +192,7 @@ export async function createThumbnail(
       try {
         const webpDataUrl = canvas.toDataURL('image/webp', quality);
         resolve(webpDataUrl);
-      } catch (error) {
+      } catch (_error) {
         // Fallback to JPEG
         const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
         resolve(jpegDataUrl);

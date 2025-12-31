@@ -1,29 +1,28 @@
 import * as React from "react";
 import { UseFormReturn } from "react-hook-form";
-import { asBusinessId } from '@/lib/id-types';
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form";
-import { Input } from "../../../components/ui/input";
-import { CurrencyInput } from "../../../components/ui/currency-input";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select";
-import { DatePicker } from "../../../components/ui/date-picker";
-import type { EmployeeFormValues } from "../employee-form";
+} from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import type { EmployeeFormValues } from "./employee-form";
 import type { JobTitle } from "../../settings/job-titles/types";
 import type { Branch } from "../../settings/branches/types";
 
 interface EmployeeEmploymentTabProps {
-  form: UseFormReturn<EmployeeFormValues, any, EmployeeFormValues>;
+  form: UseFormReturn<EmployeeFormValues, unknown, EmployeeFormValues>;
   jobTitles: JobTitle[];
   branches: Branch[];
   isEditMode: boolean;
@@ -63,7 +62,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
         <FormField name="branchSystemId" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Chi nhánh</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn chi nhánh" />
@@ -79,7 +78,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
         <FormField name="department" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Phòng ban</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn phòng ban" />
@@ -98,7 +97,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
         <FormField name="jobTitle" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Chức danh</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn chức danh" />
@@ -123,7 +122,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
         <FormField name="employeeType" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Loại nhân viên</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn loại NV" />
@@ -142,7 +141,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
         <FormField name="employmentStatus" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Trạng thái làm việc</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn trạng thái" />
@@ -170,7 +169,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
         <FormField name="contractType" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Loại hợp đồng</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn loại hợp đồng" />
@@ -272,7 +271,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
           <FormItem>
             <FormLabel>Số phép đã sử dụng</FormLabel>
             <FormControl>
-              <Input type="number" min="0" {...field} value={field.value as any} onChange={e => field.onChange(Math.max(0, parseInt(e.target.value, 10) || 0))} />
+              <Input type="number" min="0" {...field} value={field.value as number | undefined} onChange={e => field.onChange(Math.max(0, parseInt(e.target.value, 10) || 0))} />
             </FormControl>
             <FormMessage />
           </FormItem> 

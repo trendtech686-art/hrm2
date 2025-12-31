@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 // FIX: Changed the import of 'FieldArray as useFieldArray' to 'useFieldArray' to resolve an export error.
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useEmployeeSettingsStore } from './employee-settings-store';
-import type { EmployeeSettings, LeaveType, SalaryComponent, LatePenaltyTier } from '@/lib/types/prisma-extended';
+import type { EmployeeSettings, LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Button } from '../../../components/ui/button';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';

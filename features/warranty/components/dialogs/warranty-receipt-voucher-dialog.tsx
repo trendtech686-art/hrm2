@@ -53,10 +53,8 @@ export function WarrantyReceiptVoucherDialog({
   warrantySystemId,
   customer,
   defaultAmount = 0,
-  linkedOrderId,
   branchSystemId,
   branchName,
-  existingReceipts = [],
 }: WarrantyReceiptVoucherDialogProps) {
   const [open, setOpen] = React.useState(false);
   const router = useRouter();

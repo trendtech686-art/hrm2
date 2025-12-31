@@ -3,9 +3,9 @@ import type { ColumnDef } from "../../components/data-table/types";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Eye, MoreHorizontal, Pencil, XCircle } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { generatePath, ROUTES } from "../../lib/router";
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { formatDateCustom } from '../../lib/date-utils';
 import type { Receipt } from "../receipts/types";
 import type { Payment } from "../payments/types";
 import { Checkbox } from "../../components/ui/checkbox";
@@ -96,7 +96,7 @@ export const getColumns = (
         sortKey="id"
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -118,7 +118,7 @@ export const getColumns = (
         sortKey="date"
         isSorted={sorting?.id === 'date'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => row?.date ? formatDateDisplay(row.date) : 'N/A',
@@ -136,7 +136,7 @@ export const getColumns = (
         sortKey="amount"
         isSorted={sorting?.id === 'amount'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -277,7 +277,7 @@ export const getColumns = (
         sortKey="createdAt"
         isSorted={sorting?.id === 'createdAt'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => row?.createdAt ? formatDateTimeDisplay(row.createdAt) : 'N/A',
@@ -293,7 +293,7 @@ export const getColumns = (
       const transaction = row;
       const isCancelled = transaction.status === 'cancelled';
       const isReceiptTx = isReceipt(transaction);
-      const viewRoute = isReceiptTx ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW;
+      const _viewRoute = isReceiptTx ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW;
       const editRoute = isReceiptTx ? ROUTES.FINANCE.RECEIPT_EDIT : ROUTES.FINANCE.PAYMENT_EDIT;
 
       return (

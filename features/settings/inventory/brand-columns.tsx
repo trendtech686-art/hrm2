@@ -1,5 +1,5 @@
 import { ColumnDef } from "@/components/data-table/types";
-import { MoreHorizontal, Pencil, Trash, Check, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

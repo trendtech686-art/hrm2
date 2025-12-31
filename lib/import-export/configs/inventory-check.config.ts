@@ -26,7 +26,7 @@ import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 const getProductStore = () => useProductStore.getState();
 const getBranchStore = () => useBranchStore.getState();
-const getEmployeeStore = () => useEmployeeStore.getState();
+const _getEmployeeStore = () => useEmployeeStore.getState();
 
 const findProduct = (identifier: string) => {
   if (!identifier) return undefined;
@@ -398,10 +398,10 @@ export function flattenInventoryChecksForExport(checks: InventoryCheck[]): Inven
       const item = check.items[i];
       rows.push({
         checkId: i === 0 ? check.id : '',
-        branchIdOrName: i === 0 ? check.branchName : '',
+        branchIdOrName: i === 0 ? (check.branchName ?? '') : '',
         status: i === 0 ? check.status : '',
         createdAt: i === 0 ? (check.createdAt instanceof Date ? check.createdAt.toISOString() : check.createdAt || '') : '',
-        note: i === 0 ? check.note : '',
+        note: i === 0 ? (check.note ?? undefined) : '',
         productIdOrSku: item.productId,
         productName: item.productName,
         unit: item.unit,

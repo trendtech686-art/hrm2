@@ -23,6 +23,19 @@ import { toast } from 'sonner';
 import { ExistingDocumentsViewer } from '../../../components/ui/existing-documents-viewer';
 import { NewDocumentsUpload } from '../../../components/ui/new-documents-upload';
 
+interface WarrantyProductField {
+  id: string;
+  systemId?: string;
+  sku?: string;
+  productName?: string;
+  quantity?: number;
+  unitPrice?: number;
+  productImages?: string[];
+  resolution?: string;
+  deductionAmount?: number;
+  note?: string;
+}
+
 interface WarrantyProductsSectionProps {
   disabled?: boolean;
   onProductImagesStateChange?: (data: {
@@ -62,9 +75,9 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
   const [productFilesToDelete, setProductFilesToDelete] = React.useState<Record<string, string[]>>({});
   
   // Warranty check results
-  const [warrantyCheckResults, setWarrantyCheckResults] = React.useState<Record<string, WarrantyCheckResult>>({});
+  const [_warrantyCheckResults, setWarrantyCheckResults] = React.useState<Record<string, WarrantyCheckResult>>({});
 
-  const { data: allProducts, getActive } = useProductStore();
+  const { data: _allProducts, getActive } = useProductStore();
   const { data: allOrders } = useOrderStore();
   
   // Watch customer name
@@ -72,12 +85,13 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
   const customerName = customer?.name || '';
   
   // Watch products to filter marked images before save
-  const products = watch('products') || [];
+  const watchedProducts = watch('products');
+  const products = React.useMemo(() => watchedProducts || [], [watchedProducts]);
   
   // ===== LOAD EXISTING PRODUCT IMAGES INTO STATE (on mount / products change) =====
   React.useEffect(() => {
     // Load existing product images into separate state
-    products.forEach((product: any) => {
+    products.forEach((product: WarrantyProductField) => {
       if (!product.systemId) return;
       
       const productSystemId = product.systemId;
@@ -117,7 +131,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
       
       // Convert staging URLs to StagingFile objects (extract sessionId)
       const stagingFiles: StagingFile[] = stagingUrls.map((url: string, idx: number) => {
-        const sessionIdMatch = (url && typeof url === 'string') ? url.match(/\/staging\/files\/([^\/]+)\//) : null;
+        const sessionIdMatch = (url && typeof url === 'string') ? url.match(/\/staging\/files\/([^/]+)\//) : null;
         const extractedSessionId = sessionIdMatch ? sessionIdMatch[1] : '';
         const filename = (url && typeof url === 'string') ? url.split('/').pop() || `staging-${idx}` : `staging-${idx}`;
         
@@ -160,12 +174,13 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
         }
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only re-run when products change from server, not when local states update
   }, [products]); // Re-run when products change (e.g., load from server)
   
   // ===== SYNC IMAGE STATES TO FORM - PER PRODUCT (like receivedImages) =====
   React.useEffect(() => {
     // Sync each product's permanent + staging files to form field
-    const updatedProducts = products.map((product: any) => {
+    const updatedProducts = products.map((product: WarrantyProductField) => {
       if (!product.systemId) return product;
       
       const permanent = productPermanentFiles[product.systemId] || [];
@@ -204,7 +219,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
   React.useEffect(() => {
     // Filter out marked images from each product
     let hasChanges = false;
-    const updatedProducts = products.map((product: any) => {
+    const updatedProducts = products.map((product: WarrantyProductField) => {
       if (!product.systemId) return product;
       
       const markedFiles = productFilesToDelete[product.systemId] || [];
@@ -239,7 +254,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
   // Get active products
   const availableProducts = React.useMemo(() => {
     return getActive();
-  }, [allProducts, getActive]);
+  }, [getActive]);
 
   // Convert to Combobox options
   const productOptions: ComboboxOption[] = React.useMemo(() => {
@@ -451,13 +466,14 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fields.map((field: any, index) => {
+                {fields.map((field, index) => {
+                  const typedField = field as unknown as WarrantyProductField;
                   // ✅ FIX: Find product by SKU (Product.id) instead of name
-                  const product = field.sku 
-                    ? availableProducts.find((p) => p.id === field.sku)
-                    : availableProducts.find((p) => p.name === field.productName);
-                  const quantity = field.quantity || 1;
-                  const unitPrice = field.unitPrice || 0;
+                  const product = typedField.sku 
+                    ? availableProducts.find((p) => p.id === typedField.sku)
+                    : availableProducts.find((p) => p.name === typedField.productName);
+                  const quantity = typedField.quantity || 1;
+                  const unitPrice = typedField.unitPrice || 0;
                   const total = quantity * unitPrice;
 
                   return (
@@ -467,7 +483,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
                       {/* Tên sản phẩm */}
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <p className="font-medium">{field.productName}</p>
+                          <p className="font-medium">{typedField.productName}</p>
                           {product && (
                             <a
                               href={`/products/${product.systemId}`}
@@ -517,7 +533,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
                       {/* Hình ảnh */}
                       <TableCell>
                         {(() => {
-                          const productSystemId = field.systemId;
+                          const productSystemId = typedField.systemId;
                           const permanentFiles = productPermanentFiles[productSystemId] || [];
                           const stagingFiles = productStagingFiles[productSystemId] || [];
                           
@@ -622,8 +638,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
                                     }
                                     .product-images-grid p,
                                     .product-images-grid span:not(.sr-only),
-                                    .product-images-grid .space-y-0\.5,
-                                    .product-images-grid .space-y-1\.5 {
+                                    .product-images-grid [class*="space-y-"] {
                                       display: none !important;
                                     }
                                   `}} />
@@ -716,7 +731,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
                                   }
                                   .compact-upload .grid > div p,
                                   .compact-upload .grid > div span:not(.sr-only),
-                                  .compact-upload .grid > div .space-y-1\.5 {
+                                  .compact-upload .grid > div [class*="space-y-"] {
                                     display: none !important;
                                   }
                                   .compact-upload .grid > div button {

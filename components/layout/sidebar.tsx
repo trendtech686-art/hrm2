@@ -4,11 +4,11 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Users, Command, FileText, Building2, UserCog, Clock, CalendarOff, Landmark, Target,
-  Briefcase, Package, ShoppingCart, Truck, History, Banknote, BookUser, Wrench,
-  Workflow, ShieldAlert, BadgeCent, CalendarCheck, Library, MessageCircle, Bell,
-  AreaChart, Settings, GitPullRequest, FileClock, Search, ReceiptText, CreditCard,
-  Inbox, Home, Warehouse, Wallet, Undo2, PanelLeftClose, PanelLeftOpen, User, Heart,
+  Users, Command, Building2, Clock, CalendarOff,
+  Briefcase, Package, ShoppingCart, Truck, History, BookUser, Wrench,
+  Workflow, ShieldAlert, BadgeCent, CalendarCheck, Library,
+  AreaChart, Settings, Search, ReceiptText, CreditCard,
+  Inbox, Home, Wallet, Undo2,
   ListTodo, ClipboardCheck, CheckSquare, ArrowLeftRight, CircleDollarSign, Tags, FolderTree,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -186,7 +186,7 @@ export function Sidebar() {
     const [search, setSearch] = React.useState('');
   const { employee: authEmployee } = useAuth();
   const loggedInUser = authEmployee;
-    const { isSidebarCollapsed, toggleSidebarCollapse } = useUiStore();
+    const { isSidebarCollapsed, toggleSidebarCollapse: _toggleSidebarCollapse } = useUiStore();
 
     const filteredMenuGroups = React.useMemo(() => {
     const userRole = loggedInUser?.role || 'Admin';

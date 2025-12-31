@@ -83,31 +83,35 @@ export function TipTapEditor({
     return result.file.url;
   }, [currentSessionId, onSessionChange]);
 
-  // Validate and upload image
-  const handleImageFile = React.useCallback(async (file: File, source: 'select' | 'paste' | 'drop') => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Chỉ chấp nhận file ảnh');
-      return;
-    }
+  // Validate and upload image - editor is accessed via closure at call time
+  const handleImageFile = React.useCallback(
+    async (file: File, source: 'select' | 'paste' | 'drop') => {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Chỉ chấp nhận file ảnh');
+        return;
+      }
 
-    if (file.size > maxImageSize) {
-      const maxMB = Math.round(maxImageSize / 1024 / 1024);
-      toast.error('Ảnh quá lớn', { description: `Kích thước tối đa ${maxMB}MB` });
-      return;
-    }
+      if (file.size > maxImageSize) {
+        const maxMB = Math.round(maxImageSize / 1024 / 1024);
+        toast.error('Ảnh quá lớn', { description: `Kích thước tối đa ${maxMB}MB` });
+        return;
+      }
 
-    setIsUploading(true);
-    try {
-      const url = await uploadToStaging(file);
-      editor?.chain().focus().setImage({ src: url }).run();
-      toast.success(source === 'paste' ? 'Đã dán ảnh' : source === 'drop' ? 'Đã thả ảnh' : 'Đã thêm ảnh');
-    } catch (error) {
-      console.error('Upload failed:', error);
-      toast.error('Không thể tải ảnh lên');
-    } finally {
-      setIsUploading(false);
-    }
-  }, [uploadToStaging, maxImageSize]);
+      setIsUploading(true);
+      try {
+        const url = await uploadToStaging(file);
+        editor?.chain().focus().setImage({ src: url }).run();
+        toast.success(source === 'paste' ? 'Đã dán ảnh' : source === 'drop' ? 'Đã thả ảnh' : 'Đã thêm ảnh');
+      } catch (error) {
+        console.error('Upload failed:', error);
+        toast.error('Không thể tải ảnh lên');
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- editor is defined after this callback and accessed via closure
+    [uploadToStaging, maxImageSize]
+  );
 
   const editor = useEditor({
     extensions: [
@@ -164,9 +168,9 @@ export function TipTapEditor({
     };
 
     const editorElement = editor.view.dom;
-    editorElement.addEventListener('paste', handlePaste as any);
+    editorElement.addEventListener('paste', handlePaste as EventListener);
     return () => {
-      editorElement.removeEventListener('paste', handlePaste as any);
+      editorElement.removeEventListener('paste', handlePaste as EventListener);
     };
   }, [editor, handleImageFile]);
 

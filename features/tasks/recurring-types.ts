@@ -35,6 +35,7 @@ export interface RecurrencePattern {
 }
 
 export interface RecurringTask {
+  [key: string]: unknown;
   systemId: SystemId;
   id: string; // RECUR-XXX
   

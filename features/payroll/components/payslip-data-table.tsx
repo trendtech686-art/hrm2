@@ -43,7 +43,7 @@ const formatCurrency = (value?: number) =>
     ? value.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ'
     : '—';
 
-function PayslipCard({ row, actions, isLocked }: { row: PayslipRow; actions?: PayslipActions; isLocked?: boolean }) {
+function PayslipCard({ row, actions, isLocked: _isLocked }: { row: PayslipRow; actions?: PayslipActions; isLocked?: boolean }) {
   return (
     <Card className="mb-3">
       <CardContent className="p-4">

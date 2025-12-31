@@ -120,7 +120,7 @@ export function OrderSummaryCard({
     onShippingFeesChange?.(shippingFees.filter((fee) => fee.id !== id));
   };
 
-  const handleUpdateShippingFee = (id: string, field: keyof Fee, value: any) => {
+  const handleUpdateShippingFee = (id: string, field: keyof Fee, value: string | number) => {
     onShippingFeesChange?.(
       shippingFees.map((fee) =>
         fee.id === id ? { ...fee, [field]: value } : fee
@@ -141,7 +141,7 @@ export function OrderSummaryCard({
     onOtherFeesChange?.(otherFees.filter((fee) => fee.id !== id));
   };
 
-  const handleUpdateOtherFee = (id: string, field: keyof Fee, value: any) => {
+  const handleUpdateOtherFee = (id: string, field: keyof Fee, value: string | number) => {
     onOtherFeesChange?.(
       otherFees.map((fee) =>
         fee.id === id ? { ...fee, [field]: value } : fee
@@ -190,7 +190,7 @@ export function OrderSummaryCard({
     );
   };
 
-  const handlePaymentNoteChange = (id: string, note: string) => {
+  const _handlePaymentNoteChange = (id: string, note: string) => {
     onPaymentsChange?.(
       payments.map((p) => (p.id === id ? { ...p, note } : p))
     );

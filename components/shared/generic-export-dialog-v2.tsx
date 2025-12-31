@@ -33,7 +33,6 @@ import {
   type FieldConfig,
   transformExportRow,
   generateExportFileName,
-  formatFileSize,
 } from '../../lib/import-export/index'
 import type { SystemId } from "../../lib/id-types"
 import { usePricingPolicyStore } from "../../features/settings/pricing/store"
@@ -98,7 +97,7 @@ export function GenericExportDialogV2<T>({
         .map(f => f.key as string)
       setSelectedColumns(defaultColumns)
     }
-  }, [open, config.fields])
+  }, [open, config.fields, selectedColumns.length])
 
   // Reset scope when dialog opens
   React.useEffect(() => {
@@ -238,7 +237,7 @@ export function GenericExportDialogV2<T>({
       )
       
       // Add dynamic pricing fields for products
-      let allSelectedFields = [...staticSelectedFields]
+      let allSelectedFieldsFinal = [...staticSelectedFields]
       const selectedPriceColumns = selectedColumns.filter(k => k.startsWith('_price_'))
       
       if (config.entityType === 'products' && selectedPriceColumns.length > 0) {
@@ -253,7 +252,7 @@ export function GenericExportDialogV2<T>({
             exportGroup: 'Bảng giá',
           }
         })
-        allSelectedFields = [...allSelectedFields, ...pricingFields]
+        allSelectedFieldsFinal = [...allSelectedFieldsFinal, ...pricingFields]
       }
 
       // Transform data (with special handling for pricing columns)
@@ -443,7 +442,7 @@ export function GenericExportDialogV2<T>({
                         <Checkbox
                           id={`group-${group}`}
                           checked={allSelected}
-                          // @ts-ignore - indeterminate is valid HTML attribute
+                          // @ts-expect-error - indeterminate is valid HTML attribute
                           ref={(el) => el && (el.indeterminate = someSelected)}
                           onCheckedChange={() => handleToggleGroup(fields)}
                         />

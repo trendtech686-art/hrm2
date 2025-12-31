@@ -38,7 +38,7 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
   const { settings } = useEmployeeSettingsStore();
   
   // Format số để hiển thị
-  const formatNumber = (n: number) => n.toLocaleString('vi-VN');
+  const _formatNumber = (n: number) => n.toLocaleString('vi-VN');
   
   const form = useForm<SalaryComponentFormValues>({
     defaultValues: initialData || {

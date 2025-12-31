@@ -8,13 +8,11 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import { Button } from '../../../components/ui/button';
 import { Plus } from 'lucide-react';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { loadShippingConfig } from '@/lib/utils/shipping-config-migration';
 import { AccountList } from './components/account-list';
 import { PartnerConfigDialog, ShippingPartner } from './partner-config-dialog';
-import type { PartnerAccount } from '@/lib/types/shipping-config';
 
 const PARTNER_NAMES: Record<string, string> = {
   'GHN': 'Giao Hàng Nhanh',
@@ -29,7 +27,7 @@ const PARTNER_NAMES: Record<string, string> = {
 
 export function ShippingPartnerDetailPage() {
   const { code } = useParams<{ code: string }>();
-  const router = useRouter();
+  const _router = useRouter();
   
   const [config, setConfig] = React.useState(() => loadShippingConfig());
   const [accountDialogOpen, setAccountDialogOpen] = React.useState(false);

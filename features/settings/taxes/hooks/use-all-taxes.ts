@@ -15,7 +15,8 @@ import type { Tax } from '@/lib/types/prisma-extended';
 export function useAllTaxesData() {
   const query = useAllTaxesQuery();
   
-  const data = query.data || [];
+  // Memoize data to prevent useCallback deps warnings
+  const data = React.useMemo(() => query.data || [], [query.data]);
   
   // Helper to get default sale tax
   const getDefaultSale = React.useCallback((): Tax | undefined => {

@@ -2,19 +2,17 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
-import { formatDateTime as formatDateTimeUtil } from '../../lib/date-utils';
+import { formatDateTime as formatDateTimeUtil, formatTimeForDisplay as formatTime } from '../../lib/date-utils';
+import { numberToWords } from '../../lib/print-service';
 import { useSalesReturnStore } from './store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
 import { useBranchStore } from '../settings/branches/store';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePrint } from '../../lib/use-print';
-import { StoreSettings, numberToWords, formatTime } from '../../lib/print-service';
 import { 
   convertSalesReturnForPrint,
   mapSalesReturnToPrintData, 
-  mapSalesReturnLineItems, 
   createStoreSettingsFromBranch 
 } from '../../lib/print/sales-return-print-helper';
 import { 
@@ -25,15 +23,14 @@ import {
 import { 
   convertPaymentForPrint,
   mapPaymentToPrintData,
-  createStoreSettings as createPaymentStoreSettings,
 } from '../../lib/print/payment-print-helper';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { ArrowLeft, Printer } from 'lucide-react';
+import Link from 'next/link';
+import { Printer, ArrowLeft } from 'lucide-react';
 import { DetailField } from '../../components/ui/detail-field';
 import { Separator } from '../../components/ui/separator';
-import type { SalesReturn } from '@/lib/types/prisma-extended';
 import { useReceiptStore } from '../receipts/store';
 import { usePaymentStore } from '../payments/store';
 import type { Receipt } from '../receipts/types';
@@ -45,22 +42,13 @@ import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ActivityHistory } from '../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
     return new Intl.NumberFormat('vi-VN').format(value);
-};
-
-// Fallback labels for product types
-const productTypeFallbackLabels: Record<string, string> = {
-    physical: 'Hàng hóa',
-    single: 'Hàng hóa',
-    service: 'Dịch vụ',
-    digital: 'Sản phẩm số',
-    combo: 'Combo',
 };
 
 const formatDate = (dateString?: string) => {
@@ -565,7 +553,8 @@ export function SalesReturnDetailPage() {
 
             {/* Activity History */}
             <ActivityHistory
-                history={salesReturn.activityHistory || []}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                history={((salesReturn as Record<string, unknown>).activityHistory as any[]) || []}
                 title="Lịch sử hoạt động"
                 emptyMessage="Chưa có lịch sử hoạt động"
                 groupByDate

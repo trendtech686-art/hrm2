@@ -7,10 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../../../components/ui/switch';
 import { Slider } from '../../../components/ui/slider';
 import { Badge } from '../../../components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { Separator } from '../../../components/ui/separator';
 import { Progress } from '../../../components/ui/progress';
-import { Check, CreditCard, Star } from 'lucide-react';
+import { Check, CreditCard } from 'lucide-react';
 
 export function PreviewCards() {
     const [progress] = React.useState(68);

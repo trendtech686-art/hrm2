@@ -1,0 +1,759 @@
+'use client'
+
+import * as React from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import { useStockTransferStore } from '../store';
+import { useBranchStore } from '@/features/settings/branches/store';
+import { useProductStore } from '@/features/products/store';
+import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
+import { useEmployeeStore } from '@/features/employees/store';
+import { usePrint } from '@/lib/use-print';
+import { 
+  convertStockTransferForPrint,
+  mapStockTransferToPrintData, 
+  mapStockTransferLineItems,
+  createStoreSettings
+} from '@/lib/print/stock-transfer-print-helper';
+import { useStoreInfoStore } from '@/features/settings/store-info/store-info-store';
+import { useAuth } from '@/contexts/auth-context';
+import { usePageHeader } from '@/contexts/page-header-context';
+import { ROUTES } from '@/lib/router';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DetailField } from '@/components/ui/detail-field';
+import { ActivityHistory, type HistoryEntry } from '@/components/ActivityHistory';
+import { ImagePreviewDialog } from '@/components/ui/image-preview-dialog';
+import { OptimizedImage } from '@/components/ui/optimized-image';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { ArrowRight, Truck, Package, CheckCircle, XCircle, Printer, Edit, Eye } from 'lucide-react';
+import { toast } from 'sonner';
+import { asSystemId, type SystemId } from '@/lib/id-types';
+import { Comments, type Comment as CommentType } from '@/components/Comments';
+import { formatDateTime } from '@/lib/date-utils';
+import { StockTransferWorkflowCard } from '../components/stock-transfer-workflow-card';
+import type { Subtask } from '@/components/shared/subtask-list';
+import type { StockTransferStatus, StockTransfer } from '@/lib/types/prisma-extended';
+
+const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' d';
+
+const getStatusVariant = (status: StockTransferStatus): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
+  switch (status) {
+    case 'pending': return 'secondary';
+    case 'transferring': return 'default';
+    case 'completed': return 'success';
+    case 'cancelled': return 'destructive';
+    default: return 'outline';
+  }
+};
+
+const getStatusLabel = (status: StockTransferStatus): string => {
+  switch (status) {
+    case 'pending': return 'Ch? chuy?n';
+    case 'transferring': return '�ang chuy?n';
+    case 'completed': return 'Ho�n th�nh';
+    case 'cancelled': return '�� h?y';
+    default: return status;
+  }
+};
+
+// Build history entries from transfer data
+function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
+  const entries: HistoryEntry[] = [];
+  
+  // Created entry
+  if (transfer.createdDate) {
+    entries.push({
+      id: `${transfer.systemId}-created`,
+      action: 'created',
+      timestamp: new Date(transfer.createdDate),
+      user: {
+        systemId: transfer.createdBy || '',
+        name: transfer.createdByName,
+      },
+      description: `T?o phi?u chuy?n kho v?i ${transfer.items.length} s?n ph?m`,
+    });
+  }
+  
+  // Transferred entry
+  if (transfer.transferredDate) {
+    entries.push({
+      id: `${transfer.systemId}-transferred`,
+      action: 'status_changed',
+      timestamp: new Date(transfer.transferredDate),
+      user: {
+        systemId: transfer.transferredBySystemId || '',
+        name: transfer.transferredByName || '',
+      },
+      description: 'X�c nh?n xu?t kho, dang chuy?n h�ng',
+      metadata: {
+        oldValue: 'Ch? chuy?n',
+        newValue: '�ang chuy?n',
+        field: 'Tr?ng th�i',
+      },
+    });
+  }
+  
+  // Received entry
+  if (transfer.receivedDate) {
+    entries.push({
+      id: `${transfer.systemId}-received`,
+      action: 'status_changed',
+      timestamp: new Date(transfer.receivedDate),
+      user: {
+        systemId: transfer.receivedBySystemId || '',
+        name: transfer.receivedByName || '',
+      },
+      description: 'X�c nh?n nh?n h�ng ho�n th�nh',
+      metadata: {
+        oldValue: '�ang chuy?n',
+        newValue: 'Ho�n th�nh',
+        field: 'Tr?ng th�i',
+      },
+    });
+  }
+  
+  // Cancelled entry
+  if (transfer.cancelledDate) {
+    entries.push({
+      id: `${transfer.systemId}-cancelled`,
+      action: 'cancelled',
+      timestamp: new Date(transfer.cancelledDate),
+      user: {
+        systemId: transfer.cancelledBySystemId || '',
+        name: transfer.cancelledByName || '',
+      },
+      description: transfer.cancelReason 
+        ? `H?y phi?u: ${transfer.cancelReason}`
+        : 'H?y phi?u chuy?n kho',
+    });
+  }
+  
+  // Sort by timestamp descending (newest first)
+  return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+}
+
+export function StockTransferDetailPage() {
+  const { systemId } = useParams<{ systemId: string }>();
+  const router = useRouter();
+  const { findById, confirmTransfer, confirmReceive, cancelTransfer } = useStockTransferStore();
+  const { findById: findProductById } = useProductStore();
+  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findEmployeeById } = useEmployeeStore();
+  const { user } = useAuth();
+  const { setPageHeader, clearPageHeader } = usePageHeader();
+
+  const [confirmTransferOpen, setConfirmTransferOpen] = React.useState(false);
+  const [confirmReceiveOpen, setConfirmReceiveOpen] = React.useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
+  const [cancelReason, setCancelReason] = React.useState('');
+  const [receiveItems, setReceiveItems] = React.useState<{ productSystemId: SystemId; receivedQuantity: number }[]>([]);
+  const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
+  const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
+
+  const transfer = findById(asSystemId(systemId || ''));
+
+  const { findById: findBranchById } = useBranchStore();
+  const { info: storeInfo } = useStoreInfoStore();
+  const { print } = usePrint(transfer?.fromBranchSystemId);
+
+  const handlePrint = React.useCallback(() => {
+    if (!transfer) return;
+
+    const fromBranch = findBranchById(transfer.fromBranchSystemId);
+    const toBranch = findBranchById(transfer.toBranchSystemId);
+    const storeSettings = createStoreSettings(storeInfo);
+    
+    const transferForPrint = convertStockTransferForPrint(transfer, {
+      fromBranch,
+      toBranch,
+    });
+
+    print('stock-transfer', {
+      data: mapStockTransferToPrintData(transferForPrint, storeSettings),
+      lineItems: mapStockTransferLineItems(transferForPrint.items),
+    });
+  }, [transfer, findBranchById, storeInfo, print]);
+
+  const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
+    const productType = findProductTypeById(productTypeSystemId);
+    return productType?.name || 'H�ng h�a';
+  }, [findProductTypeById]);
+
+  // Comments state with localStorage persistence
+  type TransferComment = CommentType<SystemId>;
+  const [comments, setComments] = React.useState<TransferComment[]>(() => {
+    const saved = localStorage.getItem(`stock-transfer-comments-${systemId}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  React.useEffect(() => {
+    if (systemId) {
+      localStorage.setItem(`stock-transfer-comments-${systemId}`, JSON.stringify(comments));
+    }
+  }, [comments, systemId]);
+
+  const currentEmployee = React.useMemo(() => {
+    if (!user?.employeeId) return null;
+    return findEmployeeById(asSystemId(user.employeeId));
+  }, [user, findEmployeeById]);
+
+  const handleAddComment = (content: string, _attachments?: string[], parentId?: string) => {
+    const newComment: TransferComment = {
+      id: asSystemId(`comment-${Date.now()}`),
+      content,
+      author: {
+        systemId: currentEmployee?.systemId || asSystemId('system'),
+        name: currentEmployee?.fullName || 'Hệ thống',
+      },
+      createdAt: new Date(),
+      parentId: parentId as SystemId | undefined,
+    };
+    setComments(prev => [...prev, newComment]);
+  };
+
+  const handleUpdateComment = (commentId: string, content: string) => {
+    setComments(prev => prev.map(c => 
+      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
+    ));
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    setComments(prev => prev.filter(c => c.id !== commentId));
+  };
+
+  const commentCurrentUser = React.useMemo(() => ({
+    systemId: currentEmployee?.systemId || asSystemId('system'),
+    name: currentEmployee?.fullName || 'H? th?ng',
+  }), [currentEmployee]);
+
+  // Header actions based on status
+  const headerActions = React.useMemo(() => {
+    if (!transfer) return null;
+
+    // Determine if can edit: pending/transferring = limited, completed = very limited
+    const canEdit = transfer.status !== 'cancelled';
+
+    return (
+      <div className="flex items-center gap-2">
+        {transfer.status === 'pending' && (
+          <>
+            <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
+              <XCircle className="mr-2 h-4 w-4" />
+              H?y
+            </Button>
+            <Button className="h-9" onClick={() => setConfirmTransferOpen(true)}>
+              <Truck className="mr-2 h-4 w-4" />
+              Chuy?n h�ng kh?i kho
+            </Button>
+          </>
+        )}
+        
+        {transfer.status === 'transferring' && (
+          <>
+            <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
+              <XCircle className="mr-2 h-4 w-4" />
+              H?y
+            </Button>
+            <Button className="h-9" onClick={() => setConfirmReceiveOpen(true)}>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Nh?n h�ng v�o kho
+            </Button>
+          </>
+        )}
+
+        <Button variant="outline" className="h-9" onClick={handlePrint}>
+          <Printer className="mr-2 h-4 w-4" />
+          In phi?u
+        </Button>
+        
+        {canEdit && (
+          <Button variant="outline" className="h-9" onClick={() => router.push(`/stock-transfers/${transfer.systemId}/edit`)}>
+            <Edit className="mr-2 h-4 w-4" />
+            S?a
+          </Button>
+        )}
+      </div>
+    );
+  }, [transfer, router, handlePrint]);
+
+  // Breadcrumb
+  const breadcrumb = React.useMemo(() => {
+    if (!transfer) return [];
+    return [
+      { label: 'Trang ch?', href: ROUTES.ROOT },
+      { label: 'Chuy?n kho', href: ROUTES.INVENTORY.STOCK_TRANSFERS },
+      { label: transfer.id, href: '' },
+    ];
+  }, [transfer]);
+
+  React.useEffect(() => {
+    if (transfer) {
+      setPageHeader({
+        title: `Phi?u chuy?n kho ${transfer.id}`,
+        breadcrumb,
+        showBackButton: true,
+        backPath: ROUTES.INVENTORY.STOCK_TRANSFERS,
+        actions: headerActions,
+        badge: (
+          <Badge variant={getStatusVariant(transfer.status)}>
+            {getStatusLabel(transfer.status)}
+          </Badge>
+        ),
+      });
+      
+      // Initialize receive items
+      setReceiveItems(transfer.items.map(item => ({
+        productSystemId: item.productSystemId,
+        receivedQuantity: item.quantity,
+      })));
+    }
+    return () => clearPageHeader();
+  }, [transfer, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
+
+  if (!transfer) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Package className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-h3 font-semibold">Kh�ng t�m th?y phi?u chuy?n kho</h2>
+        <Button variant="link" onClick={() => router.push('/stock-transfers')}>
+          Quay l?i danh s�ch
+        </Button>
+      </div>
+    );
+  }
+
+  const handleConfirmTransfer = () => {
+    if (!currentEmployee) {
+      toast.error('Kh�ng t�m th?y th�ng tin nh�n vi�n');
+      return;
+    }
+
+    const success = confirmTransfer(transfer.systemId, currentEmployee.systemId);
+    if (success) {
+      toast.success('�� x�c nh?n chuy?n h�ng kh?i kho');
+    } else {
+      toast.error('Kh�ng th? x�c nh?n chuy?n h�ng');
+    }
+    setConfirmTransferOpen(false);
+  };
+
+  const handleConfirmReceive = () => {
+    if (!currentEmployee) {
+      toast.error('Kh�ng t�m th?y th�ng tin nh�n vi�n');
+      return;
+    }
+
+    const success = confirmReceive(transfer.systemId, currentEmployee.systemId, receiveItems);
+    if (success) {
+      toast.success('�� x�c nh?n nh?n h�ng v�o kho');
+    } else {
+      toast.error('Kh�ng th? x�c nh?n nh?n h�ng');
+    }
+    setConfirmReceiveOpen(false);
+  };
+
+  const handleCancel = () => {
+    if (!currentEmployee) {
+      toast.error('Kh�ng t�m th?y th�ng tin nh�n vi�n');
+      return;
+    }
+
+    const success = cancelTransfer(transfer.systemId, currentEmployee.systemId, cancelReason);
+    if (success) {
+      toast.success('�� h?y phi?u chuy?n kho');
+    } else {
+      toast.error('Kh�ng th? h?y phi?u chuy?n kho');
+    }
+    setCancelDialogOpen(false);
+    setCancelReason('');
+  };
+
+  const totalQuantity = transfer.items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalReceived = transfer.items.reduce((sum, item) => sum + (item.receivedQuantity || 0), 0);
+  
+  // Calculate total value using product cost prices
+  const totalValue = transfer.items.reduce((sum, item) => {
+    const product = findProductById(item.productSystemId);
+    const unitPrice = product?.costPrice || 0;
+    return sum + (item.quantity * unitPrice);
+  }, 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Row 1: 3 columns - Th�ng tin chuy?n kho + Th�ng tin x? l� + Quy tr�nh */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Column 1: Th�ng tin chuy?n kho */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-h3">Th�ng tin chuy?n kho</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <DetailField label="M� phi?u" value={transfer.id} />
+            <DetailField label="M� tham chi?u" value={transfer.referenceCode || '-'} />
+            <Separator />
+            <div className="space-y-3">
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-body-xs text-muted-foreground mb-1">Chi nh�nh chuy?n</p>
+                <p className="font-medium">{transfer.fromBranchName}</p>
+              </div>
+              <div className="flex justify-center">
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-body-xs text-muted-foreground mb-1">Chi nh�nh nh?n</p>
+                <p className="font-medium">{transfer.toBranchName}</p>
+              </div>
+            </div>
+            {transfer.note && (
+              <>
+                <Separator />
+                <DetailField label="Ghi ch�" value={transfer.note} />
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Column 2: Th�ng tin x? l� */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-h3">Th�ng tin x? l�</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <DetailField label="Ng�y t?o" value={formatDateTime(transfer.createdDate)} />
+            <DetailField label="Ngu?i t?o" value={transfer.createdByName} />
+            
+            {transfer.transferredDate && (
+              <>
+                <Separator />
+                <DetailField label="Ng�y chuy?n" value={formatDateTime(transfer.transferredDate)} />
+                <DetailField label="Ngu?i chuy?n" value={transfer.transferredByName} />
+              </>
+            )}
+            
+            {transfer.receivedDate && (
+              <>
+                <Separator />
+                <DetailField label="Ng�y nh?n" value={formatDateTime(transfer.receivedDate)} />
+                <DetailField label="Ngu?i nh?n" value={transfer.receivedByName} />
+              </>
+            )}
+            
+            {transfer.cancelledDate && (
+              <>
+                <Separator />
+                <DetailField label="Ng�y h?y" value={formatDateTime(transfer.cancelledDate)} />
+                <DetailField label="Ngu?i h?y" value={transfer.cancelledByName} />
+                {transfer.cancelReason && (
+                  <DetailField label="L� do h?y" value={transfer.cancelReason} />
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Column 3: Quy tr�nh x? l� */}
+        <StockTransferWorkflowCard
+          subtasks={subtasks}
+          onSubtasksChange={setSubtasks}
+          readonly={transfer.status === 'completed' || transfer.status === 'cancelled'}
+        />
+      </div>
+
+      {/* Product List - Full Width */}
+      <Card>
+            <CardHeader>
+              <CardTitle className="text-h3">Danh s�ch s?n ph?m ({transfer.items.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead className="w-[60px]">H�nh ?nh</TableHead>
+                      <TableHead>S?n ph?m</TableHead>
+                      <TableHead className="w-[100px]">Lo?i SP</TableHead>
+                      <TableHead className="text-center">SL chuy?n</TableHead>
+                      {transfer.status === 'completed' && (
+                        <TableHead className="text-center">SL nh?n</TableHead>
+                      )}
+                      <TableHead className="text-center">CN Chuy?n (Tru?c ? Sau)</TableHead>
+                      <TableHead className="text-center">CN Nh?n (Tru?c ? Sau)</TableHead>
+                      <TableHead className="text-right">�on gi�</TableHead>
+                      <TableHead className="text-right">Th�nh ti?n</TableHead>
+                      <TableHead>Ghi ch�</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transfer.items.map((item, index) => {
+                      const product = findProductById(item.productSystemId);
+                      const productTypeName = product?.productTypeSystemId 
+                        ? getProductTypeName(product.productTypeSystemId)
+                        : 'H�ng h�a';
+                      const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                      const currentFromStock = product?.inventoryByBranch?.[transfer.fromBranchSystemId] || 0;
+                      const currentToStock = product?.inventoryByBranch?.[transfer.toBranchSystemId] || 0;
+                      const unitPrice = product?.costPrice || 0;
+                      const lineTotal = item.quantity * unitPrice;
+                      
+                      // Calculate before/after based on status
+                      const receivedQty = item.receivedQuantity ?? item.quantity;
+                      let fromBefore: number, fromAfter: number, toBefore: number, toAfter: number;
+                      
+                      if (transfer.status === 'completed') {
+                        // Already transferred: current is "after", calculate "before"
+                        fromAfter = currentFromStock;
+                        fromBefore = currentFromStock + item.quantity;
+                        toAfter = currentToStock;
+                        toBefore = currentToStock - receivedQty;
+                      } else if (transfer.status === 'transferring') {
+                        // In transit: from is "after", to is "before"
+                        fromAfter = currentFromStock;
+                        fromBefore = currentFromStock + item.quantity;
+                        toBefore = currentToStock;
+                        toAfter = currentToStock + item.quantity;
+                      } else {
+                        // Pending or cancelled: current is "before"
+                        fromBefore = currentFromStock;
+                        fromAfter = currentFromStock - item.quantity;
+                        toBefore = currentToStock;
+                        toAfter = currentToStock + item.quantity;
+                      }
+                      
+                      return (
+                        <TableRow key={index}>
+                          <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                          <TableCell>
+                            {imageUrl ? (
+                              <div
+                                className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
+                                onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                              >
+                                <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                                  <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-12 h-10 bg-muted rounded flex items-center justify-center">
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Link href={`/products/${item.productSystemId}`}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {item.productName}
+                            </Link>
+                            <p className="text-body-sm text-muted-foreground">{item.productId}</p>
+                          </TableCell>
+                          <TableCell className="text-body-sm text-muted-foreground">{productTypeName}</TableCell>
+                          <TableCell className="text-center font-medium">{item.quantity}</TableCell>
+                          {transfer.status === 'completed' && (
+                            <TableCell className="text-center font-medium">
+                              {receivedQty}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-center">
+                            <span className="text-muted-foreground">{fromBefore}</span>
+                            <span className="mx-1">?</span>
+                            <span className="font-medium text-red-600">{fromAfter}</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="text-muted-foreground">{toBefore}</span>
+                            <span className="mx-1">?</span>
+                            <span className="font-medium text-green-600">{toAfter}</span>
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {formatCurrency(unitPrice)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(lineTotal)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {item.note || '-'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              <Separator className="my-4" />
+              
+              <div className="flex justify-end">
+                <div className="text-right space-y-1">
+                  <p className="text-body-sm text-muted-foreground">T?ng s? lu?ng chuy?n: {totalQuantity}</p>
+                  {transfer.status === 'completed' && totalReceived !== totalQuantity && (
+                    <p className="text-body-sm text-muted-foreground">
+                      �� nh?n: {totalReceived}
+                    </p>
+                  )}
+                  <p className="text-h3 font-bold">T?ng gi� tr?: {formatCurrency(totalValue)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+      {/* Comments - Full Width */}
+      <Comments
+        entityType="stock-transfer"
+        entityId={transfer.systemId}
+        comments={comments}
+        onAddComment={handleAddComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
+        currentUser={commentCurrentUser}
+        title="B�nh lu?n"
+        placeholder="Th�m b�nh lu?n v? phi?u chuy?n kho..."
+      />
+
+      {/* Activity History - Full Width */}
+      <ActivityHistory
+        history={buildHistoryEntries(transfer)}
+        title="L?ch s? ho?t d?ng"
+        emptyMessage="Chua c� ho?t d?ng"
+      />
+
+      {/* Confirm Transfer Dialog */}
+      <AlertDialog open={confirmTransferOpen} onOpenChange={setConfirmTransferOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>X�c nh?n chuy?n h�ng kh?i kho?</AlertDialogTitle>
+            <AlertDialogDescription>
+              H? th?ng s? tr? t?n kho t?i chi nh�nh <strong>{transfer.fromBranchName}</strong> v� 
+              ghi nh?n h�ng dang v? t?i chi nh�nh <strong>{transfer.toBranchName}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>H?y</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmTransfer}>
+              X�c nh?n chuy?n
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Receive Dialog */}
+      <Dialog open={confirmReceiveOpen} onOpenChange={setConfirmReceiveOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>X�c nh?n nh?n h�ng v�o kho</DialogTitle>
+            <DialogDescription>
+              Nh?p s? lu?ng th?c t? nh?n du?c cho t?ng s?n ph?m
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-x-auto max-h-[400px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>S?n ph?m</TableHead>
+                  <TableHead className="text-center w-[100px]">SL chuy?n</TableHead>
+                  <TableHead className="text-center w-[120px]">SL nh?n</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transfer.items.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <p className="font-medium">{item.productName}</p>
+                      <p className="text-sm text-muted-foreground">{item.productId}</p>
+                    </TableCell>
+                    <TableCell className="text-center">{item.quantity}</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={item.quantity}
+                        value={receiveItems.find(r => r.productSystemId === item.productSystemId)?.receivedQuantity ?? item.quantity}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setReceiveItems(prev => prev.map(r => 
+                            r.productSystemId === item.productSystemId 
+                              ? { ...r, receivedQuantity: Math.min(value, item.quantity) }
+                              : r
+                          ));
+                        }}
+                        className="h-9 w-full text-center"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" className="h-9" onClick={() => setConfirmReceiveOpen(false)}>
+              H?y
+            </Button>
+            <Button className="h-9" onClick={handleConfirmReceive}>
+              X�c nh?n nh?n h�ng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>H?y phi?u chuy?n kho?</DialogTitle>
+            <DialogDescription>
+              {transfer.status === 'transferring' 
+                ? 'H? th?ng s? ho�n l?i t?n kho v? chi nh�nh chuy?n.'
+                : 'Phi?u chuy?n kho s? b? h?y.'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-2">
+            <Label>L� do h?y</Label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Nh?p l� do h?y phi?u..."
+              rows={3}
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" className="h-9" onClick={() => setCancelDialogOpen(false)}>
+              ��ng
+            </Button>
+            <Button variant="destructive" className="h-9" onClick={handleCancel}>
+              X�c nh?n h?y
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ImagePreviewDialog
+        images={previewImage ? [previewImage.url] : []}
+        open={!!previewImage}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+        title={previewImage?.title}
+      />
+    </div>
+  );
+}

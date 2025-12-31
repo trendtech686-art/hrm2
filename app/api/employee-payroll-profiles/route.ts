@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 
 const SETTING_KEY = 'employee-payroll-profiles'
 const SETTING_GROUP = 'hrm'
+
+interface PayrollProfile {
+  employeeSystemId: string
+  [key: string]: unknown
+}
 
 // GET /api/employee-payroll-profiles - Get all employee payroll profiles
 export async function GET(request: Request) {
@@ -21,10 +27,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ data: [] })
     }
 
-    let profiles = setting.value as any[]
+    let profiles = setting.value as PayrollProfile[]
     
     if (employeeSystemId) {
-      profiles = profiles.filter((p: any) => p.employeeSystemId === employeeSystemId)
+      profiles = profiles.filter((p) => p.employeeSystemId === employeeSystemId)
     }
 
     return NextResponse.json({ data: profiles })
@@ -50,10 +56,10 @@ export async function POST(request: Request) {
       },
     })
 
-    const profiles = (setting?.value as any[]) || []
+    const profiles = (setting?.value as PayrollProfile[]) || []
     
     // Update or add profile
-    const existingIndex = profiles.findIndex((p: any) => p.employeeSystemId === body.employeeSystemId)
+    const existingIndex = profiles.findIndex((p) => p.employeeSystemId === body.employeeSystemId)
     if (existingIndex >= 0) {
       profiles[existingIndex] = body
     } else {
@@ -68,7 +74,7 @@ export async function POST(request: Request) {
         },
       },
       update: {
-        value: profiles,
+        value: profiles as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -77,7 +83,7 @@ export async function POST(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'hrm',
-        value: profiles,
+        value: profiles as unknown as Prisma.InputJsonValue,
         description: 'Employee payroll profiles',
       },
     })

@@ -1,6 +1,8 @@
+'use client';
+
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
-import { asSystemId, asBusinessId } from '@/lib/id-types';
+import { asBusinessId } from '@/lib/id-types';
 import type { Branch } from '@/lib/types/prisma-extended';
 import { useBranchStore } from './store';
 import { useEmployeeStore } from '../../employees/store';
@@ -18,7 +20,7 @@ import { Input } from '../../../components/ui/input';
 import { Combobox } from '../../../components/ui/combobox';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { DialogFooter } from '../../../components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Select, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
 import { Label } from '../../../components/ui/label';
 
@@ -35,7 +37,7 @@ interface BranchFormProps {
 }
 
 export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps) {
-  const { data: branches } = useBranchStore();
+  const { data: _branches } = useBranchStore();
   const { searchEmployees, data: allEmployees } = useEmployeeStore();
   const { 
     data: provinces, 

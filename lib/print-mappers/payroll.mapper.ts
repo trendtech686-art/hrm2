@@ -9,7 +9,6 @@ import {
   formatCurrency, 
   numberToWords, 
   formatDate,
-  formatTime,
   getStoreData,
   StoreSettings
 } from '@/lib/print-service';

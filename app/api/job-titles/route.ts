@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/job-titles - List all job titles
 export async function GET(request: Request) {
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || ''
     const all = searchParams.get('all') === 'true'
 
-    const where: any = {
+    const where: Prisma.JobTitleWhereInput = {
       isDeleted: false,
     }
 
@@ -87,8 +88,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(jobTitle, { status: 201 })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Mã chức danh đã tồn tại' },
         { status: 400 }

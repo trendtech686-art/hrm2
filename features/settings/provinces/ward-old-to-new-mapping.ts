@@ -42148,7 +42148,7 @@ export function findAllOldWards(newWardName: string, provinceName?: string): War
   const normalizedProvince = provinceName.toLowerCase().trim();
   
   // Tìm tất cả ward cũ có newWardName khớp
-  for (const [key, value] of Object.entries(WARD_OLD_TO_NEW_MAPPING)) {
+  for (const [_key, value] of Object.entries(WARD_OLD_TO_NEW_MAPPING)) {
     // Chỉ lấy ward trong cùng tỉnh
     if (!value.provinceName || value.provinceName.toLowerCase().trim() !== normalizedProvince) {
       continue;

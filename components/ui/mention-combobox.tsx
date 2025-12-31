@@ -5,19 +5,13 @@
  * Optimized for 100+ employees
  */
 
-import * as React from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { cn } from '../../lib/utils';
-import { Avatar, AvatarFallback } from './avatar';
-import { Check } from 'lucide-react';
-
 export interface MentionOption {
   id: string;
   label: string;
   avatar?: string;
 }
 
-interface MentionComboboxProps {
+interface _MentionComboboxProps {
   items: MentionOption[];
   selectedIndex: number;
   onSelect: (index: number) => void;
@@ -28,12 +22,12 @@ export class MentionCombobox {
   items: MentionOption[];
   selectedIndex: number;
   element: HTMLElement;
-  command: any;
+  command: (item: MentionOption) => void;
   query: string;
-  virtualizer: any;
+  virtualizer: unknown;
   parentRef: HTMLDivElement | null;
 
-  constructor(props: any) {
+  constructor(props: { items: MentionOption[]; command: (item: MentionOption) => void }) {
     this.items = props.items;
     this.command = props.command;
     this.query = '';
@@ -174,7 +168,7 @@ export class MentionCombobox {
     }
   }
 
-  updateProps(props: any) {
+  updateProps(props: { items: MentionOption[]; command: (item: MentionOption) => void }) {
     this.items = props.items;
     this.command = props.command;
     this.selectedIndex = 0;

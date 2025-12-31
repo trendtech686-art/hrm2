@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useFormContext, useFieldArray } from 'react-hook-form';
+import { useFormContext } from 'react-hook-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -7,15 +7,30 @@ import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { NumberInput } from '@/components/ui/number-input';
 
+// Type for service line item
+type ServiceLineItem = {
+  id: string;
+  systemId: string;
+  productSystemId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  discountType: 'fixed' | 'percentage';
+  tax: number;
+  total: number;
+};
+
 type AddServiceDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   disabled?: boolean;
-  onAppend: (item: any) => void; // Function from parent's useFieldArray
+  onAppend: (item: ServiceLineItem) => void; // Function from parent's useFieldArray
 };
 
 export function AddServiceDialog({ open, onOpenChange, disabled = false, onAppend }: AddServiceDialogProps) {
-  const { control } = useFormContext();
+  const { control: _control } = useFormContext();
 
   const [serviceName, setServiceName] = useState('');
   const [servicePrice, setServicePrice] = useState<number>(0);
@@ -36,7 +51,7 @@ export function AddServiceDialog({ open, onOpenChange, disabled = false, onAppen
     }
 
     // Add as a line item (virtual product)
-    const newItem = {
+    const newItem: ServiceLineItem = {
       id: `service_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       systemId: '',
       productSystemId: `virtual_service_${Date.now()}`,
@@ -46,10 +61,11 @@ export function AddServiceDialog({ open, onOpenChange, disabled = false, onAppen
       unitPrice: servicePrice,
       discount: 0,
       discountType: 'fixed',
+      tax: 0,
       total: servicePrice * serviceQuantity,
     };
     
-    onAppend(newItem as any);
+    onAppend(newItem);
 
     // Reset form
     setServiceName('');

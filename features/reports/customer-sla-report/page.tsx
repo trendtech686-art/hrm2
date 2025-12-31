@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { usePageHeader } from '../../../contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { 
@@ -16,7 +16,8 @@ import {
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
 import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar';
 import { getSlaAlertColumns, getDebtAlertColumns, getHealthAlertColumns } from './columns';
-import type { ReportTab, ReportSummary } from './types';
+import type { ReportTab, ReportSummary, CustomerSlaAlert } from './types';
+import type { ColumnDef } from '@/components/data-table/types';
 import { ROUTES } from '../../../lib/router';
 import Fuse from 'fuse.js';
 import { useCustomerSlaEvaluation } from '../../customers/sla/hooks';
@@ -34,10 +35,10 @@ export function CustomerSlaReportPage() {
   const slaEngine = useCustomerSlaEvaluation();
   const index = slaEngine.index;
   const summary = React.useMemo<ReportSummary>(() => slaEngine.summary ?? EMPTY_SUMMARY, [slaEngine.summary]);
-  const followUpAlerts = index?.followUpAlerts ?? [];
-  const reEngagementAlerts = index?.reEngagementAlerts ?? [];
-  const debtAlerts = index?.debtAlerts ?? [];
-  const healthAlerts = index?.healthAlerts ?? [];
+  const followUpAlerts = React.useMemo(() => index?.followUpAlerts ?? [], [index?.followUpAlerts]);
+  const reEngagementAlerts = React.useMemo(() => index?.reEngagementAlerts ?? [], [index?.reEngagementAlerts]);
+  const debtAlerts = React.useMemo(() => index?.debtAlerts ?? [], [index?.debtAlerts]);
+  const healthAlerts = React.useMemo(() => index?.healthAlerts ?? [], [index?.healthAlerts]);
 
   const [activeTab, setActiveTab] = React.useState<ReportTab>('follow-up');
   const [globalFilter, setGlobalFilter] = React.useState('');
@@ -98,15 +99,15 @@ export function CustomerSlaReportPage() {
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredData];
     if (sorting.id) {
-      sorted.sort((a: any, b: any) => {
-        const aValue = a[sorting.id];
-        const bValue = b[sorting.id];
+      sorted.sort((a, b) => {
+        const aValue = (a as unknown as Record<string, unknown>)[sorting.id];
+        const bValue = (b as unknown as Record<string, unknown>)[sorting.id];
         if (aValue == null) return 1;
         if (bValue == null) return -1;
         // Special handling for date columns
         if (sorting.id === 'createdAt') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -261,8 +262,8 @@ export function CustomerSlaReportPage() {
             
             <div className="mt-4">
               <ResponsiveDataTable
-                data={paginatedData}
-                columns={columns as any}
+                data={paginatedData as CustomerSlaAlert[]}
+                columns={columns as ColumnDef<CustomerSlaAlert>[]}
                 rowCount={filteredData.length}
                 pageCount={pageCount}
                 pagination={pagination}

@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react';
-import type { Complaint, ComplaintType, ComplaintStatus, ComplaintResolution } from '../types';
+import type { Complaint, ComplaintType, ComplaintResolution } from '../types';
 
 export interface ComplaintStatistics {
   // ============================================
@@ -292,7 +292,7 @@ export function useComplaintStatistics(
       : 0;
 
     // SLA compliance (assuming 4h response, 48h resolution)
-    const SLA_RESPONSE = 4 * 60 * 60 * 1000;
+    const _SLA_RESPONSE = 4 * 60 * 60 * 1000;
     const SLA_RESOLUTION = 48 * 60 * 60 * 1000;
 
     const onTimeSLA = complaints.filter(c => {

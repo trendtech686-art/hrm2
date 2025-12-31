@@ -9,7 +9,6 @@ import { useRouter } from 'next/navigation';
 import { RadioGroup } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, Truck, Loader2 } from 'lucide-react';
 import { useShippingCalculator } from '../../hooks/use-shipping-calculator';
 import { ShippingPartnerCard } from './shipping-partner-card';
@@ -17,7 +16,6 @@ import { ShippingPartnerSelected } from './shipping-partner-selected';
 import type {
   ShippingCalculationRequest,
   ShippingService,
-  ShippingCalculationResult,
 } from './types';
 
 interface ShippingPartnerSelectorProps {
@@ -46,7 +44,7 @@ export function ShippingPartnerSelector({
   const prevTransportRef = React.useRef<string>(''); // ✅ Track transport
   const prevToProvinceRef = React.useRef<string>('');
   const prevFromProvinceRef = React.useRef<string>('');
-  const [isExpanded, setIsExpanded] = React.useState(!collapsed);
+  const [_isExpanded, setIsExpanded] = React.useState(!collapsed);
   const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null); // ✅ Debounce timer
 
   // Auto-calculate whenever weight, orderValue, or transport changes (with debounce)
@@ -91,6 +89,7 @@ export function ShippingPartnerSelector({
         clearTimeout(debounceTimerRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tracking individual request fields instead of entire object
   }, [request.weight, request.options?.orderValue, request.options?.transport, request.toProvince, request.fromProvince, request.toDistrict, request.fromDistrict, calculateFees]); // ✅ Track all fields directly
 
   // ✅ NEW: Auto-update selected service when results change
@@ -144,7 +143,7 @@ export function ShippingPartnerSelector({
   }, [results]);
 
   // Find fastest and cheapest
-  const { fastestService, cheapestService } = React.useMemo(() => {
+  const { fastestService: _fastestService, cheapestService: _cheapestService } = React.useMemo(() => {
     if (allServices.length === 0) {
       return { fastestService: null, cheapestService: null };
     }
@@ -169,7 +168,7 @@ export function ShippingPartnerSelector({
   }, [allServices]);
 
   // Check if any partners are loading
-  const isLoading = isCalculating || results.some(r => r.status === 'loading');
+  const _isLoading = isCalculating || results.some(r => r.status === 'loading');
 
   // Check if all partners failed
   const allFailed = results.length > 0 && results.every(r => r.status === 'error');

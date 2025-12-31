@@ -41,26 +41,7 @@ export function PkgxCategoryLinkDialog({
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [hasFetched, setHasFetched] = React.useState(false);
 
-  // Load PKGX categories khi mở dialog - chỉ chạy 1 lần
-  React.useEffect(() => {
-    if (open && !hasFetched) {
-      if (cachedPkgxCategories && cachedPkgxCategories.length > 0) {
-        setPkgxCategoriesLocal(cachedPkgxCategories);
-        setHasFetched(true);
-      } else {
-        loadPkgxCategories();
-      }
-    }
-  }, [open, hasFetched, cachedPkgxCategories]);
-
-  // Reset state khi đóng dialog
-  React.useEffect(() => {
-    if (!open) {
-      setSelectedPkgxCategory(null);
-    }
-  }, [open]);
-
-  const loadPkgxCategories = async () => {
+  const loadPkgxCategories = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetchPkgxCategories();
@@ -86,7 +67,26 @@ export function PkgxCategoryLinkDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setCategories]);
+
+  // Load PKGX categories khi mở dialog - chỉ chạy 1 lần
+  React.useEffect(() => {
+    if (open && !hasFetched) {
+      if (cachedPkgxCategories && cachedPkgxCategories.length > 0) {
+        setPkgxCategoriesLocal(cachedPkgxCategories);
+        setHasFetched(true);
+      } else {
+        loadPkgxCategories();
+      }
+    }
+  }, [open, hasFetched, cachedPkgxCategories, loadPkgxCategories]);
+
+  // Reset state khi đóng dialog
+  React.useEffect(() => {
+    if (!open) {
+      setSelectedPkgxCategory(null);
+    }
+  }, [open]);
 
   // Filter out categories that are already linked
   const linkedPkgxCatIds = React.useMemo(() => {

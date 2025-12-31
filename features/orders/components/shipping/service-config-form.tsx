@@ -65,13 +65,12 @@ function getSpecificAddressCacheKey(province: string, district: string, ward: st
 
 type ShippingOptions = NonNullable<SelectedShippingConfig['options']>;
 
-export function ServiceConfigForm({ service, config = {}, onConfigChange, grandTotal = 0, customerAddress }: ServiceConfigFormProps) {
+export function ServiceConfigForm({ service, config = {}, onConfigChange, grandTotal: _grandTotal = 0, customerAddress }: ServiceConfigFormProps) {
   // ✅ Get global shipping config
-  const { globalConfig, getDefaultShippingOptions, getDimensions, deliveryRequirement, defaultNote } = useGlobalShippingConfig();
+  const { globalConfig: _globalConfig, getDefaultShippingOptions: _getDefaultShippingOptions, getDimensions: _getDimensions, deliveryRequirement, defaultNote } = useGlobalShippingConfig();
   
   // ✅ Initialize options with global config defaults
   const [options, setOptions] = React.useState<Partial<ShippingOptions>>(() => {
-    const defaultOptions = getDefaultShippingOptions();
     const ghtkTags = service.partnerCode === 'GHTK' ? getGHTKTagsFromRequirement(deliveryRequirement) : [];
     
     return {
@@ -112,7 +111,8 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
       const today = format(new Date(), 'yyyy-MM-dd');
       handleInputChange('pickDate', today);
     }
-  }, []); // Run only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only on mount
+  }, []);
 
   // ✅ Auto-fill orderValue = 3 triệu as default
   React.useEffect(() => {
@@ -120,13 +120,15 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
       // Default to 3 million VND
       handleInputChange('orderValue', 3000000);
     }
-  }, []); // Run only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only on mount
+  }, []);
 
   // Load pick addresses for GHTK with caching
   React.useEffect(() => {
     if (service.partnerCode === 'GHTK') {
       loadGHTKPickAddresses(); // ✅ Parallel load: Start immediately
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadGHTKPickAddresses is stable
   }, [service.partnerCode]);
 
   const loadGHTKPickAddresses = async () => {
@@ -160,7 +162,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
           }
           return; // Skip API call ⚡
         }
-      } catch (e) {
+      } catch (_e) {
         localStorage.removeItem(CACHE_KEY);
       }
     }
@@ -190,8 +192,8 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
         throw new Error('Tài khoản GHTK chưa có API token. Vui lòng cấu hình lại.');
       }
 
-      const apiToken = defaultAccount.credentials.apiToken;
-      const partnerCode = (defaultAccount.credentials as any).partnerCode || 'GHTK';
+      const apiToken = defaultAccount.credentials.apiToken as string;
+      const partnerCode = (defaultAccount.credentials as { partnerCode?: string }).partnerCode || 'GHTK';
 
       // ✅ Check if server is running first
       const baseUrl = getBaseUrl();
@@ -218,7 +220,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
           }
           
           // Parse GHTK response format - just store raw data
-          const addresses: GHTKPickAddress[] = data.data.map((item: any) => {
+          const addresses: GHTKPickAddress[] = data.data.map((item: { pick_address_id?: string; id?: string; pick_name?: string; name?: string; address?: string; pick_tel?: string; tel?: string }) => {
             return {
               id: item.pick_address_id || item.id,
               name: item.pick_name || item.name || 'Kho hàng',
@@ -240,7 +242,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
               timestamp: Date.now(),
               apiToken: apiToken
             }));
-          } catch (cacheError) {
+          } catch (_cacheError) {
             // Silently fail - not critical
           }
           
@@ -285,7 +287,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
     return text.trim().toLowerCase();
   }, []);
 
-  const loadSpecificAddresses = React.useCallback(async (pickAddressId: string) => {
+  const loadSpecificAddresses = React.useCallback(async (_pickAddressId: string) => {
     // ✅ No longer need pickAddressId - just use it as trigger ID for logging
     
     // ✅ FIXED: Support 2-level address - only province required, district optional
@@ -335,7 +337,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
         throw new Error(`Thiếu thông tin tỉnh/thành phố`);
       }
 
-      const apiToken = defaultAccount.credentials.apiToken;
+      const apiToken = defaultAccount.credentials.apiToken as string;
       const baseUrl = getBaseUrl();
       const url = new URL(`${baseUrl}/api/shipping/ghtk/get-specific-addresses`);
       url.searchParams.append('province', normalizedProvince);
@@ -410,6 +412,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
     } finally {
       setLoadingSpecificAddresses(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- options.specificAddress only used for initial auto-select check
   }, [customerAddress, normalizeGHTKAddress]);
 
   // ✅ Store latest onConfigChange callback in ref to avoid infinite loop
@@ -470,7 +473,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
     }
   }, [service.partnerCode, customerAddress, loadSpecificAddresses]);
 
-  const handleInputChange = (key: string, value: any) => {
+  const handleInputChange = (key: string, value: string | number | number[] | undefined) => {
     setOptions(prev => {
       const newOptions = { ...prev, [key]: value };
       // ⚠️ Don't call onConfigChange here - let useEffect handle it to avoid double updates
@@ -521,7 +524,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
             <Label>Gói dịch vụ</Label>
             <Select
               value={service.serviceId}
-              onValueChange={(value) => {
+              onValueChange={(_value) => {
                 // Allow changing service package if needed
               }}
             >

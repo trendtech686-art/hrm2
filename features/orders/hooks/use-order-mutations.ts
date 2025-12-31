@@ -6,7 +6,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createOrder, updateOrder, deleteOrder, type CreateOrderInput, type UpdateOrderInput } from '../api/orders-api';
+import { createOrder, updateOrder, deleteOrder } from '../api/orders-api';
 import { orderKeys } from './use-orders';
 
 interface UseOrderMutationsOptions {

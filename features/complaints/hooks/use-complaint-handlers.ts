@@ -65,7 +65,7 @@ export function useComplaintHandlers({
     updateComplaint(complaint.systemId, { 
       status: newStatus,
       timeline: [...complaint.timeline, newAction],
-    } as any);
+    } as Partial<Complaint>);
     
     toast.success("Đã cập nhật trạng thái");
   }, [complaint, updateComplaint, currentUser]);
@@ -93,7 +93,7 @@ export function useComplaintHandlers({
       endedBy: currentUser.systemId,
       endedAt: new Date(),
       timeline: [...complaint.timeline, newAction],
-    } as any);
+    } as Partial<Complaint>);
     
     complaintNotifications.onResolved("Đã kết thúc khiếu nại");
   }, [complaint, updateComplaint, currentUser]);

@@ -112,7 +112,7 @@ export async function exportAsPDF(elementSelector = '.react-flow') {
 /**
  * Export chart data as JSON
  */
-export function exportAsJSON(data: any) {
+export function exportAsJSON(data: unknown) {
   try {
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });

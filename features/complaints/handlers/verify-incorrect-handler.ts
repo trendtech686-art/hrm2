@@ -26,11 +26,11 @@ export async function handleVerifyIncorrect(
   complaint: Complaint,
   currentUser: User,
   evidenceNote: string,
-  updateComplaint: (systemId: SystemId, updates: any) => void,
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void,
   options?: {
     evidenceImages?: string[];
     evidenceVideos?: string[];
-    employeeImages?: any[];
+    employeeImages?: Array<{ id: string; url: string; uploadedAt: Date; uploadedBy: string }>;
   }
 ): Promise<{ success: boolean; message: string }> {
   try {
@@ -60,16 +60,16 @@ export async function handleVerifyIncorrect(
     ];
     
     // STEP 4: Merge histories (giữ history cũ + thêm mới)
-    const existingHistory = (complaint as any).cancelledPaymentsReceipts || [];
+    const existingHistory = complaint.cancelledPaymentsReceipts || [];
     const cancelledPaymentsReceipts = [...existingHistory, ...cancelledPaymentsReceiptsHistory];
     
-    const existingInventoryHistory = (complaint as any).inventoryHistory || [];
+    const existingInventoryHistory = complaint.inventoryHistory || [];
     const updatedInventoryHistory = inventoryHistory 
       ? [...existingInventoryHistory, inventoryHistory]
       : existingInventoryHistory;
     
     // STEP 5: Build update object - CHỈ UPDATE NHỮNG GÌ CẦN
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       verification: "verified-incorrect" as const,
       timeline,
       cancelledPaymentsReceipts,
@@ -93,8 +93,13 @@ export async function handleVerifyIncorrect(
     // Add employeeImages nếu có
     if (options?.employeeImages && options.employeeImages.length > 0) {
       updates.employeeImages = [
-        ...((complaint as any).employeeImages || []),
-        ...options.employeeImages,
+        ...(complaint.employeeImages || []),
+        ...options.employeeImages.map(img => ({
+          id: asSystemId(img.id || `img_${Date.now()}`),
+          url: img.url,
+          uploadedBy: asSystemId(img.uploadedBy || currentUser.systemId),
+          uploadedAt: img.uploadedAt || new Date(),
+        })),
       ];
     }
     
@@ -105,13 +110,13 @@ export async function handleVerifyIncorrect(
       hasEmployeeImages: !!updates.employeeImages,
       hasVerificationEvidence: !!updates.verificationEvidence,
       willPreserve: {
-        inventoryAdjustment: !!(complaint as any).inventoryAdjustment,
-        compensationMetadata: !!(complaint as any).compensationMetadata,
+        inventoryAdjustment: !!complaint.inventoryAdjustment,
+        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
       }
     });
     
     // STEP 6: Update
-    updateComplaint(complaint.systemId, updates);
+    updateComplaint(complaint.systemId, updates as Partial<Complaint>);
     
     console.log('[VERIFY-INCORRECT] Complete!');
     

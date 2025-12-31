@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useFormContext, Controller, useWatch } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { useDebounce } from '../../../hooks/use-debounce';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '../../../components/ui/form';
+import { Card, CardContent, CardHeader } from '../../../components/ui/card';
+import { FormField, FormItem, FormLabel, FormControl } from '../../../components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
@@ -24,6 +24,7 @@ import { getApiUrl } from '../../../lib/api-config';
 import { DatePicker } from '../../../components/ui/date-picker';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
+import type { ShippingConfig } from '../../../lib/types/shipping-config';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -76,7 +77,7 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
     const { findById: findProductById } = useProductStore();
     
     // ✅ PHASE 3: Use centralized config loading
-    const [shippingConfig, setShippingConfig] = React.useState<any>(null);
+    const [shippingConfig, setShippingConfig] = React.useState<ShippingConfig | null>(null);
 
     React.useEffect(() => {
         // ✅ Load from correct source using helper
@@ -100,7 +101,7 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
             if (!partnerKey) return false;
             
             const accounts = shippingConfig.partners?.[partnerKey]?.accounts || [];
-            return accounts.some((acc: any) => acc.active === true);
+            return accounts.some((acc: { active?: boolean }) => acc.active === true);
         });
     }, [allPartners, shippingConfig]);
 
@@ -118,14 +119,17 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
             if (!partnerKey) return true;
             
             const accounts = shippingConfig.partners?.[partnerKey]?.accounts || [];
-            return !accounts.some((acc: any) => acc.active === true);
+            return !accounts.some((acc: { active?: boolean }) => acc.active === true);
         });
     }, [allPartners, shippingConfig]);
     
     const [tab, setTab] = React.useState('fill-info');
     const [isLoading, setIsLoading] = React.useState(false);
-    const [estimatedFees, setEstimatedFees] = React.useState<Record<string, any[]>>({});
-    const [selectedService, setSelectedService] = React.useState<any | null>(null);
+    const [estimatedFees, setEstimatedFees] = React.useState<Record<string, Array<{ total: number; name: string; service_id: string; short_name: string; service_type_id: string }>>>({});
+    const [selectedService, setSelectedService] = React.useState<{ 
+        partner: { systemId: string; name: string; id: string; configuration?: Record<string, unknown>; config: { payerOptions: string[]; additionalServices?: Array<{ id: string; label?: string; type?: string; options?: Array<string | { value: string; label: string }>; placeholder?: string; disabled?: boolean; gridSpan?: 1 | 2; tooltip?: string; buttonLabel?: string }> } };
+        fee: { total: number; service_id: string; short_name?: string };
+    } | null>(null);
 
     const selectedPartnerId = useWatch({ control, name: 'shippingPartnerId' });
     const selectedServiceId = useWatch({ control, name: 'shippingServiceId' });
@@ -136,12 +140,13 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
     const lineItems = useWatch({ control, name: 'lineItems' });
     const grandTotal = useWatch({ control, name: 'grandTotal' });
     const payments = useWatch({ control, name: 'payments' }) || [];
-    const totalPaid = payments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+    const totalPaid = payments.reduce((sum: number, p: { amount?: number }) => sum + (Number(p.amount) || 0), 0);
     
     // Watch weight changes for auto-calculation
     const weight = useWatch({ control, name: 'weight' });
     const codAmount = useWatch({ control, name: 'codAmount' });
-    const debouncedWeight = useDebounce(weight, 500); // 500ms delay
+    const deliveryMethod = useWatch({ control, name: 'deliveryMethod' });
+    const _debouncedWeight = useDebounce(weight, 500); // 500ms delay
 
     React.useEffect(() => {
         if (deliveryMethod === 'shipping-partner') {
@@ -154,7 +159,7 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
 
             let totalWeightInGrams = 0;
             if (shippingSettings.weightSource === 'product' && lineItems) {
-                totalWeightInGrams = lineItems.reduce((sum: number, item: any) => {
+                totalWeightInGrams = lineItems.reduce((sum: number, item: { productSystemId: string; quantity: number }) => {
                     const product = findProductById(item.productSystemId);
                     if (!product || !product.weight) {
                         console.warn('⚠️ Product missing weight:', item.productSystemId);
@@ -187,24 +192,26 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
             // Do not set this here as it is partner-specific now.
             // setValue('deliveryRequirement', shippingSettings.deliveryRequirement);
         }
-    }, [grandTotal, totalPaid, shippingSettings, lineItems, findProductById, setValue, getValues]);
+    }, [deliveryMethod, grandTotal, totalPaid, shippingSettings, lineItems, findProductById, setValue, getValues]);
 
 
     React.useEffect(() => {
         if (selectedService) {
-            setValue('shippingFee', selectedService.fee.total, { shouldDirty: true });
-            setValue('shippingPartnerId', selectedService.partner.systemId);
-            setValue('shippingServiceId', selectedService.fee.service_id);
+            const fee = selectedService.fee as { total: number; service_id: string };
+            const partner = selectedService.partner as { systemId: string; configuration?: Record<string, unknown>; config: { payerOptions: string[]; additionalServices?: Array<{ id: string }> } };
+            setValue('shippingFee', fee.total, { shouldDirty: true });
+            setValue('shippingPartnerId', partner.systemId);
+            setValue('shippingServiceId', fee.service_id);
     
-            const partnerConfig = selectedService.partner.configuration || {};
+            const partnerConfig = partner.configuration || {};
     
             // Set payer if it's defined in the partner's configuration and is a valid option
-            if (partnerConfig.payer && selectedService.partner.config.payerOptions.includes(partnerConfig.payer)) {
+            if (partnerConfig.payer && partner.config.payerOptions.includes(partnerConfig.payer as string)) {
                 setValue('payer', partnerConfig.payer);
             }
     
             // Set other additional services from the configuration
-            (selectedService.partner.config.additionalServices || []).forEach(service => {
+            (partner.config.additionalServices || []).forEach(service => {
                 const configValue = partnerConfig[service.id];
                 if (configValue !== undefined) {
                     setValue(`configuration.${service.id}`, configValue);
@@ -229,11 +236,12 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
     const connectedPartners = React.useMemo(() => {
         return partners.filter(p => {
             // Check if partner has active accounts in shipping config
-            if (!shippingConfig[p.systemId] || !shippingConfig[p.systemId].accounts) {
+            const partnerConfig = shippingConfig?.[p.systemId] as { accounts?: Record<string, { isActive?: boolean }> } | undefined;
+            if (!partnerConfig || !partnerConfig.accounts) {
                 return false;
             }
-            const accounts = shippingConfig[p.systemId].accounts;
-            return Object.values(accounts).some((account: any) => account.isActive);
+            const accounts = partnerConfig.accounts;
+            return Object.values(accounts).some((account: { isActive?: boolean }) => account.isActive);
         });
     }, [partners, shippingConfig]);
 
@@ -279,7 +287,13 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                     }
 
                     const accounts = shippingConfig.partners[partnerKey].accounts;
-                    const activeAccount = accounts.find((acc: any) => acc.active === true);
+                    const activeAccount = accounts.find((acc: { active?: boolean }) => acc.active === true) as {
+                        active?: boolean;
+                        apiToken?: string;
+                        partnerCode?: string;
+                        pickupAddresses?: Array<{ partnerWarehouseId?: string; pick_address_id?: string }>;
+                        credentials?: Record<string, unknown>;
+                    } | undefined;
                     
                     if (!activeAccount) {
                         throw new Error(`No active account for ${partner.name}`);
@@ -289,14 +303,15 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                     if (partnerKey === 'GHTK') {
                         // Get pick address info from GHTK settings
                         const pickupAddresses = activeAccount.pickupAddresses || [];
+                        const selectedId = (activeAccount.credentials as Record<string, unknown>)?.selectedPickAddressId as string | undefined;
                         const selectedPickupAddress = pickupAddresses.find(addr => 
-                            addr.pick_address_id === activeAccount.selectedPickAddressId
+                            addr.partnerWarehouseId === selectedId
                         ) || pickupAddresses[0]; // fallback to first address
                         
                         console.log('📍 Pick address info:', {
                             total: pickupAddresses.length,
                             selected: selectedPickupAddress,
-                            selectedId: activeAccount.selectedPickAddressId
+                            selectedId: selectedId
                         });
                         
                         // Auto-detect address level and format for API
@@ -428,23 +443,25 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
             const results = await Promise.all(feePromises);
             
             const newFees = results.reduce((acc, result) => {
-                acc[result.partnerId] = result.fees;
+                acc[result.partnerId] = result.fees as { total: number; name: string; service_id: string; short_name: string; service_type_id: string }[];
                 return acc;
-            }, {} as Record<string, any[]>);
+            }, {} as Record<string, { total: number; name: string; service_id: string; short_name: string; service_type_id: string }[]>);
             
             setEstimatedFees(newFees);
             setIsLoading(false);
         };
         calculate();
-
+        // Note: customer and shippingConfig.partners are used for address validation and API config
+        // They are stable after initial load and only province/weight changes need to trigger recalc
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedDeliveryInfoString, tab, connectedPartners, selectedService]);
 
     const bestFees = React.useMemo(() => {
-        const allFees = Object.values(estimatedFees).flat();
+        const allFees = Object.values(estimatedFees).flat() as Array<{ total: number; name: string; service_id: string; short_name: string }>;
         if (allFees.length === 0) return { cheapest: null, fastest: null };
         
-        const cheapest = [...allFees].sort((a: any, b: any) => a.total - b.total)[0];
-        const fastest = [...allFees].sort((a: any, b: any) => (a.name.includes('Nhanh') ? -1 : 1) - (b.name.includes('Nhanh') ? -1 : 1))[0];
+        const cheapest = [...allFees].sort((a, b) => a.total - b.total)[0];
+        const fastest = [...allFees].sort((a, b) => (a.name.includes('Nhanh') ? -1 : 1) - (b.name.includes('Nhanh') ? -1 : 1))[0];
         
         return { cheapest, fastest };
     }, [estimatedFees]);
@@ -484,7 +501,7 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                             <FormField
                                 key={service.id}
                                 control={control}
-                                name={`configuration.${service.id}` as any}
+                                name={`configuration.${service.id}` as `configuration.${string}`}
                                 render={({ field }) => {
                                     const itemClass = service.gridSpan === 2 ? 'md:col-span-2' : '';
                                     
@@ -563,8 +580,6 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
             </Card>
         );
     };
-
-    const deliveryMethod = useWatch({ control, name: 'deliveryMethod' });
 
     return (
         <Tabs value={tab} onValueChange={setTab} className="mt-4">

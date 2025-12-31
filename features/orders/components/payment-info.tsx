@@ -1,6 +1,6 @@
 import * as React from 'react';
 import Link from 'next/link';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import type { OrderPayment, Order, OrderAddress } from '../types';
 import { Button } from '../../../components/ui/button';
 import { DetailField } from '../../../components/ui/detail-field';
@@ -45,7 +45,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
     
     // Determine if this is a payment (negative amount) or receipt (positive amount)
     const isPayment = payment.amount < 0;
-    const isWarrantyPayment = !!(payment as any).linkedWarrantySystemId;
+    const isWarrantyPayment = !!(payment as { linkedWarrantySystemId?: string }).linkedWarrantySystemId;
     const detailLink = isPayment ? `/payments/${payment.systemId}` : `/receipts/${payment.systemId}`;
 
     const handlePrint = (e: React.MouseEvent) => {
@@ -189,11 +189,11 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                             ) : payment.createdBy}
                         />
                         <DetailField label="Di?n gi?i" value={payment.description} className="py-1 border-0 col-span-2" />
-                        {isWarrantyPayment && (payment as any).linkedWarrantySystemId && (
+                        {isWarrantyPayment && (payment as { linkedWarrantySystemId?: string }).linkedWarrantySystemId && (
                             <DetailField 
                                 label="Li�n k?t" 
                                 value={
-                                    <Link href={`/warranty/${(payment as any).linkedWarrantySystemId}`}
+                                    <Link href={`/warranty/${(payment as { linkedWarrantySystemId?: string }).linkedWarrantySystemId}`}
                                         className="text-primary hover:underline"
                                     >
                                         Xem phi?u b?o h�nh

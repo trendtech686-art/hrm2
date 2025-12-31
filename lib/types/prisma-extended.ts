@@ -973,7 +973,7 @@ export type Order = {
     assigneeId?: string;
     assigneeName?: string;
     parentId?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
     dueDate?: string;
   }>;
   activityHistory?: HistoryEntry[];
@@ -1239,9 +1239,9 @@ export type SalesReturn = {
   deliveryMethod?: string;
   shippingPartnerId?: string;
   shippingServiceId?: string;
-  shippingAddress?: any;
-  packageInfo?: any;
-  configuration?: any;
+  shippingAddress?: string | OrderAddress;
+  packageInfo?: PackageInfo;
+  configuration?: Record<string, unknown>;
   finalAmount: number;
   refundMethod?: string;
   refundAmount?: number;
@@ -1961,14 +1961,14 @@ export type WarrantyHistory = {
   entityId?: SystemId;
   changes?: {
     field: string;
-    oldValue: any;
-    newValue: any;
+    oldValue: string | number | boolean | null | undefined;
+    newValue: string | number | boolean | null | undefined;
   }[];
   performedBy: string;
   performedBySystemId?: SystemId;
   performedAt: string;
   note?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   linkedOrderSystemId?: SystemId;
   linkedVoucherSystemId?: SystemId;
 };
@@ -2152,8 +2152,8 @@ export type ImportPreviewRow = {
 // ============================================
 export type LogChange = {
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: string | number | boolean | null | undefined;
+  newValue: string | number | boolean | null | undefined;
   description?: string;
 };
 
@@ -2256,7 +2256,7 @@ export type ComplaintAction = {
   performedAt: Date;
   note?: string;
   images?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 };
 
 export type Complaint = {
@@ -2625,8 +2625,8 @@ export type ShippingPartner = {
   services: ShippingService[];
   isConnected: boolean;
   config: PartnerConfiguration;
-  credentials: Record<string, any>;
-  configuration: Record<string, any>;
+  credentials: Record<string, unknown>;
+  configuration: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;
@@ -2865,6 +2865,8 @@ export interface CustomerSettingBase {
   updatedAt: string;
   createdBy?: SystemId;
   updatedBy?: SystemId;
+  // Index signature to satisfy ItemWithSystemId constraint
+  [key: string]: unknown;
 }
 
 // 1. Loại khách hàng (Customer Type)

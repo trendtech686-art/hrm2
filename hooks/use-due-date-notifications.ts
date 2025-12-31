@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Due Date Notifications Hook
  * Manages automatic notifications for tasks with approaching due dates
@@ -5,9 +7,8 @@
  * Generic hook - can be used with any entity that has dueDate field
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, Clock, Calendar } from 'lucide-react';
 
 type TaskWithDueDate = {
   id?: string;
@@ -16,7 +17,7 @@ type TaskWithDueDate = {
   status?: string;
   customerName?: string;
   employeeName?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 type DueDateWarning = {
@@ -156,7 +157,7 @@ export function useDueDateNotifications(
   tasks: TaskWithDueDate[],
   settings: Partial<NotificationSettings> = {}
 ) {
-  const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
+  const mergedSettings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...settings }), [settings]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkAndNotify = useCallback(() => {
@@ -188,7 +189,7 @@ export function useDueDateNotifications(
       // Show toast notification
       const message = getDueDateNotificationMessage(task);
       
-      const toastOptions: any = {
+      const toastOptions = {
         description: `${task.customerName ? `KH: ${task.customerName}` : ''}${task.employeeName ? ` | NV: ${task.employeeName}` : ''}`,
         duration: warning.status === 'overdue' ? 10000 : 5000,
         action: {
@@ -302,7 +303,7 @@ export function useDueDateNotifications(
  * NOTE: localStorage has been removed - settings now stored in memory only
  * For persistent settings, use /api/user-preferences
  */
-export function useNotificationSettings(storageKey: string = 'hrm-due-date-notification-settings') {
+export function useNotificationSettings(_storageKey: string = 'hrm-due-date-notification-settings') {
   // In-memory cache for settings
   const settingsRef = useRef<NotificationSettings>(DEFAULT_SETTINGS);
   

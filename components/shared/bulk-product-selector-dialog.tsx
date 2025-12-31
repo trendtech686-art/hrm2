@@ -28,7 +28,7 @@ interface BulkProductSelectorDialogProps {
 
 const ITEMS_PER_PAGE = 10;
 
-const formatCurrency = (value: number) => {
+const _formatCurrency = (value: number) => {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
     currency: "VND",
@@ -42,9 +42,9 @@ export function BulkProductSelectorDialog({
   excludeProductIds = [],
   title = "Chọn nhanh sản phẩm",
   description,
-  branchSystemId,
+  branchSystemId: _branchSystemId,
 }: BulkProductSelectorDialogProps) {
-  const { data: products, getActive } = useProductStore();
+  const { data: _products, getActive } = useProductStore();
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = React.useState(0);
@@ -62,7 +62,7 @@ export function BulkProductSelectorDialog({
   const availableProducts = React.useMemo(() => {
     const active = getActive();
     return active.filter(p => !excludeProductIds.includes(p.systemId));
-  }, [products, getActive, excludeProductIds]);
+  }, [getActive, excludeProductIds]);
 
   // Filter products by search
   const filteredProducts = React.useMemo(() => {

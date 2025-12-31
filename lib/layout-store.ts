@@ -6,4 +6,4 @@ type LayoutState = {
   // Reserved for future UI state management
 };
 
-export const useLayoutStore = create<LayoutState>((set) => ({}));
+export const useLayoutStore = create<LayoutState>((_set) => ({}));

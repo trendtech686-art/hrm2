@@ -14,12 +14,13 @@ export function EmployeeCombobox({
   value,
   onValueChange,
   placeholder = "Chọn nhân viên...",
-  className,
+  className: _className,
 }: EmployeeComboboxProps) {
   const { data: employees, getActive } = useEmployeeStore();
 
   // Only show active employees
-  const activeEmployees = React.useMemo(() => getActive(), [employees]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- employees triggers re-render when store changes
+  const activeEmployees = React.useMemo(() => getActive(), [employees, getActive]);
 
   // Find selected employee
   const selectedEmployee = React.useMemo(

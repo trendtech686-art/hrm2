@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/settings - Get all settings
 export async function GET(request: Request) {
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
     const group = searchParams.get('group')
     const key = searchParams.get('key')
 
-    const where: any = {}
+    const where: Parameters<typeof prisma.setting.findMany>[0]['where'] = {}
 
     if (group) {
       where.group = group
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
     }
 
     // Group settings by group name
-    const grouped = settings.reduce((acc: any, setting) => {
+    const grouped = settings.reduce((acc: Record<string, Record<string, unknown>>, setting) => {
       if (!acc[setting.group]) {
         acc[setting.group] = {}
       }
@@ -104,7 +105,7 @@ export async function PUT(request: Request) {
     }
 
     const results = await prisma.$transaction(
-      body.settings.map((setting: any) =>
+      body.settings.map((setting: { key: string; group: string; value?: unknown; description?: string; type?: string; category?: string }) =>
         prisma.setting.upsert({
           where: {
             key_group: {
@@ -113,7 +114,7 @@ export async function PUT(request: Request) {
             },
           },
           update: {
-            value: setting.value,
+            value: setting.value as Prisma.InputJsonValue,
             description: setting.description,
           },
           create: {
@@ -122,7 +123,7 @@ export async function PUT(request: Request) {
             group: setting.group,
             type: setting.type || 'string',
             category: setting.category || 'system',
-            value: setting.value,
+            value: setting.value as Prisma.InputJsonValue,
             description: setting.description,
           },
         })

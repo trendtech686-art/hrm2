@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 
 const SETTING_KEY = 'employee-documents'
 const SETTING_GROUP = 'hrm'
+
+// Interface for employee document
+interface EmployeeDocument {
+  employeeSystemId: string;
+  documentType: string;
+  documentUrl: string;
+  uploadedAt: string;
+  [key: string]: unknown;
+}
 
 // GET /api/employee-documents - Get employee documents metadata
 export async function GET(request: Request) {
@@ -21,10 +31,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ data: [] })
     }
 
-    let documents = setting.value as any[]
+    let documents = setting.value as EmployeeDocument[]
     
     if (employeeSystemId) {
-      documents = documents.filter((d: any) => d.employeeSystemId === employeeSystemId)
+      documents = documents.filter((d) => d.employeeSystemId === employeeSystemId)
     }
 
     return NextResponse.json({ data: documents })
@@ -50,7 +60,7 @@ export async function POST(request: Request) {
       },
     })
 
-    const documents = (setting?.value as any[]) || []
+    const documents = (setting?.value as EmployeeDocument[]) || []
     documents.push(body)
 
     await prisma.setting.upsert({
@@ -61,7 +71,7 @@ export async function POST(request: Request) {
         },
       },
       update: {
-        value: documents,
+        value: documents as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -70,7 +80,7 @@ export async function POST(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'hrm',
-        value: documents,
+        value: documents as unknown as Prisma.InputJsonValue,
         description: 'Employee documents metadata',
       },
     })
@@ -98,7 +108,7 @@ export async function PUT(request: Request) {
         },
       },
       update: {
-        value: documents,
+        value: documents as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -107,7 +117,7 @@ export async function PUT(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'hrm',
-        value: documents,
+        value: documents as unknown as Prisma.InputJsonValue,
         description: 'Employee documents metadata',
       },
     })

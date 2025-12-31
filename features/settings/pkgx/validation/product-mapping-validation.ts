@@ -15,14 +15,14 @@ export interface ProductValidationError {
   code: string;
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface ProductValidationWarning {
   code: string;
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface ProductMappingInput {

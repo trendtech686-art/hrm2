@@ -4,6 +4,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
+
+// Interface for purchase return item input
+interface PurchaseReturnItemInput {
+  systemId: string;
+  productId: string;
+  quantity?: number;
+  unitPrice?: number;
+  returnValue?: number;
+  reason?: string;
+}
 
 // GET - List purchase returns
 export async function GET(request: NextRequest) {
@@ -15,7 +26,7 @@ export async function GET(request: NextRequest) {
     
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.PurchaseReturnWhereInput = {};
     
     if (search) {
       where.OR = [
@@ -92,7 +103,7 @@ export async function POST(request: NextRequest) {
         total: total || 0,
         createdBy: createdBy || null,
         items: items?.length ? {
-          create: items.map((item: any) => ({
+          create: items.map((item: PurchaseReturnItemInput) => ({
             systemId: item.systemId,
             productId: item.productId,
             quantity: item.quantity || 1,

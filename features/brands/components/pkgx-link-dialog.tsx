@@ -41,26 +41,7 @@ export function PkgxBrandLinkDialog({
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [hasFetched, setHasFetched] = React.useState(false);
 
-  // Load PKGX brands khi mở dialog - chỉ chạy 1 lần
-  React.useEffect(() => {
-    if (open && !hasFetched) {
-      if (cachedPkgxBrands && cachedPkgxBrands.length > 0) {
-        setPkgxBrandsLocal(cachedPkgxBrands);
-        setHasFetched(true);
-      } else {
-        loadPkgxBrands();
-      }
-    }
-  }, [open, hasFetched, cachedPkgxBrands]);
-
-  // Reset state khi đóng dialog
-  React.useEffect(() => {
-    if (!open) {
-      setSelectedPkgxBrand(null);
-    }
-  }, [open]);
-
-  const loadPkgxBrands = async () => {
+  const loadPkgxBrands = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetchPkgxBrands();
@@ -85,7 +66,26 @@ export function PkgxBrandLinkDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setBrands]);
+
+  // Load PKGX brands khi mở dialog - chỉ chạy 1 lần
+  React.useEffect(() => {
+    if (open && !hasFetched) {
+      if (cachedPkgxBrands && cachedPkgxBrands.length > 0) {
+        setPkgxBrandsLocal(cachedPkgxBrands);
+        setHasFetched(true);
+      } else {
+        loadPkgxBrands();
+      }
+    }
+  }, [open, hasFetched, cachedPkgxBrands, loadPkgxBrands]);
+
+  // Reset state khi đóng dialog
+  React.useEffect(() => {
+    if (!open) {
+      setSelectedPkgxBrand(null);
+    }
+  }, [open]);
 
   // Filter out brands that are already linked
   const linkedPkgxBrandIds = React.useMemo(() => {

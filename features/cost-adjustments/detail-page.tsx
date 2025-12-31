@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { DetailField } from '../../components/ui/detail-field';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { OptimizedImage } from '../../components/ui/optimized-image';
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -34,9 +35,9 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
-import { CheckCircle, XCircle, Printer, Package, TrendingUp, TrendingDown, ArrowRight, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Printer, Package, TrendingUp, TrendingDown, Eye, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatDate, formatDateTime } from '@/lib/date-utils';
+import { formatDateTime } from '@/lib/date-utils';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import type { CostAdjustmentStatus, CostAdjustment } from '@/lib/types/prisma-extended';
 import { usePrint } from '../../lib/use-print';
@@ -74,7 +75,7 @@ function buildHistoryEntries(adjustment: CostAdjustment): HistoryEntry[] {
       timestamp: new Date(adjustment.createdAt),
       user: {
         systemId: adjustment.createdBy || '',
-        name: adjustment.createdByName,
+        name: adjustment.createdByName ?? '',
       },
       description: `Tạo phiếu điều chỉnh giá vốn với ${adjustment.items.length} sản phẩm`,
     });
@@ -136,11 +137,11 @@ export function CostAdjustmentDetailPage() {
   const [cancelReason, setCancelReason] = React.useState('');
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   
-  const adjustment = systemId ? getById(systemId as any) : undefined;
+  const adjustment = systemId ? getById(asSystemId(systemId)) : undefined;
   const currentEmployee = user?.employeeId ? findEmployeeById(asSystemId(user.employeeId)) : null;
   const { print } = usePrint();
 
-  const handlePrint = () => {
+  const handlePrint = React.useCallback(() => {
     if (!adjustment) return;
     
     // CostAdjustment doesn't have branchSystemId, use default branch from store
@@ -159,14 +160,14 @@ export function CostAdjustmentDetailPage() {
 
     const printData = convertCostAdjustmentForPrint(adjustment, { 
       branch,
-      creatorName: adjustment.createdByName,
+      creatorName: adjustment.createdByName ?? undefined,
     });
 
     print('cost-adjustment', { 
       data: mapCostAdjustmentToPrintData(printData, storeSettings), 
       lineItems: mapCostAdjustmentLineItems(printData.items) 
     });
-  };
+  }, [adjustment, branches, findBranchById, storeInfo, print]);
 
   const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
     const productType = findProductTypeById(productTypeSystemId);
@@ -186,7 +187,7 @@ export function CostAdjustmentDetailPage() {
     }
   }, [comments, systemId]);
 
-  const handleAddComment = (content: string, parentId?: string) => {
+  const handleAddComment = (content: string, _attachments?: string[], parentId?: string) => {
     const newComment: AdjustmentComment = {
       id: `comment-${Date.now()}`,
       content,
@@ -232,7 +233,7 @@ export function CostAdjustmentDetailPage() {
     setConfirmDialogOpen(false);
   };
   
-  const handleCancel = () => {
+  const handleCancel = React.useCallback(() => {
     if (!adjustment || !currentEmployee) return;
     
     const success = cancel(adjustment.systemId, asSystemId(currentEmployee.systemId), currentEmployee.fullName, cancelReason);
@@ -243,7 +244,7 @@ export function CostAdjustmentDetailPage() {
     }
     setCancelDialogOpen(false);
     setCancelReason('');
-  };
+  }, [adjustment, currentEmployee, cancel, cancelReason]);
   
 
   
@@ -279,7 +280,7 @@ export function CostAdjustmentDetailPage() {
         )}
       </div>
     );
-  }, [adjustment]);
+  }, [adjustment, handlePrint]);
   
   const breadcrumb = React.useMemo(() => {
     if (!adjustment) return [];
@@ -422,7 +423,7 @@ export function CostAdjustmentDetailPage() {
                             className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
                             onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
                           >
-                            <img src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                            <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                               <Eye className="w-4 h-4 text-white drop-shadow-md" />
                             </div>

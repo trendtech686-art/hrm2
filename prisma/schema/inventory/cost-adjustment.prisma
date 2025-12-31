@@ -1,33 +1,33 @@
 model CostAdjustment {
-  systemId           String               @id
-  id                 String               @unique
-  branchId           String
-  employeeId         String?
-  adjustmentDate     DateTime             @default(now())
-  status             CostAdjustmentStatus @default(DRAFT)
-  type               String               @default("manual") // 'manual' | 'import' | 'batch'
-  reason             String?
-  note               String?
-  referenceCode      String?              // Mã tham chiếu (ví dụ: mã đơn nhập hàng)
+  systemId            String               @id
+  id                  String               @unique
+  branchId            String
+  employeeId          String?
+  adjustmentDate      DateTime             @default(now())
+  status              CostAdjustmentStatus @default(DRAFT)
+  type                String               @default("manual") // 'manual' | 'import' | 'batch'
+  reason              String?
+  note                String?
+  referenceCode       String? // Mã tham chiếu (ví dụ: mã đơn nhập hàng)
   // Created info
-  createdDate        DateTime             @default(now())
-  createdBySystemId  String?
-  createdByName      String?
+  createdDate         DateTime             @default(now())
+  createdBySystemId   String?
+  createdByName       String?
   // Confirmed info
-  confirmedDate      DateTime?
+  confirmedDate       DateTime?
   confirmedBySystemId String?
-  confirmedByName    String?
+  confirmedByName     String?
   // Cancelled info
-  cancelledDate      DateTime?
+  cancelledDate       DateTime?
   cancelledBySystemId String?
-  cancelledByName    String?
-  cancelReason       String?
+  cancelledByName     String?
+  cancelReason        String?
   // Audit
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  createdBy          String?
-  updatedBy          String?
-  items              CostAdjustmentItem[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  createdBy           String?
+  updatedBy           String?
+  items               CostAdjustmentItem[]
 
   @@map("cost_adjustments")
 }

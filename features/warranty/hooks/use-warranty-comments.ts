@@ -73,7 +73,7 @@ export function useWarrantyComments({
     });
   }, [onUpdateTicket, ticket]);
 
-  const handleAddComment = React.useCallback((content: string, parentId?: SystemId | undefined) => {
+  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: SystemId | undefined) => {
     if (!ticket) return;
 
     const newComment = {

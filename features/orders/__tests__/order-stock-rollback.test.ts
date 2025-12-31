@@ -75,7 +75,7 @@ describe('orders → cancel flow', () => {
 
     const orderInput: Omit<Order, 'systemId'> = {
       ...orderTemplate,
-      id: '',
+      id: asBusinessId(''),
       lineItems: [
         {
           productSystemId: targetProduct.systemId,
@@ -106,7 +106,6 @@ describe('orders → cancel flow', () => {
     cancelOrder(createdOrder.systemId, TEST_EMPLOYEE_ID, {
       reason: 'Test hủy đơn khi hoàn kho',
       restock: true,
-      sendEmail: false,
     });
 
     const finalLevels = snapshotProductLevels(targetProduct.systemId, branchSystemId);

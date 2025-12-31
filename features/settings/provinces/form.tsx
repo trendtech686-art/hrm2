@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react";
 import { useForm } from "react-hook-form"
 import type { Province } from '@/lib/types/prisma-extended'
@@ -22,7 +24,7 @@ type ProvinceFormProps = {
 }
 
 export function ProvinceForm({ initialData, onSubmit, onCancel }: ProvinceFormProps) {
-  const { data: provinces } = useProvinceStore();
+  const { data: _provinces } = useProvinceStore();
   const form = useForm<ProvinceFormValues>({
     defaultValues: initialData || {
       id: "", // ✅ Empty string = auto-generate

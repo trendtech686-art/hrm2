@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {
+    const where: Parameters<typeof prisma.wiki.findMany>[0]['where'] = {
       isDeleted: false,
     }
 
@@ -120,8 +120,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(wiki, { status: 201 })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Slug đã tồn tại' },
         { status: 400 }

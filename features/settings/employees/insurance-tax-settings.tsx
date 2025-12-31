@@ -6,13 +6,12 @@
 import * as React from 'react';
 import { useFormContext, useFieldArray } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
-import { FormControl, FormField, FormItem, FormLabel, FormDescription, FormMessage } from '../../../components/ui/form';
-import { Input } from '../../../components/ui/input';
+import { FormControl, FormField, FormItem, FormLabel, FormDescription } from '../../../components/ui/form';
 import { NumberInput } from '../../../components/ui/number-input';
 import { Separator } from '../../../components/ui/separator';
 import { Button } from '../../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { PlusCircle, Trash2, AlertCircle, Info } from 'lucide-react';
+import { PlusCircle, Trash2, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
 import type { EmployeeSettings } from '@/lib/types/prisma-extended';
 

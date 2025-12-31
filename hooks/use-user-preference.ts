@@ -1,16 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 
-interface UserPreference {
-  systemId: string
-  userId: string
-  key: string
-  value: any
-  category?: string
-  createdAt: string
-  updatedAt: string
-}
-
 /**
  * Hook để lưu trữ và đọc user preferences từ database
  * Thay thế hoàn toàn localStorage cho các preferences cá nhân của user
@@ -93,7 +83,7 @@ export function useUserPreference<T>(
  */
 export function useAllUserPreferences() {
   const { user } = useAuth()
-  const [preferences, setPreferences] = useState<Record<string, any>>({})
+  const [preferences, setPreferences] = useState<Record<string, unknown>>({})
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -120,7 +110,7 @@ export function useAllUserPreferences() {
   }, [user?.systemId])
 
   const savePreference = useCallback(
-    async (key: string, value: any, category?: string) => {
+    async (key: string, value: unknown, category?: string) => {
       if (!user?.systemId) return
 
       setPreferences((prev) => ({ ...prev, [key]: value }))

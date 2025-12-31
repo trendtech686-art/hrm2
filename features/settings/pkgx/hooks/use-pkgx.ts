@@ -4,7 +4,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/pkgx-api';
-import type { PkgxCategoryMapping, PkgxBrandMapping } from '@/lib/types/prisma-extended';
 
 export const pkgxKeys = {
   all: ['pkgx'] as const,

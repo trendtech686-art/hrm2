@@ -2,15 +2,15 @@ model CostAdjustmentItem {
   systemId          String         @id @default(uuid())
   adjustmentId      String
   productId         String
-  productSystemId   String?        // Product systemId
-  productName       String?        // Cached product name
-  productImage      String?        // Product thumbnail
+  productSystemId   String? // Product systemId
+  productName       String? // Cached product name
+  productImage      String? // Product thumbnail
   oldCost           Decimal        @db.Decimal(15, 2)
   newCost           Decimal        @db.Decimal(15, 2)
   adjustmentAmount  Decimal?       @db.Decimal(15, 2) // Chênh lệch = newCost - oldCost
-  adjustmentPercent Decimal?       @db.Decimal(5, 2)  // Phần trăm thay đổi
+  adjustmentPercent Decimal?       @db.Decimal(5, 2) // Phần trăm thay đổi
   quantity          Int
-  reason            String?        // Lý do điều chỉnh riêng cho item này
+  reason            String? // Lý do điều chỉnh riêng cho item này
   costAdjustment    CostAdjustment @relation(fields: [adjustmentId], references: [systemId], onDelete: Cascade)
 
   @@map("cost_adjustment_items")

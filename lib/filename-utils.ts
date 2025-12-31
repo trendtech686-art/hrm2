@@ -139,15 +139,17 @@ export function generateSmartFilename(
 /**
  * Extract employee info from context for smart naming
  */
-export function extractEmployeeContext(context: any): {
+export function extractEmployeeContext(context: Record<string, unknown> | null | undefined): {
   name?: string;
   department?: string;
   employeeId?: string;
 } {
+  if (!context) return {};
+  const employee = context.employee as Record<string, unknown> | undefined;
   return {
-    name: context?.employee?.name || context?.name,
-    department: context?.employee?.department || context?.department,
-    employeeId: context?.employee?.id || context?.employeeId || context?.id
+    name: (employee?.name ?? context.name) as string | undefined,
+    department: (employee?.department ?? context.department) as string | undefined,
+    employeeId: (employee?.id ?? context.employeeId ?? context.id) as string | undefined
   };
 }
 

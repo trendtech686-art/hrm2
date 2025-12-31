@@ -3,7 +3,7 @@ model StockLocation {
   id               String      @unique
   name             String
   branchId         String
-  branchSystemId   String?     // ✅ Branch systemId
+  branchSystemId   String? // ✅ Branch systemId
   description      String?
   isDefault        Boolean     @default(false)
   isActive         Boolean     @default(true)

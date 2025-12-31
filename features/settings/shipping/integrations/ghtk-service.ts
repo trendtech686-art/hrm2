@@ -219,7 +219,7 @@ export class GHTKService {
     // ✅ Call through proxy server
     console.log('[GHTKService.createOrder] pickAddressId:', params.pickAddressId, 'type:', typeof params.pickAddressId);
     
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       apiToken: this.apiToken,
       partnerCode: this.partnerCode,
       

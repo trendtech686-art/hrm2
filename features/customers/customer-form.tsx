@@ -15,7 +15,7 @@ import { usePaymentTermStore } from '../settings/customers/payment-terms-store';
 import { useCreditRatingStore } from '../settings/customers/credit-ratings-store';
 import { NewDocumentsUpload } from '../../components/ui/new-documents-upload';
 import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer';
-import { FileUploadAPI, type StagingFile, type ServerFile } from '../../lib/file-upload-api';
+import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
 import { TagInput } from "../../components/ui/tag-input";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Checkbox } from "../../components/ui/checkbox";
@@ -45,7 +45,6 @@ import { Card } from "../../components/ui/card";
 import { Textarea } from "../../components/ui/textarea";
 import { CustomerAddresses } from './customer-addresses';
 import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
 import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useLifecycleStageStore } from '../settings/customers/lifecycle-stages-store';
@@ -63,14 +62,14 @@ export type CustomerFormSubmitPayload = Omit<CustomerFormValues, 'id' | 'account
 type CustomerFormProps = {
   initialData: Customer | null;
   onSubmit: (values: CustomerFormSubmitPayload) => Promise<void> | void;
-  onCancel: () => void;
+  onCancel?: () => void;
   onSuccess?: () => void;
   isEditMode?: boolean;
 };
 
 export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEditMode = false }: CustomerFormProps) {
   const customerIds = useCustomerStore(useShallow(state => state.data.map(c => c.id)));
-  const { data: provinces, getWardsByProvinceId } = useProvinceStore();
+  const { data: provinces, getWardsByProvinceId: _getWardsByProvinceId } = useProvinceStore();
   const { data: employees } = useEmployeeStore();
   const { data: customers } = useCustomerStore();
   
@@ -99,7 +98,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
   // Files marked for deletion (safe delete)
   const [imageFilesToDelete, setImageFilesToDelete] = React.useState<string[]>([]);
   // Loading state
-  const [isLoadingImages, setIsLoadingImages] = React.useState(false);
+  const [_isLoadingImages, setIsLoadingImages] = React.useState(false);
 
   // ============================================
   // CONTRACT FILE UPLOAD STATE
@@ -479,7 +478,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
   };
 
   // Convert to Combobox options
-  const provinceOptions: ComboboxOption[] = React.useMemo(() => 
+  const _provinceOptions: ComboboxOption[] = React.useMemo(() => 
     provinces.map(p => ({ value: p.name, label: p.name })), 
     [provinces]
   );

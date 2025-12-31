@@ -1,31 +1,31 @@
 model Order {
-  systemId             String          @id
-  id                   String          @unique
+  systemId             String         @id
+  id                   String         @unique
   customerId           String
   customerName         String
   branchId             String
   branchName           String
   salespersonId        String
   salespersonName      String
-  orderDate            DateTime        @default(now())
+  orderDate            DateTime       @default(now())
   expectedDeliveryDate DateTime?
   approvedDate         DateTime?
   completedDate        DateTime?
   cancelledDate        DateTime?
   shippingAddress      Json?
   billingAddress       Json?
-  status               OrderStatus     @default(PENDING)
-  paymentStatus        PaymentStatus   @default(UNPAID)
-  deliveryStatus       DeliveryStatus  @default(PENDING_PACK)
-  deliveryMethod       DeliveryMethod  @default(SHIPPING)
-  subtotal             Decimal         @db.Decimal(15, 2)
-  shippingFee          Decimal         @default(0) @db.Decimal(15, 2)
-  tax                  Decimal         @default(0) @db.Decimal(15, 2)
-  discount             Decimal         @default(0) @db.Decimal(15, 2)
+  status               OrderStatus    @default(PENDING)
+  paymentStatus        PaymentStatus  @default(UNPAID)
+  deliveryStatus       DeliveryStatus @default(PENDING_PACK)
+  deliveryMethod       DeliveryMethod @default(SHIPPING)
+  subtotal             Decimal        @db.Decimal(15, 2)
+  shippingFee          Decimal        @default(0) @db.Decimal(15, 2)
+  tax                  Decimal        @default(0) @db.Decimal(15, 2)
+  discount             Decimal        @default(0) @db.Decimal(15, 2)
   discountType         DiscountType?
-  grandTotal           Decimal         @db.Decimal(15, 2)
-  paidAmount           Decimal         @default(0) @db.Decimal(15, 2)
-  codAmount            Decimal         @default(0) @db.Decimal(15, 2)
+  grandTotal           Decimal        @db.Decimal(15, 2)
+  paidAmount           Decimal        @default(0) @db.Decimal(15, 2)
+  codAmount            Decimal        @default(0) @db.Decimal(15, 2)
   shippingCarrier      String?
   trackingCode         String?
   notes                String?
@@ -33,71 +33,71 @@ model Order {
   tags                 String[]
   source               String?
   externalReference    String?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
   createdBy            String?
   updatedBy            String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Assigned staff
-  assignedPackerId      String?
-  assignedPackerName    String?
-  
+  assignedPackerId   String?
+  assignedPackerName String?
+
   // Sales return linking (for exchange orders)
-  sourceSalesReturnId        String?        // Business ID of source sales return
-  linkedSalesReturnSystemId  String?        // SystemId of linked sales return
-  linkedSalesReturnValue     Decimal?       @db.Decimal(15, 2) // Value to subtract
-  
+  sourceSalesReturnId       String? // Business ID of source sales return
+  linkedSalesReturnSystemId String? // SystemId of linked sales return
+  linkedSalesReturnValue    Decimal? @db.Decimal(15, 2) // Value to subtract
+
   // Expected payment
-  expectedPaymentMethod String?        // Tiền mặt, Chuyển khoản, etc.
-  
+  expectedPaymentMethod String? // Tiền mặt, Chuyển khoản, etc.
+
   // External references
-  referenceUrl          String?        // Link đơn hàng bên ngoài
-  
+  referenceUrl String? // Link đơn hàng bên ngoài
+
   // Service fees (installation, warranty, etc.)
-  serviceFees           Json?          // Array<{ id, name, amount }>
-  
+  serviceFees Json? // Array<{ id, name, amount }>
+
   // Additional statuses
-  printStatus           PrintStatus    @default(NOT_PRINTED)
-  stockOutStatus        StockOutStatus @default(NOT_STOCKED_OUT)
-  returnStatus          ReturnStatus   @default(NO_RETURN)
-  
+  printStatus    PrintStatus    @default(NOT_PRINTED)
+  stockOutStatus StockOutStatus @default(NOT_STOCKED_OUT)
+  returnStatus   ReturnStatus   @default(NO_RETURN)
+
   // Cancellation metadata
-  cancellationMetadata  Json?          // { restockItems, notifyCustomer, emailNotifiedAt }
-  
+  cancellationMetadata Json? // { restockItems, notifyCustomer, emailNotifiedAt }
+
   // Dispatch info
-  dispatchedDate             DateTime?
-  dispatchedByEmployeeId     String?
-  dispatchedByEmployeeName   String?
-  
+  dispatchedDate           DateTime?
+  dispatchedByEmployeeId   String?
+  dispatchedByEmployeeName String?
+
   // Order-level discount & promotions
-  orderDiscount         Decimal?       @db.Decimal(15, 2)
-  orderDiscountType     DiscountType?
-  orderDiscountReason   String?        // Lý do chiết khấu
-  voucherCode           String?        // Mã giảm giá
-  voucherAmount         Decimal?       @db.Decimal(15, 2)
-  
+  orderDiscount       Decimal?      @db.Decimal(15, 2)
+  orderDiscountType   DiscountType?
+  orderDiscountReason String? // Lý do chiết khấu
+  voucherCode         String? // Mã giảm giá
+  voucherAmount       Decimal?      @db.Decimal(15, 2)
+
   // Shipping info (legacy structure)
-  shippingInfo          Json?          // { carrier, service, trackingCode }
-  
+  shippingInfo Json? // { carrier, service, trackingCode }
+
   // Subtasks for workflow
-  subtasks              Json?          // Array of workflow subtasks
-  
+  subtasks Json? // Array of workflow subtasks
+
   // Activity history
-  activityHistory       Json?          // Array of HistoryEntry
+  activityHistory Json? // Array of HistoryEntry
 
   // === RELATIONS ===
-  lineItems            OrderLineItem[]
-  payments             OrderPayment[]
-  packagings           Packaging[]
-  branch               Branch          @relation(fields: [branchId], references: [systemId])
-  customer             Customer        @relation(fields: [customerId], references: [systemId])
-  salesperson          Employee        @relation(fields: [salespersonId], references: [systemId])
-  receipts             Receipt[]
-  sales_returns        SalesReturn[]
-  shipments            Shipment[]
-  warranties           Warranty[]
+  lineItems     OrderLineItem[]
+  payments      OrderPayment[]
+  packagings    Packaging[]
+  branch        Branch          @relation(fields: [branchId], references: [systemId])
+  customer      Customer        @relation(fields: [customerId], references: [systemId])
+  salesperson   Employee        @relation(fields: [salespersonId], references: [systemId])
+  receipts      Receipt[]
+  sales_returns SalesReturn[]
+  shipments     Shipment[]
+  warranties    Warranty[]
 
   @@index([branchId])
   @@index([customerId])

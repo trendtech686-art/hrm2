@@ -15,7 +15,6 @@ import { ROUTES } from '@/lib/router';
 import { 
   ReportChart, 
   ReportFilters, 
-  ReportSummaryCards,
   ReportHeaderActions,
   SALES_REPORT_GLOSSARY,
   formatCurrency,
@@ -37,9 +36,7 @@ import {
   ShoppingCart, 
   DollarSign, 
   TrendingUp, 
-  RotateCcw,
   Filter,
-  ArrowLeft,
 } from 'lucide-react';
 
 // Default date range: current month
@@ -49,7 +46,7 @@ const getDefaultDateRange = (): ReportDateRange => ({
 });
 
 // Columns configuration
-const getColumns = (showSummary: boolean): ColumnDef<SalesTimeReportRow & { systemId: string; _isSummary?: boolean }>[] => [
+const getColumns = (_showSummary: boolean): ColumnDef<SalesTimeReportRow & { systemId: string; _isSummary?: boolean }>[] => [
   {
     id: 'label',
     accessorKey: 'label',
@@ -139,7 +136,7 @@ const getColumns = (showSummary: boolean): ColumnDef<SalesTimeReportRow & { syst
 ];
 
 // Chart config
-const CHART_CONFIG = {
+const _CHART_CONFIG = {
   bars: [
     { dataKey: 'revenue', name: 'Doanh thu', color: 'hsl(var(--chart-1))' },
   ],
@@ -156,7 +153,7 @@ const DISPLAY_OPTIONS = [
 ];
 
 export function SalesTimeReportPage() {
-  const router = useRouter();
+  const _router = useRouter();
   
   // State
   const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);
@@ -203,8 +200,8 @@ export function SalesTimeReportPage() {
         if (a._isSummary) return -1;
         if (b._isSummary) return 1;
         
-        const aVal = (a as any)[sorting.id];
-        const bVal = (b as any)[sorting.id];
+        const aVal = (a as unknown as Record<string, unknown>)[sorting.id];
+        const bVal = (b as unknown as Record<string, unknown>)[sorting.id];
         
         if (aVal === bVal) return 0;
         if (aVal == null) return 1;
@@ -269,7 +266,7 @@ export function SalesTimeReportPage() {
   ], []);
   
   // Summary cards
-  const summaryCards = React.useMemo(() => [
+  const _summaryCards = React.useMemo(() => [
     {
       title: 'Tổng đơn hàng',
       value: summary.orderCount,

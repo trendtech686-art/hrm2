@@ -71,7 +71,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
       totalDeduction: byResolution.deduct.deduction,
       outOfStockValue: byResolution.out_of_stock.value,
     };
-  }, [products, shippingFee]);
+  }, [products]);
 
   const settlementTotalForDisplay = settlementSnapshot?.totalAmount ?? settlementTotal;
   const totalSettlementAbsolute = Math.abs(settlementTotalForDisplay);

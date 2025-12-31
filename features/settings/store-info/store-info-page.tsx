@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { PlusCircle, MoreHorizontal, Edit, Trash2, ShieldCheck, Phone, MapPin, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';

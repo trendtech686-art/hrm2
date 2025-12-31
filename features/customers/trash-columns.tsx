@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
+import { formatDate, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 import type { Customer } from '@/lib/types/prisma-extended'
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
@@ -47,7 +47,7 @@ export const getColumns = (
         sortKey="id"
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => <span className="font-mono">{row.id}</span>,
@@ -65,7 +65,7 @@ export const getColumns = (
         sortKey="name"
         isSorted={sorting?.id === 'name'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => (
@@ -150,7 +150,7 @@ export const getColumns = (
         sortKey="deletedAt"
         isSorted={sorting?.id === 'deletedAt'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => {

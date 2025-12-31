@@ -31,7 +31,7 @@ interface StorageConfig {
   localStorageKey: string;
   apiEndpoint: string;
   dataKey?: string; // Key to access data array in stored object
-  mapFn?: (item: any) => any; // Transform function before sending to API
+  mapFn?: (item: unknown) => unknown; // Transform function before sending to API
 }
 
 const STORAGE_CONFIGS: Record<string, StorageConfig> = {
@@ -102,8 +102,13 @@ const STORAGE_CONFIGS: Record<string, StorageConfig> = {
   },
 };
 
-function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((acc, key) => acc?.[key], obj);
+function getNestedValue(obj: unknown, path: string): unknown {
+  return path.split('.').reduce((acc: unknown, key) => {
+    if (acc && typeof acc === 'object' && key in acc) {
+      return (acc as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, obj);
 }
 
 async function migrateStore(config: StorageConfig): Promise<{ count: number; errors: string[] }> {
@@ -150,14 +155,16 @@ async function migrateStore(config: StorageConfig): Promise<{ count: number; err
         } else {
           count++;
         }
-      } catch (itemError: any) {
-        errors.push(`${item.systemId}: ${itemError.message}`);
+      } catch (itemError) {
+        const errorMessage = itemError instanceof Error ? itemError.message : String(itemError);
+        errors.push(`${(item as { systemId?: string }).systemId || 'unknown'}: ${errorMessage}`);
       }
     }
 
     return { count, errors };
-  } catch (error: any) {
-    return { count: 0, errors: [error.message] };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { count: 0, errors: [errorMessage] };
   }
 }
 
@@ -201,11 +208,11 @@ export function DataMigrationTool() {
               : s
           )
         );
-      } catch (error: any) {
+      } catch (error) {
         setMigrationStatus(prev =>
           prev.map(s =>
             s.store === storeName
-              ? { ...s, status: 'error', error: error.message }
+              ? { ...s, status: 'error', error: error instanceof Error ? error.message : 'Unknown error' }
               : s
           )
         );

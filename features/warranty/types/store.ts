@@ -5,7 +5,7 @@ export interface WarrantyStore {
   data: WarrantyTicket[];
   add: (item: Omit<WarrantyTicket, 'systemId'>) => WarrantyTicket;
   addMultiple: (items: Omit<WarrantyTicket, 'systemId'>[]) => void;
-  update: (systemId: SystemId, item: any) => void;
+  update: (systemId: SystemId, item: Partial<WarrantyTicket>) => void;
   remove: (systemId: SystemId) => void;
   hardDelete: (systemId: SystemId) => void;
   restore: (systemId: SystemId) => void;
@@ -21,10 +21,10 @@ export interface WarrantyStore {
     action: string,
     performedBy: string,
     note?: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ) => void;
   recalculateSummary: (ticketSystemId: SystemId) => void;
-  calculateSummary: (products: WarrantyProduct[]) => any;
+  calculateSummary: (products: WarrantyProduct[]) => WarrantyTicket['summary'];
   calculateSettlementStatus: (
     totalSettlement: number,
     totalPaid: number,

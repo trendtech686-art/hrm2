@@ -6,7 +6,8 @@ import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useOrderStore } from '../orders/store';
 import { useBranchStore } from '../settings/branches/store';
-import type { PackagingSlip } from '@/lib/types/prisma-extended';
+import type { PackagingSlip, Order, Packaging, Customer, PaperSize } from '@/lib/types/prisma-extended';
+import type { PrintData, PrintLineItem } from '@/lib/print-service';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
@@ -139,7 +140,7 @@ export function PackagingPage() {
     }, [allOrders]);
     
     const handleConfirm = React.useCallback((orderSystemId: string, packagingSystemId: string) => {
-        confirmPackaging(orderSystemId, packagingSystemId, currentUserSystemId);
+        confirmPackaging(asSystemId(orderSystemId), asSystemId(packagingSystemId), asSystemId(currentUserSystemId));
     }, [confirmPackaging, currentUserSystemId]);
 
     const handleCancelRequest = React.useCallback((orderSystemId: string, packagingSystemId: string) => {
@@ -148,7 +149,7 @@ export function PackagingPage() {
 
     const handleConfirmCancel = (reason: string) => {
         if (cancelDialogState) {
-            cancelPackagingRequest(cancelDialogState.orderSystemId, cancelDialogState.packagingSystemId, currentUserSystemId, reason);
+            cancelPackagingRequest(asSystemId(cancelDialogState.orderSystemId), asSystemId(cancelDialogState.packagingSystemId), asSystemId(currentUserSystemId), reason);
             setCancelDialogState(null);
         }
     };
@@ -166,12 +167,12 @@ export function PackagingPage() {
         const { branchSystemId, paperSize } = options;
         const selectedBranch = branchSystemId ? findBranchById(branchSystemId) : null;
         
-        const printOptionsList: any[] = [];
+        const printOptionsList: Array<{ data: PrintData; lineItems?: PrintLineItem[]; paperSize?: PaperSize }> = [];
         
         itemsToPrint.forEach(pkg => {
             // Find the order for this packaging
-            let targetOrder: any = null;
-            let targetPkg: any = null;
+            let targetOrder: Order | null = null;
+            let targetPkg: Packaging | null = null;
 
             for (const order of allOrders) {
                 const foundPkg = order.packagings.find(p => p.systemId === pkg.systemId);
@@ -200,7 +201,7 @@ export function PackagingPage() {
             printOptionsList.push({
                 data: mapPackingToPrintData(packingData, storeSettings),
                 lineItems: mapPackingLineItems(packingData.items),
-                paperSize,
+                paperSize: paperSize as PaperSize,
             });
         });
 
@@ -217,8 +218,8 @@ export function PackagingPage() {
     const handlePrintPackaging = React.useCallback((packagingIds: string[]) => {
         packagingIds.forEach(pkgId => {
             // Find the packaging slip and the order
-            let targetOrder: any = null;
-            let targetPkg: any = null;
+            let targetOrder: Order | null = null;
+            let targetPkg: Packaging | null = null;
 
             for (const order of allOrders) {
                 const pkg = order.packagings.find(p => p.systemId === pkgId);
@@ -252,7 +253,7 @@ export function PackagingPage() {
         });
     }, [allOrders, findCustomerById, findBranchById, storeInfo, print]);
 
-    const handleBulkCancelPackaging = React.useCallback((packagingIds: string[]) => {
+    const _handleBulkCancelPackaging = React.useCallback((packagingIds: string[]) => {
         console.log('H?y Phi?u ��ng G�i:', packagingIds);
         // TODO: Implement bulk cancel logic
     }, []);
@@ -289,14 +290,14 @@ export function PackagingPage() {
         const sorted = [...filteredData];
         if (sorting.id) {
             sorted.sort((a, b) => {
-                const aValue = (a as any)[sorting.id];
-                const bValue = (b as any)[sorting.id];
+                const aValue = (a as Record<string, unknown>)[sorting.id];
+                const bValue = (b as Record<string, unknown>)[sorting.id];
                 if (!aValue) return 1;
                 if (!bValue) return -1;
                 // Special handling for date columns
                 if (sorting.id === 'createdAt' || sorting.id === 'requestDate') {
-                  const aTime = aValue ? new Date(aValue).getTime() : 0;
-                  const bTime = bValue ? new Date(bValue).getTime() : 0;
+                  const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+                  const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
                   return sorting.desc ? bTime - aTime : aTime - bTime;
                 }
                 if (aValue < bValue) return sorting.desc ? 1 : -1;

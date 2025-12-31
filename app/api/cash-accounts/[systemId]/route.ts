@@ -6,7 +6,7 @@ interface RouteParams {
 }
 
 // GET /api/cash-accounts/[systemId]
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
@@ -55,8 +55,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
     })
 
     return NextResponse.json(account)
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Quỹ tiền không tồn tại' },
         { status: 404 }
@@ -71,7 +71,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // DELETE /api/cash-accounts/[systemId]
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
@@ -81,8 +81,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     })
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Quỹ tiền không tồn tại' },
         { status: 404 }

@@ -6,7 +6,7 @@ interface RouteParams {
 }
 
 // GET /api/payroll/[systemId]
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
@@ -63,7 +63,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         status: body.status,
         paidAt: body.paidAt ? new Date(body.paidAt) : undefined,
         items: body.items ? {
-          create: body.items.map((item: any) => ({
+          create: body.items.map((item: { employeeId: string; employeeName?: string; employeeCode?: string; baseSalary?: number; netSalary?: number; notes?: string }) => ({
             employeeId: item.employeeId,
             employeeName: item.employeeName || '',
             employeeCode: item.employeeCode || '',
@@ -81,8 +81,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
     })
 
     return NextResponse.json(payroll)
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Bảng lương không tồn tại' },
         { status: 404 }
@@ -97,7 +97,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // DELETE /api/payroll/[systemId]
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
@@ -111,8 +111,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     })
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Bảng lương không tồn tại' },
         { status: 404 }

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from 'next/navigation';
-import { Plus, Filter, X, LayoutGrid, Table, AlertCircle, CheckCircle2, Clock, XCircle, AlertTriangle, Settings, Settings2, BarChart3, CheckCircle, FolderOpen, Ban, Link2, RefreshCw, Printer } from "lucide-react";
+import { Plus, X, LayoutGrid, Table, AlertCircle, CheckCircle2, Clock, XCircle, BarChart3, RefreshCw, Printer, Settings } from "lucide-react";
 import Fuse from "fuse.js";
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from "../../lib/utils";
@@ -18,11 +18,10 @@ import { useBranchStore } from "../settings/branches/store";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import {
   complaintStatusLabels,
-  complaintStatusColors,
   complaintTypeLabels,
   complaintTypeColors,
 } from "./types";
-import { checkOverdue, formatTimeLeft } from "./sla-utils";
+import { checkOverdue } from "./sla-utils";
 
 // Print
 import { usePrint } from "../../lib/use-print";
@@ -50,12 +49,11 @@ import {
 import { PageFilters } from "../../components/layout/page-filters";
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
-import { DataTableToolbar } from "../../components/data-table/data-table-toolbar";
 import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table";
 import { SlaTimer } from "../../components/SlaTimer";
 import { getColumns } from "./columns";
-import { ComplaintCard } from "./complaint-card";
-import { ComplaintCardContextMenu } from "./complaint-card-context-menu";// Hooks
+import { ComplaintCard } from "./components/complaint-card";
+import { ComplaintCardContextMenu } from "./components/complaint-card-context-menu";// Hooks
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 
@@ -180,8 +178,8 @@ function KanbanColumn({
             let cardColorClass = "";
             if (colorSettings.enableOverdueColor && isOverdue) {
               cardColorClass = colorSettings.overdueColor;
-            } else if (colorSettings.enablePriorityColors && (complaint as any).priority) {
-              const priority = (complaint as any).priority as 'low' | 'medium' | 'high' | 'urgent';
+            } else if (colorSettings.enablePriorityColors && complaint.priority) {
+              const priority = complaint.priority;
               cardColorClass = colorSettings.priorityColors[priority] || "";
             } else if (colorSettings.enableStatusColors) {
               cardColorClass = colorSettings.statusColors[complaint.status] || "";
@@ -313,14 +311,14 @@ function KanbanColumn({
 export function ComplaintsPage() {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
-  const { setPageHeader } = usePageHeader();
+  const { setPageHeader: _setPageHeader } = usePageHeader();
 
   // Store
   const {
     complaints,
     searchQuery,
     setSearchQuery,
-    getComplaintsByStatus,
+    getComplaintsByStatus: _getComplaintsByStatus,
     getStats,
     updateComplaint,
   } = useComplaintStore();
@@ -328,7 +326,7 @@ export function ComplaintsPage() {
   const { data: employees } = useEmployeeStore();
   const { data: branches } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
-  const { print, printMultiple } = usePrint();
+  const { print: _print, printMultiple } = usePrint();
 
   // Print dialog state
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
@@ -379,7 +377,7 @@ export function ComplaintsPage() {
 
   // Realtime updates
   const [dataVersion, setDataVersion] = React.useState(() => getDataVersion());
-  const { hasUpdates, isPolling, refresh, togglePolling } = useRealtimeUpdates(
+  const { hasUpdates: _hasUpdates, isPolling, refresh: _refresh, togglePolling } = useRealtimeUpdates(
     dataVersion,
     () => {
       // Refresh data when updates available
@@ -499,7 +497,7 @@ export function ComplaintsPage() {
   // ==========================================
   // Data Processing
   // ==========================================
-  const stats = React.useMemo(() => getStats(), [complaints, getStats]);
+  const _stats = React.useMemo(() => getStats(), [getStats]);
 
   // Memoize Fuse instance
   const fuseInstance = React.useMemo(() => {
@@ -591,10 +589,10 @@ export function ComplaintsPage() {
                 note: 'Kết thúc khiếu nại từ Kanban view',
               },
             ],
-          } as any);
+          } as Partial<Complaint>);
           toast.success('Đã kết thúc khiếu nại thành công');
           triggerDataUpdate();
-        } catch (error) {
+        } catch (_error) {
           toast.error('Không thể kết thúc khiếu nại');
         }
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -635,10 +633,10 @@ export function ComplaintsPage() {
                 note: 'Mở lại khiếu nại từ Kanban view',
               },
             ],
-          } as any);
+          } as Partial<Complaint>);
           toast.success('Đã mở lại khiếu nại thành công');
           triggerDataUpdate();
-        } catch (error) {
+        } catch (_error) {
           toast.error('Không thể mở lại khiếu nại');
         }
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -673,10 +671,10 @@ export function ComplaintsPage() {
                 note: 'Hủy khiếu nại từ Kanban view',
               },
             ],
-          } as any);
+          } as Partial<Complaint>);
           toast.success('Đã hủy khiếu nại thành công');
           triggerDataUpdate();
-        } catch (error) {
+        } catch (_error) {
           toast.error('Không thể hủy khiếu nại');
         }
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -710,10 +708,10 @@ export function ComplaintsPage() {
                 note: 'Bắt đầu xử lý khiếu nại từ Kanban view',
               },
             ],
-          } as any);
+          } as Partial<Complaint>);
           toast.success('Đã bắt đầu xử lý khiếu nại');
           triggerDataUpdate();
-        } catch (error) {
+        } catch (_error) {
           toast.error('Không thể bắt đầu xử lý khiếu nại');
         }
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -750,7 +748,7 @@ export function ComplaintsPage() {
         </div>,
         { duration: 5000 }
       );
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể copy link tracking');
     }
   }, [complaints]);
@@ -860,6 +858,7 @@ export function ComplaintsPage() {
     if (columnOrder.length === 0) {
       setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);  // Empty deps - run once
 
   // Calculate pagination
@@ -902,7 +901,7 @@ export function ComplaintsPage() {
           });
           toast.success(`Đã kết thúc ${allSelectedRows.length} khiếu nại`);
           setRowSelection({});
-        } catch (error) {
+        } catch (_error) {
           toast.error('Không thể kết thúc khiếu nại');
         }
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -927,7 +926,7 @@ export function ComplaintsPage() {
           });
           toast.success(`Đã mở lại ${allSelectedRows.length} khiếu nại`);
           setRowSelection({});
-        } catch (error) {
+        } catch (_error) {
           toast.error('Không thể mở lại khiếu nại');
         }
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -952,7 +951,7 @@ export function ComplaintsPage() {
           });
           toast.success(`Đã hủy ${allSelectedRows.length} khiếu nại`);
           setRowSelection({});
-        } catch (error) {
+        } catch (_error) {
           toast.error('Không thể hủy khiếu nại');
         }
         setConfirmDialog(prev => ({ ...prev, open: false }));
@@ -981,7 +980,7 @@ export function ComplaintsPage() {
       
       navigator.clipboard.writeText(trackingLinks.join('\n'));
       toast.success(`Đã copy ${allSelectedRows.length} link tracking vào clipboard`);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể copy link tracking');
     }
   }, [allSelectedRows]);

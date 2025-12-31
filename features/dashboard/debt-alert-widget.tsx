@@ -22,7 +22,7 @@ interface CustomerDebtCardProps {
 
 const CustomerDebtCard = ({ customer, onClick }: CustomerDebtCardProps) => {
   const info = calculateDebtTrackingInfo(customer);
-  const isMobile = !useMediaQuery("(min-width: 768px)");
+  const _isMobile = !useMediaQuery("(min-width: 768px)");
   
   const getVariantColor = () => {
     if (!info.debtStatus) return 'border-muted';

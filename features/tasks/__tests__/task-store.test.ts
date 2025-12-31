@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTaskStore } from '../store';
-import { asSystemId } from '../../../lib/id-types';
+import { asSystemId, type SystemId } from '../../../lib/id-types';
 
 // Mock auth context
 vi.mock('../../../contexts/auth-context.tsx', () => ({
@@ -58,9 +58,9 @@ describe('Task Store', () => {
         createdAt: new Date().toISOString(),
       };
       
-      let taskResult: any;
+      let taskResult: ReturnType<typeof result.current.add>;
       act(() => {
-        taskResult = result.current.add(newTask as any);
+        taskResult = result.current.add(newTask as Parameters<typeof result.current.add>[0]);
       });
       
       expect(taskResult).toBeDefined();
@@ -78,9 +78,9 @@ describe('Task Store', () => {
         priority: 'low' as const,
       };
       
-      let taskResult: any;
+      let taskResult: ReturnType<typeof result.current.add>;
       act(() => {
-        taskResult = result.current.add(newTask as any);
+        taskResult = result.current.add(newTask as Parameters<typeof result.current.add>[0]);
       });
       
       expect(taskResult?.systemId).toBeDefined();
@@ -98,12 +98,12 @@ describe('Task Store', () => {
         assigneeName: 'Test Employee',
       };
       
-      let taskResult: any;
+      let taskResult: ReturnType<typeof result.current.add>;
       act(() => {
-        taskResult = result.current.add(newTask as any);
+        taskResult = result.current.add(newTask as Parameters<typeof result.current.add>[0]);
       });
       
-      const created = result.current.findById(taskResult?.systemId as any);
+      const created = result.current.findById(taskResult?.systemId as SystemId);
       
       expect(created?.activities).toBeDefined();
       expect(created?.activities?.length).toBeGreaterThan(0);
@@ -120,7 +120,7 @@ describe('Task Store', () => {
           result.current.addAssignee(task.systemId, asSystemId('EMP003'), 'New Assignee', 'contributor');
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.assignees?.some(a => a.employeeName === 'New Assignee')).toBe(true);
       }
     });
@@ -137,7 +137,7 @@ describe('Task Store', () => {
           result.current.removeAssignee(task.systemId, assignee.employeeSystemId);
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.assignees?.some(a => a.employeeSystemId === assignee.employeeSystemId)).toBe(false);
       }
     });
@@ -154,7 +154,7 @@ describe('Task Store', () => {
           result.current.updateAssigneeRole(task.systemId, assignee.employeeSystemId, 'reviewer');
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         const updatedAssignee = updated?.assignees?.find(a => a.employeeSystemId === assignee.employeeSystemId);
         expect(updatedAssignee?.role).toBe('reviewer');
       }
@@ -170,10 +170,10 @@ describe('Task Store', () => {
         const newDueDate = '2025-06-30';
         
         act(() => {
-          result.current.update(task.systemId as any, { dueDate: newDueDate });
+          result.current.update(task.systemId, { dueDate: newDueDate });
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.dueDate).toBe(newDueDate);
       }
     });
@@ -191,10 +191,10 @@ describe('Task Store', () => {
         ];
         
         act(() => {
-          result.current.update(task.systemId as any, { subtasks: newSubtasks });
+          result.current.update(task.systemId, { subtasks: newSubtasks });
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.subtasks?.length).toBe(2);
       }
     });
@@ -208,10 +208,10 @@ describe('Task Store', () => {
         const task = tasks[0];
         
         act(() => {
-          result.current.update(task.systemId as any, { progress: 50 });
+          result.current.update(task.systemId, { progress: 50 });
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.progress).toBe(50);
       }
     });
@@ -225,10 +225,10 @@ describe('Task Store', () => {
         const task = tasks[0];
         
         act(() => {
-          result.current.update(task.systemId as any, { status: 'Hoàn thành' });
+          result.current.update(task.systemId, { status: 'Hoàn thành' });
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.status).toBe('Hoàn thành');
       }
     });
@@ -243,10 +243,10 @@ describe('Task Store', () => {
         const initialActivitiesCount = task.activities?.length || 0;
         
         act(() => {
-          result.current.update(task.systemId as any, { status: 'Đang thực hiện' });
+          result.current.update(task.systemId, { status: 'Đang thực hiện' });
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.status).toBe('Đang thực hiện');
         expect(updated?.activities?.length).toBeGreaterThanOrEqual(initialActivitiesCount);
       }
@@ -261,10 +261,10 @@ describe('Task Store', () => {
         const task = tasks[0];
         
         act(() => {
-          result.current.update(task.systemId as any, { priority: 'high' });
+          result.current.update(task.systemId, { priority: 'high' });
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.priority).toBe('high');
       }
     });
@@ -278,10 +278,10 @@ describe('Task Store', () => {
         const task = tasks[0];
         
         act(() => {
-          result.current.update(task.systemId as any, { status: 'Đang thực hiện' });
+          result.current.update(task.systemId, { status: 'Đang thực hiện' });
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.timerRunning).toBe(true);
         expect(updated?.timerStartedAt).toBeDefined();
       }
@@ -314,7 +314,7 @@ describe('Task Store', () => {
           result.current.approveTask(task.systemId);
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.approvalStatus).toBe('approved');
         expect(updated?.status).toBe('Hoàn thành');
       }
@@ -332,7 +332,7 @@ describe('Task Store', () => {
           result.current.rejectTask(task.systemId, reason);
         });
         
-        const updated = result.current.findById(task.systemId as any);
+        const updated = result.current.findById(task.systemId);
         expect(updated?.approvalStatus).toBe('rejected');
         expect(updated?.rejectionReason).toBe(reason);
       }
@@ -346,10 +346,10 @@ describe('Task Store', () => {
       if (tasks.length > 0) {
         const task = tasks[0];
         act(() => {
-          result.current.remove(task.systemId as any);
+          result.current.remove(task.systemId);
         });
         
-        const removed = result.current.findById(task.systemId as any);
+        const removed = result.current.findById(task.systemId);
         expect(removed?.isDeleted).toBe(true);
       }
     });
@@ -362,10 +362,10 @@ describe('Task Store', () => {
       if (deletedTasks.length > 0) {
         const task = deletedTasks[0];
         act(() => {
-          result.current.restore(task.systemId as any);
+          result.current.restore(task.systemId);
         });
         
-        const restored = result.current.findById(task.systemId as any);
+        const restored = result.current.findById(task.systemId);
         expect(restored?.isDeleted).toBe(false);
       }
     });

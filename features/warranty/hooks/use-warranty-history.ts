@@ -39,7 +39,7 @@ function mapHistoryEntries(items: WarrantyHistory[] = []): HistoryEntry[] {
     action: mapWarrantyHistoryAction(entry.action),
     timestamp: new Date(entry.performedAt),
     user: {
-      systemId: entry.metadata?.performedBySystemId || entry.performedBy || 'SYSTEM',
+      systemId: (entry.metadata?.performedBySystemId || entry.performedBy || 'SYSTEM') as string,
       name: entry.performedBy || 'Hệ thống',
     },
     description: entry.actionLabel || entry.action || 'Hoạt động',

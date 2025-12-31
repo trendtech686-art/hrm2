@@ -65,31 +65,35 @@ export function CommentEditor({
   // Use custom uploader or default
   const uploadImage = onImageUpload || defaultUploader;
 
-  // Validate and upload image
-  const handleImageFile = React.useCallback(async (file: File, source: 'select' | 'paste' | 'drop') => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Chỉ chấp nhận file ảnh');
-      return;
-    }
+  // Validate and upload image - editor is accessed via closure at call time
+  const handleImageFile = React.useCallback(
+    async (file: File, source: 'select' | 'paste' | 'drop') => {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Chỉ chấp nhận file ảnh');
+        return;
+      }
 
-    if (file.size > maxImageSize) {
-      const maxMB = Math.round(maxImageSize / 1024 / 1024);
-      toast.error('Ảnh quá lớn', { description: `Kích thước tối đa ${maxMB}MB` });
-      return;
-    }
+      if (file.size > maxImageSize) {
+        const maxMB = Math.round(maxImageSize / 1024 / 1024);
+        toast.error('Ảnh quá lớn', { description: `Kích thước tối đa ${maxMB}MB` });
+        return;
+      }
 
-    setIsUploading(true);
-    try {
-      const url = await uploadImage(file);
-      editor?.chain().focus().setImage({ src: url }).run();
-      toast.success(source === 'paste' ? 'Đã dán ảnh' : source === 'drop' ? 'Đã thả ảnh' : 'Đã thêm ảnh');
-    } catch (error) {
-      console.error('Upload failed:', error);
-      toast.error('Không thể tải ảnh lên');
-    } finally {
-      setIsUploading(false);
-    }
-  }, [uploadImage, maxImageSize]);
+      setIsUploading(true);
+      try {
+        const url = await uploadImage(file);
+        editor?.chain().focus().setImage({ src: url }).run();
+        toast.success(source === 'paste' ? 'Đã dán ảnh' : source === 'drop' ? 'Đã thả ảnh' : 'Đã thêm ảnh');
+      } catch (error) {
+        console.error('Upload failed:', error);
+        toast.error('Không thể tải ảnh lên');
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- editor is defined after this callback and accessed via closure
+    [uploadImage, maxImageSize]
+  );
 
   const editor = useEditor({
     extensions: [
@@ -111,15 +115,16 @@ export function CommentEditor({
               item.label.toLowerCase().includes(query.toLowerCase())
             );
           },
-          render: () => {
-            let component: any;
-            let popup: any;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          render: (): any => {
+            let component: MentionCombobox | null = null;
+            let popup: ReturnType<typeof tippy> | null = null;
 
             return {
-              onStart: (props: any) => {
+              onStart: (props: { clientRect: (() => DOMRect | null) | null; items: Array<{ id: string; label: string; avatar?: string }>; command: (item: { id: string; label: string }) => void }) => {
                 component = new MentionCombobox(props);
                 popup = tippy('body', {
-                  getReferenceClientRect: props.clientRect,
+                  getReferenceClientRect: props.clientRect as (() => DOMRect),
                   appendTo: () => document.body,
                   content: component.element,
                   showOnCreate: true,
@@ -130,22 +135,28 @@ export function CommentEditor({
                   maxWidth: 'none',
                 });
               },
-              onUpdate(props: any) {
-                component.updateProps(props);
-                popup[0].setProps({
-                  getReferenceClientRect: props.clientRect,
-                });
+              onUpdate(props: { clientRect: (() => DOMRect | null) | null; items: Array<{ id: string; label: string; avatar?: string }>; command: (item: { id: string; label: string }) => void }) {
+                component?.updateProps(props);
+                if (popup && Array.isArray(popup) && popup[0]) {
+                  popup[0].setProps({
+                    getReferenceClientRect: props.clientRect as (() => DOMRect),
+                  });
+                }
               },
-              onKeyDown(props: any) {
+              onKeyDown(props: { event: KeyboardEvent }) {
                 if (props.event.key === 'Escape') {
-                  popup[0].hide();
+                  if (popup && Array.isArray(popup) && popup[0]) {
+                    popup[0].hide();
+                  }
                   return true;
                 }
-                return component.onKeyDown(props);
+                return component?.onKeyDown(props) ?? false;
               },
               onExit() {
-                popup[0].destroy();
-                component.destroy();
+                if (popup && Array.isArray(popup) && popup[0]) {
+                  popup[0].destroy();
+                }
+                component?.destroy();
               },
             };
           },
@@ -204,9 +215,9 @@ export function CommentEditor({
     };
 
     const editorElement = editor.view.dom;
-    editorElement.addEventListener('paste', handlePaste as any);
+    editorElement.addEventListener('paste', handlePaste as EventListener);
     return () => {
-      editorElement.removeEventListener('paste', handlePaste as any);
+      editorElement.removeEventListener('paste', handlePaste as EventListener);
     };
   }, [editor, handleImageFile]);
 

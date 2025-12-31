@@ -38,7 +38,7 @@ export interface BreadcrumbItem {
  */
 export function generateBreadcrumb(
   pathname: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): BreadcrumbItem[] {
   const segments = pathname.split('/').filter(Boolean);
   
@@ -71,16 +71,16 @@ export function generateBreadcrumb(
 /**
  * Get display label for a route segment
  */
-function getSegmentLabel(segment: string, context?: Record<string, any>, isLast?: boolean): string {
+function getSegmentLabel(segment: string, context?: Record<string, unknown>, isLast?: boolean): string {
   // Check if context provides entity name
   if (context?.name && isLast) {
-    return context.name;
+    return context.name as string;
   }
   if (context?.title && isLast) {
-    return context.title;
+    return context.title as string;
   }
   if (context?.id && isLast) {
-    return context.id;
+    return context.id as string;
   }
 
   // Route to label mapping
@@ -157,7 +157,7 @@ function getSegmentLabel(segment: string, context?: Record<string, any>, isLast?
  */
 export function generatePageTitle(
   pathname: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): { title: string; subtitle?: string } {
   const segments = pathname.split('/').filter(Boolean);
   const lastSegment = segments[segments.length - 1];
@@ -165,7 +165,7 @@ export function generatePageTitle(
   
   // Check for entity display name in context
   if (context) {
-    const displayName = context.name || context.title || context.id;
+    const displayName = (context.name || context.title || context.id) as string | undefined;
     if (displayName) {
       // Determine page type
       if (lastSegment === 'edit') {

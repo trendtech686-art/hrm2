@@ -48,7 +48,7 @@ export async function fetchSettingsFromAPI<T>(config: SettingSyncConfig): Promis
 export async function saveSettingsToAPI(
   group: string,
   key: string,
-  value: any,
+  value: unknown,
   description?: string
 ): Promise<boolean> {
   try {
@@ -81,7 +81,7 @@ export async function saveSettingsToAPI(
  */
 export async function bulkSaveSettingsToAPI(
   group: string,
-  settings: Record<string, any>
+  settings: Record<string, unknown>
 ): Promise<boolean> {
   try {
     const settingsArray = Object.entries(settings).map(([key, value]) => ({
@@ -114,14 +114,14 @@ export async function bulkSaveSettingsToAPI(
  * This wraps store actions to also sync to API
  */
 export function createSettingsSyncMiddleware(group: string) {
-  return (setter: Function) => {
-    return (partialState: any) => {
+  return (setter: (state: unknown) => void) => {
+    return (partialState: unknown) => {
       // Apply local state first
       setter(partialState);
       
       // Sync to API in background
       if (typeof partialState === 'object' && partialState !== null) {
-        bulkSaveSettingsToAPI(group, partialState).catch(console.error);
+        bulkSaveSettingsToAPI(group, partialState as Record<string, unknown>).catch(console.error);
       }
     };
   };

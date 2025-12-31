@@ -19,7 +19,7 @@ import {
   mapHandoverLineItems,
   createStoreSettings,
 } from '../../lib/print/shipment-print-helper';
-import type { Shipment, ShipmentView } from '@/lib/types/prisma-extended';
+import type { ShipmentView } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
@@ -191,7 +191,7 @@ export function ShipmentsPage() {
                     ? branches.find(b => b.systemId === options.branchSystemId)
                     : null;
                 const storeSettings = selectedBranch 
-                    ? createStoreSettings(selectedBranch as any)
+                    ? createStoreSettings(selectedBranch)
                     : createStoreSettings(storeInfo);
                 const deliveryData = convertShipmentToDeliveryForPrint(shipment, order!, { customer });
                 
@@ -210,7 +210,7 @@ export function ShipmentsPage() {
                 ? branches.find(b => b.systemId === options.branchSystemId)
                 : null;
             const storeSettings = selectedBranch 
-                ? createStoreSettings(selectedBranch as any)
+                ? createStoreSettings(selectedBranch)
                 : createStoreSettings(storeInfo);
             const handoverData = convertShipmentsToHandoverForPrint(itemsToPrint);
             
@@ -263,7 +263,7 @@ export function ShipmentsPage() {
         ignoreLocation: true
     }), [shipments]);
 
-    const shipmentStats = React.useMemo(() => {
+    const _shipmentStats = React.useMemo(() => {
         return shipments.reduce((acc, shipment) => {
             acc.total += 1;
             const status = shipment.deliveryStatus;
@@ -303,14 +303,14 @@ export function ShipmentsPage() {
         const sorted = [...filteredData];
         if (sorting.id) {
           sorted.sort((a, b) => {
-            const aValue = (a as any)[sorting.id];
-            const bValue = (b as any)[sorting.id];
+            const aValue = (a as Record<string, unknown>)[sorting.id];
+            const bValue = (b as Record<string, unknown>)[sorting.id];
             if (!aValue) return 1;
             if (!bValue) return -1;
             // Special handling for date columns
             if (sorting.id === 'createdAt' || sorting.id === 'creationDate' || sorting.id === 'estimatedDeliveryDate') {
-              const aTime = aValue ? new Date(aValue).getTime() : 0;
-              const bTime = bValue ? new Date(bValue).getTime() : 0;
+              const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+              const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
               return sorting.desc ? bTime - aTime : aTime - bTime;
             }
             if (aValue < bValue) return sorting.desc ? 1 : -1;

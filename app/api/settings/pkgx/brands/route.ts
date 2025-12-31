@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 
 // GET /api/settings/pkgx/brands - List all PKGX brands
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const brands = await prisma.pkgxBrand.findMany({
       orderBy: [
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 // POST /api/settings/pkgx/brands - Sync brands from PKGX API
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
+    const _session = await auth()
     const body = await request.json()
     const { brands } = body
 

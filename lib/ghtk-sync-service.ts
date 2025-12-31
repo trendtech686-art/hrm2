@@ -8,7 +8,7 @@
  * - On-demand: Sync when user views order
  */
 
-import { getApiUrl, getBaseUrl } from './api-config';
+import { getApiUrl } from './api-config';
 import type { GHTKWebhookPayload } from '@/lib/types/prisma-extended';
 import { shouldSyncGHTKStatus } from './ghtk-constants';
 
@@ -23,7 +23,7 @@ class GHTKSyncService {
   private isRunning = false;
   
   // Cache to avoid duplicate API calls
-  private cache = new Map<string, { timestamp: number; data: any }>();
+  private cache = new Map<string, { timestamp: number; data: unknown }>();
   private cacheTTL = 2 * 60 * 1000; // 2 minutes
   
   constructor(mode: SyncMode = 'hybrid') {
@@ -191,7 +191,7 @@ class GHTKSyncService {
   /**
    * Check if packaging should be synced
    */
-  private shouldSync(packaging: any): boolean {
+  private shouldSync(packaging: { ghtkStatusId?: number; lastSyncedAt?: string }): boolean {
     // Don't sync if status is final
     if (!shouldSyncGHTKStatus(packaging.ghtkStatusId)) {
       return false;

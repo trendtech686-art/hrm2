@@ -73,8 +73,8 @@ useInventoryReceiptStore.getState = () => {
   };
 };
 
-(useInventoryReceiptStore as any).subscribe = baseStore.subscribe;
-(useInventoryReceiptStore as any).setState = baseStore.setState;
+(useInventoryReceiptStore as unknown as { subscribe: typeof baseStore.subscribe }).subscribe = baseStore.subscribe;
+(useInventoryReceiptStore as unknown as { setState: typeof baseStore.setState }).setState = baseStore.setState;
 
 type PurchaseOrderReference = {
   systemId: SystemId;
@@ -158,7 +158,7 @@ export function syncInventoryReceiptsWithPurchaseOrders({
 
   const storeState = useInventoryReceiptStore.getState();
   const updated = storeState.data.map(receipt => {
-    let next = receipt;
+    const next = receipt;
     const matchedPo =
       poLookup.bySystemId.get(normalizeKey(receipt.purchaseOrderSystemId)) ||
       poLookup.byAnyKey.get(normalizeKey(receipt.purchaseOrderId));
@@ -235,6 +235,6 @@ export function syncInventoryReceiptsWithPurchaseOrders({
 
   const hasChanges = updated.some((receipt, index) => receipt !== storeState.data[index]);
   if (hasChanges) {
-    (baseStore as any).setState({ data: updated });
+    (baseStore as unknown as { setState: (state: { data: InventoryReceipt[] }) => void }).setState({ data: updated });
   }
 }

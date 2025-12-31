@@ -2,15 +2,13 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff, isValidDate } from '@/lib/date-utils'
+import { formatDateTime } from '@/lib/date-utils'
 import { ResponsiveDataTable } from "../data-table/responsive-data-table"
 import { toast } from "sonner"
 import { asSystemId, type SystemId } from "@/lib/id-types";
 import { 
   Card, 
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "../ui/card"
 import {
   AlertDialog,
@@ -228,12 +226,12 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
 
   // Paginated and sorted data
   const sortedData = React.useMemo(() => {
-    let sorted = [...deletedItems];
+    const sorted = [...deletedItems];
     
     if (sorting.id) {
-      sorted.sort((a: any, b: any) => {
-        const aVal = a[sorting.id];
-        const bVal = b[sorting.id];
+      sorted.sort((a: T, b: T) => {
+        const aVal = a[sorting.id as keyof T];
+        const bVal = b[sorting.id as keyof T];
         if (aVal < bVal) return sorting.desc ? 1 : -1;
         if (aVal > bVal) return sorting.desc ? -1 : 1;
         return 0;
@@ -325,7 +323,7 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
       {/* Data Table - No Card wrapper, direct like list pages */}
       <div className="w-full py-4">
         <ResponsiveDataTable
-            columns={columns as any}
+            columns={columns}
             data={paginatedData}
             pageCount={pageCount}
             pagination={pagination}

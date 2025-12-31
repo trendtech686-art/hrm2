@@ -2,7 +2,6 @@
 import { formatDate } from '@/lib/date-utils';
 import type { LeaveRequest, LeaveStatus } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
 import { Badge } from "../../components/ui/badge";
 import type { ColumnDef } from '../../components/data-table/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
@@ -85,7 +84,7 @@ export const getColumns = (
     id: "status",
     accessorKey: "status",
     header: "Trạng thái",
-    cell: ({ row }) => <Badge variant={statusVariants[row.status] as any} className="text-body-xs">{row.status}</Badge>,
+    cell: ({ row }) => <Badge variant={statusVariants[row.status] as "success" | "warning" | "destructive"} className="text-body-xs">{row.status}</Badge>,
     meta: { displayName: "Trạng thái" },
   },
   {

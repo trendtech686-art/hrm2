@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/categories - List all categories
 export async function GET(request: Request) {
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
     const all = searchParams.get('all') === 'true'
     const tree = searchParams.get('tree') === 'true'
 
-    const where: any = {
+    const where: Prisma.CategoryWhereInput = {
       isDeleted: false,
     }
 
@@ -119,8 +120,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(category, { status: 201 })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Mã danh mục đã tồn tại' },
         { status: 400 }

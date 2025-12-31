@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const all = searchParams.get('all') === 'true'
 
-    const where: any = {
+    const where: Parameters<typeof prisma.stockLocation.findMany>[0]['where'] = {
       isActive: true,
     }
 
@@ -65,8 +65,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(location, { status: 201 })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Mã kho đã tồn tại' },
         { status: 400 }

@@ -1,34 +1,34 @@
 model Supplier {
-  systemId         String           @id
-  id               String           @unique
-  name             String
-  phone            String?
-  email            String?
-  address          String?
-  taxCode          String?
-  contactPerson    String?
-  totalOrders      Int              @default(0)
-  totalPurchased   Decimal          @default(0) @db.Decimal(15, 2)
-  totalDebt        Decimal          @default(0) @db.Decimal(15, 2)
-  isActive         Boolean          @default(true)
-  isTrashed        Boolean          @default(false)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  createdBy        String?
-  updatedBy        String?
-  bankAccount      String?
-  deletedAt        DateTime?
-  isDeleted        Boolean          @default(false)
-  website          String?
-  
+  systemId       String    @id
+  id             String    @unique
+  name           String
+  phone          String?
+  email          String?
+  address        String?
+  taxCode        String?
+  contactPerson  String?
+  totalOrders    Int       @default(0)
+  totalPurchased Decimal   @default(0) @db.Decimal(15, 2)
+  totalDebt      Decimal   @default(0) @db.Decimal(15, 2)
+  isActive       Boolean   @default(true)
+  isTrashed      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  bankAccount    String?
+  deletedAt      DateTime?
+  isDeleted      Boolean   @default(false)
+  website        String?
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  accountManager   String?          // Employee's full name
-  status           String           @default("Đang Giao Dịch") // 'Đang Giao Dịch' | 'Ngừng Giao Dịch'
-  currentDebt      Decimal?         @db.Decimal(15, 2) // Current debt (separate from totalDebt)
-  bankName         String?          // Tên ngân hàng
-  notes            String?          // Ghi chú
-  activityHistory  Json?            // Array of HistoryEntry
-  
+  accountManager  String? // Employee's full name
+  status          String   @default("Đang Giao Dịch") // 'Đang Giao Dịch' | 'Ngừng Giao Dịch'
+  currentDebt     Decimal? @db.Decimal(15, 2) // Current debt (separate from totalDebt)
+  bankName        String? // Tên ngân hàng
+  notes           String? // Ghi chú
+  activityHistory Json? // Array of HistoryEntry
+
   // === RELATIONS ===
   payments         Payment[]
   purchaseOrders   PurchaseOrder[]

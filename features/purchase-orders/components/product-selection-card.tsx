@@ -46,6 +46,12 @@ import {
 import { Textarea } from "../../../components/ui/textarea";
 import Link from 'next/link';
 
+interface ComboItem {
+  productSystemId: string;
+  quantity: number;
+  product?: Product;
+}
+
 // Component hiển thị ảnh sản phẩm với preview - tương tự LineItemsTable
 const ProductThumbnail = ({ 
     product,
@@ -139,10 +145,19 @@ const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("vi-VN").format(value);
 };
 
+// Fallback labels for product types (defined outside component for stable reference)
+const productTypeFallbackLabels: Record<string, string> = {
+  physical: 'Hàng hóa',
+  single: 'Hàng hóa',
+  service: 'Dịch vụ',
+  digital: 'Sản phẩm số',
+  combo: 'Combo',
+};
+
 export function ProductSelectionCard({
   items,
   onItemsChange,
-  supplierId,
+  supplierId: _supplierId,
 }: ProductSelectionCardProps) {
   const [showBulkSelector, setShowBulkSelector] = React.useState(false);
   const [priceMode, setPriceMode] = React.useState<"cost" | "recent">("cost");
@@ -154,7 +169,7 @@ export function ProductSelectionCard({
   const [expandedCombos, setExpandedCombos] = React.useState<Record<number, boolean>>({});
   
   // Get default tax from taxes store
-  const { data: taxes, getDefaultPurchase } = useTaxStore();
+  const { data: _taxes, getDefaultPurchase } = useTaxStore();
   const defaultPurchaseTax = React.useMemo(() => getDefaultPurchase(), [getDefaultPurchase]);
   
   // Get products store
@@ -165,15 +180,6 @@ export function ProductSelectionCard({
   
   // Get purchase orders for price history
   const { data: purchaseOrders } = usePurchaseOrderStore();
-
-  // Fallback labels for product types
-  const productTypeFallbackLabels: Record<string, string> = {
-    physical: 'Hàng hóa',
-    single: 'Hàng hóa',
-    service: 'Dịch vụ',
-    digital: 'Sản phẩm số',
-    combo: 'Combo',
-  };
 
   // Get product type label
   const getProductTypeLabel = React.useCallback((product: Product) => {
@@ -276,7 +282,7 @@ export function ProductSelectionCard({
     });
     
     onItemsChange(updatedItems);
-  }, [priceMode, items, getProductPrice, onItemsChange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [priceMode, items, getProductPrice, onItemsChange]);
 
   // Add single product
   const handleAddProduct = (productId: string) => {
@@ -506,7 +512,7 @@ export function ProductSelectionCard({
                   const isCombo = item.product.type === 'combo' && item.product.comboItems?.length;
                   const isComboExpanded = !!expandedCombos[index];
                   const comboItems = isCombo
-                    ? (item.product.comboItems ?? []).map((comboItem: any) => {
+                    ? (item.product.comboItems ?? []).map((comboItem: ComboItem) => {
                         const childProduct = allProducts.find(p => p.systemId === comboItem.productSystemId);
                         return { ...comboItem, product: childProduct };
                       })
@@ -711,7 +717,7 @@ export function ProductSelectionCard({
                       {/* Combo items expanded view */}
                       {isCombo && isComboExpanded && comboItems.length > 0 && (
                         <>
-                          {comboItems.map((comboItem: any, ciIndex: number) => (
+                          {comboItems.map((comboItem: ComboItem & { product?: Product }, ciIndex: number) => (
                             <TableRow key={`combo-${index}-${ciIndex}`} className="bg-muted/40">
                               <TableCell className="text-center text-muted-foreground pl-8">
                                 <span className="text-muted-foreground/50">└</span>

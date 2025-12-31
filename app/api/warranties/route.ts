@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, WarrantyStatus } from '@/generated/prisma/client'
 
 // GET /api/warranties - List all warranties
 export async function GET(request: Request) {
@@ -13,20 +14,20 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {
+    const where: Prisma.WarrantyWhereInput = {
       isDeleted: false,
     }
 
     if (search) {
       where.OR = [
         { id: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { customers: { name: { contains: search, mode: 'insensitive' } } },
         { product: { name: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
     if (status) {
-      where.status = status
+      where.status = status as WarrantyStatus
     }
 
     if (customerId) {

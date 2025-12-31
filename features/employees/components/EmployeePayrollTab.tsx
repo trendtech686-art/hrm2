@@ -1,6 +1,5 @@
 import * as React from "react";
 import { UseFormReturn } from "react-hook-form";
-import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import {
   FormControl,
@@ -8,24 +7,24 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form";
-import { Input } from "../../../components/ui/input";
-import { Button } from "../../../components/ui/button";
-import { Checkbox } from "../../../components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import type { EmployeeFormValues } from "../employee-form";
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { EmployeeFormValues } from "./employee-form";
 import type { SalaryComponent, WorkShift } from "../../settings/employees/types";
 
 interface EmployeePayrollTabProps {
-  form: UseFormReturn<EmployeeFormValues, any, EmployeeFormValues>;
+  form: UseFormReturn<EmployeeFormValues, unknown, EmployeeFormValues>;
   workShifts: WorkShift[];
   salaryComponents: SalaryComponent[];
   defaultSalaryComponentSystemIds: SystemId[];
@@ -42,7 +41,7 @@ export function EmployeePayrollTab({
   form,
   workShifts,
   salaryComponents,
-  defaultSalaryComponentSystemIds,
+  defaultSalaryComponentSystemIds: _defaultSalaryComponentSystemIds,
   onCopyBankInfo,
   onResetComponents,
 }: EmployeePayrollTabProps) {

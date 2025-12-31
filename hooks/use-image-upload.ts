@@ -41,7 +41,7 @@ type UseImageUploadReturn = {
    * Confirm images từ staging → permanent
    * Gọi sau khi save entity thành công
    */
-  confirmImages: (entityId: string, entityData?: Record<string, any>) => Promise<ServerFile[] | null>;
+  confirmImages: (entityId: string, entityData?: Record<string, unknown>) => Promise<ServerFile[] | null>;
   
   /**
    * Check xem có images cần confirm không
@@ -89,7 +89,7 @@ type UseImageUploadReturn = {
  * ```
  */
 export function useImageUpload(options: UseImageUploadOptions): UseImageUploadReturn {
-  const { entityType, initialImages } = options;
+  const { entityType, initialImages: _initialImages } = options;
   
   const [stagingFiles, setStagingFiles] = React.useState<StagingFile[]>([]);
   const [sessionId, setSessionId] = React.useState<string | null>(null);
@@ -101,7 +101,7 @@ export function useImageUpload(options: UseImageUploadOptions): UseImageUploadRe
    * Confirm images từ staging → permanent
    */
   const confirmImages = React.useCallback(
-    async (entityId: string, entityData?: Record<string, any>) => {
+    async (entityId: string, entityData?: Record<string, unknown>) => {
       if (!sessionId || stagingFiles.length === 0) {
         return null;
       }

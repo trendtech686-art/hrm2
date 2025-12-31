@@ -1,14 +1,13 @@
 import * as React from "react";
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { formatDate, formatDateCustom } from '../../lib/date-utils';
 import type { Employee } from '@/lib/types/prisma-extended'
 import type { Branch } from "../settings/branches/types";
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
-import { Badge } from "../../components/ui/badge"
 import type { ColumnDef } from '../../components/data-table/types';
 import { Button } from "../../components/ui/button";
-import { Pencil, Trash2, RotateCcw, Mail, FileText, Clock, Eye, MoreHorizontal } from "lucide-react";
+import { RotateCcw, MoreHorizontal } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 
@@ -23,7 +22,7 @@ const formatDateDisplay = (dateString?: string) => {
     return formatDateCustom(date, "dd/MM/yyyy");
 };
 
-const formatAddress = (address: any): string => {
+const formatAddress = (address: string | { street?: string; ward?: string; district?: string; province?: string } | undefined): string => {
   if (!address) return '';
   if (typeof address === 'string') return address;
   
@@ -77,7 +76,7 @@ export const getColumns = (
         isSorted={sorting?.id === 'fullName'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting?.((s: any) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => (
@@ -295,7 +294,7 @@ export const getColumns = (
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => <div className="font-medium">{row.id}</div>,
@@ -341,7 +340,7 @@ export const getColumns = (
         isSorted={sorting?.id === 'department'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting?.((s: any) => ({ id: 'department', desc: s.id === 'department' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'department', desc: s.id === 'department' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => row.department,
@@ -370,7 +369,7 @@ export const getColumns = (
         isSorted={sorting?.id === 'hireDate'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
         // FIX: Correctly call `setSorting` with a function to update the state based on the previous state.
-        onSort={() => setSorting?.((s: any) => ({ id: 'hireDate', desc: s.id === 'hireDate' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'hireDate', desc: s.id === 'hireDate' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => formatDate(row.hireDate),
@@ -455,7 +454,7 @@ export const getColumns = (
         sortKey="createdAt"
         isSorted={sorting?.id === 'createdAt'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
        />
     ),
     cell: ({ row }) => {

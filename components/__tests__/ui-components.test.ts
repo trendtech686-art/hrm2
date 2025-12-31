@@ -3,8 +3,8 @@
  * @description Tests for common UI functionality based on testing-checklist.md Section 21
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi as _vi } from 'vitest';
+import { render as _render, screen as _screen, waitFor as _waitFor, fireEvent as _fireEvent } from '@testing-library/react';
 
 describe('Common UI Functionality', () => {
   // 21.1 Responsive/Mobile

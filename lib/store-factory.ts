@@ -2,7 +2,6 @@ import { create } from 'zustand';
 // persist, createJSONStorage removed - database is now source of truth
 import { 
   generateSystemId, 
-  generateBusinessId, 
   isBusinessIdUnique,
   getMaxSystemIdCounter,
   getMaxBusinessIdCounter,
@@ -10,11 +9,7 @@ import {
   type EntityType 
 } from './id-utils';
 import { getPrefix } from './smart-prefix';
-import { ID_CONFIG, type SystemId, type BusinessId, createSystemId, createBusinessId as brandBusinessId } from './id-config';
-
-const SYSTEM_FALLBACK_ID: SystemId = createSystemId('SYS000000');
-
-const asSystemIdFallback = (): SystemId => SYSTEM_FALLBACK_ID;
+import { ID_CONFIG, type SystemId, createSystemId } from './id-config';
 
 // ✅ API Sync helper for store-factory
 async function syncToAPI<T>(
@@ -26,7 +21,7 @@ async function syncToAPI<T>(
   try {
     const endpoint = action === 'create' 
       ? apiEndpoint 
-      : `${apiEndpoint}/${systemId || (data as any).systemId}`;
+      : `${apiEndpoint}/${systemId || (data as { systemId?: SystemId }).systemId}`;
     
     const method = action === 'create' ? 'POST' 
       : action === 'update' ? 'PATCH' 
@@ -51,7 +46,7 @@ async function syncToAPI<T>(
 }
 
 // Item with SystemId (branded type)
-export type ItemWithSystemId = { systemId: SystemId; [key: string]: any };
+export type ItemWithSystemId = { systemId: SystemId; [key: string]: unknown };
 
 // ✅ Counter state for ID generation
 export type CounterState = {
@@ -98,7 +93,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
   // Mock data files (data.ts) are NO LONGER USED for runtime
   const normalizedInitialData: T[] = [];
 
-  const storeConfig = (set: any, get: any) => ({
+  const storeConfig = (set: (fn: (state: CrudState<T>) => Partial<CrudState<T>>) => void, get: () => CrudState<T>) => ({
     data: normalizedInitialData, // ✅ Start empty - data loaded via React Query
     // ✅ Counters start at 0 - will be initialized from API via loadFromAPI()
     _counters: {
@@ -113,24 +108,24 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         const newSystemId = createSystemId(generateSystemId(entityType, newSystemIdCounter));
         
         // Generate or validate Business ID (if field exists)
-        let finalItem = { ...item } as any;
+        const finalItem = { ...item } as Record<string, unknown>;
         let newBusinessIdCounter = currentCounters.businessId;
         
         if (businessIdField in item) {
-          const customId = (item as any)[businessIdField];
-          const existingIds = get().data.map((d: any) => d[businessIdField]);
+          const customId = (item as Record<string, unknown>)[businessIdField as string] as string | undefined;
+          const existingIds = get().data.map((d: T) => (d as Record<string, unknown>)[businessIdField as string] as string);
           
           // ✅ If customId provided, validate uniqueness
           if (customId && customId.trim()) {
             if (!isBusinessIdUnique(customId, existingIds)) {
               throw new Error(`Mã "${customId}" đã tồn tại! Vui lòng sử dụng mã khác.`);
             }
-            finalItem[businessIdField] = customId.trim().toUpperCase();
+            finalItem[businessIdField as string] = customId.trim().toUpperCase();
           } else {
             // ✅ Auto-generate with findNextAvailableBusinessId
             const digitCount = 6; // All entities use 6 digits
             const result = findNextAvailableBusinessId(businessPrefix, existingIds, newBusinessIdCounter, digitCount);
-            finalItem[businessIdField] = result.nextId;
+            finalItem[businessIdField as string] = result.nextId;
             newBusinessIdCounter = result.updatedCounter;
           }
         }
@@ -147,7 +142,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         } as unknown as T;
         
         // ✅ Update both data and counters atomically
-        set((state: any) => ({ 
+        set((state) => ({ 
           data: [...state.data, newItem],
           _counters: {
             systemId: newSystemIdCounter,
@@ -163,7 +158,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         return newItem;
     },
     addMultiple: (items: Omit<T, 'systemId'>[]) => 
-        set((state: any) => {
+        set((state) => {
             const now = new Date().toISOString();
             const currentUser = getCurrentUser?.();
             const newItems: T[] = [];
@@ -179,14 +174,14 @@ export const createCrudStore = <T extends ItemWithSystemId>(
                 const newSystemId = createSystemId(generateSystemId(entityType, currentSystemIdCounter));
                 
                 // Generate or validate Business ID (if field exists)
-                let finalItem = { ...item } as any;
+                const finalItem = { ...item } as Record<string, unknown>;
                 if (businessIdField in item) {
-                  const customId = (item as any)[businessIdField];
+                  const customId = (item as Record<string, unknown>)[businessIdField as string] as string | undefined;
                   
                   // Collect existing IDs (from state + already added in this batch)
                   const existingIds = [
-                    ...state.data.map((d: any) => d[businessIdField]),
-                    ...newItems.map((d: any) => d[businessIdField])
+                    ...state.data.map((d: T) => (d as Record<string, unknown>)[businessIdField as string] as string),
+                    ...newItems.map((d: T) => (d as Record<string, unknown>)[businessIdField as string] as string)
                   ];
                   
                   // ✅ If customId provided, validate uniqueness
@@ -194,11 +189,11 @@ export const createCrudStore = <T extends ItemWithSystemId>(
                     if (!isBusinessIdUnique(customId, existingIds)) {
                       throw new Error(`Mã "${customId}" đã tồn tại! Vui lòng sử dụng mã khác.`);
                     }
-                    finalItem[businessIdField] = customId.trim().toUpperCase();
+                    finalItem[businessIdField as string] = customId.trim().toUpperCase();
                   } else {
                     // ✅ Auto-generate with findNextAvailableBusinessId
                     const result = findNextAvailableBusinessId(businessPrefix, existingIds, currentBusinessIdCounter, digitCount);
-                    finalItem[businessIdField] = result.nextId;
+                    finalItem[businessIdField as string] = result.nextId;
                     currentBusinessIdCounter = result.updatedCounter;
                   }
                 }
@@ -234,10 +229,10 @@ export const createCrudStore = <T extends ItemWithSystemId>(
     update: (systemId: SystemId, updatedItem: Partial<T>) => {
       // Validate unique business ID (case-insensitive, skip self)
       if (businessIdField in updatedItem) {
-        const businessId = (updatedItem as any)[businessIdField];
+        const businessId = (updatedItem as Record<string, unknown>)[businessIdField as string] as string | undefined;
         const existingIds = get().data
-          .filter((d: any) => d.systemId !== systemId)
-          .map((d: any) => d[businessIdField]);
+          .filter((d: T) => d.systemId !== systemId)
+          .map((d: T) => (d as Record<string, unknown>)[businessIdField as string] as string);
         
         if (businessId && !isBusinessIdUnique(businessId, existingIds)) {
           throw new Error(`Mã "${businessId}" đã tồn tại! Vui lòng sử dụng mã khác.`);
@@ -246,7 +241,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
 
       const now = new Date().toISOString();
       const currentUser = getCurrentUser?.();
-      set((state: any) => ({
+      set((state) => ({
         data: state.data.map((item: T) =>
           item.systemId === systemId 
             ? { ...item, ...updatedItem, updatedAt: now, updatedBy: currentUser } as T
@@ -265,7 +260,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
     remove: (systemId: SystemId) => {
       // Soft delete - mark as deleted
       const now = new Date().toISOString();
-      set((state: any) => ({
+      set((state) => ({
         data: state.data.map((item: T) =>
           item.systemId === systemId
             ? { ...item, isDeleted: true, deletedAt: now } as T
@@ -283,7 +278,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
     },
     hardDelete: (systemId: SystemId) => {
       // Permanent delete - remove from array
-      set((state: any) => ({
+      set((state) => ({
         data: state.data.filter((item: T) => item.systemId !== systemId),
       }));
       
@@ -294,7 +289,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
     },
     restore: (systemId: SystemId) => {
       // Restore soft-deleted item
-      set((state: any) => ({
+      set((state) => ({
         data: state.data.map((item: T) =>
           item.systemId === systemId
             ? { ...item, isDeleted: false, deletedAt: null } as T
@@ -310,9 +305,9 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         }
       }
     },
-    getActive: () => get().data.filter((item: any) => !item.isDeleted),
-    getDeleted: () => get().data.filter((item: any) => item.isDeleted),
-    findById: (id: SystemId | string) => get().data.find((item: T) => item.systemId === id || (item as any).id === id),
+    getActive: () => get().data.filter((item: T) => !(item as Record<string, unknown>).isDeleted),
+    getDeleted: () => get().data.filter((item: T) => (item as Record<string, unknown>).isDeleted),
+    findById: (id: SystemId | string) => get().data.find((item: T) => item.systemId === id || (item as Record<string, unknown>).id === id),
     
     // ✅ Load data from database API - OPTIMIZED: No more limit=10000!
     // This is now only used for counter initialization, NOT for loading all data
@@ -336,11 +331,11 @@ export const createCrudStore = <T extends ItemWithSystemId>(
           const newCounters = {
             systemId: lastItem ? getMaxSystemIdCounter([lastItem], systemIdPrefix) : 0,
             businessId: (lastItem && options?.businessIdField)
-              ? getMaxBusinessIdCounter([lastItem] as any[], businessPrefix)
+              ? getMaxBusinessIdCounter([lastItem] as Array<{ id: string }>, businessPrefix)
               : 0
           };
           
-          set({ 
+          (set as (state: Partial<CrudState<T>>) => void)({ 
             data: [], // Don't store data in Zustand anymore - use React Query
             _counters: newCounters,
             _initialized: true 
@@ -351,7 +346,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
       } catch (error) {
         console.error(`[Store Factory] loadFromAPI error for ${apiEndpoint}:`, error);
         // Still mark as initialized to prevent infinite retry
-        set({ _initialized: true });
+        (set as (state: Partial<CrudState<T>>) => void)({ _initialized: true });
       }
     },
   });

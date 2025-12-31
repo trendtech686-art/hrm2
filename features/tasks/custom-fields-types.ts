@@ -33,7 +33,7 @@ export interface CustomFieldDefinition {
   
   // Validation
   required?: boolean | undefined;
-  defaultValue?: any;
+  defaultValue?: unknown;
   
   // For number/currency/percentage
   min?: number | undefined;
@@ -61,11 +61,14 @@ export interface CustomFieldDefinition {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Index signature for store compatibility
+  [key: string]: unknown;
 }
 
 export interface CustomFieldValue {
   fieldId: string; // References CustomFieldDefinition.systemId
-  value: any; // Type depends on field type
+  value: unknown; // Type depends on field type
 }
 
 // Field categories for organization
@@ -170,7 +173,7 @@ export const PREDEFINED_FIELDS: Partial<CustomFieldDefinition>[] = [
 // Helper to validate field value
 export function validateFieldValue(
   field: CustomFieldDefinition,
-  value: any
+  value: unknown
 ): { valid: boolean; error?: string } {
   // Required check
   if (field.required && (value === null || value === undefined || value === '')) {
@@ -186,7 +189,7 @@ export function validateFieldValue(
   switch (field.type) {
     case 'number':
     case 'currency':
-    case 'percentage':
+    case 'percentage': {
       const num = Number(value);
       if (isNaN(num)) {
         return { valid: false, error: `${field.name} phải là số` };
@@ -198,6 +201,7 @@ export function validateFieldValue(
         return { valid: false, error: `${field.name} phải <= ${field.max}` };
       }
       break;
+    }
 
     case 'text':
     case 'textarea':
@@ -209,12 +213,13 @@ export function validateFieldValue(
       }
       break;
 
-    case 'email':
+    case 'email': {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(String(value))) {
         return { valid: false, error: `${field.name} phải là email hợp lệ` };
       }
       break;
+    }
 
     case 'url':
       try {
@@ -248,7 +253,7 @@ export function validateFieldValue(
 }
 
 // Helper to format field value for display
-export function formatFieldValue(field: CustomFieldDefinition, value: any): string {
+export function formatFieldValue(field: CustomFieldDefinition, value: unknown): string {
   if (value === null || value === undefined || value === '') {
     return '-';
   }
@@ -266,9 +271,10 @@ export function formatFieldValue(field: CustomFieldDefinition, value: any): stri
     case 'percentage':
       return `${value}%`;
 
-    case 'select':
+    case 'select': {
       const option = field.options?.find(opt => opt.value === value);
       return option?.label || String(value);
+    }
 
     case 'multiselect':
       if (!Array.isArray(value)) return '-';
@@ -280,7 +286,7 @@ export function formatFieldValue(field: CustomFieldDefinition, value: any): stri
         .join(', ');
 
     case 'date':
-      return formatDateForDisplay(value);
+      return formatDateForDisplay(value as string | Date);
 
     default:
       return String(value);

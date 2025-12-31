@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
     }
 
-    let lastError = null;
+    let lastError: { error: string; url: string; details?: string; status?: number } | null = null;
     
     for (const url of GHTK_URLS) {
       try {

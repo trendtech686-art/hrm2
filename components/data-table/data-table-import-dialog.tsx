@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Upload, Download, FileText, Trash2, X } from 'lucide-react';
+import { Upload, FileText, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '../ui/button';
 import {
@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../ui/dialog';
-import { Label } from '../ui/label';
 import { cn } from '../../lib/utils';
 import { Checkbox } from '../ui/checkbox';
 import { ScrollArea } from '../ui/scroll-area';
@@ -21,7 +20,7 @@ export type ImportConfig<TData> = {
   importer: (data: Omit<TData, 'id'>[]) => void;
   fileName: string;
   existingData?: TData[]; // For checking duplicates
-  getUniqueKey?: (item: any) => string; // Function to get unique identifier
+  getUniqueKey?: (item: TData | Omit<TData, 'id'>) => string; // Function to get unique identifier
   templateUrl?: string; // URL to download template file (e.g., '/templates/Mau_Nhap_Khach_Hang.xlsx')
 };
 
@@ -32,7 +31,7 @@ interface DataTableImportDialogProps<TData> {
 
 type PreviewRow = {
   id: string;
-  data: any;
+  data: Record<string, unknown>;
   status: 'new' | 'update' | 'duplicate';
 };
 
@@ -65,7 +64,7 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet);
+        const json: Record<string, unknown>[] = XLSX.utils.sheet_to_json(worksheet);
         
         // Check for duplicates and updates
         const previews: PreviewRow[] = json.map((row, index) => {
@@ -73,9 +72,9 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
           let status: 'new' | 'update' | 'duplicate' = 'new';
           
           if (config.existingData && config.getUniqueKey) {
-            const uniqueKey = config.getUniqueKey(row);
+            const uniqueKey = config.getUniqueKey(row as Omit<TData, 'id'>);
             const exists = config.existingData.some(item => 
-              config.getUniqueKey!(item as any) === uniqueKey
+              config.getUniqueKey!(item) === uniqueKey
             );
             
             if (exists) {

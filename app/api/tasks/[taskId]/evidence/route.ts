@@ -39,7 +39,15 @@ export async function POST(
       );
     }
 
-    const uploadedFiles = [];
+    const uploadedFiles: Array<{
+      id: string;
+      name: string;
+      originalName: string;
+      size: number;
+      type: string;
+      url: string;
+      uploadedAt: string;
+    }> = [];
 
     for (const file of files) {
       // Validate file

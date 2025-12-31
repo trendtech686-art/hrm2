@@ -1,11 +1,9 @@
 import * as React from "react";
 import { Search } from "lucide-react"
 import { Input } from "../ui/input"
-import { DataTableFacetedFilter } from './data-table-faceted-filter';
 import { DataTableDateFilter } from './data-table-date-filter';
-import type { ColumnDef } from './types'
 
-export interface DataTableToolbarProps<TData> {
+export interface DataTableToolbarProps<_TData> {
   search: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder: string;
@@ -16,7 +14,7 @@ export interface DataTableToolbarProps<TData> {
   children?: React.ReactNode | undefined;
 }
 
-export function DataTableToolbar<TData>({
+export function DataTableToolbar<_TData>({
   search,
   onSearchChange,
   searchPlaceholder,
@@ -25,7 +23,7 @@ export function DataTableToolbar<TData>({
   dateFilterTitle,
   numResults = 0,
   children,
-}: DataTableToolbarProps<TData>) {
+}: DataTableToolbarProps<_TData>) {
   const isFiltered = search.length > 0;
 
   return (

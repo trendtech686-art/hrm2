@@ -20,7 +20,7 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
-import { Plus, X, Save, Trash2, Package, ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, X, Save, Trash2, Package, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId } from '../../lib/id-types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
@@ -49,7 +49,7 @@ export function CostAdjustmentFormPage() {
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeStore();
-  const { data: allProducts, findById: findProductById } = useProductStore();
+  const { findById: findProductById, data: allProducts } = useProductStore();
   const { create, generateNextId, isBusinessIdExists } = useCostAdjustmentStore();
   
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);
@@ -69,7 +69,7 @@ export function CostAdjustmentFormPage() {
     },
   });
   
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove, update: _update } = useFieldArray({
     control: form.control,
     name: 'items',
   });
@@ -164,7 +164,7 @@ export function CostAdjustmentFormPage() {
       
       toast.success('Đã tạo phiếu điều chỉnh giá vốn');
       router.push(`/cost-adjustments/${adjustment.systemId}`);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi tạo phiếu');
     } finally {
       setIsSubmitting(false);

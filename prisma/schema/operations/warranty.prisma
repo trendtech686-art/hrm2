@@ -37,67 +37,67 @@ model Warranty {
   deletedAt          DateTime?
   isDeleted          Boolean          @default(false)
   issueDescription   String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Tracking & external references
-  trackingCode          String?          // Mã vận đơn (GHTK, GHN, etc.)
-  publicTrackingCode    String?          // Mã tra cứu công khai cho khách hàng
-  shippingFee           Decimal?         @db.Decimal(15, 2)
-  referenceUrl          String?          // Đường dẫn (URL)
-  externalReference     String?          // Mã tham chiếu
-  
+  trackingCode       String? // Mã vận đơn (GHTK, GHN, etc.)
+  publicTrackingCode String? // Mã tra cứu công khai cho khách hàng
+  shippingFee        Decimal? @db.Decimal(15, 2)
+  referenceUrl       String? // Đường dẫn (URL)
+  externalReference  String? // Mã tham chiếu
+
   // Branch & employee info
-  branchSystemId        String?
-  branchName            String?
-  employeeSystemId      String?
-  employeeName          String?
-  
+  branchSystemId   String?
+  branchName       String?
+  employeeSystemId String?
+  employeeName     String?
+
   // Customer address
-  customerAddress       String?
-  
+  customerAddress String?
+
   // Images
-  receivedImages        String[]         // Hình ảnh đơn hàng lúc nhận
-  processedImages       String[]         // Hình ảnh đã xử lý xong
-  
+  receivedImages  String[] // Hình ảnh đơn hàng lúc nhận
+  processedImages String[] // Hình ảnh đã xử lý xong
+
   // Products in warranty ticket
-  products              Json?            // Array of WarrantyProduct
-  
+  products Json? // Array of WarrantyProduct
+
   // Settlement
-  settlement            Json?            // WarrantySettlement object
-  settlementStatus      String           @default("pending") // 'pending' | 'partial' | 'completed'
-  stockDeducted         Boolean          @default(false) // Flag: Đã trừ kho khi completed
-  
+  settlement       Json? // WarrantySettlement object
+  settlementStatus String  @default("pending") // 'pending' | 'partial' | 'completed'
+  stockDeducted    Boolean @default(false) // Flag: Đã trừ kho khi completed
+
   // Status tracking
-  statusReason          String?          // Lý do chuyển trạng thái
-  cancelReason          String?          // Lý do hủy
-  cancelledAt           DateTime?
-  
+  statusReason String? // Lý do chuyển trạng thái
+  cancelReason String? // Lý do hủy
+  cancelledAt  DateTime?
+
   // Processing timestamps
-  processingStartedAt   DateTime?        // Thời điểm bắt đầu xử lý
-  processedAt           DateTime?        // Thời điểm xử lý xong
-  
+  processingStartedAt DateTime? // Thời điểm bắt đầu xử lý
+  processedAt         DateTime? // Thời điểm xử lý xong
+
   // Order linking
-  linkedOrderSystemId   String?          // Link to order for deduction
-  
+  linkedOrderSystemId String? // Link to order for deduction
+
   // Summary stats
-  summary               Json?            // { totalProducts, totalReplaced, totalDeduction, etc. }
-  
+  summary Json? // { totalProducts, totalReplaced, totalDeduction, etc. }
+
   // History & comments (stored as JSON for flexibility)
-  history               Json?            // Array of WarrantyHistory
-  comments              Json?            // Array of WarrantyComment
-  
+  history  Json? // Array of WarrantyHistory
+  comments Json? // Array of WarrantyComment
+
   // Workflow subtasks
-  subtasks              Json?            // Array of Subtask
-  
+  subtasks Json? // Array of Subtask
+
   // Audit fields (branded types)
-  createdBySystemId     String?
-  updatedBySystemId     String?
-  
+  createdBySystemId String?
+  updatedBySystemId String?
+
   // === RELATIONS ===
-  customers          Customer?        @relation(fields: [customerId], references: [systemId])
-  order              Order?           @relation(fields: [orderId], references: [systemId])
-  product            Product?         @relation(fields: [productId], references: [systemId])
+  customers Customer? @relation(fields: [customerId], references: [systemId])
+  order     Order?    @relation(fields: [orderId], references: [systemId])
+  product   Product?  @relation(fields: [productId], references: [systemId])
 
   @@index([customerId])
   @@index([status])

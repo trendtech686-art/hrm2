@@ -22,8 +22,6 @@ import {
   fetchCustomerDebt,
   fetchCustomerOrders,
   type CustomersParams,
-  type CreateCustomerInput,
-  type UpdateCustomerInput,
 } from '../api/customers-api';
 
 // Query keys - exported for invalidation

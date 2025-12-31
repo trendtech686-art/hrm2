@@ -7,7 +7,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { Badge } from "@/components/ui/badge";
 import type { ColumnDef } from '@/components/data-table/types';
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, RotateCcw, Eye, MoreHorizontal, CheckCircle, XCircle, Printer } from "lucide-react";
+import { MoreHorizontal, CheckCircle, XCircle, Printer } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { SystemId } from '@/lib/id-types';
@@ -76,7 +76,7 @@ export const getColumns = (
                 sortKey="id"
                 isSorted={sorting?.id === 'id'}
                 sortDirection={sorting?.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+                onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => <div className="font-medium">{row.id}</div>,
@@ -94,7 +94,7 @@ export const getColumns = (
                 sortKey="date"
                 isSorted={sorting?.id === 'date'}
                 sortDirection={sorting?.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting?.((s: any) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
+                onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'date', desc: s.id === 'date' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => formatDateDisplay(row.date),
@@ -112,7 +112,7 @@ export const getColumns = (
                 sortKey="amount"
                 isSorted={sorting?.id === 'amount'}
                 sortDirection={sorting?.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting?.((s: any) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
+                onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'amount', desc: s.id === 'amount' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => (
@@ -291,7 +291,7 @@ export const getColumns = (
                 sortKey="createdAt"
                 isSorted={sorting?.id === 'createdAt'}
                 sortDirection={sorting?.desc ? 'desc' : 'asc'}
-                onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+                onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
             />
         ),
         cell: ({ row }) => formatDateTimeDisplay(row.createdAt),

@@ -12,7 +12,7 @@
  */
 
 import * as React from 'react';
-import { Package, AlertTriangle, Plus, X, Info } from 'lucide-react';
+import { Package, AlertTriangle, Plus, Info } from 'lucide-react';
 import type { Product, ProductType as ProductTypeEnum } from '../../features/products/types';
 import { useProductStore } from '../../features/products/store';
 import { usePricingPolicyStore } from '../../features/settings/pricing/store';
@@ -20,7 +20,7 @@ import { useBranchStore } from '../../features/settings/branches/store';
 import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
 import { useUnitStore } from '../../features/settings/units/store';
 import { useImageStore } from '../../features/products/image-store';
-import { FileUploadAPI } from '../../lib/file-upload-api';
+import { FileUploadAPI, type StagingFile, type ServerFile } from '../../lib/file-upload-api';
 import { LazyImage } from '../ui/lazy-image';
 import { VirtualizedCombobox, type ComboboxOption } from '../ui/virtualized-combobox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
@@ -31,7 +31,7 @@ import { CurrencyInput } from '../ui/currency-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { toast } from 'sonner';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import type { SystemId } from '@/lib/id-types';
 import { asBusinessId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
@@ -72,7 +72,9 @@ export interface UnifiedProductSearchProps {
 
 interface BranchStockDetail {
     name: string;
+    branchName?: string;
     onHand: number;
+    committed?: number;
     sellable: number;
 }
 
@@ -104,13 +106,13 @@ const ProductOptionThumbnail = React.memo(({
         if (!lastFetched && productSystemId) {
             FileUploadAPI.getProductFiles(productSystemId)
                 .then(files => {
-                    const mapFile = (f: any) => ({
+                    const mapFile = (f: ServerFile) => ({
                         id: f.id, sessionId: '', name: f.name, originalName: f.originalName,
                         slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
-                        status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: f.metadata
+                        status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: f.metadata || ''
                     });
-                    updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapFile));
-                    updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapFile));
+                    updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapFile) as unknown as StagingFile[]);
+                    updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapFile) as unknown as StagingFile[]);
                 })
                 .catch(() => {});
         }
@@ -144,7 +146,7 @@ interface QuickAddProductDialogProps {
 
 function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAddProductDialogProps) {
     const { add: addProduct, data: products } = useProductStore();
-    const { data: productTypes, getActive: getActiveProductTypes } = useProductTypeStore();
+    const { data: _productTypes, getActive: getActiveProductTypes } = useProductTypeStore();
     const { data: units } = useUnitStore();
     const { data: pricingPolicies } = usePricingPolicyStore();
     
@@ -224,7 +226,7 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
             toast.success(`Đã tạo sản phẩm "${newProduct.name}"`);
             onProductCreated(newProduct);
             onOpenChange(false);
-        } catch (error) {
+        } catch (_error) {
             toast.error('Không thể tạo sản phẩm');
         } finally {
             setIsSubmitting(false);
@@ -346,8 +348,8 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
 
 function StockTooltip({ 
     branchDetails, 
-    totalOnHand, 
-    totalSellable,
+    totalOnHand: _totalOnHand, 
+    totalSellable: _totalSellable,
     children 
 }: { 
     branchDetails: BranchStockDetail[];
@@ -389,12 +391,12 @@ export function UnifiedProductSearch({
     allowedTypes,
     excludeTypes = [],
     allowCreateNew = true,
-    showCostPrice = true,
+    showCostPrice: _showCostPrice = true,
     showSellingPrice = false,
-    branchSystemId,
+    branchSystemId: _branchSystemId,
     customFilter,
 }: UnifiedProductSearchProps) {
-    const { data: allProducts, getActive } = useProductStore();
+    const { data: _allProducts, getActive } = useProductStore();
     const { data: pricingPolicies } = usePricingPolicyStore();
     const { data: branches } = useBranchStore();
     const { findById: findProductTypeById } = useProductTypeStore();
@@ -413,7 +415,7 @@ export function UnifiedProductSearch({
         return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
     }, [pricingPolicies]);
 
-    // Filter products
+    // Filter products - _allProducts triggers re-evaluation when store changes
     const availableProducts = React.useMemo(() => {
         return getActive().filter(p => {
             // Exclude already selected
@@ -432,7 +434,8 @@ export function UnifiedProductSearch({
             
             return true;
         });
-    }, [allProducts, getActive, excludeSet, allowedTypes, excludeTypes, customFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [_allProducts, getActive, excludeSet, allowedTypes, excludeTypes, customFilter]);
 
     // Calculate stock helpers
     const getStockInfo = (product: Product) => {
@@ -493,11 +496,13 @@ export function UnifiedProductSearch({
                 }
             } as ComboboxOption;
         });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getStockInfo and getProductTypeName are local functions that use branches/findProductTypeById which are already in deps
     }, [availableProducts, defaultPricingPolicy, branches, findProductTypeById]);
 
     const handleChange = (option: ComboboxOption | null) => {
         if (option) {
-            const product = option.metadata?.product as Product;
+            const meta = option.metadata as { product?: Product } | undefined;
+            const product = meta?.product;
             if (product) {
                 onSelectProduct(product);
             }
@@ -511,6 +516,17 @@ export function UnifiedProductSearch({
 
     // Render option
     const renderOption = (option: ComboboxOption) => {
+        const meta = option.metadata as {
+            product?: Product;
+            costPrice?: number;
+            price?: number;
+            totalOnHand?: number;
+            totalSellable?: number;
+            branchDetails?: Array<{ branchName: string; onHand: number; committed: number; sellable: number }>;
+            isLowStock?: boolean;
+            productTypeName?: string;
+            unit?: string;
+        } | undefined;
         const { 
             product, 
             costPrice, 
@@ -521,7 +537,7 @@ export function UnifiedProductSearch({
             isLowStock,
             productTypeName,
             unit,
-        } = option.metadata || {};
+        } = meta || {};
         
         const displayPrice = showSellingPrice ? price : costPrice;
         
@@ -540,7 +556,7 @@ export function UnifiedProductSearch({
                 <div className="text-right flex-shrink-0 min-w-[140px]">
                     <p className="font-semibold">{formatCurrency(displayPrice)}</p>
                     <StockTooltip 
-                        branchDetails={branchDetails || []}
+                        branchDetails={(branchDetails || []).map(b => ({ name: b.branchName, onHand: b.onHand, sellable: b.sellable }))}
                         totalOnHand={totalOnHand || 0}
                         totalSellable={totalSellable || 0}
                     >

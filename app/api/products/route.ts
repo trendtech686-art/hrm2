@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/products - List all products
 export async function GET(request: Request) {
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {
+    const where: Prisma.ProductWhereInput = {
       isDeleted: false,
     }
 
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status
+      where.status = status as Prisma.EnumProductStatusFilter<"Product">
     }
 
     if (brandId) {
@@ -35,8 +36,8 @@ export async function GET(request: Request) {
     }
 
     if (categoryId) {
-      where.categories = {
-        some: { categoryId },
+      where.categorySystemIds = {
+        has: categoryId,
       }
     }
 
@@ -129,6 +130,18 @@ export async function POST(request: Request) {
       },
     })
 
+// Interface for line item in order creation
+interface _LineItemInput {
+  productSystemId: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  discountType?: string;
+  tax?: number;
+  total?: number;
+  note?: string;
+}
+
     // Add categories if provided
     if (body.categoryIds && body.categoryIds.length > 0) {
       await prisma.productCategory.createMany({
@@ -140,10 +153,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(product, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating product:', error)
     
-    if (error.code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Product ID or slug already exists' },
         { status: 400 }

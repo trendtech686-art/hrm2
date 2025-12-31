@@ -15,14 +15,14 @@ import { handleVerifyIncorrect } from '../handlers/verify-incorrect-handler';
 interface UseVerificationHandlersProps {
   complaint: Complaint | null;
   currentUser: { systemId: SystemId; name: string };
-  permissions: ComplaintPermissions;
+  permissions?: ComplaintPermissions;
   updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
 }
 
 export function useVerificationHandlers({
   complaint,
   currentUser,
-  permissions,
+  permissions: _permissions,
   updateComplaint,
 }: UseVerificationHandlersProps) {
   
@@ -47,7 +47,7 @@ export function useVerificationHandlers({
       verification: "verified-correct",
       isVerifiedCorrect: true,
       timeline: [...complaint.timeline, newAction],
-    } as any);
+    } as Partial<Complaint>);
     
     toast.success("Đã xác nhận khiếu nại đúng");
     complaintNotifications.onVerified("Đã xác nhận khiếu nại đúng");
@@ -57,7 +57,7 @@ export function useVerificationHandlers({
   // VERIFY INCORRECT - SUBMIT EVIDENCE
   // ==========================================
   const handleSubmitIncorrectEvidence = React.useCallback(async (
-    stagingFiles: any[], 
+    stagingFiles: Array<{ id: string; sessionId: string }>, 
     videoLinks: string[], 
     note: string
   ) => {
@@ -72,7 +72,7 @@ export function useVerificationHandlers({
       let confirmedImages: string[] = [];
       if (stagingFiles.length > 0) {
         const { FileUploadAPI } = await import('../../../lib/file-upload-api');
-        const stagingIds = stagingFiles.map(f => f.id);
+        const _stagingIds = stagingFiles.map(f => f.id);
         // Use confirmStagingFiles instead
         const confirmed = await FileUploadAPI.confirmStagingFiles(
           stagingFiles[0].sessionId,
@@ -155,11 +155,11 @@ export function useVerificationHandlers({
             verifiedAt: new Date(),
           },
           employeeImages: [
-            ...((complaint as any).employeeImages || []),
+            ...(complaint.employeeImages || []),
             ...newEmployeeImages,
           ],
           timeline: [...complaint.timeline, newAction],
-        } as any);
+        } as Partial<Complaint>);
         
         toast.success("Đã xác nhận khiếu nại sai");
         complaintNotifications.onVerified("Đã xác nhận khiếu nại SAI");

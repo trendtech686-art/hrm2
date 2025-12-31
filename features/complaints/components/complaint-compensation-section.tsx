@@ -9,7 +9,7 @@ import type { Complaint } from "../types";
 import { usePaymentStore } from "../../payments/store";
 import { useReceiptStore } from "../../receipts/store";
 import { useInventoryCheckStore } from "../../inventory-checks/store";
-import { formatDateTimeForDisplay } from '@/lib/date-utils';
+import { formatDateTimeForDisplay } from "@/lib/date-utils";
 
 interface Props {
   complaint: Complaint;
@@ -32,7 +32,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   // Nguoc lai tim action verified-correct dau tien
   let verificationNote = "";
   let compensationDateTime = "N/A";
-  let actionMetadata: any = null;
+  let actionMetadata: { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string } | null = null;
   
   if (actionTimestamp) {
     // Dung timestamp truyen vao
@@ -76,7 +76,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   // ============================================================
   // COMPENSATION METADATA - Phiếu chi/thu (backward compatibility)
   // ============================================================
-  const compensationMetadata = (complaint as any).compensationMetadata;
+  const _compensationMetadata = (complaint as unknown as { compensationMetadata?: unknown }).compensationMetadata;
   
   // ============================================================
   // STATE - Subscribe directly to stores for real-time updates
@@ -114,7 +114,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   // Check if this action has been processed (has payment/receipt)
   const hasBeenProcessed = !!actionMetadata?.paymentSystemId || !!actionMetadata?.receiptSystemId;
   
-  const cancelledHistory = (complaint as any).cancelledPaymentsReceipts || [];
+  const _cancelledHistory = complaint.cancelledPaymentsReceipts || [];
   
   // Debug payment/receipt loading
   console.log('[CompensationSection] Payment/Receipt:', {
@@ -293,7 +293,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                       )}
                     </div>
                     <div className={`text-sm font-medium ${inventoryCheck.status === 'cancelled' ? 'text-muted-foreground' : ''}`}>
-                      {inventoryCheck.items?.map((item: any, idx: number) => (
+                      {inventoryCheck.items?.map((item: { productName: string; difference: number }, idx: number) => (
                         <div key={idx} className={inventoryCheck.status === 'cancelled' ? 'line-through' : ''}>
                           {item.productName}: {item.difference > 0 ? '+' : ''}{item.difference}
                         </div>

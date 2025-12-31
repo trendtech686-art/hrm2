@@ -30,8 +30,7 @@ export const generateMockAttendance = (employees: Employee[], year: number, mont
       employeeSystemId: emp.systemId,
       employeeId: emp.id,
       fullName: emp.fullName,
-      // @ts-ignore
-      department: emp.department,
+      department: emp.department as AnyAttendanceDataRow['department'],
       createdAt: DEFAULT_AUDIT_TIMESTAMP,
       updatedAt: DEFAULT_AUDIT_TIMESTAMP,
       createdBy: DEFAULT_AUDIT_AUTHOR,

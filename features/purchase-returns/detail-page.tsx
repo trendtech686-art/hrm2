@@ -2,18 +2,18 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '@/lib/date-utils';
+import Link from 'next/link';
 import { usePurchaseReturnStore } from './store';
 import { usePurchaseOrderStore } from '../purchase-orders/store';
 import { useSupplierStore } from '../suppliers/store';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { ArrowLeft, Printer, PackageX } from 'lucide-react';
+import { Printer, ArrowLeft } from 'lucide-react';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ActivityHistory } from '../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { useAuth } from '../../contexts/auth-context';
 import { DetailField } from '../../components/ui/detail-field';
@@ -25,6 +25,7 @@ import { ProductThumbnailCell } from '../../components/shared/read-only-products
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { useProductStore } from '../products/store';
 import { usePrint } from '../../lib/use-print';
+import { numberToWords } from '../../lib/print-service';
 import { 
   convertSupplierReturnForPrint,
   mapSupplierReturnToPrintData, 
@@ -33,7 +34,6 @@ import {
 } from '../../lib/print/supplier-return-print-helper';
 import { useBranchStore } from '../settings/branches/store';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
-import { numberToWords } from '../../lib/print-mappers/types';
 import { PurchaseReturnWorkflowCard } from './components/purchase-return-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 

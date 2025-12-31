@@ -504,7 +504,7 @@ export function TasksSettingsPage() {
     toast.success('Đã lưu cài đặt SLA');
   };
 
-  const handleResetSLA = () => {
+  const _handleResetSLA = () => {
     const defaults = clone(defaultSLA);
     setSLA(defaults);
     setStoreSection('sla', defaults);
@@ -559,7 +559,7 @@ export function TasksSettingsPage() {
     toast.success('Đã lưu cài đặt bằng chứng');
   };
 
-  const handleResetEvidence = () => {
+  const _handleResetEvidence = () => {
     const defaults = clone(defaultEvidence);
     setEvidence(defaults);
     setStoreSection('evidence', defaults);
@@ -632,7 +632,7 @@ export function TasksSettingsPage() {
     setStoreSection('taskTypes', updated);
   };
 
-  const handleResetTypes = () => {
+  const _handleResetTypes = () => {
     const defaults = clone(defaultTaskTypes);
     setTaskTypes(defaults);
     setStoreSection('taskTypes', defaults);
@@ -695,7 +695,7 @@ export function TasksSettingsPage() {
     toast.success('Đã lưu cài đặt màu card');
   };
 
-  const handleResetCardColors = () => {
+  const _handleResetCardColors = () => {
     const defaults = clone(defaultCardColors);
     setCardColors(defaults);
     setStoreSection('cardColors', defaults);
@@ -731,7 +731,7 @@ export function TasksSettingsPage() {
     toast.success('Đã lưu cài đặt thông báo');
   };
 
-  const handleResetNotifications = () => {
+  const _handleResetNotifications = () => {
     const defaults = clone(defaultNotifications);
     setNotifications(defaults);
     setStoreSection('notifications', defaults);
@@ -750,7 +750,7 @@ export function TasksSettingsPage() {
     toast.success('Đã lưu cài đặt nhắc nhở');
   };
 
-  const handleResetReminders = () => {
+  const _handleResetReminders = () => {
     const defaults = clone(defaultReminders);
     setReminders(defaults);
     setStoreSection('reminders', defaults);
@@ -828,7 +828,7 @@ export function TasksSettingsPage() {
     setDeleteTemplateId(null);
   };
 
-  const handleResetTemplates = () => {
+  const _handleResetTemplates = () => {
     const defaults = clone(defaultTemplates);
     setTemplates(defaults);
     setStoreSection('templates', defaults);

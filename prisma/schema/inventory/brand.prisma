@@ -2,7 +2,7 @@ model Brand {
   systemId         String    @id
   id               String    @unique
   name             String
-  description      String?   // Mô tả chung (HRM internal)
+  description      String? // Mô tả chung (HRM internal)
   website          String?
   logo             String?
   logoUrl          String?
@@ -10,11 +10,11 @@ model Brand {
   // SEO Fields (NEW) - Default/HRM internal
   seoTitle         String?
   metaDescription  String?
-  seoKeywords      String?   // Từ khóa SEO
-  shortDescription String?   // Mô tả ngắn
+  seoKeywords      String? // Từ khóa SEO
+  shortDescription String? // Mô tả ngắn
   longDescription  String?   @db.Text // Mô tả dài (HTML)
   // Multi-website SEO (NEW) - SEO riêng cho từng website
-  websiteSeo       Json?     // Key: 'pkgx' | 'web2' | ...
+  websiteSeo       Json? // Key: 'pkgx' | 'web2' | ...
   // Settings
   isActive         Boolean   @default(true)
   isDeleted        Boolean   @default(false)

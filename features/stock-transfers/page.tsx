@@ -11,7 +11,7 @@ import { Button } from '../../components/ui/button';
 import { Plus, Printer, FileSpreadsheet, Download } from 'lucide-react';
 import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { stockTransferImportExportConfig, flattenStockTransfersForExport } from '../../lib/import-export/configs/stock-transfer.config';
+import { stockTransferImportExportConfig } from '../../lib/import-export/configs/stock-transfer.config';
 import { useAuth } from '../../contexts/auth-context';
 import { asSystemId } from '../../lib/id-types';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
@@ -24,9 +24,9 @@ import { PageFilters } from '../../components/layout/page-filters';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
-import { StockTransferCard } from './stock-transfer-card';
-import type { StockTransfer, StockTransferStatus } from '@/lib/types/prisma-extended';
-import { formatDate, isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
+import { StockTransferCard } from './components/stock-transfer-card';
+import type { StockTransfer } from '@/lib/types/prisma-extended';
+import { isValidDate, isDateAfter, isDateBefore, isDateSame, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePrint } from '../../lib/use-print';
 import { 
@@ -87,7 +87,7 @@ export function StockTransfersPage() {
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [fromBranchFilter, setFromBranchFilter] = React.useState<string>('all');
   const [toBranchFilter, setToBranchFilter] = React.useState<string>('all');
-  const [dateFilter, setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
+  const [dateFilter, _setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
 
   // Column customization state
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(
@@ -238,7 +238,7 @@ export function StockTransfersPage() {
     });
     
     if (addedCount > 0 || updatedCount > 0) {
-      const messages = [];
+      const messages: string[] = [];
       if (addedCount > 0) messages.push(`${addedCount} phiếu chuyển kho mới`);
       if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
       toast.success(`Đã import: ${messages.join(', ')}`);
@@ -278,10 +278,12 @@ export function StockTransfersPage() {
       initialVisibility[c.id] = defaultVisibleColumns.has(c.id);
     });
     return initialVisibility;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is defined in component, stable
   }, []);
 
   const buildDefaultOrder = React.useCallback(() => (
     columns.map(c => c.id).filter(Boolean) as string[]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is defined in component, stable
   ), []);
 
   React.useEffect(() => {
@@ -295,6 +297,7 @@ export function StockTransfersPage() {
       return buildDefaultOrder();
     });
     setPinnedColumns(prev => prev ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when columns change
   }, [buildDefaultOrder, buildDefaultVisibility]);
 
   const resetColumnLayout = React.useCallback(() => {
@@ -368,14 +371,14 @@ export function StockTransfersPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'createdDate' || sorting.id === 'transferDate') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;

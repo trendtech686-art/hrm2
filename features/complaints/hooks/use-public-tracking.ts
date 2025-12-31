@@ -10,7 +10,6 @@ import { useEmployeeStore } from '../../employees/store';
 import { usePaymentStore } from '../../payments/store';
 import { useReceiptStore } from '../../receipts/store';
 import { useOrderStore } from '../../orders/store';
-import type { Complaint } from '../types';
 
 export function usePublicComplaintTracking(complaintId: string | undefined) {
   const { complaints } = useComplaintStore();
@@ -27,7 +26,7 @@ export function usePublicComplaintTracking(complaintId: string | undefined) {
 
   // Only load other stores if complaint exists
   const { data: branches } = useBranchStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: _employees } = useEmployeeStore();
   const payments = usePaymentStore(state => state.data);
   const receipts = useReceiptStore(state => state.data);
   const { data: orders } = useOrderStore();
@@ -72,6 +71,7 @@ export function usePublicComplaintTracking(complaintId: string | undefined) {
       compensationReceipt: receipt || null,
       relatedOrder: relatedOrder || null,
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally tracking specific complaint properties only
   }, [complaint?.timeline, complaint?.orderSystemId, payments, receipts, branches, orders]);
 
   // Memoize comments

@@ -8,11 +8,11 @@ model OrderPayment {
   description String?
   createdBy   String
   createdAt   DateTime @default(now())
-  
+
   // Link to warranty (for warranty deduction payments)
   linkedWarrantySystemId String?
-  
-  order       Order    @relation(fields: [orderId], references: [systemId], onDelete: Cascade)
+
+  order Order @relation(fields: [orderId], references: [systemId], onDelete: Cascade)
 
   @@index([orderId])
   @@map("order_payments")

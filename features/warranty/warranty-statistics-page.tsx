@@ -26,9 +26,9 @@ import {
   Users,
   BarChart3,
   Target,
-  ArrowLeft,
   Activity,
   Package,
+  ArrowLeft,
 } from "lucide-react";
 
 /**
@@ -124,7 +124,7 @@ export function WarrantyStatisticsPage() {
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Bảo hành', href: '/warranty', isCurrent: false },
       { label: 'Thống kê bảo hành', href: '', isCurrent: true }
-    ] as any
+    ]
   });
 
   return (

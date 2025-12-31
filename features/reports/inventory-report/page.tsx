@@ -124,12 +124,12 @@ export function InventoryReportPage() {
         const sorted = [...filteredData];
         if (sorting.id) {
           sorted.sort((a, b) => {
-            const aValue = (a as any)[sorting.id];
-            const bValue = (b as any)[sorting.id];
+            const aValue = (a as unknown as Record<string, unknown>)[sorting.id];
+            const bValue = (b as unknown as Record<string, unknown>)[sorting.id];
             // Special handling for date columns
             if (sorting.id === 'createdAt') {
-              const aTime = aValue ? new Date(aValue).getTime() : 0;
-              const bTime = bValue ? new Date(bValue).getTime() : 0;
+              const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+              const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
               return sorting.desc ? bTime - aTime : aTime - bTime;
             }
             if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -165,7 +165,7 @@ export function InventoryReportPage() {
         ],
         showBackButton: false,
         actions: headerActions,
-    }), [summaryStats, headerActions, productTypeFilter]));
+    }), [headerActions]));
 
     // Count for tabs
     const singleCount = reportData.filter(r => !r.isCombo).length;

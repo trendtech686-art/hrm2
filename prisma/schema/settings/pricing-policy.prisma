@@ -3,7 +3,7 @@ model PricingPolicy {
   id          String         @unique
   name        String
   description String?
-  type        String?        // 'Nhập hàng' | 'Bán hàng'
+  type        String? // 'Nhập hàng' | 'Bán hàng'
   isDefault   Boolean        @default(false)
   isActive    Boolean        @default(true)
   createdAt   DateTime       @default(now())

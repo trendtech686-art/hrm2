@@ -3,13 +3,13 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { SubtaskList } from '../../../components/shared/subtask-list';
 import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';
-import { complaintStatusLabels } from '../types';
+import { complaintStatusLabels as _complaintStatusLabels } from '../types';
 import type { Complaint, ComplaintAction } from '../types';
 import { asSystemId } from '@/lib/id-types';
 
 interface Props {
   complaint: Complaint;
-  currentUser: any;
+  currentUser: { systemId: string; name: string };
   updateComplaint: (id: string, updates: Partial<Complaint>) => void;
 }
 

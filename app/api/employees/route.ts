@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, EmploymentStatus } from '@/generated/prisma/client'
 
 // GET /api/employees - List all employees
 export async function GET(request: Request) {
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.EmployeeWhereInput = {
       isDeleted: false,
     }
 
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.employmentStatus = status
+      where.employmentStatus = status as EmploymentStatus
     }
 
     if (departmentId) {
@@ -128,10 +129,10 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(employee, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating employee:', error)
     
-    if (error.code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Employee ID or email already exists' },
         { status: 400 }

@@ -207,8 +207,8 @@ export function useReturnMethodDialog({
     }
 
     if (
-      (selectedOrder as any).linkedWarrantySystemId &&
-      (selectedOrder as any).linkedWarrantySystemId !== ticket.systemId
+      (selectedOrder as { linkedWarrantySystemId?: string }).linkedWarrantySystemId &&
+      (selectedOrder as { linkedWarrantySystemId?: string }).linkedWarrantySystemId !== ticket.systemId
     ) {
       toast.error('Đơn hàng này đã được liên kết với phiếu bảo hành khác', {
         description: 'Vui lòng chọn đơn hàng khác',

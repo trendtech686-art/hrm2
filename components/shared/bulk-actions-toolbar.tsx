@@ -5,7 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -14,7 +13,6 @@ import {
 import { 
   X, 
   Trash2, 
-  Edit, 
   Copy, 
   Archive, 
   MoreHorizontal,
@@ -38,7 +36,7 @@ import { cn } from '../../lib/utils';
 /**
  * Generic action configuration
  */
-export interface BulkAction<T = any> {
+export interface BulkAction<T = unknown> {
   id: string;
   label: string;
   icon: React.ReactNode;
@@ -48,10 +46,10 @@ export interface BulkAction<T = any> {
   confirmationDescription?: string;
   disabled?: (selectedIds: string[]) => boolean;
   submenu?: BulkAction<T>[]; // For nested actions
-  onAction?: (selectedIds: string[], payload?: any) => void | Promise<void>; // Optional if submenu exists
+  onAction?: (selectedIds: string[], payload?: unknown) => void | Promise<void>; // Optional if submenu exists
 }
 
-export interface BulkActionsToolbarProps<T = any> {
+export interface BulkActionsToolbarProps<T = unknown> {
   /** Selected item IDs */
   selectedIds: string[];
   
@@ -124,11 +122,11 @@ export interface BulkActionsToolbarProps<T = any> {
  * />
  * ```
  */
-export function BulkActionsToolbar<T = any>({
+export function BulkActionsToolbar<T = unknown>({
   selectedIds,
   totalCount,
   isAllSelected,
-  onSelectionChange,
+  onSelectionChange: _onSelectionChange,
   onSelectAll,
   onClearSelection,
   actions,

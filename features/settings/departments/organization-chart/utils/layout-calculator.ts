@@ -4,7 +4,7 @@
  */
 
 import dagre from 'dagre';
-import type { Node, Edge } from 'reactflow';
+import { MarkerType, type Node, type Edge } from 'reactflow';
 import type { Employee } from '../../../../employees/types';
 import { buildHierarchyMaps, countAllDescendants, getAllDescendants } from './hierarchy-helpers';
 
@@ -133,7 +133,7 @@ function createEdges(
   const edges: Edge[] = [];
 
   parentIdMap.forEach((parentId, childId) => {
-    const isPending = pendingChanges.hasOwnProperty(childId);
+    const isPending = Object.hasOwn(pendingChanges, childId);
     edges.push({
       id: `e-${parentId}-${childId}`,
       source: parentId,
@@ -151,7 +151,7 @@ function createEdges(
             strokeWidth: 2        // Độ dày đường nối
           },
       markerEnd: {
-        type: 'arrowclosed' as any,
+        type: MarkerType.ArrowClosed,
         width: 20,
         height: 20,
         color: isPending ? '#007bff' : '#94a3b8'

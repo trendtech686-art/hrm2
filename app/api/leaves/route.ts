@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma, LeaveStatus } from '@/generated/prisma/client';
 
 // GET - List leaves
 export async function GET(request: NextRequest) {
@@ -16,11 +17,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const employeeId = searchParams.get('employeeId') || '';
     const status = searchParams.get('status') || '';
-    const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    const _includeDeleted = searchParams.get('includeDeleted') === 'true';
     
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.LeaveWhereInput = {};
     
     // Note: Leave table doesn't have isDeleted field
     
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (status) {
-      where.status = status;
+      where.status = status as LeaveStatus;
     }
 
     const [data, total] = await Promise.all([

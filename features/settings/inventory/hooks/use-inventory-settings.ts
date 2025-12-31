@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/inventory-settings-api';
-import type { ProductType, ProductCategory, Brand } from '@/lib/types/prisma-extended';
+import type { ProductType, ProductCategory, Brand, Importer } from '@/lib/types/prisma-extended';
 
 export const inventorySettingsKeys = {
   all: ['inventory-settings'] as const,
@@ -69,7 +69,7 @@ export function useImporterMutations(opts?: { onSuccess?: () => void }) {
   const invalidate = () => qc.invalidateQueries({ queryKey: inventorySettingsKeys.importers() });
   return {
     create: useMutation({ mutationFn: api.createImporter, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
-    update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: any }) => api.updateImporter(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
+    update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<Importer> }) => api.updateImporter(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     remove: useMutation({ mutationFn: api.deleteImporter, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
   };
 }
@@ -88,7 +88,7 @@ export function useActiveBrands() {
 // Active importers (isActive = true) 
 export function useActiveImporters() {
   const query = useImporters();
-  const data = (query.data || []).filter((i: any) => i.isActive);
+  const data = (query.data || []).filter((i: Importer) => i.isActive);
   return { ...query, data };
 }
 

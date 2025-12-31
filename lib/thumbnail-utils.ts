@@ -85,7 +85,7 @@ export async function generateThumbnailFromFile(
           const thumbnail = thumbCanvas.toDataURL(mimeType, quality);
 
           resolve({ original, thumbnail });
-        } catch (error) {
+        } catch (_error) {
           // Fallback to JPEG
           const original = fullCanvas.toDataURL('image/jpeg', 0.85);
           const thumbnail = thumbCanvas.toDataURL('image/jpeg', quality);
@@ -152,7 +152,7 @@ export async function generateThumbnailFromDataUrl(
         const mimeType = format === 'webp' ? 'image/webp' : 'image/jpeg';
         const thumbnail = canvas.toDataURL(mimeType, quality);
         resolve(thumbnail);
-      } catch (error) {
+      } catch (_error) {
         // Fallback to JPEG
         const thumbnail = canvas.toDataURL('image/jpeg', quality);
         resolve(thumbnail);

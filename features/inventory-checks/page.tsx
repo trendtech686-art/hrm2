@@ -9,7 +9,6 @@ import { InventoryCheckCard } from './card';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
-import { DataTableExportDialog } from '../../components/data-table/data-table-export-dialog';
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -19,11 +18,11 @@ import { useAuth } from '../../contexts/auth-context';
 import { Plus, Download, Printer, XCircle, Scale, FileSpreadsheet } from 'lucide-react';
 import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { inventoryCheckImportExportConfig, flattenInventoryChecksForExport } from '../../lib/import-export/configs/inventory-check.config';
+import { inventoryCheckImportExportConfig } from '../../lib/import-export/configs/inventory-check.config';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
-import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { asSystemId } from '../../lib/id-types';
 import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import {
   AlertDialog,
@@ -100,7 +99,7 @@ export function InventoryChecksPage() {
 
   const handlePrint = React.useCallback((item: InventoryCheck) => {
     // Use helper to prepare print data
-    const branch = findBranchById(item.branchSystemId);
+    const branch = item.branchSystemId ? findBranchById(item.branchSystemId) : undefined;
     const storeSettings = branch 
       ? {
           name: branch.name,
@@ -167,7 +166,7 @@ export function InventoryChecksPage() {
           });
         }
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể hoàn tất hành động, vui lòng thử lại');
     } finally {
       setIsConfirmLoading(false);
@@ -226,12 +225,12 @@ export function InventoryChecksPage() {
     // Sorting
     if (sorting) {
       result = [...result].sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = a[sorting.id as keyof InventoryCheck];
+        const bValue = b[sorting.id as keyof InventoryCheck];
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'checkDate') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -325,7 +324,7 @@ export function InventoryChecksPage() {
     });
     
     if (addedCount > 0 || updatedCount > 0) {
-      const messages = [];
+      const messages: string[] = [];
       if (addedCount > 0) messages.push(`${addedCount} phiếu kiểm kê mới`);
       if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
       toast.success(`Đã import: ${messages.join(', ')}`);
@@ -355,7 +354,7 @@ export function InventoryChecksPage() {
     const printOptionsList = pendingPrintItems.map(item => {
       const branch = branchSystemId 
         ? findBranchById(branchSystemId)
-        : findBranchById(item.branchSystemId);
+        : (item.branchSystemId ? findBranchById(item.branchSystemId) : undefined);
       const storeSettings = branch 
         ? {
             name: branch.name,

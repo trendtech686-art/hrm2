@@ -1,9 +1,7 @@
-﻿import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+﻿import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { createCrudStore } from '../../lib/store-factory';
-import type { SalesReturn, ReturnLineItem } from '@/lib/types/prisma-extended';
+import type { SalesReturn, ReturnLineItem, Packaging } from '@/lib/types/prisma-extended';
 import { data as initialData } from './data';
-import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
-import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
 import { toast } from 'sonner';
 
 // Other stores
@@ -157,10 +155,14 @@ const augmentedMethods = {
       // ✅ Calculate payments for exchange order based on sales return logic
       const exchangeOrderPayments =
         newItemData.finalAmount > 0 && newItemData.payments
-        ? newItemData.payments.map(p => ({
+        ? newItemData.payments.map((p, index) => ({
+          systemId: asSystemId(`PAYMENT-${Date.now()}-${index}`),
+          id: asBusinessId(`PAY-${Date.now()}-${index}`),
+          date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd'),
           method: p.method,
-          accountSystemId: p.accountSystemId,
           amount: p.amount,
+          createdBy: creatorSystemId,
+          description: 'Thanh toán đơn đổi hàng',
           }))
         : [];
         // If company refunded customer (finalAmount < 0)
@@ -169,8 +171,8 @@ const augmentedMethods = {
         
         // ✅ Determine status and packagings based on delivery method
         let finalMainStatus: 'Đặt hàng' | 'Đang giao dịch' = 'Đặt hàng';
-        let finalDeliveryStatus: string = 'Chờ đóng gói';
-        const packagings: any[] = [];
+        let finalDeliveryStatus: 'Chờ đóng gói' | 'Đã đóng gói' | 'Chờ lấy hàng' | 'Đang giao hàng' | 'Đã giao hàng' | 'Chờ giao lại' | 'Đã hủy' = 'Chờ đóng gói';
+        const packagings: Packaging[] = [];
         const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
         
         // ✅ Helper to get next packaging systemId
@@ -194,7 +196,7 @@ const augmentedMethods = {
             finalDeliveryStatus = 'Chờ đóng gói';
             packagings.push({
                 systemId: getNextPackagingSystemId(), // ✅ Use proper format PACKAGE000001
-                id: '',
+                id: asBusinessId(''),
                 requestDate: now,
           requestingEmployeeId: creatorSystemId,
           requestingEmployeeName: newItemData.creatorName,
@@ -214,7 +216,7 @@ const augmentedMethods = {
             
             packagings.push({
                 systemId: getNextPackagingSystemId(), // ✅ Use proper format PACKAGE000001
-                id: '',
+                id: asBusinessId(''),
                 requestDate: now,
                 confirmDate: now,
               requestingEmployeeId: creatorSystemId,
@@ -227,23 +229,23 @@ const augmentedMethods = {
                 deliveryMethod: 'Dịch vụ giao hàng',
                 carrier: partner?.name,
                 service: service?.name,
-              trackingCode: newItemData.packageInfo?.trackingCode || `VC${Date.now()}`,
+              trackingCode: (newItemData.packageInfo as unknown as Record<string, unknown>)?.trackingCode as string || `VC${Date.now()}`,
               shippingFeeToPartner: newItemData.shippingFeeNew,
                 codAmount: 0, // Will be calculated based on payments
                 payer: 'Người nhận',
               weight: newItemData.packageInfo?.weight,
-              dimensions: newItemData.packageInfo?.dimensions,
+              dimensions: `${newItemData.packageInfo?.length || 0}x${newItemData.packageInfo?.width || 0}x${newItemData.packageInfo?.height || 0}`,
             });
         }
         // else: deliver-later → keep default 'Đặt hàng', 'Chờ đóng gói', no packagings
         
         const newOrderPayload = {
-            id: '', // ✅ Empty string triggers auto-generation of business ID (DH...)
+            id: asBusinessId(''), // ✅ Empty string triggers auto-generation of business ID (DH...)
             customerSystemId: order.customerSystemId,
             customerName: order.customerName,
             branchSystemId: order.branchSystemId, // ✅ Use systemId only
             branchName: order.branchName,
-            salespersonId: creatorSystemId,
+            salespersonSystemId: creatorSystemId,
             salesperson: newItemData.creatorName,
             orderDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
             lineItems: newItemData.exchangeItems,
@@ -253,6 +255,7 @@ const augmentedMethods = {
             // ✅ IMPORTANT: grandTotal should be NET amount (after subtracting return value)
             // grandTotal = subtotalNew + shippingFee - totalReturnValue
             grandTotal: newItemData.finalAmount > 0 ? newItemData.finalAmount : newItemData.grandTotalNew,
+            paidAmount: exchangeOrderPayments.reduce((sum, p) => sum + p.amount, 0),
             // ✅ Store return value info for display
             linkedSalesReturnId: newReturn.id, // ✅ Fixed: Use newReturn.id (business ID)
             linkedSalesReturnSystemId: newReturn.systemId, // ✅ Add systemId for linking
@@ -261,7 +264,7 @@ const augmentedMethods = {
             notes: `Đơn hàng đổi từ phiếu trả ${newReturn.id} của đơn hàng ${order.id}`, // ✅ Fixed: Use newReturn.id
             sourceSalesReturnId: newReturn.id, // ✅ Fixed: Use newReturn.id
             // ✅ Pass shipping info from form
-            deliveryMethod: newItemData.deliveryMethod === 'pickup' ? 'Nhận tại cửa hàng' : 'Dịch vụ giao hàng',
+            deliveryMethod: (newItemData.deliveryMethod === 'pickup' ? 'Nhận tại cửa hàng' : 'Dịch vụ giao hàng') as 'Nhận tại cửa hàng' | 'Dịch vụ giao hàng',
             shippingPartnerId: newItemData.shippingPartnerId,
             shippingServiceId: newItemData.shippingServiceId,
             shippingAddress: newItemData.shippingAddress,
@@ -269,9 +272,9 @@ const augmentedMethods = {
             configuration: newItemData.configuration,
             // ✅ Add required status fields based on delivery method
             status: finalMainStatus,
-            paymentStatus: exchangeOrderPayments.length > 0 ? 
+            paymentStatus: (exchangeOrderPayments.length > 0 ? 
               (exchangeOrderPayments.reduce((sum, p) => sum + p.amount, 0) >= newItemData.grandTotalNew ? 'Thanh toán toàn bộ' : 'Thanh toán 1 phần') 
-                : 'Chưa thanh toán' as const,
+                : 'Chưa thanh toán') as 'Chưa thanh toán' | 'Thanh toán 1 phần' | 'Thanh toán toàn bộ',
             deliveryStatus: finalDeliveryStatus,
             printStatus: 'Chưa in' as const,
             stockOutStatus: 'Chưa xuất kho' as const,
@@ -282,7 +285,7 @@ const augmentedMethods = {
         
         console.log('📦 [Sales Return] New order payload:', newOrderPayload);
         
-        const newOrder = addOrder(newOrderPayload as any);
+        const newOrder = addOrder(newOrderPayload);
         
         console.log('✅ [Sales Return] New order created:', newOrder);
         
@@ -493,7 +496,7 @@ const augmentedMethods = {
 };
 
 // Export typed hook
-export const useSalesReturnStore = (): any => {
+export const useSalesReturnStore = () => {
   const state = baseStore();
   return {
     ...state,
@@ -502,7 +505,7 @@ export const useSalesReturnStore = (): any => {
 };
 
 // Export getState for non-hook usage
-useSalesReturnStore.getState = (): any => {
+useSalesReturnStore.getState = () => {
   const state = baseStore.getState();
   return {
     ...state,

@@ -15,12 +15,30 @@ import { Separator } from '../../../components/ui/separator';
 import { ProductTableBottomToolbar } from './product-table-bottom-toolbar';
 import { useImageStore } from '../../products/image-store';
 import { useProductImage } from '../../products/components/product-image';
-import { FileUploadAPI } from '@/lib/file-upload-api';
+import { FileUploadAPI, type StagingFile, type ServerFile } from '@/lib/file-upload-api';
 import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
 import { isComboProduct, calculateComboStock } from '../../products/combo-utils';
 import { TaxSelector } from './tax-selector';
 import type { Product } from '../../products/types';
 import type { SystemId } from '@/lib/id-types';
+import type { Control, FieldValues } from 'react-hook-form';
+
+// Type for line item in the form
+type FormLineItem = {
+    id: string;
+    systemId: string;
+    productSystemId: string;
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+    discountType: 'percentage' | 'fixed';
+    tax: number;
+    taxId?: string;
+    total: number;
+    note?: string;
+};
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -79,12 +97,12 @@ const LineItemRow = React.memo(({
     fieldName = 'lineItems',
     onTaxChange,
 }: {
-    item: any;
+    item: FormLineItem;
     index: number;
     branchSystemId?: string;
     disabled: boolean;
     onRemove: (index: number) => void;
-    control: any;
+    control: Control<FieldValues>;
     onPreview: (image: string, title: string) => void;
     pricingPolicyId?: string;
     onEditNote: (index: number) => void;
@@ -158,7 +176,7 @@ const LineItemRow = React.memo(({
         if (!displayImage && !lastFetched && item.productSystemId) {
             FileUploadAPI.getProductFiles(item.productSystemId)
                 .then(files => {
-                    const mapToServerFile = (f: any) => ({
+                    const mapToServerFile = (f: ServerFile) => ({
                         id: f.id,
                         sessionId: '',
                         name: f.name,
@@ -177,8 +195,8 @@ const LineItemRow = React.memo(({
                     const galleryFiles = files.filter(f => f.documentName === 'gallery').map(mapToServerFile);
                     
                     // Update store (this will also set lastFetched)
-                    updatePermanentImages(item.productSystemId, 'thumbnail', thumbnailFiles);
-                    updatePermanentImages(item.productSystemId, 'gallery', galleryFiles);
+                    updatePermanentImages(item.productSystemId, 'thumbnail', thumbnailFiles as unknown as StagingFile[]);
+                    updatePermanentImages(item.productSystemId, 'gallery', galleryFiles as unknown as StagingFile[]);
                 })
                 .catch(err => console.error("Failed to load product image", err));
         }
@@ -491,7 +509,7 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     disabled: boolean; 
     onAddService?: () => void;
     onApplyPromotion?: () => void;
-    fields: any[];
+    fields: FormLineItem[];
     remove: (index: number) => void;
     pricingPolicyId?: string;
     allowNoteEdit?: boolean;
@@ -587,17 +605,19 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                                     <Separator />
                                 </TableCell>
                             </TableRow>
-                            {serviceFeeFields.map((fee, index) => (
+                            {serviceFeeFields.map((fee, index) => {
+                                const serviceFee = fee as unknown as { id: string; name: string; amount: number };
+                                return (
                                 <TableRow key={fee.id} className="bg-orange-50/50">
                                     <TableCell className="text-center text-muted-foreground">{fields.length + index + 1}</TableCell>
                                     <TableCell colSpan={5}>
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm font-medium text-orange-700">[Ph� d?ch v?]</span>
-                                            <span className="font-medium">{(fee as any).name}</span>
+                                            <span className="font-medium">{serviceFee.name}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right font-semibold text-orange-700">
-                                        {formatCurrency((fee as any).amount)}
+                                        {formatCurrency(serviceFee.amount)}
                                     </TableCell>
                                     <TableCell>
                                         {!disabled && (
@@ -612,7 +632,8 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                                         )}
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            );
+                            })}
                         </>
                     )}
                 </TableBody>

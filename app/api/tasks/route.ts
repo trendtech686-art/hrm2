@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/generated/prisma/client';
+import type { TaskStatus, TaskPriority } from '@/generated/prisma/client';
 
 // GET - List all tasks
 export async function GET(request: NextRequest) {
@@ -13,13 +14,13 @@ export async function GET(request: NextRequest) {
     const where: Prisma.TaskWhereInput = {};
     
     if (status) {
-      where.status = status.toUpperCase() as any;
+      where.status = status.toUpperCase() as TaskStatus;
     }
     if (assigneeId) {
       where.assigneeId = assigneeId;
     }
     if (priority) {
-      where.priority = priority.toUpperCase() as any;
+      where.priority = priority.toUpperCase() as TaskPriority;
     }
 
     const tasks = await prisma.task.findMany({
@@ -151,20 +152,22 @@ export async function POST(request: NextRequest) {
       createdAt: created.createdAt.toISOString(),
       updatedAt: created.updatedAt.toISOString(),
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Tasks API] POST error:', error);
     
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A task with this ID already exists' },
-        { status: 409 }
-      );
-    }
-    if (error.code === 'P2003') {
-      return NextResponse.json(
-        { error: 'Invalid creator or assignee ID' },
-        { status: 400 }
-      );
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        return NextResponse.json(
+          { error: 'A task with this ID already exists' },
+          { status: 409 }
+        );
+      }
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          { error: 'Invalid creator or assignee ID' },
+          { status: 400 }
+        );
+      }
     }
 
     return NextResponse.json(

@@ -4,7 +4,7 @@ import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
-import { Search, Link, Unlink, RefreshCw, Loader2, ExternalLink } from 'lucide-react';
+import { Search, Unlink, RefreshCw, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProductStore } from '../../../products/store';
 import { useTrendtechSettingsStore } from '../store';

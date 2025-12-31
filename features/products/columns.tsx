@@ -4,10 +4,9 @@ import * as React from "react";
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { Product } from '@/lib/types/prisma-extended'
 import { Checkbox } from "../../components/ui/checkbox"
-import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
 import { Badge } from "../../components/ui/badge"
 import { Switch } from "../../components/ui/switch"
-import { DatePicker } from "../../components/ui/date-picker"
+import { OptimizedImage } from "../../components/ui/optimized-image"
 import type { ColumnDef } from '../../components/data-table/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Button } from "../../components/ui/button";
@@ -15,23 +14,12 @@ import { MoreHorizontal, RotateCcw, Globe, ShoppingCart, Wrench, FileDigit, Laye
 import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store';
 import { PkgxProductActionsCell } from './pkgx-product-actions-cell';
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { useBrandStore } from '../settings/inventory/brand-store';
 import { useSupplierStore } from '../suppliers/store';
 import { useEmployeeStore } from '../employees/store';
 import { StockAlertBadge } from './components/stock-alert-badges';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../../components/ui/alert-dialog";
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
@@ -50,7 +38,7 @@ const formatDateTime = (dateStr?: string | null) => {
     });
 };
 
-const getStatusBadgeVariant = (status?: 'active' | 'inactive' | 'discontinued'): "success" | "secondary" | "destructive" => {
+const _getStatusBadgeVariant = (status?: 'active' | 'inactive' | 'discontinued'): "success" | "secondary" | "destructive" => {
   switch (status) {
     case 'active': return 'success';
     case 'inactive': return 'secondary';
@@ -59,7 +47,7 @@ const getStatusBadgeVariant = (status?: 'active' | 'inactive' | 'discontinued'):
   }
 };
 
-const getStatusLabel = (status?: 'active' | 'inactive' | 'discontinued'): string => {
+const _getStatusLabel = (status?: 'active' | 'inactive' | 'discontinued'): string => {
   switch (status) {
     case 'active': return 'Đang bán';
     case 'inactive': return 'Ngừng bán';
@@ -112,7 +100,7 @@ export const getColumns = (
   
   const { data: pricingPolicies } = usePricingPolicyStore.getState();
   const activePricingPolicies = pricingPolicies.filter(p => p.isActive);
-  const defaultSellingPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
+  const _defaultSellingPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
 
   // Pre-fetch lookup data to avoid repeated store access in cell renders
   const categoryStore = useProductCategoryStore.getState();
@@ -698,9 +686,11 @@ export const getColumns = (
       cell: ({ row }) => {
         if (!row.thumbnailImage) return '-';
         return (
-          <img 
+          <OptimizedImage 
             src={row.thumbnailImage} 
             alt={row.name} 
+            width={40}
+            height={40}
             className="w-10 h-10 object-cover rounded"
           />
         );

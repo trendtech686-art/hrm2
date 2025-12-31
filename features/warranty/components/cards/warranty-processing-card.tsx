@@ -63,7 +63,7 @@ export function WarrantyProcessingCard({
 
   // Get current user name and current time
   const currentUserName = user?.name || 'Người dùng';
-  const currentTime = formatDateTimeForDisplay(new Date());
+  const _currentTime = formatDateTimeForDisplay(new Date());
 
   const transactionGroups = useWarrantyTransactionGroups({
     ticket,

@@ -15,34 +15,34 @@ model Leave {
   rejectionReason String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Employee info (denormalized)
-  employeeSystemId        String?      // Internal FK to employees
-  employeeBusinessId      String?      // Display ID (NV000001)
-  employeeName            String?
-  
+  employeeSystemId   String? // Internal FK to employees
+  employeeBusinessId String? // Display ID (NV000001)
+  employeeName       String?
+
   // Leave type info (Link to settings)
   leaveTypeSystemId           String?
   leaveTypeId                 String?
   leaveTypeName               String?
-  leaveTypeIsPaid             Boolean      @default(true)
-  leaveTypeRequiresAttachment Boolean      @default(false)
-  
+  leaveTypeIsPaid             Boolean @default(true)
+  leaveTypeRequiresAttachment Boolean @default(false)
+
   // Dates
-  numberOfDays    Int          @default(1)
-  requestDate     DateTime     @default(now())
-  
+  numberOfDays Int      @default(1)
+  requestDate  DateTime @default(now())
+
   // Audit
-  createdBy       String?
-  updatedBy       String?
-  
+  createdBy String?
+  updatedBy String?
+
   // Activity History
   activityHistory Json?
-  
+
   // === RELATIONS ===
-  employee        Employee    @relation(fields: [employeeId], references: [systemId])
+  employee Employee @relation(fields: [employeeId], references: [systemId])
 
   @@index([employeeId])
   @@index([startDate, endDate])

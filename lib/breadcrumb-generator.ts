@@ -21,13 +21,12 @@
  */
 
 import { type EntityType, getEntityConfig } from './id-config';
-import { type SystemId } from './id-config';
 
 // Store registry - lazy loaded to avoid circular dependencies
 type StoreGetter<T> = () => { data: T[] };
 
 interface StoreRegistry {
-  [key: string]: StoreGetter<any>;
+  [key: string]: StoreGetter<{ systemId: string; id?: string; name?: string; title?: string }>;
 }
 
 let storeRegistry: StoreRegistry = {};
@@ -52,7 +51,7 @@ function findEntityDisplayName(entityType: EntityType, systemId: string): string
 
   try {
     const store = getStore();
-    const item = store.data.find((d: any) => d.systemId === systemId);
+    const item = store.data.find((d) => d.systemId === systemId);
     
     if (!item) return null;
 

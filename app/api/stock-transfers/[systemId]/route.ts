@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       status,
       notes,
       updatedBy,
-      ...otherFields
+      ..._otherFields
     } = body;
 
     const stockTransfer = await prisma.stockTransfer.update({

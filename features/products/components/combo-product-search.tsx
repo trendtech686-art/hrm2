@@ -35,7 +35,7 @@ export function ComboProductSearch({
     excludeProductIds,
     disabled = false 
 }: ComboProductSearchProps) {
-    const { data: allProducts, getActive } = useProductStore();
+    const { data: _allProducts, getActive } = useProductStore();
     const { data: pricingPolicies } = usePricingPolicyStore();
     const { data: branches = [] } = useBranchStore();
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
@@ -51,7 +51,7 @@ export function ComboProductSearch({
         return getActive().filter(p => 
             canAddToCombo(p) && !excludeProductIds.has(p.systemId)
         );
-    }, [allProducts, getActive, excludeProductIds]);
+    }, [getActive, excludeProductIds]);
 
     // Calculate total available stock (on-hand - committed) across all branches
     const getAvailableStock = (product: Product): number => {
@@ -134,13 +134,13 @@ export function ComboProductSearch({
             if (!lastFetched && productSystemId) {
                 FileUploadAPI.getProductFiles(productSystemId)
                     .then(files => {
-                        const mapFile = (f: any) => ({
+                        const mapFile = (f: { id: string; name: string; originalName: string; slug: string; filename: string; size: number; type: string; url: string; uploadedAt: string; metadata: string | Record<string, unknown> }) => ({
                             id: f.id, sessionId: '', name: f.name, originalName: f.originalName,
                             slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
-                            status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: f.metadata
+                            status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: typeof f.metadata === 'string' ? f.metadata : JSON.stringify(f.metadata)
                         });
-                        updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapFile));
-                        updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapFile));
+                        updatePermanentImages(productSystemId, 'thumbnail', (files.filter(f => f.documentName === 'thumbnail') as any[]).map(mapFile));
+                        updatePermanentImages(productSystemId, 'gallery', (files.filter(f => f.documentName === 'gallery') as any[]).map(mapFile));
                     })
                     .catch(() => {});
             }
@@ -161,7 +161,8 @@ export function ComboProductSearch({
     });
 
     const renderOption = (option: ComboboxOption) => {
-        const isLowStock = option.metadata?.isLowStock;
+        const metadata = option.metadata as { isLowStock?: boolean; costPrice?: number; totalOnHand?: number; availableStock?: number } | undefined;
+        const isLowStock = metadata?.isLowStock;
         
         return (
             <div className="flex items-center gap-3 w-full py-1">
@@ -171,10 +172,10 @@ export function ComboProductSearch({
                     <p className="text-body-xs text-muted-foreground">{option.subtitle}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                    <p className="text-body-sm font-medium">{formatCurrency(option.metadata?.costPrice)}</p>
+                    <p className="text-body-sm font-medium">{formatCurrency(metadata?.costPrice)}</p>
                     <p className={`text-body-xs ${isLowStock ? 'text-destructive' : 'text-muted-foreground'}`}>
                         {isLowStock && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
-                        Tồn: {option.metadata?.totalOnHand || 0} | Bán: {option.metadata?.availableStock || 0}
+                        Tồn: {metadata?.totalOnHand || 0} | Bán: {metadata?.availableStock || 0}
                     </p>
                 </div>
             </div>

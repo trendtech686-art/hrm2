@@ -1,3 +1,11 @@
-"use client"
+import type { Metadata } from 'next'
 import { ReceiptDetailPage } from '@/features/receipts/detail-page'
-export default ReceiptDetailPage
+
+export const metadata: Metadata = {
+  title: 'Chi tiết phiếu thu',
+  description: 'Xem thông tin phiếu thu',
+}
+
+export default function Page() {
+  return <ReceiptDetailPage />
+}

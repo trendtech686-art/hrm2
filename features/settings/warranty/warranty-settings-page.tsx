@@ -358,7 +358,7 @@ export function WarrantySettingsPage() {
     });
   };
 
-  const handleResetSLA = () => {
+  const _handleResetSLA = () => {
     const defaults = clone(defaultSLA);
     setSLA(defaults);
     setStoreSection('sla', defaults);
@@ -520,7 +520,7 @@ export function WarrantySettingsPage() {
     });
   };
 
-  const handleResetCardColors = () => {
+  const _handleResetCardColors = () => {
     const defaults = clone(defaultCardColors);
     setCardColors(defaults);
     setStoreSection('cardColors', defaults);

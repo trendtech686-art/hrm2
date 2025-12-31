@@ -70,8 +70,9 @@ export async function loadWebsiteSettingsAsync(): Promise<WebsiteSettings> {
     const res = await fetch(`${API_ENDPOINT}?type=settings`);
     if (res.ok) {
       const data = await res.json();
-      settingsCache = { ...DEFAULT_SETTINGS, ...data };
-      return settingsCache;
+      const newSettings = { ...DEFAULT_SETTINGS, ...data };
+      settingsCache = newSettings;
+      return newSettings;
     }
   } catch (error) {
     console.error('[WebsiteSettings] Error loading from database:', error);
@@ -116,9 +117,9 @@ export async function loadRedirectsAsync(): Promise<Redirect301[]> {
   try {
     const res = await fetch(`${API_ENDPOINT}?type=redirects`);
     if (res.ok) {
-      const data = await res.json();
+      const data: Redirect301[] = await res.json();
       redirectsCache = data;
-      return redirectsCache;
+      return data;
     }
   } catch (error) {
     console.error('[WebsiteSettings] Error loading redirects from database:', error);

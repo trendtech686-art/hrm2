@@ -120,22 +120,7 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
     }
   });
 
-  if (missingConfigs.length > 0) {
-    return (
-      <Alert variant="destructive" className="space-y-3">
-        <div>
-          <AlertTitle>Thiếu cấu hình bắt buộc</AlertTitle>
-          <AlertDescription>
-            {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu chi.`}
-          </AlertDescription>
-        </div>
-        <Button type="button" variant="outline" onClick={() => router.push(ROUTES.SETTINGS.PAYMENTS)}>
-          Mở Cài đặt thanh toán
-        </Button>
-      </Alert>
-    );
-  }
-
+  // All hooks must be called before any early returns (React hooks rules)
   // Watch paymentMethodSystemId và recipientTypeSystemId để filter
   const paymentMethodSystemId = form.watch('paymentMethodSystemId');
   const recipientTypeSystemId = form.watch('recipientTypeSystemId');
@@ -229,6 +214,23 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
     // KHAC -> empty (manual input)
     return [];
   }, [selectedTargetGroup, customers, suppliers, employees, shippingPartners]);
+
+  // Early return after all hooks have been called
+  if (missingConfigs.length > 0) {
+    return (
+      <Alert variant="destructive" className="space-y-3">
+        <div>
+          <AlertTitle>Thiếu cấu hình bắt buộc</AlertTitle>
+          <AlertDescription>
+            {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu chi.`}
+          </AlertDescription>
+        </div>
+        <Button type="button" variant="outline" onClick={() => router.push(ROUTES.SETTINGS.PAYMENTS)}>
+          Mở Cài đặt thanh toán
+        </Button>
+      </Alert>
+    );
+  }
 
   const handleSubmit = (data: PaymentFormValues) => {
     // Tự động điền tên từ systemId đã chọn

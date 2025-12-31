@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
+import { AttendanceStatus } from '@/generated/prisma/client'
 
 // GET /api/attendance - List attendance records
 export async function GET(request: Request) {
@@ -15,7 +17,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Prisma.AttendanceRecordWhereInput = {}
 
     if (employeeId) {
       where.employeeId = employeeId
@@ -32,7 +34,7 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status
+      where.status = status as AttendanceStatus
     }
 
     const [records, total] = await Promise.all([
@@ -137,8 +139,22 @@ export async function POST(request: Request) {
   }
 }
 
+// Interface for attendance day record
+interface AttendanceDayRecord {
+  status: string;
+  checkIn?: string;
+  checkOut?: string;
+  notes?: string;
+}
+
+// Interface for employee attendance row
+interface EmployeeAttendanceRow {
+  employeeSystemId: string;
+  [key: string]: string | AttendanceDayRecord | undefined;
+}
+
 // Handle bulk save of attendance data for a month
-async function handleBulkSave(body: { monthKey: string; data?: any[]; employeeSystemId?: string; dayKey?: string; record?: any }) {
+async function handleBulkSave(body: { monthKey: string; data?: EmployeeAttendanceRow[]; employeeSystemId?: string; dayKey?: string; record?: AttendanceDayRecord }) {
   try {
     const { monthKey, data, employeeSystemId, dayKey, record } = body
     
@@ -159,14 +175,14 @@ async function handleBulkSave(body: { monthKey: string; data?: any[]; employeeSy
 
     // Bulk save entire month data
     if (data && Array.isArray(data)) {
-      const operations: Promise<any>[] = []
+      const operations: Promise<unknown>[] = []
       
       for (const employeeRow of data) {
         const daysInMonth = new Date(year, month, 0).getDate()
         
         for (let day = 1; day <= daysInMonth; day++) {
-          const dayRecord = employeeRow[`day_${day}`]
-          if (!dayRecord || dayRecord.status === 'weekend' || dayRecord.status === 'future') {
+          const dayRecord = employeeRow[`day_${day}`] as AttendanceDayRecord | undefined
+          if (!dayRecord || typeof dayRecord === 'string' || dayRecord.status === 'weekend' || dayRecord.status === 'future') {
             continue // Skip weekend/future days
           }
           
@@ -189,7 +205,7 @@ async function handleBulkSave(body: { monthKey: string; data?: any[]; employeeSy
 }
 
 // Handle single record update from store
-async function handleSingleRecordUpdate(body: { monthKey: string; employeeSystemId: string; dayKey: string; record: any }) {
+async function handleSingleRecordUpdate(body: { monthKey: string; employeeSystemId: string; dayKey: string; record: AttendanceDayRecord }) {
   try {
     const { monthKey, employeeSystemId, dayKey, record } = body
     const [year, month] = monthKey.split('-').map(Number)
@@ -205,7 +221,7 @@ async function handleSingleRecordUpdate(body: { monthKey: string; employeeSystem
 }
 
 // Helper to upsert a single attendance record
-async function upsertAttendanceRecord(employeeId: string, date: Date, record: any) {
+async function upsertAttendanceRecord(employeeId: string, date: Date, record: AttendanceDayRecord) {
   // Map frontend status to database enum
   const statusMap: Record<string, string> = {
     'present': 'PRESENT',
@@ -239,7 +255,7 @@ async function upsertAttendanceRecord(employeeId: string, date: Date, record: an
       checkIn,
       checkOut,
       workHours,
-      status: status as any,
+      status: status as AttendanceStatus,
       notes: record.notes,
     },
     create: {
@@ -249,7 +265,7 @@ async function upsertAttendanceRecord(employeeId: string, date: Date, record: an
       checkIn,
       checkOut,
       workHours,
-      status: status as any,
+      status: status as AttendanceStatus,
       notes: record.notes,
     },
   })

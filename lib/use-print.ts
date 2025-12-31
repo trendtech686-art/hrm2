@@ -60,7 +60,7 @@ function isEmptyValue(value: unknown): boolean {
  * - {{#if_not_empty {field}}}...{{/if_not_empty}} - Nếu field không rỗng
  * - {{#if_gt {field} value}}...{{/if_gt}} - Nếu field > value (greater than)
  */
-function processConditionals(html: string, data: PrintData, lineItems?: PrintLineItem[]): string {
+function processConditionals(html: string, data: PrintData, _lineItems?: PrintLineItem[]): string {
   let result = html;
 
   // 1. Xử lý {{#if_not_empty {field}}}...{{/if_not_empty}}
@@ -263,7 +263,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
         
           if (lineItemsTable) {
             // Tìm tbody trong table này
-            let tbodyMatch = lineItemsTable.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+            const tbodyMatch = lineItemsTable.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
           
             // Nếu không có tbody, có thể table chỉ có tr trực tiếp
             // (một số template không dùng thead/tbody)
@@ -427,7 +427,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
         }, 1000);
       }, 100);
     }
-  }, [getTemplateContent, processTemplate]);
+  }, [templateStore, getTemplateContent, processTemplate]);
 
   /**
    * In nhiều tài liệu cùng lúc - gộp thành 1 document với page break giữa các tài liệu

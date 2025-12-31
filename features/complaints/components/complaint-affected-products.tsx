@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
+import { OptimizedImage } from "../../../components/ui/optimized-image";
 import { useProductStore } from "../../products/store";
 import { useProductTypeStore } from "../../settings/inventory/product-type-store";
 import { Package, Eye } from 'lucide-react';
@@ -111,7 +112,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                             className="group/thumbnail relative w-10 h-9 rounded border overflow-hidden bg-muted cursor-pointer mx-auto"
                             onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
                           >
-                            <img src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                            <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={40} height={36} />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                               <Eye className="w-3 h-3 text-white drop-shadow-md" />
                             </div>

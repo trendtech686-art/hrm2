@@ -1,10 +1,9 @@
 import * as React from "react";
-import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
+import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { usePricingPolicyStore } from "./store";
 import type { PricingPolicy } from '@/lib/types/prisma-extended';
 import { PricingPolicyForm, type PricingPolicyFormValues } from "./form";
 import { PricingTable } from "./pricing-table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
@@ -39,7 +38,7 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
         }
     }, [isActive, onRegisterActions]);
 
-    const handleAddNew = () => {
+    const _handleAddNew = () => {
         setEditingPolicy(null);
         setIsFormOpen(true);
     };

@@ -3,13 +3,13 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { formatDate as formatDateUtil, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff, parseDate } from '@/lib/date-utils';
+import { formatDate as formatDateUtil, getCurrentDate, getDaysDiff, parseDate } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { sanitizeToText } from '@/lib/sanitize';
 import { 
   calculateHealthScore, 
   calculateChurnRisk, 
-  calculateRFMScores, 
+  calculateRFMScores,
   getCustomerSegment,
   getSegmentLabel,
   getSegmentBadgeVariant,
@@ -17,7 +17,7 @@ import {
 } from './intelligence-utils';
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
 import { useCustomerStore } from './store';
-import type { Customer, CustomerAddress } from '@/lib/types/prisma-extended';
+import type { Customer } from '@/lib/types/prisma-extended';
 import { useOrderStore } from '../orders/store';
 import { useWarrantyStore } from '../warranty/store';
 import { useComplaintStore } from '../complaints/store';
@@ -30,9 +30,8 @@ import { useCustomerSourceStore } from '../settings/customers/customer-sources-s
 import { usePaymentTermStore } from '../settings/customers/payment-terms-store';
 import { useCreditRatingStore } from '../settings/customers/credit-ratings-store';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Switch } from '../../components/ui/switch';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -43,7 +42,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '../../components/ui/alert-dialog';
 import {
   DropdownMenu,
@@ -52,7 +50,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import { ArrowLeft, Edit, Phone, Mail, ExternalLink, Trash2, AlertTriangle, Clock, CreditCard, TrendingDown, Plus, Eye, MoreHorizontal, Printer, FileSpreadsheet, FileText, HelpCircle, Copy, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Mail, ExternalLink, Trash2, Clock, CreditCard, TrendingDown, Eye, MoreHorizontal, Printer, FileSpreadsheet, FileText, HelpCircle, Link as LinkIcon } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ProgressiveImage } from '../../components/ui/progressive-image';
@@ -87,7 +85,7 @@ const formatCurrency = (value?: number) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(normalized);
 };
 
-const formatAddress = (street?: string, ward?: string, province?: string) => {
+const _formatAddress = (street?: string, ward?: string, province?: string) => {
     const address = [street, ward, province].filter(Boolean).join(', ');
     return address || '-';
 };
@@ -111,7 +109,7 @@ const DetailItem = ({ label, value, onClick, className = '' }: {
 );
 
 // Stats summary item
-const StatItem = ({ label, value, subtext }: { label: string; value: string; subtext?: string }) => (
+const _StatItem = ({ label, value, subtext }: { label: string; value: string; subtext?: string }) => (
   <div className="text-center p-4 rounded-lg bg-muted/50">
     <div className="text-h3 font-bold">{value}</div>
     <div className="text-body-sm text-muted-foreground">{label}</div>
@@ -137,7 +135,7 @@ const orderStatusVariants: Record<OrderMainStatus, "success" | "default" | "seco
 // };
 
 // Column Definitions
-const orderColumns: ColumnDef<Order>[] = [
+const _orderColumns: ColumnDef<Order>[] = [
     { id: 'id', accessorKey: 'id', header: 'Mã ĐH', cell: ({ row }) => <span className="font-medium">{row.id}</span>, meta: { displayName: 'Mã ĐH'} },
     { id: 'orderDate', accessorKey: 'orderDate', header: 'Ngày đặt', cell: ({ row }) => formatDateUtil(row.orderDate), meta: { displayName: 'Ngày đặt'} },
     { id: 'status', accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => {
@@ -421,7 +419,7 @@ const complaintColumns: ColumnDef<ComplaintRow>[] = [
 //     { id: 'status', accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => <Badge variant={complaintStatusVariants[row.status] as any}>{row.status}</Badge>, meta: { displayName: 'Trạng thái'} },
 // ];
 
-const debtColumns: ColumnDef<any>[] = [
+const debtColumns: ColumnDef<{ voucherId: string; type: string; originalSystemId: string; creatorId?: string; creator?: string; createdAt: string; description?: string; amount?: number; complaintSystemId?: string; displayAmount?: number; change?: number; balance?: number }>[] = [
     { id: 'voucherId', accessorKey: 'voucherId', header: 'Mã phiếu', cell: ({ row }) => {
         const path = row.type === 'order' ? `/orders/${row.originalSystemId}` 
             : row.type === 'receipt' ? `/receipts/${row.originalSystemId}` 
@@ -510,7 +508,7 @@ const customerStatusVariants: Partial<Record<Customer["status"], "default" | "se
   inactive: "secondary",
 };
 
-const renderCustomerStatusBadge = (status?: Customer["status"]) => {
+const _renderCustomerStatusBadge = (status?: Customer["status"]) => {
   if (!status) return undefined;
   return (
     <Badge variant={customerStatusVariants[status] ?? "secondary"}>
@@ -524,6 +522,7 @@ export function CustomerDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById, update, data, removeMany } = useCustomerStore();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
   const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById, data]);
   const [activeTab, setActiveTab] = React.useState('info');
   const [orderDrilldownSearch, setOrderDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
@@ -554,7 +553,7 @@ export function CustomerDetailPage() {
     }
   }, [comments, systemId]);
 
-  const handleAddComment = React.useCallback((content: string, parentId?: string) => {
+  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
     const newComment: CustomerComment = {
       id: asSystemId(`comment-${Date.now()}`),
       content,
@@ -584,7 +583,7 @@ export function CustomerDetailPage() {
   }), [authEmployee]);
 
   // Force update logs when SLA action happens
-  const [logUpdateTrigger, setLogUpdateTrigger] = React.useState(0);
+  const [_logUpdateTrigger, setLogUpdateTrigger] = React.useState(0);
 
   React.useEffect(() => {
     const handleLogUpdate = (e: Event) => {
@@ -645,7 +644,7 @@ export function CustomerDetailPage() {
     };
 
     slaLogs.forEach(log => {
-      let actionLabel = 'updated';
+      let actionLabel: HistoryEntry['action'] = 'updated';
       let description = '';
       const slaTypeLabel = getSlaTypeLabel(log.slaType);
       
@@ -668,7 +667,7 @@ export function CustomerDetailPage() {
 
       entries.push({
         id: log.id,
-        action: actionLabel as any,
+        action: actionLabel,
         timestamp: new Date(log.performedAt),
         user: {
           systemId: 'system', // We don't have user ID in simple log yet, or it's just name
@@ -679,7 +678,7 @@ export function CustomerDetailPage() {
     });
     
     return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [customer, findEmployeeById, logUpdateTrigger]);
+  }, [customer, findEmployeeById]);
 
   const focusTab = React.useCallback((tab: string, scrollToSection = false) => {
     setActiveTab(tab);
@@ -735,12 +734,12 @@ export function CustomerDetailPage() {
   const creditRatings = useCreditRatingStore();
 
   // Lookup names
-  const getTypeName = (id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined;
-  const getGroupName = (id?: string) => id ? customerGroups.findById(asSystemId(id))?.name : undefined;
-  const getSourceName = (id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined;
-  const getPaymentTermName = (id?: string) => id ? paymentTerms.findById(asSystemId(id))?.name : undefined;
-  const getCreditRatingName = (id?: string) => id ? creditRatings.findById(asSystemId(id))?.name : undefined;
-  const getEmployeeName = (id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined;
+  const getTypeName = React.useCallback((id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined, [customerTypes]);
+  const getGroupName = React.useCallback((id?: string) => id ? customerGroups.findById(asSystemId(id))?.name : undefined, [customerGroups]);
+  const getSourceName = React.useCallback((id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined, [customerSources]);
+  const getPaymentTermName = React.useCallback((id?: string) => id ? paymentTerms.findById(asSystemId(id))?.name : undefined, [paymentTerms]);
+  const getCreditRatingName = React.useCallback((id?: string) => id ? creditRatings.findById(asSystemId(id))?.name : undefined, [creditRatings]);
+  const getEmployeeName = React.useCallback((id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined, [findEmployeeById]);
 
   const customerOrders = React.useMemo(() => allOrders.filter(o => o.customerSystemId === customer?.systemId), [allOrders, customer?.systemId]);
   
@@ -852,7 +851,7 @@ export function CustomerDetailPage() {
     if (!customer?.phone) return [] as WarrantyTicket[];
     return allWarrantyTickets.filter(t => t.customerPhone === customer.phone);
   }, [allWarrantyTickets, customer?.phone]);
-  const customerWarrantyCount = customerWarrantyTickets.length;
+  const _customerWarrantyCount = customerWarrantyTickets.length;
   const activeWarrantyCount = React.useMemo(
     () => customerWarrantyTickets.filter(ticket => !['returned', 'completed', 'cancelled'].includes(ticket.status)).length,
     [customerWarrantyTickets]
@@ -861,8 +860,8 @@ export function CustomerDetailPage() {
   const customerComplaints = React.useMemo(() => {
     if (!customer) return [] as Complaint[];
     return allComplaints.filter(c => c.customerSystemId === customer.systemId);
-  }, [allComplaints, customer?.systemId]);
-  const customerComplaintCount = customerComplaints.length;
+  }, [allComplaints, customer]);
+  const _customerComplaintCount = customerComplaints.length;
   const activeComplaintCount = React.useMemo(
     () => customerComplaints.filter(complaint => complaint.status === 'pending' || complaint.status === 'investigating').length,
     [customerComplaints]
@@ -911,7 +910,7 @@ export function CustomerDetailPage() {
       order.lineItems.forEach(item => {
         // Lấy thông tin bảo hành từ sản phẩm hoặc mặc định 12 tháng
         const product = item.productSystemId ? findProductById(asSystemId(item.productSystemId)) : null;
-        const warrantyMonths = (item as any).warrantyPeriodMonths || product?.warrantyPeriodMonths || 0;
+        const warrantyMonths = (item as { warrantyPeriodMonths?: number }).warrantyPeriodMonths || product?.warrantyPeriodMonths || 0;
         const warrantyExpiry = warrantyMonths > 0 ? calculateWarrantyExpiry(order.orderDate, warrantyMonths) : '';
         const daysRemaining = warrantyExpiry ? calculateDaysRemaining(warrantyExpiry) : 0;
         
@@ -1175,20 +1174,7 @@ export function CustomerDetailPage() {
     actions: headerActions,
   });
 
-  if (!customer) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Không tìm thấy khách hàng</h2>
-          <Button onClick={() => router.push('/customers')} className="mt-4">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Quay về danh sách
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks must be called before any early returns (React hooks rules)
   // Tính tổng giá trị hàng đã trả
   const totalReturnedValue = React.useMemo(
     () => customerSalesReturns.reduce((sum, sr) => sum + sr.totalReturnValue, 0),
@@ -1210,7 +1196,7 @@ export function CustomerDetailPage() {
     () => (customer?.failedDeliveries ?? unresolvedFailedDeliveries),
     [customer?.failedDeliveries, unresolvedFailedDeliveries]
   );
-  const orderStatusEntries = React.useMemo(
+  const _orderStatusEntries = React.useMemo(
     () => ([
       { key: 'hoanThanh', label: 'Hoàn thành', count: orderStatusBreakdown.hoanThanh, status: 'Hoàn thành' as OrderMainStatus },
       { key: 'dangGiaoDich', label: 'Đang giao dịch', count: orderStatusBreakdown.dangGiaoDich, status: 'Đang giao dịch' as OrderMainStatus },
@@ -1219,6 +1205,21 @@ export function CustomerDetailPage() {
     ]),
     [orderStatusBreakdown]
   );
+
+  // Early return after all hooks have been called
+  if (!customer) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Không tìm thấy khách hàng</h2>
+          <Button onClick={() => router.push('/customers')} className="mt-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Quay về danh sách
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // DEBUG: Check if values are calculated
   // console.log('CustomerDetail Debug:', { 

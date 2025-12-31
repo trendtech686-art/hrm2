@@ -334,7 +334,7 @@ export function calculateFinalComboPricesByPolicy(
   allProducts: Product[],
   comboPricingType: ComboPricingType,
   comboDiscount: number = 0,
-  defaultPolicyId?: string
+  _defaultPolicyId?: string
 ): Record<string, number> {
   // Get raw sum prices first
   const rawPricesByPolicy = calculateComboPricesByPolicy(comboItems, allProducts);

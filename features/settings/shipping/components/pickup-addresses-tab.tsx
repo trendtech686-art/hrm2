@@ -12,10 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { MapPin, Loader2, Save, RefreshCw } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { MapPin, Loader2, RefreshCw } from 'lucide-react';
 import type { PartnerAccount, PickupAddress } from '@/lib/types/shipping-config';
 import { useBranchStore } from '@/features/settings/branches/store';
 import { toast } from 'sonner';
@@ -46,7 +44,7 @@ interface BranchMapping {
 export function PickupAddressesTab({
   partnerCode,
   account,
-  onAccountUpdate,
+  onAccountUpdate: _onAccountUpdate,
   getMappingsRef,
 }: PickupAddressesTabProps) {
   const { data: branches } = useBranchStore();
@@ -62,6 +60,7 @@ export function PickupAddressesTab({
         getPickupAddresses: () => convertMappingsToPickupAddresses(mappings),
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- convertMappingsToPickupAddresses is a stable helper function
   }, [mappings, getMappingsRef, partnerWarehouses]); // Add partnerWarehouses dependency
 
   // Initialize mappings from existing pickup addresses
@@ -81,6 +80,7 @@ export function PickupAddressesTab({
     if (partnerCode === 'GHTK' && account.credentials.apiToken) {
       loadGHTKWarehouses();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadGHTKWarehouses is defined after but stable
   }, [partnerCode, account.credentials.apiToken]); // Re-load if account changes
 
   const loadGHTKWarehouses = async () => {
@@ -99,7 +99,7 @@ export function PickupAddressesTab({
         console.log('[PickupAddresses] First warehouse raw data:', data.data[0]);
         
         const warehouses: PartnerWarehouse[] = data.data
-          .map((w: any, index: number) => {
+          .map((w: { pick_address_id?: string; id?: string; pick_address?: string; address?: string; pick_name?: string; name?: string; pick_province?: string; province?: string; city?: string; pick_district?: string; district?: string; pick_ward?: string; ward?: string; pick_tel?: string; tel?: string; phone?: string }, index: number) => {
             // Try to parse province/district from pick_address if not provided
             const address = w.pick_address || w.address || '';
             const addressParts = address.split(',').map((s: string) => s.trim()).filter(s => s); // Filter empty strings

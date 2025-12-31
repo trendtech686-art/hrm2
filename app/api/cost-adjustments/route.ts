@@ -4,6 +4,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
+
+// Interface for cost adjustment item input
+interface CostAdjustmentItemInput {
+  systemId: string;
+  productId: string;
+  oldCost?: number;
+  newCost?: number;
+  notes?: string;
+}
 
 // GET - List cost adjustments
 export async function GET(request: NextRequest) {
@@ -15,7 +25,7 @@ export async function GET(request: NextRequest) {
     
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.CostAdjustmentWhereInput = {};
     
     if (search) {
       where.OR = [
@@ -83,7 +93,7 @@ export async function POST(request: NextRequest) {
         reason: reason || null,
         createdBy: createdBy || null,
         items: items?.length ? {
-          create: items.map((item: any) => ({
+          create: items.map((item: CostAdjustmentItemInput) => ({
             systemId: item.systemId,
             productId: item.productId,
             oldCost: item.oldCost || 0,

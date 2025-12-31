@@ -127,7 +127,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
             cancelReason
           });
           
-          paymentStore.update(payment.systemId as any, {
+          paymentStore.update(payment.systemId, {
             ...payment,
             status: 'cancelled',
             cancelledAt: timestamp,
@@ -163,7 +163,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
         
         // Soft delete receipts - update status to 'cancelled' + save cancelReason in description
         relatedReceipts.forEach(receipt => {
-          receiptStore.update(receipt.systemId as any, {
+          receiptStore.update(receipt.systemId, {
             ...receipt,
             status: 'cancelled',
             cancelledAt: timestamp,
@@ -183,7 +183,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
         addHistory(
           ticket.systemId,
           `🗑️ Hủy ${allVouchers.length} phiếu thu/chi (${cancelledCount.payments} phiếu chi, ${cancelledCount.receipts} phiếu thu)`,
-          currentUser.name,
+          currentUser.name ?? 'Unknown',
           `Danh sách: ${voucherList}`
         );
       }
@@ -200,7 +200,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
         action: 'Hủy phiếu bảo hành',
         actionLabel: 'Đã hủy phiếu',
         entityType: 'status',
-        performedBy: currentUser.name,
+        performedBy: currentUser.name ?? 'Unknown',
         performedAt: timestamp,
         note: `Lý do: ${cancelReason}`,
       };
@@ -225,7 +225,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       console.error('Failed to cancel ticket:', error);
       toast.error('Không thể hủy phiếu');
     }
-  }, [ticket, cancelReason, update, currentUser, findById, payments, receipts, addHistory, onOpenChange, orders]);
+  }, [ticket, cancelReason, update, currentUser, findById, payments, receipts, addHistory, onOpenChange, orders, onCancelled]);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

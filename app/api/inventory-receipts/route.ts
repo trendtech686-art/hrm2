@@ -4,6 +4,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma, InventoryReceiptType } from '@/generated/prisma/client';
+
+// Interface for inventory receipt item input
+interface InventoryReceiptItemInput {
+  systemId: string;
+  productId: string;
+  quantity?: number;
+  unitCost?: number;
+  totalCost?: number;
+  notes?: string;
+}
 
 // GET - List inventory receipts
 export async function GET(request: NextRequest) {
@@ -16,7 +27,7 @@ export async function GET(request: NextRequest) {
     
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.InventoryReceiptWhereInput = {};
     
     if (search) {
       where.OR = [
@@ -26,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (type) {
-      where.type = type;
+      where.type = type as InventoryReceiptType;
     }
 
     const [data, total] = await Promise.all([
@@ -94,7 +105,7 @@ export async function POST(request: NextRequest) {
         notes: notes || null,
         createdBy: createdBy || null,
         items: items?.length ? {
-          create: items.map((item: any) => ({
+          create: items.map((item: InventoryReceiptItemInput) => ({
             systemId: item.systemId,
             productId: item.productId,
             quantity: item.quantity || 1,

@@ -52,7 +52,7 @@ export function ImportExportLogsPage() {
       ...log,
       systemId: log.id, // Use log id as systemId for table
     }));
-  }, [importLogs, exportLogs, getRecentLogs]);
+  }, [getRecentLogs]);
   
   // Get unique entity types for filter
   const entityTypes = React.useMemo(() => {

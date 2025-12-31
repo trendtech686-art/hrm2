@@ -21,8 +21,6 @@ import {
   searchProducts,
   fetchProductInventory,
   type ProductsParams,
-  type CreateProductInput,
-  type UpdateProductInput,
 } from '../api/products-api';
 
 // Query keys - exported for invalidation

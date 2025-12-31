@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import {
   Form,
   FormControl,
@@ -42,7 +41,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store';
-import type { ProductCategory } from '../settings/inventory/types';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
@@ -129,10 +127,10 @@ export function CategoryDetailPage() {
   // Image upload states
   const [thumbnailFiles, setThumbnailFiles] = React.useState<StagingFile[]>([]);
   const [thumbnailSessionId, setThumbnailSessionId] = React.useState<string | undefined>();
-  const [pkgxImageFiles, setPkgxImageFiles] = React.useState<StagingFile[]>([]);
-  const [pkgxImageSessionId, setPkgxImageSessionId] = React.useState<string | undefined>();
-  const [trendtechImageFiles, setTrendtechImageFiles] = React.useState<StagingFile[]>([]);
-  const [trendtechImageSessionId, setTrendtechImageSessionId] = React.useState<string | undefined>();
+  const [pkgxImageFiles, _setPkgxImageFiles] = React.useState<StagingFile[]>([]);
+  const [_pkgxImageSessionId, _setPkgxImageSessionId] = React.useState<string | undefined>();
+  const [trendtechImageFiles, _setTrendtechImageFiles] = React.useState<StagingFile[]>([]);
+  const [_trendtechImageSessionId, _setTrendtechImageSessionId] = React.useState<string | undefined>();
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
@@ -181,7 +179,7 @@ export function CategoryDetailPage() {
   }, [category, form]);
 
   const watchedName = form.watch('name');
-  const watchedId = form.watch('id');
+  const _watchedId = form.watch('id');
   const watchedPkgxSeoTitle = form.watch('websiteSeo.pkgx.seoTitle');
   const watchedPkgxMetaDesc = form.watch('websiteSeo.pkgx.metaDescription');
   const watchedPkgxKeywords = form.watch('websiteSeo.pkgx.seoKeywords');
@@ -191,7 +189,7 @@ export function CategoryDetailPage() {
   const watchedTrendtechKeywords = form.watch('websiteSeo.trendtech.seoKeywords');
   const watchedTrendtechSlug = form.watch('websiteSeo.trendtech.slug');
 
-  const handleSubmit = async (formData: CategoryFormValues) => {
+  const handleSubmit = React.useCallback(async (formData: CategoryFormValues) => {
     if (!systemId || !category) return;
     
     // Check if businessId changed and already exists
@@ -234,7 +232,7 @@ export function CategoryDetailPage() {
     
     toast.success('Đã cập nhật danh mục');
     router.push(`/categories/${systemId}`);
-  };
+  }, [systemId, category, isBusinessIdExists, form, thumbnailFiles, pkgxImageFiles, trendtechImageFiles, update, router]);
 
   const handleDelete = () => {
     if (!systemId) return;
@@ -249,9 +247,9 @@ export function CategoryDetailPage() {
     router.push('/categories');
   };
 
-  const handleSwitchToEdit = () => {
+  const handleSwitchToEdit = React.useCallback(() => {
     router.push(`/categories/${systemId}/edit`);
-  };
+  }, [router, systemId]);
 
   // Header actions
   const headerActions = React.useMemo(() => {
@@ -277,7 +275,7 @@ export function CategoryDetailPage() {
         Chỉnh sửa
       </Button>
     ];
-  }, [isEditMode, systemId, router, form]);
+  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit]);
 
   usePageHeader({
     actions: headerActions,

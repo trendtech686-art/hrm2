@@ -139,10 +139,10 @@ function applyFilters(customers: Customer[], params: CustomerQueryParams): Pipel
     dataset = fuse.search(search.trim()).map(result => result.item);
   }
 
-  const sorter = sorting.id;
+  const sorter = sorting.id as keyof Customer;
   dataset = [...dataset].sort((a, b) => {
-    const valueA = (a as any)[sorter] ?? '';
-    const valueB = (b as any)[sorter] ?? '';
+    const valueA = a[sorter] ?? '';
+    const valueB = b[sorter] ?? '';
     if (valueA < valueB) return sorting.desc ? 1 : -1;
     if (valueA > valueB) return sorting.desc ? -1 : 1;
     return 0;

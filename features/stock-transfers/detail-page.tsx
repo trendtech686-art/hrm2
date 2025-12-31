@@ -1,10 +1,9 @@
 'use client'
 
 import * as React from 'react';
-import { useRouter, useParams, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useStockTransferStore } from './store';
-import { ProductImage, useProductImage } from '../products/components/product-image';
 import { useBranchStore } from '../settings/branches/store';
 import { useProductStore } from '../products/store';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
@@ -19,7 +18,7 @@ import {
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { ROUTES, generatePath } from '../../lib/router';
+import { ROUTES } from '../../lib/router';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -28,6 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { DetailField } from '../../components/ui/detail-field';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { OptimizedImage } from '../../components/ui/optimized-image';
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -46,10 +46,10 @@ import { ArrowRight, Truck, Package, CheckCircle, XCircle, Printer, Edit, Eye } 
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { formatDate, formatDateTime } from '@/lib/date-utils';
+import { formatDateTime } from '@/lib/date-utils';
 import { StockTransferWorkflowCard } from './components/stock-transfer-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
-import type { StockTransferStatus, StockTransferItem, StockTransfer } from '@/lib/types/prisma-extended';
+import type { StockTransferStatus, StockTransfer } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' d';
 
@@ -66,9 +66,9 @@ const getStatusVariant = (status: StockTransferStatus): 'default' | 'secondary' 
 const getStatusLabel = (status: StockTransferStatus): string => {
   switch (status) {
     case 'pending': return 'Ch? chuy?n';
-    case 'transferring': return 'Ðang chuy?n';
-    case 'completed': return 'Hoàn thành';
-    case 'cancelled': return 'Ðã h?y';
+    case 'transferring': return 'ï¿½ang chuy?n';
+    case 'completed': return 'Hoï¿½n thï¿½nh';
+    case 'cancelled': return 'ï¿½ï¿½ h?y';
     default: return status;
   }
 };
@@ -101,11 +101,11 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
         systemId: transfer.transferredBySystemId || '',
         name: transfer.transferredByName || '',
       },
-      description: 'Xác nh?n xu?t kho, dang chuy?n hàng',
+      description: 'Xï¿½c nh?n xu?t kho, dang chuy?n hï¿½ng',
       metadata: {
         oldValue: 'Ch? chuy?n',
-        newValue: 'Ðang chuy?n',
-        field: 'Tr?ng thái',
+        newValue: 'ï¿½ang chuy?n',
+        field: 'Tr?ng thï¿½i',
       },
     });
   }
@@ -120,11 +120,11 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
         systemId: transfer.receivedBySystemId || '',
         name: transfer.receivedByName || '',
       },
-      description: 'Xác nh?n nh?n hàng hoàn thành',
+      description: 'Xï¿½c nh?n nh?n hï¿½ng hoï¿½n thï¿½nh',
       metadata: {
-        oldValue: 'Ðang chuy?n',
-        newValue: 'Hoàn thành',
-        field: 'Tr?ng thái',
+        oldValue: 'ï¿½ang chuy?n',
+        newValue: 'Hoï¿½n thï¿½nh',
+        field: 'Tr?ng thï¿½i',
       },
     });
   }
@@ -193,7 +193,7 @@ export function StockTransferDetailPage() {
 
   const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
     const productType = findProductTypeById(productTypeSystemId);
-    return productType?.name || 'Hàng hóa';
+    return productType?.name || 'Hï¿½ng hï¿½a';
   }, [findProductTypeById]);
 
   // Comments state with localStorage persistence
@@ -214,13 +214,13 @@ export function StockTransferDetailPage() {
     return findEmployeeById(asSystemId(user.employeeId));
   }, [user, findEmployeeById]);
 
-  const handleAddComment = (content: string, parentId?: string) => {
+  const handleAddComment = (content: string, _attachments?: string[], parentId?: string) => {
     const newComment: TransferComment = {
       id: asSystemId(`comment-${Date.now()}`),
       content,
       author: {
         systemId: currentEmployee?.systemId || asSystemId('system'),
-        name: currentEmployee?.fullName || 'H? th?ng',
+        name: currentEmployee?.fullName || 'Há»‡ thá»‘ng',
       },
       createdAt: new Date(),
       parentId: parentId as SystemId | undefined,
@@ -260,7 +260,7 @@ export function StockTransferDetailPage() {
             </Button>
             <Button className="h-9" onClick={() => setConfirmTransferOpen(true)}>
               <Truck className="mr-2 h-4 w-4" />
-              Chuy?n hàng kh?i kho
+              Chuy?n hï¿½ng kh?i kho
             </Button>
           </>
         )}
@@ -273,7 +273,7 @@ export function StockTransferDetailPage() {
             </Button>
             <Button className="h-9" onClick={() => setConfirmReceiveOpen(true)}>
               <CheckCircle className="mr-2 h-4 w-4" />
-              Nh?n hàng vào kho
+              Nh?n hï¿½ng vï¿½o kho
             </Button>
           </>
         )}
@@ -291,7 +291,7 @@ export function StockTransferDetailPage() {
         )}
       </div>
     );
-  }, [transfer, router]);
+  }, [transfer, router, handlePrint]);
 
   // Breadcrumb
   const breadcrumb = React.useMemo(() => {
@@ -331,9 +331,9 @@ export function StockTransferDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Package className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-h3 font-semibold">Không tìm th?y phi?u chuy?n kho</h2>
+        <h2 className="text-h3 font-semibold">Khï¿½ng tï¿½m th?y phi?u chuy?n kho</h2>
         <Button variant="link" onClick={() => router.push('/stock-transfers')}>
-          Quay l?i danh sách
+          Quay l?i danh sï¿½ch
         </Button>
       </div>
     );
@@ -341,45 +341,45 @@ export function StockTransferDetailPage() {
 
   const handleConfirmTransfer = () => {
     if (!currentEmployee) {
-      toast.error('Không tìm th?y thông tin nhân viên');
+      toast.error('Khï¿½ng tï¿½m th?y thï¿½ng tin nhï¿½n viï¿½n');
       return;
     }
 
     const success = confirmTransfer(transfer.systemId, currentEmployee.systemId);
     if (success) {
-      toast.success('Ðã xác nh?n chuy?n hàng kh?i kho');
+      toast.success('ï¿½ï¿½ xï¿½c nh?n chuy?n hï¿½ng kh?i kho');
     } else {
-      toast.error('Không th? xác nh?n chuy?n hàng');
+      toast.error('Khï¿½ng th? xï¿½c nh?n chuy?n hï¿½ng');
     }
     setConfirmTransferOpen(false);
   };
 
   const handleConfirmReceive = () => {
     if (!currentEmployee) {
-      toast.error('Không tìm th?y thông tin nhân viên');
+      toast.error('Khï¿½ng tï¿½m th?y thï¿½ng tin nhï¿½n viï¿½n');
       return;
     }
 
     const success = confirmReceive(transfer.systemId, currentEmployee.systemId, receiveItems);
     if (success) {
-      toast.success('Ðã xác nh?n nh?n hàng vào kho');
+      toast.success('ï¿½ï¿½ xï¿½c nh?n nh?n hï¿½ng vï¿½o kho');
     } else {
-      toast.error('Không th? xác nh?n nh?n hàng');
+      toast.error('Khï¿½ng th? xï¿½c nh?n nh?n hï¿½ng');
     }
     setConfirmReceiveOpen(false);
   };
 
   const handleCancel = () => {
     if (!currentEmployee) {
-      toast.error('Không tìm th?y thông tin nhân viên');
+      toast.error('Khï¿½ng tï¿½m th?y thï¿½ng tin nhï¿½n viï¿½n');
       return;
     }
 
     const success = cancelTransfer(transfer.systemId, currentEmployee.systemId, cancelReason);
     if (success) {
-      toast.success('Ðã h?y phi?u chuy?n kho');
+      toast.success('ï¿½ï¿½ h?y phi?u chuy?n kho');
     } else {
-      toast.error('Không th? h?y phi?u chuy?n kho');
+      toast.error('Khï¿½ng th? h?y phi?u chuy?n kho');
     }
     setCancelDialogOpen(false);
     setCancelReason('');
@@ -397,52 +397,52 @@ export function StockTransferDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Row 1: 3 columns - Thông tin chuy?n kho + Thông tin x? lý + Quy trình */}
+      {/* Row 1: 3 columns - Thï¿½ng tin chuy?n kho + Thï¿½ng tin x? lï¿½ + Quy trï¿½nh */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Thông tin chuy?n kho */}
+        {/* Column 1: Thï¿½ng tin chuy?n kho */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Thông tin chuy?n kho</CardTitle>
+            <CardTitle className="text-h3">Thï¿½ng tin chuy?n kho</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DetailField label="Mã phi?u" value={transfer.id} />
-            <DetailField label="Mã tham chi?u" value={transfer.referenceCode || '-'} />
+            <DetailField label="Mï¿½ phi?u" value={transfer.id} />
+            <DetailField label="Mï¿½ tham chi?u" value={transfer.referenceCode || '-'} />
             <Separator />
             <div className="space-y-3">
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh chuy?n</p>
+                <p className="text-body-xs text-muted-foreground mb-1">Chi nhï¿½nh chuy?n</p>
                 <p className="font-medium">{transfer.fromBranchName}</p>
               </div>
               <div className="flex justify-center">
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh nh?n</p>
+                <p className="text-body-xs text-muted-foreground mb-1">Chi nhï¿½nh nh?n</p>
                 <p className="font-medium">{transfer.toBranchName}</p>
               </div>
             </div>
             {transfer.note && (
               <>
                 <Separator />
-                <DetailField label="Ghi chú" value={transfer.note} />
+                <DetailField label="Ghi chï¿½" value={transfer.note} />
               </>
             )}
           </CardContent>
         </Card>
 
-        {/* Column 2: Thông tin x? lý */}
+        {/* Column 2: Thï¿½ng tin x? lï¿½ */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Thông tin x? lý</CardTitle>
+            <CardTitle className="text-h3">Thï¿½ng tin x? lï¿½</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DetailField label="Ngày t?o" value={formatDateTime(transfer.createdDate)} />
+            <DetailField label="Ngï¿½y t?o" value={formatDateTime(transfer.createdDate)} />
             <DetailField label="Ngu?i t?o" value={transfer.createdByName} />
             
             {transfer.transferredDate && (
               <>
                 <Separator />
-                <DetailField label="Ngày chuy?n" value={formatDateTime(transfer.transferredDate)} />
+                <DetailField label="Ngï¿½y chuy?n" value={formatDateTime(transfer.transferredDate)} />
                 <DetailField label="Ngu?i chuy?n" value={transfer.transferredByName} />
               </>
             )}
@@ -450,7 +450,7 @@ export function StockTransferDetailPage() {
             {transfer.receivedDate && (
               <>
                 <Separator />
-                <DetailField label="Ngày nh?n" value={formatDateTime(transfer.receivedDate)} />
+                <DetailField label="Ngï¿½y nh?n" value={formatDateTime(transfer.receivedDate)} />
                 <DetailField label="Ngu?i nh?n" value={transfer.receivedByName} />
               </>
             )}
@@ -458,17 +458,17 @@ export function StockTransferDetailPage() {
             {transfer.cancelledDate && (
               <>
                 <Separator />
-                <DetailField label="Ngày h?y" value={formatDateTime(transfer.cancelledDate)} />
+                <DetailField label="Ngï¿½y h?y" value={formatDateTime(transfer.cancelledDate)} />
                 <DetailField label="Ngu?i h?y" value={transfer.cancelledByName} />
                 {transfer.cancelReason && (
-                  <DetailField label="Lý do h?y" value={transfer.cancelReason} />
+                  <DetailField label="Lï¿½ do h?y" value={transfer.cancelReason} />
                 )}
               </>
             )}
           </CardContent>
         </Card>
 
-        {/* Column 3: Quy trình x? lý */}
+        {/* Column 3: Quy trï¿½nh x? lï¿½ */}
         <StockTransferWorkflowCard
           subtasks={subtasks}
           onSubtasksChange={setSubtasks}
@@ -479,7 +479,7 @@ export function StockTransferDetailPage() {
       {/* Product List - Full Width */}
       <Card>
             <CardHeader>
-              <CardTitle className="text-h3">Danh sách s?n ph?m ({transfer.items.length})</CardTitle>
+              <CardTitle className="text-h3">Danh sï¿½ch s?n ph?m ({transfer.items.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -487,7 +487,7 @@ export function StockTransferDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
-                      <TableHead className="w-[60px]">Hình ?nh</TableHead>
+                      <TableHead className="w-[60px]">Hï¿½nh ?nh</TableHead>
                       <TableHead>S?n ph?m</TableHead>
                       <TableHead className="w-[100px]">Lo?i SP</TableHead>
                       <TableHead className="text-center">SL chuy?n</TableHead>
@@ -496,9 +496,9 @@ export function StockTransferDetailPage() {
                       )}
                       <TableHead className="text-center">CN Chuy?n (Tru?c ? Sau)</TableHead>
                       <TableHead className="text-center">CN Nh?n (Tru?c ? Sau)</TableHead>
-                      <TableHead className="text-right">Ðon giá</TableHead>
-                      <TableHead className="text-right">Thành ti?n</TableHead>
-                      <TableHead>Ghi chú</TableHead>
+                      <TableHead className="text-right">ï¿½on giï¿½</TableHead>
+                      <TableHead className="text-right">Thï¿½nh ti?n</TableHead>
+                      <TableHead>Ghi chï¿½</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -506,7 +506,7 @@ export function StockTransferDetailPage() {
                       const product = findProductById(item.productSystemId);
                       const productTypeName = product?.productTypeSystemId 
                         ? getProductTypeName(product.productTypeSystemId)
-                        : 'Hàng hóa';
+                        : 'Hï¿½ng hï¿½a';
                       const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
                       const currentFromStock = product?.inventoryByBranch?.[transfer.fromBranchSystemId] || 0;
                       const currentToStock = product?.inventoryByBranch?.[transfer.toBranchSystemId] || 0;
@@ -546,7 +546,7 @@ export function StockTransferDetailPage() {
                                 className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
                                 onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
                               >
-                                <img src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                                <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                                   <Eye className="w-4 h-4 text-white drop-shadow-md" />
                                 </div>
@@ -605,10 +605,10 @@ export function StockTransferDetailPage() {
                   <p className="text-body-sm text-muted-foreground">T?ng s? lu?ng chuy?n: {totalQuantity}</p>
                   {transfer.status === 'completed' && totalReceived !== totalQuantity && (
                     <p className="text-body-sm text-muted-foreground">
-                      Ðã nh?n: {totalReceived}
+                      ï¿½ï¿½ nh?n: {totalReceived}
                     </p>
                   )}
-                  <p className="text-h3 font-bold">T?ng giá tr?: {formatCurrency(totalValue)}</p>
+                  <p className="text-h3 font-bold">T?ng giï¿½ tr?: {formatCurrency(totalValue)}</p>
                 </div>
               </div>
             </CardContent>
@@ -623,31 +623,31 @@ export function StockTransferDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="Bình lu?n"
-        placeholder="Thêm bình lu?n v? phi?u chuy?n kho..."
+        title="Bï¿½nh lu?n"
+        placeholder="Thï¿½m bï¿½nh lu?n v? phi?u chuy?n kho..."
       />
 
       {/* Activity History - Full Width */}
       <ActivityHistory
         history={buildHistoryEntries(transfer)}
         title="L?ch s? ho?t d?ng"
-        emptyMessage="Chua có ho?t d?ng"
+        emptyMessage="Chua cï¿½ ho?t d?ng"
       />
 
       {/* Confirm Transfer Dialog */}
       <AlertDialog open={confirmTransferOpen} onOpenChange={setConfirmTransferOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nh?n chuy?n hàng kh?i kho?</AlertDialogTitle>
+            <AlertDialogTitle>Xï¿½c nh?n chuy?n hï¿½ng kh?i kho?</AlertDialogTitle>
             <AlertDialogDescription>
-              H? th?ng s? tr? t?n kho t?i chi nhánh <strong>{transfer.fromBranchName}</strong> và 
-              ghi nh?n hàng dang v? t?i chi nhánh <strong>{transfer.toBranchName}</strong>.
+              H? th?ng s? tr? t?n kho t?i chi nhï¿½nh <strong>{transfer.fromBranchName}</strong> vï¿½ 
+              ghi nh?n hï¿½ng dang v? t?i chi nhï¿½nh <strong>{transfer.toBranchName}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>H?y</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmTransfer}>
-              Xác nh?n chuy?n
+              Xï¿½c nh?n chuy?n
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -657,7 +657,7 @@ export function StockTransferDetailPage() {
       <Dialog open={confirmReceiveOpen} onOpenChange={setConfirmReceiveOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nh?n nh?n hàng vào kho</DialogTitle>
+            <DialogTitle>Xï¿½c nh?n nh?n hï¿½ng vï¿½o kho</DialogTitle>
             <DialogDescription>
               Nh?p s? lu?ng th?c t? nh?n du?c cho t?ng s?n ph?m
             </DialogDescription>
@@ -708,7 +708,7 @@ export function StockTransferDetailPage() {
               H?y
             </Button>
             <Button className="h-9" onClick={handleConfirmReceive}>
-              Xác nh?n nh?n hàng
+              Xï¿½c nh?n nh?n hï¿½ng
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -721,28 +721,28 @@ export function StockTransferDetailPage() {
             <DialogTitle>H?y phi?u chuy?n kho?</DialogTitle>
             <DialogDescription>
               {transfer.status === 'transferring' 
-                ? 'H? th?ng s? hoàn l?i t?n kho v? chi nhánh chuy?n.'
+                ? 'H? th?ng s? hoï¿½n l?i t?n kho v? chi nhï¿½nh chuy?n.'
                 : 'Phi?u chuy?n kho s? b? h?y.'
               }
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-2">
-            <Label>Lý do h?y</Label>
+            <Label>Lï¿½ do h?y</Label>
             <Textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Nh?p lý do h?y phi?u..."
+              placeholder="Nh?p lï¿½ do h?y phi?u..."
               rows={3}
             />
           </div>
           
           <DialogFooter>
             <Button variant="outline" className="h-9" onClick={() => setCancelDialogOpen(false)}>
-              Ðóng
+              ï¿½ï¿½ng
             </Button>
             <Button variant="destructive" className="h-9" onClick={handleCancel}>
-              Xác nh?n h?y
+              Xï¿½c nh?n h?y
             </Button>
           </DialogFooter>
         </DialogContent>

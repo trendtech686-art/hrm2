@@ -10,7 +10,6 @@ import {
   Edit2,
   Check,
   X,
-  User,
   Copy,
 } from 'lucide-react';
 import {
@@ -30,14 +29,12 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type Subtask<T = any> = {
+export type Subtask<T = unknown> = {
   id: string;
   title: string;
   completed: boolean;
@@ -50,7 +47,7 @@ export type Subtask<T = any> = {
   metadata?: T | undefined; // Additional fields for specific use cases
 };
 
-export interface SubtaskListProps<T = any> {
+export interface SubtaskListProps<T = unknown> {
   subtasks: Subtask<T>[];
   onAdd?: (title: string, parentId?: string | undefined) => void;
   onUpdate?: (id: string, updates: Partial<Subtask<T>>) => void;
@@ -301,7 +298,7 @@ function SortableSubtask<T>({
 // Main SubtaskList Component
 // ============================================================================
 
-export function SubtaskList<T = any>({
+export function SubtaskList<T = unknown>({
   subtasks,
   onAdd,
   onUpdate,

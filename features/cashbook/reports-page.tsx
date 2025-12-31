@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { formatDateCustom, toISODate } from '../../lib/date-utils';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { startOfMonth, endOfMonth, isAfter, isBefore, isWithinInterval, isSameDay, differenceInMilliseconds, parse as dateParse } from 'date-fns';
@@ -15,8 +15,8 @@ import { usePaymentTypeStore } from '../settings/payments/types/store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { DataTableDateFilter } from '../../components/data-table/data-table-date-filter';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, CreditCard, Users, FileText } from 'lucide-react';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, CreditCard, FileText } from 'lucide-react';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { Button } from '../../components/ui/button';
 
@@ -42,9 +42,9 @@ export function CashbookReportsPage() {
     ...payments.map(p => ({ ...p, type: 'payment' as const }))
   ], [receipts, payments]);
   const { data: branches } = useBranchStore();
-  const { data: customers } = useCustomerStore();
-  const { data: receiptTypes } = useReceiptTypeStore();
-  const { data: paymentTypes } = usePaymentTypeStore();
+  const { data: _customers } = useCustomerStore();
+  const { data: _receiptTypes } = useReceiptTypeStore();
+  const { data: _paymentTypes } = usePaymentTypeStore();
   
   const isMobile = useMediaQuery("(max-width: 768px)");
   
@@ -392,7 +392,7 @@ export function CashbookReportsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(entry: any) => `${entry.name}: ${(entry.percent * 100).toFixed(0)}%`}
+                    label={(props) => `${props.name}: ${((Number(props.percent) || 0) * 100).toFixed(0)}%`}
                     outerRadius={isMobile ? 80 : 100}
                     fill="#8884d8"
                     dataKey="value"
@@ -426,7 +426,7 @@ export function CashbookReportsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(entry: any) => `${entry.name}: ${(entry.percent * 100).toFixed(0)}%`}
+                    label={(props) => `${props.name}: ${((Number(props.percent) || 0) * 100).toFixed(0)}%`}
                     outerRadius={isMobile ? 80 : 100}
                     fill="#8884d8"
                     dataKey="value"

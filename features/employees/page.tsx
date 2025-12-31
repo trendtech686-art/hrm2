@@ -3,21 +3,18 @@
 import * as React from "react"
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils'
+import { formatDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils'
 import { useEmployeeStore } from "./store"
 import { useBranchStore } from "../settings/branches/store";
 import { useDefaultPageSize } from "../settings/global-settings-store";
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
-import { DataTableToolbar } from "../../components/data-table/data-table-toolbar"
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter"
 import { toast } from "sonner"
 import { 
   Card, 
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "../../components/ui/card"
 import {
   AlertDialog,
@@ -32,8 +29,7 @@ import {
 import { Button } from "../../components/ui/button"
 import { PlusCircle, Phone, Mail, Building2, Calendar, MoreHorizontal, Trash2, Upload, Download } from "lucide-react"
 import type { Employee } from '@/lib/types/prisma-extended'
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
-import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
+import { type ImportConfig } from "../../components/data-table/data-table-import-dialog";
 import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
 import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
 import { employeeImportExportConfig } from "../../lib/import-export/configs/employee.config";
@@ -41,8 +37,6 @@ import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { ResponsiveContainer } from "../../components/ui/responsive-container";
-import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
 import { TouchButton } from "../../components/mobile/touch-button";
 import { Badge } from "../../components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
@@ -55,7 +49,6 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { PageToolbar } from "../../components/layout/page-toolbar";
 import { PageFilters } from "../../components/layout/page-filters";
-import { cn } from "../../lib/utils";
 
 const COLUMN_LAYOUT_STORAGE_KEY = 'employees-column-layout';
 
@@ -100,7 +93,7 @@ export function EmployeesPage() {
   
   // Calculate deleted count reactively
   const deletedCount = React.useMemo(() => 
-    employees.filter((e: any) => e.isDeleted).length, 
+    employees.filter((e: { isDeleted?: boolean }) => e.isDeleted).length, 
     [employees]
   );
   
@@ -145,7 +138,7 @@ export function EmployeesPage() {
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [branchFilter, setBranchFilter] = React.useState('all');
-  const [dateFilter, setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
+  const [dateFilter, _setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
   const [departmentFilter, setDepartmentFilter] = React.useState<Set<string>>(new Set());
   const [jobTitleFilter, setJobTitleFilter] = React.useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
@@ -269,8 +262,10 @@ export function EmployeesPage() {
   }
   
   // ✅ Cache active/deleted lists to prevent infinite loops
-  const activeEmployees = React.useMemo(() => getActive(), [employees]);
-  const deletedEmployees = React.useMemo(() => getDeleted(), [employees]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- employees triggers re-evaluation when store changes
+  const activeEmployees = React.useMemo(() => getActive(), [getActive, employees]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- employees triggers re-evaluation when store changes
+  const _deletedEmployees = React.useMemo(() => getDeleted(), [getDeleted, employees]);
   
   // ✅ PERFORMANCE: Create Fuse instance once for active employees only
   const fuseInstance = React.useMemo(() => {
@@ -337,14 +332,14 @@ export function EmployeesPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = a[sorting.id as keyof Employee];
+        const bValue = b[sorting.id as keyof Employee];
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'hireDate') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -393,30 +388,30 @@ export function EmployeesPage() {
   ], []);
 
 
-  const exportConfig = {
+  const _exportConfig = {
     fileName: 'Danh_sach_Nhan_vien',
     columns,
   }
 
-  const importConfig: ImportConfig<Employee> = {
+  const _importConfig: ImportConfig<Employee> = {
     importer: (items) => {
       // Convert from Omit<Employee, 'id'> to Omit<Employee, 'systemId'>
       const itemsWithoutSystemId = items.map(item => {
-        const { systemId, ...rest } = item as any;
+        const { systemId: _sysId, ...rest } = item as Partial<Employee> & { systemId?: string };
         return rest as Omit<Employee, 'systemId'>;
       });
       addMultiple(itemsWithoutSystemId);
     },
     fileName: 'Mau_Nhap_Nhan_vien',
     existingData: employees,
-    getUniqueKey: (item: any) => item.id || item.nationalId || item.workEmail
+    getUniqueKey: (item: Partial<Employee>) => item.id || item.nationalId || item.workEmail
   }
 
   // V2 Import handler with upsert support
   const handleImportV2 = React.useCallback(async (
     data: Partial<Employee>[],
     mode: 'insert-only' | 'update-only' | 'upsert',
-    branchId?: string
+    _branchId?: string
   ) => {
     let inserted = 0;
     let updated = 0;
@@ -447,7 +442,7 @@ export function EmployeesPage() {
             continue;
           }
           // Insert new - remove systemId if present
-          const { systemId, ...newEmployeeData } = item as any;
+          const { systemId: _systemId, ...newEmployeeData } = item as Partial<Employee> & { systemId?: string };
           addMultiple([newEmployeeData as Omit<Employee, 'systemId'>]);
           inserted++;
         }
@@ -476,7 +471,7 @@ export function EmployeesPage() {
   const bulkActions = [
     {
       label: "Chuyển vào thùng rác",
-      onSelect: (selectedRows: Employee[]) => {
+      onSelect: (_selectedRows: Employee[]) => {
         setIsBulkDeleteAlertOpen(true);
       }
     },

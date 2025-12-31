@@ -240,7 +240,7 @@ export function useCreateOrder() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Record<string, unknown>) => {
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -260,7 +260,7 @@ export function useUpdateOrder() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async ({ systemId, data }: { systemId: string; data: any }) => {
+    mutationFn: async ({ systemId, data }: { systemId: string; data: Record<string, unknown> }) => {
       const response = await fetch(`/api/orders/${systemId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

@@ -52,7 +52,7 @@ interface PrintOptionsDialogProps {
   initialTemplateType?: OrderPrintTemplateType;
 }
 
-const PRINT_TYPE_OPTIONS: { id: string; label: string; tooltip?: string }[] = [
+const _PRINT_TYPE_OPTIONS: { id: string; label: string; tooltip?: string }[] = [
   { id: 'order', label: 'Đơn hàng' },
   { id: 'delivery', label: 'Phiếu giao hàng', tooltip: 'Yêu cầu đơn hàng đã có đóng gói' },
   { id: 'packing', label: 'Phiếu đóng gói', tooltip: 'Yêu cầu đơn hàng đã có đóng gói' },
@@ -85,7 +85,7 @@ function loadDefaultOptions(): SavedPrintOptions | null {
     if (saved) {
       return JSON.parse(saved);
     }
-  } catch (e) {
+  } catch (_e) {
     // ignore
   }
   return null;
@@ -94,7 +94,7 @@ function loadDefaultOptions(): SavedPrintOptions | null {
 function saveDefaultOptions(options: SavedPrintOptions) {
   try {
     localStorage.setItem(PRINT_OPTIONS_STORAGE_KEY, JSON.stringify(options));
-  } catch (e) {
+  } catch (_e) {
     // ignore
   }
 }
@@ -103,7 +103,7 @@ export function PrintOptionsDialog({
   open,
   onOpenChange,
   onConfirm,
-  selectedCount,
+  selectedCount: _selectedCount,
   title = "Chọn thông tin bạn muốn in",
   initialTemplateType,
 }: PrintOptionsDialogProps) {

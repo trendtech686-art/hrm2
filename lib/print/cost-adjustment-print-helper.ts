@@ -48,13 +48,13 @@ export function convertCostAdjustmentForPrint(
   return {
     // Thông tin cơ bản
     code: adjustment.id,
-    createdAt: adjustment.createdDate,
-    confirmedDate: adjustment.confirmedDate,
-    cancelledDate: adjustment.cancelledDate,
-    createdBy: adjustment.createdBySystemId,
-    createdByName: creator?.fullName || creatorName || adjustment.createdByName,
-    confirmedBy: adjustment.confirmedBySystemId,
-    confirmedByName: adjustment.confirmedByName,
+    createdAt: adjustment.createdDate ?? new Date(),
+    confirmedDate: adjustment.confirmedDate ?? undefined,
+    cancelledDate: adjustment.cancelledDate ?? undefined,
+    createdBy: adjustment.createdBySystemId ?? undefined,
+    createdByName: creator?.fullName ?? creatorName ?? adjustment.createdByName ?? undefined,
+    confirmedBy: adjustment.confirmedBySystemId ?? undefined,
+    confirmedByName: adjustment.confirmedByName ?? undefined,
     status: statusMap[adjustment.status] || adjustment.status,
     reason: adjustment.reason,
     

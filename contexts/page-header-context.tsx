@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { BreadcrumbItem } from '../lib/breadcrumb-system';
@@ -21,7 +23,7 @@ export interface PageHeaderState {
   onBack?: (() => void) | undefined;
   actions?: React.ReactNode[] | React.ReactNode | undefined;
   breadcrumb?: BreadcrumbItem[] | undefined;
-  context?: Record<string, any> | undefined; // For dynamic breadcrumb generation
+  context?: Record<string, unknown> | undefined; // For dynamic breadcrumb generation
   docLink?: PageHeaderDocLink | undefined;
 }
 
@@ -53,7 +55,7 @@ export function PageHeaderProvider({ children }: { children: React.ReactNode }) 
   }, [pathname]);
 
   const setPageHeader = React.useCallback((state: PageHeaderState) => {
-    setPageHeaderState(prev => {
+    setPageHeaderState(_prev => {
       // Auto-generate breadcrumb if not provided
       let breadcrumb = state.breadcrumb;
       if (!breadcrumb) {
@@ -199,15 +201,15 @@ export function usePageHeader(config?: PageHeaderState) {
     const currentConfig = config;
     
     // Helper to recursively extract text from React elements
-    const extractText = (node: any): string => {
+    const extractText = (node: React.ReactNode): string => {
       if (!node) return '';
       if (typeof node === 'string' || typeof node === 'number') return String(node);
       if (Array.isArray(node)) return node.map(extractText).join('');
       if (React.isValidElement(node)) {
-        return extractText((node.props as any).children);
+        return extractText((node.props as { children?: React.ReactNode }).children);
       }
       if (typeof node === 'object' && 'props' in node) {
-        return extractText((node as any).props?.children);
+        return extractText((node as { props?: { children?: React.ReactNode } }).props?.children);
       }
       return '';
     };
@@ -217,7 +219,7 @@ export function usePageHeader(config?: PageHeaderState) {
       const actionsArray = Array.isArray(actions) ? actions : [actions];
       return actionsArray.map(node => {
         if (!React.isValidElement(node)) return extractText(node);
-        const props = node.props as any;
+        const props = node.props as { disabled?: boolean; hidden?: boolean; children?: React.ReactNode };
         return `${extractText(node)}|${props.disabled}|${props.hidden}|${node.key}`;
       }).join('||');
     };

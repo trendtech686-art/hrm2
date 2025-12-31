@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Badge } from './ui/badge';
-import type { BadgeProps } from './ui/badge';
 import { cn } from '../lib/utils';
 
 export type StatusVariant = 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline';
@@ -57,7 +56,7 @@ export function StatusBadge({
 
   return (
     <Badge 
-      variant={config.variant as any}
+      variant={config.variant}
       className={cn(config.className, className)}
     >
       {config.label}

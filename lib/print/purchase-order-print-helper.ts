@@ -3,7 +3,6 @@
  * Helpers để chuẩn bị dữ liệu in cho đơn đặt hàng nhập
  */
 
-import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   PurchaseOrderForPrint, 
@@ -137,7 +136,7 @@ export function convertPurchaseOrderForPrint(
   return {
     // Thông tin cơ bản
     code: order.id,
-    createdAt: order.createdAt || order.orderDate,
+    createdAt: (order.createdAt ?? order.orderDate) ?? new Date(),
     modifiedAt: order.createdAt || order.orderDate,
     receivedOn: order.receivedDate,
     completedOn: order.completedDate,
@@ -181,25 +180,25 @@ export function convertPurchaseOrderForPrint(
       const taxAmount = taxRate ? amountBeforeTax * taxRate / 100 : 0;
       
       return {
-        variantCode: item.productId || item.productSystemId,
+        variantCode: item.productId || item.productSystemId || '',
         productName: item.productName,
         unit: item.unit || 'Cái',
         quantity: qty,
-        receivedQuantity: item.receivedQuantity,
+        receivedQuantity: item.receivedQuantity ?? 0,
         price: item.unitPrice,
         discountRate: item.discountType === 'percentage' ? item.discount : undefined,
         discountAmount,
         taxRate,
         taxAmount,
         taxType: item.taxType,
-        amount: item.amount,
+        amount: item.amount ?? 0,
         note: item.note,
       };
     }),
     
     // Tổng giá trị
-    totalQuantity: order.totalQuantity ?? orderItems.reduce((sum, i) => sum + (i.quantity ?? i.orderedQuantity ?? 0), 0),
-    total: order.grandTotal,
+    totalQuantity: (order.totalQuantity ?? orderItems.reduce((sum, i) => sum + (i.quantity ?? i.orderedQuantity ?? 0), 0)) || 0,
+    total: order.grandTotal ?? 0,
     totalPrice: order.subtotal,
     totalDiscounts: order.totalDiscount ?? order.discount,
     totalTax: order.totalTax ?? order.tax,

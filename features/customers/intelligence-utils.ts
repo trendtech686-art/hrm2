@@ -1,5 +1,5 @@
 import type { Customer } from '@/lib/types/prisma-extended';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
+import { getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 // RFM Score types
 export type RFMScore = {
   recency: 1 | 2 | 3 | 4 | 5;      // 5 = Best (mua gần đây)

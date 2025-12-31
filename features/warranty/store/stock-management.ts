@@ -4,6 +4,7 @@ import { useStockHistoryStore } from '../../stock-history/store';
 import { toast } from 'sonner';
 import type { WarrantyTicket } from '../types';
 import { getCurrentUserName } from './base-store';
+import { asSystemId, type SystemId } from '../../../lib/id-types';
 
 /**
  * Commit stock khi tạo warranty (reserve hàng cho đổi mới)
@@ -14,7 +15,7 @@ export function commitWarrantyStock(ticket: WarrantyTicket) {
   
   if (replaceProducts.length > 0) {
     const productStore = useProductStore.getState();
-    const productCache = new Map<string, any>();
+    const productCache = new Map<string, { id: string; systemId: string; name: string; [key: string]: unknown }>();
     productStore.data.forEach(p => productCache.set(p.id, p));
     
     replaceProducts.forEach(warrantyProduct => {
@@ -33,7 +34,7 @@ export function commitWarrantyStock(ticket: WarrantyTicket) {
       const quantityToCommit = warrantyProduct.quantity || 1;
       
       // Reuse productStore.commitStock()
-      productStore.commitStock(product.systemId as any, ticket.branchSystemId as any, quantityToCommit);
+      productStore.commitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToCommit);
       
       console.log('✅ [COMMIT STOCK] Giữ hàng thay thế:', {
         productId: product.id,
@@ -55,7 +56,7 @@ export function uncommitWarrantyStock(ticket: WarrantyTicket, options?: { silent
   
   if (replaceProducts.length > 0) {
     const productStore = useProductStore.getState();
-    const productCache = new Map<string, any>();
+    const productCache = new Map<string, { id: string; systemId: string; name: string; [key: string]: unknown }>();
     productStore.data.forEach(p => productCache.set(p.id, p));
     
     replaceProducts.forEach(warrantyProduct => {
@@ -67,7 +68,7 @@ export function uncommitWarrantyStock(ticket: WarrantyTicket, options?: { silent
       const quantityToUncommit = warrantyProduct.quantity || 1;
       
       // Reuse productStore.uncommitStock()
-      productStore.uncommitStock(product.systemId as any, ticket.branchSystemId as any, quantityToUncommit);        console.log('Đã uncommit stock:', {
+      productStore.uncommitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToUncommit);        console.log('Đã uncommit stock:', {
           productId: product.id,
           quantity: quantityToUncommit,
           warranty: ticket.id
@@ -102,7 +103,7 @@ export function deductWarrantyStock(ticket: WarrantyTicket) {
   if (replacedProducts.length > 0) {
     const productStore = useProductStore.getState();
     const stockHistoryStore = useStockHistoryStore.getState();
-    const productCache = new Map<string, any>();
+    const productCache = new Map<string, { id: string; systemId: string; name: string; inventoryByBranch: Record<string, number>; [key: string]: unknown }>();
     productStore.data.forEach(p => productCache.set(p.id, p));
     
     const deductionResults: string[] = [];
@@ -141,9 +142,9 @@ export function deductWarrantyStock(ticket: WarrantyTicket) {
       
       // ✅ Xuất kho trực tiếp (không dùng dispatchStock vì warranty không có inTransit)
       // -Tồn kho
-      productStore.updateInventory(product.systemId as any, ticket.branchSystemId as any, -quantityToDeduct);
+      productStore.updateInventory(product.systemId as SystemId, ticket.branchSystemId, -quantityToDeduct);
       // -Đang giao dịch (uncommit)
-      productStore.uncommitStock(product.systemId as any, ticket.branchSystemId as any, quantityToDeduct);
+      productStore.uncommitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToDeduct);
       
       // ✅ Lấy lại product sau khi update
       const freshProductStore = useProductStore.getState();
@@ -157,7 +158,7 @@ export function deductWarrantyStock(ticket: WarrantyTicket) {
       });
       
       stockHistoryStore.addEntry({
-        productId: product.systemId,
+        productId: asSystemId(product.systemId),
         date: toISODateTime(getCurrentDate()),
         employeeName: getCurrentUserName(),
         action: 'Xuất bảo hành (đổi mới)',
@@ -203,7 +204,7 @@ export function rollbackWarrantyStock(ticket: WarrantyTicket) {
   if (replacedProducts.length > 0) {
     const productStore = useProductStore.getState();
     const stockHistoryStore = useStockHistoryStore.getState();
-    const productCache = new Map<string, any>();
+    const productCache = new Map<string, { id: string; systemId: string; name: string; inventoryByBranch: Record<string, number>; [key: string]: unknown }>();
     productStore.data.forEach(p => productCache.set(p.id, p));
     
     const rollbackResults: string[] = [];
@@ -232,7 +233,7 @@ export function rollbackWarrantyStock(ticket: WarrantyTicket) {
       });
       
       // ✅ Hoàn kho: +Tồn kho (warranty xuất trực tiếp, không qua inTransit)
-      productStore.updateInventory(product.systemId as any, ticket.branchSystemId as any, quantityToRollback);
+      productStore.updateInventory(product.systemId as SystemId, ticket.branchSystemId, quantityToRollback);
       
       // ✅ Lấy lại product sau khi update để có inventory mới
       const freshProductStore = useProductStore.getState();
@@ -248,7 +249,7 @@ export function rollbackWarrantyStock(ticket: WarrantyTicket) {
       // Note: Không cần uncommit vì khi deduct đã uncommit rồi
       
       stockHistoryStore.addEntry({
-        productId: product.systemId,
+        productId: asSystemId(product.systemId),
         date: toISODateTime(getCurrentDate()),
         employeeName: getCurrentUserName(),
         action: 'Hoàn kho (Hủy bảo hành)',

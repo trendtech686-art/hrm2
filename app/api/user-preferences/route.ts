@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/user-preferences?userId=xxx or ?userId=xxx&key=xxx
 export async function GET(request: Request) {
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
       )
     }
 
-    const where: any = { userId }
+    const where: Parameters<typeof prisma.userPreference.findMany>[0]['where'] = { userId }
 
     if (key) {
       where.key = key
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
     }
 
     // Return as key-value map for easy frontend use
-    const prefMap = preferences.reduce((acc: Record<string, any>, pref) => {
+    const prefMap = preferences.reduce((acc: Record<string, unknown>, pref) => {
       acc[pref.key] = pref.value
       return acc
     }, {})
@@ -107,7 +108,7 @@ export async function PUT(request: Request) {
     }
 
     const results = await Promise.all(
-      body.preferences.map((pref: any) =>
+      body.preferences.map((pref: { key: string; value?: unknown; category?: string }) =>
         prisma.userPreference.upsert({
           where: {
             userId_key: {
@@ -116,14 +117,14 @@ export async function PUT(request: Request) {
             },
           },
           update: {
-            value: pref.value,
+            value: pref.value as Prisma.InputJsonValue,
             category: pref.category,
             updatedAt: new Date(),
           },
           create: {
             userId: body.userId,
             key: pref.key,
-            value: pref.value ?? {},
+            value: (pref.value ?? {}) as Prisma.InputJsonValue,
             category: pref.category,
           },
         })

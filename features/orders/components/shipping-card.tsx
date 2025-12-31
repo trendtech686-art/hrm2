@@ -27,7 +27,7 @@ interface ShippingCardProps {
  * Manages both ShippingIntegration display and address selection dialog
  */
 export function ShippingCard({ hidden = false, customer: customerProp }: ShippingCardProps) {
-  const { control } = useFormContext<any>();
+  const { control } = useFormContext<Record<string, unknown>>();
   
   // Use customer from props if provided, otherwise watch from form
   const customerFromForm = useWatch({ control, name: 'customer' }) as Customer | null;

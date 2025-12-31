@@ -2,7 +2,6 @@ import * as React from 'react'
 import { cn } from '../../lib/utils'
 import { Input } from './input'
 import { Label } from './label'
-import { Button } from './button'
 
 function hsvaToRgba(h: number, s: number, v: number, a: number) {
   s /= 100;
@@ -27,7 +26,8 @@ function hsvaToRgba(h: number, s: number, v: number, a: number) {
 function rgbaToHsva(r: number, g: number, b: number, a: number) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s = 0, v = max;
+  let h = 0, s = 0;
+  const v = max;
   const d = max - min;
   s = max === 0 ? 0 : d / max;
   if (max !== min) {
@@ -49,14 +49,13 @@ function hexToRgba(hex: string) {
     if (!hex) {
         return { r: 0, g: 0, b: 0, a: 1 };
     }
-    let c: any;
     if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
-        c= hex.substring(1).split('');
-        if(c.length== 3){
-            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+        let chars = hex.substring(1).split('');
+        if(chars.length === 3){
+            chars = [chars[0], chars[0], chars[1], chars[1], chars[2], chars[2]];
         }
-        c= '0x'+c.join('');
-        return {r:(c>>16)&255, g:(c>>8)&255, b:c&255, a:1};
+        const num = parseInt(chars.join(''), 16);
+        return {r:(num>>16)&255, g:(num>>8)&255, b:num&255, a:1};
     }
     return {r:0, g:0, b:0, a:1};
 }

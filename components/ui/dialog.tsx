@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
@@ -44,9 +46,11 @@ const DialogContent = React.forwardRef<
     open?: boolean;
   }
 >(({ className, children, id: propId, open, ...props }, ref) => {
+  // Always call useId unconditionally (React hooks rule)
+  const generatedId = React.useId();
   // Use either the prop id or the id from context
   const contextId = React.useContext(DialogContext);
-  const id = propId || contextId || `dialog-${React.useId()}`;
+  const id = propId || contextId || `dialog-${generatedId}`;
   
   // Register with our modal context using the open prop
   const { zIndex } = useModal(id, !!open, 'dialog');

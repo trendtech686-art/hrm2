@@ -3,41 +3,21 @@ import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/
 import { createCrudStore } from '../../../lib/store-factory';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import type { Province, District, Ward } from '@/lib/types/prisma-extended';
-import { PROVINCES_DATA } from './provinces-data';
-import { DISTRICTS_DATA } from './districts-data';
-import { WARDS_2LEVEL_DATA } from './wards-2level-data';
-import { WARDS_3LEVEL_DATA } from './wards-3level-data';
 
-const normalizedProvinces: Province[] = PROVINCES_DATA.map((province) => ({
-  ...province,
-}));
+// Data is now loaded from API instead of static files to reduce bundle size (~3MB)
+const API_BASE = '/api/administrative-units';
 
-const normalizedDistricts: District[] = DISTRICTS_DATA.map((district) => ({
-  ...district,
-  systemId: asSystemId(district.systemId),
-  provinceId: asBusinessId(district.provinceId),
-}));
+// Initialize with empty arrays - data will be loaded from API
+const normalizedProvinces: Province[] = [];
+let normalizedDistricts: District[] = [];
+let normalizedWards: Ward[] = [];
 
-const normalizedWards: Ward[] = [
-  ...WARDS_2LEVEL_DATA.map((ward) => ({
-    systemId: asSystemId(ward.systemId),
-    id: ward.id,
-    name: ward.name,
-    provinceId: asBusinessId(ward.provinceId),
-    provinceName: ward.provinceName,
-    level: '2-level' as const,
-  })),
-  ...WARDS_3LEVEL_DATA.map((ward) => ({
-    systemId: asSystemId(ward.systemId),
-    id: ward.id,
-    name: ward.name,
-    provinceId: asBusinessId(ward.provinceId),
-    provinceName: ward.provinceName,
-    districtId: ward.districtId,
-    districtName: ward.districtName,
-    level: '3-level' as const,
-  })),
-];
+// Track loading state across all data types
+let dataLoadedState = {
+  provinces: false,
+  districts: false,
+  wards: false,
+};
 
 const provinceBaseStore = createCrudStore<Province>(normalizedProvinces, 'provinces', {
   businessIdField: 'id',
@@ -99,6 +79,9 @@ type AdministrativeUnitState = {
   data: Province[];
   wards: Ward[];
   districts: District[];
+  isLoading: boolean;
+  isLoaded: boolean;
+  loadData: () => Promise<void>;
   add: (province: Omit<Province, 'systemId'>) => Province;
   addMultiple: (provinces: Omit<Province, 'systemId'>[]) => void;
   update: (systemId: SystemId, province: Province) => void;
@@ -125,6 +108,9 @@ type AdministrativeUnitState = {
   importAdministrativeUnits: (payload: AdministrativeImportPayload) => void;
 };
 
+// Track loading state
+let loadingPromise: Promise<void> | null = null;
+
 export const useProvinceStore = create<AdministrativeUnitState>()((set, get) => {
   provinceBaseStore.subscribe(
     (state) => set({ data: state.data })
@@ -142,6 +128,77 @@ export const useProvinceStore = create<AdministrativeUnitState>()((set, get) => 
     data: provinceBaseStore.getState().data,
     districts: districtBaseStore.getState().data,
     wards: wardBaseStore.getState().data,
+    isLoading: false,
+    isLoaded: false,
+    
+    // Load data from API (database) instead of static files
+    loadData: async () => {
+      // Return existing promise if already loading
+      if (loadingPromise) return loadingPromise;
+      
+      // Skip if already loaded
+      if (dataLoadedState.provinces && dataLoadedState.districts && dataLoadedState.wards) {
+        set({ isLoaded: true });
+        return;
+      }
+      
+      set({ isLoading: true });
+      
+      loadingPromise = (async () => {
+        try {
+          // Fetch all data from API in parallel
+          const [provincesRes, districtsRes, wardsRes] = await Promise.all([
+            fetch(`${API_BASE}/provinces`),
+            fetch(`${API_BASE}/districts`),
+            // Fetch wards with large limit to get all
+            fetch(`${API_BASE}/wards?limit=20000`),
+          ]);
+          
+          if (!provincesRes.ok || !districtsRes.ok || !wardsRes.ok) {
+            throw new Error('Failed to fetch administrative data from API');
+          }
+          
+          const [provincesJson, districtsJson, wardsJson] = await Promise.all([
+            provincesRes.json(),
+            districtsRes.json(),
+            wardsRes.json(),
+          ]);
+          
+          const provinces: Province[] = provincesJson.data || [];
+          const districts: District[] = districtsJson.data || [];
+          const wards: Ward[] = wardsJson.data || [];
+          
+          // Update base stores with loaded data
+          provinceBaseStore.setState((state) => ({
+            ...state,
+            data: provinces,
+          }));
+          
+          districtBaseStore.setState((state) => ({
+            ...state,
+            data: districts,
+          }));
+          
+          wardBaseStore.setState((state) => ({
+            ...state,
+            data: wards,
+          }));
+          
+          // Mark all data as loaded
+          dataLoadedState = { provinces: true, districts: true, wards: true };
+          
+          set({ isLoading: false, isLoaded: true });
+        } catch (error) {
+          console.error('Failed to load administrative data from API:', error);
+          set({ isLoading: false });
+        } finally {
+          loadingPromise = null;
+        }
+      })();
+      
+      return loadingPromise;
+    },
+    
     add: (province) => provinceBaseStore.getState().add(province),
     addMultiple: (provinces) => provinceBaseStore.getState().addMultiple(provinces),
     update: (systemId, province) => provinceBaseStore.getState().update(systemId, province),

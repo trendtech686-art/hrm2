@@ -5,8 +5,6 @@
 
 import { 
   PrintData, 
-  formatCurrency,
-  numberToWords,
   formatDate,
   formatTime,
   getStoreData,

@@ -17,13 +17,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, AlertCircle, ArrowRight, Info } from 'lucide-react';
+import { RefreshCw, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddressConversionDialog } from './address-conversion-dialog';
-import { findAllNewWards, findAllOldWards } from '@/features/settings/provinces/ward-old-to-new-mapping';
+import { findAllNewWards } from '@/features/settings/provinces/ward-old-to-new-mapping';
 import { useProvinceStore } from '@/features/settings/provinces/store';
 import { asBusinessId } from '@/lib/id-types';
 import type { EnhancedCustomerAddress } from '../types/enhanced-address';
+import type { WardMapping } from '@/features/settings/provinces/ward-old-to-new-mapping';
 
 type AddressBidirectionalConverterProps = {
   address: EnhancedCustomerAddress;
@@ -39,7 +40,7 @@ export function AddressBidirectionalConverter({
   onOpenChange: controlledOnOpenChange,
 }: AddressBidirectionalConverterProps) {
   const [internalOpen, setInternalOpen] = useState(false);
-  const [selectedWardMapping, setSelectedWardMapping] = useState<any>(null);
+  const [selectedWardMapping, setSelectedWardMapping] = useState<WardMapping | null>(null);
   const { getWards2LevelByProvinceId } = useProvinceStore();
 
   // Use controlled or uncontrolled mode

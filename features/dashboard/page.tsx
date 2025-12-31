@@ -2,14 +2,14 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateAfter, isDateBefore, addDays, subtractDays } from '../../lib/date-utils';
+import { getCurrentDate, isDateSame, isDateAfter, isDateBefore, addDays, subtractDays, formatDateCustom } from '../../lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useOrderStore } from '../orders/store';
 import { useCustomerStore } from '../customers/store';
 import { useEmployeeStore } from '../employees/store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { ChartBar, ChartLine, ChartArea, ChartPie } from '../../components/ui/chart';
-import { Package, Truck, DollarSign, Users, ChevronRight, UserCheck, TrendingUp, AlertCircle } from 'lucide-react';
+import { ChartBar, ChartLine, ChartPie } from '../../components/ui/chart';
+import { Package, Truck, DollarSign, Users, ChevronRight, UserCheck, AlertCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { ResponsiveContainer } from '../../components/ui/responsive-container';
@@ -187,7 +187,7 @@ export function DashboardPage() {
                         <p className="font-medium text-sm">{order.customerName}</p>
                         <p className="text-xs text-muted-foreground">{order.id}</p>
                     </div>
-                    <Badge variant={statusVariants[order.status] as any}>{order.status}</Badge>
+                    <Badge variant={statusVariants[order.status] as "default" | "success" | "secondary" | "warning" | "destructive" | "outline"}>{order.status}</Badge>
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t">
                     <span className="text-xs text-muted-foreground">Tổng tiền</span>
@@ -328,7 +328,7 @@ export function DashboardPage() {
                                                 <div className="font-medium">{order.customerName}</div>
                                                 <div className="text-xs text-muted-foreground">{order.id}</div>
                                             </TableCell>
-                                            <TableCell><Badge variant={statusVariants[order.status] as any}>{order.status}</Badge></TableCell>
+                                            <TableCell><Badge variant={statusVariants[order.status] as "default" | "success" | "secondary" | "warning" | "destructive" | "outline"}>{order.status}</Badge></TableCell>
                                             <TableCell className="text-right font-medium">{formatCurrency(order.grandTotal)}</TableCell>
                                         </TableRow>
                                     ))}

@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { GripVertical } from "lucide-react"
 
@@ -30,13 +32,13 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
   const groupRef = React.useRef<HTMLDivElement>(null)
   const [panelSizes, setPanelSizes] = React.useState<number[]>([])
   const [isDragging, setIsDragging] = React.useState(false)
-  const panelChildren = React.useMemo(() => React.Children.toArray(children).filter(child => React.isValidElement(child) && (child.type as any).displayName === "ResizablePanel"), [children]);
+  const panelChildren = React.useMemo(() => React.Children.toArray(children).filter(child => React.isValidElement(child) && typeof child.type === 'function' && 'displayName' in child.type && child.type.displayName === "ResizablePanel"), [children]);
 
   // Initialize panel sizes from children's defaultSize props
   React.useEffect(() => {
     const initialSizes = panelChildren.map(child => {
-      // FIX: Cast `child.props` to `any` to allow accessing `defaultSize`.
-      return (child as React.ReactElement<any>).props.defaultSize || 100 / panelChildren.length
+      const props = (child as React.ReactElement<{ defaultSize?: number }>).props;
+      return props.defaultSize || 100 / panelChildren.length
     })
 
     // Normalize sizes to sum to 100
@@ -45,7 +47,7 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
         const normalizedSizes = initialSizes.map(size => (size / total) * 100)
         setPanelSizes(normalizedSizes)
     }
-  }, [children]);
+  }, [panelChildren]);
 
   const startDragging = (event: React.MouseEvent, handleIndex: number) => {
     event.preventDefault()
@@ -58,9 +60,9 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
     const containerSize = direction === 'horizontal' ? width : height
     const initialSizes = [...panelSizes];
 
-    const prevPanel = panelChildren[handleIndex] as React.ReactElement<any>;
+    const prevPanel = panelChildren[handleIndex] as React.ReactElement<{ minSize?: number }>;
     const minSizePrev = prevPanel.props.minSize || 0
-    const nextPanel = panelChildren[handleIndex + 1] as React.ReactElement<any>;
+    const nextPanel = panelChildren[handleIndex + 1] as React.ReactElement<{ minSize?: number }>;
     const minSizeNext = nextPanel.props.minSize || 0
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -124,14 +126,15 @@ const ResizablePanelGroup = ({ className, children, direction, ...props }: Resiz
         {React.Children.map(children, (child) => {
           if (!React.isValidElement(child)) return null
           
-          if ((child.type as any).displayName === "ResizablePanel") {
+          const childType = child.type as React.ComponentType & { displayName?: string };
+          if (childType.displayName === "ResizablePanel") {
             const index = panelIndexCounter++
-            return React.cloneElement(child, { index } as any)
+            return React.cloneElement(child, { index } as { index: number })
           }
 
-          if ((child.type as any).displayName === "ResizableHandle") {
+          if (childType.displayName === "ResizableHandle") {
             const index = handleIndexCounter++
-             return React.cloneElement(child, { index } as any)
+             return React.cloneElement(child, { index } as { index: number })
           }
 
           return child

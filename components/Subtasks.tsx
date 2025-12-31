@@ -132,7 +132,7 @@ export function Subtasks({
         )}
         
         {/* Subtasks list */}
-        {sortedSubtasks.map((subtask, index) => (
+        {sortedSubtasks.map((subtask, _index) => (
           <div
             key={subtask.id}
             className={cn(

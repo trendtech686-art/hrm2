@@ -4,7 +4,7 @@ import type { Complaint } from '../types';
 
 interface Props {
   complaint: Complaint;
-  employees: any[];
+  employees: Array<{ systemId: string; fullName: string }>;
 }
 
 export const ComplaintTimelineSection: React.FC<Props> = React.memo(({ complaint, employees }) => {
@@ -14,7 +14,7 @@ export const ComplaintTimelineSection: React.FC<Props> = React.memo(({ complaint
         const employee = employees.find(e => e.systemId === action.performedBy);
         return {
           id: action.id,
-          action: action.actionType as any,
+          action: action.actionType as HistoryEntry['action'],
           timestamp: new Date(action.performedAt),
           user: {
             systemId: action.performedBy,

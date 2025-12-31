@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import type { Supplier } from '@/lib/types/prisma-extended'
@@ -15,18 +15,10 @@ import {
   FormMessage,
 } from "../../components/ui/form"
 import { Input } from "../../components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select"
 import { CurrencyInput } from "../../components/ui/currency-input";
 import { Textarea } from "../../components/ui/textarea";
 import { VirtualizedCombobox } from "../../components/ui/virtualized-combobox";
 import { Switch } from "../../components/ui/switch";
-import { Label } from "../../components/ui/label";
 
 const supplierFormSchema = z.object({
   id: z.string().min(1, "Mã nhà cung cấp là bắt buộc"),
@@ -60,9 +52,9 @@ type SupplierFormProps = {
   onCancel: () => void;
 }
 
-export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormProps) {
+export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel }: SupplierFormProps) {
   const { data: employees } = useEmployeeStore();
-  const { data: suppliers } = useSupplierStore();
+  const { data: _suppliers } = useSupplierStore();
   
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierFormSchema),
@@ -92,10 +84,10 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
     [employees]
   );
 
+  const accountManagerValue = useWatch({ control: form.control, name: 'accountManager' });
   const selectedEmployee = React.useMemo(() => {
-    const value = form.watch('accountManager');
-    return employeeOptions.find(opt => opt.value === value) || null;
-  }, [form.watch('accountManager'), employeeOptions]);
+    return employeeOptions.find(opt => opt.value === accountManagerValue) || null;
+  }, [accountManagerValue, employeeOptions]);
 
   return (
     <Form {...form}>

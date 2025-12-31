@@ -80,7 +80,7 @@ export interface PayrollTemplate {
   description?: string;
   code?: string;
   componentSystemIds: string[];
-  components?: Record<string, any>;
+  components?: Record<string, unknown>;
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;

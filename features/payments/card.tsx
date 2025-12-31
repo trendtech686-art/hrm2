@@ -37,7 +37,7 @@ export interface MobilePaymentCardProps {
 }
 
 export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick }: MobilePaymentCardProps) => {
-    const getInitials = (name: string) => {
+    const _getInitials = (name: string) => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     };
 

@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, PayrollStatus } from '@/generated/prisma/client'
+
+// Interface for payroll item input
+interface PayrollItemInput {
+  employeeId: string;
+  baseSalary?: number;
+  netSalary?: number;
+  notes?: string;
+}
 
 // GET /api/payroll - List all payroll records
 export async function GET(request: Request) {
@@ -14,7 +23,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Prisma.PayrollWhereInput = {}
 
     if (month) {
       where.month = parseInt(month)
@@ -25,11 +34,11 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status
+      where.status = status as PayrollStatus
     }
 
     if (employeeId) {
-      where.employeeId = employeeId
+      where.items = { some: { employeeId } }
     }
 
     const [payrolls, total] = await Promise.all([
@@ -103,7 +112,7 @@ export async function POST(request: Request) {
         year: body.year,
         status: body.status || 'DRAFT',
         items: {
-          create: body.items?.map((item: any) => ({
+          create: body.items?.map((item: PayrollItemInput) => ({
             systemId: `PAYITEM${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
             id: `BLITEM${String(Date.now()).slice(-6)}`,
             employee: { connect: { systemId: item.employeeId } },

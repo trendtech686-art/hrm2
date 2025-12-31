@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
@@ -43,11 +45,12 @@ const DrawerTrigger = ({ children, asChild = false }: { children?: React.ReactNo
   const handleClick = () => setOpen(true);
   
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
+    return React.cloneElement(children as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>, {
       onClick: (e: React.MouseEvent) => {
         handleClick();
-        if ((children.props as any).onClick) {
-          (children.props as any).onClick(e);
+        const childProps = children.props as { onClick?: (e: React.MouseEvent) => void };
+        if (childProps.onClick) {
+          childProps.onClick(e);
         }
       },
     });
@@ -60,11 +63,12 @@ const DrawerClose = ({ children, asChild = false }: { children?: React.ReactNode
   const handleClick = () => setOpen(false);
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
+    return React.cloneElement(children as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>, {
        onClick: (e: React.MouseEvent) => {
         handleClick();
-        if ((children.props as any).onClick) {
-          (children.props as any).onClick(e);
+        const childProps = children.props as { onClick?: (e: React.MouseEvent) => void };
+        if (childProps.onClick) {
+          childProps.onClick(e);
         }
       },
     });

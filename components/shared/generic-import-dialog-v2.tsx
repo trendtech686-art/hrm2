@@ -12,7 +12,6 @@
 import * as React from "react"
 import { 
   Upload, 
-  FileSpreadsheet, 
   Download, 
   AlertCircle, 
   CheckCircle2, 
@@ -48,7 +47,7 @@ import {
   SelectValue,
 } from "../ui/select"
 import { Progress } from "../ui/progress"
-import { ScrollArea, ScrollBar } from "../ui/scroll-area"
+import { ScrollArea } from "../ui/scroll-area"
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
 import { Badge } from "../ui/badge"
 import { Checkbox } from "../ui/checkbox"
@@ -245,7 +244,7 @@ interface PreviewTableRowProps<T> {
   visibleFields: FieldConfig<T>[]
   onToggleSelection: (rowNumber: number) => void
   onCellSave: (rowNumber: number, fieldKey: string, newValue: string) => void
-  getStatusBadge: (status: string, errors?: any[], warnings?: any[]) => React.ReactNode
+  getStatusBadge: (status: string, errors?: { field?: string; message: string }[], warnings?: { field?: string; message: string }[]) => React.ReactNode
 }
 
 function PreviewTableRowComponent<T>({
@@ -351,8 +350,8 @@ interface GenericImportDialogV2Props<T> {
     branchId?: string
   ) => Promise<ImportResultData>
   
-  // Current user for logging
-  currentUser: {
+  // Current user for logging (optional)
+  currentUser?: {
     name: string
     systemId: SystemId
   }
@@ -404,7 +403,7 @@ export function GenericImportDialogV2<T>({
   const [selectedRows, setSelectedRows] = React.useState<Set<number>>(new Set())
   
   // Import state
-  const [isImporting, setIsImporting] = React.useState(false)
+  const [_isImporting, setIsImporting] = React.useState(false)
   const [importProgress, setImportProgress] = React.useState(0)
   const [importResult, setImportResult] = React.useState<ImportResultData | null>(null)
 
@@ -434,7 +433,7 @@ export function GenericImportDialogV2<T>({
         setImportResult(null)
       }, 200)
     }
-  }, [open, defaultBranchId])
+  }, [open, defaultBranch, defaultBranchId])
 
   // Initialize selected rows when preview result changes (select all valid rows by default)
   React.useEffect(() => {
@@ -465,6 +464,7 @@ export function GenericImportDialogV2<T>({
       
       setPreviewResult(revalidatedResult)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importMode]) // Only re-run when mode changes
 
   // Get visible fields for preview table - show ALL non-hidden fields
@@ -629,7 +629,7 @@ export function GenericImportDialogV2<T>({
       
       // Sample row: Example values (dữ liệu mẫu từ field.example)
       // Note: Required fields are marked with (*) in the label
-      const exampleRow: Record<string, any> = {}
+      const exampleRow: Record<string, unknown> = {}
       visibleFields.forEach(field => {
         if (field.example) {
           exampleRow[field.key as string] = field.example
@@ -722,8 +722,8 @@ export function GenericImportDialogV2<T>({
       })
 
       // Map data - normalize Excel headers by stripping (*) and lowercasing
-      const mappedData = jsonData.map((row: any) => {
-        const mappedRow: Record<string, any> = {}
+      const mappedData = jsonData.map((row: Record<string, unknown>) => {
+        const mappedRow: Record<string, unknown> = {}
         Object.entries(row).forEach(([vnKey, value]) => {
           const normalizedKey = vnKey.toLowerCase().replace(/\s*\(\*\)\s*$/, '')
           const fieldKey = headerMap[normalizedKey] || headerMap[vnKey.toLowerCase()] || vnKey
@@ -804,8 +804,8 @@ export function GenericImportDialogV2<T>({
         insertedCount: result.inserted,
         updatedCount: result.updated,
         mode: importMode,
-        performedBy: currentUser.name,
-        performedById: currentUser.systemId,
+        performedBy: currentUser?.name || 'System',
+        performedById: currentUser?.systemId || ('' as SystemId),
         performedAt: new Date().toISOString(),
         branchId: selectedBranchId || undefined,
         branchName: branch?.name,
@@ -1075,7 +1075,7 @@ export function GenericImportDialogV2<T>({
               {/* Preview Table with Tabs */}
               <Tabs value={previewTab} onValueChange={(v) => { 
                 React.startTransition(() => {
-                  setPreviewTab(v as any)
+                  setPreviewTab(v as 'all' | 'valid' | 'error' | 'warning')
                   setPreviewPage(0)
                 })
               }}>

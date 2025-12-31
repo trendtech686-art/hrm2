@@ -10,8 +10,63 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { MoreHorizontal, Printer } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 import { useProductStore } from '../products/store';
-import { useStockTransferStore } from './store';
 import { asSystemId } from '../../lib/id-types';
+
+// Actions cell component to properly use hooks
+function StockTransferActionsCell({ transfer, onPrint }: { transfer: StockTransfer; onPrint?: (transfer: StockTransfer) => void }) {
+  const router = useRouter();
+  const isPending = transfer.status === 'pending';
+  const isTransferring = transfer.status === 'transferring';
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <MoreHorizontal className="h-4 w-4" />
+          <span className="sr-only">Mở menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onPrint?.(transfer)}>
+          <Printer className="mr-2 h-4 w-4" />
+          In phiếu chuyển
+        </DropdownMenuItem>
+        {isPending && (
+          <>
+            <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}/edit`)}>
+              Chỉnh sửa
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
+              Chuyển hàng khỏi kho
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="text-destructive focus:text-destructive"
+              onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}
+            >
+              Hủy phiếu
+            </DropdownMenuItem>
+          </>
+        )}
+        
+        {isTransferring && (
+          <>
+            <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
+              Nhận hàng vào kho
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="text-destructive focus:text-destructive"
+              onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}
+            >
+              Hủy phiếu
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 const getStatusVariant = (status: StockTransferStatus): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
   switch (status) {
@@ -66,10 +121,10 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     header: 'Mã phiếu',
     cell: ({ row }) => (
       <Link
-        href={`/stock-transfers/${(row as any).systemId}`}
+        href={`/stock-transfers/${row.systemId}`}
         className="font-medium text-primary hover:underline"
       >
-        {(row as any).id}
+        {row.id}
       </Link>
     ),
     meta: { displayName: 'Mã phiếu' },
@@ -80,7 +135,7 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     header: 'Mã tham chiếu',
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        {(row as any).referenceCode || '-'}
+        {row.referenceCode || '-'}
       </span>
     ),
     meta: { displayName: 'Mã tham chiếu' },
@@ -89,35 +144,35 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     id: 'createdDate',
     accessorKey: 'createdDate',
     header: 'Ngày tạo',
-    cell: ({ row }) => formatDate((row as any).createdDate),
+    cell: ({ row }) => formatDate(row.createdDate),
     meta: { displayName: 'Ngày tạo' },
   },
   {
     id: 'fromBranchName',
     accessorKey: 'fromBranchName',
     header: 'Chi nhánh chuyển',
-    cell: ({ row }) => (row as any).fromBranchName,
+    cell: ({ row }) => row.fromBranchName,
     meta: { displayName: 'Chi nhánh chuyển' },
   },
   {
     id: 'toBranchName',
     accessorKey: 'toBranchName',
     header: 'Chi nhánh nhận',
-    cell: ({ row }) => (row as any).toBranchName,
+    cell: ({ row }) => row.toBranchName,
     meta: { displayName: 'Chi nhánh nhận' },
   },
   {
     id: 'itemCount',
     accessorKey: 'items',
     header: 'Số SP',
-    cell: ({ row }) => ((row as any).items?.length || 0),
+    cell: ({ row }) => (row.items?.length || 0),
     meta: { displayName: 'Số sản phẩm' },
   },
   {
     id: 'totalQuantity',
     accessorKey: 'items',
     header: 'Tổng SL',
-    cell: ({ row }) => ((row as any).items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0),
+    cell: ({ row }) => (row.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 0),
     meta: { displayName: 'Tổng số lượng' },
   },
   {
@@ -126,7 +181,7 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     header: 'Tổng giá trị chuyển',
     cell: ({ row }) => {
       const { findById: findProductById } = useProductStore.getState();
-      const totalValue = (row as any).items?.reduce((sum: number, item: any) => {
+      const totalValue = row.items?.reduce((sum: number, item: { productSystemId: string; quantity: number }) => {
         const product = findProductById(asSystemId(item.productSystemId));
         const price = product?.costPrice || 0;
         return sum + (price * item.quantity);
@@ -141,8 +196,8 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     accessorKey: 'status',
     header: 'Trạng thái',
     cell: ({ row }) => (
-      <Badge variant={getStatusVariant((row as any).status)}>
-        {getStatusLabel((row as any).status)}
+      <Badge variant={getStatusVariant(row.status)}>
+        {getStatusLabel(row.status)}
       </Badge>
     ),
     meta: { displayName: 'Trạng thái' },
@@ -151,7 +206,7 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     id: 'createdByName',
     accessorKey: 'createdByName',
     header: 'Người tạo',
-    cell: ({ row }) => (row as any).createdByName,
+    cell: ({ row }) => row.createdByName,
     meta: { displayName: 'Người tạo' },
   },
   {
@@ -160,7 +215,7 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     header: 'Ghi chú',
     cell: ({ row }) => (
       <span className="text-muted-foreground truncate max-w-[200px] block">
-        {(row as any).note || '-'}
+        {row.note || '-'}
       </span>
     ),
     meta: { displayName: 'Ghi chú' },
@@ -168,63 +223,7 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
   {
     id: 'actions',
     header: 'Hành động',
-    cell: ({ row }) => {
-      const router = useRouter();
-      const transfer = row as any;
-      const isPending = transfer.status === 'pending';
-      const isTransferring = transfer.status === 'transferring';
-      const isCompleted = transfer.status === 'completed';
-      const isCancelled = transfer.status === 'cancelled';
-      
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">Mở menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onPrint?.(transfer)}>
-              <Printer className="mr-2 h-4 w-4" />
-              In phiếu chuyển
-            </DropdownMenuItem>
-            {isPending && (
-              <>
-                <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}/edit`)}>
-                  Chỉnh sửa
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
-                  Chuyển hàng khỏi kho
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}
-                >
-                  Hủy phiếu
-                </DropdownMenuItem>
-              </>
-            )}
-            
-            {isTransferring && (
-              <>
-                <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
-                  Nhận hàng vào kho
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}
-                >
-                  Hủy phiếu
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
+    cell: ({ row }) => <StockTransferActionsCell transfer={row} onPrint={onPrint} />,
     meta: { displayName: 'Hành động' },
   },
 ];

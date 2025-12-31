@@ -3,8 +3,6 @@
  * Helpers để chuẩn bị dữ liệu in cho bảng chấm công
  */
 
-import type { Branch } from '@/lib/types/prisma-extended';
-import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   AttendanceSheetForPrint,
   AttendanceEmployeeForPrint,
@@ -17,7 +15,6 @@ import {
   mapAttendanceDetailLineItems,
 } from '../print-mappers/attendance.mapper';
 import { StoreSettings, getStoreLogo, getGeneralSettings } from '../print-service';
-import type { SystemId } from '../id-types';
 
 // ============================================
 // INTERFACES

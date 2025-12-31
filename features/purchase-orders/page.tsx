@@ -3,13 +3,12 @@
 import * as React from "react"
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate } from '../../lib/date-utils';
+import { toISODate, getCurrentDate, formatDateCustom } from '../../lib/date-utils';
 import { usePurchaseOrderStore } from "./store"
 import { sumPaymentsForPurchaseOrder } from "./payment-utils"
 import { useBranchStore } from '../settings/branches/store';
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter"
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { PageToolbar } from "../../components/layout/page-toolbar"
 import { PageFilters } from "../../components/layout/page-filters"
@@ -28,7 +27,7 @@ import {
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"
 import { Button } from "../../components/ui/button"
-import { PlusCircle, Printer, XCircle, CreditCard, PackageCheck } from "lucide-react"
+import { PlusCircle } from "lucide-react"
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context";
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
@@ -66,7 +65,7 @@ import {
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
 import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { purchaseOrderImportExportConfig, flattenPurchaseOrdersForExport } from "../../lib/import-export/configs/purchase-order.config";
+import { purchaseOrderImportExportConfig } from "../../lib/import-export/configs/purchase-order.config";
 import { FileSpreadsheet, Download } from "lucide-react";
 
 const formatCurrency = (value?: number) => {
@@ -99,7 +98,7 @@ type ReceiveDialogState = {
 export function PurchaseOrdersPage() {
   const { data: purchaseOrders, cancelOrder, processInventoryReceipt, bulkCancel, syncAllPurchaseOrderStatuses } = usePurchaseOrderStore();
   const { data: branches, findById: findBranchById } = useBranchStore();
-  const { data: suppliers, findById: findSupplierById } = useSupplierStore();
+  const { data: _suppliers, findById: findSupplierById } = useSupplierStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint();
   const router = useRouter();
@@ -185,7 +184,9 @@ export function PurchaseOrdersPage() {
       try {
         const parsed = JSON.parse(stored);
         if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore JSON parse errors - use default
+      }
     }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -290,7 +291,7 @@ export function PurchaseOrdersPage() {
       return false;
     }
     return true;
-  }, [loggedInUser, toast]);
+  }, [loggedInUser]);
 
   const computeReceivableItems = React.useCallback((po: PurchaseOrder): ReceiveLineItemForm[] => {
     const relatedReceipts = allReceipts.filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId));
@@ -340,7 +341,7 @@ export function PurchaseOrdersPage() {
       items: computedItems,
     });
     return true;
-  }, [branches, computeReceivableItems, toast]);
+  }, [branches, computeReceivableItems]);
 
   const closeReceiveDialog = React.useCallback(() => {
     setReceiveDialogState({
@@ -373,7 +374,7 @@ export function PurchaseOrdersPage() {
     const [firstEntry, ...restEntries] = receivableEntries;
     setPendingReceiveQueue(restEntries.map(entry => entry.po));
     openReceiveDialogForOrder(firstEntry.po, firstEntry.items);
-  }, [computeReceivableItems, openReceiveDialogForOrder, requireLoggedInEmployee, toast]);
+  }, [computeReceivableItems, openReceiveDialogForOrder, requireLoggedInEmployee]);
 
   const handleReceiveQuantityChange = React.useCallback((productSystemId: SystemId, value: number) => {
     setReceiveDialogState(prev => ({
@@ -501,7 +502,7 @@ export function PurchaseOrdersPage() {
     } finally {
       setIsSubmittingReceive(false);
     }
-  }, [receiveDialogState, requireLoggedInEmployee, currentUserSystemId, currentUserName, addInventoryReceipt, findProductById, updateInventory, addStockHistoryEntry, processInventoryReceipt, toast, pendingReceiveQueue, openReceiveDialogForOrder, closeReceiveDialog]);
+  }, [receiveDialogState, requireLoggedInEmployee, currentUserSystemId, currentUserName, addInventoryReceipt, findProductById, updateInventory, addStockHistoryEntry, processInventoryReceipt, pendingReceiveQueue, openReceiveDialogForOrder, closeReceiveDialog]);
 
   const handlePrint = React.useCallback((po: PurchaseOrder) => {
     // Use helper to prepare print data
@@ -523,7 +524,7 @@ export function PurchaseOrdersPage() {
     // TODO: Implement payment dialog/modal
     router.push(`/purchase-orders/${po.systemId}`);
     toast(`Mở trang thanh toán cho đơn ${po.id}`);
-  }, [router, toast]);
+  }, [router]);
 
   const handleReceiveGoods = React.useCallback((po: PurchaseOrder) => {
     beginReceiveFlow([po]);
@@ -626,31 +627,31 @@ export function PurchaseOrdersPage() {
             }
 
             const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
-            const newPayment: Omit<Payment, 'systemId'> = {
-              id: '' as any,
+            const newPayment = {
+              id: '' as Payment['id'],
                 date: now,
                 amount: amountRemaining,
-                recipientTypeSystemId: 'NHACUNGCAP',
+                recipientTypeSystemId: asSystemId('NHACUNGCAP'),
                 recipientTypeName: 'Nhà cung cấp',
                 recipientName: po.supplierName,
-                recipientSystemId: po.supplierSystemId,
+                recipientSystemId: asSystemId(po.supplierSystemId),
                 description: `Thanh toán toàn bộ cho đơn nhập hàng ${po.id}`,
-                paymentMethodSystemId,
+                paymentMethodSystemId: asSystemId(paymentMethodSystemId),
                 paymentMethodName,
-                accountSystemId: account.systemId,
-                paymentReceiptTypeSystemId: paymentCategory?.systemId || '',
+                accountSystemId: asSystemId(account.systemId),
+                paymentReceiptTypeSystemId: asSystemId(paymentCategory?.systemId || ''),
                 paymentReceiptTypeName: paymentCategory?.name || 'Thanh toán cho đơn nhập hàng',
-                branchSystemId: po.branchSystemId,
+                branchSystemId: asSystemId(po.branchSystemId),
                 branchName: po.branchName,
-                createdBy: currentUserName,
+                createdBy: asSystemId(currentUserSystemId),
                 createdAt: now,
-                status: 'completed',
-                category: 'supplier_payment',
+                status: 'completed' as const,
+                category: 'supplier_payment' as const,
                 affectsDebt: true,
-                purchaseOrderSystemId: po.systemId,
-                purchaseOrderId: po.id,
+                purchaseOrderSystemId: asSystemId(po.systemId),
+                purchaseOrderId: asBusinessId(po.id),
                 originalDocumentId: po.id,
-            } as any;
+            } satisfies Omit<Payment, 'systemId'>;
             addPayment(newPayment);
             totalPaymentsCreated += 1;
         }
@@ -708,7 +709,7 @@ export function PurchaseOrdersPage() {
     });
     
     if (addedCount > 0 || updatedCount > 0) {
-      const messages = [];
+      const messages: string[] = [];
       if (addedCount > 0) messages.push(`${addedCount} đơn nhập hàng mới`);
       if (updatedCount > 0) messages.push(`${updatedCount} đơn cập nhật`);
       toast.success(`Đã import: ${messages.join(', ')}`);
@@ -742,9 +743,9 @@ export function PurchaseOrdersPage() {
 
     setRowSelection({});
     beginReceiveFlow(targetOrders);
-  }, [allSelectedRows, beginReceiveFlow, toast]);
+  }, [allSelectedRows, beginReceiveFlow]);
 
-  const columns = React.useMemo(() => getColumns(handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches as any), [handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches]);
+  const columns = React.useMemo(() => getColumns(handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches), [handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches]);
   
   React.useEffect(() => {
     const defaultVisibleColumns = [
@@ -787,12 +788,12 @@ export function PurchaseOrdersPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'orderDate') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;

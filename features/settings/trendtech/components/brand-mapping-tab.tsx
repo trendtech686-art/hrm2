@@ -170,7 +170,7 @@ export function BrandMappingTab() {
         <CardContent>
           <AddMappingForm
             unmappedHrmBrands={unmappedHrmBrands}
-            trendtechBrands={trendtechBrands}
+            trendtechBrands={trendtechBrands.map(b => ({ id: String(b.id), name: b.name }))}
             onAdd={handleAddMapping}
           />
         </CardContent>
@@ -184,8 +184,8 @@ function AddMappingForm({
   trendtechBrands,
   onAdd,
 }: {
-  unmappedHrmBrands: any[];
-  trendtechBrands: any[];
+  unmappedHrmBrands: Array<{ systemId: string; name: string }>;
+  trendtechBrands: Array<{ id: string; name: string }>;
   onAdd: (hrmId: string, trendtechId: string) => void;
 }) {
   const [selectedHrm, setSelectedHrm] = React.useState('');

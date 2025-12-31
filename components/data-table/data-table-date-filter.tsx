@@ -10,7 +10,7 @@ import {
 } from "../ui/dropdown-menu"
 import { Calendar } from "../ui/calendar"
 import { Input } from "../ui/input"
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, getDaysDiff, getMonthsDiff, addDays, addMonths, subtractDays, subtractMonths, getStartOfDay, getEndOfDay, getStartOfMonth, getEndOfMonth, getStartOfWeek, getEndOfWeek, toISODate, toISODateTime, isValidDate } from '../../lib/date-utils';
+import { formatDate, getCurrentDate, isDateSame, isDateAfter, subtractDays, subtractMonths, getStartOfDay, getEndOfDay, getStartOfMonth, getEndOfMonth, getStartOfWeek, getEndOfWeek, toISODate, isValidDate } from '../../lib/date-utils';
 const presets = [
     { key: 'today', label: 'Hôm nay', getRange: () => [getStartOfDay(getCurrentDate()), getEndOfDay(getCurrentDate())] },
     { key: 'yesterday', label: 'Hôm qua', getRange: () => [getStartOfDay(subtractDays(getCurrentDate(), 1)), getEndOfDay(subtractDays(getCurrentDate(), 1))] },
@@ -106,16 +106,16 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
     
         let dayStr = digits.slice(0, 2);
         let monthStr = digits.slice(2, 4);
-        let yearStr = digits.slice(4, 8);
+        const yearStr = digits.slice(4, 8);
     
         if (dayStr.length === 2) {
-            let day = parseInt(dayStr, 10);
+            const day = parseInt(dayStr, 10);
             if (day > 31) dayStr = '31';
             if (day === 0) dayStr = '01';
         }
         
         if (monthStr.length === 2) {
-            let month = parseInt(monthStr, 10);
+            const month = parseInt(monthStr, 10);
             if (month > 12) monthStr = '12';
             if (month === 0) monthStr = '01';
         }
@@ -128,7 +128,7 @@ function DateFilterContent({ value, onChange }: { value?: [string | undefined, s
                 const tempDate = new Date(year, month - 1);
                 if (tempDate && isValidDate(tempDate)) {
                     const daysInMonth = new Date(tempDate.getFullYear(), tempDate.getMonth() + 1, 0).getDate();
-                    let day = parseInt(dayStr, 10);
+                    const day = parseInt(dayStr, 10);
                     if (day > daysInMonth) {
                         dayStr = String(daysInMonth);
                     }

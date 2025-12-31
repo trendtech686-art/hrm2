@@ -1,13 +1,12 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, X, Check, CheckCheck } from 'lucide-react';
+import { Bell, X, CheckCheck } from 'lucide-react';
 import { Badge } from './badge';
 import { Button } from './button';
 import { ScrollArea } from './scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './dropdown-menu';
@@ -49,7 +48,7 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
   createdBy?: string;
-  metadata?: Record<string, any>; // Data liên quan
+  metadata?: Record<string, unknown>; // Data liên quan
 }
 
 interface NotificationStore {
@@ -310,12 +309,22 @@ export function NotificationCenter() {
 
 /**
  * Helper functions để trigger notifications
+ * These functions directly manipulate the store state without using hooks
  */
+
+function addNotificationDirect(notification: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) {
+  const newNotification: Notification = {
+    ...notification,
+    id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    isRead: false,
+    createdAt: new Date().toISOString(),
+  };
+  setNotifications([newNotification, ...getNotifications()]);
+}
 
 // Warranty notifications
 export function notifyWarrantyCreated(warrantyId: string, createdBy: string) {
-  const { addNotification } = useNotificationStore();
-  addNotification({
+  addNotificationDirect({
     type: 'warranty',
     title: 'Phiếu bảo hành mới',
     message: `Phiếu ${warrantyId} đã được tạo`,
@@ -325,8 +334,7 @@ export function notifyWarrantyCreated(warrantyId: string, createdBy: string) {
 }
 
 export function notifyWarrantyStatusChanged(warrantyId: string, newStatus: string, changedBy: string) {
-  const { addNotification } = useNotificationStore();
-  addNotification({
+  addNotificationDirect({
     type: 'warranty',
     title: 'Cập nhật trạng thái',
     message: `Phiếu ${warrantyId} đã chuyển sang ${newStatus}`,
@@ -336,8 +344,7 @@ export function notifyWarrantyStatusChanged(warrantyId: string, newStatus: strin
 }
 
 export function notifyMention(mentionedBy: string, context: string, link: string) {
-  const { addNotification } = useNotificationStore();
-  addNotification({
+  addNotificationDirect({
     type: 'mention',
     title: 'Bạn được nhắc đến',
     message: `${mentionedBy} đã nhắc bạn trong ${context}`,
@@ -347,8 +354,7 @@ export function notifyMention(mentionedBy: string, context: string, link: string
 }
 
 export function notifyComment(commentBy: string, context: string, link: string) {
-  const { addNotification } = useNotificationStore();
-  addNotification({
+  addNotificationDirect({
     type: 'comment',
     title: 'Bình luận mới',
     message: `${commentBy} đã bình luận trong ${context}`,
@@ -359,8 +365,7 @@ export function notifyComment(commentBy: string, context: string, link: string) 
 
 // Order notifications
 export function notifyOrderCreated(orderId: string, createdBy: string) {
-  const { addNotification } = useNotificationStore();
-  addNotification({
+  addNotificationDirect({
     type: 'order',
     title: 'Đơn hàng mới',
     message: `Đơn ${orderId} đã được tạo`,
@@ -371,8 +376,7 @@ export function notifyOrderCreated(orderId: string, createdBy: string) {
 
 // System notifications
 export function notifySystem(title: string, message: string) {
-  const { addNotification } = useNotificationStore();
-  addNotification({
+  addNotificationDirect({
     type: 'system',
     title,
     message,

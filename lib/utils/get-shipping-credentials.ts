@@ -33,8 +33,8 @@ export function getGHTKCredentials(): ShippingCredentials {
   }
   
   return {
-    apiToken: activeAccount.credentials.apiToken,
-    partnerCode: (activeAccount.credentials as any).partnerCode || '',
+    apiToken: activeAccount.credentials.apiToken as string,
+    partnerCode: (activeAccount.credentials.partnerCode as string) || '',
     account: activeAccount
   };
 }
@@ -59,8 +59,8 @@ export function getGHNCredentials(): ShippingCredentials {
   }
   
   return {
-    apiToken: activeAccount.credentials.apiToken,
-    partnerCode: (activeAccount.credentials as any).partnerCode || '',
+    apiToken: activeAccount.credentials.apiToken as string,
+    partnerCode: (activeAccount.credentials as Record<string, unknown>).partnerCode as string || '',
     account: activeAccount
   };
 }

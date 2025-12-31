@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getStartOfMonth, getEndOfMonth, addMonths, subtractMonths, toISODate, getDayOfWeek, formatMonthYear } from '../../lib/date-utils';
+import { formatDate as _formatDate, getCurrentDate, getStartOfMonth, getEndOfMonth, addMonths, subtractMonths, toISODate, formatMonthYear as _formatMonthYear, formatDateCustom, getDayOfWeek } from '../../lib/date-utils';
 import { ROUTES } from '../../lib/router';
 import * as XLSX from 'xlsx';
 
@@ -8,7 +8,7 @@ import { useDepartmentStore } from '../settings/departments/store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { generateMockAttendance } from './data';
 import { getColumns } from './columns';
-import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow, ImportPreviewRow } from './types';
+import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow, ImportPreviewRow as _ImportPreviewRow } from './types';
 import type { SystemId } from '../../lib/id-types';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { Card, CardContent } from '../../components/ui/card';
@@ -22,7 +22,7 @@ import { DataTableColumnCustomizer } from '../../components/data-table/data-tabl
 import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
 import { useAttendanceStore } from './store';
 import { useShallow } from 'zustand/react/shallow';
-import { recalculateSummary, excelSerialToTime } from './utils';
+import { recalculateSummary, excelSerialToTime as _excelSerialToTime } from './utils';
 import { AttendanceImportDialog } from './components/attendance-import-dialog';
 import { BulkEditDialog } from './components/bulk-edit-dialog';
 import { StatisticsDashboard } from './components/statistics-dashboard';
@@ -98,7 +98,7 @@ export function AttendancePage() {
     // Penalty confirmation states
     const [isPenaltyConfirmOpen, setIsPenaltyConfirmOpen] = React.useState(false);
     const [pendingPenalties, setPendingPenalties] = React.useState<PenaltyPreviewItem[]>([]);
-    const [pendingImportDate, setPendingImportDate] = React.useState<Date | null>(null);
+    const [_pendingImportDate, setPendingImportDate] = React.useState<Date | null>(null);
 
     const currentMonthKey = formatDateCustom(currentDate, 'yyyy-MM');
     const isLocked = !!lockedMonths[currentMonthKey];
@@ -161,10 +161,9 @@ export function AttendancePage() {
         const updatedData = baseAttendanceData.map(employeeRow => {
             const employeeUpdates = importedData[employeeRow.employeeSystemId];
             if (employeeUpdates) {
-                // @ts-ignore
-                let mutableRow: AnyAttendanceDataRow = { ...employeeRow };
+                const mutableRow: AnyAttendanceDataRow = { ...employeeRow };
 
-                const dateObj = currentDate;
+                const _dateObj = currentDate;
                 const daysInMonth = new Date(year, month, 0).getDate();
                 for (let d = 1; d <= daysInMonth; d++) {
                     const workDate = new Date(year, month - 1, d);
@@ -355,7 +354,7 @@ export function AttendancePage() {
         toast('Điền nhanh', {
             description: 'Đã áp dụng giờ làm việc mặc định',
         });
-    }, [attendanceData, currentDate, settings, isLocked, currentMonthKey, saveAttendanceData, toast]);
+    }, [attendanceData, currentDate, settings, isLocked, currentMonthKey, saveAttendanceData]);
 
      React.useEffect(() => {
         // Load from store first, fallback to auto-filled data theo ca làm
@@ -387,18 +386,20 @@ export function AttendancePage() {
         const sorted = [...filteredData];
         if (sorting.id) {
           sorted.sort((a, b) => {
-            const aValue = (a as any)[sorting.id];
-            const bValue = (b as any)[sorting.id];
+            const aValue = (a as Record<string, unknown>)[sorting.id];
+            const bValue = (b as Record<string, unknown>)[sorting.id];
             if (aValue === null || aValue === undefined) return 1;
             if (bValue === null || bValue === undefined) return -1;
             // Special handling for date columns
             if (sorting.id === 'createdAt') {
-              const aTime = aValue ? new Date(aValue).getTime() : 0;
-              const bTime = bValue ? new Date(bValue).getTime() : 0;
+              const aTime = aValue ? new Date(aValue as string | Date).getTime() : 0;
+              const bTime = bValue ? new Date(bValue as string | Date).getTime() : 0;
               return sorting.desc ? bTime - aTime : aTime - bTime;
             }
-            if (aValue < bValue) return sorting.desc ? 1 : -1;
-            if (aValue > bValue) return sorting.desc ? -1 : 1;
+            const aStr = String(aValue);
+            const bStr = String(bValue);
+            if (aStr < bStr) return sorting.desc ? 1 : -1;
+            if (aStr > bStr) return sorting.desc ? -1 : 1;
             return 0;
           });
         }
@@ -461,7 +462,7 @@ export function AttendancePage() {
             }
 
             employeeChunks.forEach((chunk, chunkIndex) => {
-                const ws_data: any[][] = [];
+                const ws_data: unknown[][] = [];
                 const merges: XLSX.Range[] = [];
             
                 // General Headers - Row 0: Title
@@ -596,7 +597,7 @@ export function AttendancePage() {
             toast.success('Xuất file thành công', {
                 description: `Đã xuất ${dataToExport.length} nhân viên sang Excel`,
             });
-        }, [attendanceData, departmentFilter, debouncedGlobalFilter, currentDate]);
+        }, [attendanceData, departmentFilter, debouncedGlobalFilter, currentDate, getAttendanceData]);
 
         const handlePrint = React.useCallback(() => {
             if (!sortedData?.length) return;
@@ -609,7 +610,7 @@ export function AttendancePage() {
 
             const sheetForPrint = convertAttendanceSheetForPrint(
                 monthKey,
-                sortedData as any, // Cast to flexible interface
+                sortedData as unknown as Parameters<typeof convertAttendanceSheetForPrint>[1], // Cast to expected type
                 {
                     isLocked,
                     departmentName,

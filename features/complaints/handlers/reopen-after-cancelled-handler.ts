@@ -24,7 +24,7 @@ interface User {
 export async function handleReopenAfterCancelled(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: string, updates: any) => void
+  updateComplaint: (systemId: string, updates: Partial<Complaint>) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('[REOPEN-AFTER-CANCEL] Starting...');
@@ -57,10 +57,10 @@ export async function handleReopenAfterCancelled(
     console.log('[REOPEN-AFTER-CANCEL] Updating with:', {
       status: updates.status,
       preservedFields: {
-        cancelledPaymentsReceipts: !!(complaint as any).cancelledPaymentsReceipts,
-        inventoryHistory: !!(complaint as any).inventoryHistory,
-        inventoryAdjustment: !!(complaint as any).inventoryAdjustment,
-        compensationMetadata: !!(complaint as any).compensationMetadata,
+        cancelledPaymentsReceipts: !!complaint.cancelledPaymentsReceipts,
+        inventoryHistory: !!complaint.inventoryHistory,
+        inventoryAdjustment: !!complaint.inventoryAdjustment,
+        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
         verification: complaint.verification,
       }
     });

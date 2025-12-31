@@ -142,10 +142,10 @@ export async function PATCH(
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Tasks API] PATCH error:', error);
     
-    if (error.code === 'P2003') {
+    if (error instanceof Error && 'code' in error && error.code === 'P2003') {
       return NextResponse.json(
         { error: 'Invalid assignee ID' },
         { status: 400 }

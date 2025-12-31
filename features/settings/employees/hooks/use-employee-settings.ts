@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/employee-settings-api';
-import type { WorkShift, LeaveType, SalaryComponent, InsuranceRates } from '@/lib/types/prisma-extended';
+import type { WorkShift, LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
 
 export const employeeSettingsKeys = {
   all: ['employee-settings'] as const,

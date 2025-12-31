@@ -7,7 +7,6 @@ import type { WarrantyTicket } from './types';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Package, Phone, Truck, User, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { checkWarrantyOverdue } from './warranty-sla-utils';
@@ -16,14 +15,12 @@ import { loadCardColorSettings } from '../settings/warranty/warranty-settings-pa
 
 interface WarrantyCardProps {
   ticket: WarrantyTicket;
-  onEdit?: (ticket: WarrantyTicket) => void;
-  onDelete?: (systemId: string) => void;
   onClick?: (ticket: WarrantyTicket) => void;
 }
 
 // ✅ OPTIMIZATION: Memoize component to prevent unnecessary re-renders
 // Only re-render if ticket data or callbacks change
-export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, onDelete, onClick }: WarrantyCardProps) {
+export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }: WarrantyCardProps) {
   const router = useRouter();
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -67,21 +64,21 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
       };
     }
     
-    const totalProducts = ticket.products.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
+    const totalProducts = ticket.products.reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0);
     const totalReplaced = ticket.products
-      .filter((p: any) => p.resolution === 'replace')
-      .reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
+      .filter((p: { resolution?: string }) => p.resolution === 'replace')
+      .reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0);
     const totalReturned = ticket.products
-      .filter((p: any) => p.resolution === 'return')
-      .reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
+      .filter((p: { resolution?: string }) => p.resolution === 'return')
+      .reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0);
     
     // Gộp "out_of_stock" và "deduct" thành "Hết hàng (Khấu trừ)"
-    const outOfStockProducts = ticket.products.filter((p: any) => 
+    const outOfStockProducts = ticket.products.filter((p: { resolution?: string }) => 
       p.resolution === 'out_of_stock' || p.resolution === 'deduct'
     );
     
-    const totalOutOfStock = outOfStockProducts.reduce((sum: number, p: any) => sum + (p.quantity || 1), 0);
-    const totalDeduction = outOfStockProducts.reduce((sum: number, p: any) => {
+    const totalOutOfStock = outOfStockProducts.reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0);
+    const totalDeduction = outOfStockProducts.reduce((sum: number, p: { resolution?: string; deductionAmount?: number; quantity?: number; unitPrice?: number }) => {
       if (p.resolution === 'deduct') return sum + (p.deductionAmount || 0);
       if (p.resolution === 'out_of_stock') return sum + ((p.quantity || 1) * (p.unitPrice || 0));
       return sum;
@@ -98,6 +95,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onEdit, o
     
     console.log('⚙️ Calculated summary:', ticket.id, calculated);
     return calculated;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ticket.id only used for logging, not calculation
   }, [ticket.summary, ticket.products]);
 
   // Determine card color (priority: overdue > status)

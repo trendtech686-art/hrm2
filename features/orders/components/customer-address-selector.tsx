@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Plus, Edit2, Check, ArrowLeftRight, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Plus, Edit2, MoreHorizontal } from 'lucide-react';
 import type { Customer, CustomerAddress } from '../../customers/types';
 import { asSystemId } from '@/lib/id-types';
-import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
@@ -70,7 +69,7 @@ export function CustomerAddressSelector({
         }
     }, [onDialogOpenChange, isDialogOpen]);
     
-    const [isAddingNew, setIsAddingNew] = React.useState(false);
+    const [_isAddingNew, setIsAddingNew] = React.useState(false);
     const [selectedAddressId, setSelectedAddressId] = React.useState<string>('');
     const [convertingAddress, setConvertingAddress] = React.useState<CustomerAddress | null>(null);
     const [isConverterOpen, setIsConverterOpen] = React.useState(false);
@@ -79,7 +78,8 @@ export function CustomerAddressSelector({
     const [deletingAddressId, setDeletingAddressId] = React.useState<string | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
-    const addresses = currentCustomer?.addresses || [];
+    // Memoize addresses to prevent new array reference on each render
+    const addresses = React.useMemo(() => currentCustomer?.addresses || [], [currentCustomer?.addresses]);
 
     React.useEffect(() => {
         if (addresses.length > 0) {
@@ -92,9 +92,9 @@ export function CustomerAddressSelector({
                 setSelectedAddressId(defaultAddr.id);
             }
         }
-    }, [currentCustomer, currentAddressType]);
+    }, [currentCustomer, currentAddressType, addresses]);
 
-    const handleOpenDialog = () => {
+    const _handleOpenDialog = () => {
         // If external callbacks provided, use them. Otherwise open dialog directly.
         setIsDialogOpen(true);
         setIsAddingNew(false);

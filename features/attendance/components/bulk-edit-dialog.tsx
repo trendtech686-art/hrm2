@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +12,6 @@ import { Button } from '../../../components/ui/button';
 import { TimePicker } from '../../../components/ui/time-picker';
 import { Separator } from '../../../components/ui/separator';
 import { CheckCircle2, XCircle, Clock, Calendar, Users, Edit3 } from 'lucide-react';
-import { toast } from 'sonner';
 import type { SystemId } from '../../../lib/id-types';
 
 interface BulkEditDialogProps {

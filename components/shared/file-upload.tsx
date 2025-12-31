@@ -81,7 +81,7 @@ export function FileUpload({
       
       setUploadedFiles(prev => [...prev, ...results])
       onUpload?.(results)
-    } catch (err) {
+    } catch (_err) {
       // Error already handled by hook
     }
   }, [upload, uploadMultiple, entityType, entityId, isImage, thumbnail, resize, onUpload, onError])

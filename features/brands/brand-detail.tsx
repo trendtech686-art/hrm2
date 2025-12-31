@@ -1,33 +1,29 @@
 'use client'
 
 import * as React from 'react';
-import Link from 'next/link';
-import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import { 
   Save, 
   X, 
   Trash2,
   Globe,
-  Tags,
-  ExternalLink,
   Image as ImageIcon,
   Pencil,
-  ArrowLeft,
   BarChart3,
   RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Form,
@@ -49,8 +45,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useBrandStore } from '../settings/inventory/brand-store';
-import type { Brand } from '../settings/inventory/types';
-import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
+import type { Brand as _Brand } from '../settings/inventory/types';
+import { asSystemId, asBusinessId, type SystemId as _SystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
 import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
@@ -173,7 +169,7 @@ export function BrandDetailPage() {
   const watchedTrendtechKeywords = form.watch('websiteSeo.trendtech.seoKeywords');
   const watchedTrendtechSlug = form.watch('websiteSeo.trendtech.slug');
 
-  const handleSubmit = async (data: BrandFormValues) => {
+  const handleSubmit = React.useCallback(async (data: BrandFormValues) => {
     if (!systemId) return;
     
     // Confirm logo staging files
@@ -201,7 +197,7 @@ export function BrandDetailPage() {
     
     toast.success('Đã cập nhật thương hiệu');
     router.push(`/brands/${systemId}`);
-  };
+  }, [systemId, logoFiles, logoSessionId, update, router]);
 
   const handleDelete = () => {
     if (!systemId) return;
@@ -210,9 +206,9 @@ export function BrandDetailPage() {
     router.push('/brands');
   };
 
-  const handleSwitchToEdit = () => {
+  const handleSwitchToEdit = React.useCallback(() => {
     router.push(`/brands/${systemId}/edit`);
-  };
+  }, [router, systemId]);
 
   // Header actions
   const headerActions = React.useMemo(() => {
@@ -238,7 +234,7 @@ export function BrandDetailPage() {
         Chỉnh sửa
       </Button>
     ];
-  }, [isEditMode, systemId, router, form]);
+  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit]);
 
   usePageHeader({
     actions: headerActions,
@@ -679,9 +675,11 @@ export function BrandDetailPage() {
                   {brand?.logo && logoFiles.length === 0 && (
                     <div className="flex items-center gap-4">
                       <div className="w-24 h-24 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
-                        <img 
+                        <OptimizedImage 
                           src={brand.logo} 
                           alt="Logo hiện tại" 
+                          width={96}
+                          height={96}
                           className="max-w-full max-h-full object-contain"
                         />
                       </div>

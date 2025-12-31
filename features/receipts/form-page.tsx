@@ -21,7 +21,7 @@ export function ReceiptFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const router = useRouter();
   const { data, findById, add, update } = useReceiptStore();
-  const { accounts } = useCashbookStore();
+  const { accounts: _accounts } = useCashbookStore();
   const { employee: currentEmployee } = useAuth();
 
   const resolvedSystemId = React.useMemo(() => {

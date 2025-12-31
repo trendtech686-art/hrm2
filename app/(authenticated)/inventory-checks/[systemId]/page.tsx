@@ -1,3 +1,11 @@
-"use client"
+import type { Metadata } from 'next'
 import { InventoryCheckDetailPage } from '@/features/inventory-checks/detail-page'
-export default InventoryCheckDetailPage
+
+export const metadata: Metadata = {
+  title: 'Chi tiết kiểm kê',
+  description: 'Xem thông tin phiếu kiểm kê',
+}
+
+export default function Page() {
+  return <InventoryCheckDetailPage />
+}

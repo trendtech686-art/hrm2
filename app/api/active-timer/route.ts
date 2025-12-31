@@ -88,9 +88,9 @@ export async function DELETE(request: Request) {
       await prisma.activeTimer.delete({
         where: { userId },
       })
-    } catch (e: any) {
+    } catch (e) {
       // If not found, that's okay
-      if (e.code !== 'P2025') {
+      if (!(e instanceof Error && 'code' in e && e.code === 'P2025')) {
         throw e
       }
     }

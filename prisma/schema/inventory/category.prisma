@@ -2,25 +2,25 @@ model Category {
   systemId          String            @id
   id                String            @unique
   name              String
-  slug              String?           // URL-friendly name (VD: "ban-phim-co")
+  slug              String? // URL-friendly name (VD: "ban-phim-co")
   parentId          String?
   // SEO Fields (NEW)
-  seoTitle          String?           // Title tag cho SEO
-  metaDescription   String?           // Meta description cho SEO
-  seoKeywords       String?           // Từ khóa SEO
-  shortDescription  String?           // Mô tả ngắn (1-2 câu)
+  seoTitle          String? // Title tag cho SEO
+  metaDescription   String? // Meta description cho SEO
+  seoKeywords       String? // Từ khóa SEO
+  shortDescription  String? // Mô tả ngắn (1-2 câu)
   longDescription   String?           @db.Text // Mô tả chi tiết (HTML)
-  ogImage           String?           // Open Graph image URL
+  ogImage           String? // Open Graph image URL
   // Multi-website SEO (NEW)
-  websiteSeo        Json?             // Key: 'pkgx' | 'web2' | ...
+  websiteSeo        Json? // Key: 'pkgx' | 'web2' | ...
   // Hierarchy
-  path              String?           // Full path: "Điện tử > Máy tính > Bàn phím"
-  level             Int?              // 0 = root, 1 = child, 2 = grandchild
+  path              String? // Full path: "Điện tử > Máy tính > Bàn phím"
+  level             Int? // 0 = root, 1 = child, 2 = grandchild
   // Display
-  color             String?           // Màu hiển thị
-  icon              String?           // Icon hoặc emoji
+  color             String? // Màu hiển thị
+  icon              String? // Icon hoặc emoji
   imageUrl          String?
-  thumbnail         String?           // Ảnh đại diện danh mục
+  thumbnail         String? // Ảnh đại diện danh mục
   description       String?
   sortOrder         Int?              @default(0)
   // Status

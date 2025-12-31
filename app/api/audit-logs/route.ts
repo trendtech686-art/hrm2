@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 
 // GET /api/audit-logs - List audit logs
 export async function GET(request: Request) {
@@ -16,10 +17,10 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Prisma.AuditLogWhereInput = {}
 
     if (entity) {
-      where.entity = entity
+      where.entityType = entity
     }
 
     if (entityId) {

@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, subtractDays } from '../../lib/date-utils';
-import { FileSpreadsheet, Download, Upload, Eye, Trash2, Filter, RefreshCw } from "lucide-react"
+import { formatDateTime } from '../../lib/date-utils';
+import { FileSpreadsheet, Download, Upload, Trash2, Filter } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
@@ -24,7 +24,6 @@ import {
 } from "../../components/ui/select"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
-import { Separator } from "../../components/ui/separator"
 import type { ColumnDef } from '../../components/data-table/types';
 import { toast } from "sonner"
 import { 
@@ -121,7 +120,7 @@ function transformStoreLogs(
 }
 
 export function ImportExportHistoryPage() {
-  const router = useRouter();
+  const _router = useRouter();
   
   // Get logs from store
   const importLogs = useImportExportStore(state => state.importLogs)
@@ -188,15 +187,15 @@ export function ImportExportHistoryPage() {
 
   // Sorted & Paginated data
   const sortedData = React.useMemo(() => {
-    let sorted = [...filteredLogs]
+    const sorted = [...filteredLogs]
     if (sorting.id) {
-      sorted.sort((a: any, b: any) => {
-        const aVal = a[sorting.id]
-        const bVal = b[sorting.id]
+      sorted.sort((a, b) => {
+        const aVal = (a as unknown as Record<string, unknown>)[sorting.id]
+        const bVal = (b as unknown as Record<string, unknown>)[sorting.id]
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'timestamp') {
-          const aTime = aVal ? new Date(aVal).getTime() : 0
-          const bTime = bVal ? new Date(bVal).getTime() : 0
+          const aTime = aVal ? new Date(aVal as string | number | Date).getTime() : 0
+          const bTime = bVal ? new Date(bVal as string | number | Date).getTime() : 0
           return sorting.desc ? bTime - aTime : aTime - bTime
         }
         if (aVal < bVal) return sorting.desc ? 1 : -1
@@ -245,7 +244,7 @@ export function ImportExportHistoryPage() {
           sortKey="fileName"
           isSorted={sorting?.id === 'fileName'}
           sortDirection={sorting?.desc ? 'desc' : 'asc'}
-          onSort={() => setSorting?.((s: any) => ({ id: 'fileName', desc: s.id === 'fileName' ? !s.desc : false }))}
+          onSort={() => setSorting?.((s) => ({ id: 'fileName', desc: s.id === 'fileName' ? !s.desc : false }))}
         />
       ),
       cell: ({ row }) => (
@@ -300,7 +299,7 @@ export function ImportExportHistoryPage() {
           sortKey="timestamp"
           isSorted={sorting?.id === 'timestamp'}
           sortDirection={sorting?.desc ? 'desc' : 'asc'}
-          onSort={() => setSorting?.((s: any) => ({ id: 'timestamp', desc: s.id === 'timestamp' ? !s.desc : false }))}
+          onSort={() => setSorting?.((s) => ({ id: 'timestamp', desc: s.id === 'timestamp' ? !s.desc : false }))}
         />
       ),
       cell: ({ row }) => formatDateTime(row.timestamp),
@@ -484,7 +483,7 @@ export function ImportExportHistoryPage() {
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
           <ResponsiveDataTable
-            columns={columns as any}
+            columns={columns}
             data={paginatedData}
             pageCount={pageCount}
             pagination={pagination}

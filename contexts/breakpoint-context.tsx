@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react";
 
 type Breakpoint = "mobile" | "tablet" | "desktop" | "wide";
@@ -18,17 +20,6 @@ function getBreakpoint(width: number): Breakpoint {
   if (width < 1024) return "tablet";
   if (width < 1536) return "desktop";
   return "wide";
-}
-
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
 }
 
 interface BreakpointProviderProps {

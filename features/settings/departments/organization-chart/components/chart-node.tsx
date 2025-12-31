@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { Handle, Position, type NodeProps, NodeResizer } from 'reactflow';
+import { Handle, Position, type NodeProps } from 'reactflow';
 import { cn } from '../../../../../lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../../../components/ui/avatar';
 import type { Employee } from '../../../../employees/types';
 import { Button } from '../../../../../components/ui/button';
-import { Plus, Minus, Mail, Phone, Users, Focus, User, Copy, Check, GripVertical, XCircle } from 'lucide-react';
+import { Plus, Minus, Mail, Phone, Focus, User, Copy, Check, GripVertical } from 'lucide-react';
 import { Badge } from '../../../../../components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../../components/ui/tooltip';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '../../../../../components/ui/context-menu';

@@ -172,9 +172,9 @@ export function createApiBackedMethods<T extends { systemId: SystemId }>(
  * Wraps a store method to also call API
  * Original method runs first (sync), then API call runs in background (async)
  */
-export function wrapWithApiCall<TArgs extends any[], TResult>(
+export function wrapWithApiCall<TArgs extends unknown[], TResult>(
   originalMethod: (...args: TArgs) => TResult,
-  apiMethod: (...args: TArgs) => Promise<any>,
+  apiMethod: (...args: TArgs) => Promise<unknown>,
   methodName: string
 ): (...args: TArgs) => TResult {
   return (...args: TArgs): TResult => {

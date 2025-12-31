@@ -7,7 +7,6 @@ import { Info, Save } from 'lucide-react';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { useSalesManagementSettingsStore, type SalesManagementSettingsValues } from './sales-management-store';
 import { useShallow } from 'zustand/react/shallow';
-import type { ReactNode } from 'react';
 import type { RegisterTabActions } from '../use-tab-action-registry';
 import { toast } from 'sonner';
 

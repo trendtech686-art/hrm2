@@ -22,66 +22,66 @@ model Complaint {
   category      String?
   deletedAt     DateTime?
   isDeleted     Boolean           @default(false)
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Tracking & identification
-  publicTrackingCode   String?             // Mã tracking công khai cho khách hàng tra cứu
-  orderCode            String?             // Mã đơn hàng hiển thị (denormalized)
-  orderValue           Decimal?   @db.Decimal(15, 2) // Giá trị đơn hàng
-  
+  publicTrackingCode String? // Mã tracking công khai cho khách hàng tra cứu
+  orderCode          String? // Mã đơn hàng hiển thị (denormalized)
+  orderValue         Decimal? @db.Decimal(15, 2) // Giá trị đơn hàng
+
   // Branch info (denormalized from order)
-  branchSystemId       String?
-  branchName           String?
-  
+  branchSystemId String?
+  branchName     String?
+
   // Complaint classification
-  type                 String?    // ComplaintType: 'wrong-product' | 'missing-items' | etc.
-  verification         String     @default("pending-verification") // 'verified-correct' | 'verified-incorrect' | 'pending-verification'
-  
+  type         String? // ComplaintType: 'wrong-product' | 'missing-items' | etc.
+  verification String  @default("pending-verification") // 'verified-correct' | 'verified-incorrect' | 'pending-verification'
+
   // Employee images (separate from customer images)
-  employeeImages       Json?      // Array of { id, url, uploadedBy, uploadedAt }
-  
+  employeeImages Json? // Array of { id, url, uploadedBy, uploadedAt }
+
   // Assignee details
-  assigneeName         String?    // Denormalized for display
-  assignedAt           DateTime?
-  
+  assigneeName String? // Denormalized for display
+  assignedAt   DateTime?
+
   // Investigation & resolution
-  investigationNote    String?    // Ghi chú kiểm tra từ nhân viên
-  evidenceImages       String[]   // Hình ảnh camera, bằng chứng
-  proposedSolution     String?    // Đề xuất giải pháp từ nhân viên
-  resolutionNote       String?    // Ghi chú cách xử lý cuối cùng
-  
+  investigationNote String? // Ghi chú kiểm tra từ nhân viên
+  evidenceImages    String[] // Hình ảnh camera, bằng chứng
+  proposedSolution  String? // Đề xuất giải pháp từ nhân viên
+  resolutionNote    String? // Ghi chú cách xử lý cuối cùng
+
   // KPI & responsibility
-  isVerifiedCorrect    Boolean?   // true = lỗi thật, false = khách sai
-  responsibleUserId    String?    // Người chịu trách nhiệm (nếu lỗi đúng)
-  
+  isVerifiedCorrect Boolean? // true = lỗi thật, false = khách sai
+  responsibleUserId String? // Người chịu trách nhiệm (nếu lỗi đúng)
+
   // Affected products from order
-  affectedProducts     Json?      // Array of affected product details
-  
+  affectedProducts Json? // Array of affected product details
+
   // Inventory adjustments tracking
-  inventoryAdjustment  Json?      // { adjusted, adjustedBy, adjustedAt, adjustmentNote, items[] }
-  inventoryHistory     Json?      // Array of adjustment history entries
-  
+  inventoryAdjustment Json? // { adjusted, adjustedBy, adjustedAt, adjustmentNote, items[] }
+  inventoryHistory    Json? // Array of adjustment history entries
+
   // Cancelled payments/receipts history
   cancelledPaymentsReceipts Json? // Array of cancelled payment/receipt records
-  
+
   // Resolution tracking
-  resolvedBy           String?    // userId - Người giải quyết
-  cancelledBy          String?    // userId - Người hủy
-  cancelledAt          DateTime?
-  endedBy              String?    // userId - Người kết thúc
-  endedAt              DateTime?
-  
+  resolvedBy  String? // userId - Người giải quyết
+  cancelledBy String? // userId - Người hủy
+  cancelledAt DateTime?
+  endedBy     String? // userId - Người kết thúc
+  endedAt     DateTime?
+
   // Classification
-  tags                 String[]   // Tags for filtering
-  
+  tags String[] // Tags for filtering
+
   // Workflow
-  timeline             Json?      // Array of ComplaintAction
-  subtasks             Json?      // Array of Subtask (quy trình xử lý)
-  
+  timeline Json? // Array of ComplaintAction
+  subtasks Json? // Array of Subtask (quy trình xử lý)
+
   // === RELATIONS ===
-  employees     Employee?         @relation(fields: [assigneeId], references: [systemId])
-  customer      Customer?         @relation(fields: [customerId], references: [systemId])
+  employees Employee? @relation(fields: [assigneeId], references: [systemId])
+  customer  Customer? @relation(fields: [customerId], references: [systemId])
 
   @@index([customerId])
   @@index([status])

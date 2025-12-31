@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Button } from "../../components/ui/button";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { useMediaQuery } from "../../lib/use-media-query";
-import { PackageX, Building2, User, Calendar, FileText, Plus, Printer, Download } from "lucide-react";
+import { PackageX, Building2, User, FileText, Plus, Printer, Download } from "lucide-react";
 import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types";
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
@@ -240,7 +240,7 @@ const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): ColumnDe
 
 export function PurchaseReturnsPage() {
   const { data: purchaseReturns } = usePurchaseReturnStore();
-  const { data: allPurchaseOrders } = usePurchaseOrderStore();
+  const { data: _allPurchaseOrders } = usePurchaseOrderStore();
   const { data: branches } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
@@ -311,7 +311,9 @@ export function PurchaseReturnsPage() {
       try {
         const parsed = JSON.parse(stored);
         if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore JSON parse errors - use default
+      }
     }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -344,6 +346,7 @@ export function PurchaseReturnsPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is stable, only run on mount
   }, []);
   
   const fuse = React.useMemo(
@@ -377,6 +380,7 @@ export function PurchaseReturnsPage() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredData.length tracked by mobileLoadedCount reset
   }, [isMobile, mobileLoadedCount]);
   
   const filteredData = React.useMemo(() => {
@@ -420,12 +424,12 @@ export function PurchaseReturnsPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aVal = (a as any)[sorting.id];
-        const bVal = (b as any)[sorting.id];
+        const aVal = (a as Record<string, unknown>)[sorting.id];
+        const bVal = (b as Record<string, unknown>)[sorting.id];
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'returnDate') {
-          const aTime = aVal ? new Date(aVal).getTime() : 0;
-          const bTime = bVal ? new Date(bVal).getTime() : 0;
+          const aTime = aVal ? new Date(aVal as string | number | Date).getTime() : 0;
+          const bTime = bVal ? new Date(bVal as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aVal === bVal) return 0;

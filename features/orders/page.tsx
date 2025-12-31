@@ -11,12 +11,8 @@ import { GenericImportDialogV2 } from "../../components/shared/generic-import-di
 import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2"
 import { orderImportExportConfig, flattenOrdersForExport } from "../../lib/import-export/configs/order.config"
 import { sapoOrderImportConfig } from "../../lib/import-export/configs/order-sapo.config"
-import type { TemplateType, PaperSize } from "../settings/printer/types"
+import type { TemplateType } from "../settings/printer/types"
 import type { PrintOptions } from "../../lib/use-print"
-import { 
-  Card, 
-  CardContent, 
-} from "../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,24 +23,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog"
-import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus } from '@/lib/types/prisma-extended'
+import type { Order, OrderMainStatus } from '@/lib/types/prisma-extended'
 import { Button } from "../../components/ui/button"
 import { Label } from "../../components/ui/label"
 import { Checkbox } from "../../components/ui/checkbox"
 import { Textarea } from "../../components/ui/textarea"
-import { PlusCircle, FileText, FileUp, Download } from "lucide-react"
+import { PlusCircle, FileUp, Download, FileText } from "lucide-react"
 import { PrintOptionsDialog, type PrintOptionsResult, type OrderPrintTemplateType } from "../../components/shared/print-options-dialog"
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context"
 import { useMediaQuery } from "../../lib/use-media-query"
-import { OrderCard } from "./order-card"
+import { OrderCard } from "./components/order-card"
 import { PageFilters } from "../../components/layout/page-filters"
 import { PageToolbar } from "../../components/layout/page-toolbar"
 // ✅ REMOVED: import { generateNextId } - not used in this file
 // ✅ REMOVED: Unused imports - ProductQuickViewCard and OrderFormDialog (components don't exist and are never used)
 import { toast } from "sonner"
 import { useAuth } from "../../contexts/auth-context"
-import { asBusinessId, asSystemId, type SystemId } from "../../lib/id-types"
+import { asSystemId, type SystemId } from "../../lib/id-types"
 // Print imports
 import { usePrint } from "../../lib/use-print"
 import { useCustomerStore } from "../customers/store"
@@ -67,7 +63,7 @@ import {
 } from "../../lib/print/order-print-helper"
 
 
-const statusOptions = (Object.keys({
+const _statusOptions = (Object.keys({
     "Đặt hàng": "", "Đang giao dịch": "", "Hoàn thành": "", "Đã hủy": ""
 }) as OrderMainStatus[]).map(status => ({
     value: status,
@@ -76,11 +72,12 @@ const statusOptions = (Object.keys({
 
 export function OrdersPage() {
   const orderStore = useOrderStore();
-  const orders: Order[] = orderStore.data ?? [];
+  const ordersData = orderStore.data;
+  const orders = React.useMemo(() => ordersData ?? [], [ordersData]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { employee: authEmployee } = useAuth();
-  const currentEmployeeName = authEmployee?.fullName ?? 'Hệ thống';
+  const _currentEmployeeName = authEmployee?.fullName ?? 'Hệ thống';
   const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
   const isMobile = useMediaQuery("(max-width: 768px)");
   
@@ -91,7 +88,7 @@ export function OrdersPage() {
   const employeeStore = useEmployeeStore();
   const { findById: findCustomerById } = customerStore;
   const { findById: findBranchById } = branchStore;
-  const { print, printMultiple, printMixedDocuments } = usePrint();
+  const { print, printMultiple: _printMultiple, printMixedDocuments } = usePrint();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isCancelAlertOpen, setIsCancelAlertOpen] = React.useState(false)
@@ -135,7 +132,9 @@ export function OrdersPage() {
       try {
         const parsed = JSON.parse(stored);
         if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore JSON parse errors - use default
+      }
     }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -332,12 +331,12 @@ export function OrdersPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         // Special handling for date columns - parse as Date for proper comparison
         if (sorting.id === 'createdAt' || sorting.id === 'orderDate') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -393,7 +392,7 @@ export function OrdersPage() {
     if (!confirm(confirmMessage)) return;
     
     allSelectedRows.forEach(order => {
-      (orderStore as any).cancelOrder(order.systemId, currentEmployeeSystemId, {
+      orderStore.cancelOrder(order.systemId, currentEmployeeSystemId, {
         reason: 'Hủy hàng loạt',
         restock: true,
       });
@@ -585,7 +584,7 @@ export function OrdersPage() {
   const handleImport = React.useCallback(async (
     data: Partial<Order>[],
     mode: 'insert-only' | 'update-only' | 'upsert',
-    branchId?: string
+    _branchId?: string
   ) => {
     const results = {
       success: 0,

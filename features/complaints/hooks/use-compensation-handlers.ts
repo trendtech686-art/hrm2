@@ -9,7 +9,7 @@ import { asSystemId } from '@/lib/id-types';
 import type { SystemId } from '@/lib/id-types';
 import { complaintNotifications } from '../notification-utils';
 import type { Complaint, ComplaintAction } from '../types';
-import type { CompensationResult } from '../compensation-payment-receipt-wizard';
+import type { CompensationResult } from '../components/compensation-payment-receipt-wizard';
 
 interface UseCompensationHandlersProps {
   complaint: Complaint | null;
@@ -100,7 +100,7 @@ export function useCompensationHandlers({
       timeline: updatedTimeline,
       // ⚠️ REMOVED: Không cập nhật compensationMetadata nữa
       // Mỗi action tự lưu metadata của riêng nó
-    } as any);
+    } as Partial<Complaint>);
 
     complaintNotifications.onVerified("Đã xác nhận khiếu nại đúng, ghi nhận giải pháp và tạo phiếu chi");
     toast.success("Đã tạo phiếu bù trừ thành công!");

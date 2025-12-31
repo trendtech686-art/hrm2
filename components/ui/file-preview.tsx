@@ -3,6 +3,7 @@ import { Download, Eye, X } from 'lucide-react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './dialog';
 import { Badge } from './badge';
+import { OptimizedImage } from './optimized-image';
 import type { UploadedFile } from '../../lib/file-upload-api';
 
 type FilePreviewProps = {
@@ -56,10 +57,11 @@ export function FilePreview({ file, onDownload, onDelete, showDelete = false }: 
               </DialogHeader>
               <div className="flex-1 overflow-auto">
                 {isImage ? (
-                  <img 
+                  <OptimizedImage 
                     src={file.url} 
                     alt={file.name}
                     className="max-w-full h-auto mx-auto"
+                    unoptimized
                   />
                 ) : isPDF ? (
                   <iframe

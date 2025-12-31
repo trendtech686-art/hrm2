@@ -93,7 +93,7 @@ export function OrderPrintDialog({
   branch,
   activePackaging,
 }: OrderPrintDialogProps) {
-  const { print, getDefaultSize, hasTemplate } = usePrint(branch?.systemId);
+  const { print, getDefaultSize, hasTemplate: _hasTemplate } = usePrint(branch?.systemId);
   
   const [selectedType, setSelectedType] = React.useState<TemplateType>('order');
   const [selectedSize, setSelectedSize] = React.useState<PaperSize>('K80');

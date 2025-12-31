@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { DataTableHeaderActions } from '../data-table/data-table-header-actions';
-import type { DataTableToolbarProps } from '../data-table/data-table-toolbar';
 import type { ColumnDef } from '../data-table/types';
 import { Button } from '../ui/button';
 import { PlusCircle } from 'lucide-react';
@@ -19,7 +18,7 @@ interface StandardPageLayoutProps<TData> extends React.HTMLAttributes<HTMLDivEle
     importer: (data: Omit<TData, 'id'>[]) => void;
     fileName: string;
     existingData?: TData[];
-    getUniqueKey?: (item: any) => string;
+    getUniqueKey?: (item: TData) => string;
   };
   columnCustomizerProps: {
     columns: ColumnDef<TData>[];

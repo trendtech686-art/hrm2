@@ -6,12 +6,13 @@
 import * as React from 'react';
 import { useReactFlow, type Node } from 'reactflow';
 import { useEmployeeStore } from '../../../../employees/store';
+import type { Employee } from '@/lib/types/prisma-extended';
 import { useDepartmentStore } from '../../store';
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
 import { 
   calculateLayout, 
-  resetToAutoLayout,
+  resetToAutoLayout as _resetToAutoLayout,
   type LayoutDirection,
   nodeWidth,
   nodeHeight
@@ -24,7 +25,7 @@ import {
 export function useOrgChart() {
   const { data: employees, update: updateEmployee } = useEmployeeStore();
   const { data: departments } = useDepartmentStore();
-  const { fitView, setCenter, setNodes: setReactFlowNodes, getNodes } = useReactFlow();
+  const { fitView: _fitView, setCenter, setNodes: setReactFlowNodes, getNodes } = useReactFlow();
 
   // State
   const [collapsedNodes, setCollapsedNodes] = React.useState(new Set<string>());
@@ -132,7 +133,7 @@ export function useOrgChart() {
       if (node.id.startsWith('NV')) {
         const employee = employees.find(e => e.systemId === node.id);
         if (employee) {
-          updateEmployee(node.id as any, {
+          updateEmployee(asSystemId(node.id), {
             ...employee,
             positionX: node.position.x,
             positionY: node.position.y,
@@ -148,7 +149,7 @@ export function useOrgChart() {
     toast.info('Đang tự động sắp xếp lại...');
   }, []);
 
-  const handleSearchAndFocus = React.useCallback((employee: any) => {
+  const handleSearchAndFocus = React.useCallback((employee: Employee) => {
     const layout = calculateLayout(
       employees,
       collapsedNodes,
@@ -160,14 +161,14 @@ export function useOrgChart() {
     const ancestors = getAllAncestors(employee.systemId, layout.parentIdMap);
     setCollapsedNodes(prev => {
       const newSet = new Set(prev);
-      let changed = false;
+      let _changed = false;
       [...ancestors, 'root'].forEach(id => {
         if (newSet.has(id)) {
           newSet.delete(id);
-          changed = true;
+          _changed = true;
         }
       });
-      return changed ? newSet : prev;
+      return _changed ? newSet : prev;
     });
 
     // Focus after uncollapse

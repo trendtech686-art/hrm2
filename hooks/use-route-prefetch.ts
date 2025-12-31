@@ -40,7 +40,7 @@ export function useIdlePreload() {
     // Use requestIdleCallback if available, otherwise setTimeout
     const schedulePreload = (callback: () => void) => {
       if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(callback, { timeout: 2000 });
+        (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void }).requestIdleCallback?.(callback, { timeout: 2000 });
       } else {
         setTimeout(callback, 200);
       }

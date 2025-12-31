@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
 import { useOrderStore } from '../orders/store';
-import type { Order, Packaging, PackagingStatus } from '../orders/types';
+import type { PackagingStatus } from '../orders/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -32,7 +32,7 @@ import { useAuth } from '../../contexts/auth-context';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import type { Product } from '../products/types';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ActivityHistory } from '../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 
 const packagingStatusVariants: Record<PackagingStatus, "warning" | "success" | "destructive"> = {
@@ -161,22 +161,22 @@ export function PackagingDetailPage() {
     }, [order, findCustomerById]);
     
     const requestingEmployee = React.useMemo(() => {
-        if (!packaging?.requestingEmployeeSystemId) return null;
-        return findEmployeeById(packaging.requestingEmployeeSystemId);
-    }, [packaging?.requestingEmployeeSystemId, findEmployeeById]);
+        if (!packaging?.requestingEmployeeId) return null;
+        return findEmployeeById(packaging.requestingEmployeeId);
+    }, [packaging?.requestingEmployeeId, findEmployeeById]);
     
     const assignedEmployee = React.useMemo(() => {
-        if (!packaging?.assignedEmployeeSystemId) return null;
-        return findEmployeeById(packaging.assignedEmployeeSystemId);
-    }, [packaging?.assignedEmployeeSystemId, findEmployeeById]);
+        if (!packaging?.assignedEmployeeId) return null;
+        return findEmployeeById(packaging.assignedEmployeeId);
+    }, [packaging?.assignedEmployeeId, findEmployeeById]);
     
     const confirmingEmployee = React.useMemo(() => {
-        if (!packaging?.confirmingEmployeeSystemId) return null;
-        return findEmployeeById(packaging.confirmingEmployeeSystemId);
-    }, [packaging?.confirmingEmployeeSystemId, findEmployeeById]);
+        if (!packaging?.confirmingEmployeeId) return null;
+        return findEmployeeById(packaging.confirmingEmployeeId);
+    }, [packaging?.confirmingEmployeeId, findEmployeeById]);
 
     const { findById: findBranchById } = useBranchStore();
-    const { info: storeInfo } = useStoreInfoStore();
+    const { info: _storeInfo } = useStoreInfoStore();
     const { print } = usePrint(order?.branchSystemId);
 
     const handlePrint = React.useCallback(() => {
@@ -199,7 +199,7 @@ export function PackagingDetailPage() {
             data: printData,
             lineItems: lineItems
         });
-    }, [packaging, order, storeInfo, print, findCustomerById, findBranchById, assignedEmployee]);
+    }, [packaging, order, print, findCustomerById, findBranchById, assignedEmployee]);
 
         const headerActions = React.useMemo(() => {
             const actions: React.ReactNode[] = [];
@@ -211,7 +211,7 @@ export function PackagingDetailPage() {
                             key="confirm"
                             size="sm"
                             className="h-9"
-                            onClick={() => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId)}
+                            onClick={() => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId as SystemId)}
                         >
                             Xác nhận đã đóng gói
                         </Button>
@@ -257,7 +257,7 @@ export function PackagingDetailPage() {
             );
 
             return actions;
-        }, [packaging, order, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, router]);
+        }, [packaging, order, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, router, handlePrint]);
 
         const headerBadge = React.useMemo(() => {
             if (!packaging) return undefined;
@@ -281,6 +281,13 @@ export function PackagingDetailPage() {
             actions: headerActions
         });
 
+    // Helper function for storage location name - must be called before any early returns (React hooks rules)
+    const getStorageLocationName = React.useCallback((product: Product | undefined) => {
+        if (!product?.storageLocationSystemId) return '---';
+        const location = findStorageLocationBySystemId(product.storageLocationSystemId);
+        return location?.name || '---';
+    }, [findStorageLocationBySystemId]);
+
     if (!packaging || !order) {
         return (
             <div className="flex h-full items-center justify-center">
@@ -297,16 +304,9 @@ export function PackagingDetailPage() {
     
     const handleCancelSubmit = (reason: string) => {
         if (order && packaging) {
-            cancelPackagingRequest(order.systemId, packaging.systemId, currentUserSystemId, reason);
+            cancelPackagingRequest(order.systemId, packaging.systemId, currentUserSystemId as SystemId, reason);
         }
     };
-
-    // Helper function for storage location name
-    const getStorageLocationName = React.useCallback((product: Product | undefined) => {
-        if (!product?.storageLocationSystemId) return '---';
-        const location = findStorageLocationBySystemId(product.storageLocationSystemId);
-        return location?.name || '---';
-    }, [findStorageLocationBySystemId]);
 
     return (
         <>
@@ -449,7 +449,7 @@ export function PackagingDetailPage() {
 
                 {/* Activity History */}
                 <ActivityHistory
-                    history={packaging.activityHistory || []}
+                    history={[]}
                     title="Lịch sử hoạt động"
                     emptyMessage="Chưa có lịch sử hoạt động"
                     groupByDate

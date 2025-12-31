@@ -84,7 +84,7 @@ export function addProduct(ticketSystemId: SystemId, product: Omit<WarrantyProdu
     products: updatedProducts,
     summary,
     updatedAt: toISODateTime(getCurrentDate()),
-  } as any);
+  } as Parameters<typeof originalUpdate>[1]);
   
   // Add history
   const resolutionLabels: Record<string, string> = {
@@ -124,7 +124,7 @@ export function updateProduct(ticketSystemId: SystemId, productSystemId: SystemI
     products: updatedProducts,
     summary,
     updatedAt: toISODateTime(getCurrentDate()),
-  } as any);
+  } as Parameters<typeof originalUpdate>[1]);
   
   // Add history
   if (updatedProduct) {
@@ -153,7 +153,7 @@ export function removeProduct(ticketSystemId: SystemId, productSystemId: SystemI
     products: updatedProducts,
     summary,
     updatedAt: toISODateTime(getCurrentDate()),
-  } as any);
+  } as Parameters<typeof originalUpdate>[1]);
   
   if (productToRemove) {
     addHistory(ticketSystemId, `Xóa SP: ${productToRemove.productName}`, getCurrentUserName());
@@ -172,7 +172,7 @@ export function recalculateSummary(ticketSystemId: SystemId) {
   originalUpdate(ticketSystemId, {
     ...ticket,
     summary,
-  } as any);
+  } as Parameters<typeof originalUpdate>[1]);
 }
 
 /**
@@ -201,7 +201,7 @@ export function addHistory(
   action: string, 
   performedBy: string, 
   note?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) {
   const ticket = baseStore.getState().data.find(t => t.systemId === ticketSystemId);
   if (!ticket) return;
@@ -219,5 +219,5 @@ export function addHistory(
   originalUpdate(ticketSystemId, {
     ...ticket,
     history: [...(ticket.history || []), historyEntry],
-  } as any);
+  } as Parameters<typeof originalUpdate>[1]);
 }

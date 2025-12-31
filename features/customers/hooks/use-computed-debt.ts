@@ -23,7 +23,7 @@ import type { Customer, DebtTransaction } from '../types';
 import type { Order } from '../../orders/types';
 import type { Receipt } from '../../receipts/types';
 import type { Payment } from '../../payments/types';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import type { SystemId } from '@/lib/id-types';
 import { asSystemId } from '@/lib/id-types';
 
 export type ComputedDebtInfo = {
@@ -141,7 +141,7 @@ function computeCustomerDebtTransactions(
 
   // Calculate running balance
   let runningDebt = 0;
-  const transactionsWithBalance = allTransactions.map(t => {
+  const _transactionsWithBalance = allTransactions.map(t => {
     runningDebt += t._change;
     return t;
   });

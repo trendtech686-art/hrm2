@@ -4,10 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { Calendar } from '../../../components/ui/calendar';
 import { ChartBar } from '../../../components/ui/chart';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
-import { Badge } from '../../../components/ui/badge';
-import { Progress } from '../../../components/ui/progress';
 import { Input } from '../../../components/ui/input';
-import { Slider } from '../../../components/ui/slider';
 import { ArrowUpRight, ArrowDownRight, Users, CreditCard, Activity, DollarSign, Plus, Minus, Send } from 'lucide-react';
 
 export function PreviewDashboard() {

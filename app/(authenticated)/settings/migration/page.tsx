@@ -1,9 +1,12 @@
-'use client';
+import type { Metadata } from 'next'
+import { DataMigrationTool } from '@/components/settings/data-migration-tool'
 
-import React from 'react';
-import { DataMigrationTool } from '@/components/settings/data-migration-tool';
+export const metadata: Metadata = {
+  title: 'Di chuyển dữ liệu',
+  description: 'Công cụ di chuyển dữ liệu',
+}
 
-export default function DataMigrationPage() {
+export default function Page() {
   return (
     <div className="container py-8">
       <h1 className="text-2xl font-bold mb-6 text-center">
@@ -11,5 +14,5 @@ export default function DataMigrationPage() {
       </h1>
       <DataMigrationTool />
     </div>
-  );
+  )
 }

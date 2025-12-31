@@ -1,6 +1,6 @@
 import { createCrudStore } from '../../lib/store-factory';
 import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
-import type { RecurringTask, RecurrencePattern } from './recurring-types';
+import type { RecurringTask } from './recurring-types';
 import type { Task } from './types';
 import { calculateNextOccurrence, shouldContinueRecurrence } from './recurring-types';
 
@@ -185,7 +185,7 @@ export const useRecurringTaskStore = () => {
     },
 
     // Process recurring tasks (should be called daily by cron/scheduler)
-    processRecurringTasks: (taskStore: any) => {
+    processRecurringTasks: (taskStore: { add: (task: Record<string, unknown>) => Task }) => {
       const today = new Date().toISOString().split('T')[0];
       const activeTasks = store.data.filter(rt => rt.isActive && !rt.isPaused);
 

@@ -43,17 +43,17 @@ export function PurchaseOrderFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const [searchParams] = useSearchParamsWithSetter();
   const router = useRouter();
-  const { add, update, findById, data: allOrders, processInventoryReceipt } = usePurchaseOrderStore();
+  const { add, update, findById, data: _allOrders, processInventoryReceipt } = usePurchaseOrderStore();
   const { data: branches } = useBranchStore();
   const { data: employees } = useEmployeeStore();
   const { employee: authEmployee } = useAuth();
   const { data: products, updateInventory, findById: findProductById } = useProductStore();
   const { data: suppliers } = useSupplierStore();
-  const { data: allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
+  const { data: _allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
   const { add: addPayment } = usePaymentStore();
   const { data: paymentTypes } = usePaymentTypeStore();
-  const { accounts } = useCashbookStore();
+  const { accounts: _accounts } = useCashbookStore();
 
   const purchaseOrderSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
   const isEditMode = Boolean(purchaseOrderSystemId);
@@ -72,7 +72,7 @@ export function PurchaseOrderFormPage() {
       });
       router.push(`/purchase-orders/${existingOrder.systemId}`);
     }
-  }, [isEditMode, existingOrder, router, toast]);
+  }, [isEditMode, existingOrder, router]);
 
   // Form state
   const [supplierId, setSupplierId] = React.useState<SystemId | null>(
@@ -248,7 +248,7 @@ export function PurchaseOrderFormPage() {
         description: `Dữ liệu từ đơn ${copyFromOrder.id} đã được điền sẵn. Vui lòng kiểm tra lại trước khi lưu.`,
       });
     }
-  }, [copyFromOrder, isEditMode, findProductById, toast]);
+  }, [copyFromOrder, isEditMode, findProductById]);
 
   // Generate order ID for new orders
   React.useEffect(() => {
@@ -305,8 +305,8 @@ export function PurchaseOrderFormPage() {
 
   const discountAmount =
     discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
-  const totalShippingFees = shippingFees.reduce((sum, fee) => sum + fee.amount, 0);
-  const totalOtherFees = otherFees.reduce((sum, fee) => sum + fee.amount, 0);
+  const _totalShippingFees = shippingFees.reduce((sum, fee) => sum + fee.amount, 0);
+  const _totalOtherFees = otherFees.reduce((sum, fee) => sum + fee.amount, 0);
   const grandTotal = subtotal - discountAmount;
 
   const handleSave = async (receiveImmediately: boolean = false) => {
@@ -563,35 +563,35 @@ export function PurchaseOrderFormPage() {
         if (currentPayments.length > 0) {
           const totalPayments = currentPayments.reduce((sum, p) => sum + p.amount, 0);
           
-          currentPayments.forEach((payment, index) => {
+          currentPayments.forEach((payment, _index) => {
             const paymentCategory = paymentTypes.find(pt => pt.name === 'Thanh toán cho đơn nhập hàng');
 
             const timestamp = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
-            const newPayment: Omit<Payment, 'systemId'> = {
-              id: '' as any, // Let Payment store auto-generate PC-XXXXXX
+            const newPayment = {
+              id: '' as Payment['id'], // Let Payment store auto-generate PC-XXXXXX
               date: timestamp,
               amount: payment.amount,
-              recipientTypeSystemId: 'NHACUNGCAP',
+              recipientTypeSystemId: asSystemId('NHACUNGCAP'),
               recipientTypeName: 'Nhà cung cấp',
               recipientName: supplier?.name || '',
               recipientSystemId: supplier?.systemId,
               description: payment.note || `Thanh toán đơn nhập hàng ${finalOrderId}`,
-              paymentMethodSystemId: payment.paymentMethodSystemId || 'BANK_TRANSFER',
+              paymentMethodSystemId: asSystemId(payment.paymentMethodSystemId || 'BANK_TRANSFER'),
               paymentMethodName: payment.paymentMethodName || 'Chuyển khoản',
-              accountSystemId: '', // TODO: Add accountSystemId to PaymentRecord
-              paymentReceiptTypeSystemId: paymentCategory?.systemId || '',
+              accountSystemId: asSystemId(''), // TODO: Add accountSystemId to PaymentRecord
+              paymentReceiptTypeSystemId: asSystemId(paymentCategory?.systemId || ''),
               paymentReceiptTypeName: paymentCategory?.name || 'Thanh toán cho đơn nhập hàng',
-              branchSystemId,
+              branchSystemId: asSystemId(branchSystemId),
               branchName: branch?.name || '',
-              createdBy: employee?.fullName || '',
+              createdBy: asSystemId(employee?.systemId || ''),
               createdAt: timestamp,
-              status: 'completed',
-              category: 'supplier_payment',
+              status: 'completed' as const,
+              category: 'supplier_payment' as const,
               affectsDebt: true,
-              purchaseOrderSystemId: createdOrder.systemId,
-              purchaseOrderId: createdOrder.id,
+              purchaseOrderSystemId: asSystemId(createdOrder.systemId),
+              purchaseOrderId: asBusinessId(createdOrder.id),
               originalDocumentId: createdOrder.id,
-            } as any;
+            } satisfies Omit<Payment, 'systemId'>;
 
             addPayment(newPayment);
           });
@@ -636,62 +636,62 @@ export function PurchaseOrderFormPage() {
           // Tạo phiếu chi cho từng khoản phí vận chuyển
           currentShippingFees.forEach(fee => {
              if (fee.amount <= 0) return;
-             const feePayment: Omit<Payment, 'systemId'> = {
-              id: '' as any,
+             const feePayment = {
+              id: '' as Payment['id'],
               date: timestamp,
               amount: fee.amount,
-              recipientTypeSystemId: 'KHAC',
+              recipientTypeSystemId: asSystemId('KHAC'),
               recipientTypeName: 'Khác',
               recipientName: 'Đơn vị vận chuyển',
-              recipientSystemId: '',
+              recipientSystemId: asSystemId(''),
               description: `Chi phí vận chuyển cho đơn nhập hàng ${finalOrderId} - ${fee.name}`,
-              paymentMethodSystemId: 'CASH', // Mặc định tiền mặt
+              paymentMethodSystemId: asSystemId('CASH'), // Mặc định tiền mặt
               paymentMethodName: 'Tiền mặt',
-              accountSystemId: '',
-              paymentReceiptTypeSystemId: expenseCategory?.systemId || '',
+              accountSystemId: asSystemId(''),
+              paymentReceiptTypeSystemId: asSystemId(expenseCategory?.systemId || ''),
               paymentReceiptTypeName: 'Chi phí nhập hàng',
-              branchSystemId,
+              branchSystemId: asSystemId(branchSystemId),
               branchName: branch?.name || '',
-              createdBy: employee?.fullName || '',
+              createdBy: asSystemId(employee?.systemId || ''),
               createdAt: timestamp,
-              status: 'completed',
-              category: 'expense',
+              status: 'completed' as const,
+              category: 'expense' as const,
               affectsDebt: false,
-              purchaseOrderSystemId: createdOrder.systemId,
-              purchaseOrderId: createdOrder.id,
+              purchaseOrderSystemId: asSystemId(createdOrder.systemId),
+              purchaseOrderId: asBusinessId(createdOrder.id),
               originalDocumentId: createdOrder.id,
-            } as any;
+            } satisfies Omit<Payment, 'systemId'>;
             addPayment(feePayment);
           });
 
           // Tạo phiếu chi cho từng khoản phí khác
           currentOtherFees.forEach(fee => {
              if (fee.amount <= 0) return;
-             const feePayment: Omit<Payment, 'systemId'> = {
-              id: '' as any,
+             const feePayment = {
+              id: '' as Payment['id'],
               date: timestamp,
               amount: fee.amount,
-              recipientTypeSystemId: 'KHAC',
+              recipientTypeSystemId: asSystemId('KHAC'),
               recipientTypeName: 'Khác',
               recipientName: 'Bên thứ 3',
-              recipientSystemId: '',
+              recipientSystemId: asSystemId(''),
               description: `Chi phí khác cho đơn nhập hàng ${finalOrderId} - ${fee.name}`,
-              paymentMethodSystemId: 'CASH', // Mặc định tiền mặt
+              paymentMethodSystemId: asSystemId('CASH'), // Mặc định tiền mặt
               paymentMethodName: 'Tiền mặt',
-              accountSystemId: '',
-              paymentReceiptTypeSystemId: expenseCategory?.systemId || '',
+              accountSystemId: asSystemId(''),
+              paymentReceiptTypeSystemId: asSystemId(expenseCategory?.systemId || ''),
               paymentReceiptTypeName: 'Chi phí nhập hàng',
-              branchSystemId,
+              branchSystemId: asSystemId(branchSystemId),
               branchName: branch?.name || '',
-              createdBy: employee?.fullName || '',
+              createdBy: asSystemId(employee?.systemId || ''),
               createdAt: timestamp,
-              status: 'completed',
-              category: 'expense',
+              status: 'completed' as const,
+              category: 'expense' as const,
               affectsDebt: false,
-              purchaseOrderSystemId: createdOrder.systemId,
-              purchaseOrderId: createdOrder.id,
+              purchaseOrderSystemId: asSystemId(createdOrder.systemId),
+              purchaseOrderId: asBusinessId(createdOrder.id),
               originalDocumentId: createdOrder.id,
-            } as any;
+            } satisfies Omit<Payment, 'systemId'>;
             addPayment(feePayment);
           });
         }
@@ -699,7 +699,7 @@ export function PurchaseOrderFormPage() {
 
       // Chuyển đến trang chi tiết đơn vừa tạo/cập nhật
       router.push(`/purchase-orders/${createdOrder.systemId}`);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi', {
         description: 'Không thể lưu đơn nhập hàng. Vui lòng thử lại.',
       });

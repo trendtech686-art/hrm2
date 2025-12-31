@@ -43,7 +43,7 @@ export interface TouchButtonProps
  * Follows Apple HIG and Material Design guidelines for touch interfaces
  */
 const TouchButton = React.forwardRef<HTMLButtonElement, TouchButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild: _asChild = false, ...props }, ref) => {
     return (
       <Button
         className={cn(touchButtonVariants({ variant, size, className }))}

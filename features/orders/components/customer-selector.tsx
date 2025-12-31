@@ -7,7 +7,6 @@ import { useCustomerStore } from '../../customers/store';
 import { useOrderStore } from '../store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Separator } from '../../../components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
 import { CustomerForm, type CustomerFormSubmitPayload } from '../../customers/customer-form';
@@ -139,7 +138,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const customerOrders = React.useMemo(() => {
         if (!selectedCustomer) return [];
         return allOrders.filter(order => order.customerSystemId === selectedCustomer.systemId);
-    }, [allOrders, selectedCustomer?.systemId]);
+    }, [allOrders, selectedCustomer]);
 
     // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
     const deliveredCustomerOrders = React.useMemo(() => {
@@ -227,7 +226,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const customerComplaints = React.useMemo(() => {
         if (!selectedCustomer) return [];
         return complaints.filter(complaint => complaint.customerSystemId === selectedCustomer.systemId);
-    }, [selectedCustomer?.systemId, complaints]);
+    }, [selectedCustomer, complaints]);
 
     const customerComplaintCount = customerComplaints.length;
 
@@ -292,7 +291,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         if (!id) return undefined;
         try {
             return findEmployeeById(asSystemId(id))?.fullName;
-        } catch (error) {
+        } catch (_error) {
             return undefined;
         }
     }, [findEmployeeById]);
@@ -517,12 +516,12 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                   <div className="flex-1 min-w-0">
                                     <div className="font-medium truncate">{option.label}</div>
                                     <div className="text-xs text-muted-foreground truncate">
-                                      {option.metadata?.phone} • {option.metadata?.address || 'Chưa có địa chỉ'}
+                                      {(option.metadata as { phone?: string })?.phone} • {(option.metadata as { address?: string })?.address || 'Chưa có địa chỉ'}
                                     </div>
                                   </div>
-                                  {option.metadata?.debt > 0 && (
+                                  {((option.metadata as { debt?: number })?.debt ?? 0) > 0 && (
                                     <div className="text-xs text-destructive font-semibold flex-shrink-0">
-                                      Nợ: {formatCurrency(option.metadata.debt)}
+                                      Nợ: {formatCurrency((option.metadata as { debt?: number }).debt)}
                                     </div>
                                   )}
                                 </div>

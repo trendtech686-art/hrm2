@@ -6,9 +6,10 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { Complaint, ComplaintAction } from '../types';
-import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
+import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
 import type { Order } from '../../orders/types';
 import type { Employee } from '../../employees/types';
+import type { DifferenceReason } from '@/lib/types/prisma-extended';
 
 interface UseInventoryHandlersProps {
   complaint: Complaint | null;
@@ -66,7 +67,18 @@ export function useInventoryHandlers({
       const products = useProductStore.getState().data;
       
       // Build inventory check items
-      const inventoryCheckItems: any[] = [];
+      type DifferenceReason = 'other' | 'damaged' | 'wear' | 'return' | 'transfer' | 'production';
+      const inventoryCheckItems: Array<{
+        productSystemId: SystemId;
+        productId: BusinessId;
+        productName: string;
+        unit: string;
+        systemQuantity: number;
+        actualQuantity: number;
+        difference: number;
+        reason?: DifferenceReason;
+        note?: string;
+      }> = [];
       
       const adjustmentEntries = Object.entries(inventoryAdjustments) as Array<[SystemId, number]>;
 
@@ -78,19 +90,23 @@ export function useInventoryHandlers({
         
         // Get current product to find system quantity
         const product = products.find(p => p.systemId === productSystemId);
-        const branchInventory = (product as any)?.inventory?.find((inv: any) => inv.branchSystemId === branchSystemId);
+        interface ProductWithInventory {
+          inventory?: Array<{ branchSystemId: string; quantity: number }>;
+        }
+        const productWithInv = product as unknown as ProductWithInventory | undefined;
+        const branchInventory = productWithInv?.inventory?.find((inv) => inv.branchSystemId === branchSystemId);
         const systemQuantity = branchInventory?.quantity || 0;
         const actualQuantity = systemQuantity + quantityAdjusted;
         
         inventoryCheckItems.push({
           productSystemId,
-          productId: affectedProduct.productId,
+          productId: asBusinessId(affectedProduct.productId as string),
           productName: affectedProduct.productName,
           unit: product?.unit || 'Cái',
           systemQuantity,
           actualQuantity,
           difference: quantityAdjusted,
-          reason: quantityAdjusted < 0 ? 'damaged' : 'return',
+          reason: (quantityAdjusted < 0 ? 'damaged' : 'return') as DifferenceReason,
           note: reason,
         });
       }
@@ -142,7 +158,7 @@ export function useInventoryHandlers({
       // Update complaint - CHỈ CẬP NHẬT timeline, KHÔNG CẬP NHẬT inventoryAdjustment chung
       updateComplaint(complaint.systemId, {
         timeline: updatedTimeline,
-      } as any);
+      } as Partial<Complaint>);
       
       toast.success(`Đã tạo phiếu kiểm kê ${inventoryCheck.id}`);
       

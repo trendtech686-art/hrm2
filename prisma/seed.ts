@@ -251,7 +251,7 @@ async function seed() {
 
   // 6. Create 100 Employees
   console.log('👥 Creating 100 employees...');
-  const employees: any[] = [];
+  const employees: Array<Record<string, unknown>> = [];
   const employeeTypes = ['FULLTIME', 'PROBATION', 'INTERN', 'PARTTIME'] as const;
   const genders = ['MALE', 'FEMALE'] as const;
 
@@ -281,13 +281,13 @@ async function seed() {
     });
   }
 
-  await prisma.employee.createMany({ data: employees });
+  await prisma.employee.createMany({ data: employees as Parameters<typeof prisma.employee.createMany>[0]['data'] });
   const createdEmployees = await prisma.employee.findMany();
   console.log(`   ✓ Created ${createdEmployees.length} employees`);
 
   // 7. Create 1000 Customers
   console.log('👤 Creating 1000 customers...');
-  const customers: any[] = [];
+  const customers: Array<Record<string, unknown>> = [];
   const customerStatuses = ['ACTIVE', 'INACTIVE'] as const;
   const lifecycleStages = ['LEAD', 'NEW', 'REPEAT', 'LOYAL', 'VIP'] as const;
 
@@ -310,13 +310,13 @@ async function seed() {
     });
   }
 
-  await prisma.customer.createMany({ data: customers });
+  await prisma.customer.createMany({ data: customers as Parameters<typeof prisma.customer.createMany>[0]['data'] });
   const createdCustomers = await prisma.customer.findMany();
   console.log(`   ✓ Created ${createdCustomers.length} customers`);
 
   // 8. Create 1000 Products
   console.log('📦 Creating 1000 products...');
-  const products: any[] = [];
+  const products: Array<Record<string, unknown>> = [];
   const productStatuses = ['ACTIVE', 'INACTIVE'] as const;
   const productTypes = ['PHYSICAL', 'SERVICE'] as const;
 
@@ -341,14 +341,14 @@ async function seed() {
     });
   }
 
-  await prisma.product.createMany({ data: products });
+  await prisma.product.createMany({ data: products as Parameters<typeof prisma.product.createMany>[0]['data'] });
   const createdProducts = await prisma.product.findMany();
   console.log(`   ✓ Created ${createdProducts.length} products`);
 
   // 9. Create 1000 Orders
   console.log('🛒 Creating 1000 orders...');
   const orderStatuses = ['PENDING', 'PROCESSING', 'COMPLETED', 'CANCELLED'] as const;
-  const paymentStatuses = ['UNPAID', 'PARTIAL', 'PAID'] as const;
+  const _paymentStatuses = ['UNPAID', 'PARTIAL', 'PAID'] as const;
 
   for (let i = 1; i <= 1000; i++) {
     const customer = randomElement(createdCustomers);
@@ -359,7 +359,7 @@ async function seed() {
 
     // Create 1-5 line items per order
     const numItems = randomInt(1, 5);
-    const lineItems: any[] = [];
+    const lineItems: Array<Record<string, unknown>> = [];
     let subtotal = 0;
 
     for (let j = 0; j < numItems; j++) {
@@ -407,7 +407,7 @@ async function seed() {
         paidAmount,
         shippingAddress: generateAddress(),
         lineItems: {
-          create: lineItems,
+          create: lineItems as Parameters<typeof prisma.orderLineItem.createMany>[0]['data'],
         },
       },
     });
@@ -421,10 +421,10 @@ async function seed() {
   // 10. Create Attendance Records for December 2024
   console.log('📅 Creating attendance records for December 2024...');
   const attendanceStatuses = ['PRESENT', 'LATE', 'EARLY_LEAVE', 'ABSENT', 'WORK_FROM_HOME'] as const;
-  const attendanceRecords: any[] = [];
+  const attendanceRecords: Array<Record<string, unknown>> = [];
 
   // December 2024 working days (excluding weekends)
-  const december2024 = [];
+  const december2024: Date[] = [];
   for (let day = 1; day <= 31; day++) {
     const date = new Date(2024, 11, day);
     const dayOfWeek = date.getDay();
@@ -470,7 +470,7 @@ async function seed() {
   const batchSize = 1000;
   for (let i = 0; i < attendanceRecords.length; i += batchSize) {
     const batch = attendanceRecords.slice(i, i + batchSize);
-    await prisma.attendanceRecord.createMany({ data: batch });
+    await prisma.attendanceRecord.createMany({ data: batch as Parameters<typeof prisma.attendanceRecord.createMany>[0]['data'] });
     console.log(`   ... Created ${Math.min(i + batchSize, attendanceRecords.length)} attendance records`);
   }
   console.log(`   ✓ Created ${attendanceRecords.length} attendance records`);
@@ -479,7 +479,7 @@ async function seed() {
   console.log('🏖️ Creating leave records...');
   const leaveTypes = ['ANNUAL', 'SICK', 'UNPAID', 'OTHER'] as const;
   const leaveStatuses = ['PENDING', 'APPROVED', 'REJECTED'] as const;
-  const leaves: any[] = [];
+  const leaves: Array<Record<string, unknown>> = [];
 
   for (let i = 0; i < 200; i++) {
     const employee = randomElement(createdEmployees);
@@ -501,7 +501,7 @@ async function seed() {
     });
   }
 
-  await prisma.leave.createMany({ data: leaves });
+  await prisma.leave.createMany({ data: leaves as Parameters<typeof prisma.leave.createMany>[0]['data'] });
   console.log(`   ✓ Created ${leaves.length} leave records`);
 
   // 12. Create Users

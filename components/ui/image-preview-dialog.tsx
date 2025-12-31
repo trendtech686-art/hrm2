@@ -30,7 +30,7 @@ export function ImagePreviewDialog({
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
   const [zoom, setZoom] = React.useState(1);
   const [rotation, setRotation] = React.useState(0);
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [_isFullscreen, setIsFullscreen] = React.useState(false);
   const [position, setPosition] = React.useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
@@ -57,6 +57,22 @@ export function ImagePreviewDialog({
     setIsImageLoading(true);
   }, [initialIndex, open]);
 
+  const handleNext = React.useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+    setZoom(1);
+    setRotation(0);
+    setPosition({ x: 0, y: 0 });
+    setIsImageLoading(true);
+  }, [images.length]);
+
+  const handlePrevious = React.useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    setZoom(1);
+    setRotation(0);
+    setPosition({ x: 0, y: 0 });
+    setIsImageLoading(true);
+  }, [images.length]);
+
   React.useEffect(() => {
     if (!open || images.length === 0) return;
     const offsets = [0, 1, -1, 2];
@@ -82,23 +98,7 @@ export function ImagePreviewDialog({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, currentIndex, images.length]);
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-    setZoom(1);
-    setRotation(0);
-    setPosition({ x: 0, y: 0 });
-    setIsImageLoading(true);
-  };
-
-  const handlePrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-    setZoom(1);
-    setRotation(0);
-    setPosition({ x: 0, y: 0 });
-    setIsImageLoading(true);
-  };
+  }, [open, handleNext, handlePrevious, onOpenChange]);
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 0.25, 3));

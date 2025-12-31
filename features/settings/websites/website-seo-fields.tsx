@@ -24,7 +24,7 @@ import type { WebsiteDefinition } from './types';
 interface WebsiteSeoFieldsProps {
   websiteCode: string;
   website: WebsiteDefinition;
-  form: UseFormReturn<any>;
+  form: UseFormReturn<Record<string, unknown>>;
   fieldPrefix: string; // e.g., 'websiteSeo.pkgx'
   showRichEditor?: boolean; // Show TipTap for long description
   editorSessionId?: string;
@@ -32,7 +32,7 @@ interface WebsiteSeoFieldsProps {
 }
 
 export function WebsiteSeoFields({
-  websiteCode,
+  websiteCode: _websiteCode,
   website,
   form,
   fieldPrefix,

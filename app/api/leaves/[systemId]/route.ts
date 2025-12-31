@@ -53,16 +53,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const {
       status,
       approvedBy,
-      notes,
+      reason,
+      rejectionReason,
       updatedBy,
     } = body;
 
-    const updateData: any = {
+    const updateData: Parameters<typeof prisma.leave.update>[0]['data'] = {
       updatedAt: new Date(),
     };
     
     if (status !== undefined) updateData.status = status;
-    if (notes !== undefined) updateData.notes = notes;
+    if (reason !== undefined) updateData.reason = reason;
+    if (rejectionReason !== undefined) updateData.rejectionReason = rejectionReason;
     if (updatedBy !== undefined) updateData.updatedBy = updatedBy;
     
     // If approving, set approvedBy and approvedAt

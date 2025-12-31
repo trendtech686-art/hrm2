@@ -16,7 +16,7 @@ export function buildHierarchyMaps(
   const childMap = new Map<string, string[]>();
 
   employees.forEach(e => {
-    const currentManagerId = pendingChanges.hasOwnProperty(e.systemId)
+    const currentManagerId = Object.hasOwn(pendingChanges, e.systemId)
       ? pendingChanges[e.systemId]
       : e.managerId;
     parentIdMap.set(e.systemId, currentManagerId || 'root');

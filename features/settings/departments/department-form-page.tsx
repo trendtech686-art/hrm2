@@ -15,7 +15,7 @@ export function DepartmentFormPage() {
   const { findById, update, add } = useDepartmentStore();
   
   const isEditMode = !!id;
-  const department = (isEditMode ? findById(id as any) : null) ?? null;
+  const department = (isEditMode ? findById(id) : null) ?? null;
 
   const backPath = ROUTES.HRM.DEPARTMENTS;
   const headerActions = React.useMemo(() => [

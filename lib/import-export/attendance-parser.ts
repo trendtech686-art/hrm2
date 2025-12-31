@@ -147,7 +147,7 @@ function parseDateRange(text: string): { from: string; to: string; month: number
  * N (13): Nghỉ không phép
  * O (14): Nghỉ phép
  */
-function parseAttendanceRow(row: unknown[], excelRow: number): AttendanceImportRow {
+function parseAttendanceRow(row: unknown[], _excelRow: number): AttendanceImportRow {
   const getNumber = (value: unknown): number => {
     if (value === undefined || value === null || value === '') return 0;
     const num = Number(value);

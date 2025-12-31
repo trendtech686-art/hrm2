@@ -14,7 +14,7 @@ type SliderProps = Omit<React.HTMLAttributes<HTMLSpanElement>, 'onValueChange' |
 };
 
 const Slider = React.forwardRef<HTMLSpanElement, SliderProps>(
-  ({ className, value, defaultValue, onValueChange, min = 0, max = 100, step = 1, disabled = false, ...props }, ref) => {
+  ({ className, value, defaultValue, onValueChange, min = 0, max = 100, step = 1, disabled = false, ...props }, _ref) => {
     
     const [internalValue, setInternalValue] = React.useState<readonly number[]>(defaultValue || [min]);
     const isControlled = value !== undefined;

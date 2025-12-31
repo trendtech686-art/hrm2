@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Wallet, Calendar as CalendarIcon, CheckCircle2, Check } from 'lucide-react';
+import { Users, Wallet, Calendar as CalendarIcon, Check } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -27,12 +27,12 @@ import { Checkbox } from '../../components/ui/checkbox';
 import type { ColumnDef } from '../../components/data-table/types';
 import type { Employee } from '../employees/types';
 import { PayrollSummaryCards } from './components/summary-cards';
-import { payrollEngine, type CalculatedPayslip, type PayrollCalculationResult } from '../../lib/payroll-engine';
+import { payrollEngine, type PayrollCalculationResult } from '../../lib/payroll-engine';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
 import { cn } from '../../lib/utils';
-import { buildPayPeriodFromMonthKey, getCurrentDateInTimezone, formatLocalDateString } from '../../lib/date-utils';
+import { buildPayPeriodFromMonthKey, getCurrentDateInTimezone } from '../../lib/date-utils';
 
 const STEPS = [
   { id: 'period', name: 'Kỳ lương', description: 'Chọn tháng, ngày chi trả và template mặc định.' },
@@ -468,6 +468,7 @@ export function PayrollRunPage() {
     });
   }, [templates, defaultTemplateSystemId]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- employeeData triggers re-evaluation when store changes
   const employees = React.useMemo(() => getActive(), [employeeData, getActive]);
   const employeeLookup = React.useMemo(() => {
     return employees.reduce<Record<SystemId, (typeof employees)[number]>>(
@@ -556,7 +557,7 @@ export function PayrollRunPage() {
       reasons.push(`Chưa có snapshot chấm công đã khóa cho: ${names}${remaining}.`);
     }
     return reasons;
-  }, [formState.monthKey, isSelectedMonthLocked, pendingLeavesInMonth.length, snapshotBlockingEmployees]);
+  }, [selectedMonthLabel, isSelectedMonthLocked, pendingLeavesInMonth.length, snapshotBlockingEmployees]);
 
   const canProceedStep1 = Boolean(formState.monthKey && formState.payrollDate && formState.templateSystemId);
   const canProceedStep2 = formState.selectedEmployeeSystemIds.length > 0;
@@ -639,7 +640,7 @@ export function PayrollRunPage() {
     setIsPreviewLoading(false);
   }, [currentStep, formState.selectedEmployeeSystemIds, formState.monthKey, payrollComponents, employeeData]);
 
-  const handleSelectEmployee = (systemId: SystemId, checked: boolean) => {
+  const handleSelectEmployee = React.useCallback((systemId: SystemId, checked: boolean) => {
     setFormState((prev) => ({
       ...prev,
       selectedEmployeeSystemIds: checked
@@ -648,14 +649,14 @@ export function PayrollRunPage() {
             : [...prev.selectedEmployeeSystemIds, systemId])
         : prev.selectedEmployeeSystemIds.filter((id) => id !== systemId),
     }));
-  };
+  }, []);
 
-  const handleSelectAll = (checked: boolean) => {
+  const handleSelectAll = React.useCallback((checked: boolean) => {
     setFormState((prev) => ({
       ...prev,
       selectedEmployeeSystemIds: checked ? filteredEmployees.map((employee) => employee.systemId) : [],
     }));
-  };
+  }, [filteredEmployees]);
 
   // Employee selection columns with handlers
   const employeeSelectionColumns = React.useMemo(
@@ -665,7 +666,7 @@ export function PayrollRunPage() {
       handleSelectAll,
       filteredEmployees
     ),
-    [formState.selectedEmployeeSystemIds, filteredEmployees]
+    [formState.selectedEmployeeSystemIds, filteredEmployees, handleSelectEmployee, handleSelectAll]
   );
 
   // Paginated employee data

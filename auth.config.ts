@@ -1,4 +1,4 @@
-import type { NextAuthConfig } from "next-auth"
+import type { NextAuthConfig, Session } from "next-auth"
 
 // NOTE: We can't import prisma here because this file is used by middleware (Edge runtime)
 // The actual database check happens in auth.ts
@@ -20,7 +20,7 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.id as string
         session.user.role = token.role as string
         session.user.employeeId = token.employeeId as string | undefined
-        session.user.employee = token.employee as any
+        session.user.employee = token.employee as Session['user']['employee']
       }
       return session
     },

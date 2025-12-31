@@ -59,7 +59,7 @@ export function AccountList({
   onAddAccount,
   onEditAccount,
   onAccountsChange,
-  onSelectAccountForAddresses,
+  onSelectAccountForAddresses: _onSelectAccountForAddresses,
 }: AccountListProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<string | null>(null);

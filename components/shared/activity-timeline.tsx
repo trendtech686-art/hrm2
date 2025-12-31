@@ -10,11 +10,8 @@ import {
   AlertCircle,
   Trash2,
   Upload,
-  Download,
   Edit,
   Plus,
-  ArrowUpCircle,
-  ArrowDownCircle,
 } from 'lucide-react';
 import { formatDistanceToNow, format, isToday, isYesterday, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -37,7 +34,7 @@ export type ActivityType =
   | 'due_date_changed'
   | 'description_changed';
 
-export type Activity<T = any> = {
+export type Activity<T = unknown> = {
   id: string;
   type: ActivityType;
   userId: string;
@@ -48,7 +45,7 @@ export type Activity<T = any> = {
   createdAt: Date | string;
 };
 
-export interface ActivityTimelineProps<T = any> {
+export interface ActivityTimelineProps<T = unknown> {
   activities: Activity<T>[];
   currentUserId?: string; // Highlight current user's activities
   maxHeight?: string; // ScrollArea max height
@@ -169,7 +166,7 @@ const formatActivityDate = (date: Date | string) => {
   return format(parsedDate, 'dd/MM/yyyy', { locale: vi });
 };
 
-const formatActivityTime = (date: Date | string) => {
+const _formatActivityTime = (date: Date | string) => {
   const parsedDate = typeof date === 'string' ? parseISO(date) : date;
   return format(parsedDate, 'HH:mm', { locale: vi });
 };
@@ -250,22 +247,22 @@ function ActivityItem<T>({
                   {'oldValue' in activity.metadata && 'newValue' in activity.metadata && (
                     <div className="flex items-center gap-2 text-xs">
                       <Badge variant="outline" className="font-mono">
-                        {String((activity.metadata as any).oldValue)}
+                        {String((activity.metadata as Record<string, unknown>).oldValue)}
                       </Badge>
                       <span className="text-muted-foreground">→</span>
                       <Badge variant="outline" className="font-mono">
-                        {String((activity.metadata as any).newValue)}
+                        {String((activity.metadata as Record<string, unknown>).newValue)}
                       </Badge>
                     </div>
                   )}
                   {'comment' in activity.metadata && (
                     <div className="mt-2 p-2 rounded-lg bg-muted/50 border text-sm">
-                      {String((activity.metadata as any).comment)}
+                      {String((activity.metadata as Record<string, unknown>).comment)}
                     </div>
                   )}
                   {'fileName' in activity.metadata && (
                     <Badge variant="secondary" className="text-xs">
-                      {String((activity.metadata as any).fileName)}
+                      {String((activity.metadata as Record<string, unknown>).fileName)}
                     </Badge>
                   )}
                 </div>
@@ -299,7 +296,7 @@ function ActivityItem<T>({
 // Main ActivityTimeline Component
 // ============================================================================
 
-export function ActivityTimeline<T = any>({
+export function ActivityTimeline<T = unknown>({
   activities,
   currentUserId,
   maxHeight = '600px',
@@ -363,7 +360,7 @@ export function ActivityTimeline<T = any>({
 
                 {/* Activities for this date */}
                 <div className="space-y-0">
-                  {activities.map((activity, index) => (
+                  {activities.map((activity) => (
                     <ActivityItem
                       key={activity.id}
                       activity={activity}

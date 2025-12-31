@@ -87,7 +87,7 @@ const resetStores = (monthKey: string) => {
   attendanceStore.unlockMonth(monthKey);
 };
 
-const buildAttendanceRows = (employees: Employee[], monthKey: string): AttendanceDataRow[] =>
+const buildAttendanceRows = (employees: Employee[], _monthKey: string): AttendanceDataRow[] =>
   employees.map((employee, index) => {
     const workDays = 21 + ((index + 1) % 3);
     const leaveDays = index % 3 === 0 ? 1 : 0;
@@ -129,7 +129,7 @@ const ensurePayrollProfiles = (employeeSystemIds: SystemId[]) => {
     const slicePoint = index % componentIds.length;
     const customizedComponentIds = slicePoint ? componentIds.slice(0, slicePoint + 1) : componentIds;
 
-    compStore.assignComponents(systemId as any, {
+    compStore.assignComponents(systemId, {
       salaryComponentSystemIds: customizedComponentIds,
       paymentMethod: index % 2 === 0 ? 'bank_transfer' : 'cash',
       payrollBankAccount:

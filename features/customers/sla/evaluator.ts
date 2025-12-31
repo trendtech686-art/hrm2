@@ -41,7 +41,7 @@ function getAssignee(customer: Customer, slaType: CustomerSlaType) {
   return 'Chưa phân công';
 }
 
-function getLastActivity(customer: Customer, slaType: CustomerSlaType) {
+function _getLastActivity(customer: Customer, slaType: CustomerSlaType) {
   if (slaType === 'debt-payment') {
     return customer.oldestDebtDueDate || customer.updatedAt || customer.createdAt || MIN_DATE;
   }

@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import {
@@ -5,7 +7,6 @@ import {
   ChevronRightIcon,
   DotFilledIcon,
 } from "@radix-ui/react-icons"
-import { type VariantProps } from "class-variance-authority"
 
 import { cn } from "../../lib/utils"
 import { useModal } from "../../contexts/modal-context"
@@ -74,20 +75,23 @@ const DropdownMenuContent = React.forwardRef<
     hideOverlay?: boolean;
     id?: string;
   }
->(({ className, sideOffset = 4, hideOverlay = false, id: propId, ...props }, ref) => {
+>(({ className, sideOffset = 4, hideOverlay: __hideOverlay = false, id: propId, ...props }, ref) => {
+  // Always call useId unconditionally (React hooks rule)
+  const generatedId = React.useId();
   // Use either the prop id or the id from context
   const contextId = React.useContext(DropdownMenuContext);
-  const id = propId || contextId || `dropdown-${React.useId()}`;
+  const id = propId || contextId || `dropdown-${generatedId}`;
   
   // Get open state from props
   const [open, setOpen] = React.useState(false);
+  const dataState = props["data-state"];
   React.useEffect(() => {
-    if (props["data-state"] === "open") {
+    if (dataState === "open") {
       setOpen(true);
     } else {
       setOpen(false);
     }
-  }, [props["data-state"]]);
+  }, [dataState]);
   
   // Register with our modal context
   const { zIndex } = useModal(id, open, 'dropdown');

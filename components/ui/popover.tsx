@@ -24,19 +24,22 @@ const PopoverContent = React.forwardRef<
     id?: string;
   }
 >(({ className, align = "center", sideOffset = 4, id: propId, ...props }, ref) => {
+  // Always call useId unconditionally (React hooks rule)
+  const generatedId = React.useId();
   // Use either the prop id or the id from context
   const contextId = React.useContext(PopoverContext);
-  const id = propId || contextId || `popover-${React.useId()}`;
+  const id = propId || contextId || `popover-${generatedId}`;
   
   // Get open state from props
   const [open, setOpen] = React.useState(false);
+  const dataState = props["data-state"];
   React.useEffect(() => {
-    if (props["data-state"] === "open") {
+    if (dataState === "open") {
       setOpen(true);
     } else {
       setOpen(false);
     }
-  }, [props["data-state"]]);
+  }, [dataState]);
   
   // Register with our modal context
   const { zIndex } = useModal(id, open, 'popover');

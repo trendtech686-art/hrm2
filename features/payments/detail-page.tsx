@@ -51,14 +51,14 @@ export function PaymentDetailPage() {
     [systemId, findById]
   );
 
-  const handlePrint = () => {
+  const handlePrint = React.useCallback(() => {
     if (!payment) return;
     
     const storeSettings = createStoreSettings(storeInfo);
     const forPrint = convertPaymentForPrint(payment);
     
     print('payment', { data: mapPaymentToPrintData(forPrint, storeSettings) });
-  };
+  }, [payment, storeInfo, print]);
 
   // Get current employee for comments
   const currentEmployee = React.useMemo(() => {
@@ -198,7 +198,7 @@ export function PaymentDetailPage() {
     }
 
     return actions;
-  }, [router, payment]);
+  }, [router, payment, handlePrint]);
 
   const detailSubtitle = React.useMemo(() => {
     if (!payment) return '�ang t?i th�ng tin phi?u chi';

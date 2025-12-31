@@ -170,22 +170,7 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
     form.reset(defaultValues);
   }, [defaultValues, form]);
 
-  if (missingConfigs.length > 0) {
-    return (
-      <Alert variant="destructive" className="space-y-3">
-        <div>
-          <AlertTitle>Thiếu cấu hình bắt buộc</AlertTitle>
-          <AlertDescription>
-            {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu thu.`}
-          </AlertDescription>
-        </div>
-        <Button type="button" variant="outline" onClick={() => router.push(ROUTES.SETTINGS.PAYMENTS)}>
-          Mở Cài đặt thanh toán
-        </Button>
-      </Alert>
-    );
-  }
-
+  // All hooks must be called before any early returns (React hooks rules)
   // Watch paymentMethodSystemId và payerTypeSystemId để filter
   const paymentMethodSystemId = form.watch('paymentMethodSystemId');
   const payerTypeSystemId = form.watch('payerTypeSystemId');
@@ -279,6 +264,23 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
     // KHAC -> empty (manual input)
     return [];
   }, [selectedTargetGroup, customers, suppliers, employees, shippingPartners]);
+
+  // Early return after all hooks have been called
+  if (missingConfigs.length > 0) {
+    return (
+      <Alert variant="destructive" className="space-y-3">
+        <div>
+          <AlertTitle>Thiếu cấu hình bắt buộc</AlertTitle>
+          <AlertDescription>
+            {`Vui lòng tạo ${missingConfigs.join(', ')} trong Cài đặt › Thanh toán trước khi lập phiếu thu.`}
+          </AlertDescription>
+        </div>
+        <Button type="button" variant="outline" onClick={() => router.push(ROUTES.SETTINGS.PAYMENTS)}>
+          Mở Cài đặt thanh toán
+        </Button>
+      </Alert>
+    );
+  }
 
   const handleSubmit = (data: ReceiptFormValues) => {
     // Tự động điền tên từ systemId đã chọn

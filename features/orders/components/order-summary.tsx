@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { useFormContext, useWatch, useFieldArray, Controller } from 'react-hook-form';
-import { PlusCircle, X, RefreshCw } from 'lucide-react';
+import { PlusCircle, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { FormField, FormItem, FormLabel, FormControl } from '../../../components/ui/form';
 import { NumberInput } from '../../../components/ui/number-input';
 import { CurrencyInput } from '../../../components/ui/currency-input';
 import { Separator } from '../../../components/ui/separator';
@@ -72,11 +71,11 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
     
     const voucherDiscount = Number(voucherAmount) || 0;
 
-    const totalPaid = payments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+    const totalPaid = payments.reduce((sum: number, p: { amount?: number | string }) => sum + (Number(p.amount) || 0), 0);
     const amountRemaining = grandTotal - totalPaid;
     
     // Mock function to get suggested shipping fee
-    const handleGetSuggestedFee = React.useCallback(() => {
+    const _handleGetSuggestedFee = React.useCallback(() => {
         if (deliveryMethod !== 'shipping-partner') {
             alert('Vui lòng chọn phương thức "Đẩy qua hãng vận chuyển"');
             return;
@@ -198,7 +197,7 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
           {/* Phí dịch vụ khác */}
           {serviceFees && serviceFees.length > 0 && (
             <>
-              {serviceFees.map((fee: any, index: number) => (
+              {serviceFees.map((fee: { name?: string; amount?: number }, index: number) => (
                 <div key={index} className="flex items-center justify-between py-1 text-orange-600">
                   <span className="text-sm">{fee.name}</span>
                   <span className="font-medium">+{formatCurrency(fee.amount)}</span>

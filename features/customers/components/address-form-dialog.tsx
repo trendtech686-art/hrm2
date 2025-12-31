@@ -180,10 +180,10 @@ export function AddressFormDialog({
         }
         // If still not found, create a virtual entry for display
         return [{
-          systemId: `D${formData.districtId}` as any,
+          systemId: `D${formData.districtId}` as `D${number}`,
           id: formData.districtId,
           name: formData.district,
-          provinceId: selectedProvince.id as any,
+          provinceId: selectedProvince.id,
         }, ...districtsFromProvince];
       }
     }
@@ -336,7 +336,7 @@ export function AddressFormDialog({
         districtName = mapping.districtName;
         districtId = mapping.districtId;
         autoFilled = true;
-      } catch (error) {
+      } catch (_error) {
         showValidationError('Không tìm thấy quận/huyện tương ứng với phường/xã đã chọn.');
         return;
       }

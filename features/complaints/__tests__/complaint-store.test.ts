@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useComplaintStore } from '../store';
-import { asSystemId, asBusinessId } from '../../../lib/id-types';
+import { asSystemId } from '../../../lib/id-types';
 
 describe('Complaint Store', () => {
   beforeEach(() => {

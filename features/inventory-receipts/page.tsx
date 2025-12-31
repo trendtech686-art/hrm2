@@ -199,7 +199,7 @@ const getColumns = (
 
 export function InventoryReceiptsPage() {
   const { data: receipts } = useInventoryReceiptStore();
-  const { data: allPurchaseOrders } = usePurchaseOrderStore();
+  const { data: _allPurchaseOrders } = usePurchaseOrderStore();
   const { data: suppliers, findById: findSupplierById } = useSupplierStore();
   const { data: branches, findById: findBranchById } = useBranchStore();
   const { info: storeInfo } = useStoreInfoStore();
@@ -263,7 +263,9 @@ export function InventoryReceiptsPage() {
     if (stored) {
       try {
         return JSON.parse(stored);
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore JSON parse errors - use default
+      }
     }
     return {};
   });
@@ -287,8 +289,8 @@ export function InventoryReceiptsPage() {
 
   const handlePrintReceipt = React.useCallback((receipt: InventoryReceipt) => {
     // Use helper to prepare print data
-    const branch = findBranchById(receipt.branchSystemId);
-    const supplier = findSupplierById(receipt.supplierSystemId);
+    const branch = receipt.branchSystemId ? findBranchById(receipt.branchSystemId) : undefined;
+    const supplier = receipt.supplierSystemId ? findSupplierById(receipt.supplierSystemId) : undefined;
     const storeSettings = branch 
       ? createStoreSettings(branch)
       : createStoreSettings(storeInfo);
@@ -390,15 +392,15 @@ export function InventoryReceiptsPage() {
   }, [isMobile, mobileLoadedCount, filteredData]);
   
   const sortedData = React.useMemo(() => {
-    let sorted = [...filteredData];
+    const sorted = [...filteredData];
     if (sorting && sorting.id) {
       sorted.sort((a, b) => {
-        const aVal = (a as any)[sorting.id];
-        const bVal = (b as any)[sorting.id];
+        const aVal = a[sorting.id as keyof InventoryReceipt];
+        const bVal = b[sorting.id as keyof InventoryReceipt];
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'receivedDate') {
-          const aTime = aVal ? new Date(aVal).getTime() : 0;
-          const bTime = bVal ? new Date(bVal).getTime() : 0;
+          const aTime = aVal ? new Date(aVal as string | number | Date).getTime() : 0;
+          const bTime = bVal ? new Date(bVal as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aVal === bVal) return 0;
@@ -445,8 +447,8 @@ export function InventoryReceiptsPage() {
       // Ưu tiên dùng chi nhánh user chọn, nếu không thì dùng chi nhánh của phiếu
       const branch = branchSystemId 
         ? findBranchById(branchSystemId)
-        : findBranchById(receipt.branchSystemId);
-      const supplier = findSupplierById(receipt.supplierSystemId);
+        : (receipt.branchSystemId ? findBranchById(receipt.branchSystemId) : undefined);
+      const supplier = receipt.supplierSystemId ? findSupplierById(receipt.supplierSystemId) : undefined;
       const storeSettings = branch 
         ? createStoreSettings(branch)
         : createStoreSettings(storeInfo);

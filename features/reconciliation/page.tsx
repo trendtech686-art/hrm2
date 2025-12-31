@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useOrderStore } from '../orders/store';
-import type { Order, Packaging } from '../orders/types';
+import type { Packaging } from '../orders/types';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { getColumns } from './columns';
 import { Card, CardContent, CardTitle } from '../../components/ui/card';
@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
 import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
 import { reconciliationConfig } from '../../lib/import-export/configs/reconciliation.config';
-import { asSystemId } from '../../lib/id-types';
+import { asSystemId, type SystemId } from '../../lib/id-types';
 import { Badge } from '../../components/ui/badge';
 import { formatDate } from '../../lib/date-utils';
 import { useAuth } from '../../contexts/auth-context';
@@ -27,7 +27,7 @@ const formatCurrency = (value?: number) => {
 };
 
 export type ReconciliationItem = Packaging & {
-    orderSystemId: string;
+    orderSystemId: SystemId;
     orderId: string;
     customerName: string;
 };
@@ -36,7 +36,7 @@ export function ReconciliationPage() {
     const { data: allOrders, confirmCodReconciliation } = useOrderStore();
     const { employee: authEmployee } = useAuth();
     const { isMobile } = useBreakpoint();
-    const currentEmployeeSystemId = authEmployee?.systemId ?? 'SYSTEM';
+    const currentEmployeeSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
     const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
     const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
@@ -53,7 +53,9 @@ export function ReconciliationPage() {
             try {
                 const parsed = JSON.parse(stored);
                 if (allColumnIds.every(id => id in parsed)) return parsed;
-            } catch (e) {}
+            } catch (_e) {
+                // Ignore JSON parse errors - use default
+            }
         }
         const initial: Record<string, boolean> = {};
         cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -75,7 +77,7 @@ export function ReconciliationPage() {
                 if (pkg.deliveryStatus === 'Đã giao hàng' && pkg.codAmount && pkg.codAmount > 0 && pkg.reconciliationStatus !== 'Đã đối soát') {
                     items.push({
                         ...pkg,
-                        orderSystemId: order.systemId,
+                        orderSystemId: asSystemId(order.systemId),
                         orderId: order.id,
                         customerName: order.customerName,
                     });
@@ -99,8 +101,8 @@ export function ReconciliationPage() {
 
     const sortedData = React.useMemo(() => {
         return [...filteredData].sort((a, b) => {
-            const aVal = (a as any)[sorting.id];
-            const bVal = (b as any)[sorting.id];
+            const aVal = (a as Record<string, unknown>)[sorting.id];
+            const bVal = (b as Record<string, unknown>)[sorting.id];
             if (!aVal) return 1;
             if (!bVal) return -1;
             if (aVal < bVal) return sorting.desc ? 1 : -1;
@@ -126,8 +128,8 @@ export function ReconciliationPage() {
     };
     
     // Page header configuration
-    const pendingCount = reconciliationList.length;
-    const pendingCodTotal = React.useMemo(() =>
+    const _pendingCount = reconciliationList.length;
+    const _pendingCodTotal = React.useMemo(() =>
         reconciliationList.reduce((total, item) => total + (item.codAmount ?? 0), 0),
     [reconciliationList]);
     const selectedCount = React.useMemo(() => Object.keys(rowSelection).length, [rowSelection]);
@@ -151,7 +153,7 @@ export function ReconciliationPage() {
                 Xác nhận đã nhận tiền ({selectedCount})
             </Button>
         ]
-    }), [pendingCount, pendingCodTotal, selectedCount]));
+    }), [selectedCount]));
     
     const columns = React.useMemo(() => getColumns(), []);
     

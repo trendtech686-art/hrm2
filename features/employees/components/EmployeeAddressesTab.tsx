@@ -1,9 +1,6 @@
 import * as React from "react";
-import { UseFormReturn } from "react-hook-form";
-import { Button } from "../../../components/ui/button";
-import type { EmployeeFormValues } from "../employee-form";
+import { Button } from "@/components/ui/button";
 import type { EmployeeAddress } from "../types";
-import type { CustomerAddress } from "../../customers/types";
 
 // Helper type for local form state for addresses
 export type AddressParts = {

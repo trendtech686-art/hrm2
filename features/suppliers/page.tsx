@@ -8,10 +8,6 @@ import { ResponsiveDataTable } from "../../components/data-table/responsive-data
 import { PageToolbar } from "../../components/layout/page-toolbar"
 import { PageFilters } from "../../components/layout/page-filters"
 import {
-  Card,
-  CardContent,
-} from "../../components/ui/card"
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -38,7 +34,7 @@ import { useBranchStore } from "../settings/branches/store";
 import { useAuth } from "../../contexts/auth-context";
 
 export function SuppliersPage() {
-  const { data: suppliersRaw, remove, restore, getActive, getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
+  const { data: suppliersRaw, remove, restore, getActive, getDeleted: _getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
   const { data: branches } = useBranchStore();
   const { employee: currentUser } = useAuth();
   const router = useRouter();
@@ -53,7 +49,7 @@ export function SuppliersPage() {
   
   // Calculate deleted count reactively
   const deletedCount = React.useMemo(() => 
-    suppliers.filter((s: any) => s.isDeleted).length, 
+    suppliers.filter((s) => s.isDeleted).length, 
     [suppliers]
   );
   
@@ -109,7 +105,9 @@ export function SuppliersPage() {
       try {
         const parsed = JSON.parse(stored);
         if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (e) {}
+      } catch (_e) {
+        // Ignore JSON parse errors - use default
+      }
     }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
@@ -160,10 +158,12 @@ export function SuppliersPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is stable, only run on mount
   }, []);
 
   // ✅ Cache active and deleted suppliers
-  const activeSuppliers = React.useMemo(() => getActive(), [suppliers]);
+// eslint-disable-next-line react-hooks/exhaustive-deps -- suppliers triggers re-render when store changes
+const activeSuppliers = React.useMemo(() => getActive(), [suppliers, getActive]);
 
   const fuse = React.useMemo(() => new Fuse(activeSuppliers, { keys: ["name", "taxCode", "phone", "email"] }), [activeSuppliers]);
 
@@ -179,7 +179,7 @@ export function SuppliersPage() {
     setIdToDelete(null)
   }
 
-  const handleAddNew = () => {
+  const _handleAddNew = () => {
     router.push('/suppliers/new');
   };
 
@@ -194,12 +194,12 @@ export function SuppliersPage() {
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         // Special handling for date columns
         if (sorting.id === 'createdAt') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
           if (aTime === bTime) {
             const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
@@ -350,7 +350,7 @@ export function SuppliersPage() {
     });
     
     if (addedCount > 0 || updatedCount > 0) {
-      const messages = [];
+      const messages: string[] = [];
       if (addedCount > 0) messages.push(`${addedCount} nhà cung cấp mới`);
       if (updatedCount > 0) messages.push(`${updatedCount} nhà cung cấp cập nhật`);
       toast.success(`Đã import: ${messages.join(', ')}`);

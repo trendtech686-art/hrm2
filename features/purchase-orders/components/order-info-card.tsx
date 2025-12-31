@@ -39,12 +39,12 @@ interface OrderInfoCardProps {
 export function OrderInfoCard({
   branchSystemId,
   employeeSystemId,
-  reference,
+  reference: _reference,
   orderId,
   deliveryDate,
   onBranchChange,
   onEmployeeChange,
-  onReferenceChange,
+  onReferenceChange: _onReferenceChange,
   onOrderIdChange,
   onDeliveryDateChange,
 }: OrderInfoCardProps) {

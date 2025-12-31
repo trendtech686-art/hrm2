@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Fuse from 'fuse.js';
 import * as XLSX from 'xlsx';
-import { Printer, FileSpreadsheet, FileText } from 'lucide-react';
+import { Printer, FileSpreadsheet } from 'lucide-react';
 import { ResponsiveDataTable, type BulkAction } from './responsive-data-table';
 import { DataTableToolbar } from './data-table-toolbar';
 import { DataTableExportDialog } from './data-table-export-dialog';
@@ -9,7 +9,7 @@ import type { ColumnDef } from './types';
 import { DataTableColumnCustomizer } from './data-table-column-toggle';
 import { Checkbox } from '../ui/checkbox';
 import { useDefaultPageSize } from '../../features/settings/global-settings-store';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, getDaysDiff, getMonthsDiff, addDays, addMonths, subtractDays, subtractMonths, getStartOfDay, getEndOfDay, getStartOfMonth, getEndOfMonth, getStartOfWeek, getEndOfWeek, toISODate, toISODateTime, isValidDate, parseDate } from '../../lib/date-utils';
+import { isDateSame, isDateAfter, isDateBefore, parseDate, isValidDate, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
 // FIX: Changed generic constraint from `id` to `systemId` to match application data structure
 interface DrilldownSearchState {
   query: string;
@@ -142,14 +142,14 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     const sorted = [...filteredData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
         // Special handling for date columns - parse as Date for proper comparison
         if (sorting.id === 'createdAt' || sorting.id === 'date' || sorting.id === 'orderDate' || sorting.id.toLowerCase().includes('date')) {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
         if (aValue < bValue) return sorting.desc ? 1 : -1;
@@ -189,7 +189,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
           className="translate-y-[2px]"
         />
       ),
-      cell: ({ row, isSelected, onToggleSelect }) => (
+      cell: ({ isSelected, onToggleSelect }) => (
         <Checkbox
           checked={isSelected}
           onCheckedChange={(value) => onToggleSelect?.(!!value)}
@@ -219,10 +219,10 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     const handleExportExcel = (rows: TData[]) => {
       const headers = exportableColumns.map(col => col.meta?.displayName ?? col.id);
       const mappedData = rows.map(row => {
-        const rowData: Record<string, any> = {};
+        const rowData: Record<string, unknown> = {};
         exportableColumns.forEach(col => {
           const key = col.accessorKey as keyof TData;
-          rowData[col.meta?.displayName ?? col.id] = (row as any)[key as string];
+          rowData[col.meta?.displayName ?? col.id] = (row as Record<string, unknown>)[key as string];
         });
         return rowData;
       });
@@ -260,7 +260,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
                   <tr>
                     ${exportableColumns.map(col => {
                       const key = col.accessorKey as keyof TData;
-                      const value = (row as any)[key as string] ?? '';
+                      const value = (row as Record<string, unknown>)[key as string] ?? '';
                       return `<td>${value}</td>`;
                     }).join('')}
                   </tr>

@@ -13,62 +13,62 @@ model Packaging {
   updatedAt   DateTime        @updatedAt
   createdBy   String?
   items       PackagingItem[]
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Dates
-  requestDate       DateTime        @default(now())
-  confirmDate       DateTime?
-  cancelDate        DateTime?
-  deliveredDate     DateTime?
-  
+  requestDate   DateTime  @default(now())
+  confirmDate   DateTime?
+  cancelDate    DateTime?
+  deliveredDate DateTime?
+
   // Employees
-  requestingEmployeeId     String?
-  requestingEmployeeName   String?
-  confirmingEmployeeId     String?
-  confirmingEmployeeName   String?
-  cancelingEmployeeId      String?
-  cancelingEmployeeName    String?
-  assignedEmployeeId       String?
-  assignedEmployeeName     String?
-  
+  requestingEmployeeId   String?
+  requestingEmployeeName String?
+  confirmingEmployeeId   String?
+  confirmingEmployeeName String?
+  cancelingEmployeeId    String?
+  cancelingEmployeeName  String?
+  assignedEmployeeId     String?
+  assignedEmployeeName   String?
+
   // Statuses
-  printStatus       PrintStatus     @default(NOT_PRINTED)
-  cancelReason      String?
-  
+  printStatus  PrintStatus @default(NOT_PRINTED)
+  cancelReason String?
+
   // Delivery info
-  deliveryMethod    DeliveryMethod?
-  deliveryStatus    DeliveryStatus?
-  
+  deliveryMethod DeliveryMethod?
+  deliveryStatus DeliveryStatus?
+
   // Carrier Shipment Details
-  carrier                 String?   // Tên hãng vận chuyển
-  service                 String?   // Tên dịch vụ
-  trackingCode            String?   // Mã vận đơn
-  partnerStatus           String?   // Trạng thái đối tác
-  shippingFeeToPartner    Decimal?  @db.Decimal(15, 2)
-  codAmount               Decimal?  @db.Decimal(15, 2)
-  payer                   String?   // 'Người gửi' | 'Người nhận'
-  reconciliationStatus    String?   // 'Chưa đối soát' | 'Đã đối soát'
-  
+  carrier              String? // Tên hãng vận chuyển
+  service              String? // Tên dịch vụ
+  trackingCode         String? // Mã vận đơn
+  partnerStatus        String? // Trạng thái đối tác
+  shippingFeeToPartner Decimal? @db.Decimal(15, 2)
+  codAmount            Decimal? @db.Decimal(15, 2)
+  payer                String? // 'Người gửi' | 'Người nhận'
+  reconciliationStatus String? // 'Chưa đối soát' | 'Đã đối soát'
+
   // Shipment dimensions
-  weight              Int?          // in grams
-  dimensions          String?       // e.g., "10cm x 10cm x 10cm"
-  noteToShipper       String?       // Ghi chú giao hàng
-  
+  weight        Int? // in grams
+  dimensions    String? // e.g., "10cm x 10cm x 10cm"
+  noteToShipper String? // Ghi chú giao hàng
+
   // GHTK Specific Fields
-  ghtkStatusId          Int?        // Raw GHTK status code
-  ghtkReasonCode        String?     // GHTK reason code (100-144)
-  ghtkReasonText        String?     // Chi tiết lý do từ GHTK
-  ghtkTrackingId        String?     // GHTK tracking_id (internal ID)
-  estimatedPickTime     DateTime?   // Thời gian dự kiến lấy hàng
-  estimatedDeliverTime  DateTime?   // Thời gian dự kiến giao hàng
-  lastSyncedAt          DateTime?   // Lần cuối sync với GHTK
-  actualWeight          Decimal?    @db.Decimal(10, 3) // Khối lượng thực tế (kg)
-  actualFee             Decimal?    @db.Decimal(15, 2) // Phí thực tế (VND)
-  ghtkWebhookHistory    Json?       // Array of webhook events
-  
+  ghtkStatusId         Int? // Raw GHTK status code
+  ghtkReasonCode       String? // GHTK reason code (100-144)
+  ghtkReasonText       String? // Chi tiết lý do từ GHTK
+  ghtkTrackingId       String? // GHTK tracking_id (internal ID)
+  estimatedPickTime    DateTime? // Thời gian dự kiến lấy hàng
+  estimatedDeliverTime DateTime? // Thời gian dự kiến giao hàng
+  lastSyncedAt         DateTime? // Lần cuối sync với GHTK
+  actualWeight         Decimal?  @db.Decimal(10, 3) // Khối lượng thực tế (kg)
+  actualFee            Decimal?  @db.Decimal(15, 2) // Phí thực tế (VND)
+  ghtkWebhookHistory   Json? // Array of webhook events
+
   // Relations
-  order     Order     @relation(fields: [orderId], references: [systemId])
+  order Order @relation(fields: [orderId], references: [systemId])
 
   @@map("packagings")
 }

@@ -4,7 +4,7 @@ import { Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface TimeTrackerProps {
-  taskId: string;
+  _taskId: string;
   isRunning: boolean;
   totalSeconds: number;
   estimatedHours?: number | undefined;
@@ -16,7 +16,7 @@ interface TimeTrackerProps {
  * Timer tự động dừng khi hoàn thành hết subtasks
  */
 export function TimeTracker({
-  taskId,
+  _taskId,
   isRunning,
   totalSeconds,
   estimatedHours,

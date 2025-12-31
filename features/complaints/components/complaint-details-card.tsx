@@ -11,8 +11,8 @@ import type { Complaint } from '../types';
 
 interface Props {
   complaint: Complaint;
-  currentUser: any;
-  employees: any[];
+  currentUser: { systemId: string; name: string };
+  employees: Array<{ systemId: string; fullName: string }>;
 }
 
 export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, currentUser, employees }) => {

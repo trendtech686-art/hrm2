@@ -66,7 +66,7 @@ export const getBatchColumns = (actions: BatchColumnActions): ColumnDef<PayrollB
         aria-label="Chọn tất cả"
       />
     ),
-    cell: ({ row, isSelected, onToggleSelect }) => (
+    cell: ({ row: _row, isSelected, onToggleSelect }) => (
       <Checkbox
         checked={isSelected}
         onCheckedChange={(value) => onToggleSelect(!!value)}

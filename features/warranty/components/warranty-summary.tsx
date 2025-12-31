@@ -1,9 +1,14 @@
 import * as React from 'react';
-import { useFormContext, useWatch, Controller } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Separator } from '../../../components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { Label } from '../../../components/ui/label';
+
+interface WarrantyProduct {
+  quantity?: number;
+  unitPrice?: number;
+  resolution?: 'return' | 'replace' | 'deduct' | 'out_of_stock';
+  deductionAmount?: number;
+}
 
 interface WarrantySummaryProps {
   disabled?: boolean;
@@ -13,16 +18,17 @@ interface WarrantySummaryProps {
  * Card thanh toán - Hiển thị đầy đủ thông tin bảo hành + Bù trừ gộp chung
  * ✅ Real-time calculation với useMemo
  */
-export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
-  const { control, watch, setValue } = useFormContext();
-  const products = useWatch({ control, name: 'products' }) || [];
+export function WarrantySummary({ disabled: _disabled = false }: WarrantySummaryProps) {
+  const { control, watch, setValue: _setValue } = useFormContext();
+  const watchedProducts = useWatch({ control, name: 'products' });
+  const products = React.useMemo(() => watchedProducts || [], [watchedProducts]);
   const shippingFee = useWatch({ control, name: 'shippingFee' }) || 0;
-  const settlementMethod = watch('settlementMethod') || '';
+  const _settlementMethod = watch('settlementMethod') || '';
   
   // ✅ OPTIMIZATION: Group products by resolution once instead of filtering 4 times
   const summary = React.useMemo(() => {
-    const totalQuantity = products.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0);
-    const totalValue = products.reduce((sum: number, p: any) => sum + ((p.quantity || 0) * (p.unitPrice || 0)), 0);
+    const totalQuantity = products.reduce((sum: number, p: WarrantyProduct) => sum + (p.quantity || 0), 0);
+    const totalValue = products.reduce((sum: number, p: WarrantyProduct) => sum + ((p.quantity || 0) * (p.unitPrice || 0)), 0);
     
     // ✅ Group by resolution in single pass - 4x faster!
     const byResolution = {
@@ -32,7 +38,7 @@ export function WarrantySummary({ disabled = false }: WarrantySummaryProps) {
       out_of_stock: { qty: 0, value: 0 }
     };
     
-    products.forEach((p: any) => {
+    products.forEach((p: WarrantyProduct) => {
       const qty = p.quantity || 0;
       const value = qty * (p.unitPrice || 0);
       const resolution = p.resolution;

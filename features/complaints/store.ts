@@ -336,7 +336,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         const systemId = asSystemId(`${SYSTEM_PREFIX}${String(maxSystemIdNumber + 1).padStart(6, '0')}`);
         
         // Generate Business ID (6 digits) - PKN000001, PKN000002 (if not provided)
-        let idValue: BusinessId | null = complaintData.id ?? null;
+        const idValue: BusinessId | null = complaintData.id ?? null;
         let id: string = idValue ? String(idValue) : '';
         if (!id) {
           const maxBusinessIdNumber = currentComplaints.length > 0
@@ -358,7 +358,7 @@ export const useComplaintStore = create<ComplaintStore>()(
         const businessId = asBusinessId(id);
         
         // [NOTE] Generate public tracking code for customer
-        const publicTrackingCode = (complaintData as any).publicTrackingCode || generatePublicTrackingCode();
+        const publicTrackingCode = (complaintData as Partial<Complaint>).publicTrackingCode || generatePublicTrackingCode();
         
         const now = new Date();
 
@@ -669,7 +669,7 @@ export const useComplaintStore = create<ComplaintStore>()(
       name: "complaint-storage",
       version: 4, // [NOTE] Updated for new ID system (COM000001)
       // Migration function to add publicTrackingCode and update ID format
-      migrate: (persistedState: any, version: number) => {
+      migrate: (persistedState: unknown, version: number) => {
         if (version < 4) {
           console.warn('[Complaints] Migrating to new ID system. Clearing old data...');
           // Clear old data and use fresh sample data
@@ -680,7 +680,7 @@ export const useComplaintStore = create<ComplaintStore>()(
             selectedComplaintId: null,
           };
         }
-        return persistedState;
+        return persistedState as ComplaintStore;
       },
     }
   )

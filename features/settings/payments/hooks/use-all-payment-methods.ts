@@ -17,7 +17,7 @@ export function useAllPaymentMethods() {
 
 export function useDefaultPaymentMethod() {
   const { data, isLoading } = useAllPaymentMethods();
-  const defaultMethod = data.find(pm => (pm as any).isDefault);
+  const defaultMethod = data.find(pm => (pm as { isDefault?: boolean }).isDefault);
   
   return { defaultMethod, isLoading };
 }

@@ -108,10 +108,10 @@ export async function PATCH(
       updatedBy: updated.updatedBy,
       ...(updated.metadata as Record<string, unknown> || {}),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Settings Data API] PATCH error:', error);
     
-    if (error.code === 'P2002') {
+    if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'A setting with this ID already exists for this type' },
         { status: 409 }

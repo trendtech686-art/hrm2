@@ -3,7 +3,7 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu trả hàng
  */
 
-import type { SalesReturn, ReturnLineItem } from '@/lib/types/prisma-extended';
+import type { SalesReturn } from '@/lib/types/prisma-extended';
 import type { Customer } from '@/lib/types/prisma-extended';
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
@@ -120,7 +120,7 @@ function getStoreLogo(storeInfoLogo?: string): string | undefined {
   try {
     const settings = getGeneralSettingsSync();
     return settings.logoUrl || undefined;
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
   return undefined;
 }
 

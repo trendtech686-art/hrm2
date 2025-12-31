@@ -7,7 +7,7 @@ interface RouteParams {
 }
 
 // GET /api/users/[systemId]
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
@@ -54,7 +54,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const { systemId } = await params
     const body = await request.json()
 
-    const updateData: any = {
+    const updateData: Parameters<typeof prisma.user.update>[0]['data'] = {
       email: body.email,
       role: body.role,
       isActive: body.isActive,
@@ -80,8 +80,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
     })
 
     return NextResponse.json(user)
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return NextResponse.json(
         { error: 'User không tồn tại' },
         { status: 404 }
@@ -96,7 +96,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // DELETE /api/users/[systemId]
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
@@ -105,8 +105,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     })
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return NextResponse.json(
         { error: 'User không tồn tại' },
         { status: 404 }

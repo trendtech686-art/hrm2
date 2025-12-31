@@ -7,10 +7,8 @@ import { Separator } from '../../../components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
 import { 
   Globe, 
-  Link, 
   Unlink, 
   Upload, 
-  RefreshCw, 
   ExternalLink, 
   CheckCircle2, 
   AlertCircle, 
@@ -19,10 +17,7 @@ import {
   Package,
   FileText,
   Search,
-  Star,
-  Flame,
-  Sparkles,
-  Home
+  Star
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Product } from '../types';
@@ -54,7 +49,7 @@ export function EcommerceTab({ product }: EcommerceTabProps) {
   
   const queryClient = useQueryClient();
   const pkgxSettings = usePkgxSettingsStore();
-  const pricingPolicies = usePricingPolicyStore();
+  const _pricingPolicies = usePricingPolicyStore();
   const { update: updateProduct } = useProductStore();
   
   const isPkgxLinked = !!product.pkgxId;
@@ -350,7 +345,7 @@ export function EcommerceTab({ product }: EcommerceTabProps) {
       });
       
       toast.success('Đã hủy liên kết với PKGX');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi khi hủy liên kết');
     } finally {
       setIsUnlinking(false);

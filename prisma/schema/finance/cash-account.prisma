@@ -1,43 +1,43 @@
 model CashAccount {
-  systemId          String            @id
-  id                String            @unique
-  name              String
-  type              CashAccountType
-  branchId          String?
-  accountNumber     String?
-  bankName          String?
-  balance           Decimal           @default(0) @db.Decimal(15, 2)
-  isActive          Boolean           @default(true)
-  isDefault         Boolean           @default(false)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  accountType       String?           @default("cash") @db.VarChar(50)
-  
+  systemId      String          @id
+  id            String          @unique
+  name          String
+  type          CashAccountType
+  branchId      String?
+  accountNumber String?
+  bankName      String?
+  balance       Decimal         @default(0) @db.Decimal(15, 2)
+  isActive      Boolean         @default(true)
+  isDefault     Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  accountType   String?         @default("cash") @db.VarChar(50)
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Initial balance
-  initialBalance    Decimal           @default(0) @db.Decimal(15, 2)
-  
+  initialBalance Decimal @default(0) @db.Decimal(15, 2)
+
   // Bank details
   bankAccountNumber String?
   bankBranch        String?
-  bankCode          String?          // Mã ngân hàng (VCB, TCB, etc.)
-  accountHolder     String?          // Chủ tài khoản
-  
+  bankCode          String? // Mã ngân hàng (VCB, TCB, etc.)
+  accountHolder     String? // Chủ tài khoản
+
   // Branch link
-  branchSystemId    String?
-  
+  branchSystemId String?
+
   // Balance limits
-  minBalance        Decimal?         @db.Decimal(15, 2)  // Số dư tối thiểu cảnh báo
-  maxBalance        Decimal?         @db.Decimal(15, 2)  // Số dư tối đa cảnh báo
-  
+  minBalance Decimal? @db.Decimal(15, 2) // Số dư tối thiểu cảnh báo
+  maxBalance Decimal? @db.Decimal(15, 2) // Số dư tối đa cảnh báo
+
   // Manager
-  managedBy         String?          // Người quản lý (systemId)
-  
+  managedBy String? // Người quản lý (systemId)
+
   // Audit
-  createdBy         String?
-  updatedBy         String?
-  
+  createdBy String?
+  updatedBy String?
+
   // === RELATIONS ===
   cash_transactions CashTransaction[]
 

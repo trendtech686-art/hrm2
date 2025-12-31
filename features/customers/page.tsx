@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from "react";
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { PlusCircle, Trash2, MoreVertical, Phone, Mail, Building2, Clock, UserX, CreditCard, HeartPulse, X, FileSpreadsheet, Download } from "lucide-react";
+import { PlusCircle, Trash2, MoreVertical, Phone, Mail, Building2, FileSpreadsheet, Download } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import Fuse from 'fuse.js';
@@ -13,8 +14,7 @@ import { useCustomerTypeStore } from "../settings/customers/customer-types-store
 import { useBranchStore } from "../settings/branches/store";
 import { type Customer } from "@/lib/types/prisma-extended";
 import { getColumns } from "./columns";
-import { BulkActionConfirmDialog } from "./components/bulk-action-confirm-dialog";
-import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams, type CustomerSortKey } from "./customer-service";
+import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams } from "./customer-service";
 import { usePersistentState } from "../../hooks/use-persistent-state";
 import { asSystemId, asBusinessId, type SystemId } from "../../lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context";
@@ -26,16 +26,24 @@ import {
 } from "../../lib/import-export/configs/customer.config";
 
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
 import { PageFilters } from "../../components/layout/page-filters";
-import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
 import { TouchButton } from "../../components/mobile/touch-button";
+import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
 import { useCustomerSlaEvaluation } from "./sla/hooks";
 import { useCustomersQuery } from "./hooks/use-customers-query";
 import { useCustomersWithComputedDebt } from "./hooks/use-computed-debt";
+
+// ✅ Dynamic imports for heavy dialog components (non-generic)
+const BulkActionConfirmDialog = dynamic(
+  () => import("./components/bulk-action-confirm-dialog").then(mod => ({ default: mod.BulkActionConfirmDialog })),
+  { ssr: false }
+);
+
+// Generic components need static import to preserve types
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
 
 import {
   Card,
@@ -434,15 +442,15 @@ export function CustomersPage() {
   // Sort data
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredData];
-    const sortKey = tableState.sorting.id;
+    const sortKey = tableState.sorting.id as keyof Customer;
     
     sorted.sort((a, b) => {
-      const aValue = (a as any)[sortKey] ?? '';
-      const bValue = (b as any)[sortKey] ?? '';
+      const aValue = a[sortKey] ?? '';
+      const bValue = b[sortKey] ?? '';
       // Special handling for date columns
       if (sortKey === 'createdAt') {
-        const aTime = aValue ? new Date(aValue).getTime() : 0;
-        const bTime = bValue ? new Date(bValue).getTime() : 0;
+        const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+        const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
         // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
         if (aTime === bTime) {
           const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
@@ -532,7 +540,7 @@ export function CustomersPage() {
             continue;
           }
           // Insert new - remove systemId if present
-          const { systemId, ...newData } = item as any;
+          const { systemId: _systemId, ...newData } = item as Partial<Customer> & { systemId?: string };
           const dataWithEmptyId = {
             ...newData,
             id: asBusinessId(""),

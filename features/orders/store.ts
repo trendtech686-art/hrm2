@@ -1,10 +1,9 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { toISODateTime } from '../../lib/date-utils';
 import { getApiUrl } from '../../lib/api-config';
 import { createCrudStore } from '../../lib/store-factory';
 import { data as initialDataOmit } from './data';
 import type { Order, OrderPayment, Packaging, OrderMainStatus, OrderDeliveryStatus, PackagingStatus, OrderPaymentStatus, OrderDeliveryMethod } from '@/lib/types/prisma-extended';
+import type { GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import type { SystemId, BusinessId } from '../../lib/id-types';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import { generateSystemId, getMaxSystemIdCounter } from '../../lib/id-utils';
@@ -32,8 +31,7 @@ import {
   getCurrentUserInfo,
   createCreatedEntry,
   createHistoryEntry,
-  appendHistoryEntry,
-  type HistoryEntry
+  appendHistoryEntry
 } from '../../lib/activity-history-helper';
 
 // ✅ Helper to get branch systemId
@@ -54,7 +52,7 @@ const PACKAGING_SYSTEM_ID_PREFIX = 'PACKAGE';
 let packagingSystemIdCounter = 0;
 
 // ✅ Initialize counter from all existing packagings across all orders
-const initPackagingCounter = (orders: Order[]): void => {
+const _initPackagingCounter = (orders: Order[]): void => {
     const allPackagings = orders.flatMap(o => o.packagings || []);
     packagingSystemIdCounter = getMaxSystemIdCounter(allPackagings, PACKAGING_SYSTEM_ID_PREFIX);
 };
@@ -73,7 +71,7 @@ const getPackagingSuffixFromOrderId = (orderId?: BusinessId) => {
 };
 
 // Count only active packagings (not cancelled) for numbering
-const getActivePackagingCount = (packagings: Packaging[]): number => {
+const _getActivePackagingCount = (packagings: Packaging[]): number => {
     return packagings.filter(p => p.status !== 'Hủy đóng gói').length;
 };
 
@@ -257,7 +255,7 @@ const ensureOrderPackagingIdentifiers = (order: Order): Order | null => {
     let changed = false;
     let activeIndex = 0;
 
-    const updatedPackagings = order.packagings.map((pkg, idx) => {
+    const updatedPackagings = order.packagings.map((pkg, _idx) => {
         const isCancelled = pkg.status === 'Hủy đóng gói';
         const hasId = typeof pkg.id === 'string' && pkg.id.trim().length > 0;
         // ✅ Check for temp systemId or old format (PKG_)
@@ -462,7 +460,19 @@ const createOrderRefundVoucher = (order: Order, amount: number, employeeId: Syst
     return document;
 };
 
-const initialData: Order[] = initialDataOmit.map((o: any, index: number) => {
+type InitialOrderData = Omit<Order, 'systemId' | 'packagings' | 'lineItems'> & {
+  packagingStatus?: string;
+  products?: Array<{
+    productSystemId?: string;
+    productId?: string;
+    productName?: string;
+    quantity?: number;
+    price?: number;
+    total?: number;
+  }>;
+};
+
+const initialData: Order[] = (initialDataOmit as InitialOrderData[]).map((o, index: number) => {
     const packagings: Packaging[] = [];
     
     if (o.packagingStatus === 'Đóng gói toàn bộ' || o.packagingStatus === 'Chờ xác nhận đóng gói') {
@@ -500,10 +510,10 @@ const initialData: Order[] = initialDataOmit.map((o: any, index: number) => {
         packagings.push(newPkg);
     }
     
-    const { packagingStatus, products, ...rest } = o;
+    const { packagingStatus: _packagingStatus, products: _products, ...rest } = o;
 
     // Transform products array to lineItems
-    const lineItems = (products || []).map((p: any, idx: number) => ({
+    const lineItems = (o.products || []).map((p, idx: number) => ({
         systemId: `LINE_${o.id}_${idx + 1}`,
         productSystemId: p.productSystemId || `PROD_${idx}`,
         productId: p.productId || `PROD_${idx}`,
@@ -517,12 +527,17 @@ const initialData: Order[] = initialDataOmit.map((o: any, index: number) => {
 
     return {
         ...rest,
-        systemId: `ORD${String(index + 1).padStart(8, '0')}`,
-        customerSystemId: `CUST_${index + 1}`, // Generate temp customer systemId
+        systemId: asSystemId(`ORD${String(index + 1).padStart(8, '0')}`),
+        customerSystemId: asSystemId(`CUST_${index + 1}`), // Generate temp customer systemId
         paidAmount: o.paidAmount ?? 0, // ✅ Use value from data.ts, default to 0 if undefined
         packagings,
-        lineItems,
-    };
+        lineItems: lineItems.map(l => ({
+            ...l,
+            systemId: asSystemId(l.systemId),
+            productSystemId: asSystemId(l.productSystemId),
+            productId: asBusinessId(l.productId),
+        })),
+    } as Order;
 });
 
 const baseStore = createCrudStore<Order>(initialData, 'orders', {
@@ -1131,7 +1146,7 @@ const augmentedMethods = {
             return { data: state.data.map(o => o.systemId === orderSystemId ? updatedOrder : o) };
         });
     },    
-    confirmPartnerShipment: async (orderSystemId: SystemId, packagingSystemId: SystemId, shipmentData: any): Promise<{ success: boolean; message: string }> => {
+    confirmPartnerShipment: async (orderSystemId: SystemId, packagingSystemId: SystemId, _shipmentData: Record<string, unknown>): Promise<{ success: boolean; message: string }> => {
         try {
             const order = baseStore.getState().data.find(o => o.systemId === orderSystemId);
             if (!order) {
@@ -1164,7 +1179,7 @@ const augmentedMethods = {
             }
 
             // ✅ Get GHTK preview params from window (set by ShippingIntegration)
-            const ghtkParams = (window as any).__ghtkPreviewParams;
+            const ghtkParams = (window as unknown as Record<string, unknown>).__ghtkPreviewParams as GHTKCreateOrderParams | undefined;
             
             if (!ghtkParams) {
                 return { success: false, message: 'Thiếu thông tin vận chuyển. Vui lòng chọn dịch vụ vận chuyển.' };
@@ -1203,10 +1218,10 @@ const augmentedMethods = {
                             service: result.order?.fee ? `${result.order.fee}đ` : 'Standard',
                             trackingCode: trackingCode,
                             shippingFeeToPartner: parseInt(result.order?.fee || '0') || 0,
-                            codAmount: ghtkParams.pick_money || 0,
-                            payer: (ghtkParams.is_freeship === 1 ? 'Người gửi' : 'Người nhận') as 'Người gửi' | 'Người nhận',
+                            codAmount: ghtkParams.pickMoney || 0,
+                            payer: (ghtkParams.isFreeship === 1 ? 'Người gửi' : 'Người nhận') as 'Người gửi' | 'Người nhận',
                             noteToShipper: ghtkParams.note || '',
-                            weight: ghtkParams.weight,
+                            weight: ghtkParams.totalWeight || 0,
                             dimensions: `${ghtkParams.products?.[0]?.length || 10}×${ghtkParams.products?.[0]?.width || 10}×${ghtkParams.products?.[0]?.height || 10}`,
                             // ✅ Store GHTK specific data
                             ghtkTrackingId: String(ghtkTrackingId),
@@ -1568,7 +1583,7 @@ const augmentedMethods = {
             totalByPartnerAndBranch[key].shipmentSystemIds.push(shipment.systemId);
         });
     
-        const createdReceipts: (any & { shipmentSystemIds: string[] })[] = [];
+        const createdReceipts: (Receipt & { shipmentSystemIds: string[] })[] = [];
     
         Object.values(totalByPartnerAndBranch).forEach(group => {
             const account = accounts.find(acc => acc.type === 'bank' && acc.branchSystemId === group.branchSystemId) || accounts.find(acc => acc.type === 'bank');
@@ -1594,7 +1609,7 @@ const augmentedMethods = {
                     updatedAt: toISODateTime(new Date()),
                     affectsDebt: false,
                 };
-                const newReceipt = addReceipt(newReceiptData as any);
+                const newReceipt = addReceipt(newReceiptData as unknown as Omit<Receipt, 'systemId'>);
                 if (newReceipt) {
                     createdReceipts.push({ ...newReceipt, shipmentSystemIds: group.shipmentSystemIds });
                 }
@@ -1831,10 +1846,11 @@ const augmentedMethods = {
             
             try {
                 credentials = getGHTKCredentials();
-            } catch (error: any) {
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Chưa cấu hình GHTK. Vui lòng vào Cài đặt → Đối tác vận chuyển.';
                 return {
                     success: false,
-                    message: error.message || 'Chưa cấu hình GHTK. Vui lòng vào Cài đặt → Đối tác vận chuyển.'
+                    message: errorMessage
                 };
             }
             
@@ -1904,11 +1920,12 @@ const augmentedMethods = {
                 message: data.message || 'Đã hủy vận đơn GHTK thành công' 
             };
             
-        } catch (error: any) {
+        } catch (error) {
             console.error('[GHTK] Cancel error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Lỗi khi hủy vận đơn GHTK';
             return { 
                 success: false, 
-                message: error.message || 'Lỗi khi hủy vận đơn GHTK' 
+                message: errorMessage
             };
         }
     },
@@ -1934,7 +1951,7 @@ useReceiptStore.subscribe(
 
 
 // Export typed hook with all augmented methods
-export const useOrderStore = (): any => {
+export const useOrderStore = () => {
   const state = baseStore();
   return {
     ...state,
@@ -1943,7 +1960,7 @@ export const useOrderStore = (): any => {
 };
 
 // Export getState for non-hook usage
-useOrderStore.getState = (): any => {
+useOrderStore.getState = () => {
   const state = baseStore.getState();
   return {
     ...state,

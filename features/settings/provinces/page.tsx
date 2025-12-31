@@ -37,11 +37,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../../components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
-import { PlusCircle, Search, Upload, Download, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { PlusCircle, Search, Upload, Download, Edit, Trash2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { toast } from 'sonner';
-import { SortableCard } from "../../../components/settings/SortableCard";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -69,7 +68,7 @@ type ImportPreviewState = {
   };
 };
 
-const getInitials = (name: string) => {
+const _getInitials = (name: string) => {
   const fallback = name.slice(0, 2).toUpperCase();
   const parts = name
     .split(/\s+/)
@@ -86,7 +85,7 @@ interface ProvinceItemProps {
   onSelect: (systemId: string) => void;
   onEdit: (province: Province) => void;
   onDelete: (systemId: string) => void;
-  index: number;
+  _index: number;
 }
 
 const ProvinceItem = React.memo(function ProvinceItem({
@@ -95,7 +94,7 @@ const ProvinceItem = React.memo(function ProvinceItem({
   onSelect,
   onEdit,
   onDelete,
-  index,
+  _index,
 }: ProvinceItemProps) {
   return (
     <div
@@ -469,7 +468,7 @@ export function ProvincesPage() {
         const workbook = XLSX.read(data, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<any>(worksheet);
+        const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
 
         const provincesMap = new Map<string, Omit<Province, "systemId">>();
         const wards: Array<Omit<Ward, "systemId">> = [];
@@ -560,13 +559,13 @@ export function ProvincesPage() {
   };
 
   const handleExport = React.useCallback(() => {
-    const provincesToExport = provinces.map(({ systemId, ...rest }) => ({
+    const provincesToExport = provinces.map(({ systemId: _systemId, ...rest }) => ({
       "Mã tỉnh": rest.id,
       "Tên Tỉnh/Thành phố": rest.name,
     }));
 
     const wards2Level = getWards2LevelByProvinceId(asBusinessId("08"));
-    const wardsToExport = wards2Level.map(({ systemId, ...rest }) => ({
+    const wardsToExport = wards2Level.map(({ systemId: _systemId, ...rest }) => ({
       "Mã tỉnh": rest.provinceId,
       "Mã Phường/Xã": rest.id,
       "Tên Phường/Xã": rest.name,
@@ -666,7 +665,7 @@ export function ProvincesPage() {
                     <ProvinceItem
                       key={province.systemId}
                       province={province}
-                      index={index}
+                      _index={index}
                       isActive={selectedProvinceId === province.systemId}
                       onSelect={handleSelectProvince}
                       onEdit={handleEditProvince}
@@ -759,7 +758,7 @@ export function ProvincesPage() {
                     <ProvinceItem
                       key={province.systemId}
                       province={province}
-                      index={index}
+                      _index={index}
                       isActive={selectedProvinceId === province.systemId}
                       onSelect={handleSelectProvince}
                       onEdit={handleEditProvince}

@@ -30,12 +30,12 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   const handleLoad = React.useCallback<React.ReactEventHandler<HTMLImageElement>>((event) => {
     setLoaded(true);
     setErrored(false);
-    onLoad?.(event as any);
+    onLoad?.(event);
   }, [onLoad]);
 
   const handleError = React.useCallback<React.ReactEventHandler<HTMLImageElement>>((event) => {
     setErrored(true);
-    onError?.(event as any);
+    onError?.(event);
   }, [onError]);
 
   const hasValidSrc = Boolean(src && src.trim());

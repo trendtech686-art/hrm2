@@ -1,10 +1,10 @@
 import { createCrudStore } from '../../lib/store-factory';
 import { data as initialData } from './data';
-import type { Task, TaskActivity, TaskStatus, TaskPriority, TaskAssignee, AssigneeRole } from './types';
+import type { Task, TaskActivity, TaskAssignee, AssigneeRole } from './types';
 import { getCurrentUserInfo } from '../../contexts/auth-context';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 
-const baseStore = createCrudStore<Task>(initialData, 'internal-tasks');
+const _baseStore = createCrudStore<Task>(initialData, 'internal-tasks');
 
 // Migrate existing tasks to multiple assignees format
 const migrateTasksToMultipleAssignees = (tasks: Task[]): Task[] => {
@@ -239,12 +239,12 @@ export const useTaskStore = () => {
           });
           assignActivity.description = getActivityDescription(assignActivity);
           
-          store.update(result.systemId as any, {
+          store.update(result.systemId, {
             ...result,
             activities: [activity, assignActivity],
           });
         } else {
-          store.update(result.systemId as any, {
+          store.update(result.systemId, {
             ...result,
             activities: [activity],
           });
@@ -253,9 +253,9 @@ export const useTaskStore = () => {
       return result;
     },
     // Override update to include auto timer logic and activity logging
-    update: (id: any, updates: Partial<Task>) => {
+    update: (id: SystemId | string, updates: Partial<Task>) => {
       console.log('[STORE] Update called with id:', id, 'updates:', updates);
-      const task = store.findById(id);
+      const task = store.findById(id as SystemId);
       if (!task) {
         console.log('[STORE] Task not found!');
         return;
@@ -263,7 +263,7 @@ export const useTaskStore = () => {
       
       const enhancedUpdates = autoManageTimer(task, updates);
       console.log('[STORE] Enhanced updates:', enhancedUpdates);
-      store.update(id, { ...task, ...enhancedUpdates });
+      store.update(asSystemId(id), { ...task, ...enhancedUpdates });
       console.log('[STORE] Base store.update called');
       
       // Manage localStorage for active timer
@@ -289,7 +289,7 @@ export const useTaskStore = () => {
     },
     // Add assignee to task
     addAssignee: (taskId: string, employeeId: SystemId, employeeName: string, role: AssigneeRole = 'contributor') => {
-      const task = store.findById(taskId as any);
+      const task = store.findById(taskId as SystemId);
       if (!task) return;
       
       const user = getCurrentUserInfo();
@@ -321,7 +321,7 @@ export const useTaskStore = () => {
       // Update backward compatibility fields
       const owner = updatedAssignees.find(a => a.role === 'owner') || updatedAssignees[0];
       
-      store.update(taskId as any, {
+      store.update(taskId as SystemId, {
         ...task,
         assignees: updatedAssignees,
         assigneeId: (owner?.employeeSystemId ?? asSystemId('')),
@@ -331,7 +331,7 @@ export const useTaskStore = () => {
     },
     // Remove assignee from task
     removeAssignee: (taskId: string, employeeId: SystemId) => {
-      const task = store.findById(taskId as any);
+      const task = store.findById(taskId as SystemId);
       if (!task) return;
       
       const assignees = task.assignees || [];
@@ -351,7 +351,7 @@ export const useTaskStore = () => {
       // Update backward compatibility fields
       const owner = updatedAssignees.find(a => a.role === 'owner') || updatedAssignees[0];
       
-      store.update(taskId as any, {
+      store.update(taskId as SystemId, {
         ...task,
         assignees: updatedAssignees,
         assigneeId: owner?.employeeSystemId || asSystemId(''),
@@ -361,7 +361,7 @@ export const useTaskStore = () => {
     },
     // Update assignee role
     updateAssigneeRole: (taskId: string, employeeId: SystemId, newRole: AssigneeRole) => {
-      const task = store.findById(taskId as any);
+      const task = store.findById(taskId as SystemId);
       if (!task) return;
       
       const assignees = task.assignees || [];
@@ -378,7 +378,7 @@ export const useTaskStore = () => {
       // Update backward compatibility fields if owner changed
       const owner = updatedAssignees.find(a => a.role === 'owner') || updatedAssignees[0];
       
-      store.update(taskId as any, {
+      store.update(taskId as SystemId, {
         ...task,
         assignees: updatedAssignees,
         assigneeId: owner?.employeeSystemId || asSystemId(''),
@@ -399,22 +399,22 @@ export const useTaskStore = () => {
         }
         
         // Calculate elapsed time
-        const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+        const _elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
         
-        store.update(taskId as any, {
+        store.update(taskId as SystemId, {
           ...task,
           timerRunning: true,
           timerStartedAt: startedAt,
           totalTrackedSeconds: (task.totalTrackedSeconds || 0),
         });
-      } catch (e) {
+      } catch (_e) {
         localStorage.removeItem('active-timer');
       }
     },
     
     // Approve task completion
     approveTask: (taskId: string) => {
-      const task = store.findById(taskId as any);
+      const task = store.findById(taskId as SystemId);
       if (!task) return;
       
       const user = getCurrentUserInfo();
@@ -430,7 +430,7 @@ export const useTaskStore = () => {
         reviewedAt: new Date().toISOString(),
       };
       
-      store.update(taskId as any, {
+      store.update(taskId as SystemId, {
         ...task,
         status: 'Hoàn thành',
         completedDate: new Date().toISOString(),
@@ -443,7 +443,7 @@ export const useTaskStore = () => {
     
     // Reject task completion
     rejectTask: (taskId: string, reason: string) => {
-      const task = store.findById(taskId as any);
+      const task = store.findById(taskId as SystemId);
       if (!task) return;
       
       const user = getCurrentUserInfo();
@@ -460,7 +460,7 @@ export const useTaskStore = () => {
         reason,
       };
       
-      store.update(taskId as any, {
+      store.update(taskId as SystemId, {
         ...task,
         status: 'Đang thực hiện',
         approvalStatus: 'rejected',

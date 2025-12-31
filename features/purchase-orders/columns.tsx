@@ -1,6 +1,6 @@
 ﻿import * as React from "react";
 import Link from 'next/link';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { formatDate, formatDateCustom, parseDate } from '@/lib/date-utils';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/lib/types/prisma-extended'
 import type { Branch } from '../settings/branches/types';
 import { Checkbox } from "../../components/ui/checkbox"
@@ -30,7 +30,7 @@ export const getColumns = (
   onPrint: (purchaseOrder: PurchaseOrder) => void,
   onPayment: (purchaseOrder: PurchaseOrder) => void,
   onReceiveGoods: (purchaseOrder: PurchaseOrder) => void,
-  branches: Branch[]
+  _branches: Branch[]
 ): ColumnDef<PurchaseOrder>[] => [
   {
     id: "select",
@@ -161,7 +161,7 @@ export const getColumns = (
     id: "status",
     accessorKey: "status",
     header: "Trạng thái ĐH",
-    cell: ({ row }) => <Badge variant={statusVariants[row.status] as any}>{row.status}</Badge>,
+    cell: ({ row }) => <Badge variant={statusVariants[row.status] as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'}>{row.status}</Badge>,
     meta: { displayName: "Trạng thái ĐH" },
   },
   {
@@ -175,7 +175,7 @@ export const getColumns = (
     id: "paymentStatus",
     accessorKey: "paymentStatus",
     header: "Trạng thái Thanh toán",
-    cell: ({ row }) => <Badge variant={row.paymentStatus === 'Đã thanh toán' ? 'success' : 'warning' as any}>{row.paymentStatus}</Badge>,
+    cell: ({ row }) => <Badge variant={row.paymentStatus === 'Đã thanh toán' ? 'success' : 'warning'}>{row.paymentStatus}</Badge>,
     meta: { displayName: "Trạng thái Thanh toán" },
   },
   {

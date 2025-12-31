@@ -1,4 +1,4 @@
-
+'use client';
 
 import * as React from "react"
 import { createPortal } from "react-dom"
@@ -41,11 +41,12 @@ const ContextMenuTrigger = ({ children, asChild }: { children?: React.ReactNode,
   };
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
+    return React.cloneElement(children as React.ReactElement<{ onContextMenu?: (e: React.MouseEvent) => void }>, {
       onContextMenu: (e: React.MouseEvent) => {
         handleContextMenu(e);
-        if ((children.props as any).onContextMenu) {
-          (children.props as any).onContextMenu(e);
+        const childProps = children.props as { onContextMenu?: (e: React.MouseEvent) => void };
+        if (childProps.onContextMenu) {
+          childProps.onContextMenu(e);
         }
       },
     });

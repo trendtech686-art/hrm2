@@ -28,13 +28,17 @@ export interface MappingSuggestion {
 export interface MappingValidationError {
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface MappingValidationWarning {
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: {
+    suggestedBrand?: { id: string | number; name: string };
+    suggestedCategory?: { id: string | number; name: string };
+    [key: string]: unknown;
+  };
 }
 
 export interface MappingValidation {

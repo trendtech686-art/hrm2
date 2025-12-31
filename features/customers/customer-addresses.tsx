@@ -3,7 +3,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Switch } from '../../components/ui/switch';
-import { MapPin, Plus, Edit, Trash2, Check, ArrowLeftRight, X, MoreHorizontal, Eye } from 'lucide-react';
+import { MapPin as _MapPin, Plus, Edit as _Edit, Trash2 as _Trash2, Check as _Check, ArrowLeftRight as _ArrowLeftRight, X as _X, MoreHorizontal, Eye as _Eye } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { toast } from 'sonner';
-import { cn } from '../../lib/utils';
+import { cn as _cn } from '../../lib/utils';
 import { AddressBidirectionalConverter } from './components/address-bidirectional-converter';
 import { AddressFormDialog } from './components/address-form-dialog';
 import type { EnhancedCustomerAddress } from './types/enhanced-address';

@@ -468,7 +468,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
       action: null,
       itemCount: 0,
     });
-  }, [confirmAction.action]);
+  }, [confirmAction]);
   
   // Cancel confirmation
   const cancelConfirm = React.useCallback(() => {

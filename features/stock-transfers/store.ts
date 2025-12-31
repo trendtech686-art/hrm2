@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { StockTransfer, StockTransferStatus, StockTransferItem } from '@/lib/types/prisma-extended';
+import type { StockTransfer, StockTransferStatus } from '@/lib/types/prisma-extended';
 import { data as initialData } from './data';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
 import { useProductStore } from '../products/store';
@@ -31,7 +31,7 @@ interface StockTransferState {
   isBusinessIdExists: (id: string) => boolean;
 }
 
-let counter = initialData.length;
+const _counter = initialData.length;
 
 const generateNextId = (currentCounter: number): BusinessId => {
   return asBusinessId(`PCK${String(currentCounter + 1).padStart(6, '0')}`);
@@ -172,7 +172,7 @@ export const useStockTransferStore = create<StockTransferState>()(
         const transfer = get().findById(systemId);
         if (!transfer || transfer.status !== 'transferring') return false;
 
-        const { completeDelivery, updateInventory } = useProductStore.getState();
+        const { completeDelivery, updateInventory: _updateInventory } = useProductStore.getState();
         const { addEntry: addStockHistory } = useStockHistoryStore.getState();
         const employee = useEmployeeStore.getState().findById(employeeId);
         const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');

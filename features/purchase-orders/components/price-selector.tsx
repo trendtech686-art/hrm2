@@ -24,8 +24,8 @@ const formatCurrency = (value: number) => {
 };
 
 export function PriceSelector({
-  productId,
-  supplierId,
+  productId: _productId,
+  supplierId: _supplierId,
   value,
   onChange,
   className,
@@ -51,7 +51,7 @@ export function PriceSelector({
         value: value || 0, // Placeholder
       },
     ];
-  }, [productId, supplierId, value]);
+  }, [value]);
 
   React.useEffect(() => {
     setCustomValue(value.toString());

@@ -40,7 +40,7 @@ export function getWarrantyPayments(payments: Payment[], warrantySystemId: strin
 
 export function getWarrantyReceipts(receipts: Receipt[], warrantySystemId: string): Receipt[] {
 	return receipts
-		.filter(r => (r as any).linkedWarrantySystemId === warrantySystemId && r.status !== 'cancelled')
+		.filter(r => (r as { linkedWarrantySystemId?: string }).linkedWarrantySystemId === warrantySystemId && r.status !== 'cancelled')
 		.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
@@ -84,7 +84,7 @@ export function canShowActionButtons(
 	totalPayment: number,
 	remainingAmount: number,
 	hasTransactions: boolean,
-	allTransactionsCancelled: boolean,
+	_allTransactionsCancelled: boolean,
 ): boolean {
 	if (!ticket) return false;
 

@@ -7,7 +7,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { QUICK_FILTERS, QuickFilter } from '../types-filter';
+import { QUICK_FILTERS } from '../types-filter';
 import {
   User,
   AlertCircle,

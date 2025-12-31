@@ -3,7 +3,6 @@
  * Helpers để chuẩn bị dữ liệu in cho phiếu khiếu nại
  */
 
-import type { Branch } from '@/lib/types/prisma-extended';
 import type { Customer } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { 
@@ -96,7 +95,7 @@ export function convertComplaintForPrint(
     resolver?: Employee | null;
   } = {}
 ): ComplaintForPrint {
-  const { branch, customer, creator, assignee, resolver } = options;
+  const { branch, customer, creator, assignee } = options;
 
   // Map trạng thái sang tiếng Việt
   const statusMap: Record<string, string> = {

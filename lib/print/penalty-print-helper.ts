@@ -78,15 +78,15 @@ export function convertPenaltyForPrint(
   return {
     // Thông tin cơ bản
     code: penalty.id,
-    createdAt: penalty.createdAt,
-    penaltyDate: penalty.penaltyDate || penalty.issueDate,
-    createdBy: issuer?.fullName || creator?.fullName || penalty.issuerName || penalty.createdByName,
+    createdAt: penalty.createdAt ?? new Date(),
+    penaltyDate: (penalty.penaltyDate ?? penalty.issueDate) ?? new Date(),
+    createdBy: issuer?.fullName ?? creator?.fullName ?? penalty.issuerName ?? penalty.createdByName ?? '',
     approvedAt: penalty.approvedAt,
     approvedBy: approver?.fullName || penalty.approvedByName,
     
     // Trạng thái
     status: penalty.status ? (statusMap[penalty.status] || penalty.status) : undefined,
-    penaltyType: penalty.penaltyTypeName || (penalty.type ? (typeMap[penalty.type] || penalty.type) : undefined),
+    penaltyType: penalty.penaltyTypeName || (penalty.type ? (typeMap[penalty.type] || penalty.type) : '') || 'Không xác định',
     
     // Chi nhánh
     location: branch ? {
@@ -98,7 +98,7 @@ export function convertPenaltyForPrint(
     } : undefined,
     
     // Nhân viên bị phạt
-    employeeName: employee?.fullName || penalty.employeeName,
+    employeeName: employee?.fullName || penalty.employeeName || 'Không xác định',
     employeeCode: employee?.id || penalty.employeeCode,
     department: employee?.department || penalty.employeeDepartment,
     employeePosition: employee?.jobTitle || penalty.employeePosition,

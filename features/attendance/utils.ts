@@ -1,8 +1,8 @@
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, toISODate, isValidDate, isDateAfter, getStartOfDay, getEndOfDay, getDayOfWeek } from '../../lib/date-utils';
+import { toISODate, isValidDate, isDateAfter, getDayOfWeek } from '../../lib/date-utils';
 import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types';
 import type { EmployeeSettings } from '../settings/employees/types';
 // Function to convert Excel serial time number to HH:mm format
-export function excelSerialToTime(serial: any): string {
+export function excelSerialToTime(serial: unknown): string {
     if (typeof serial === 'string') {
         // If it's already a time string, just ensure format
         const parts = serial.split(':');

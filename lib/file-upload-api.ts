@@ -15,7 +15,7 @@ export type StagingFile = {
   url: string;
   status: 'staging' | 'permanent'; // ✅ Support both staging and permanent files
   uploadedAt: string;
-  metadata: string; // Smart filename metadata
+  metadata: string | Record<string, unknown>; // Smart filename metadata - can be JSON string or object
 };
 
 export type ServerFile = {
@@ -32,7 +32,7 @@ export type ServerFile = {
   url: string;
   uploadedAt: string;
   confirmedAt?: string;
-  metadata: string; // Smart filename metadata
+  metadata: string | Record<string, unknown>; // Smart filename metadata - can be JSON string or object
 };
 
 export type UploadedAsset = {
@@ -53,6 +53,19 @@ export type UploadedFile = {
   url: string;
   uploadedAt?: string;
   metadata?: Record<string, unknown>;
+};
+
+// Response type from file upload endpoints
+type UploadedFileResponse = {
+  id: string;
+  name?: string;
+  originalName?: string;
+  size?: number;
+  filesize?: number;
+  type?: string;
+  mimetype?: string;
+  url: string;
+  uploadedAt?: string;
 };
 
 export class FileUploadAPI {
@@ -112,7 +125,7 @@ export class FileUploadAPI {
     entitySystemId: string,
     documentType: string,
     documentName: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<ServerFile[]> {
     const response = await fetch(
       `${API_BASE_URL}/staging/confirm/${sessionId}/${entitySystemId}/${documentType}/${encodeURIComponent(documentName)}`,
@@ -215,7 +228,7 @@ export class FileUploadAPI {
       }
 
       return result.files || [];
-    } catch (error) {
+    } catch (_error) {
       return []; // Return empty array on network error
     }
   }
@@ -313,7 +326,7 @@ export class FileUploadAPI {
   static async confirmCustomerContractFiles(
     sessionId: string,
     customerId: string,
-    customerData?: Record<string, any>
+    customerData?: Record<string, unknown>
   ): Promise<ServerFile[]> {
     const response = await fetch(
       `${API_BASE_URL}/staging/confirm/${sessionId}/customers/${customerId}/contracts`,
@@ -341,7 +354,7 @@ export class FileUploadAPI {
     customerId: string,
     customerData?: {
       name?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     }
   ): Promise<ServerFile[]> {
     const response = await fetch(
@@ -371,7 +384,7 @@ export class FileUploadAPI {
     imageType: 'received' | 'processed',
     warrantyData?: {
       customerName?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     }
   ): Promise<ServerFile[]> {
     const response = await fetch(
@@ -539,12 +552,12 @@ export class FileUploadAPI {
       throw new Error(result.message || 'Upload bằng chứng công việc thất bại');
     }
 
-    return (result.files || []).map((file: any, index: number) =>
+    return (result.files || []).map((file: UploadedFileResponse, index: number) =>
       FileUploadAPI.mapDirectUpload(file, files[index]?.name || `evidence-${index}`)
     );
   }
 
-  private static mapDirectUpload(file: any, fallbackName: string): UploadedAsset {
+  private static mapDirectUpload(file: UploadedFileResponse, fallbackName: string): UploadedAsset {
     return {
       id: file.id,
       name: file.originalName || file.name || fallbackName,

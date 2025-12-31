@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, PurchaseOrderStatus } from '@/generated/prisma/client'
+
+// Interface for purchase order item input
+interface PurchaseOrderItemInput {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  total?: number;
+}
 
 // GET /api/purchase-orders - List all purchase orders
 export async function GET(request: Request) {
@@ -13,7 +23,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {
+    const where: Prisma.PurchaseOrderWhereInput = {
       isDeleted: false,
     }
 
@@ -25,7 +35,7 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status
+      where.status = status as PurchaseOrderStatus
     }
 
     if (supplierId) {
@@ -102,7 +112,7 @@ export async function POST(request: Request) {
         total: body.total || 0,
         notes: body.notes,
         items: {
-          create: body.items?.map((item: any) => ({
+          create: body.items?.map((item: PurchaseOrderItemInput) => ({
             systemId: `POI${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
             id: `POI${String(Date.now()).slice(-6)}`,
             product: { connect: { systemId: item.productId } },

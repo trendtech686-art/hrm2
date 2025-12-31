@@ -4,7 +4,7 @@
 
 import { useCallback } from 'react';
 import { usePenalties, usePenaltyTypes } from './use-penalties';
-import type { Penalty, PenaltyType } from '@/lib/types/prisma-extended';
+import type { Penalty } from '@/lib/types/prisma-extended';
 
 /**
  * Returns all penalties as a flat array

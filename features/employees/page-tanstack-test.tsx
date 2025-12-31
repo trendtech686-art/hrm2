@@ -36,14 +36,15 @@ export function EmployeesPageTanStackTest() {
   const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
   const [selectedRows, setSelectedRows] = React.useState<Employee[]>([]);
 
-  // Get active employees only
+  // Get active employees only - employees triggers re-evaluation when store changes
   const activeEmployees = React.useMemo(
     () => getActive(),
-    [employees]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getActive, employees]
   );
 
   const deletedCount = React.useMemo(
-    () => employees.filter((e: any) => e.isDeleted).length,
+    () => employees.filter((e: Employee) => e.isDeleted).length,
     [employees]
   );
 

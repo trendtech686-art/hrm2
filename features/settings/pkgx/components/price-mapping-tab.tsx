@@ -23,7 +23,7 @@ export function PriceMappingTab() {
 
   const handleSave = () => {
     // Log the mapping save
-    const mappingSummary = PKGX_PRICE_FIELDS
+    const _mappingSummary = PKGX_PRICE_FIELDS
       .filter(pf => settings.priceMapping[pf.key as keyof typeof settings.priceMapping])
       .map(pf => {
         const policyId = settings.priceMapping[pf.key as keyof typeof settings.priceMapping];

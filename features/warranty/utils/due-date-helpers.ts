@@ -163,7 +163,7 @@ export function getDueDateWarning(dueDate?: Date | string | null): DueDateWarnin
 }
 
 export function getTasksNeedingNotification(tasks: WarrantyTicket[]): WarrantyTicket[] {
-  return tasks.filter(task => {
+  return tasks.filter(_task => {
     // Warranty tickets don't have dueDate field, skip notification logic
     return false;
   });

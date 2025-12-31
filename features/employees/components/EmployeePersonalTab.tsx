@@ -6,20 +6,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form";
-import { Input } from "../../../components/ui/input";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select";
-import { DatePicker } from "../../../components/ui/date-picker";
-import type { EmployeeFormValues } from "../employee-form";
+} from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import type { EmployeeFormValues } from "./employee-form";
 
 interface EmployeePersonalTabProps {
-  form: UseFormReturn<EmployeeFormValues, any, EmployeeFormValues>;
+  form: UseFormReturn<EmployeeFormValues, unknown, EmployeeFormValues>;
 }
 
 export function EmployeePersonalTab({ form }: EmployeePersonalTabProps) {
@@ -56,7 +56,7 @@ export function EmployeePersonalTab({ form }: EmployeePersonalTabProps) {
         <FormField name="gender" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Giới tính</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn giới tính" />
@@ -126,7 +126,7 @@ export function EmployeePersonalTab({ form }: EmployeePersonalTabProps) {
         <FormField name="maritalStatus" control={form.control} render={({ field }) => ( 
           <FormItem>
             <FormLabel>Tình trạng hôn nhân</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value as any}>
+            <Select onValueChange={field.onChange} value={field.value as string | undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn tình trạng" />

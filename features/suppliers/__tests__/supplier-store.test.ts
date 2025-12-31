@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useSupplierStore } from '../store';
-import { asSystemId, asBusinessId } from '../../../lib/id-types';
+import { asBusinessId } from '../../../lib/id-types';
 
 // Mock auth context
 vi.mock('../../../contexts/auth-context.tsx', () => ({
@@ -68,7 +68,7 @@ describe('Supplier Store', () => {
         status: 'active' as const,
       };
       
-      const result = useSupplierStore.getState().add(newSupplier as any);
+      const result = useSupplierStore.getState().add(newSupplier as unknown as Parameters<ReturnType<typeof useSupplierStore.getState>['add']>[0]);
       
       expect(result).toBeDefined();
       expect(result?.name).toBe('Test Supplier');
@@ -85,7 +85,7 @@ describe('Supplier Store', () => {
         status: 'active' as const,
       };
       
-      const result = store.add(newSupplier as any);
+      const result = store.add(newSupplier as unknown as Parameters<typeof store.add>[0]);
       
       expect(result?.systemId).toBeDefined();
       expect(typeof result?.systemId).toBe('string');

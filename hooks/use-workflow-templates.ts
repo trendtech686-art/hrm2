@@ -155,14 +155,40 @@ function getDefaultTemplates(): WorkflowTemplate[] {
   ]
 }
 
+// API response types
+interface ApiSubtask {
+  id: string;
+  title: string;
+  completed: boolean;
+  order: number;
+  createdAt: string;
+  completedAt?: string;
+}
+
+interface ApiTemplate {
+  systemId?: string;
+  id?: string;
+  name: string;
+  label?: string;
+  description?: string;
+  isDefault?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  subtasks: ApiSubtask[];
+}
+
 // Parse templates from API response
-function parseTemplates(data: any[]): WorkflowTemplate[] {
-  return data.map((t: any) => ({
-    ...t,
-    systemId: t.systemId || t.id,
+function parseTemplates(data: ApiTemplate[]): WorkflowTemplate[] {
+  return data.map((t: ApiTemplate) => ({
+    systemId: t.systemId || t.id || '',
+    id: t.id || t.systemId || '',
+    name: t.name,
+    label: t.label || t.name,
+    description: t.description || '',
+    isDefault: t.isDefault ?? false,
     createdAt: new Date(t.createdAt),
     updatedAt: new Date(t.updatedAt),
-    subtasks: t.subtasks.map((s: any) => ({
+    subtasks: t.subtasks.map((s: ApiSubtask) => ({
       ...s,
       createdAt: new Date(s.createdAt),
       completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
@@ -281,7 +307,7 @@ export function useWorkflowTemplates() {
           setTemplates(data)
           setError(null)
         }
-      } catch (err) {
+      } catch (_err) {
         if (mounted) {
           setError('Failed to load templates')
           // Use default templates on error

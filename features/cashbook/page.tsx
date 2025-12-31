@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { ROUTES, generatePath } from '../../lib/router';
 import { asSystemId, type SystemId } from '../../lib/id-types';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { formatDateCustom } from '../../lib/date-utils';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
 import { useReceiptStore } from '../receipts/store';
 import { usePaymentStore } from '../payments/store';
@@ -38,13 +38,12 @@ import {
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
 import { Button } from "../../components/ui/button";
-import { Plus, Minus, DollarSign, CreditCard, Calendar, User, Building2, FileText, MoreHorizontal, Trash, Edit, Eye, BarChart3, Download, Upload } from "lucide-react";
+import { Plus, Minus, DollarSign, CreditCard, Calendar, User, Building2, FileText, MoreHorizontal, Trash, Edit, Eye, BarChart3 } from "lucide-react";
 // REMOVED: Voucher type no longer exists
 // import type { Voucher } from "../vouchers/types";
 import Fuse from "fuse.js";
 import { usePageHeader } from "../../contexts/page-header-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
 import { TouchButton } from "../../components/mobile/touch-button";
 import { Badge } from "../../components/ui/badge";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
@@ -75,7 +74,7 @@ export function CashbookPage() {
       .map(p => ({ ...p, type: 'payment' as const }));
     return [...validReceipts, ...validPayments];
   }, [receipts, payments]);
-  const remove = (systemId: SystemId) => {
+  const _remove = (systemId: SystemId) => {
     const isReceipt = receipts.some(r => r.systemId === systemId);
     if (isReceipt) {
       useReceiptStore.getState().remove(systemId);
@@ -107,12 +106,12 @@ export function CashbookPage() {
     // ✅ Always use default visibility (don't load from localStorage)
     const cols = getColumns(accounts, () => {}, router.push);
     const initial: Record<string, boolean> = {};
-    cols.forEach((c: any) => { if (c.id) initial[c.id] = true; });
+    cols.forEach((c) => { if (c.id) initial[c.id] = true; });
     return initial;
   });
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'type', 'id']);
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+  const [_expanded, _setExpanded] = React.useState<Record<string, boolean>>({});
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 });
 
   React.useEffect(() => {
@@ -203,7 +202,7 @@ export function CashbookPage() {
     { value: 'payment', label: 'Phiếu chi' }
   ], []);
 
-  const accountOptions = React.useMemo(() =>
+  const _accountOptions = React.useMemo(() =>
     accounts.map(acc => ({ value: acc.systemId, label: acc.name }))
   , [accounts]);
 
@@ -355,12 +354,12 @@ export function CashbookPage() {
     const sorted = [...filteredTransactions];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as any)[sorting.id];
-        const bValue = (b as any)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id];
+        const bValue = (b as Record<string, unknown>)[sorting.id];
         // Special handling for date columns - parse as Date for proper comparison
         if (sorting.id === 'createdAt' || sorting.id === 'date') {
-          const aTime = aValue ? new Date(aValue).getTime() : 0;
-          const bTime = bValue ? new Date(bValue).getTime() : 0;
+          const aTime = aValue ? new Date(aValue as string | Date).getTime() : 0;
+          const bTime = bValue ? new Date(bValue as string | Date).getTime() : 0;
           // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
           if (aTime === bTime) {
             const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
@@ -369,8 +368,10 @@ export function CashbookPage() {
           }
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
-        if (aValue < bValue) return sorting.desc ? 1 : -1;
-        if (aValue > bValue) return sorting.desc ? -1 : 1;
+        const aStr = String(aValue ?? '');
+        const bStr = String(bValue ?? '');
+        if (aStr < bStr) return sorting.desc ? 1 : -1;
+        if (aStr > bStr) return sorting.desc ? -1 : 1;
         return 0;
       });
     }
@@ -387,7 +388,7 @@ export function CashbookPage() {
   // ✅ Export configuration
   const exportConfig = React.useMemo(() => ({
     fileName: 'So_quy',
-    columns: columns as any,
+    columns: columns,
   }), [columns]);
 
   // ✅ Memoize header actions - CHỈ action chính (tạo phiếu)
@@ -567,7 +568,7 @@ export function CashbookPage() {
           }
           rightActions={
             <DataTableColumnCustomizer
-              columns={columns as any}
+              columns={columns}
               columnVisibility={columnVisibility}
               setColumnVisibility={setColumnVisibility}
               columnOrder={columnOrder}
@@ -659,7 +660,7 @@ export function CashbookPage() {
       ) : (
         /* Desktop View - ResponsiveDataTable */
         <ResponsiveDataTable
-          columns={columns as any}
+          columns={columns}
           data={paginatedData}
           pageCount={pageCount}
           pagination={pagination}

@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { cn } from "../../lib/utils"
 
@@ -55,7 +57,7 @@ RadioGroup.displayName = "RadioGroup";
 const RadioGroupItem = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string | number }
->(({ className, value, children, ...props }, ref) => {
+>(({ className, value, children: _children, ...props }, ref) => {
   const { value: selectedValue, onValueChange, name } = useRadioGroup();
   const isChecked = selectedValue === value;
   const id = React.useId();

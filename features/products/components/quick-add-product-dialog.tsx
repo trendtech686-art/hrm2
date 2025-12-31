@@ -141,7 +141,7 @@ export function QuickAddProductDialog({
       if (onSuccess && addedProduct) {
         onSuccess(addedProduct.systemId);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể thêm sản phẩm. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);

@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -63,7 +65,7 @@ interface BaseFormDialogProps<T> {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialData?: T | null;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: Record<string, unknown>) => void;
   existingIds: string[];
 }
 
@@ -78,8 +80,8 @@ export function CustomerTypeFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<CustomerTypeFormData>({
-    resolver: zodResolver(customerTypeSchema) as any,
-    defaultValues: initialData as any || {
+    resolver: zodResolver(customerTypeSchema) as unknown as Parameters<typeof useForm<CustomerTypeFormData>>[0]['resolver'],
+    defaultValues: (initialData as unknown as CustomerTypeFormData) || {
       id: '',
       name: '',
       description: '',
@@ -90,7 +92,7 @@ export function CustomerTypeFormDialog({
 
   React.useEffect(() => {
     if (open) {
-      form.reset((initialData as any) || {
+      form.reset((initialData as unknown as CustomerTypeFormData) || {
         id: '',
         name: '',
         description: '',
@@ -98,6 +100,7 @@ export function CustomerTypeFormDialog({
         isActive: true,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form.reset is stable from useForm
   }, [open, initialData]);
 
   const handleSubmit = (values: CustomerTypeFormData) => {
@@ -223,8 +226,8 @@ export function CustomerGroupFormDialog({
   const activePriceLists = getActivePriceLists();
 
   const form = useForm<CustomerGroupFormData>({
-    resolver: zodResolver(customerGroupSchema) as any,
-    defaultValues: initialData as any || {
+    resolver: zodResolver(customerGroupSchema) as unknown as Parameters<typeof useForm<CustomerGroupFormData>>[0]['resolver'],
+    defaultValues: (initialData as unknown as CustomerGroupFormData) || {
       id: '',
       name: '',
       description: '',
@@ -237,7 +240,7 @@ export function CustomerGroupFormDialog({
 
   React.useEffect(() => {
     if (open) {
-      form.reset((initialData as any) || {
+      form.reset((initialData as unknown as CustomerGroupFormData) || {
         id: '',
         name: '',
         description: '',
@@ -247,6 +250,7 @@ export function CustomerGroupFormDialog({
         isActive: true,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form.reset is stable from useForm
   }, [open, initialData]);
 
   const handleSubmit = (values: CustomerGroupFormData) => {
@@ -414,8 +418,8 @@ export function CustomerSourceFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<CustomerSourceFormData>({
-    resolver: zodResolver(customerSourceSchema) as any,
-    defaultValues: initialData as any || {
+    resolver: zodResolver(customerSourceSchema) as unknown as Parameters<typeof useForm<CustomerSourceFormData>>[0]['resolver'],
+    defaultValues: (initialData as unknown as CustomerSourceFormData) || {
       id: '',
       name: '',
       description: '',
@@ -427,7 +431,7 @@ export function CustomerSourceFormDialog({
 
   React.useEffect(() => {
     if (open) {
-      form.reset((initialData as any) || {
+      form.reset((initialData as unknown as CustomerSourceFormData) || {
         id: '',
         name: '',
         description: '',
@@ -436,6 +440,7 @@ export function CustomerSourceFormDialog({
         isActive: true,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form.reset is stable from useForm
   }, [open, initialData]);
 
   const handleSubmit = (values: CustomerSourceFormData) => {
@@ -582,8 +587,8 @@ export function PaymentTermFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<PaymentTermFormData>({
-    resolver: zodResolver(paymentTermSchema) as any,
-    defaultValues: initialData as any || {
+    resolver: zodResolver(paymentTermSchema) as unknown as Parameters<typeof useForm<PaymentTermFormData>>[0]['resolver'],
+    defaultValues: (initialData as unknown as PaymentTermFormData) || {
       id: '',
       name: '',
       description: '',
@@ -595,7 +600,7 @@ export function PaymentTermFormDialog({
 
   React.useEffect(() => {
     if (open) {
-      form.reset((initialData as any) || {
+      form.reset((initialData as unknown as PaymentTermFormData) || {
         id: '',
         name: '',
         description: '',
@@ -604,6 +609,7 @@ export function PaymentTermFormDialog({
         isActive: true,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form.reset is stable from useForm
   }, [open, initialData]);
 
   const handleSubmit = (values: PaymentTermFormData) => {
@@ -748,8 +754,8 @@ export function CreditRatingFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<CreditRatingFormData>({
-    resolver: zodResolver(creditRatingSchema) as any,
-    defaultValues: initialData as any || {
+    resolver: zodResolver(creditRatingSchema) as unknown as Parameters<typeof useForm<CreditRatingFormData>>[0]['resolver'],
+    defaultValues: (initialData as unknown as CreditRatingFormData) || {
       id: '',
       name: '',
       description: '',
@@ -762,7 +768,7 @@ export function CreditRatingFormDialog({
 
   React.useEffect(() => {
     if (open) {
-      form.reset((initialData as any) || {
+      form.reset((initialData as unknown as CreditRatingFormData) || {
         id: '',
         name: '',
         description: '',
@@ -772,6 +778,7 @@ export function CreditRatingFormDialog({
         isActive: true,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form.reset is stable from useForm
   }, [open, initialData]);
 
   const handleSubmit = (values: CreditRatingFormData) => {
@@ -938,8 +945,8 @@ export function LifecycleStageFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<LifecycleStageFormData>({
-    resolver: zodResolver(lifecycleStageSchema) as any,
-    defaultValues: initialData as any || {
+    resolver: zodResolver(lifecycleStageSchema) as unknown as Parameters<typeof useForm<LifecycleStageFormData>>[0]['resolver'],
+    defaultValues: (initialData as unknown as LifecycleStageFormData) || {
       id: '',
       name: '',
       description: '',
@@ -952,7 +959,7 @@ export function LifecycleStageFormDialog({
 
   React.useEffect(() => {
     if (open) {
-      form.reset((initialData as any) || {
+      form.reset((initialData as unknown as LifecycleStageFormData) || {
         id: '',
         name: '',
         description: '',
@@ -962,6 +969,7 @@ export function LifecycleStageFormDialog({
         isActive: true,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form.reset is stable from useForm
   }, [open, initialData]);
 
   const handleSubmit = (values: LifecycleStageFormData) => {
@@ -1127,21 +1135,22 @@ export function CustomerSlaSettingFormDialog({
   initialData,
   onSubmit,
 }: BaseFormDialogProps<CustomerSlaSetting>) {
-  // SLA chỉ cho phép edit, không thêm mới
-  if (!initialData) {
-    return null;
-  }
-
+  // All hooks must be called before any early returns (React hooks rules)
   const form = useForm<CustomerSlaSettingFormData>({
-    resolver: zodResolver(customerSlaSettingSchema) as any,
-    defaultValues: initialData as any,
+    resolver: zodResolver(customerSlaSettingSchema) as unknown as Parameters<typeof useForm<CustomerSlaSettingFormData>>[0]['resolver'],
+    defaultValues: initialData as unknown as CustomerSlaSettingFormData,
   });
 
   React.useEffect(() => {
     if (open && initialData) {
-      form.reset(initialData as any);
+      form.reset(initialData as unknown as CustomerSlaSettingFormData);
     }
-  }, [open, initialData]);
+  }, [open, initialData, form]);
+
+  // SLA chỉ cho phép edit, không thêm mới
+  if (!initialData) {
+    return null;
+  }
 
   const handleSubmit = (values: CustomerSlaSettingFormData) => {
     onSubmit(values);

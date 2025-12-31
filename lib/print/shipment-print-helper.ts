@@ -5,7 +5,6 @@
 
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
-import type { Order } from '@/lib/types/prisma-extended';
 import { 
   DeliveryForPrint,
   mapDeliveryToPrintData, 
@@ -101,7 +100,7 @@ export function convertShipmentToDeliveryForPrint(
     creator?: Employee | null;
   } = {}
 ): DeliveryForPrint {
-  const { customer, branch, creator } = options;
+  const { customer, branch: _branch, creator } = options;
 
   // Map trạng thái sang tiếng Việt
   const statusMap: Record<string, string> = {
@@ -118,15 +117,15 @@ export function convertShipmentToDeliveryForPrint(
     code: shipment.id,
     orderCode: shipment.orderId,
     createdAt: shipment.createdAt,
-    createdBy: creator?.fullName || shipment.creatorEmployeeName || shipment.createdByName,
+    createdBy: creator?.fullName ?? shipment.creatorEmployeeName ?? shipment.createdByName ?? '',
     trackingCode: shipment.trackingCode,
     carrierName: shipment.carrier,
     deliveryStatus: shipment.deliveryStatus ? (statusMap[shipment.deliveryStatus] || shipment.deliveryStatus) : undefined,
     
     // Thông tin khách hàng
-    customerName: shipment.customerName || customer?.name,
+    customerName: shipment.customerName || customer?.name || '',
     customerPhone: shipment.customerPhone || customer?.phone,
-    shippingAddress: shipment.customerAddress || customer?.shippingAddress_street,
+    shippingAddress: shipment.customerAddress ?? customer?.shippingAddress_street ?? '',
     
     // Thông tin người nhận (có thể khác khách hàng)
     receiverName: shipment.customerName || customer?.name,

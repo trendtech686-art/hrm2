@@ -9,7 +9,7 @@ interface StatisticsDashboardProps {
   currentDate: Date;
 }
 
-export function StatisticsDashboard({ data, currentDate }: StatisticsDashboardProps) {
+export function StatisticsDashboard({ data, currentDate: _currentDate }: StatisticsDashboardProps) {
   const stats = React.useMemo(() => {
     const totalEmployees = data.length;
     const totalWorkDays = data.reduce((sum, emp) => sum + emp.workDays, 0);

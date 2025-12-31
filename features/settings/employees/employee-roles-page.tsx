@@ -16,7 +16,7 @@ import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerti
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { toast } from 'sonner';
 import { Shield, Plus, Edit, Trash2, Save, RotateCcw, Copy, Users, Search, UserCog, Key, RefreshCw, Eye, EyeOff, Clipboard, MoreHorizontal } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { PERMISSION_GROUPS, PERMISSION_LABELS, type Permission } from '../../employees/permissions';
 import { useRoleStore, type CustomRole } from './role-store';
 import { useEmployeeStore } from '../../employees/store';

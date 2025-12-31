@@ -19,12 +19,11 @@ import {
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
 import { MoreHorizontal } from 'lucide-react';
-import { cn } from '../../lib/utils';
 
 /**
  * Quick action configuration
  */
-export interface QuickAction<T = any> {
+export interface QuickAction<T = unknown> {
   id: string;
   label: string;
   icon?: React.ReactNode;
@@ -35,7 +34,7 @@ export interface QuickAction<T = any> {
   onAction?: (item: T, event?: React.MouseEvent | KeyboardEvent) => void | Promise<void>; // Optional if submenu exists
 }
 
-export interface QuickActionsMenuProps<T = any> {
+export interface QuickActionsMenuProps<T = unknown> {
   /** Item to perform actions on */
   item: T;
   
@@ -111,7 +110,7 @@ export interface QuickActionsMenuProps<T = any> {
  * />
  * ```
  */
-export function QuickActionsMenu<T = any>({
+export function QuickActionsMenu<T = unknown>({
   item,
   actions,
   children,
@@ -122,7 +121,7 @@ export function QuickActionsMenu<T = any>({
   enableKeyboardShortcuts = true,
   className,
 }: QuickActionsMenuProps<T>) {
-  const menuRef = React.useRef<HTMLDivElement>(null);
+  const _menuRef = React.useRef<HTMLDivElement>(null);
 
   // Handle keyboard shortcuts
   React.useEffect(() => {
@@ -171,7 +170,7 @@ export function QuickActionsMenu<T = any>({
       const MenuItemComponent = isContextMenu ? ContextMenuItem : DropdownMenuItem;
       const itemProps = isContextMenu 
         ? { onSelect: () => action.onAction?.(item) }
-        : { onClick: (e: React.MouseEvent) => action.onAction?.(item, e as any) };
+        : { onClick: (e: React.MouseEvent) => action.onAction?.(item, e) };
       
       return (
         <React.Fragment key={action.id}>
@@ -262,7 +261,7 @@ function matchesShortcut(shortcut: string, event: KeyboardEvent): boolean {
     space: ' ',
   };
 
-  const key = keyMap[normalized] || normalized;
+  const _key = keyMap[normalized] || normalized;
 
   // Check modifiers
   const ctrl = normalized.includes('ctrl') || normalized.includes('⌘');

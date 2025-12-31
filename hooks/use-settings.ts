@@ -4,7 +4,7 @@ interface Setting {
   systemId: string
   key: string
   group: string
-  value: any
+  value: unknown
   valueType: string
   description?: string
 }
@@ -16,7 +16,7 @@ interface Setting {
  * @param group - Group settings (general, security, appearance, etc.)
  */
 export function useSettings(group?: string) {
-  const [settings, setSettings] = useState<Record<string, any>>({})
+  const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [rawSettings, setRawSettings] = useState<Setting[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -34,11 +34,11 @@ export function useSettings(group?: string) {
         
         // Convert to key-value map
         const map = (data.data || []).reduce(
-          (acc: Record<string, any>, s: Setting) => {
+          (acc: Record<string, unknown>, s: Setting) => {
             acc[s.key] = s.value
             return acc
           },
-          {}
+          {} as Record<string, unknown>
         )
         setSettings(map)
       }
@@ -55,7 +55,7 @@ export function useSettings(group?: string) {
 
   // Update single setting
   const updateSetting = useCallback(
-    async (key: string, value: any, settingGroup?: string) => {
+    async (key: string, value: unknown, settingGroup?: string) => {
       setSettings((prev) => ({ ...prev, [key]: value }))
 
       try {
@@ -77,7 +77,7 @@ export function useSettings(group?: string) {
 
   // Bulk update settings
   const updateSettings = useCallback(
-    async (newSettings: Record<string, any>, settingGroup?: string) => {
+    async (newSettings: Record<string, unknown>, settingGroup?: string) => {
       setSettings((prev) => ({ ...prev, ...newSettings }))
 
       try {
@@ -102,7 +102,7 @@ export function useSettings(group?: string) {
   // Get single setting value with default
   const getSetting = useCallback(
     <T>(key: string, defaultValue: T): T => {
-      return settings[key] !== undefined ? settings[key] : defaultValue
+      return settings[key] !== undefined ? (settings[key] as T) : defaultValue
     },
     [settings]
   )

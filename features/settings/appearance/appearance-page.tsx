@@ -89,10 +89,10 @@ export function AppearancePage() {
     }, [savedTheme, savedFontSize, savedCustomThemeConfig, savedColorMode]);
     
     // Store actions - only called on Save
-    const setTheme = useAppearanceStore(s => s.setTheme);
-    const setFontSize = useAppearanceStore(s => s.setFontSize);
-    const setColorMode = useAppearanceStore(s => s.setColorMode);
-    const setCustomThemeConfig = useAppearanceStore(s => s.setCustomThemeConfig);
+    const _setTheme = useAppearanceStore(s => s.setTheme);
+    const _setFontSize = useAppearanceStore(s => s.setFontSize);
+    const _setColorMode = useAppearanceStore(s => s.setColorMode);
+    const _setCustomThemeConfig = useAppearanceStore(s => s.setCustomThemeConfig);
     const updateAppearance = useAppearanceStore(s => s.updateAppearance);
     
     // Preview panel state (UI only)

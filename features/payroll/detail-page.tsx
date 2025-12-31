@@ -2,13 +2,9 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Printer, FileText, Download, Lock, Unlock, CheckCircle2, Banknote, ExternalLink } from 'lucide-react';
-import { Badge } from '../../components/ui/badge';
+import { Printer, Lock, Unlock, CheckCircle2, Banknote } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Separator } from '../../components/ui/separator';
-import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Textarea } from '../../components/ui/textarea';
 import {
   AlertDialog,
@@ -47,7 +43,7 @@ import {
   createStoreSettings,
 } from '../../lib/print/payroll-print-helper';
 import { mapPaymentToPrintData, type PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
-import { convertPenaltyForPrint, createStoreSettings as createPenaltyStoreSettings } from '../../lib/print/penalty-print-helper';
+import { convertPenaltyForPrint } from '../../lib/print/penalty-print-helper';
 import { mapPenaltyToPrintData } from '../../lib/print-mappers/penalty.mapper';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
@@ -97,7 +93,7 @@ const AUDIT_ACTION_LABEL: Record<PayrollAuditAction, string> = {
   export: 'Xuất dữ liệu',
 };
 
-const ALERT_CLASS_BY_TONE: Record<'info' | 'warning' | 'success', string> = {
+const _ALERT_CLASS_BY_TONE: Record<'info' | 'warning' | 'success', string> = {
   info: 'border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-400/40 dark:bg-blue-950/40',
   warning: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/40 dark:bg-amber-950/40',
   success: 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-950/40',
@@ -131,7 +127,7 @@ const currencyFormatter = new Intl.NumberFormat('vi-VN', {
 
 const formatCurrency = (value?: number) => (typeof value === 'number' ? currencyFormatter.format(value) : '—');
 const formatDate = (value?: string) => (value ? formatDateForDisplay(value) : '—');
-const formatDateTime = (value?: string) => (value ? formatDateTimeForDisplay(value) : '—');
+const _formatDateTime = (value?: string) => (value ? formatDateTimeForDisplay(value) : '—');
 
 const formatMonthKey = (monthKey?: string) => {
   if (!monthKey) return '—';
@@ -182,7 +178,7 @@ type PayrollExportMetadata = {
 
 const CSV_BOM = '\uFEFF';
 
-const buildDepartmentReportCsv = (rows: DepartmentSummaryRow[], metadata: PayrollExportMetadata) => {
+const _buildDepartmentReportCsv = (rows: DepartmentSummaryRow[], metadata: PayrollExportMetadata) => {
   const headerRows: Array<Array<string | number>> = [
     ['Bảng lương', metadata.batchId],
     ['Tiêu đề', metadata.title],
@@ -203,7 +199,7 @@ const buildDepartmentReportCsv = (rows: DepartmentSummaryRow[], metadata: Payrol
   return buildCsvContent([...headerRows, ...bodyRows]);
 };
 
-const buildPayslipReportCsv = (rows: PayslipExportRow[], metadata: PayrollExportMetadata) => {
+const _buildPayslipReportCsv = (rows: PayslipExportRow[], metadata: PayrollExportMetadata) => {
   const headerRows: Array<Array<string | number>> = [
     ['Bảng lương', metadata.batchId],
     ['Tiêu đề', metadata.title],
@@ -234,7 +230,7 @@ const serializeCsvValue = (value: string | number) => {
   return `"${escaped}"`;
 };
 
-const downloadCsv = (content: string, filename: string) => {
+const _downloadCsv = (content: string, filename: string) => {
   const blob = new Blob([CSV_BOM + content], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -313,8 +309,8 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
           name: actorName,
         },
         description: AUDIT_ACTION_LABEL[entry.action] ?? entry.action,
-        metadata: (entry.payload as any)?.note
-          ? { note: String((entry.payload as any).note) }
+        metadata: (entry.payload as { note?: string })?.note
+          ? { note: String((entry.payload as { note?: string }).note) }
           : undefined,
       };
     });
@@ -465,16 +461,16 @@ export function PayrollDetailPage() {
   const {
     batch,
     payslips,
-    template,
-    batchAuditLogs,
+    template: _template,
+    batchAuditLogs: _batchAuditLogs,
     historyEntries,
     batchPayslips,
-    departmentSummaries,
-    payslipExports,
+    departmentSummaries: _departmentSummaries,
+    payslipExports: _payslipExports,
     totals,
     referenceMonthsLabel,
     payPeriodLabel,
-    exportMetadata,
+    exportMetadata: _exportMetadata,
     employeeLookup,
     departmentLookup,
   } = usePayrollDetailData(resolvedSystemId);
@@ -483,7 +479,7 @@ export function PayrollDetailPage() {
   const updateBatchStatus = usePayrollBatchStore((state) => state.updateBatchStatus);
   const updatePayslip = usePayrollBatchStore((state) => state.updatePayslip);
   const removePayslipFromBatch = usePayrollBatchStore((state) => state.removePayslipFromBatch);
-  const logAction = usePayrollBatchStore((state) => state.logAction);
+  const _logAction = usePayrollBatchStore((state) => state.logAction);
   
   // Payment store - to check linked payments
   const allPayments = usePaymentStore((state) => state.data);
@@ -515,8 +511,8 @@ export function PayrollDetailPage() {
   const [isCreatePaymentOpen, setIsCreatePaymentOpen] = React.useState(false);
 
   // Derived state
-  const canReview = batch?.status === 'draft';
-  const canLock = batch?.status === 'reviewed';
+  const _canReview = batch?.status === 'draft';
+  const _canLock = batch?.status === 'reviewed';
   const isLocked = batch?.status === 'locked';
 
   // Handlers
@@ -673,12 +669,12 @@ export function PayrollDetailPage() {
     closeApprovalDialog();
   }, [approvalAction, batch, approvalNote, handleStatusChange, closeApprovalDialog]);
 
-  const handleUnlock = React.useCallback(() => {
+  const _handleUnlock = React.useCallback(() => {
     if (!batch) return;
     handleStatusChange('reviewed', 'Mở khóa bảng lương');
   }, [batch, handleStatusChange]);
 
-  const handleOpenEmployee = React.useCallback((row: PayslipRow) => {
+  const _handleOpenEmployee = React.useCallback((row: PayslipRow) => {
     if (!row.employeeSystemId) return;
     router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.employeeSystemId));
   }, [router]);
@@ -1024,7 +1020,7 @@ export function PayrollDetailPage() {
     );
   }
 
-  const statusHint = STATUS_HINTS[batch.status];
+  const _statusHint = STATUS_HINTS[batch.status];
 
   return (
     <div className="space-y-6">

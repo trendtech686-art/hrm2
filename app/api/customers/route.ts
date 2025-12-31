@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, CustomerStatus } from '@/generated/prisma/client'
 
 // GET /api/customers - List all customers
 export async function GET(request: Request) {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {
+    const where: Prisma.CustomerWhereInput = {
       isDeleted: false,
     }
 
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status
+      where.status = status as CustomerStatus
     }
 
     const [customers, total] = await Promise.all([
@@ -95,10 +96,10 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(customer, { status: 201 })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating customer:', error)
     
-    if (error.code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Customer ID already exists' },
         { status: 400 }

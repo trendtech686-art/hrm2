@@ -10,30 +10,30 @@ model InventoryCheck {
   updatedAt  DateTime             @updatedAt
   createdBy  String?
   updatedBy  String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Branch info (denormalized)
-  branchSystemId       String?
-  branchName           String?
-  
+  branchSystemId String?
+  branchName     String?
+
   // Balance tracking
-  balancedAt           DateTime?
-  balancedBy           String?
-  
+  balancedAt DateTime?
+  balancedBy String?
+
   // Cancellation tracking
-  cancelledAt          DateTime?
-  cancelledBy          String?
-  cancelledReason      String?
-  
+  cancelledAt     DateTime?
+  cancelledBy     String?
+  cancelledReason String?
+
   // Items (stored as JSON for flexibility)
-  checkItems           Json?          // Array of InventoryCheckItem with reason
-  
+  checkItems Json? // Array of InventoryCheckItem with reason
+
   // Activity History
-  activityHistory      Json?
-  
+  activityHistory Json?
+
   // === RELATIONS ===
-  items      InventoryCheckItem[]
+  items InventoryCheckItem[]
 
   @@index([branchId])
   @@index([status])

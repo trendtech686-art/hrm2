@@ -68,10 +68,10 @@ export async function POST(request: NextRequest) {
     
     // Generate unique filename
     const fileName = generateFileName(file.name)
-    const fileHash = generateFileHash(buffer)
+    const _fileHash = generateFileHash(buffer)
     
     // Save to disk
-    const { filePath, relativePath } = await saveFileToDisk(
+    const { filePath: _filePath, relativePath } = await saveFileToDisk(
       buffer,
       entityType,
       fileName,

@@ -1,13 +1,12 @@
 import * as React from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useDropzone, FileRejection, FileError } from 'react-dropzone';
 import { toast } from 'sonner';
-import { Upload, X, Eye, AlertCircle, File } from 'lucide-react';
+import { Upload, X, Eye, AlertCircle, File as FileIcon } from 'lucide-react';
 import { Button } from './button';
 import { Card } from './card';
 import { cn } from '../../lib/utils';
 import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
-import { getFileUrl, getBaseUrl } from '../../lib/api-config';
-import { compressImageToWebP } from '../../lib/image-utils';
+import { getBaseUrl } from '../../lib/api-config';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,10 +77,10 @@ const compressImage = (file: File, quality: number = 0.75): Promise<File> => {
             try {
               // Convert to WebP with .webp extension
               const fileName = file.name.replace(/\.[^.]+$/, '.webp');
-              const compressedFile = new (window as any).File([blob], fileName, {
+              const compressedFile = new File([blob], fileName, {
                 type: 'image/webp',
                 lastModified: Date.now(),
-              }) as File;
+              });
               resolve(compressedFile);
             } catch (error) {
               console.warn('WebP creation failed, trying JPEG fallback:', error);
@@ -90,10 +89,10 @@ const compressImage = (file: File, quality: number = 0.75): Promise<File> => {
                 (jpegBlob) => {
                   if (jpegBlob) {
                     try {
-                      const jpegFile = new (window as any).File([jpegBlob], file.name, {
+                      const jpegFile = new File([jpegBlob], file.name, {
                         type: 'image/jpeg',
                         lastModified: Date.now(),
-                      }) as File;
+                      });
                       resolve(jpegFile);
                     } catch {
                       resolve(file);
@@ -149,11 +148,11 @@ export function NewDocumentsUpload({
 
   
   // Get session ID: từ prop → từ existing files → tạo mới
-  const getInitialSessionId = () => {
+  const getInitialSessionId = React.useCallback(() => {
     if (sessionId) return sessionId;
     if (files.length > 0 && files[0].sessionId) return files[0].sessionId;
     return '';
-  };
+  }, [sessionId, files]);
   
   const [currentSessionId, setCurrentSessionId] = React.useState(getInitialSessionId);
   
@@ -163,21 +162,21 @@ export function NewDocumentsUpload({
     if (newSessionId && newSessionId !== currentSessionId) {
       setCurrentSessionId(newSessionId);
     }
-  }, [sessionId, files, currentSessionId]);
+  }, [sessionId, files, currentSessionId, getInitialSessionId]);
 
-  const onDrop = React.useCallback(async (acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = React.useCallback(async (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     // Handle rejected files first (format/size issues)
     if (rejectedFiles.length > 0) {
       rejectedFiles.forEach(rejection => {
         const { file, errors } = rejection;
-        errors.forEach((error: any) => {
+        errors.forEach((error: FileError) => {
           switch (error.code) {
             case 'file-too-large':
               toast.error(`File "${file.name}" quá lớn`, {
                 description: `Kích thước tối đa: ${formatFileSize(maxSize)}`
               });
               break;
-            case 'file-invalid-type':
+            case 'file-invalid-type': {
               // Generate accept message from accept prop
               const acceptedTypes = accept 
                 ? Object.values(accept).flat().join(', ').toUpperCase()
@@ -186,6 +185,7 @@ export function NewDocumentsUpload({
                 description: `Chỉ chấp nhận: ${acceptedTypes}`
               });
               break;
+            }
             default:
               toast.error(`Lỗi tải file "${file.name}"`, {
                 description: error.message || 'Vui lòng thử lại'
@@ -319,7 +319,7 @@ export function NewDocumentsUpload({
     } finally {
       setIsUploading(false);
     }
-  }, [files, maxFiles, maxSize, onChange, currentSessionId, onSessionChange]);
+  }, [files, maxFiles, maxSize, onChange, currentSessionId, onSessionChange, accept, existingFileCount, maxTotalSize]);
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
     onDrop,
@@ -554,7 +554,7 @@ export function NewDocumentsUpload({
 
       {files.length > 0 && (
         <div className={`grid ${gridTemplateClass} gap-2 mb-2`}>
-          {files.map((file, index) => {
+          {files.map((file) => {
             const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
             const previewUrl = getPreviewUrl(file);
             // Check if this is a permanent file (existing file with empty sessionId)
@@ -627,7 +627,7 @@ export function NewDocumentsUpload({
                     </div>
                   ) : (
                     <div className="aspect-square rounded-lg bg-muted flex items-center justify-center">
-                      <File className="h-8 w-8 text-muted-foreground" />
+                      <FileIcon className="h-8 w-8 text-muted-foreground" />
                     </div>
                   )}
 

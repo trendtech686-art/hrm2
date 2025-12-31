@@ -20,6 +20,7 @@ import { Package, Eye, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { Button } from '../ui/button';
 import { FormControl, FormField, FormItem } from '../ui/form';
+import { OptimizedImage } from '../ui/optimized-image';
 import { useProductStore } from '../../features/products/store';
 import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
 import { usePricingPolicyStore } from '../../features/settings/pricing/store';
@@ -57,7 +58,7 @@ const ProductThumbnailCell = ({
                 className={`group/thumbnail relative w-10 h-10 rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
             >
-                <img src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={40} height={40} />
                 {onPreview && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -140,7 +141,7 @@ export interface ComboItemsEditTableProps {
     /** Hàm xóa item từ useFieldArray */
     remove: (index: number) => void;
     /** react-hook-form control */
-    control: Control<any>;
+    control: Control<Record<string, unknown>>;
     /** Field name prefix (mặc định: 'comboItems') */
     fieldName?: string;
     /** Disabled state (khi đang submit) */
@@ -167,7 +168,7 @@ const ComboItemRow = React.memo(({
 }: {
     field: ComboItemField;
     index: number;
-    control: Control<any>;
+    control: Control<Record<string, unknown>>;
     fieldName: string;
     disabled: boolean;
     onRemove: (index: number) => void;
@@ -178,8 +179,10 @@ const ComboItemRow = React.memo(({
 }) => {
     const { findById: findProductById } = useProductStore();
     
-    // Watch quantity for this row
-    const quantity = useWatch({ control, name: `${fieldName}.${index}.quantity`, defaultValue: 1 });
+    // Watch quantity for this row - cast control to any to work around react-hook-form strict typing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const watchedQuantity = useWatch({ control: control as any, name: `${fieldName}.${index}.quantity`, defaultValue: 1 });
+    const quantity = typeof watchedQuantity === 'number' ? watchedQuantity : Number(watchedQuantity) || 1;
     
     const product = React.useMemo(() => findProductById(field.productSystemId), [field.productSystemId, findProductById]);
     const unitPrice = getUnitPrice(product);
@@ -292,7 +295,9 @@ export function ComboItemsEditTable({
     });
 
     // Watch all combo items for total calculation
-    const comboItems = useWatch({ control, name: fieldName }) || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const watchedComboItems = useWatch({ control: control as any, name: fieldName });
+    const comboItems = React.useMemo(() => (Array.isArray(watchedComboItems) ? watchedComboItems : []) as Array<{ productSystemId?: string; quantity?: number }>, [watchedComboItems]);
 
     // Get default selling policy
     const defaultPricingPolicy = React.useMemo(() => {
@@ -344,7 +349,7 @@ export function ComboItemsEditTable({
 
     // Calculate total
     const totalOriginalPrice = React.useMemo(() => {
-        return comboItems.reduce((sum: number, item: any) => {
+        return comboItems.reduce((sum: number, item: { productSystemId?: string; quantity?: number }) => {
             const product = findProductById(item?.productSystemId);
             const unitPrice = getUnitPrice(product);
             const quantity = item?.quantity || 1;

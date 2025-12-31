@@ -15,8 +15,6 @@ import {
   deleteSupplier,
   searchSuppliers,
   type SuppliersParams,
-  type CreateSupplierInput,
-  type UpdateSupplierInput,
 } from '../api/suppliers-api';
 
 // Query keys

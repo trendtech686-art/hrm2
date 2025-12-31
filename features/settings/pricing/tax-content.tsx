@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { useTaxStore } from "../taxes/store";
@@ -59,6 +61,7 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
                 </SettingsActionButton>
             ]);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAddNew is stable, defined after but only uses form.reset and setters
     }, [isActive, onRegisterActions]);
 
     const handleAddNew = () => {

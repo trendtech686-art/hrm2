@@ -89,13 +89,13 @@ export function GeneralConfigTab() {
       });
       
       // Check if response is JSON
-      const contentType = response.headers.get('content-type');
+      const _contentType = response.headers.get('content-type');
       const responseText = await response.text();
       
       let data;
       try {
         data = JSON.parse(responseText);
-      } catch (parseError) {
+      } catch (_parseError) {
         // PHP trả về HTML error thay vì JSON
         const errorPreview = responseText.substring(0, 200);
         console.error('Invalid JSON response:', errorPreview);

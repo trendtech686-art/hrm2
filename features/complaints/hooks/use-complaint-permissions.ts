@@ -174,6 +174,7 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
   }
 
   return permissions;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally tracking specific complaint properties only
   }, [user, employee, complaint?.systemId, complaint?.status, complaint?.verification, complaint?.createdBy, complaint?.assignedTo, complaint?.responsibleUserId, complaint?.investigationNote]);
 }
 

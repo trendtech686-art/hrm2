@@ -6,7 +6,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../../components/ui/tooltip';
-import { Badge } from '../../../components/ui/badge';
 import type { TaskAssignee, AssigneeRole } from '../types';
 
 interface AssigneeAvatarGroupProps {

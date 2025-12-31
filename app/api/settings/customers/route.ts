@@ -125,11 +125,11 @@ export async function POST(request: NextRequest) {
       updatedBy: created.updatedBy,
       ...(created.metadata as Record<string, unknown> || {}),
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Customer Settings API] POST error:', error);
     
     // Handle unique constraint violation
-    if (error.code === 'P2002') {
+    if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'A setting with this ID already exists for this type' },
         { status: 409 }

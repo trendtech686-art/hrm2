@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { Settings2, Search, X, Pin, GripVertical } from "lucide-react"
 
@@ -110,7 +112,7 @@ export function DataTableColumnCustomizer<TData>({
 
   const handleSave = () => {
     // ✅ FIX: Merge localVisibility với columnVisibility, giữ nguyên select & actions
-    setColumnVisibility(prev => ({
+    setColumnVisibility(_prev => ({
       ...localVisibility,
       select: true,      // Luôn giữ select visible
       actions: true,     // Luôn giữ actions visible
@@ -154,7 +156,7 @@ export function DataTableColumnCustomizer<TData>({
   };
 
   const availableColumns = React.useMemo(() => 
-    allConfigurableColumns.filter(c => !localVisibility[c.id] && ((c.meta as any)?.displayName ?? c.id).toLowerCase().includes(search.toLowerCase())),
+    allConfigurableColumns.filter(c => !localVisibility[c.id] && (c.meta?.displayName ?? c.id).toLowerCase().includes(search.toLowerCase())),
     [allConfigurableColumns, localVisibility, search]
   );
   
@@ -171,7 +173,7 @@ export function DataTableColumnCustomizer<TData>({
 
   const groupedAvailableColumns = React.useMemo(() => {
     return availableColumns.reduce((groups, col) => {
-        const groupName = (col.meta as any)?.group || 'Thông tin khác';
+        const groupName = col.meta?.group || 'Thông tin khác';
         if (!groups[groupName]) {
             groups[groupName] = [];
         }
@@ -234,7 +236,7 @@ export function DataTableColumnCustomizer<TData>({
         >
           <GripVertical className="h-5 w-5 mr-2 text-muted-foreground" />
         </div>
-        <span className="flex-grow text-sm">{ (col.meta as any)?.displayName ?? col.id }</span>
+        <span className="flex-grow text-sm">{ col.meta?.displayName ?? col.id }</span>
         
         <Button 
           variant="ghost" 
@@ -304,7 +306,7 @@ export function DataTableColumnCustomizer<TData>({
                                                 checked={localVisibility[col.id] || false}
                                                 onCheckedChange={(checked) => toggleColumnVisibility(col.id, !!checked)}
                                             />
-                                            <Label htmlFor={`add-${col.id}`} className="font-normal text-sm">{ (col.meta as any)?.displayName ?? col.id }</Label>
+                                            <Label htmlFor={`add-${col.id}`} className="font-normal text-sm">{ col.meta?.displayName ?? col.id }</Label>
                                         </div>
                                     ))}
                                     </div>

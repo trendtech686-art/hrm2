@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from "react";
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useLeaveStore } from './store';
 import { getColumns } from './columns';
@@ -14,17 +15,24 @@ import { Button } from "../../components/ui/button";
 import { PlusCircle, CheckCircle2, XCircle, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
-import { LeaveForm } from "./leave-form";
 import Fuse from "fuse.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
-import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
-import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
 import { toast } from "sonner";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { formatDate } from "../../lib/date-utils";
+
+// ✅ Dynamic imports for form - only loaded when creating/editing
+const LeaveForm = dynamic(
+  () => import("./components/leave-form").then(mod => ({ default: mod.LeaveForm })),
+  { ssr: false }
+);
+
+// Generic components need static import for type safety
+import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
+import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
 
 export function LeavesPage() {
   const { data: leaveRequests, remove, add, update } = useLeaveStore();
@@ -40,7 +48,7 @@ export function LeavesPage() {
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<"all" | LeaveStatus>('all');
-  const [dateFilter, setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
+  const [_dateFilter, _setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   
   // Mobile infinite scroll state
@@ -105,7 +113,7 @@ export function LeavesPage() {
     setIsAlertOpen(false);
   };
 
-  const handleAddNew = () => {
+  const _handleAddNew = () => {
     setEditingRequest(null);
     setIsFormOpen(true);
   };
@@ -211,7 +219,7 @@ export function LeavesPage() {
   const importConfig: ImportConfig<LeaveRequest> = React.useMemo(() => ({
     importer: (items) => {
       items.forEach(item => {
-        const { systemId, ...rest } = item as any;
+        const { systemId: _systemId, ...rest } = item as Partial<LeaveRequest> & { systemId?: string };
         add({
           ...rest,
           status: 'Chờ duyệt',
@@ -222,7 +230,7 @@ export function LeavesPage() {
     },
     fileName: 'Mau_Nhap_Nghi_phep',
     existingData: leaveRequests,
-    getUniqueKey: (item: any) => item.id || `${item.employeeId}-${item.startDate}`,
+    getUniqueKey: (item: Partial<LeaveRequest>) => item.id || `${item.employeeId}-${item.startDate}`,
   }), [add, leaveRequests]);
 
   // Bulk actions for dropdown - bao gồm Duyệt, Từ chối, Xuất Excel
@@ -230,14 +238,14 @@ export function LeavesPage() {
     {
       label: 'Duyệt đã chọn',
       icon: CheckCircle2,
-      onSelect: (selectedRows: LeaveRequest[]) => {
+      onSelect: (_selectedRows: LeaveRequest[]) => {
         handleBulkApprove();
       }
     },
     {
       label: 'Từ chối đã chọn',
       icon: XCircle,
-      onSelect: (selectedRows: LeaveRequest[]) => {
+      onSelect: (_selectedRows: LeaveRequest[]) => {
         handleBulkReject();
       }
     },
@@ -262,7 +270,7 @@ export function LeavesPage() {
   usePageHeader({ actions: headerActions });
 
   // Mobile card renderer
-  const renderMobileCard = React.useCallback((leave: LeaveRequest, index: number) => {
+  const renderMobileCard = React.useCallback((leave: LeaveRequest, _index: number) => {
     const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = {
       "Chờ duyệt": "warning",
       "Đã duyệt": "success",
@@ -341,7 +349,7 @@ export function LeavesPage() {
         onSearchChange={setGlobalFilter}
         searchPlaceholder="Tìm kiếm đơn..."
       >
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as LeaveStatus | 'all')}>
             <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="Lọc trạng thái" />
             </SelectTrigger>

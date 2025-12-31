@@ -20,6 +20,7 @@ export interface TaskTemplateSubtask {
 }
 
 export interface TaskTemplate {
+  [key: string]: unknown;
   systemId: SystemId;
   id: string; // TMPL-XXX
   name: string;
@@ -50,7 +51,7 @@ export interface TaskTemplate {
   updatedAt: string;
   
   // Custom fields (Week 5)
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 export interface UseTemplateOptions {
@@ -58,5 +59,5 @@ export interface UseTemplateOptions {
   title: string;
   dueDate: string;
   assignees: TaskAssignee[]; // Map template roles to actual employees
-  customValues?: Record<string, any>; // Override template defaults
+  customValues?: Record<string, unknown>; // Override template defaults
 }

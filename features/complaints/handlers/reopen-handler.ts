@@ -25,7 +25,7 @@ interface User {
 export async function handleReopenComplaint(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: any) => void
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('[REOPEN] Starting...', { 
@@ -57,10 +57,10 @@ export async function handleReopenComplaint(
     );
     
     // Merge histories
-    const existingHistory = (complaint as any).cancelledPaymentsReceipts || [];
+    const existingHistory = complaint.cancelledPaymentsReceipts || [];
     const cancelledPaymentsReceipts = [...existingHistory, ...cancelledPaymentsReceiptsHistory];
     
-    const existingInventoryHistory = (complaint as any).inventoryHistory || [];
+    const existingInventoryHistory = complaint.inventoryHistory || [];
     const updatedInventoryHistory = inventoryHistory 
       ? [...existingInventoryHistory, inventoryHistory]
       : existingInventoryHistory;
@@ -80,9 +80,7 @@ export async function handleReopenComplaint(
         }
       ],
       cancelledPaymentsReceipts,
-      inventoryHistory: updatedInventoryHistory,
-      reopenedBy: currentUser.systemId,
-      reopenedAt: new Date(),
+      inventoryHistory: updatedInventoryHistory as Complaint['inventoryHistory'],
       // Clear fields
       endedBy: null,
       endedAt: null,
@@ -90,7 +88,7 @@ export async function handleReopenComplaint(
       resolvedAt: null,
       cancelledBy: null,
       cancelledAt: null,
-    };
+    } as Partial<Complaint>;
     
     updateComplaint(complaint.systemId, updates);
     

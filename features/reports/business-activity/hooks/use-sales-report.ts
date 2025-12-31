@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { format, parseISO, startOfDay, startOfWeek, startOfMonth, startOfQuarter, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from 'date-fns';
+import { format, parseISO, startOfWeek, startOfQuarter, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useOrderStore } from '@/features/orders/store';
 import { useProductStore } from '@/features/products/store';
@@ -25,7 +25,6 @@ import type {
   SalesReportSummary,
 } from '../types';
 import type { SystemId } from '@/lib/id-types';
-import type { Order } from '@/features/orders/types';
 
 // Helper: Get time key and label based on grouping
 function getTimeKey(date: Date, grouping: TimeGrouping): { key: string; label: string } {
@@ -35,23 +34,25 @@ function getTimeKey(date: Date, grouping: TimeGrouping): { key: string; label: s
         key: format(date, 'yyyy-MM-dd'),
         label: format(date, 'dd/MM', { locale: vi }),
       };
-    case 'week':
+    case 'week': {
       const weekStart = startOfWeek(date, { weekStartsOn: 1 });
       return {
         key: format(weekStart, 'yyyy-ww'),
         label: `T${format(weekStart, 'w')} (${format(weekStart, 'dd/MM')})`,
       };
+    }
     case 'month':
       return {
         key: format(date, 'yyyy-MM'),
         label: format(date, 'MM/yyyy', { locale: vi }),
       };
-    case 'quarter':
+    case 'quarter': {
       const quarter = Math.ceil((date.getMonth() + 1) / 3);
       return {
         key: `${date.getFullYear()}-Q${quarter}`,
         label: `Q${quarter}/${date.getFullYear()}`,
       };
+    }
     case 'year':
       return {
         key: format(date, 'yyyy'),
@@ -82,7 +83,7 @@ function generateTimePeriods(dateRange: ReportDateRange, grouping: TimeGrouping)
     case 'month':
       dates = eachMonthOfInterval({ start, end });
       break;
-    case 'quarter':
+    case 'quarter': {
       // Generate quarters
       let current = startOfQuarter(start);
       while (current <= end) {
@@ -90,13 +91,15 @@ function generateTimePeriods(dateRange: ReportDateRange, grouping: TimeGrouping)
         current = new Date(current.getFullYear(), current.getMonth() + 3, 1);
       }
       break;
-    case 'year':
+    }
+    case 'year': {
       let currentYear = startOfYear(start);
       while (currentYear <= end) {
         dates.push(currentYear);
         currentYear = new Date(currentYear.getFullYear() + 1, 0, 1);
       }
       break;
+    }
   }
   
   return dates.map(d => getTimeKey(d, grouping));
@@ -136,7 +139,7 @@ export function useSalesTimeReport(
       }
       
       // Employee filter
-      if (filters?.employeeIds?.length && order.assigneeSystemId && !filters.employeeIds.includes(order.assigneeSystemId as SystemId)) {
+      if (filters?.employeeIds?.length && order.salespersonSystemId && !filters.employeeIds.includes(order.salespersonSystemId as SystemId)) {
         return false;
       }
       
@@ -192,7 +195,7 @@ export function useSalesTimeReport(
       row.orderCount += 1;
       row.productAmount += order.subtotal || 0;
       row.taxAmount += order.tax || 0;
-      row.shippingFee += order.shippingCost || 0;
+      row.shippingFee += order.shippingFee || 0;
       row.costOfGoods = (row.costOfGoods || 0) + costOfGoods;
     });
     
@@ -204,7 +207,7 @@ export function useSalesTimeReport(
       const row = dataMap.get(key);
       if (!row) return;
       
-      row.returnAmount += ret.totalRefund || 0;
+      row.returnAmount += ret.refundAmount || 0;
     });
     
     // Calculate derived fields
@@ -241,7 +244,7 @@ export function useSalesEmployeeReport(
   const { data: orders } = useOrderStore();
   const { data: employees } = useEmployeeStore();
   const { findById: findProductById } = useProductStore();
-  const { data: returns } = useSalesReturnStore();
+  const { data: _returns } = useSalesReturnStore();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -260,7 +263,7 @@ export function useSalesEmployeeReport(
     const employeeMap = new Map<string, SalesEmployeeReportRow>();
     
     filteredOrders.forEach(order => {
-      const empId = order.assigneeSystemId || 'unknown';
+      const empId = order.salespersonSystemId || 'unknown';
       const employee = employees.find(e => e.systemId === empId);
       
       if (!employeeMap.has(empId)) {
@@ -302,7 +305,7 @@ export function useSalesEmployeeReport(
     };
     
     return { data, summary };
-  }, [orders, employees, returns, dateRange, filters, findProductById]);
+  }, [orders, employees, dateRange, filters, findProductById]);
 }
 
 // Hook: Báo cáo bán hàng theo sản phẩm
@@ -314,7 +317,7 @@ export function useSalesProductReport(
   }
 ) {
   const { data: orders } = useOrderStore();
-  const { data: products, findById: findProductById } = useProductStore();
+  const { data: _products, findById: findProductById } = useProductStore();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -392,7 +395,7 @@ export function useSalesProductReport(
     };
     
     return { data, summary };
-  }, [orders, products, dateRange, filters, findProductById]);
+  }, [orders, dateRange, filters, findProductById]);
 }
 
 // Hook: Báo cáo bán hàng theo chi nhánh

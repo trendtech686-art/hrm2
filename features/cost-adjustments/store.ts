@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
 import type { CostAdjustment, CostAdjustmentItem, CostAdjustmentType, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
 import { useProductStore } from '../products/store';
-import type { Product } from '../products/types';
 
 const PREFIX = 'DCGV'; // Điều chỉnh giá vốn
 const SEED_AUTHOR = asSystemId('EMP000001');

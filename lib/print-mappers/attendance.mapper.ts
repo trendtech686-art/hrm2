@@ -6,9 +6,7 @@
 import { 
   PrintData, 
   PrintLineItem,
-  formatCurrency, 
   formatDate,
-  formatTime,
   getStoreData,
   StoreSettings
 } from '@/lib/print-service';

@@ -14,37 +14,37 @@ model PurchaseReturn {
   updatedAt       DateTime             @updatedAt
   createdBy       String?
   updatedBy       String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Purchase order linking
-  purchaseOrderSystemId    String?    // SystemId of purchase order
-  purchaseOrderBusinessId  String?    // Business ID for display
-  
+  purchaseOrderSystemId   String? // SystemId of purchase order
+  purchaseOrderBusinessId String? // Business ID for display
+
   // Supplier & branch info (denormalized)
-  supplierSystemId     String?
-  supplierName         String?
-  branchSystemId       String?
-  branchName           String?
-  
+  supplierSystemId String?
+  supplierName     String?
+  branchSystemId   String?
+  branchName       String?
+
   // Items (stored as JSON)
-  returnItems          Json?          // Array of PurchaseReturnLineItem
-  
+  returnItems Json? // Array of PurchaseReturnLineItem
+
   // Financial
-  totalReturnValue     Decimal        @default(0) @db.Decimal(15, 2)
-  refundAmount         Decimal        @default(0) @db.Decimal(15, 2)
-  refundMethod         String?
-  accountSystemId      String?        // Cash account for refund
-  
+  totalReturnValue Decimal @default(0) @db.Decimal(15, 2)
+  refundAmount     Decimal @default(0) @db.Decimal(15, 2)
+  refundMethod     String?
+  accountSystemId  String? // Cash account for refund
+
   // Creator info
-  creatorName          String?
-  
+  creatorName String?
+
   // Activity History
-  activityHistory      Json?
-  
+  activityHistory Json?
+
   // === RELATIONS ===
-  items           PurchaseReturnItem[]
-  suppliers       Supplier             @relation(fields: [supplierId], references: [systemId])
+  items     PurchaseReturnItem[]
+  suppliers Supplier             @relation(fields: [supplierId], references: [systemId])
 
   @@map("purchase_returns")
 }

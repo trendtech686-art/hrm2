@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Trash2, ChevronDown, ChevronsRight } from "lucide-react";
+import { ChevronDown, ChevronsRight } from "lucide-react";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { Card, CardContent } from "../ui/card";
 import { MobileCardSkeleton } from "../mobile/skeleton";
@@ -25,10 +25,26 @@ import {
 import { StickyScrollbar } from "./sticky-scrollbar";
 import type { ColumnDef } from './types';
 
+// Extended column meta type for internal use
+interface ColumnMeta {
+  displayName?: string;
+  sticky?: 'left' | 'right';
+  group?: string;
+  excludeFromExport?: boolean;
+  hideOnMobileCard?: boolean;
+  minWidth?: number;
+}
+
 export interface BulkAction<TData> {
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
   onSelect: (selectedRows: TData[]) => void;
+}
+
+// Extended BulkAction type for additional properties
+interface BulkActionExtended<TData> extends BulkAction<TData> {
+  disabled?: boolean;
+  variant?: 'default' | 'destructive';
 }
 
 interface DesktopDataTableProps<TData extends { systemId: string }> {
@@ -180,7 +196,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
         if (!column.id) return false;
         if (['select', 'control', 'actions', 'expander'].includes(column.id)) return false;
         if (columnVisibility && columnVisibility[column.id] === false) return false;
-        const meta = column.meta as Record<string, any> | undefined;
+        const meta = column.meta as ColumnMeta | undefined;
         if (meta?.hideOnMobileCard) return false;
         return true;
       })
@@ -189,7 +205,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
 
   const getColumnLabel = React.useCallback((column: ColumnDef<TData>) => {
     if (typeof column.header === 'string') return column.header;
-    const meta = column.meta as Record<string, any> | undefined;
+    const meta = column.meta as ColumnMeta | undefined;
     if (meta?.displayName) return meta.displayName;
     return column.id || '';
   }, []);
@@ -202,10 +218,10 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
         isExpanded: false,
         onToggleSelect: () => {},
         onToggleExpand: () => {},
-      } as any);
+      });
     }
     if (column.accessorKey) {
-      const value = (row as any)[column.accessorKey as string];
+      const value = row[column.accessorKey];
       if (value === undefined || value === null) return '—';
       if (React.isValidElement(value)) return value;
       return String(value);
@@ -367,8 +383,8 @@ function DesktopDataTable<TData extends { systemId: string }>({
   rowCount,
   rowSelection,
   setRowSelection,
-  onBulkDelete,
-  showBulkDeleteButton = true,
+  onBulkDelete: _onBulkDelete,
+  showBulkDeleteButton: _showBulkDeleteButton = true,
   bulkActions,
   pkgxBulkActions,
   bulkActionButtons,
@@ -379,11 +395,11 @@ function DesktopDataTable<TData extends { systemId: string }>({
   sorting,
   setSorting,
   columnVisibility,
-  setColumnVisibility,
+  setColumnVisibility: _setColumnVisibility,
   columnOrder,
-  setColumnOrder,
+  setColumnOrder: _setColumnOrder,
   pinnedColumns,
-  setPinnedColumns,
+  setPinnedColumns: _setPinnedColumns,
   onRowClick,
   getRowStyle,
   className,
@@ -460,13 +476,13 @@ function DesktopDataTable<TData extends { systemId: string }>({
     });
 
     const staticLeftCols = normalizedCols.filter(c => {
-      const meta = c.meta as any;
+      const meta = c.meta as ColumnMeta | undefined;
       return meta?.sticky === 'left' && !['select', 'control', 'expander'].includes(c.id);
     });
-    const staticRightCols = normalizedCols.filter(c => (c.meta as any)?.sticky === 'right');
+    const staticRightCols = normalizedCols.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'right');
     const controlCols = normalizedCols.filter(c => ['select', 'control', 'expander'].includes(c.id));
     const bodyCols = normalizedCols.filter(c => {
-      const meta = c.meta as any;
+      const meta = c.meta as ColumnMeta | undefined;
       return !meta?.sticky && !['select', 'control', 'expander'].includes(c.id);
     });
 
@@ -497,11 +513,11 @@ function DesktopDataTable<TData extends { systemId: string }>({
     ] as ColumnDef<TData>[];
   }, [columns, columnVisibility, columnOrder, pinnedColumns, renderSubComponent]);
 
-  const leftStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as any)?.sticky === 'left'), [displayColumns]);
-  const rightStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as any)?.sticky === 'right'), [displayColumns]);
+  const leftStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'left'), [displayColumns]);
+  const rightStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as ColumnMeta | undefined)?.sticky === 'right'), [displayColumns]);
 
   const getColumnWidth = React.useCallback((column: ColumnDef<TData>) => {
-    return column.size ?? columnWidths[column.id] ?? ((column.meta as any)?.minWidth ?? 140);
+    return column.size ?? columnWidths[column.id] ?? ((column.meta as ColumnMeta | undefined)?.minWidth ?? 140);
   }, [columnWidths]);
 
   const leftOffsets = React.useMemo(() => {
@@ -607,9 +623,9 @@ function DesktopDataTable<TData extends { systemId: string }>({
   const renderHeaderRow = (isSticky: boolean) => (
     <TableRow className="h-9">
       {displayColumns.map((column, colIndex) => {
-        const stickyMeta = isSticky ? (column.meta as any)?.sticky : undefined;
+        const stickyMeta = isSticky ? (column.meta as ColumnMeta | undefined)?.sticky : undefined;
         const hasFixedSize = column.size !== undefined;
-        const fallbackMinWidth = (column.meta as any)?.minWidth ?? 140;
+        const fallbackMinWidth = (column.meta as ColumnMeta | undefined)?.minWidth ?? 140;
 
         const style: React.CSSProperties = {};
 
@@ -624,24 +640,24 @@ function DesktopDataTable<TData extends { systemId: string }>({
         let thClassName = "bg-muted whitespace-nowrap";
 
         const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
-        const isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
+        const _isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
 
         if (isSticky && stickyMeta === 'left') {
           const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
           if (stickyIndex !== -1) {
-            (style as any).position = 'sticky';
-            (style as any).left = `${leftOffsets[stickyIndex]}px`;
-            (style as any).top = 0;
-            (style as any).backgroundColor = stickyHeaderBg;
+            style.position = 'sticky';
+            style.left = `${leftOffsets[stickyIndex]}px`;
+            style.top = 0;
+            style.backgroundColor = stickyHeaderBg;
             thClassName = cn(thClassName, "z-30 bg-muted shadow-sm");
           }
         } else if (isSticky && stickyMeta === 'right') {
           const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
           if (stickyIndex !== -1) {
-            (style as any).position = 'sticky';
-            (style as any).right = `${rightOffsets[stickyIndex]}px`;
-            (style as any).top = 0;
-            (style as any).backgroundColor = stickyHeaderBg;
+            style.position = 'sticky';
+            style.right = `${rightOffsets[stickyIndex]}px`;
+            style.top = 0;
+            style.backgroundColor = stickyHeaderBg;
             thClassName = cn(thClassName, "z-30 bg-muted shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]");
           }
         }
@@ -659,7 +675,6 @@ function DesktopDataTable<TData extends { systemId: string }>({
             })}
           >
             {typeof column.header === 'function'
-              // @ts-ignore
               ? column.header({
                   isAllPageRowsSelected,
                   isSomePageRowsSelected,
@@ -690,7 +705,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                     <th className="sticky left-0 z-[60] bg-muted/95 backdrop-blur-sm px-3 w-[48px]">
                       {columns.find(c => c.id === 'select') &&
                         typeof columns.find(c => c.id === 'select')!.header === 'function' &&
-                        // @ts-ignore
+                        // @ts-expect-error - header function type is complex with selection props
                         columns.find(c => c.id === 'select')!.header({
                           isAllPageRowsSelected,
                           isSomePageRowsSelected,
@@ -714,7 +729,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                                 <DropdownMenuItem
                                   key={index}
                                   onSelect={() => action.onSelect(allSelectedRows)}
-                                  disabled={(action as any).disabled}
+                                  disabled={(action as BulkActionExtended<TData>).disabled}
                                 >
                                   {action.icon && <action.icon className="mr-2 h-4 w-4" />}
                                   {action.label}
@@ -736,8 +751,8 @@ function DesktopDataTable<TData extends { systemId: string }>({
                                 <DropdownMenuItem
                                   key={index}
                                   onSelect={() => action.onSelect(allSelectedRows)}
-                                  disabled={(action as any).disabled}
-                                  className={(action as any).variant === 'destructive' ? 'text-destructive focus:text-destructive' : ''}
+                                  disabled={(action as BulkActionExtended<TData>).disabled}
+                                  className={(action as BulkActionExtended<TData>).variant === 'destructive' ? 'text-destructive focus:text-destructive' : ''}
                                 >
                                   {action.icon && <action.icon className="mr-2 h-4 w-4" />}
                                   {action.label}
@@ -774,9 +789,9 @@ function DesktopDataTable<TData extends { systemId: string }>({
                       {displayColumns.map((column, colIndex) => {
                         const isInteractiveColumn = ['select', 'control', 'actions', 'expander'].includes(column.id);
 
-                        const stickyMeta = (column.meta as any)?.sticky;
+                        const stickyMeta = (column.meta as ColumnMeta | undefined)?.sticky;
                         const hasFixedSize = column.size !== undefined;
-                        const fallbackMinWidth = (column.meta as any)?.minWidth ?? 140;
+                        const fallbackMinWidth = (column.meta as ColumnMeta | undefined)?.minWidth ?? 140;
 
                         const style: React.CSSProperties = {};
 
@@ -795,10 +810,10 @@ function DesktopDataTable<TData extends { systemId: string }>({
                         if (stickyMeta === 'left') {
                           const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
                           if (stickyIndex !== -1) {
-                            (style as any).position = 'sticky';
-                            (style as any).left = `${leftOffsets[stickyIndex]}px`;
+                            style.position = 'sticky';
+                            style.left = `${leftOffsets[stickyIndex]}px`;
                             const rowBgColor = getRowStyle?.(row)?.backgroundColor;
-                            (style as any).backgroundColor = rowBgColor || stickyCellBg;
+                            style.backgroundColor = rowBgColor || stickyCellBg;
                             tdClassName = cn(
                               "z-20 shadow-[2px_0_6px_rgba(0,0,0,0.05)]",
                               "bg-muted text-foreground group-hover:bg-muted group-data-[state=selected]:bg-muted"
@@ -807,10 +822,10 @@ function DesktopDataTable<TData extends { systemId: string }>({
                         } else if (stickyMeta === 'right') {
                           const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
                           if (stickyIndex !== -1) {
-                            (style as any).position = 'sticky';
-                            (style as any).right = `${rightOffsets[stickyIndex]}px`;
+                            style.position = 'sticky';
+                            style.right = `${rightOffsets[stickyIndex]}px`;
                             const rowBgColor = getRowStyle?.(row)?.backgroundColor;
-                            (style as any).backgroundColor = rowBgColor || stickyCellBg;
+                            style.backgroundColor = rowBgColor || stickyCellBg;
                             tdClassName = cn(
                               "z-20",
                               "bg-muted text-foreground group-hover:bg-muted group-data-[state=selected]:bg-muted shadow-[-2px_0_6px_rgba(0,0,0,0.08)]"

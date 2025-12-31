@@ -486,14 +486,15 @@ export const usePkgxSettingsStore = create<PkgxSettingsStore>()(
       name: 'pkgx-settings',
       storage: createJSONStorage(() => localStorage),
       version: 6, // v6: Re-enable pkgxProducts persist (limit 100 SP to fit localStorage)
-      migrate: (persistedState: any, version: number) => {
+      migrate: (persistedState: unknown, _version: number) => {
+        const state = persistedState as { settings?: { pkgxProducts?: unknown[]; pkgxProductsLastFetch?: string } } | null;
         // Ensure pkgxProducts exists
         return {
-          ...persistedState,
+          ...state,
           settings: {
-            ...persistedState?.settings,
-            pkgxProducts: persistedState?.settings?.pkgxProducts || [],
-            pkgxProductsLastFetch: persistedState?.settings?.pkgxProductsLastFetch || undefined,
+            ...state?.settings,
+            pkgxProducts: state?.settings?.pkgxProducts || [],
+            pkgxProductsLastFetch: state?.settings?.pkgxProductsLastFetch || undefined,
           },
         };
       },

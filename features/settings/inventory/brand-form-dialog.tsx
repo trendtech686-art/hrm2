@@ -26,8 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Globe } from "lucide-react";
-import type { Brand, WebsiteSeoData, MultiWebsiteSeo } from "./types";
-import { PREDEFINED_WEBSITES } from "../websites/types";
+import type { Brand } from "./types";
 
 // Schema cho SEO của một website
 const websiteSeoSchema = z.object({

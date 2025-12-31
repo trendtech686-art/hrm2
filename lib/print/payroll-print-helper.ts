@@ -3,9 +3,8 @@
  * Helpers để chuẩn bị dữ liệu in cho bảng lương và phiếu lương
  */
 
-import type { Branch } from '@/lib/types/prisma-extended';
-import type { Employee } from '@/lib/types/prisma-extended';
 import { attendanceSnapshotService } from '../attendance-snapshot-service';
+import type { SystemId } from '../id-types';
 import { 
   PayrollBatchForPrint,
   PayslipForPrint,
@@ -16,8 +15,7 @@ import {
   mapPayslipComponentLineItems,
 } from '../print-mappers/payroll.mapper';
 import { StoreSettings, getStoreLogo, getGeneralSettings } from '../print-service';
-import type { PayrollBatch, Payslip, PayrollComponentEntry, PayrollTotals } from '../payroll-types';
-import type { SystemId } from '../id-types';
+import type { PayrollComponentEntry, PayrollTotals } from '../payroll-types';
 
 // ============================================
 // INTERFACES
@@ -287,7 +285,7 @@ export function createStoreSettings(storeInfo?: {
       // Import store dynamically để tránh circular dependency
       const { useStoreInfoStore } = require('@/features/settings/store-info/store-info-store');
       storeInfoFromStorage = useStoreInfoStore.getState().info;
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
   }
   
   const info = storeInfo?.companyName || storeInfo?.brandName ? storeInfo : storeInfoFromStorage;

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 
 // GET /api/receipts - List all receipts (phiếu thu)
 export async function GET(request: Request) {
@@ -13,12 +14,12 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Prisma.ReceiptWhereInput = {}
 
     if (search) {
       where.OR = [
         { id: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { customers: { name: { contains: search, mode: 'insensitive' } } },
       ]
     }
 

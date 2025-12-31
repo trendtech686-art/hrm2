@@ -1,6 +1,6 @@
 import * as React from 'react';
 import Link from 'next/link';
-import type { CostAdjustment, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
+import type { CostAdjustment, CostAdjustmentItem, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../components/data-table/types';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -65,10 +65,10 @@ export const getColumns = (
     header: 'Mã phiếu',
     cell: ({ row }) => (
       <Link
-        href={`/cost-adjustments/${(row as any).systemId}`}
+        href={`/cost-adjustments/${row.systemId}`}
         className="font-medium text-primary hover:underline"
       >
-        {(row as any).id}
+        {row.id}
       </Link>
     ),
     meta: { displayName: 'Mã phiếu' },
@@ -79,7 +79,7 @@ export const getColumns = (
     header: 'Mã tham chiếu',
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        {(row as any).referenceCode || '-'}
+        {row.referenceCode || '-'}
       </span>
     ),
     meta: { displayName: 'Mã tham chiếu' },
@@ -88,21 +88,21 @@ export const getColumns = (
     id: 'createdDate',
     accessorKey: 'createdDate',
     header: 'Ngày tạo',
-    cell: ({ row }) => formatDate((row as any).createdDate),
+    cell: ({ row }) => formatDate(row.createdDate),
     meta: { displayName: 'Ngày tạo' },
   },
   {
     id: 'createdByName',
     accessorKey: 'createdByName',
     header: 'Người tạo',
-    cell: ({ row }) => (row as any).createdByName,
+    cell: ({ row }) => row.createdByName,
     meta: { displayName: 'Người tạo' },
   },
   {
     id: 'itemCount',
     accessorKey: 'items',
     header: 'Số SP',
-    cell: ({ row }) => ((row as any).items?.length || 0),
+    cell: ({ row }) => (row.items?.length || 0),
     meta: { displayName: 'Số sản phẩm' },
   },
   {
@@ -110,7 +110,7 @@ export const getColumns = (
     accessorKey: 'items',
     header: 'Tổng giá vốn cũ',
     cell: ({ row }) => {
-      const totalOldValue = (row as any).items?.reduce((sum: number, item: any) => sum + item.oldCostPrice, 0) || 0;
+      const totalOldValue = row.items?.reduce((sum: number, item: CostAdjustmentItem) => sum + item.oldCostPrice, 0) || 0;
       return <span>{formatCurrency(totalOldValue)}</span>;
     },
     meta: { displayName: 'Tổng giá vốn cũ' },
@@ -120,7 +120,7 @@ export const getColumns = (
     accessorKey: 'items',
     header: 'Tổng giá vốn mới',
     cell: ({ row }) => {
-      const totalNewValue = (row as any).items?.reduce((sum: number, item: any) => sum + item.newCostPrice, 0) || 0;
+      const totalNewValue = row.items?.reduce((sum: number, item: CostAdjustmentItem) => sum + item.newCostPrice, 0) || 0;
       return <span>{formatCurrency(totalNewValue)}</span>;
     },
     meta: { displayName: 'Tổng giá vốn mới' },
@@ -130,7 +130,7 @@ export const getColumns = (
     accessorKey: 'items',
     header: 'Chênh lệch',
     cell: ({ row }) => {
-      const totalDifference = (row as any).items?.reduce((sum: number, item: any) => sum + item.adjustmentAmount, 0) || 0;
+      const totalDifference = row.items?.reduce((sum: number, item: CostAdjustmentItem) => sum + item.adjustmentAmount, 0) || 0;
       const isPositive = totalDifference > 0;
       const isNegative = totalDifference < 0;
       
@@ -148,7 +148,7 @@ export const getColumns = (
     header: 'Lý do',
     cell: ({ row }) => (
       <span className="text-muted-foreground truncate max-w-[200px] block">
-        {(row as any).reason || '-'}
+        {row.reason || '-'}
       </span>
     ),
     meta: { displayName: 'Lý do' },
@@ -158,8 +158,8 @@ export const getColumns = (
     accessorKey: 'status',
     header: 'Trạng thái',
     cell: ({ row }) => (
-      <Badge variant={getStatusVariant((row as any).status)}>
-        {getStatusLabel((row as any).status)}
+      <Badge variant={getStatusVariant(row.status)}>
+        {getStatusLabel(row.status)}
       </Badge>
     ),
     meta: { displayName: 'Trạng thái' },
@@ -168,14 +168,14 @@ export const getColumns = (
     id: 'confirmedDate',
     accessorKey: 'confirmedDate',
     header: 'Ngày xác nhận',
-    cell: ({ row }) => (row as any).confirmedDate ? formatDate((row as any).confirmedDate) : '-',
+    cell: ({ row }) => row.confirmedDate ? formatDate(row.confirmedDate) : '-',
     meta: { displayName: 'Ngày xác nhận' },
   },
   {
     id: 'confirmedByName',
     accessorKey: 'confirmedByName',
     header: 'Người xác nhận',
-    cell: ({ row }) => (row as any).confirmedByName || '-',
+    cell: ({ row }) => row.confirmedByName || '-',
     meta: { displayName: 'Người xác nhận' },
   },
   {
@@ -184,7 +184,7 @@ export const getColumns = (
     header: 'Ghi chú',
     cell: ({ row }) => (
       <span className="text-muted-foreground truncate max-w-[200px] block">
-        {(row as any).note || '-'}
+        {row.note || '-'}
       </span>
     ),
     meta: { displayName: 'Ghi chú' },

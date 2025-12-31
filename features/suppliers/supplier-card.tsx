@@ -3,7 +3,7 @@ import type { Supplier } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { MoreHorizontal, Phone, Mail, MapPin, User, Building2, CreditCard, RotateCcw } from 'lucide-react';
+import { MoreHorizontal, Phone, Mail, MapPin, User, CreditCard, RotateCcw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { formatDateForDisplay } from '@/lib/date-utils';
 import type { SystemId } from '@/lib/id-types';
@@ -39,7 +39,7 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-body-sm text-muted-foreground font-mono">{supplier.id}</span>
-              <Badge variant={statusVariant as any}>{supplier.status}</Badge>
+              <Badge variant={statusVariant as "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | null | undefined}>{supplier.status}</Badge>
               {isDeleted && <Badge variant="destructive">Đã xóa</Badge>}
             </div>
           </div>

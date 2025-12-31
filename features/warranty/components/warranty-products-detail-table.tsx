@@ -15,7 +15,7 @@ import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog'
 import { Separator } from '../../../components/ui/separator';
 import { Card, CardContent } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
-import { RESOLUTION_LABELS, SETTLEMENT_TYPE_LABELS } from '../types';
+import { RESOLUTION_LABELS } from '../types';
 import type { WarrantyProduct, WarrantyTicket } from '../types';
 import { useProductStore } from '../../products/store';
 import { useProductTypeStore } from '../../settings/inventory/product-type-store';
@@ -36,7 +36,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
 
   // Memoize product lookup map for better performance
   const productMap = React.useMemo(() => {
-    const map = new Map<string, any>();
+    const map = new Map<string, { id: string; name: string; [key: string]: unknown }>();
     allProducts.forEach(p => map.set(p.id, p));
     return map;
   }, [allProducts]);
@@ -47,7 +47,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
   }, [findProductTypeById]);
 
   // Calculate refund info for out-of-stock items
-  const refundInfo = React.useMemo(() => {
+  const _refundInfo = React.useMemo(() => {
     if (!ticket) return null;
 
     const outOfStockValue = products

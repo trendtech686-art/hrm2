@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/cash-accounts - List all cash accounts
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const all = searchParams.get('all') === 'true'
+    const _all = searchParams.get('all') === 'true'
 
-    const where: any = {
+    const where: Prisma.CashAccountWhereInput = {
       isActive: true,
     }
 
@@ -52,8 +53,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(account, { status: 201 })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Mã quỹ đã tồn tại' },
         { status: 400 }

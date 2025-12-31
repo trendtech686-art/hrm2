@@ -1,6 +1,6 @@
 ﻿import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+// Date utils removed - not used in this store
 import type { StockHistoryEntry } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
@@ -44,7 +44,7 @@ function migrateHistoryData(entries: StockHistoryEntry[]): StockHistoryEntry[] {
   
   return entries.map(entry => ({
     ...entry,
-    productId: asSystemId(skuToSystemId[entry.productId as any] || entry.productId) // Convert or keep if already systemId
+    productId: asSystemId(skuToSystemId[entry.productId as string] || entry.productId) // Convert or keep if already systemId
   }));
 }
 

@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { useInventoryCheckStore } from './store';
 import { useBranchStore } from '../settings/branches/store';
 import { useProductStore } from '../products/store';
@@ -21,9 +20,9 @@ import { ProductSearchCombobox } from '../../components/shared/product-search-co
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
-import { Package, Trash2, AlertCircle, Eye } from 'lucide-react';
+import { Package, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from '@/lib/types/prisma-extended';
@@ -53,7 +52,7 @@ export function InventoryCheckFormPage() {
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
-    const productType = findProductTypeById(productTypeSystemId as any);
+    const productType = findProductTypeById(productTypeSystemId as SystemId);
     return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
   
@@ -99,7 +98,7 @@ export function InventoryCheckFormPage() {
         setCurrentCheck(existing);
         
         // Load all fields from existing check
-        setBranchSystemId(existing.branchSystemId);
+        setBranchSystemId(existing.branchSystemId || '');
         setCustomId(existing.id);
         setNote(existing.note || '');
         setItems(existing.items || []);
@@ -331,7 +330,7 @@ export function InventoryCheckFormPage() {
     }
 
     router.push('/inventory-checks');
-  }, [branchSystemId, items, isEditMode, systemId, findById, selectedBranch, note, update, customId, currentUserSystemId, add, router]);
+  }, [branchSystemId, items, isEditMode, systemId, findById, selectedBranch, note, update, customId, currentUserSystemId, add, router, validateForm]);
 
   // Balance
   const handleBalance = React.useCallback(() => {
@@ -391,7 +390,7 @@ export function InventoryCheckFormPage() {
       await balanceCheck(asSystemId(checkSystemId));
       toast.success('Đã cân bằng kho thành công');
       router.push(`/inventory-checks/${checkSystemId}`);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể cân bằng kho, vui lòng thử lại');
     } finally {
       setIsBalancing(false);

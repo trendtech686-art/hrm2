@@ -1,20 +1,17 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../../lib/date-utils';
-import type { Penalty, PenaltyStatus, PenaltyType } from './types';
+import { toISODate } from '../../../lib/date-utils';
+import type { Penalty, PenaltyType } from './types';
 import { penaltyCategoryLabels } from './types';
 import { useEmployeeStore } from '../../employees/store';
 import { usePenaltyStore, usePenaltyTypeStore } from './store';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
-import { Button } from '../../../components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
 import { Input } from '../../../components/ui/input';
 import { CurrencyInput } from "../../../components/ui/currency-input";
 import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { DatePicker } from '../../../components/ui/date-picker';
-import { DialogFooter } from '../../../components/ui/dialog';
-import { Trash2 } from 'lucide-react';
 
 type PenaltyFormValues = Omit<Penalty, 'systemId' | 'employeeName' | 'issueDate'> & {
     issueDate?: Date;
@@ -23,14 +20,14 @@ type PenaltyFormValues = Omit<Penalty, 'systemId' | 'employeeName' | 'issueDate'
 
 interface PenaltyFormProps {
   initialData: Penalty | null;
-  onSubmit: (values: any) => void;
+  onSubmit: (values: Record<string, unknown>) => void;
   onCancel: () => void;
   onDelete: (systemId: string) => void;
 }
 
-export function PenaltyForm({ initialData, onSubmit, onCancel, onDelete }: PenaltyFormProps) {
+export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDelete: _onDelete }: PenaltyFormProps) {
   const { data: employees } = useEmployeeStore();
-  const { data: penalties } = usePenaltyStore();
+  const { data: _penalties } = usePenaltyStore();
   const { data: penaltyTypes } = usePenaltyTypeStore();
   
   // Filter active penalty types

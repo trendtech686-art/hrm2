@@ -15,71 +15,71 @@ model SalesReturn {
   updatedAt  DateTime          @updatedAt
   createdBy  String?
   updatedBy  String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Order & customer info (denormalized)
-  orderSystemId        String?
-  orderBusinessId      String?
-  customerSystemId     String?
-  customerName         String?
-  branchSystemId       String?
-  branchName           String?
-  
+  orderSystemId    String?
+  orderBusinessId  String?
+  customerSystemId String?
+  customerName     String?
+  branchSystemId   String?
+  branchName       String?
+
   // Notes & references
-  note                 String?        // Short note
-  notes                String?        // Detailed notes
-  reference            String?        // External reference code
-  
+  note      String? // Short note
+  notes     String? // Detailed notes
+  reference String? // External reference code
+
   // Return items
-  returnItems          Json?          // Array of ReturnLineItem
-  totalReturnValue     Decimal        @default(0) @db.Decimal(15, 2)
-  isReceived           Boolean        @default(false)  // Items received & added to inventory
-  
+  returnItems      Json? // Array of ReturnLineItem
+  totalReturnValue Decimal @default(0) @db.Decimal(15, 2)
+  isReceived       Boolean @default(false) // Items received & added to inventory
+
   // Exchange items (new items customer takes)
-  exchangeItems        Json?          // Array of LineItem
-  exchangeOrderSystemId String?       // Link to new order for exchange
-  subtotalNew          Decimal        @default(0) @db.Decimal(15, 2)
-  shippingFeeNew       Decimal        @default(0) @db.Decimal(15, 2)
-  discountNew          Decimal?       @db.Decimal(15, 2)
-  discountNewType      String?
-  grandTotalNew        Decimal        @default(0) @db.Decimal(15, 2)
-  
+  exchangeItems         Json? // Array of LineItem
+  exchangeOrderSystemId String? // Link to new order for exchange
+  subtotalNew           Decimal  @default(0) @db.Decimal(15, 2)
+  shippingFeeNew        Decimal  @default(0) @db.Decimal(15, 2)
+  discountNew           Decimal? @db.Decimal(15, 2)
+  discountNewType       String?
+  grandTotalNew         Decimal  @default(0) @db.Decimal(15, 2)
+
   // Shipping info for exchange order
-  deliveryMethod       String?
-  shippingPartnerId    String?
-  shippingServiceId    String?
-  shippingAddress      Json?
-  packageInfo          Json?
-  configuration        Json?
-  
+  deliveryMethod    String?
+  shippingPartnerId String?
+  shippingServiceId String?
+  shippingAddress   Json?
+  packageInfo       Json?
+  configuration     Json?
+
   // Financial summary
-  finalAmount          Decimal        @default(0) @db.Decimal(15, 2)  // +customer pays, -company refunds
-  
+  finalAmount Decimal @default(0) @db.Decimal(15, 2) // +customer pays, -company refunds
+
   // Refund methods (single - deprecated)
-  refundMethod         String?
-  refundAmount         Decimal?       @db.Decimal(15, 2)
-  accountSystemId      String?
-  
+  refundMethod    String?
+  refundAmount    Decimal? @db.Decimal(15, 2)
+  accountSystemId String?
+
   // Multiple refunds/payments
-  refunds              Json?          // Array of SalesReturnPayment
-  payments             Json?          // Array of SalesReturnPayment
-  
+  refunds  Json? // Array of SalesReturnPayment
+  payments Json? // Array of SalesReturnPayment
+
   // Voucher links
-  paymentVoucherSystemId   String?    // Single refund (deprecated)
-  paymentVoucherSystemIds  String[]   // Multiple refunds
-  receiptVoucherSystemIds  String[]   // Multiple customer payments
-  
+  paymentVoucherSystemId  String? // Single refund (deprecated)
+  paymentVoucherSystemIds String[] // Multiple refunds
+  receiptVoucherSystemIds String[] // Multiple customer payments
+
   // Creator info
-  creatorSystemId      String?
-  creatorName          String?
-  
+  creatorSystemId String?
+  creatorName     String?
+
   // Activity History
-  activityHistory      Json?
-  
+  activityHistory Json?
+
   // === RELATIONS ===
-  items      SalesReturnItem[]
-  orders     Order             @relation(fields: [orderId], references: [systemId])
+  items  SalesReturnItem[]
+  orders Order             @relation(fields: [orderId], references: [systemId])
 
   @@index([orderId])
   @@index([status])

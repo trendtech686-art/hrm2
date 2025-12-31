@@ -50,6 +50,7 @@ export const PartnerConnectionsPageContent: React.FC<PartnerConnectionsPageConte
 
   const firstConnectedPartner = React.useMemo(() => {
     return partnerList.find(partner => getPartnerStatus(partner.code).isConnected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- partnerList is a constant, getPartnerStatus uses shippingConfig
   }, [shippingConfig]);
 
   React.useEffect(() => {

@@ -67,7 +67,7 @@ model OrderLineItem {
   discount     Decimal       @default(0) @db.Decimal(15, 2)
   discountType DiscountType?
   tax          Decimal       @default(0) @db.Decimal(5, 2)
-  taxId        String?       // Reference to Tax.systemId
+  taxId        String? // Reference to Tax.systemId
   total        Decimal       @db.Decimal(15, 2)
   note         String?
   order        Order         @relation(fields: [orderId], references: [systemId], onDelete: Cascade)

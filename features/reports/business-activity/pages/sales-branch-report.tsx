@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, SalesBranchReportRow, ChartType } from '../types';
+import type { SystemId } from '@/lib/id-types';
 import { Building2, DollarSign, TrendingUp, Filter, ShoppingCart } from 'lucide-react';
 
 const getDefaultDateRange = (): ReportDateRange => ({
@@ -118,8 +119,8 @@ export function SalesBranchReportPage() {
   const { data, summary } = useSalesBranchReport(dateRange);
   
   const tableData = React.useMemo(() => {
-    const summaryRow: SalesBranchReportRow & { systemId: string; _isSummary: boolean } = {
-      branchSystemId: '__summary__' as any,
+    const summaryRow: SalesBranchReportRow & { systemId: SystemId; _isSummary: boolean } = {
+      branchSystemId: '__summary__' as SystemId,
       branchName: 'Tổng',
       branchCode: '',
       orderCount: summary.orderCount,
@@ -130,13 +131,13 @@ export function SalesBranchReportPage() {
       shippingFee: summary.shippingFee,
       revenue: summary.revenue,
       grossProfit: summary.grossProfit,
-      systemId: '__summary__',
+      systemId: '__summary__' as SystemId,
       _isSummary: true,
     };
     
     return [summaryRow, ...data.map(row => ({
       ...row,
-      systemId: row.branchSystemId as string,
+      systemId: row.branchSystemId,
       _isSummary: false,
     }))];
   }, [data, summary]);
@@ -147,8 +148,8 @@ export function SalesBranchReportPage() {
       sorted.sort((a, b) => {
         if (a._isSummary) return -1;
         if (b._isSummary) return 1;
-        const aVal = (a as any)[sorting.id];
-        const bVal = (b as any)[sorting.id];
+        const aVal = (a as unknown as Record<string, unknown>)[sorting.id];
+        const bVal = (b as unknown as Record<string, unknown>)[sorting.id];
         if (aVal === bVal) return 0;
         if (aVal == null) return 1;
         if (bVal == null) return -1;

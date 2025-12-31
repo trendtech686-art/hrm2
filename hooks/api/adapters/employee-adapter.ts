@@ -29,7 +29,8 @@ import type { SystemId } from '@/lib/id-types'
 export function useEmployeeStoreV2() {
   // React Query hooks
   const { data: response, isLoading, error, refetch } = useEmployees({ includeDeleted: true })
-  const employees = response?.data ?? []
+  // Memoize employees array for stable reference in callbacks
+  const employees = useMemo(() => response?.data ?? [], [response?.data])
   const createMutation = useCreateEmployee()
   const updateMutation = useUpdateEmployee()
   const deleteMutation = useDeleteEmployee()

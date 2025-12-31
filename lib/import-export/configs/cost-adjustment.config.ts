@@ -390,7 +390,7 @@ export function flattenCostAdjustmentsForExport(adjustments: CostAdjustment[]): 
         type: i === 0 ? adjustment.type : '',
         status: i === 0 ? adjustment.status : '',
         createdDate: i === 0 ? (adjustment.createdDate instanceof Date ? adjustment.createdDate.toISOString() : adjustment.createdDate ?? '') : '',
-        createdByName: i === 0 ? adjustment.createdByName : '',
+        createdByName: i === 0 ? (adjustment.createdByName ?? undefined) : '',
         reason: i === 0 ? adjustment.reason : '',
         note: i === 0 ? adjustment.note : '',
         referenceCode: i === 0 ? adjustment.referenceCode : '',

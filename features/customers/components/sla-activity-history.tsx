@@ -26,14 +26,14 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
  * - Giải quyết (resolved)
  * - Chuyển cấp (escalated)
  */
-export function SlaActivityHistory({ customerId, customerName }: Props) {
+export function SlaActivityHistory({ customerId, customerName: _customerName }: Props) {
   const [history, setHistory] = React.useState<HistoryEntry[]>([]);
   
   // Subscribe to summary changes to trigger re-render when acknowledge happens
   const summary = useCustomerSlaEngineStore((state) => state.summary);
   
   // Also track a refresh key for manual refresh
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [refreshKey, _setRefreshKey] = React.useState(0);
   
   React.useEffect(() => {
     // Load activity logs for this customer

@@ -84,7 +84,8 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
         'cancelled': { label: 'Đã hủy', variant: 'destructive' },
         'processing': { label: 'Đang xử lý', variant: 'outline' },
       };
-      const s = statusMap[row.status] || { label: row.status, variant: 'secondary' as const };
+      const statusKey = row.status ?? '';
+      const s = statusMap[statusKey] || { label: row.status || 'N/A', variant: 'secondary' as const };
       return <Badge variant={s.variant}>{s.label}</Badge>;
     },
   },
@@ -144,11 +145,11 @@ export function SalesOrderReportPage() {
     
     const reportData: SalesOrderReportRow[] = filteredOrders.map(order => {
       const customer = order.customerSystemId ? findCustomerById(order.customerSystemId) : null;
-      const employee = order.employeeSystemId ? findEmployeeById(order.employeeSystemId) : null;
+      const employee = order.salespersonSystemId ? findEmployeeById(order.salespersonSystemId) : null;
       
-      const productAmount = order.items?.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0) || 0;
-      const discountAmount = order.discount || 0;
-      const totalAmount = order.total || productAmount - discountAmount;
+      const productAmount = order.lineItems?.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0) || 0;
+      const discountAmount = order.orderDiscount || 0;
+      const totalAmount = order.grandTotal || productAmount - discountAmount;
       const paidAmount = order.paidAmount || 0;
       
       return {
@@ -157,13 +158,13 @@ export function SalesOrderReportPage() {
         orderDate: order.createdAt || '',
         customerSystemId: order.customerSystemId,
         customerName: customer?.name || order.customerName || 'Khách lẻ',
-        employeeSystemId: order.employeeSystemId,
+        employeeSystemId: order.salespersonSystemId,
         employeeName: employee?.fullName,
         status: order.status || 'pending',
-        itemCount: order.items?.length || 0,
+        itemCount: order.lineItems?.length || 0,
         productAmount,
         discountAmount,
-        taxAmount: order.taxAmount || 0,
+        taxAmount: order.tax || 0,
         shippingFee: order.shippingFee || 0,
         totalAmount,
         costOfGoods: 0,
@@ -187,8 +188,8 @@ export function SalesOrderReportPage() {
   }, [orders, dateRange, findCustomerById, findEmployeeById]);
   
   const tableData = React.useMemo(() => {
-    const summaryRow: SalesOrderReportRow & { systemId: string; _isSummary: boolean } = {
-      orderSystemId: '__summary__' as any,
+    const summaryRow: SalesOrderReportRow & { systemId: SystemId; _isSummary: boolean } = {
+      orderSystemId: '__summary__' as SystemId,
       orderId: 'Tổng',
       orderDate: '',
       customerName: '',
@@ -204,13 +205,13 @@ export function SalesOrderReportPage() {
       grossProfit: 0,
       paidAmount: data.reduce((sum, r) => sum + r.paidAmount, 0),
       debtAmount: data.reduce((sum, r) => sum + r.debtAmount, 0),
-      systemId: '__summary__',
+      systemId: '__summary__' as SystemId,
       _isSummary: true,
     };
     
     return [summaryRow, ...data.map(row => ({
       ...row,
-      systemId: row.orderSystemId as string,
+      systemId: row.orderSystemId,
       _isSummary: false,
     }))];
   }, [data, summary]);
@@ -221,8 +222,8 @@ export function SalesOrderReportPage() {
       sorted.sort((a, b) => {
         if (a._isSummary) return -1;
         if (b._isSummary) return 1;
-        const aVal = (a as any)[sorting.id];
-        const bVal = (b as any)[sorting.id];
+        const aVal = (a as unknown as Record<string, unknown>)[sorting.id];
+        const bVal = (b as unknown as Record<string, unknown>)[sorting.id];
         if (aVal === bVal) return 0;
         if (aVal == null) return 1;
         if (bVal == null) return -1;

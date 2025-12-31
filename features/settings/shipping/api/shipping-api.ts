@@ -35,8 +35,8 @@ export interface ShippingPartnerCreateInput {
 }
 
 export interface ShippingPartnerUpdateInput extends Partial<ShippingPartnerCreateInput> {
-  credentials?: Record<string, any>;
-  configuration?: Record<string, any>;
+  credentials?: Record<string, unknown>;
+  configuration?: Record<string, unknown>;
 }
 
 const BASE_URL = '/api/settings/shipping-partners';
@@ -93,7 +93,7 @@ export async function deleteShippingPartner(systemId: string): Promise<void> {
 
 export async function connectShippingPartner(
   systemId: string,
-  credentials: Record<string, any>
+  credentials: Record<string, unknown>
 ): Promise<ShippingPartner> {
   const response = await fetch(`${BASE_URL}/${systemId}/connect`, {
     method: 'POST',

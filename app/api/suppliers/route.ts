@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 // GET /api/suppliers - List all suppliers
 export async function GET(request: Request) {
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const all = searchParams.get('all') === 'true'
 
-    const where: any = {
+    const where: Prisma.SupplierWhereInput = {
       isDeleted: false,
     }
 
@@ -102,8 +103,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(supplier, { status: 201 })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Mã nhà cung cấp đã tồn tại' },
         { status: 400 }

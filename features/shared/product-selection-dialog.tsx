@@ -46,7 +46,7 @@ function ProductThumbnail({ product }: { product: Product }) {
         if (!lastFetched && product.systemId) {
             FileUploadAPI.getProductFiles(product.systemId)
                 .then(files => {
-                    const mapToServerFile = (f: any) => ({
+                    const mapToServerFile = (f: { id: string; name: string; originalName: string; slug: string; filename: string; size: number; type: string; url: string; uploadedAt: string; metadata?: string | Record<string, unknown> }) => ({
                         id: f.id,
                         sessionId: '',
                         name: f.name,
@@ -58,7 +58,7 @@ function ProductThumbnail({ product }: { product: Product }) {
                         url: f.url,
                         status: 'permanent' as const,
                         uploadedAt: f.uploadedAt,
-                        metadata: f.metadata
+                        metadata: typeof f.metadata === 'string' ? {} : (f.metadata || {})
                     });
 
                     const thumbnailFiles = files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile);
@@ -90,7 +90,7 @@ function ProductThumbnail({ product }: { product: Product }) {
 }
 
 // Quantity selector with +/- buttons
-function QuantitySelector({ 
+function _QuantitySelector({ 
     value, 
     onChange,
     onRemove 
@@ -225,10 +225,10 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
         let products = getActive();
         // Filter by excludeTypes
         if (excludeTypes.length > 0) {
-            products = products.filter(p => !excludeTypes.includes(p.type as any));
+            products = products.filter(p => !excludeTypes.includes(p.type as 'combo' | 'service' | 'digital'));
         }
         return products;
-    }, [allProducts, getActive, excludeTypes]);
+    }, [getActive, excludeTypes]);
 
     // Filter products by search
     const filteredProducts = React.useMemo(() => {

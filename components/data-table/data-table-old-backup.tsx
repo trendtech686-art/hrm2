@@ -74,11 +74,11 @@ export function DataTable<TData extends { systemId: string }>({
   sorting,
   setSorting,
   columnVisibility,
-  setColumnVisibility,
+  setColumnVisibility: _setColumnVisibility,
   columnOrder,
-  setColumnOrder,
+  setColumnOrder: _setColumnOrder,
   pinnedColumns,
-  setPinnedColumns,
+  setPinnedColumns: _setPinnedColumns,
   onRowClick,
   className,
 }: DataTableProps<TData>) {
@@ -137,13 +137,13 @@ export function DataTable<TData extends { systemId: string }>({
     
     // Separate columns by sticky type BEFORE applying user pins
     const staticLeftCols = visibleMasterCols.filter(c => {
-      const meta = c.meta as any;
+      const meta = c.meta;
       return meta?.sticky === 'left' && !['select', 'control', 'expander'].includes(c.id);
     });
-    const staticRightCols = visibleMasterCols.filter(c => (c.meta as any)?.sticky === 'right');
+    const staticRightCols = visibleMasterCols.filter(c => c.meta?.sticky === 'right');
     const controlCols = visibleMasterCols.filter(c => ['select', 'control', 'expander'].includes(c.id));
     const bodyCols = visibleMasterCols.filter(c => {
-      const meta = c.meta as any;
+      const meta = c.meta;
       return !meta?.sticky && !['select', 'control', 'expander'].includes(c.id);
     });
 
@@ -178,8 +178,8 @@ export function DataTable<TData extends { systemId: string }>({
   }, [columns, columnVisibility, columnOrder, pinnedColumns, renderSubComponent]);
 
 
-  const leftStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as any)?.sticky === 'left'), [displayColumns]);
-  const rightStickyColumns = React.useMemo(() => displayColumns.filter(c => (c.meta as any)?.sticky === 'right'), [displayColumns]);
+  const leftStickyColumns = React.useMemo(() => displayColumns.filter(c => c.meta?.sticky === 'left'), [displayColumns]);
+  const rightStickyColumns = React.useMemo(() => displayColumns.filter(c => c.meta?.sticky === 'right'), [displayColumns]);
 
   const leftOffsets = React.useMemo(() => {
       let offset = 0;
@@ -212,7 +212,7 @@ export function DataTable<TData extends { systemId: string }>({
                 <th className="sticky left-0 z-50 bg-background px-3 w-[48px]">
                   {columns.find(c => c.id === 'select') &&
                     typeof columns.find(c => c.id === 'select')!.header === 'function' &&
-                    // @ts-ignore
+                    // @ts-expect-error - header function type is complex with selection props
                     columns.find(c => c.id === 'select')!.header({
                       isAllPageRowsSelected,
                       isSomePageRowsSelected,
@@ -265,7 +265,7 @@ export function DataTable<TData extends { systemId: string }>({
             {/* Normal header row - always rendered */}
             <TableRow className="h-12">
               {displayColumns.map((column, colIndex) => {
-                  const stickyMeta = (column.meta as any)?.sticky;
+                  const stickyMeta = column.meta?.sticky;
                   const hasFixedSize = column.size !== undefined;
                   const colSize = column.size || 150; // Default for auto columns
                   
@@ -281,22 +281,22 @@ export function DataTable<TData extends { systemId: string }>({
                   let thClassName = "";
 
                   const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
-                  const isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
+                  const _isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
 
                   if (stickyMeta === 'left') {
                       const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
                       if (stickyIndex !== -1) {
-                          (style as any).position = 'sticky';
-                          (style as any).left = `${leftOffsets[stickyIndex]}px`;
-                          (style as any).top = 0;
+                          style.position = 'sticky';
+                          style.left = `${leftOffsets[stickyIndex]}px`;
+                          style.top = 0;
                           thClassName = "z-30 bg-muted";
                       }
                   } else if (stickyMeta === 'right') {
                       const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
                       if (stickyIndex !== -1) {
-                          (style as any).position = 'sticky';
-                          (style as any).right = `${rightOffsets[stickyIndex]}px`;
-                          (style as any).top = 0;
+                          style.position = 'sticky';
+                          style.right = `${rightOffsets[stickyIndex]}px`;
+                          style.top = 0;
                           thClassName = "z-30 bg-muted shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]";
                       }
                   }
@@ -314,7 +314,6 @@ export function DataTable<TData extends { systemId: string }>({
                         })}
                     >
                         {typeof column.header === 'function' 
-                          // @ts-ignore
                           ? column.header({ 
                               isAllPageRowsSelected, 
                               isSomePageRowsSelected, 
@@ -340,7 +339,7 @@ export function DataTable<TData extends { systemId: string }>({
                       {displayColumns.map((column, colIndex) => {
                         const isInteractiveColumn = ['select', 'control', 'actions', 'expander'].includes(column.id);
 
-                        const stickyMeta = (column.meta as any)?.sticky;
+                        const stickyMeta = column.meta?.sticky;
                         const hasFixedSize = column.size !== undefined;
                         const colSize = column.size || 150;
                         
@@ -360,15 +359,15 @@ export function DataTable<TData extends { systemId: string }>({
                         if (stickyMeta === 'left') {
                             const stickyIndex = leftStickyColumns.findIndex(c => c.id === column.id);
                             if (stickyIndex !== -1) {
-                                (style as any).position = 'sticky';
-                                (style as any).left = `${leftOffsets[stickyIndex]}px`;
+                                style.position = 'sticky';
+                                style.left = `${leftOffsets[stickyIndex]}px`;
                                 tdClassName = "z-20 bg-background group-hover:bg-muted/50 group-data-[state=selected]:bg-muted transition-colors";
                             }
                         } else if (stickyMeta === 'right') {
                             const stickyIndex = rightStickyColumns.findIndex(c => c.id === column.id);
                             if (stickyIndex !== -1) {
-                                (style as any).position = 'sticky';
-                                (style as any).right = `${rightOffsets[stickyIndex]}px`;
+                                style.position = 'sticky';
+                                style.right = `${rightOffsets[stickyIndex]}px`;
                                 tdClassName = "z-20 bg-background group-hover:bg-muted/50 group-data-[state=selected]:bg-muted transition-colors shadow-[-2px_0_4px_-2px_rgba(0,0,0,0.1)]";
                             }
                         }
@@ -387,7 +386,7 @@ export function DataTable<TData extends { systemId: string }>({
                             onClick={isInteractiveColumn ? (e) => e.stopPropagation() : undefined}
                           >
                             {column.cell({ 
-                                row, 
+                                row: row, 
                                 isSelected: !!rowSelection[row.systemId],
                                 isExpanded: !!expanded[row.systemId],
                                 onToggleSelect: (value) => {

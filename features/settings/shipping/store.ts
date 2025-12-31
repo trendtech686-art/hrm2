@@ -5,7 +5,7 @@ import Fuse from 'fuse.js';
 import type { SystemId } from '@/lib/id-types';
 
 // FIX: Replaced import from a non-existent module and replaced it with a mock function.
-const connectPartner = async (partnerId: string, credentials: any): Promise<{ success: boolean; message: string }> => {
+const _connectPartner = async (partnerId: string, credentials: Record<string, unknown>): Promise<{ success: boolean; message: string }> => {
     console.log(`Connecting to ${partnerId} with`, credentials);
     // Simulate success for known partners if they have credentials.
     if (credentials && Object.values(credentials).every(v => v)) {
@@ -16,7 +16,7 @@ const connectPartner = async (partnerId: string, credentials: any): Promise<{ su
 
 type ShippingPartnerStoreExtension = {
     searchShippingPartners: (query: string, page: number, limit?: number | undefined) => Promise<{ items: { value: string; label: string }[], hasNextPage: boolean }>;
-    connect: (systemId: SystemId, credentials: Record<string, any>) => Promise<{ success: boolean; message: string }>;
+    connect: (systemId: SystemId, credentials: Record<string, unknown>) => Promise<{ success: boolean; message: string }>;
     disconnect: (systemId: SystemId) => void;
 };
 
@@ -50,7 +50,7 @@ const storeExtension: ShippingPartnerStoreExtension = {
             }, 300);
         });
     },
-    connect: async (systemId: SystemId, credentials: Record<string, any>) => {
+    connect: async (systemId: SystemId, credentials: Record<string, unknown>) => {
         // ⚠️ DEPRECATED: Không nên dùng hàm này nữa
         // Vui lòng cấu hình trong Settings → Đối tác vận chuyển
         // Credentials sẽ được lưu vào shipping_partners_config
@@ -92,7 +92,8 @@ const storeExtension: ShippingPartnerStoreExtension = {
     },
 };
 
-baseStore.setState(storeExtension as any);
+// Extend the store with custom methods
+Object.assign(baseStore.getState(), storeExtension);
 
 type ShippingPartnerStoreState = ReturnType<typeof baseStore.getState> & ShippingPartnerStoreExtension;
 
@@ -103,4 +104,4 @@ export const useShippingPartnerStore: {
   getState: () => ShippingPartnerStoreState;
   setState: typeof baseStore.setState;
   subscribe: typeof baseStore.subscribe;
-} = baseStore as any;
+} = baseStore as unknown as typeof useShippingPartnerStore;

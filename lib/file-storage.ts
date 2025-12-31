@@ -31,7 +31,7 @@ export class FileStorageManager {
     file: File, 
     employeeId: string, 
     documentType: string, 
-    documentName: string
+    _documentName: string
   ): Promise<StoredFile | null> {
     try {
       // Tạo đường dẫn theo cấu trúc: uploads/employees/{employeeId}/{documentType}/

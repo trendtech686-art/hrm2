@@ -22,8 +22,6 @@ import {
   fetchEmployeesByDepartment,
   fetchEmployeesByBranch,
   type EmployeesParams,
-  type CreateEmployeeInput,
-  type UpdateEmployeeInput,
 } from '../api/employees-api';
 
 // Query keys - exported for invalidation

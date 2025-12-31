@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, XCircle, Loader2, Calendar, User, Image as ImageIcon } from 'lucide-react';
-import type { Task, CompletionEvidence } from '../types';
+import type { Task } from '../types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { EvidenceViewer } from './EvidenceViewer';

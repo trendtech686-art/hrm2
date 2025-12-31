@@ -10,7 +10,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "./command"
 import { Button } from "./button"
 import { Badge } from "./badge"

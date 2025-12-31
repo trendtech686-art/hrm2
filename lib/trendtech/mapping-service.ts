@@ -192,11 +192,11 @@ export function compareProductData(
   hasContentDiff: boolean;
   details: {
     field: string;
-    hrmValue: any;
-    trendtechValue: any;
+    hrmValue: string | number | undefined;
+    trendtechValue: string | number | undefined;
   }[];
 } {
-  const details: { field: string; hrmValue: any; trendtechValue: any }[] = [];
+  const details: { field: string; hrmValue: string | number | undefined; trendtechValue: string | number | undefined }[] = [];
   
   // Price comparison
   const hrmPrice = getPriceByMapping(hrmProduct, 'price');

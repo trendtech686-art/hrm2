@@ -216,7 +216,7 @@ export function useComplaintReminders(complaint: Complaint | null) {
     }, 60 * 1000); // Check every minute
     
     return () => clearInterval(checkInterval);
-  }, [complaint?.systemId, settings.enabled, addNotification]);
+  }, [complaint, settings, addNotification]);
   
   return reminderStatus;
 }
@@ -228,7 +228,7 @@ function sendReminder(
   complaint: Complaint,
   status: ReminderStatus,
   settings: ReminderSettings,
-  addNotification: (notification: any) => void
+  addNotification: (notification: Record<string, unknown>) => void
 ) {
   const recipients: string[] = [];
   

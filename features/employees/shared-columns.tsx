@@ -29,7 +29,7 @@ export const formatDateDisplay = (dateString?: string) => {
   return formatDateCustom(date, "dd/MM/yyyy");
 };
 
-export const formatAddress = (address: any): string => {
+export const formatAddress = (address: string | { street?: string; ward?: string; district?: string; province?: string } | undefined): string => {
   if (!address) return '';
   if (typeof address === 'string') return address;
   
@@ -85,7 +85,7 @@ export const createIdColumn = (): ColumnDef<Employee> => ({
       sortKey="id"
       isSorted={sorting?.id === 'id'}
       sortDirection={sorting?.desc ? 'desc' : 'asc'}
-      onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+      onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
     />
   ),
   cell: ({ row }) => <span className="font-mono">{row.id}</span>,
@@ -107,7 +107,7 @@ export const createFullNameColumn = (): ColumnDef<Employee> => ({
       sortKey="fullName"
       isSorted={sorting?.id === 'fullName'}
       sortDirection={sorting?.desc ? 'desc' : 'asc'}
-      onSort={() => setSorting?.((s: any) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
+      onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
     />
   ),
   cell: ({ row }) => (
@@ -271,7 +271,7 @@ export const createDeletedAtColumn = (): ColumnDef<Employee> => ({
       sortKey="deletedAt"
       isSorted={sorting?.id === 'deletedAt'}
       sortDirection={sorting?.desc ? 'desc' : 'asc'}
-      onSort={() => setSorting?.((s: any) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
+      onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'deletedAt', desc: s.id === 'deletedAt' ? !s.desc : false }))}
     />
   ),
   cell: ({ row }) => formatDateDisplay(row.deletedAt || undefined),

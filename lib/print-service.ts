@@ -33,7 +33,7 @@ export function getGeneralSettings(): {
       storePhone: settings.storePhone,
       logoUrl: settings.logoUrl,
     };
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
   return null;
 }
 
@@ -45,7 +45,7 @@ export function getStoreLogo(storeInfoLogo?: string): string | undefined {
   try {
     const settings = getGeneralSettingsSync();
     return settings.logoUrl || undefined;
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
   return undefined;
 }
 
@@ -304,7 +304,7 @@ export function printDocument(
   const template = store.getTemplate(templateType, paperSize, options?.branchId);
   
   // Generate HTML content
-  let html = replaceVariables(template.content, data);
+  const html = replaceVariables(template.content, data);
   
   // Tạo iframe ẩn để in
   const printFrame = document.createElement('iframe');

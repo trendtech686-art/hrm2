@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from "react"
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProductStore } from "./store"
@@ -10,29 +11,24 @@ import { useBrandStore } from "../settings/inventory/brand-store"
 import { usePricingPolicyStore } from "../settings/pricing/store"
 import { usePkgxSettingsStore } from "../settings/pkgx/store"
 import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync"
-import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog"
-import { createProduct, updateProduct } from "../../lib/pkgx/api-service"
+import { createProduct } from "../../lib/pkgx/api-service"
 import type { PkgxProductPayload } from "../settings/pkgx/types"
 import { usePkgxSync } from "./hooks/use-pkgx-sync"
 import { useAuth } from "../../contexts/auth-context"
-import { asSystemId, asBusinessId } from '../../lib/id-types';
+import { asSystemId } from '../../lib/id-types';
 import { getColumns } from "./columns"
 import { usePrint } from '@/lib/use-print';
 import { 
-  convertProductForLabel,
-  convertProductsForLabels,
   mapProductToLabelPrintData,
   createStoreSettings,
 } from '@/lib/print/product-print-helper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
 import { productImportExportConfig } from "../../lib/import-export/configs/product.config";
 import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
 import { PageFilters } from "../../components/layout/page-filters";
 import { PageToolbar } from "../../components/layout/page-toolbar";
-import { transformImportedRows, normalizeFieldKey, type BranchInventoryIdentifier } from "./product-importer";
+import { normalizeFieldKey, type BranchInventoryIdentifier } from "./product-importer";
 import { 
   Card, 
   CardContent, 
@@ -50,11 +46,25 @@ import {
 import type { Product } from "@/lib/types/prisma-extended"
 import { Button } from "../../components/ui/button"
 import { PlusCircle } from "lucide-react"
-import { PkgxLinkDialog } from "./components/pkgx-link-dialog"
 import { useProductsQuery } from "./hooks/use-products-query";
 import { DEFAULT_PRODUCT_SORT, getFilteredProductsSnapshot, type ProductQueryParams, type ProductQueryResult } from "./product-service";
 import { usePersistentState } from "../../hooks/use-persistent-state";
 import { usePageHeader } from "../../contexts/page-header-context";
+
+// ✅ Dynamic imports for heavy dialog components - loaded only when needed
+const PkgxBulkSyncConfirmDialog = dynamic(
+  () => import("../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog").then(mod => ({ default: mod.PkgxBulkSyncConfirmDialog })),
+  { ssr: false }
+);
+const PkgxLinkDialog = dynamic(
+  () => import("./components/pkgx-link-dialog").then(mod => ({ default: mod.PkgxLinkDialog })),
+  { ssr: false }
+);
+
+// Generic components need static import to preserve types
+import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
+import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { Badge } from "../../components/ui/badge";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
@@ -75,7 +85,7 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
 import { MoreVertical, Package, Settings2, SlidersHorizontal, Columns3, Layers, RefreshCw, FileText, DollarSign, PackageSearch, Search, Flag, Image, ExternalLink, Unlink, Printer, Trash2, Play, StopCircle, FileUp, Download } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 
 
 const TABLE_STATE_STORAGE_KEY = 'products-table-state';
@@ -101,7 +111,7 @@ function resolveStateAction<T>(current: T, action: React.SetStateAction<T>): T {
 export function ProductsPage() {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const queryClient = useQueryClient();
-  const { data: productsRaw, remove, restore, getDeleted, addMultiple, add, update } = useProductStore();
+  const { data: productsRaw, remove, restore, getDeleted, addMultiple: _addMultiple, add, update } = useProductStore();
   const categories = useProductCategoryStore(state => state.data);
   const activeCategories = React.useMemo(
     () => categories.filter(category => !category.isDeleted && category.isActive !== false),
@@ -111,11 +121,11 @@ export function ProductsPage() {
   const { employee: authEmployee } = useAuth();
   const router = useRouter();
 
-  const defaultBranchSystemId = React.useMemo(() => {
+  const _defaultBranchSystemId = React.useMemo(() => {
     return branches.find(branch => branch.isDefault)?.systemId ?? branches[0]?.systemId ?? null;
   }, [branches]);
 
-  const branchInventoryIdentifiers = React.useMemo<BranchInventoryIdentifier[]>(() => {
+  const _branchInventoryIdentifiers = React.useMemo<BranchInventoryIdentifier[]>(() => {
     return branches.map(branch => ({
       systemId: branch.systemId,
       identifiers: new Set(
@@ -132,7 +142,7 @@ export function ProductsPage() {
   // ✅ Get deleted count - always recalculate when products change
   const deletedCount = React.useMemo(() => {
     return getDeleted().length;
-  }, [getDeleted, products]);
+  }, [getDeleted]);
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [isAlertOpen, setIsAlertOpen] = React.useState(false)
@@ -278,14 +288,14 @@ export function ProductsPage() {
   
   // Use PKGX sync hook for all sync handlers
   const {
-    handlePkgxUpdatePrice,
-    handlePkgxSyncInventory,
-    handlePkgxUpdateSeo,
-    handlePkgxSyncDescription,
-    handlePkgxSyncFlags,
-    handlePkgxSyncBasicInfo,
+    handlePkgxUpdatePrice: _handlePkgxUpdatePrice,
+    handlePkgxSyncInventory: _handlePkgxSyncInventory,
+    handlePkgxUpdateSeo: _handlePkgxUpdateSeo,
+    handlePkgxSyncDescription: _handlePkgxSyncDescription,
+    handlePkgxSyncFlags: _handlePkgxSyncFlags,
+    handlePkgxSyncBasicInfo: _handlePkgxSyncBasicInfo,
     handlePkgxSyncImages,
-    handlePkgxSyncAll,
+    handlePkgxSyncAll: _handlePkgxSyncAll,
   } = usePkgxSync({ addPkgxLog });
   
   // Bulk sync hook for PKGX operations
@@ -420,7 +430,7 @@ export function ProductsPage() {
         const goodsId = response.data.goods_id;
         
         // Save pkgxId to product store - Zustand sẽ trigger re-render tự động
-        update(product.systemId as any, { pkgxId: goodsId });
+        update(product.systemId, { pkgxId: goodsId });
         
         // Update React Query cache trực tiếp (không cần refetch - realtime!)
         // Tìm tất cả queries có prefix 'products' và update item trong cache
@@ -496,7 +506,7 @@ export function ProductsPage() {
   // Handler hủy liên kết PKGX
   const handlePkgxUnlink = React.useCallback((product: Product) => {
     // Update store - xóa pkgxId
-    update(product.systemId as any, { pkgxId: undefined });
+    update(product.systemId, { pkgxId: undefined });
     
     // Update React Query cache trực tiếp (realtime)
     queryClient.setQueriesData<ProductQueryResult>(
@@ -654,6 +664,7 @@ export function ProductsPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is stable, only run on mount
   }, []);
 
   const updateTableState = React.useCallback(
@@ -784,7 +795,7 @@ export function ProductsPage() {
   const pageCount = queryResult?.pageCount ?? 1;
   const isTableLoading = queryLoading || isFetching;
 
-  const filteredSnapshot = React.useMemo(() => getFilteredProductsSnapshot(queryParams), [products, queryParams]);
+  const filteredSnapshot = React.useMemo(() => getFilteredProductsSnapshot(queryParams), [queryParams]);
 
   const selectedProducts = React.useMemo(
     () => products.filter((product) => rowSelection[product.systemId]),
@@ -807,7 +818,7 @@ export function ProductsPage() {
   const allSelectedRows = selectedProducts;
 
   // Import handler - tích hợp với product importer logic
-  const handleImport = React.useCallback(async (data: Partial<Product>[], mode: 'insert-only' | 'update-only' | 'upsert', branchId?: string) => {
+  const handleImport = React.useCallback(async (data: Partial<Product>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
     const currentEmployeeSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
     
     const results = {
@@ -845,9 +856,9 @@ export function ProductsPage() {
               updatedBy: currentEmployeeSystemId,
             };
             // Remove fields that shouldn't be overwritten
-            delete (updatedFields as any).systemId;
-            delete (updatedFields as any).createdAt;
-            delete (updatedFields as any).createdBy;
+            delete (updatedFields as { systemId?: string }).systemId;
+            delete (updatedFields as { createdAt?: string }).createdAt;
+            delete (updatedFields as { createdBy?: string }).createdBy;
             
             update(existingProduct.systemId, updatedFields);
             results.updated++;
@@ -1077,13 +1088,13 @@ export function ProductsPage() {
   // ═══════════════════════════════════════════════════════════════════════════
   
   // Get total inventory across all branches
-  const getTotalInventory = (product: Product): number => {
+  const _getTotalInventory = (product: Product): number => {
     if (!product.inventoryByBranch) return 0;
     return Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0);
   };
 
   // Create price update payload for PKGX
-  const createPriceUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
+  const _createPriceUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
     const pkgxSettingsState = usePkgxSettingsStore.getState();
     const { priceMapping } = pkgxSettingsState.settings;
     
@@ -1122,7 +1133,7 @@ export function ProductsPage() {
   };
 
   // Create SEO update payload for PKGX (đồng nhất với handlePkgxUpdateSeo)
-  const createSeoUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
+  const _createSeoUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
     const pkgxSeo = product.seoPkgx;
     return {
       keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || product.name,
@@ -1134,7 +1145,7 @@ export function ProductsPage() {
 
   // Create flags update payload for PKGX
   // Mapping: HRM isPublished->is_on_sale, isFeatured->best/ishome, isBestSeller->hot, isNewArrival->new
-  const createFlagsUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
+  const _createFlagsUpdatePayload = (product: Product): Partial<PkgxProductPayload> => {
     return {
       best: product.isFeatured || false,
       hot: product.isBestSeller || false,
@@ -1398,7 +1409,7 @@ export function ProductsPage() {
 
               {/* Footer */}
               <div className="flex items-center justify-between mt-3 pt-2 border-t">
-                <Badge variant={getStatusVariant(product.status) as any} className="text-body-xs">
+                <Badge variant={getStatusVariant(product.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'} className="text-body-xs">
                   {getStatusLabel(product.status)}
                 </Badge>
                 {product.unit && (

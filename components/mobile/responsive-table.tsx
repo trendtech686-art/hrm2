@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { ScrollArea } from "../ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { useMediaQuery } from "../../lib/use-media-query";
 import { cn } from "../../lib/utils";
 
@@ -24,7 +24,7 @@ interface ResponsiveTableProps<T> {
  * ResponsiveTable - Switches between table (desktop) and cards (mobile)
  * Mobile-first approach: Cards on mobile, table on desktop
  */
-export function ResponsiveTable<T extends Record<string, any>>({ 
+export function ResponsiveTable<T extends Record<string, React.ReactNode>>({ 
   data, 
   columns, 
   className,

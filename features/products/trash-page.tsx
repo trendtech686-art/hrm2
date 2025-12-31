@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, getCurrentDate } from '@/lib/date-utils'
+import { formatDateTime } from '@/lib/date-utils'
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useProductStore } from "./store"
@@ -78,7 +78,8 @@ export function ProductsTrashPage() {
       // Pass real handlers to columns for button clicks
       return getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn);
     },
-    [router, handleRestoreFromColumn, handleDeleteFromColumn, data] // Add data to re-create columns on store update
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-creation when store changes
+    [router, handleRestoreFromColumn, handleDeleteFromColumn, data]
   );
 
   // Custom mobile card for products

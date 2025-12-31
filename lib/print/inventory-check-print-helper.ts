@@ -55,11 +55,11 @@ export function convertInventoryCheckForPrint(
   return {
     // Thông tin cơ bản
     code: check.id,
-    createdAt: check.createdAt,
-    adjustedOn: check.balancedAt,
-    createdBy: creator?.fullName || creatorName,
+    createdAt: check.createdAt ?? new Date(),
+    adjustedOn: check.balancedAt ?? undefined,
+    createdBy: creator?.fullName ?? creatorName ?? '',
     status: statusMap[check.status] || check.status,
-    reason: check.cancelledReason,
+    reason: check.cancelledReason ?? undefined,
     
     // Thông tin chi nhánh
     location: branch ? {
@@ -79,7 +79,7 @@ export function convertInventoryCheckForPrint(
       afterQuantity: item.actualQuantity,
       changeQuantity: item.difference,
       reason: item.reason ? reasonMap[item.reason] || item.reason : undefined,
-      note: item.note,
+      note: item.note ?? undefined,
     })),
     
     // Tổng
@@ -87,7 +87,7 @@ export function convertInventoryCheckForPrint(
     totalSurplus,
     totalShortage,
     
-    note: check.note,
+    note: check.note ?? undefined,
   };
 }
 

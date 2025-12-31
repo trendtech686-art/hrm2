@@ -12,8 +12,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { InlineEditableCell } from '../../components/shared/inline-editable-cell';
 import { useProductStore } from '../products/store';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
-import { ScrollArea } from "../../components/ui/scroll-area";
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return '';
@@ -125,13 +123,13 @@ export const getColumns = (
         sortKey="name"
         isSorted={sorting?.id === 'name'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'name', desc: s.id === 'name' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
       const brand = row as Brand;
       const hasMapping = hasPkgxMapping?.(brand) ?? false;
-      const pkgxId = getPkgxBrandId?.(brand);
+      const _pkgxId = getPkgxBrandId?.(brand);
       
       if (onUpdateName) {
         return (
@@ -214,7 +212,7 @@ export const getColumns = (
         sortKey="id"
         isSorted={sorting?.id === 'id'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'id', desc: s.id === 'id' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -367,7 +365,7 @@ export const getColumns = (
         sortKey="createdAt"
         isSorted={sorting?.id === 'createdAt'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'createdAt', desc: s.id === 'createdAt' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {
@@ -393,7 +391,7 @@ export const getColumns = (
         sortKey="updatedAt"
         isSorted={sorting?.id === 'updatedAt'}
         sortDirection={sorting?.desc ? 'desc' : 'asc'}
-        onSort={() => setSorting?.((s: any) => ({ id: 'updatedAt', desc: s.id === 'updatedAt' ? !s.desc : false }))}
+        onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'updatedAt', desc: s.id === 'updatedAt' ? !s.desc : false }))}
       />
     ),
     cell: ({ row }) => {

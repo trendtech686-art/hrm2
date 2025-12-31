@@ -37,7 +37,7 @@ type DocumentStore = {
     employeeData?: {
       name?: string;
       department?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     }
   ) => Promise<void>;
   
@@ -107,53 +107,42 @@ export const useDocumentStore = create<DocumentStore>()(
       confirmAllStagingDocuments: async (employeeSystemId, employeeData) => {
         const stagingDocs = get().stagingDocuments;
         
-        try {
-          for (const [key, stagingDoc] of Object.entries(stagingDocs)) {
-            if (stagingDoc.files.length > 0) {
-              // Confirm staging files → permanent với smart filename
-              const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
-                stagingDoc.sessionId,
-                employeeSystemId,
-                stagingDoc.documentType,
-                stagingDoc.documentName,
-                employeeData // Gửi employee data để tạo smart filename
-              );
-              
-              // Update local documents với confirmed files
-              get().updateDocumentFiles(
-                employeeSystemId,
-                stagingDoc.documentType,
-                stagingDoc.documentName,
-                confirmedFiles
-              );
-            }
+        for (const [_key, stagingDoc] of Object.entries(stagingDocs)) {
+          if (stagingDoc.files.length > 0) {
+            // Confirm staging files → permanent với smart filename
+            const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
+              stagingDoc.sessionId,
+              employeeSystemId,
+              stagingDoc.documentType,
+              stagingDoc.documentName,
+              employeeData // Gửi employee data để tạo smart filename
+            );
+            
+            // Update local documents với confirmed files
+            get().updateDocumentFiles(
+              employeeSystemId,
+              stagingDoc.documentType,
+              stagingDoc.documentName,
+              confirmedFiles
+            );
           }
-          
-          // Clear staging sau khi confirm
-          get().clearStagingDocuments();
-          
-        } catch (error) {
-
-          throw error;
         }
+        
+        // Clear staging sau khi confirm
+        get().clearStagingDocuments();
       },
       
       // Upload files lên server (for existing employees)
       uploadFiles: async (employeeSystemId, documentType, documentName, files) => {
-        try {
-          const uploadedFiles = await FileUploadAPI.uploadFiles(
-            employeeSystemId,
-            documentType,
-            documentName,
-            files
-          );
-          
-          // Cập nhật local store với files đã upload
-          get().updateDocumentFiles(employeeSystemId, documentType, documentName, uploadedFiles);
-        } catch (error) {
-
-          throw error;
-        }
+        const uploadedFiles = await FileUploadAPI.uploadFiles(
+          employeeSystemId,
+          documentType,
+          documentName,
+          files
+        );
+        
+        // Cập nhật local store với files đã upload
+        get().updateDocumentFiles(employeeSystemId, documentType, documentName, uploadedFiles);
       },
       
       // Refresh documents từ server
@@ -167,7 +156,6 @@ export const useDocumentStore = create<DocumentStore>()(
         }
         
         if (force) {
-
           // Clear cache for this employee
           set(state => {
             const newLoadedEmployees = new Set(state.loadedEmployees);
@@ -178,56 +166,50 @@ export const useDocumentStore = create<DocumentStore>()(
               documents: state.documents.filter(doc => doc.employeeSystemId !== employeeSystemId)
             };
           });
-        } else {
-
         }
+        // Non-force refresh uses existing cache logic
         
-        try {
-          const serverFiles = await FileUploadAPI.getFiles(employeeSystemId);
-          
-          // If no files, just mark as loaded and return
-          if (serverFiles.length === 0) {
+        const serverFiles = await FileUploadAPI.getFiles(employeeSystemId);
+        
+        // If no files, just mark as loaded and return
+        if (serverFiles.length === 0) {
 
-            set(state => ({
-              loadedEmployees: new Set([...state.loadedEmployees, employeeSystemId])
-            }));
-            return;
-          }
-          
-          // Group files theo documentType và documentName
-          const documentsMap = new Map<string, EmployeeDocument>();
-          
-          serverFiles.forEach(file => {
-            const key = `${file.documentType}-${file.documentName}`;
-            
-            if (documentsMap.has(key)) {
-              documentsMap.get(key)!.files.push(file);
-            } else {
-              documentsMap.set(key, {
-                id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                employeeSystemId: file.employeeId,
-                documentType: file.documentType,
-                documentName: file.documentName,
-                files: [file],
-                createdAt: file.uploadedAt,
-                updatedAt: file.confirmedAt || file.uploadedAt,
-              });
-            }
-          });
-          
-          // Cập nhật store với documents từ server
-          const serverDocuments = Array.from(documentsMap.values());
           set(state => ({
-            documents: [
-              ...state.documents.filter(d => d.employeeSystemId !== employeeSystemId),
-              ...serverDocuments
-            ],
             loadedEmployees: new Set([...state.loadedEmployees, employeeSystemId])
           }));
-        } catch (error) {
-
-          throw error;
+          return;
         }
+        
+        // Group files theo documentType và documentName
+        const documentsMap = new Map<string, EmployeeDocument>();
+        
+        serverFiles.forEach(file => {
+          const key = `${file.documentType}-${file.documentName}`;
+          
+          if (documentsMap.has(key)) {
+            documentsMap.get(key)!.files.push(file);
+          } else {
+            documentsMap.set(key, {
+              id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              employeeSystemId: file.employeeId,
+              documentType: file.documentType,
+              documentName: file.documentName,
+              files: [file],
+              createdAt: file.uploadedAt,
+              updatedAt: file.confirmedAt || file.uploadedAt,
+            });
+          }
+        });
+        
+        // Cập nhật store với documents từ server
+        const serverDocuments = Array.from(documentsMap.values());
+        set(state => ({
+          documents: [
+            ...state.documents.filter(d => d.employeeSystemId !== employeeSystemId),
+            ...serverDocuments
+          ],
+          loadedEmployees: new Set([...state.loadedEmployees, employeeSystemId])
+        }));
       },
       
       getDocuments: (employeeSystemId: string, documentType?: string) => {
@@ -279,8 +261,8 @@ export const useDocumentStore = create<DocumentStore>()(
             for (const file of doc.files) {
               await FileUploadAPI.deleteFile(file.id);
             }
-          } catch (error) {
-
+          } catch (_error) {
+            // Ignore deletion errors - continue with local cleanup
           }
           
           // Xóa document khỏi local store
@@ -300,8 +282,8 @@ export const useDocumentStore = create<DocumentStore>()(
               await FileUploadAPI.deleteFile(file.id);
             }
           }
-        } catch (error) {
-
+        } catch (_error) {
+          // Ignore deletion errors - continue with local cleanup
         }
         
         // Xóa khỏi local store
@@ -317,7 +299,7 @@ export const useDocumentStore = create<DocumentStore>()(
             totalFiles: stats.totalFiles,
             totalSizeMB: stats.totalSizeMB
           };
-        } catch (error) {
+        } catch (_error) {
 
           return { totalFiles: 0, totalSizeMB: 0 };
         }
@@ -330,11 +312,11 @@ export const useDocumentStore = create<DocumentStore>()(
       partialize: (state) => ({ 
         documents: state.documents,
         loadedEmployees: Array.from(state.loadedEmployees) // Convert Set to Array for JSON
-      }),
+      } as unknown as DocumentStore),
       // Rehydrate loadedEmployees từ Array về Set
       onRehydrateStorage: () => (state) => {
-        if (state && Array.isArray((state as any).loadedEmployees)) {
-          state.loadedEmployees = new Set((state as any).loadedEmployees);
+        if (state && Array.isArray((state as unknown as { loadedEmployees?: string[] }).loadedEmployees)) {
+          state.loadedEmployees = new Set((state as unknown as { loadedEmployees: string[] }).loadedEmployees);
         }
       }
     }

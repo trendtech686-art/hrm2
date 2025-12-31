@@ -6,8 +6,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '../../components/ui/context-menu';
-import { WarrantyTicket } from './types';
-import { toast } from 'sonner';
+import type { WarrantyTicket } from './types';
 
 interface WarrantyCardContextMenuProps {
   ticket: WarrantyTicket;

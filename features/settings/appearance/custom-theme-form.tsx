@@ -95,7 +95,7 @@ type CustomThemeFormProps = {
 
 export function CustomThemeForm({ config, onConfigChange, fontSize, onFontSizeChange }: CustomThemeFormProps) {
     
-    const handleConfigValueChange = (key: keyof CustomThemeConfig, value: any) => {
+    const handleConfigValueChange = (key: keyof CustomThemeConfig, value: string) => {
         onConfigChange({ [key]: value });
     };
 

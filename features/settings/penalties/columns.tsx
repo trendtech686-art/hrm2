@@ -1,7 +1,6 @@
 ﻿import * as React from "react";
 import { formatDate } from '@/lib/date-utils';
-import type { SystemId } from '@/lib/id-types';
-import type { Penalty, PenaltyStatus, PenaltyCategory } from './types';
+import type { Penalty, PenaltyStatus } from './types';
 import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
 import { Badge } from "../../../components/ui/badge";
 import { Checkbox } from "../../../components/ui/checkbox";

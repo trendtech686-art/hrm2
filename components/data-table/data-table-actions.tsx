@@ -15,7 +15,7 @@ interface DataTableActionsProps<TData> {
     importer: (data: Omit<TData, 'id'>[]) => void;
     fileName: string;
     existingData?: TData[];
-    getUniqueKey?: (item: any) => string;
+    getUniqueKey?: (item: TData | Omit<TData, 'id'>) => string;
   } | undefined;
   columnCustomizerProps?: {
     columns: ColumnDef<TData>[];

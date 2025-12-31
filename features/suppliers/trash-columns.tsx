@@ -47,7 +47,7 @@ export function getColumns(
       header: "Trạng thái",
       cell: ({ row }) => {
         const variant = row.status === "Đang Giao Dịch" ? "success" : "secondary";
-        return <Badge variant={variant as any}>{row.status}</Badge>;
+        return <Badge variant={variant}>{row.status}</Badge>;
       },
       meta: { displayName: "Trạng thái" }
     },

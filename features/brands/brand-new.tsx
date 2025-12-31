@@ -1,15 +1,13 @@
 'use client'
 
 import * as React from 'react';
-import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { 
   Save, 
   X, 
   Globe,
-  Tags,
-  ExternalLink,
   Image as ImageIcon,
+  ExternalLink,
   BarChart3,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -67,7 +65,7 @@ type BrandFormValues = z.infer<typeof brandFormSchema>;
 export function BrandNewPage() {
   const router = useRouter();
   
-  const { data, add, getNextId, counter } = useBrandStore();
+  const { data, add, getNextId: _getNextId, counter } = useBrandStore();
   
   const existingIds = React.useMemo(() => data.map(b => String(b.id)), [data]);
   
@@ -121,7 +119,7 @@ export function BrandNewPage() {
     }
   }, [watchedName, form]);
 
-  const handleSubmit = async (data: BrandFormValues) => {
+  const handleSubmit = React.useCallback(async (data: BrandFormValues) => {
     // Validate unique id
     if (existingIds.includes(String(data.id))) {
       form.setError('id', { message: 'Mã thương hiệu đã tồn tại' });
@@ -153,7 +151,7 @@ export function BrandNewPage() {
     
     toast.success('Đã thêm thương hiệu mới');
     router.push('/brands');
-  };
+  }, [existingIds, form, logoFiles, logoSessionId, tempSystemId, add, router]);
 
   // Header actions
   const headerActions = React.useMemo(() => [
@@ -165,7 +163,7 @@ export function BrandNewPage() {
       <Save className="mr-2 h-4 w-4" />
       Tạo mới
     </Button>
-  ], [router, form]);
+  ], [router, form, handleSubmit]);
 
   usePageHeader({
     actions: headerActions,

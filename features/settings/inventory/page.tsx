@@ -642,7 +642,7 @@ function LogisticsSettingsTabContent({ isActive, onRegisterActions }: TabContent
     try {
       save(localSettingsRef.current);
       toast.success('Đã lưu cài đặt khối lượng & kích thước');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể lưu cài đặt khối lượng');
     } finally {
       setIsSaving(false);
@@ -771,7 +771,7 @@ function SlaSettingsTabContent({ isActive, onRegisterActions }: TabContentProps)
     try {
       update(localSettingsRef.current);
       toast.success('Đã lưu cài đặt cảnh báo tồn kho');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     } finally {
       setIsSaving(false);
@@ -986,7 +986,7 @@ function SlaSettingsTabContent({ isActive, onRegisterActions }: TabContentProps)
               <Label>Loại cảnh báo hiển thị</Label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {alertTypeOptions.map((option) => {
-                  const isSelected = (localSettings.dashboardAlertTypes ?? []).includes(option.value as any);
+                  const isSelected = (localSettings.dashboardAlertTypes ?? []).includes(option.value as typeof localSettings.dashboardAlertTypes extends (infer U)[] | undefined ? U : never);
                   return (
                     <Button
                       key={option.value}
@@ -997,7 +997,7 @@ function SlaSettingsTabContent({ isActive, onRegisterActions }: TabContentProps)
                         const current = localSettings.dashboardAlertTypes ?? [];
                         const newValue = isSelected
                           ? current.filter(t => t !== option.value)
-                          : [...current, option.value as any];
+                          : [...current, option.value as typeof current[number]];
                         handleChange('dashboardAlertTypes', newValue);
                       }}
                     >
@@ -1044,7 +1044,7 @@ function WarrantySettingsTabContent({ isActive, onRegisterActions }: TabContentP
     try {
       update(localSettingsRef.current);
       toast.success('Đã lưu cài đặt bảo hành');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     } finally {
       setIsSaving(false);

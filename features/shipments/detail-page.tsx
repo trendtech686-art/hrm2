@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { useOrderStore } from '../orders/store';
 import { useCustomerStore } from '../customers/store';
 import { useProductStore } from '../products/store';
@@ -13,9 +12,10 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ActivityHistory } from '../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '../../lib/id-types';
-import { Check, Truck, Package, Home, PackageCheck, PackageSearch, History, ArrowLeft, LifeBuoy, PackagePlus, Printer } from 'lucide-react';
+import Link from 'next/link';
+import { Truck, Package, Home, PackageCheck, PackageSearch, Printer, Check, PackagePlus, LifeBuoy, ArrowLeft, History } from 'lucide-react';
 import { usePrint } from '../../lib/use-print';
 import { 
   convertShipmentToDeliveryForPrint,
@@ -25,11 +25,10 @@ import {
 } from '../../lib/print/shipment-print-helper';
 import { useBranchStore } from '../settings/branches/store';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
-import { numberToWords } from '../../lib/print-mappers/types';
+import { numberToWords } from '../../lib/print-service';
 import { DetailField } from '../../components/ui/detail-field';
 import { Timeline, TimelineItem } from '../../components/ui/timeline';
 import { Badge } from '../../components/ui/badge';
-import { Separator } from '../../components/ui/separator';
 import { cn } from '../../lib/utils';
 import type { OrderDeliveryStatus } from '../orders/types';
 import { useAuth } from '../../contexts/auth-context';
@@ -95,10 +94,10 @@ export function ShipmentDetailPage() {
     const { data: allOrders, dispatchFromWarehouse } = useOrderStore();
     const { findById: findShipmentById } = useShipmentStore();
     const { findById: findCustomerById } = useCustomerStore();
-    const { findById: findProductById } = useProductStore();
+    const { findById: _findProductById } = useProductStore();
     const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
     const { employee: authEmployee } = useAuth();
-    const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
+    const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
 
     // Comments state with localStorage persistence
     type ShipmentComment = CommentType<SystemId>;
@@ -193,7 +192,7 @@ export function ShipmentDetailPage() {
         const lineItems = mapDeliveryLineItems(deliveryForPrint.items);
 
         // Inject extra fields
-        printData['amount_text'] = numberToWords(order.finalAmount);
+        printData['amount_text'] = numberToWords(order.grandTotal);
 
         print('delivery', {
             data: printData,
@@ -204,7 +203,7 @@ export function ShipmentDetailPage() {
     const headerActions = React.useMemo(() => {
         const actions: React.ReactNode[] = [];
 
-        if (packaging?.deliveryStatus === 'Ch? l?y h�ng') {
+        if (packaging?.deliveryStatus === 'Chờ lấy hàng') {
             actions.push(
                 <Button
                     key="dispatch"
@@ -273,7 +272,7 @@ export function ShipmentDetailPage() {
         );
 
         return actions;
-    }, [packaging, order, handleDispatchAll, router]);
+    }, [packaging, order, handleDispatchAll, router, handlePrint]);
 
     const detailBreadcrumb = React.useMemo(() => {
         const shipmentLabel = shipment?.id ?? 'Chi tiết vận đơn';
@@ -333,7 +332,7 @@ export function ShipmentDetailPage() {
         ...(packaging.deliveryStatus === 'Đã giao hàng' ? [{ status: 'Đã giao hàng', time: packaging.deliveredDate, details: 'Giao hàng thành công.' }] : []),
     ];
 
-    const deliveryStatusVariant: Partial<Record<OrderDeliveryStatus, "warning" | "default" | "success" | "destructive">> = {
+    const _deliveryStatusVariant: Partial<Record<OrderDeliveryStatus, "warning" | "default" | "success" | "destructive">> = {
         "Chờ lấy hàng": "warning",
         "Chờ đóng gói": "default",
         "Đang giao hàng": "default",

@@ -9,7 +9,7 @@ import { asSystemId } from '@/lib/id-types';
 import { VirtualizedDataTable } from "../../components/data-table/virtualized-data-table"
 import { getColumns } from "./columns"
 import { Button } from "../../components/ui/button"
-import { Plus, Upload, Download, Trash2 } from "lucide-react"
+import { Plus, Upload, Download } from "lucide-react"
 import { toast } from "sonner"
 import Fuse from 'fuse.js'
 import type { Employee } from '@/lib/types/prisma-extended'

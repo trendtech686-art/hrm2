@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Package, Eye, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { Button } from '../ui/button';
+import { OptimizedImage } from '../ui/optimized-image';
 import { useProductStore } from '../../features/products/store';
 import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
 import { useTaxStore } from '../../features/settings/taxes/store';
@@ -51,7 +52,7 @@ const ProductThumbnailCell = ({
                 className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
             >
-                <img src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" />
+                <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                 {onPreview && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -153,7 +154,7 @@ export function ReadOnlyProductsTable({
     // Function to get tax name from taxId
     const getTaxName = React.useCallback((taxId?: string) => {
         if (!taxId) return undefined;
-        const tax = findTaxById(taxId as any);
+        const tax = findTaxById(taxId);
         return tax?.name;
     }, [findTaxById]);
 
@@ -229,7 +230,7 @@ export function ReadOnlyProductsTable({
                             const comboKey = `${item.productSystemId}-${index}`;
                             const isComboExpanded = !!expandedCombos[comboKey];
                             const comboItems = isCombo
-                                ? (product?.comboItems ?? []).map((comboItem: any) => {
+                                ? (product?.comboItems ?? []).map((comboItem) => {
                                     const childProduct = allProducts.find(p => p.systemId === comboItem.productSystemId);
                                     return { ...comboItem, product: childProduct };
                                 })
@@ -326,7 +327,7 @@ export function ReadOnlyProductsTable({
 
                                     {/* Combo child items */}
                                     {isCombo && isComboExpanded && comboItems.length > 0 && (
-                                        comboItems.map((comboItem: any, childIndex: number) => {
+                                        comboItems.map((comboItem, childIndex: number) => {
                                             const totalChildQuantity = comboItem.quantity * itemQuantity;
                                             const childStorageLocationName = getStorageLocationName?.(comboItem.product) || '---';
                                             return (

@@ -15,6 +15,40 @@ export function useRealtimeUpdates(
   const [lastVersion, setLastVersion] = React.useState(dataVersion);
   const [isPolling, setIsPolling] = React.useState(true);
 
+  const checkForUpdates = React.useCallback((): boolean => {
+    // In real app, this would check localStorage or make API call
+    // For now, simulate with random chance
+    try {
+      const storedVersion = localStorage.getItem('complaints-version');
+      if (storedVersion && parseInt(storedVersion) > lastVersion) {
+        return true;
+      }
+    } catch (error) {
+      console.error('Error checking updates:', error);
+    }
+    return false;
+  }, [lastVersion]);
+
+  const handleRefresh = React.useCallback(() => {
+    setLastVersion(dataVersion);
+    setHasUpdates(false);
+    onRefresh();
+    toast.success('Đã làm mới dữ liệu');
+  }, [dataVersion, onRefresh]);
+
+  const showUpdateNotification = React.useCallback(() => {
+    toast.info('Có cập nhật mới từ hệ thống', {
+      duration: 10000,
+      position: 'top-right',
+      action: {
+        label: 'Làm mới',
+        onClick: () => {
+          handleRefresh();
+        },
+      },
+    });
+  }, [handleRefresh]);
+
   // Check for updates periodically
   React.useEffect(() => {
     if (!isPolling) return;
@@ -31,7 +65,7 @@ export function useRealtimeUpdates(
     }, interval);
 
     return () => clearInterval(timer);
-  }, [isPolling, interval, dataVersion, lastVersion]);
+  }, [isPolling, interval, dataVersion, lastVersion, checkForUpdates, showUpdateNotification]);
 
   // Check if data version changed
   React.useEffect(() => {
@@ -39,40 +73,6 @@ export function useRealtimeUpdates(
       setHasUpdates(true);
     }
   }, [dataVersion, lastVersion]);
-
-  const checkForUpdates = (): boolean => {
-    // In real app, this would check localStorage or make API call
-    // For now, simulate with random chance
-    try {
-      const storedVersion = localStorage.getItem('complaints-version');
-      if (storedVersion && parseInt(storedVersion) > lastVersion) {
-        return true;
-      }
-    } catch (error) {
-      console.error('Error checking updates:', error);
-    }
-    return false;
-  };
-
-  const showUpdateNotification = () => {
-    toast.info('Có cập nhật mới từ hệ thống', {
-      duration: 10000,
-      position: 'top-right',
-      action: {
-        label: 'Làm mới',
-        onClick: () => {
-          handleRefresh();
-        },
-      },
-    });
-  };
-
-  const handleRefresh = React.useCallback(() => {
-    setLastVersion(dataVersion);
-    setHasUpdates(false);
-    onRefresh();
-    toast.success('Đã làm mới dữ liệu');
-  }, [dataVersion, onRefresh]);
 
   const togglePolling = () => {
     setIsPolling(prev => !prev);

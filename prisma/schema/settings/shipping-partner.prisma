@@ -10,9 +10,9 @@ model ShippingPartner {
   isActive      Boolean  @default(true)
   isConnected   Boolean  @default(false)
   // Configuration (JSON structure)
-  services      Json?    // Available shipping services
-  credentials   Json?    // API credentials (encrypted)
-  configuration Json?    // Partner-specific config
+  services      Json? // Available shipping services
+  credentials   Json? // API credentials (encrypted)
+  configuration Json? // Partner-specific config
   // Timestamps
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

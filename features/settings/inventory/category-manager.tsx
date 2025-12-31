@@ -9,7 +9,6 @@ import {
   X,
   Search,
   Check,
-  Copy,
   Globe
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -24,11 +23,10 @@ import { Switch } from '../../../components/ui/switch';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Separator } from '../../../components/ui/separator';
+import { OptimizedImage } from '../../../components/ui/optimized-image';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
 import { TipTapEditor } from '../../../components/ui/tiptap-editor';
 import { NewDocumentsUpload } from '../../../components/ui/new-documents-upload';
-import { ExistingDocumentsViewer } from '../../../components/ui/existing-documents-viewer';
 import { FileUploadAPI, type StagingFile } from '../../../lib/file-upload-api';
 import {
   Form,
@@ -49,8 +47,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../components/ui/alert-dialog';
-import type { ProductCategory, WebsiteSeoData } from './types';
-import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
+import type { ProductCategory } from './types';
+import { type SystemId } from '@/lib/id-types';
 import { nanoid } from 'nanoid';
 import { SeoAnalysisPanel } from '../../../components/shared/seo-preview';
 
@@ -275,7 +273,7 @@ function CategoryDetailForm({
   isNew,
   parentCategory,
   allCategories,
-  existingIds,
+  existingIds: _existingIds,
   onSave,
   onCancel,
   onDelete,
@@ -623,15 +621,15 @@ function CategoryDetailForm({
                                     <span 
                                       className={cn(
                                         "truncate",
-                                        option.metadata?.level === -1 && "text-muted-foreground"
+                                        (option.metadata as { level?: number })?.level === -1 && "text-muted-foreground"
                                       )}
                                       style={{ 
-                                        paddingLeft: option.metadata?.level > 0 
-                                          ? `${option.metadata.level * 16}px` 
+                                        paddingLeft: ((option.metadata as { level?: number })?.level ?? 0) > 0 
+                                          ? `${(option.metadata as { level?: number }).level! * 16}px` 
                                           : undefined 
                                       }}
                                     >
-                                      {option.metadata?.level > 0 && (
+                                      {((option.metadata as { level?: number })?.level ?? 0) > 0 && (
                                         <span className="text-muted-foreground mr-1">└</span>
                                       )}
                                       {option.label}
@@ -683,9 +681,11 @@ function CategoryDetailForm({
                     {category?.thumbnailImage && thumbnailFiles.length === 0 && (
                       <div className="flex items-center gap-4">
                         <div className="w-24 h-24 rounded-lg border overflow-hidden">
-                          <img 
+                          <OptimizedImage 
                             src={category.thumbnailImage} 
                             alt="Thumbnail hiện tại" 
+                            width={96}
+                            height={96}
                             className="w-full h-full object-cover"
                           />
                         </div>
@@ -1080,7 +1080,7 @@ export function CategoryManager({
   onAdd,
   onUpdate,
   onDelete,
-  onMove,
+  onMove: _onMove,
   existingIds,
   addNewRef,
 }: CategoryManagerProps) {
@@ -1108,6 +1108,7 @@ export function CategoryManager({
   // Expand all on mount
   React.useEffect(() => {
     setExpandedIds(new Set(categories.map(c => c.systemId)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only run on mount to expand all initially
   }, []);
 
   const handleToggleExpand = (id: SystemId) => {

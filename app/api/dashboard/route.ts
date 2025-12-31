@@ -99,14 +99,22 @@ export async function GET(request: Request) {
       },
     })
 
+// Interface for raw query stats result
+interface TodayStatsResult {
+  total_orders: bigint | number;
+  total_revenue: bigint | number;
+  completed_orders: bigint | number;
+  shipping_orders: bigint | number;
+}
+
     return NextResponse.json({
       success: true,
       data: {
         summary: {
-          totalOrders: Number((todayStats as any[])[0]?.total_orders || 0),
-          totalRevenue: Number((todayStats as any[])[0]?.total_revenue || 0),
-          completedOrders: Number((todayStats as any[])[0]?.completed_orders || 0),
-          shippingOrders: Number((todayStats as any[])[0]?.shipping_orders || 0),
+          totalOrders: Number((todayStats as TodayStatsResult[])[0]?.total_orders || 0),
+          totalRevenue: Number((todayStats as TodayStatsResult[])[0]?.total_revenue || 0),
+          completedOrders: Number((todayStats as TodayStatsResult[])[0]?.completed_orders || 0),
+          shippingOrders: Number((todayStats as TodayStatsResult[])[0]?.shipping_orders || 0),
           activeEmployees: employeeStats,
           newCustomers,
         },

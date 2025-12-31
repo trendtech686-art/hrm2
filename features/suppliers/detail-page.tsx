@@ -2,25 +2,24 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
+import { formatDate, getDaysDiff, parseDate } from '@/lib/date-utils';
 import { useSupplierStore } from './store';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { ArrowLeft, Edit } from 'lucide-react';
 import { DetailField } from '../../components/ui/detail-field';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { ActivityHistory } from '../../components/ActivityHistory';
 import { useAuth } from '../../contexts/auth-context';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import type { ColumnDef } from '../../components/data-table/types';
 import { usePurchaseOrderStore } from '../purchase-orders/store';
 import { usePaymentStore } from '../payments/store';
 import { useEmployeeStore } from '../employees/store';
-import type { Payment } from '../payments/types';
-import type { PurchaseOrder, PaymentStatus, DeliveryStatus } from '../purchase-orders/types';
+import type { PurchaseOrder, PaymentStatus } from '../purchase-orders/types';
 import { usePurchaseReturnStore } from '../purchase-returns/store';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '../../lib/router';
@@ -46,10 +45,19 @@ const purchaseOrderHistoryColumns: ColumnDef<PurchaseOrder>[] = [
     { id: 'orderDate', accessorKey: 'orderDate', header: 'Ngày đặt', cell: ({ row }) => formatDate(row.orderDate), meta: { displayName: 'Ngày đặt' } },
     { id: 'grandTotal', accessorKey: 'grandTotal', header: 'Tổng tiền', cell: ({ row }) => formatCurrency(row.grandTotal), meta: { displayName: 'Tổng tiền' } },
     { id: 'deliveryStatus', accessorKey: 'deliveryStatus', header: 'Giao hàng', cell: ({ row }) => <Badge variant="outline">{row.deliveryStatus}</Badge>, meta: { displayName: 'Giao hàng' } },
-    { id: 'paymentStatus', accessorKey: 'paymentStatus', header: 'Thanh toán', cell: ({ row }) => <Badge variant={paymentStatusVariants[row.paymentStatus] as any}>{row.paymentStatus}</Badge>, meta: { displayName: 'Thanh toán' } },
+    { id: 'paymentStatus', accessorKey: 'paymentStatus', header: 'Thanh toán', cell: ({ row }) => <Badge variant={paymentStatusVariants[row.paymentStatus] as "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | null | undefined}>{row.paymentStatus}</Badge>, meta: { displayName: 'Thanh toán' } },
 ];
 
-const debtColumns: ColumnDef<any>[] = [
+interface DebtRecord {
+  documentId: string;
+  creator: string;
+  date: string;
+  description: string;
+  change: number;
+  balance: number;
+}
+
+const debtColumns: ColumnDef<DebtRecord>[] = [
     { id: 'documentId', accessorKey: 'documentId', header: 'Mã C.Từ', cell: ({ row }) => <span className="font-medium text-primary">{row.documentId}</span>, meta: { displayName: 'Mã Chứng Từ' } },
     { id: 'creator', accessorKey: 'creator', header: 'Người tạo', cell: ({ row }) => row.creator, meta: { displayName: 'Người tạo' } },
     { id: 'date', accessorKey: 'date', header: 'Ngày', cell: ({ row }) => formatDate(row.date), meta: { displayName: 'Ngày' } },
@@ -180,7 +188,7 @@ export function SupplierDetailPage() {
         supplierDebtTransactions: transactionsWithBalance.reverse(),
         calculatedDebt: runningBalance
     };
-  }, [supplier, supplierPurchaseOrders, allPayments, allPurchaseReturns]);
+  }, [supplier, supplierPurchaseOrders, allPayments, allPurchaseReturns, getEmployeeName]);
 
         const headerActions = React.useMemo(() => [
                 <Button

@@ -11,7 +11,7 @@ import { Input } from '../../components/ui/input';
 import { Search, PlusCircle, User, Calendar } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import type { WikiArticle } from '@/lib/types/prisma-extended';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 
 function ArticleCard({ article }: { article: WikiArticle }) {
   const router = useRouter();
@@ -45,7 +45,7 @@ export function WikiPage() {
   const { data: articles } = useWikiStore();
   const router = useRouter();
   
-  const articleStats = React.useMemo(() => {
+  const _articleStats = React.useMemo(() => {
     return {
       total: articles.length,
       categories: new Set(articles.map((a) => a.category || 'Chưa phân loại')).size,

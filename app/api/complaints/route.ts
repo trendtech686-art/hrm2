@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
+import { ComplaintStatus, ComplaintPriority } from '@/generated/prisma/client'
 
 // GET /api/complaints - List all complaints
 export async function GET(request: Request) {
@@ -14,7 +16,7 @@ export async function GET(request: Request) {
 
     const skip = (page - 1) * limit
 
-    const where: any = {
+    const where: Prisma.ComplaintWhereInput = {
       isDeleted: false,
     }
 
@@ -27,11 +29,11 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status
+      where.status = status as ComplaintStatus
     }
 
     if (priority) {
-      where.priority = priority
+      where.priority = priority as ComplaintPriority
     }
 
     if (customerId) {

@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { usePaymentStore } from './store';
+import type { Payment } from './types';
 import { PaymentForm, type PaymentFormValues } from './payment-form';
-import type { Payment } from '@/lib/types/prisma-extended';
 import { useCashbookStore } from '../cashbook/store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
@@ -21,8 +21,9 @@ export function PaymentFormPage() {
   const router = useRouter();
   const paymentStore = usePaymentStore();
   const { findById, add, update } = paymentStore;
-  const payments: Payment[] = paymentStore.data ?? [];
-  const { accounts } = useCashbookStore();
+  const paymentsData = paymentStore.data;
+  const payments = React.useMemo(() => paymentsData ?? [], [paymentsData]);
+  const { accounts: _accounts } = useCashbookStore();
   const { employee: currentEmployee } = useAuth();
 
   const paymentSystemId = systemId ? asSystemId(systemId) : undefined;
@@ -75,7 +76,7 @@ export function PaymentFormPage() {
           ...values,
           createdBy: currentEmployee?.systemId ?? asSystemId('SYSTEM'),
           createdAt: new Date().toISOString(),
-        } as any);
+        } as Omit<Payment, 'systemId'>);
         toast.success("Tạo phiếu chi thành công");
         if (newPayment) {
           router.push(`${ROUTES.FINANCE.PAYMENTS}/${newPayment.systemId}`);

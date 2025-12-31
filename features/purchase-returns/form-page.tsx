@@ -182,7 +182,8 @@ export function PurchaseReturnFormPage() {
     }
   }, [po, branch, reset, accounts, returnableQuantities, receipts]);
   
-  const watchedItems = useWatch({ control, name: "items" }) || [];
+  const watchedItemsRaw = useWatch({ control, name: "items" });
+  const watchedItems = React.useMemo(() => watchedItemsRaw || [], [watchedItemsRaw]);
   const refundAmountValue = useWatch({ control, name: "refundAmount" });
   
   // Tổng giá trị hàng trả lần này

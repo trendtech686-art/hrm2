@@ -11,34 +11,22 @@
 
 import * as React from 'react';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
-import { Plus, Minus, Trash2, Package, AlertCircle, Info, AlertTriangle, Settings2 } from 'lucide-react';
+import { Plus, Minus, Trash2, Package, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LazyImage } from '@/components/ui/lazy-image';
 import { ProductImage } from './product-image';
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Combobox } from '@/components/ui/combobox';
 import { ComboProductSearchV2 } from '@/components/shared/unified-product-search';
 import { ComboItemsEditTable } from '@/components/shared/combo-items-edit-table';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
@@ -51,11 +39,10 @@ import {
   MIN_COMBO_ITEMS,
   canAddToCombo,
   calculateComboStock,
-  calculateComboPrice,
   calculateComboCostPrice,
 } from '../combo-utils';
 import type { ProductFormValues } from '../validation';
-import type { Product, ComboPricingType } from '../types';
+import type { Product } from '../types';
 import type { SystemId } from '@/lib/id-types';
 
 // Format currency helper
@@ -130,11 +117,6 @@ function QuantityInput({
   );
 }
 
-type ComboItemField = {
-  productSystemId: string;
-  quantity: number;
-};
-
 export function ComboSection() {
   const { data: allProducts } = useProductStore();
   const { data: pricingPolicies } = usePricingPolicyStore();
@@ -150,7 +132,8 @@ export function ComboSection() {
   });
   
   // Watch combo fields for realtime calculations
-  const comboItems = useWatch({ control: form.control, name: 'comboItems' }) || [];
+  const watchedComboItems = useWatch({ control: form.control, name: 'comboItems' });
+  const comboItems = React.useMemo(() => watchedComboItems || [], [watchedComboItems]);
   const comboPricingType = useWatch({ control: form.control, name: 'comboPricingType' });
   const comboDiscount = useWatch({ control: form.control, name: 'comboDiscount' }) || 0;
   
@@ -164,7 +147,7 @@ export function ComboSection() {
     return new Set(comboItems.map(item => item.productSystemId));
   }, [comboItems]);
   
-  const productOptions = React.useMemo(() => {
+  const _productOptions = React.useMemo(() => {
     return availableProducts
       .filter(p => !selectedProductIds.has(p.systemId))
       .map(p => ({
@@ -239,7 +222,7 @@ export function ComboSection() {
     const savings = totalOriginalPrice - comboPrice;
     
     return { totalOriginalPrice, comboPrice, costPrice, savings };
-  }, [comboItems, comboPricingType, comboDiscount, allProducts, resolveUnitPrice]);
+  }, [comboItems, comboPricingType, comboDiscount, allProducts, resolveUnitPrice, defaultPricingPolicy]);
   
   // Calculate stock for all branches (Sapo: tổng tồn tại tất cả chi nhánh)
   const comboStockInfo = React.useMemo(() => {
@@ -466,7 +449,7 @@ export function ComboSection() {
                 const unitPrice = resolveUnitPrice(selectedProduct);
                 const quantity = comboItems[index]?.quantity || 1;
                 const lineTotal = unitPrice * quantity;
-                const stockWarning = selectedProduct ? getProductStockWarning(selectedProduct) : null;
+                const _stockWarning = selectedProduct ? getProductStockWarning(selectedProduct) : null;
                 
                 return (
                   <div key={field.id} className="p-3 border rounded-lg bg-card space-y-3">
@@ -552,7 +535,7 @@ export function ComboSection() {
               <ComboItemsEditTable
                 fields={fields}
                 remove={remove}
-                control={form.control}
+                control={form.control as any}
                 fieldName="comboItems"
                 disabled={false}
               />

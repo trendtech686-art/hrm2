@@ -17,60 +17,60 @@ model Receipt {
   createdBy     String?
   method        String?
   orderId       String?
-  
+
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  
+
   // Status
-  status             String       @default("completed") // 'completed' | 'cancelled'
-  category           String?      // 'sale' | 'complaint_penalty' | 'warranty_additional' | etc.
-  cancelledAt        DateTime?
-  
+  status      String    @default("completed") // 'completed' | 'cancelled'
+  category    String? // 'sale' | 'complaint_penalty' | 'warranty_additional' | etc.
+  cancelledAt DateTime?
+
   // Payer info (Link to TargetGroup settings)
-  payerTypeSystemId  String?      // Link to TargetGroup
-  payerTypeName      String?      // Cached name
-  payerName          String?
-  payerSystemId      String?      // Link to customer/supplier/employee
-  
+  payerTypeSystemId String? // Link to TargetGroup
+  payerTypeName     String? // Cached name
+  payerName         String?
+  payerSystemId     String? // Link to customer/supplier/employee
+
   // Payment Method (Link to PaymentMethod settings)
-  paymentMethodSystemId   String?
-  paymentMethodName       String?
-  
+  paymentMethodSystemId String?
+  paymentMethodName     String?
+
   // Account & Type (Link to settings)
-  accountSystemId             String?
-  paymentReceiptTypeSystemId  String?
-  paymentReceiptTypeName      String?
-  
+  accountSystemId            String?
+  paymentReceiptTypeSystemId String?
+  paymentReceiptTypeName     String?
+
   // Branch info
-  branchSystemId     String?
-  branchName         String?
-  
+  branchSystemId String?
+  branchName     String?
+
   // Date fields
-  recognitionDate    DateTime?    // Ngày ghi nhận
-  
+  recognitionDate DateTime? // Ngày ghi nhận
+
   // Links to other documents
-  originalDocumentId        String?   // Link to Order/Complaint/Warranty (Business ID)
-  purchaseOrderSystemId     String?   // Link to purchase order
-  purchaseOrderId           String?   // Cache business id for display
-  linkedWarrantySystemId    String?   // Link to Warranty
-  linkedComplaintSystemId   String?   // Link to Complaint
-  linkedOrderSystemId       String?   // Link to Order
-  linkedSalesReturnSystemId String?   // Link to Sales Return
-  
+  originalDocumentId        String? // Link to Order/Complaint/Warranty (Business ID)
+  purchaseOrderSystemId     String? // Link to purchase order
+  purchaseOrderId           String? // Cache business id for display
+  linkedWarrantySystemId    String? // Link to Warranty
+  linkedComplaintSystemId   String? // Link to Complaint
+  linkedOrderSystemId       String? // Link to Order
+  linkedSalesReturnSystemId String? // Link to Sales Return
+
   // Customer info (denormalized)
-  customerSystemId   String?
-  customerName       String?
-  
+  customerSystemId String?
+  customerName     String?
+
   // Financial
-  affectsDebt        Boolean      @default(true)
-  runningBalance     Decimal?     @db.Decimal(15, 2)
-  orderAllocations   Json?        // Array of { orderSystemId, orderId, amount }
-  
+  affectsDebt      Boolean  @default(true)
+  runningBalance   Decimal? @db.Decimal(15, 2)
+  orderAllocations Json? // Array of { orderSystemId, orderId, amount }
+
   // Activity History
-  activityHistory    Json?
-  
+  activityHistory Json?
+
   // === RELATIONS ===
-  customers     Customer?   @relation(fields: [customerId], references: [systemId])
-  order         Order?      @relation(fields: [orderId], references: [systemId])
+  customers Customer? @relation(fields: [customerId], references: [systemId])
+  order     Order?    @relation(fields: [orderId], references: [systemId])
 
   @@index([customerId])
   @@index([type])

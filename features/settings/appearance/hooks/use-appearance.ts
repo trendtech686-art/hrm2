@@ -4,8 +4,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api/appearance-api';
-import type { AppearanceSettings } from '../api/appearance-api';
-import type { CustomThemeConfig } from '../store';
 
 export const appearanceKeys = {
   all: ['appearance'] as const,

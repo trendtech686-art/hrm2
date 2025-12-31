@@ -17,19 +17,23 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
   onProcessInventory
 }) => {
   // Check if there's any compensation/inventory history (even if cancelled)
-  const hasCompensationHistory = (complaint as any).compensationMetadata || (complaint as any).cancelledPaymentsReceipts?.length > 0;
-  const hasInventoryHistory = (complaint as any).inventoryAdjustment || (complaint as any).inventoryHistory?.length > 0;
+  const extendedComplaint = complaint as unknown as {
+    compensationMetadata?: unknown;
+    evidenceVideoLinks?: string[];
+  };
+  const hasCompensationHistory = extendedComplaint.compensationMetadata || (complaint.cancelledPaymentsReceipts?.length ?? 0) > 0;
+  const hasInventoryHistory = complaint.inventoryAdjustment || (complaint.inventoryHistory?.length ?? 0) > 0;
   
   // Check if there's a verified-correct action in timeline
   const hasVerifiedCorrect = complaint.timeline.some(a => a.actionType === 'verified-correct');
   
   // Check if CURRENTLY verified-incorrect
-  const isCurrentlyIncorrect = complaint.verification === 'verified-incorrect';
+  const _isCurrentlyIncorrect = complaint.verification === 'verified-incorrect';
   
   // LOGIC MOI: Hien accordion bu tru NEU:
   // - Da co history (compensationMetadata hoac inventoryAdjustment)
   // - Hoac timeline co verified-correct (da tung xac nhan dung)
-  const shouldShowCompensationAccordion = hasVerifiedCorrect || hasCompensationHistory || hasInventoryHistory;
+  const _shouldShowCompensationAccordion = hasVerifiedCorrect || hasCompensationHistory || hasInventoryHistory;
   
   // Only show if there's any processing info OR if has been verified correct before (even if reopened)
   if (!complaint.investigationNote && 
@@ -38,7 +42,7 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
       !hasVerifiedCorrect &&
       !hasCompensationHistory &&
       !hasInventoryHistory &&
-      !(complaint as any).evidenceVideoLinks) {
+      !extendedComplaint.evidenceVideoLinks) {
     return null;
   }
 

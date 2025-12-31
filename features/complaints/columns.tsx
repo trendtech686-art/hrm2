@@ -4,14 +4,14 @@ import * as React from 'react';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { ColumnDef } from '../../components/data-table/types';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Badge } from '../../components/ui/badge';
+import { Badge as _Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { 
   Clock,
-  AlertCircle,
+  AlertCircle as _AlertCircle,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
+  AlertTriangle as _AlertTriangle,
   Phone,
   Package,
   Calendar,
@@ -26,10 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
+import { Complaint, complaintStatusLabels as _complaintStatusLabels, complaintStatusColors as _complaintStatusColors, complaintTypeLabels, complaintTypeColors as _complaintTypeColors } from './types';
+import { checkOverdue, formatTimeLeft as _formatTimeLeft } from './sla-utils';
 import { formatDate } from '../../lib/date-utils';
-import { Complaint, complaintStatusLabels, complaintStatusColors, complaintTypeLabels, complaintTypeColors } from './types';
-import { checkOverdue, formatTimeLeft } from './sla-utils';
-import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from './tracking-utils';
+import { generateTrackingUrl as _generateTrackingUrl, getTrackingCode as _getTrackingCode, isTrackingEnabled } from './tracking-utils';
 import { toast } from 'sonner';
 
 export const getColumns = (
@@ -323,7 +323,7 @@ export const getColumns = (
     id: 'affectedProducts',
     header: 'SP ảnh hưởng',
     cell: ({ row }) => {
-      const products = (row as any).affectedProducts || [];
+      const products = row.affectedProducts || [];
       if (products.length === 0) {
         return <span className="text-muted-foreground">0</span>;
       }

@@ -40,8 +40,8 @@ export function GHTKConfigForm({
   const isEditMode = !!account;
   
   const [accountName, setAccountName] = useState(account?.name || 'Tài khoản GHTK 1');
-  const [apiToken, setApiToken] = useState(account?.credentials?.apiToken || '');
-  const [partnerCode, setPartnerCode] = useState(account?.credentials?.partnerCode || 'GHTK');
+  const [apiToken, setApiToken] = useState((account?.credentials?.apiToken as string) || '');
+  const [partnerCode, setPartnerCode] = useState((account?.credentials?.partnerCode as string) || 'GHTK');
   const [showToken, setShowToken] = useState(false);
   const [active, setActive] = useState(account?.active ?? true);
   
@@ -94,7 +94,7 @@ export function GHTKConfigForm({
         setConnectionStatus('error');
         setErrors([result.message || 'Không thể kết nối với GHTK API']);
       }
-    } catch (error) {
+    } catch (_error) {
       setConnectionStatus('error');
       setErrors(['Lỗi kết nối server']);
     } finally {

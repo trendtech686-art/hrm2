@@ -4,7 +4,7 @@
  * ⚠️ Direct import: import { fetchSalesReturns } from '@/features/sales-returns/api/sales-returns-api'
  */
 
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import type { SystemId } from '@/lib/id-types';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
 
 const BASE_URL = '/api/sales-returns';

@@ -15,14 +15,14 @@ export interface ValidationError {
   code: string;
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface ValidationWarning {
   code: string;
   field?: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface CategoryMappingInput {

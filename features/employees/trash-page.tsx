@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { formatDate, formatDateCustom, toISODate, toISODateTime } from '../../lib/date-utils';
+import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useEmployeeStore } from "./store"
@@ -38,7 +38,8 @@ export function EmployeesTrashPage() {
   
   const branches = React.useMemo(() => branchesRaw, [branchesRaw]);
   // React to store changes by depending on data array
-  const deletedEmployees = React.useMemo(() => getDeleted(), [data]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
+  const deletedEmployees = React.useMemo(() => getDeleted(), [getDeleted, data]);
   
   // Helper: Delete employee files from server
   const deleteEmployeeFiles = async (employee: Employee) => {
@@ -95,7 +96,8 @@ export function EmployeesTrashPage() {
       // Pass real handlers to columns for button clicks
       return getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn, branches);
     },
-    [router, handleRestoreFromColumn, handleDeleteFromColumn, branches, data] // Add data to re-create columns on store update
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-creation when store changes
+    [router, handleRestoreFromColumn, handleDeleteFromColumn, branches, data]
   );
 
   const getInitials = (name: string) => {

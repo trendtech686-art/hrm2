@@ -242,15 +242,15 @@ function getTemplatesFromStorage(): WorkflowTemplate[] {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return parsed.map((t: any) => ({
+      return parsed.map((t: Record<string, unknown>) => ({
         ...t,
         systemId: t.systemId || t.id, // Migrate old data
-        createdAt: new Date(t.createdAt),
-        updatedAt: new Date(t.updatedAt),
-        subtasks: t.subtasks.map((s: any) => ({
+        createdAt: new Date(t.createdAt as string),
+        updatedAt: new Date(t.updatedAt as string),
+        subtasks: (t.subtasks as Record<string, unknown>[]).map((s: Record<string, unknown>) => ({
           ...s,
-          createdAt: new Date(s.createdAt),
-          completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
+          createdAt: new Date(s.createdAt as string | number | Date),
+          completedAt: s.completedAt ? new Date(s.completedAt as string | number | Date) : undefined,
         })),
       }));
     }
@@ -557,7 +557,7 @@ export function WorkflowTemplatesPage() {
     const idsToDelete = Object.keys(rowSelection);
     
     setTemplates(prev => {
-      let newTemplates = prev.filter(t => !idsToDelete.includes(t.systemId));
+      const newTemplates = prev.filter(t => !idsToDelete.includes(t.systemId));
       
       // Ensure each function has a default
       WORKFLOW_TYPES.forEach(wt => {
@@ -775,7 +775,7 @@ export function WorkflowTemplatesPage() {
                 onReorder={(reordered) => {
                   setFormSubtasks(reordered);
                 }}
-                onToggleComplete={(id, completed) => {
+                onToggleComplete={(id, _completed) => {
                   // Keep completed false in template mode
                   setFormSubtasks(prev =>
                     prev.map(s => (s.id === id ? { ...s, completed: false } : s))

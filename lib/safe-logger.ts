@@ -5,10 +5,10 @@
 /**
  * Safely log an object, handling circular references
  */
-export function safeLog(label: string, obj: any) {
+export function safeLog(label: string, obj: unknown) {
   try {
     console.log(label, obj);
-  } catch (error) {
+  } catch (_error) {
     console.log(label, '[Cannot log - circular reference detected]');
     console.log(label + ' (type):', typeof obj);
     if (obj && typeof obj === 'object') {
@@ -20,7 +20,7 @@ export function safeLog(label: string, obj: any) {
 /**
  * Safely stringify an object, handling circular references
  */
-export function safeStringify(obj: any, space?: number): string {
+export function safeStringify(obj: unknown, space?: number): string {
   const seen = new WeakSet();
   
   return JSON.stringify(obj, (key, value) => {
@@ -45,10 +45,10 @@ export function safeStringify(obj: any, space?: number): string {
 /**
  * Safely log an object as JSON string
  */
-export function safeLogJSON(label: string, obj: any, space?: number) {
+export function safeLogJSON(label: string, obj: unknown, space?: number) {
   try {
     console.log(label, safeStringify(obj, space));
-  } catch (error) {
+  } catch (_error) {
     console.log(label, '[Cannot stringify object]');
   }
 }

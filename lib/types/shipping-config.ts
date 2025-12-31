@@ -132,7 +132,7 @@ export interface PartnerAccount {
   active: boolean;
   isDefault: boolean;
   
-  credentials: Record<string, any>; // Partner-specific credentials
+  credentials: Record<string, string | number | boolean | null | undefined>; // Partner-specific credentials
   pickupAddresses: PickupAddress[];
   
   // Default settings (for GHTK)

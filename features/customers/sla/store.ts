@@ -54,8 +54,8 @@ const getLastRun = () => {
 const persistedIndex = getPersistedIndex();
 
 // Store reference for re-evaluation
-let lastCustomers: Customer[] = [];
-let lastSettings: CustomerSlaSetting[] = [];
+let _lastCustomers: Customer[] = [];
+let _lastSettings: CustomerSlaSetting[] = [];
 
 export const useCustomerSlaEngineStore = create<SlaStore>((set, get) => {
   const initialState: SlaStoreState = {
@@ -73,8 +73,8 @@ export const useCustomerSlaEngineStore = create<SlaStore>((set, get) => {
 
     evaluate(customers, settings) {
       // Store for re-evaluation
-      lastCustomers = customers;
-      lastSettings = settings;
+      _lastCustomers = customers;
+      _lastSettings = settings;
       
       set({ isLoading: true });
       const nextIndex = buildSlaIndex(customers, settings);
@@ -101,8 +101,8 @@ export const useCustomerSlaEngineStore = create<SlaStore>((set, get) => {
     triggerReevaluation() {
       // Get fresh customer data from the customer store
       const freshCustomers = useCustomerStore.getState().data;
-      if (freshCustomers.length && lastSettings.length) {
-        get().evaluate(freshCustomers, lastSettings);
+      if (freshCustomers.length && _lastSettings.length) {
+        get().evaluate(freshCustomers, _lastSettings);
       }
     },
 

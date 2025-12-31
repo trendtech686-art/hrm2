@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, getStartOfMonth, getEndOfMonth, toISODate, addMonths, subtractMonths } from '../../../lib/date-utils';
+import { formatDateCustom, getCurrentDate, toISODate, addMonths, subtractMonths, formatMonthYear as _formatMonthYear, getStartOfMonth, getEndOfMonth, parseDate } from '../../../lib/date-utils';
+import { excelSerialToTime } from '../utils';
 import * as XLSX from 'xlsx';
 import type { Employee } from '../../employees/types';
 import type { DailyRecord, ImportPreviewRow } from '../types';
-import { excelSerialToTime } from '../utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
 import { Upload, FileText, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, AlertTriangle, Download, MoreHorizontal, Edit, Trash2, Search } from 'lucide-react';
@@ -11,7 +11,6 @@ import { cn } from '../../../lib/utils';
 import { Spinner } from '../../../components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { ScrollArea, ScrollBar } from '../../../components/ui/scroll-area';
-import { Badge } from '../../../components/ui/badge';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { AttendanceEditDialog } from './attendance-edit-dialog';
@@ -108,7 +107,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
         }
     
         employeeChunks.forEach((chunk, chunkIndex) => {
-            const ws_data: any[][] = [];
+            const ws_data: unknown[][] = [];
             const merges: XLSX.Range[] = [];
             
             // General Headers - Row 0: Title
@@ -231,7 +230,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
 
                 // Find date from the first sheet - support both formats
                 const firstWs = workbook.Sheets[workbook.SheetNames[0]];
-                const firstJsonData: any[][] = XLSX.utils.sheet_to_json(firstWs, { header: 1, defval: null });
+                const firstJsonData: unknown[][] = XLSX.utils.sheet_to_json(firstWs, { header: 1, defval: null });
                 for (let i = 0; i < 5 && i < firstJsonData.length; i++) {
                     const row = firstJsonData[i];
                     if (!row) continue;
@@ -242,7 +241,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                         (cell.startsWith('Chấm công từ:') || cell.startsWith('Ngày thống kê:'))
                     );
                     if (dateCell) {
-                        const dateMatch = dateCell.match(/(\d{4}-\d{2}-\d{2})/);
+                        const dateMatch = (dateCell as string).match(/(\d{4}-\d{2}-\d{2})/);
                         if (dateMatch) {
                             fileDate = parseDate(dateMatch[1]);
                             if (fileDate) setSelectedMonth(fileDate);
@@ -266,7 +265,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                 
                 for (const sheetName of sheetsToProcess) {
                     const ws = workbook.Sheets[sheetName];
-                    const jsonData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+                    const jsonData: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
                     
                     // Process 3 employees horizontally
                     // Both formats now use 15 cols/employee
@@ -282,8 +281,8 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                         // Template format:
                         //   - Row 4 (index 4): "Họ tên" at startCol + 6, "Mã NV" at startCol + 10
                         
-                        let employeeIdRaw: any;
-                        let employeeNameRaw: any;
+                        let employeeIdRaw: unknown;
+                        let employeeNameRaw: unknown;
                         
                         if (isMachineFormat) {
                             const nameRow = jsonData[3] || [];
@@ -406,8 +405,8 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                 setEmployeesWithDataCount(employeeSystemIdsWithData.size);
                 setPreviewData(newPreviewData);
                 setStep('preview');
-            } catch (err: any) {
-                setError(err.message || "Lỗi khi đọc file. Vui lòng kiểm tra lại cấu trúc file.");
+            } catch (err: unknown) {
+                setError(err instanceof Error ? err.message : "Lỗi khi đọc file. Vui lòng kiểm tra lại cấu trúc file.");
             } finally {
                 setIsLoading(false);
             }

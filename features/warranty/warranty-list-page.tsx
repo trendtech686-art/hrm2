@@ -2,19 +2,18 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, Upload, Filter, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
-  type ColumnDef,
-  type SortingState,
+  type ColumnDef as TanstackColumnDef,
   type ColumnFiltersState,
   type VisibilityState,
   type ColumnOrderState,
-  type ColumnPinningState,
   type RowSelectionState,
 } from '@tanstack/react-table';
+import type { ColumnDef } from '../../components/data-table/types';
 
 // Types & Store
 import type { WarrantyTicket, WarrantyStatus } from './types';
@@ -75,7 +74,7 @@ function KanbanColumn({
   status,
   tickets,
   onTicketClick,
-  cardColors,
+  cardColors: _cardColors,
   onEdit,
   onGetLink,
   onStartProcessing,
@@ -265,7 +264,7 @@ export function WarrantyListPage() {
   // ✅ OPTIMIZATION: Use debounce hook instead of manual setTimeout
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [_columnFilters, _setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
@@ -345,7 +344,7 @@ export function WarrantyListPage() {
 
   // Real-time updates
   const [dataVersion, setDataVersion] = React.useState(() => getWarrantyDataVersion());
-  const { isPolling, togglePolling, refresh } = useRealtimeUpdates(
+  const { isPolling, togglePolling, refresh: _refresh } = useRealtimeUpdates(
     dataVersion,
     () => {
       // Reload warranty data
@@ -586,19 +585,19 @@ export function WarrantyListPage() {
     const sorted = [...filteredData];
 
     sorted.sort((a, b) => {
-      const aValue = (a as any)[sorting.id];
-      const bValue = (b as any)[sorting.id];
+      const aValue = (a as Record<string, unknown>)[sorting.id] as string | number | null;
+      const bValue = (b as Record<string, unknown>)[sorting.id] as string | number | null;
 
       if (aValue == null) return 1;
       if (bValue == null) return -1;
 
-      if (typeof aValue === 'string') {
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
         return sorting.desc
           ? bValue.localeCompare(aValue)
           : aValue.localeCompare(bValue);
       }
 
-      if (typeof aValue === 'number') {
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
         return sorting.desc ? bValue - aValue : aValue - bValue;
       }
 
@@ -639,7 +638,7 @@ export function WarrantyListPage() {
     setDeleteDialogOpen(false);
   }, [selectedTickets, deleteWarrantyTicket]);
 
-  const handleExportSelected = React.useCallback(() => {
+  const _handleExportSelected = React.useCallback(() => {
     // Export selected rows
     const dataToExport = selectedTickets.map((ticket) => ({
       'Mã phiếu': ticket.id,
@@ -729,7 +728,7 @@ export function WarrantyListPage() {
       
       navigator.clipboard.writeText(trackingLinks.join('\n'));
       toast.success(`Đã copy ${selectedTickets.length} link tracking vào clipboard`);
-    } catch (error) {
+    } catch (_error) {
       toast.error('Không thể copy link tracking');
     }
   }, [selectedTickets]);
@@ -829,7 +828,7 @@ export function WarrantyListPage() {
     ],
     [router, viewMode, isPolling, togglePolling]
   );
-  const warrantyStats = React.useMemo(() => {
+  const _warrantyStats = React.useMemo(() => {
     return tickets.reduce(
       (acc, ticket) => {
         acc.total += 1;
@@ -934,7 +933,7 @@ export function WarrantyListPage() {
       <div className="w-full py-4">
         {viewMode === 'table' ? (
           <ResponsiveDataTable<WarrantyTicket>
-            columns={columns as any}
+            columns={columns}
             data={paginatedData}
             renderMobileCard={(ticket) => (
               <WarrantyCard

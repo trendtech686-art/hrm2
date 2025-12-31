@@ -51,7 +51,8 @@ export function SalesReturnsPage() {
     const { info: storeInfo } = useStoreInfoStore();
     const { employee: currentUser } = useAuth();
     
-    const activeReturns = React.useMemo(() => getActive(), [returns]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- returns triggers recalculation when data changes
+    const activeReturns = React.useMemo(() => getActive(), [getActive, returns]);
     
     // Export dialog state
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
@@ -60,10 +61,10 @@ export function SalesReturnsPage() {
         router.push(ROUTES.SALES.ORDERS);
     }, [router]);
 
-    const totalReturnValue = React.useMemo(() =>
+    const _totalReturnValue = React.useMemo(() =>
         activeReturns.reduce((sum, item) => sum + (item.totalReturnValue || 0), 0),
     [activeReturns]);
-    const pendingCount = React.useMemo(() => activeReturns.filter(item => !item.isReceived).length, [activeReturns]);
+    const _pendingCount = React.useMemo(() => activeReturns.filter(item => !item.isReceived).length, [activeReturns]);
     const headerActions = React.useMemo(() => [
         <Button
             key="create"
@@ -84,7 +85,7 @@ export function SalesReturnsPage() {
         ],
         showBackButton: false,
         actions: headerActions,
-    }), [activeReturns.length, pendingCount, totalReturnValue, headerActions]);
+    }), [headerActions]);
 
     usePageHeader(pageHeaderConfig);
     
@@ -114,7 +115,7 @@ export function SalesReturnsPage() {
                 }
                 // If columns changed, reset
                 console.log('⚠️ Column structure changed, resetting visibility');
-            } catch (e) {
+            } catch (_e) {
                 console.warn('Failed to parse stored columnVisibility');
             }
         }
@@ -239,14 +240,14 @@ export function SalesReturnsPage() {
         const sorted = [...filteredData];
         if (sorting.id) {
             sorted.sort((a, b) => {
-                const aValue = (a as any)[sorting.id];
-                const bValue = (b as any)[sorting.id];
+                const aValue = (a as unknown as Record<string, unknown>)[sorting.id];
+                const bValue = (b as unknown as Record<string, unknown>)[sorting.id];
                 if (aValue == null) return 1;
                 if (bValue == null) return -1;
                 // Special handling for date columns
                 if (sorting.id === 'createdAt' || sorting.id === 'returnDate') {
-                  const aTime = aValue ? new Date(aValue).getTime() : 0;
-                  const bTime = bValue ? new Date(bValue).getTime() : 0;
+                  const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
+                  const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
                   return sorting.desc ? bTime - aTime : aTime - bTime;
                 }
                 if (aValue < bValue) return sorting.desc ? 1 : -1;

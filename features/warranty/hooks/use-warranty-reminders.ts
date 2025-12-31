@@ -136,7 +136,7 @@ export function useWarrantyReminders() {
 
       const message = customMessage || formatReminderMessage(template.message, ticket);
 
-      const reminder: WarrantyReminder = {
+      const _reminder: WarrantyReminder = {
         id: `reminder_${Date.now()}`,
         ticketSystemId: ticket.systemId,
         ticketId: ticket.id,
@@ -174,7 +174,7 @@ export function useWarrantyReminders() {
   /**
    * Get pending reminders for a ticket
    */
-  const getTicketReminders = useCallback((ticketSystemId: string): WarrantyReminder[] => {
+  const getTicketReminders = useCallback((_ticketSystemId: string): WarrantyReminder[] => {
     // TODO: Load from store or API
     return [];
   }, []);

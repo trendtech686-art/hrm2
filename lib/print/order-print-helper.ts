@@ -3,9 +3,8 @@
  * Helpers để chuẩn bị dữ liệu in cho đơn hàng
  */
 
-import type { Order, LineItem, Packaging } from '@/lib/types/prisma-extended';
+import type { Order, Packaging } from '@/lib/types/prisma-extended';
 import type { Customer } from '@/lib/types/prisma-extended';
-import type { Branch } from '@/lib/types/prisma-extended';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { 
   OrderForPrint, 
@@ -20,7 +19,7 @@ import {
   mapPackingToPrintData,
   mapPackingLineItems,
 } from '../print-data-mappers';
-import { StoreSettings, getStoreLogo } from '../print-service';
+import { StoreSettings } from '../print-service';
 import { formatOrderAddress } from '../../features/orders/address-utils';
 
 /**

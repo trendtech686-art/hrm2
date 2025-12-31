@@ -3,17 +3,13 @@
 import * as React from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit2, Save, X, MessageSquare, Printer, Link as LinkIcon, XCircle, Bell, Clock, AlertCircle, Copy, Plus, Minus } from 'lucide-react';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { formatDateTime } from '../../lib/date-utils';
+import { Edit2, MessageSquare, Printer, XCircle, Bell, Clock, AlertCircle, Copy } from 'lucide-react';
+// formatDate import removed - not used
 import { cn } from '../../lib/utils';
 import type { WarrantyTicket } from './types';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, SETTLEMENT_TYPE_LABELS, SETTLEMENT_STATUS_LABELS, type WarrantyHistory } from './types';
+import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
 import { useWarrantyStore } from './store';
-import { getCurrentDate, toISODateTime } from '../../lib/date-utils';
 import { useAuth } from '../../contexts/auth-context';
 
 // UI Components
@@ -21,21 +17,7 @@ import { Button } from '../../components/ui/button';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { Separator } from '../../components/ui/separator';
-import { Textarea } from '../../components/ui/textarea';
-import { Input } from '../../components/ui/input';
-import { ProgressiveImage } from '../../components/ui/progressive-image';
 import { usePageHeader } from '../../contexts/page-header-context';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -44,23 +26,14 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
 
 // Detail-specific components
 import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table';
 import { WarrantyProcessingCard, WarrantySummaryCard } from './components/index';
-import { calculateWarrantyProcessingState } from './components/logic/processing';
 import { TicketInfoCard } from './components/detail/ticket-info-card';
 import { CustomerInfoCard } from './components/detail/customer-info-card';
 import { WarrantyWorkflowCard } from './components/detail/workflow-card';
 import { WarrantyImageGalleryCard } from './components/detail/image-gallery-card';
-import { getWorkflowTemplate } from '../settings/printer/workflow-templates-page';
 import {
   WarrantyCancelDialog,
   WarrantyReopenFromCancelledDialog,
@@ -73,16 +46,14 @@ import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking';
 import { useWarrantySettlement } from './hooks/use-warranty-settlement';
 import { useReturnMethodDialog } from './hooks/use-return-method-dialog';
 import { useWarrantyActions } from './hooks/use-warranty-actions';
-import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils';
+import { checkWarrantyOverdue } from './warranty-sla-utils';
 import { ROUTES, generatePath } from '../../lib/router';
 
 // Section components
 import { WarrantyCommentsSection, WarrantyHistorySection } from './components/sections/index';
 
 import { useOrderStore } from '../orders/store';
-import { usePaymentStore } from '../payments/store';
 import { asSystemId } from '@/lib/id-types';
-import { useReceiptStore } from '../receipts/store';
 import { usePrint } from '../../lib/use-print';
 import { 
   convertWarrantyForPrint,
@@ -189,6 +160,7 @@ export function WarrantyDetailPage() {
     if (!code) return '';
     const trackingPath = generatePath(ROUTES.INTERNAL.WARRANTY_TRACKING, { trackingCode: code });
     return `${window.location.origin}${trackingPath}`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- specific fields are sufficient for URL generation
   }, [ticket?.publicTrackingCode, ticket?.systemId, ticket?.id]);
 
   const {
@@ -209,7 +181,7 @@ export function WarrantyDetailPage() {
     update,
     updateStatus,
     addHistory,
-    navigate: ((path: string) => router.push(path)) as any,
+    navigate: ((path: string) => router.push(path)) as unknown as typeof router,
   });
 
 
@@ -451,7 +423,7 @@ export function WarrantyDetailPage() {
     }
 
     return actionButtons;
-  }, [ticket, systemId, isReturned, currentUser.name, router, addHistory, handleStatusChange, handleCompleteTicket, openReminderModal, isCompletingTicket]);
+  }, [ticket, systemId, isReturned, currentUser.name, router, addHistory, handleStatusChange, handleCompleteTicket, openReminderModal, isCompletingTicket, handlePrint, openReturnDialog]);
 
   // Page header - title auto-generated from breadcrumb, Badge below title
   const statusBadge = ticket ? (
@@ -461,7 +433,7 @@ export function WarrantyDetailPage() {
   ) : undefined;
   
   // SLA Timer & Time Tracking Metrics component
-  const slaMetrics = ticket && !isReturned && timeMetrics && slaStatus ? (
+  const _slaMetrics = ticket && !isReturned && timeMetrics && slaStatus ? (
     <div className="flex items-center gap-4 text-body-sm mt-2">
       {/* SLA Status */}
       <div className="flex items-center gap-1.5">

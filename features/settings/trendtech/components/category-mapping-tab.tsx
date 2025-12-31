@@ -170,7 +170,7 @@ export function CategoryMappingTab() {
         <CardContent>
           <AddMappingForm
             unmappedHrmCategories={unmappedHrmCategories}
-            trendtechCategories={trendtechCategories}
+            trendtechCategories={trendtechCategories.map(c => ({ id: String(c.id), name: c.name }))}
             onAdd={handleAddMapping}
           />
         </CardContent>
@@ -184,8 +184,8 @@ function AddMappingForm({
   trendtechCategories,
   onAdd,
 }: {
-  unmappedHrmCategories: any[];
-  trendtechCategories: any[];
+  unmappedHrmCategories: Array<{ systemId: string; name: string }>;
+  trendtechCategories: Array<{ id: string; name: string }>;
   onAdd: (hrmId: string, trendtechId: string) => void;
 }) {
   const [selectedHrm, setSelectedHrm] = React.useState('');

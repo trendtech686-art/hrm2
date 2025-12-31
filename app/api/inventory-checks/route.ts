@@ -7,6 +7,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
+
+// Interface for inventory check item input
+interface InventoryCheckItemInput {
+  systemId: string;
+  productId: string;
+  expectedQuantity?: number;
+  actualQuantity?: number;
+  difference?: number;
+  notes?: string;
+}
 
 // GET - List inventory checks
 export async function GET(request: NextRequest) {
@@ -15,11 +26,11 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
-    const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    const _includeDeleted = searchParams.get('includeDeleted') === 'true';
     
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.InventoryCheckWhereInput = {};
     
     // Note: InventoryCheck table doesn't have isDeleted field
     
@@ -89,7 +100,7 @@ export async function POST(request: NextRequest) {
         notes: notes || null,
         createdBy: createdBy || null,
         items: items?.length ? {
-          create: items.map((item: any) => ({
+          create: items.map((item: InventoryCheckItemInput) => ({
             systemId: item.systemId,
             productId: item.productId,
             expectedQuantity: item.expectedQuantity || 0,

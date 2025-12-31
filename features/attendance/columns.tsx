@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { formatDate, formatDateTime, formatDateTimeSeconds, formatDateCustom, parseDate, getCurrentDate, isDateSame } from '@/lib/date-utils';
+import { formatDateCustom, getCurrentDate, isDateSame } from '@/lib/date-utils';
 import type { AttendanceDataRow, DailyRecord } from './types';
 import type { ColumnDef } from '../../components/data-table/types';
 import { DataTableColumnHeader } from '../../components/data-table/data-table-column-header';
@@ -7,7 +7,6 @@ import { DailyStatusCell } from './components/daily-status-cell';
 import { Checkbox } from "../../components/ui/checkbox";
 import { cn } from '../../lib/utils';
 import type { EmployeeSettings } from '../settings/employees/types';
-import { SummaryStat } from './components/summary-stat';
 import type { SystemId } from '../../lib/id-types';
 export const getColumns = (
     year: number, 
@@ -103,7 +102,7 @@ export const getColumns = (
           sortKey="fullName"
           isSorted={sorting?.id === 'fullName'}
           sortDirection={sorting?.desc ? 'desc' : 'asc'}
-          onSort={() => setSorting?.((s: any) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
+          onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'fullName', desc: s.id === 'fullName' ? !s.desc : false }))}
         />
       ),
       cell: ({ row }) => (

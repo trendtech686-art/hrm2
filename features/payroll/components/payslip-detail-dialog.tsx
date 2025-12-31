@@ -34,7 +34,7 @@ const formatCurrency = (value?: number) =>
     ? value.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 })
     : '0 ₫';
 
-const formatPercent = (value?: number) =>
+const _formatPercent = (value?: number) =>
   typeof value === 'number' ? `${value}%` : '0%';
 
 // =============================================

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { OptimizedImage } from '../../../../components/ui/optimized-image';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
@@ -10,12 +11,11 @@ import { Switch } from '../../../../components/ui/switch';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../../components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu';
-import { Search, ExternalLink, Link, Unlink, RefreshCw, Loader2, CheckCircle2, Upload, ArrowRight, Settings2, MoreHorizontal, Eye, TriangleAlert, Package, DollarSign, FileText, Link2, ImageIcon, Flame, Sparkles, Home, Star, ShoppingBag, Circle, XCircle, Trash2, AlertCircle, Lightbulb, AlertTriangle, AlignLeft, Tag, Image } from 'lucide-react';
+import { Search, ExternalLink, Link, Unlink, RefreshCw, Loader2, CheckCircle2, Upload, ArrowRight, Settings2, MoreHorizontal, TriangleAlert, Package, DollarSign, FileText, Link2, ImageIcon, Flame, Sparkles, Home, Star, Circle, XCircle, AlignLeft, Tag, Image as _Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProductStore } from '../../../products/store';
 import { usePkgxSettingsStore } from '../store';
@@ -24,8 +24,8 @@ import type { PkgxProduct, PkgxGalleryImage } from '../types';
 import type { SystemId } from '../../../../lib/id-types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../components/ui/tooltip';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
-import { useAuth, getCurrentUserName } from '../../../../contexts/auth-context';
-import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert';
+import { useAuth, getCurrentUserName as _getCurrentUserName } from '../../../../contexts/auth-context';
+import { Alert as _Alert, AlertDescription as _AlertDescription, AlertTitle as _AlertTitle } from '../../../../components/ui/alert';
 import { useProductMappingValidation } from '../hooks/use-product-mapping-validation';
 import { usePkgxEntitySync } from '../hooks';
 import type { HrmProductData } from '../hooks';
@@ -237,7 +237,7 @@ interface PkgxProductRow extends PkgxProduct {
 export function ProductMappingTab() {
   // Router & Auth
   const router = useRouter();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   
   // Stores
   const { settings, addLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, setPkgxProducts } = usePkgxSettingsStore();
@@ -247,10 +247,10 @@ export function ProductMappingTab() {
   const [isSyncing, setIsSyncing] = React.useState(false);
   
   // Sử dụng pkgxProducts từ store (dùng chung với Link Dialog)
-  const pkgxProducts = settings.pkgxProducts || [];
+  const pkgxProducts = React.useMemo(() => settings.pkgxProducts || [], [settings.pkgxProducts]);
   
   // Auto-fetch khi vào tab nếu chưa có data và PKGX đã được cấu hình
-  const hasAutoFetched = React.useRef(false);
+  const _hasAutoFetched = React.useRef(false);
   
   // Helper function để build URL ảnh PKGX
   const buildPkgxImageUrl = React.useCallback((imagePath: string | undefined | null): string => {
@@ -264,7 +264,7 @@ export function ProductMappingTab() {
   // Product detail dialog state
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
   const [selectedProductForDetail, setSelectedProductForDetail] = React.useState<PkgxProductRow | null>(null);
-  const [isLoadingProductDetail, setIsLoadingProductDetail] = React.useState(false);
+  const [_isLoadingProductDetail, setIsLoadingProductDetail] = React.useState(false);
   
   // Gallery state
   const [galleryImages, setGalleryImages] = React.useState<PkgxGalleryImage[]>([]);
@@ -278,7 +278,7 @@ export function ProductMappingTab() {
   
   // Unlink dialog state
   const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = React.useState(false);
-  const [productToUnlink, setProductToUnlink] = React.useState<{ pkgxProduct: PkgxProduct; hrmProduct: any } | null>(null);
+  const [productToUnlink, setProductToUnlink] = React.useState<{ pkgxProduct: PkgxProduct; hrmProduct: { systemId: string; name: string } } | null>(null);
   
   // Row selection state
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -358,13 +358,13 @@ export function ProductMappingTab() {
           systemId: linked.systemId,
           name: linked.name,
           id: linked.id,
-          sku: (linked as any).sku,
+          sku: linked.sku,
           // Giá cả
           sellingPrice: linked.sellingPrice,
           costPrice: linked.costPrice,
-          partnerPrice: (linked as any).partnerPrice,
-          acePrice: (linked as any).acePrice,
-          dealPrice: (linked as any).dealPrice,
+          partnerPrice: (linked as { partnerPrice?: number }).partnerPrice,
+          acePrice: (linked as { acePrice?: number }).acePrice,
+          dealPrice: (linked as { dealPrice?: number }).dealPrice,
           // Tồn kho
           quantity: totalInventory,
           // Nội dung
@@ -372,18 +372,18 @@ export function ProductMappingTab() {
           shortDescription: linked.shortDescription,
           // SEO
           seoDescription: linked.seoDescription,
-          seoKeywords: (linked as any).seoKeywords,
+          seoKeywords: linked.seoKeywords,
           ktitle: linked.ktitle,
           // Phân loại
           categorySystemId: linked.categorySystemId,
           brandSystemId: linked.brandSystemId,
           // Trạng thái
-          isBest: (linked as any).isBest,
-          isHot: (linked as any).isHot,
-          isNew: (linked as any).isNew,
-          isHome: (linked as any).isHome,
+          isBest: (linked as { isBest?: boolean }).isBest,
+          isHot: (linked as { isHot?: boolean }).isHot,
+          isNew: (linked as { isNew?: boolean }).isNew,
+          isHome: (linked as { isHome?: boolean }).isHome,
           // Khác
-          sellerNote: (linked as any).sellerNote,
+          sellerNote: linked.sellerNote,
         } : undefined,
         // Required by ResponsiveDataTable
         systemId: p.goods_id.toString(),
@@ -479,7 +479,7 @@ export function ProductMappingTab() {
             onClick={(e) => {
               e.stopPropagation();
               // Mở trang sản phẩm trong tab mới
-              window.open(`/products?id=${row.linkedHrmProduct.id}`, '_blank');
+              window.open(`/products?id=${row.linkedHrmProduct?.id}`, '_blank');
             }}
           >
             {row.linkedHrmProduct.name}
@@ -650,10 +650,11 @@ export function ProductMappingTab() {
       },
       meta: { displayName: '', excludeFromExport: true },
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handler functions are stable, defined after this useMemo
   ], [hrmProducts, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, entitySync]);
   
   // Mobile card renderer
-  const renderMobileCard = React.useCallback((row: PkgxProductRow, index: number) => (
+  const renderMobileCard = React.useCallback((row: PkgxProductRow, _index: number) => (
     <div className="p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <button 
@@ -691,7 +692,7 @@ export function ProductMappingTab() {
             className="hover:text-primary hover:underline cursor-pointer transition-colors"
             onClick={(e) => {
               e.stopPropagation();
-              window.open(`/products?id=${row.linkedHrmProduct.id}`, '_blank');
+              window.open(`/products?id=${row.linkedHrmProduct?.id}`, '_blank');
             }}
           >
             {row.linkedHrmProduct.name}
@@ -699,6 +700,7 @@ export function ProductMappingTab() {
         </div>
       )}
     </div>
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handler functions are stable, defined after this useCallback
   ), [hrmProducts, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand]);
   
   // Handlers
@@ -804,7 +806,7 @@ export function ProductMappingTab() {
     });
   }, [selectedLinkedProducts, productStore, addLog]);
   
-  const handleOpenPushDialog = React.useCallback((row: PkgxProductRow) => {
+  const _handleOpenPushDialog = React.useCallback((row: PkgxProductRow) => {
     setProductToPush(row);
     // Reset to default fields when opening dialog
     setSelectedPushFields(['goods_name', 'sync_prices', 'goods_number']);
@@ -893,25 +895,25 @@ export function ProductMappingTab() {
               systemId: linked.systemId,
               name: linked.name,
               id: linked.id,
-              sku: (linked as any).sku,
+              sku: linked.sku,
               sellingPrice: linked.sellingPrice,
               costPrice: linked.costPrice,
-              partnerPrice: (linked as any).partnerPrice,
-              acePrice: (linked as any).acePrice,
-              dealPrice: (linked as any).dealPrice,
+              partnerPrice: (linked as unknown as Record<string, unknown>).partnerPrice as number | undefined,
+              acePrice: (linked as unknown as Record<string, unknown>).acePrice as number | undefined,
+              dealPrice: (linked as unknown as Record<string, unknown>).dealPrice as number | undefined,
               quantity: totalInventory,
               description: linked.description,
               shortDescription: linked.shortDescription,
               seoDescription: linked.seoDescription,
-              seoKeywords: (linked as any).seoKeywords,
+              seoKeywords: linked.seoKeywords,
               ktitle: linked.ktitle,
               categorySystemId: linked.categorySystemId,
               brandSystemId: linked.brandSystemId,
-              isBest: (linked as any).isBest,
-              isHot: (linked as any).isHot,
-              isNew: (linked as any).isNew,
-              isHome: (linked as any).isHome,
-              sellerNote: (linked as any).sellerNote,
+              isBest: (linked as unknown as Record<string, unknown>).isBest as boolean | undefined,
+              isHot: (linked as unknown as Record<string, unknown>).isHot as boolean | undefined,
+              isNew: (linked as unknown as Record<string, unknown>).isNew as boolean | undefined,
+              isHome: (linked as unknown as Record<string, unknown>).isHome as boolean | undefined,
+              sellerNote: linked.sellerNote,
             } : undefined,
             systemId: response.data.goods_id.toString(),
           });
@@ -923,7 +925,7 @@ export function ProductMappingTab() {
         toast.error(response.error || 'Không thể lấy thông tin sản phẩm');
         return false;
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Lỗi khi lấy thông tin sản phẩm');
       return false;
     } finally {
@@ -985,7 +987,7 @@ export function ProductMappingTab() {
       return;
     }
     
-    productStore.update(selectedHrmProductId as any, { pkgxId: selectedPkgxProduct.goods_id });
+    productStore.update(selectedHrmProductId as SystemId, { pkgxId: selectedPkgxProduct.goods_id });
     toast.success(`Đã liên kết "${selectedPkgxProduct.goods_name}" với sản phẩm HRM`);
     
     addLog({
@@ -1005,7 +1007,7 @@ export function ProductMappingTab() {
   // Confirm unlink
   const handleConfirmUnlink = () => {
     if (productToUnlink?.hrmProduct) {
-      productStore.update(productToUnlink.hrmProduct.systemId, { pkgxId: undefined });
+      productStore.update(productToUnlink.hrmProduct.systemId as SystemId, { pkgxId: undefined });
       toast.success(`Đã hủy liên kết sản phẩm`);
       
       addLog({
@@ -1034,7 +1036,7 @@ export function ProductMappingTab() {
     
     try {
       const hrm = productToPush.linkedHrmProduct;
-      const pushData: Record<string, any> = {};
+      const pushData: Record<string, unknown> = {};
       
       for (const field of selectedPushFields) {
         switch (field) {
@@ -1416,7 +1418,7 @@ export function ProductMappingTab() {
                     <div className="grid grid-cols-4 gap-2">
                       {PUSH_SYNC_FIELDS.map((field) => {
                         // Check if this is a special field (sync_prices)
-                        const isSpecialField = (field as any).isSpecial === true;
+                        const isSpecialField = 'isSpecial' in field && field.isSpecial === true;
                         
                         // Get HRM value for this field
                         const hrmValue = isSpecialField 
@@ -1514,11 +1516,13 @@ export function ProductMappingTab() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {selectedProductForDetail?.goods_thumb && (
-                <img 
+                <OptimizedImage 
                   src={buildPkgxImageUrl(selectedProductForDetail.goods_thumb)}
                   alt=""
+                  width={48}
+                  height={48}
                   className="w-12 h-12 object-contain rounded border"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  unoptimized
                 />
               )}
               <div>
@@ -1765,17 +1769,13 @@ export function ProductMappingTab() {
                               className="block border rounded p-2 hover:border-primary transition-colors bg-white"
                             >
                               <div className="w-full h-28 flex items-center justify-center overflow-hidden">
-                                <img 
+                                <OptimizedImage 
                                   src={buildPkgxImageUrl(selectedProductForDetail.original_img)}
                                   alt="Original"
+                                  width={200}
+                                  height={112}
                                   className="max-w-full max-h-full object-contain"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                  onError={(e) => { 
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-8">Click để xem</div>';
-                                  }}
+                                  unoptimized
                                 />
                               </div>
                               <div className="text-xs text-center text-primary mt-1">Xem ảnh gốc</div>
@@ -1792,17 +1792,13 @@ export function ProductMappingTab() {
                               className="block border rounded p-2 hover:border-primary transition-colors bg-white"
                             >
                               <div className="w-full h-28 flex items-center justify-center overflow-hidden">
-                                <img 
+                                <OptimizedImage 
                                   src={buildPkgxImageUrl(selectedProductForDetail.goods_img)}
                                   alt="Goods"
+                                  width={200}
+                                  height={112}
                                   className="max-w-full max-h-full object-contain"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                  onError={(e) => { 
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-8">Click để xem</div>';
-                                  }}
+                                  unoptimized
                                 />
                               </div>
                               <div className="text-xs text-center text-primary mt-1">Xem ảnh SP</div>
@@ -1819,17 +1815,13 @@ export function ProductMappingTab() {
                               className="block border rounded p-2 hover:border-primary transition-colors bg-white"
                             >
                               <div className="w-full h-28 flex items-center justify-center overflow-hidden">
-                                <img 
+                                <OptimizedImage 
                                   src={buildPkgxImageUrl(selectedProductForDetail.goods_thumb)}
                                   alt="Thumbnail"
+                                  width={200}
+                                  height={112}
                                   className="max-w-full max-h-full object-contain"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                  onError={(e) => { 
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-8">Click để xem</div>';
-                                  }}
+                                  unoptimized
                                 />
                               </div>
                               <div className="text-xs text-center text-primary mt-1">Xem thumbnail</div>

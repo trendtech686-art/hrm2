@@ -12,7 +12,7 @@ const API_BASE = '/api/settings'
  * Hook thay thế localStorage cho settings
  * Chỉ dùng database API - không có localStorage fallback
  */
-export function useSettingsStorage<T extends Record<string, any>>(
+export function useSettingsStorage<T extends Record<string, unknown>>(
   storageKey: string,
   defaultValue: T,
   group?: string
@@ -32,10 +32,10 @@ export function useSettingsStorage<T extends Record<string, any>>(
           const data = await res.json()
           
           if (data.data && data.data.length > 0) {
-            const settingsMap = data.data.reduce((acc: Record<string, any>, item: any) => {
+            const settingsMap = data.data.reduce((acc: Record<string, unknown>, item: { key: string; value: unknown }) => {
               acc[item.key] = item.value
               return acc
-            }, {})
+            }, {} as Record<string, unknown>)
             
             setSettings(prev => ({ ...prev, ...settingsMap }))
           }

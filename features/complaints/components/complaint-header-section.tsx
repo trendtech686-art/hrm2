@@ -17,7 +17,13 @@ import { ROUTES, generatePath } from "../../../lib/router";
 
 interface Props {
   complaint: Complaint;
-  timeTracking: any;
+  timeTracking: { 
+    currentProcessingTimeFormatted?: string;
+    resolutionStatus?: 'on-time' | 'warning' | 'overdue' | 'pending';
+    responseStatus?: 'on-time' | 'warning' | 'overdue' | 'pending';
+    responseTimeFormatted?: string;
+    resolutionTimeFormatted?: string;
+  } | null;
   headerActions: React.ReactNode[];
 }
 

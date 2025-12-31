@@ -67,7 +67,7 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     
     const receiptStore = useReceiptStore.getState();
     const paymentStore = usePaymentStore.getState();
-    const productStore = useProductStore.getState();
+    const _productStore = useProductStore.getState();
 
     // ============================================
     // STEP 2: TÌM PHIẾU LIÊN QUAN
@@ -77,7 +77,7 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
       .reverse()
       .find(a => a.actionType === 'verified-correct');
     
-    const actionMetadata = lastVerifiedCorrect?.metadata;
+    const actionMetadata = lastVerifiedCorrect?.metadata as { paymentSystemId?: SystemId; receiptSystemId?: SystemId; inventoryCheckSystemId?: SystemId } | undefined;
     const paymentSystemId = actionMetadata?.paymentSystemId;
     const receiptSystemId = actionMetadata?.receiptSystemId;
     const inventoryCheckSystemId = actionMetadata?.inventoryCheckSystemId;
@@ -225,8 +225,8 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
         // Lưu lịch sử
         result.inventoryHistory = {
           adjustedAt: new Date(),
-          adjustedBy: currentUser.systemId,
-          adjustmentType: 'reversed',
+          adjustedBy: currentUser.systemId as SystemId,
+          adjustmentType: 'reversed' as const,
           reason,
           inventoryCheckSystemId,
         };
