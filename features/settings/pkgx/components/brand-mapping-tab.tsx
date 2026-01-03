@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { getBrandById, updateBrand } from '../../../../lib/pkgx/api-service';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
-import { useBrandStore } from '../../inventory/brand-store';
+import { useActiveBrands } from '@/features/brands/hooks/use-all-brands';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import type { PkgxBrandMapping, PkgxBrand, PkgxBrandFromApi } from '../types';
@@ -23,6 +23,7 @@ import type { HrmBrandData } from '../hooks';
 import type { BrandMappingInput } from '../validation';
 import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-dialog';
 import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
+import { asSystemId } from '@/lib/id-types';
 
 // Extended type for PKGX brands table
 interface PkgxBrandRow extends PkgxBrand {
@@ -44,7 +45,7 @@ export function BrandMappingTab() {
     syncBrandsFromPkgx,
     addLog,
   } = usePkgxSettingsStore();
-  const brandStore = useBrandStore();
+  const { data: brandsData } = useActiveBrands();
   
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('pkgx-brands');
@@ -75,8 +76,11 @@ export function BrandMappingTab() {
   });
   
   const hrmBrands = React.useMemo(
-    () => brandStore.getActive().sort((a, b) => a.name.localeCompare(b.name)),
-    [brandStore]
+    () => [...brandsData].sort((a, b) => a.name.localeCompare(b.name)).map(b => ({
+      ...b,
+      systemId: asSystemId(b.systemId),
+    })),
+    [brandsData]
   );
   
   // Validation hook
@@ -251,7 +255,7 @@ export function BrandMappingTab() {
             metaDescription: hrmBrand.metaDescription,
             shortDescription: hrmBrand.shortDescription,
             longDescription: hrmBrand.longDescription,
-            websiteSeo: hrmBrand.websiteSeo,
+            websiteSeo: hrmBrand.websiteSeo as HrmBrandData['websiteSeo'],
           };
           entitySync.triggerSyncAction(actionKey, row.id, hrmData, row.name);
         };

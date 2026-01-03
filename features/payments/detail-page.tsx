@@ -13,8 +13,9 @@ import { ArrowLeft, Edit, Printer } from 'lucide-react';
 import { formatDateCustom } from '../../lib/date-utils';
 import { asSystemId } from '../../lib/id-types';
 import { ActivityHistory } from '../../components/ActivityHistory';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { useEmployeeStore } from '../employees/store';
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { usePrint } from '../../lib/use-print';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { 
@@ -31,8 +32,8 @@ const formatCurrency = (value?: number) => {
 const getStatusBadge = (status?: string) => {
   const normalized = status === 'cancelled' ? 'cancelled' : 'completed';
   const variants: Record<'completed' | 'cancelled', { label: string; variant: 'default' | 'destructive' }> = {
-    completed: { label: 'Ho�n th�nh', variant: 'default' },
-    cancelled: { label: '�� h?y', variant: 'destructive' },
+    completed: { label: 'Hoàn thành', variant: 'default' },
+    cancelled: { label: 'Đã hủy', variant: 'destructive' },
   };
   const config = variants[normalized];
   return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -42,7 +43,7 @@ export function PaymentDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById } = usePaymentStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { print } = usePrint();
   const { info: storeInfo } = useStoreInfoStore();
   
@@ -66,55 +67,51 @@ export function PaymentDetailPage() {
     return findEmployeeById(payment.createdBy);
   }, [payment?.createdBy, findEmployeeById]);
 
-  // Comments state with localStorage persistence
-  type PaymentComment = CommentType<string>;
-  const [comments, setComments] = React.useState<PaymentComment[]>(() => {
-    const saved = localStorage.getItem(`payment-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('payment', systemId || '');
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`payment-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = (content: string, attachments?: string[], parentId?: string) => {
-    const newComment: PaymentComment = {
-      id: `comment-${Date.now()}`,
-      content,
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId,
+      content: c.content,
       author: {
-        systemId: currentEmployee?.systemId || 'system',
-        name: currentEmployee?.fullName || 'H? th?ng',
-        avatar: currentEmployee?.avatar,
+        systemId: c.createdBy || 'system',
+        name: c.createdByName || 'Hệ thống',
+        avatar: undefined,
       },
-      createdAt: new Date().toISOString(),
-      attachments,
-      parentId: parentId || undefined,
-    };
-    setComments(prev => [...prev, newComment]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
+
+  const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
   };
 
-  const handleUpdateComment = (commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-    ));
+  const handleUpdateComment = (_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
+    dbDeleteComment(commentId);
   };
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: currentEmployee?.systemId || 'system',
-    name: currentEmployee?.fullName || 'H? th?ng',
+    name: currentEmployee?.fullName || 'Hệ thống',
     avatar: currentEmployee?.avatar,
   }), [currentEmployee]);
 
   const createdByName = React.useMemo(() => {
-    if (!payment) return 'H? th?ng';
+    if (!payment) return 'Hệ thống';
     const employee = payment.createdBy ? findEmployeeById(payment.createdBy) : null;
-    return employee?.fullName || payment.createdBy || 'H? th?ng';
+    return employee?.fullName || payment.createdBy || 'Hệ thống';
   }, [payment, findEmployeeById]);
 
   const recipientLink = React.useMemo(() => {
@@ -123,9 +120,9 @@ export function PaymentDetailPage() {
     if (!targetSystemId) return null;
 
     const mapping: Record<string, string> = {
-      'Kh�ch h�ng': ROUTES.SALES.CUSTOMER_VIEW,
-      'Nh� cung c?p': ROUTES.PROCUREMENT.SUPPLIER_VIEW,
-      'Nh�n vi�n': ROUTES.HRM.EMPLOYEE_VIEW,
+      'Khách hàng': ROUTES.SALES.CUSTOMER_VIEW,
+      'Nhà cung cấp': ROUTES.PROCUREMENT.SUPPLIER_VIEW,
+      'Nhân viên': ROUTES.HRM.EMPLOYEE_VIEW,
     };
     const route = mapping[payment.recipientTypeName];
     if (!route) return null;
@@ -165,7 +162,7 @@ export function PaymentDetailPage() {
         onClick={handlePrint}
       >
         <Printer className="mr-2 h-4 w-4" />
-        In phi?u
+        In phiếu
       </Button>
     );
 
@@ -178,7 +175,7 @@ export function PaymentDetailPage() {
           onClick={() => router.push(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }))}
         >
           <Edit className="mr-2 h-4 w-4" />
-          Ch?nh s?a
+          Chỉnh sửa
         </Button>
       );
       actions.push(
@@ -192,7 +189,7 @@ export function PaymentDetailPage() {
             console.log('Cancel payment:', payment.systemId);
           }}
         >
-          H?y phi?u chi
+          Hủy phiếu chi
         </Button>
       );
     }
@@ -201,22 +198,22 @@ export function PaymentDetailPage() {
   }, [router, payment, handlePrint]);
 
   const detailSubtitle = React.useMemo(() => {
-    if (!payment) return '�ang t?i th�ng tin phi?u chi';
+    if (!payment) return 'Đang tải thông tin phiếu chi';
     const parts = [payment.recipientName, payment.branchName].filter(Boolean);
-    return parts.join(' � ') || 'Phi?u chi n?i b?';
+    return parts.join(' • ') || 'Phiếu chi nội bộ';
   }, [payment]);
   
   usePageHeader({ 
-    title: payment ? `Phi?u chi ${payment.id}` : 'Phi?u chi',
+    title: payment ? `Phiếu chi ${payment.id}` : 'Phiếu chi',
     subtitle: detailSubtitle,
     badge: payment ? getStatusBadge(payment.status) : undefined,
     breadcrumb: payment ? [
-      { label: 'Trang ch?', href: '/', isCurrent: false },
-      { label: 'Phi?u chi', href: '/payments', isCurrent: false },
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Phiếu chi', href: '/payments', isCurrent: false },
       { label: payment.id, href: `/payments/${payment.systemId}`, isCurrent: true }
     ] : [
-      { label: 'Trang ch?', href: '/', isCurrent: false },
-      { label: 'Phi?u chi', href: '/payments', isCurrent: true }
+      { label: 'Trang chủ', href: '/', isCurrent: false },
+      { label: 'Phiếu chi', href: '/payments', isCurrent: true }
     ],
     showBackButton: true,
     backPath: ROUTES.FINANCE.PAYMENTS,
@@ -227,10 +224,10 @@ export function PaymentDetailPage() {
     return (
       <Card>
         <CardContent className="p-8 text-center text-muted-foreground space-y-3">
-          <p>Kh�ng t�m th?y phi?u chi</p>
+          <p>Không tìm thấy phiếu chi</p>
           <Button className="h-9" onClick={() => router.push(ROUTES.FINANCE.PAYMENTS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Quay v? danh s�ch
+            Quay về danh sách
           </Button>
         </CardContent>
       </Card>
@@ -239,27 +236,27 @@ export function PaymentDetailPage() {
   
   return (
     <div className="space-y-6">
-      {/* Th�ng tin phi?u chi */}
+      {/* Thông tin phiếu chi */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h6 font-semibold">Th�ng tin phi?u chi</CardTitle>
+          <CardTitle className="text-h6 font-semibold">Thông tin phiếu chi</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          {/* S? ti?n */}
+          {/* Số tiền */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">S? ti?n</p>
-            <p className="text-xl font-semibold text-destructive">{formatCurrency(payment.amount)} ?</p>
+            <p className="text-sm text-muted-foreground mb-1">Số tiền</p>
+            <p className="text-xl font-semibold text-destructive">{formatCurrency(payment.amount)} đ</p>
           </div>
           
-          {/* Ng�y chi */}
+          {/* Ngày chi */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Ng�y chi</p>
+            <p className="text-sm text-muted-foreground mb-1">Ngày chi</p>
             <p className="font-medium">{formatDateCustom(new Date(payment.date), 'dd/MM/yyyy')}</p>
           </div>
           
-          {/* Ngu?i nh?n */}
+          {/* Người nhận */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Ngu?i nh?n</p>
+            <p className="text-sm text-muted-foreground mb-1">Người nhận</p>
             {recipientLink ? (
               <Link href={recipientLink} className="font-medium text-primary hover:underline">
                 {payment.recipientName}
@@ -269,34 +266,34 @@ export function PaymentDetailPage() {
             )}
           </div>
           
-          {/* Lo?i ngu?i nh?n */}
+          {/* Loại người nhận */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Lo?i ngu?i nh?n</p>
+            <p className="text-sm text-muted-foreground mb-1">Loại người nhận</p>
             <p className="font-medium">{payment.recipientTypeName}</p>
           </div>
           
-          {/* H�nh th?c thanh to�n */}
+          {/* Hình thức thanh toán */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">H�nh th?c thanh to�n</p>
+            <p className="text-sm text-muted-foreground mb-1">Hình thức thanh toán</p>
             <p className="font-medium">{payment.paymentMethodName}</p>
           </div>
           
-          {/* Lo?i phi?u chi */}
+          {/* Loại phiếu chi */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Lo?i phi?u chi</p>
+            <p className="text-sm text-muted-foreground mb-1">Loại phiếu chi</p>
             <p className="font-medium">{payment.paymentReceiptTypeName}</p>
           </div>
           
-          {/* Chi nh�nh */}
+          {/* Chi nhánh */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Chi nh�nh</p>
+            <p className="text-sm text-muted-foreground mb-1">Chi nhánh</p>
             <p className="font-medium">{payment.branchName}</p>
           </div>
           
-          {/* Ch?ng t? g?c */}
+          {/* Chứng từ gốc */}
           {payment.originalDocumentId && (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Ch?ng t? g?c</p>
+              <p className="text-sm text-muted-foreground mb-1">Chứng từ gốc</p>
               {originalDocumentLink ? (
                 <Link href={originalDocumentLink} className="font-medium font-mono text-primary hover:underline">
                   {payment.originalDocumentId}
@@ -307,10 +304,10 @@ export function PaymentDetailPage() {
             </div>
           )}
           
-          {/* Di?n gi?i - Full width */}
+          {/* Diễn giải - Full width */}
           {payment.description && (
             <div className="md:col-span-2">
-              <p className="text-sm text-muted-foreground mb-1">Di?n gi?i</p>
+              <p className="text-sm text-muted-foreground mb-1">Diễn giải</p>
               <p className="font-medium">{payment.description}</p>
             </div>
           )}
@@ -321,10 +318,10 @@ export function PaymentDetailPage() {
       <Card>
         <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
           <p>
-            Ngu?i t?o:{' '}
+            Người tạo:{' '}
             <span className="text-foreground font-medium">{createdByName}</span>
           </p>
-          <p>Ng�y t?o: {formatDateCustom(new Date(payment.createdAt), 'dd/MM/yyyy HH:mm')}</p>
+          <p>Ngày tạo: {formatDateCustom(new Date(payment.createdAt), 'dd/MM/yyyy HH:mm')}</p>
         </CardContent>
       </Card>
       
@@ -337,15 +334,15 @@ export function PaymentDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="B�nh lu?n"
-        placeholder="Th�m b�nh lu?n v? phi?u chi..."
+        title="Bình luận"
+        placeholder="Thêm bình luận về phiếu chi..."
       />
       
       {/* Activity History */}
       <ActivityHistory
         history={payment.activityHistory || []}
-        title="L?ch s? thao t�c"
-        emptyMessage="Chua c� l?ch s? thao t�c"
+        title="Lịch sử thao tác"
+        emptyMessage="Chưa có lịch sử thao tác"
         showFilters={false}
         groupByDate
         maxHeight="400px"

@@ -1,11 +1,13 @@
 'use client'
 
 import * as React from "react"
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { formatDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils'
 import { useEmployeeStore } from "./store"
-import { useBranchStore } from "../settings/branches/store";
+import { useActiveEmployees } from "./hooks/use-all-employees"
+import { useAllBranches } from "@/hooks/use-branches";
 import { useDefaultPageSize } from "../settings/global-settings-store";
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { getColumns } from "./columns"
@@ -30,11 +32,18 @@ import { Button } from "../../components/ui/button"
 import { PlusCircle, Phone, Mail, Building2, Calendar, MoreHorizontal, Trash2, Upload, Download } from "lucide-react"
 import type { Employee } from '@/lib/types/prisma-extended'
 import { type ImportConfig } from "../../components/data-table/data-table-import-dialog";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { employeeImportExportConfig } from "../../lib/import-export/configs/employee.config";
 import Fuse from "fuse.js"
 import { usePageHeader } from "../../contexts/page-header-context";
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX + config
+const EmployeeImportDialog = dynamic(
+  () => import("./components/employee-import-export-dialogs").then(mod => ({ default: mod.EmployeeImportDialog })),
+  { ssr: false }
+);
+const EmployeeExportDialog = dynamic(
+  () => import("./components/employee-import-export-dialogs").then(mod => ({ default: mod.EmployeeExportDialog })),
+  { ssr: false }
+);
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { TouchButton } from "../../components/mobile/touch-button";
@@ -49,42 +58,14 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { PageToolbar } from "../../components/layout/page-toolbar";
 import { PageFilters } from "../../components/layout/page-filters";
+import { useColumnLayout } from "../../hooks/use-column-visibility";
 
-const COLUMN_LAYOUT_STORAGE_KEY = 'employees-column-layout';
-
-type StoredColumnLayout = {
-  visibility?: Record<string, boolean>;
-  order?: string[];
-  pinned?: string[];
-};
-
-const readStoredColumnLayout = (): StoredColumnLayout | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = window.localStorage.getItem(COLUMN_LAYOUT_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored) as StoredColumnLayout;
-    }
-  } catch (error) {
-    console.warn('Failed to parse employees column layout from storage:', error);
-  }
-
-  try {
-    const legacy = window.localStorage.getItem('employees-column-visibility');
-    if (legacy) {
-      return { visibility: JSON.parse(legacy) };
-    }
-  } catch (error) {
-    console.warn('Failed to parse legacy employees column visibility:', error);
-  }
-
-  return null;
-};
+// ✅ Đã chuyển sang sử dụng useColumnLayout hook thay vì localStorage
 export function EmployeesPage() {
-  const storedLayoutRef = React.useRef(readStoredColumnLayout());
 
-  const { data: employees, remove, restore, getActive, getDeleted, addMultiple, update } = useEmployeeStore();
-  const { data: branchesRaw } = useBranchStore();
+  const { data: employees, remove, restore, getDeleted, addMultiple, update } = useEmployeeStore();
+  const { data: activeEmployees } = useActiveEmployees();
+  const { data: branchesRaw } = useAllBranches();
   
   const router = useRouter();
   
@@ -153,26 +134,14 @@ export function EmployeesPage() {
     return () => clearTimeout(timer);
   }, [globalFilter]);
   
-  // Column customization state
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(
-    () => storedLayoutRef.current?.visibility ?? {}
-  );
-  const [columnOrder, setColumnOrder] = React.useState<string[]>(
-    () => storedLayoutRef.current?.order ?? []
-  );
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(
-    () => storedLayoutRef.current?.pinned ?? []
-  );
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const payload = {
-      visibility: columnVisibility,
-      order: columnOrder,
-      pinned: pinnedColumns,
-    };
-    window.localStorage.setItem(COLUMN_LAYOUT_STORAGE_KEY, JSON.stringify(payload));
-  }, [columnVisibility, columnOrder, pinnedColumns]);
+  // ✅ Sử dụng useColumnLayout hook thay vì localStorage trực tiếp
+  const [columnLayout, columnLayoutSetters] = useColumnLayout('employees', {
+    visibility: {},
+    order: [],
+    pinned: []
+  });
+  const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout;
+  const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
 
   const handleDelete = React.useCallback((systemId: string) => {
     setIdToDelete(systemId)
@@ -210,22 +179,32 @@ export function EmployeesPage() {
     columns.map(c => c.id).filter(Boolean) as string[]
   ), [columns]);
 
+  // ✅ Track if defaults have been initialized to prevent infinite loop
+  const defaultsInitialized = React.useRef(false);
+
   React.useEffect(() => {
     if (columns.length === 0) return;
+    if (defaultsInitialized.current) return;
 
-    setColumnVisibility(prev => {
-      if (Object.keys(prev).length > 0) return prev;
-      return buildDefaultVisibility();
-    });
+    // Only set defaults if not already set
+    let needsUpdate = false;
+    
+    if (Object.keys(columnVisibility).length === 0) {
+      setColumnVisibility(buildDefaultVisibility());
+      needsUpdate = true;
+    }
 
-    setColumnOrder(prev => {
-      if (prev.length > 0) return prev;
-      return buildDefaultOrder();
-    });
+    if (columnOrder.length === 0) {
+      setColumnOrder(buildDefaultOrder());
+      needsUpdate = true;
+    }
 
-    // Ensure pinned array initialized
-    setPinnedColumns(prev => prev ?? []);
-  }, [columns, buildDefaultOrder, buildDefaultVisibility]);
+    // pinnedColumns is always initialized by useColumnLayout, no need to set here
+    
+    if (needsUpdate) {
+      defaultsInitialized.current = true;
+    }
+  }, [columns, buildDefaultOrder, buildDefaultVisibility, columnVisibility, columnOrder, setColumnVisibility, setColumnOrder]);
 
   const resetColumnLayout = React.useCallback(() => {
     const defaultVisibility = buildDefaultVisibility();
@@ -233,11 +212,8 @@ export function EmployeesPage() {
     setColumnVisibility(defaultVisibility);
     setColumnOrder(defaultOrder);
     setPinnedColumns([]);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(COLUMN_LAYOUT_STORAGE_KEY);
-    }
     toast.success('Đã khôi phục bố cục cột mặc định');
-  }, [buildDefaultVisibility, buildDefaultOrder]);
+  }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
   
   const confirmDelete = () => {
     if (idToDelete) {
@@ -263,8 +239,6 @@ export function EmployeesPage() {
   
   // ✅ Cache active/deleted lists to prevent infinite loops
   // eslint-disable-next-line react-hooks/exhaustive-deps -- employees triggers re-evaluation when store changes
-  const activeEmployees = React.useMemo(() => getActive(), [getActive, employees]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- employees triggers re-evaluation when store changes
   const _deletedEmployees = React.useMemo(() => getDeleted(), [getDeleted, employees]);
   
   // ✅ PERFORMANCE: Create Fuse instance once for active employees only
@@ -277,6 +251,21 @@ export function EmployeesPage() {
     });
   }, [activeEmployees]);
   
+  // Helper to get department/jobTitle name from object or string
+  const getDeptName = React.useCallback((dept: unknown): string | undefined => {
+    if (typeof dept === 'object' && dept !== null) {
+      return (dept as { name?: string }).name;
+    }
+    return dept as string | undefined;
+  }, []);
+  
+  const getJobTitleName = React.useCallback((jt: unknown): string | undefined => {
+    if (typeof jt === 'object' && jt !== null) {
+      return (jt as { name?: string }).name;
+    }
+    return jt as string | undefined;
+  }, []);
+
   const filteredData = React.useMemo(() => {
     // ✅ Only work with active employees
     let filtered = activeEmployees;
@@ -286,11 +275,17 @@ export function EmployeesPage() {
     }
     
     if (departmentFilter.size > 0) {
-      filtered = filtered.filter(emp => emp.department && departmentFilter.has(emp.department));
+      filtered = filtered.filter(emp => {
+        const deptName = getDeptName(emp.department);
+        return deptName && departmentFilter.has(deptName);
+      });
     }
     
     if (jobTitleFilter.size > 0) {
-      filtered = filtered.filter(emp => emp.jobTitle && jobTitleFilter.has(emp.jobTitle));
+      filtered = filtered.filter(emp => {
+        const jtName = getJobTitleName(emp.jobTitle);
+        return jtName && jobTitleFilter.has(jtName);
+      });
     }
     
     if (statusFilter.size > 0) {
@@ -368,18 +363,20 @@ export function EmployeesPage() {
   const departmentOptions = React.useMemo(() => {
     const departments = new Set<string>();
     activeEmployees.forEach(emp => {
-      if (emp.department) departments.add(emp.department);
+      const deptName = getDeptName(emp.department);
+      if (deptName) departments.add(deptName);
     });
     return Array.from(departments).sort().map(d => ({ label: d, value: d }));
-  }, [activeEmployees]);
+  }, [activeEmployees, getDeptName]);
 
   const jobTitleOptions = React.useMemo(() => {
     const jobTitles = new Set<string>();
     activeEmployees.forEach(emp => {
-      if (emp.jobTitle) jobTitles.add(emp.jobTitle);
+      const jtName = getJobTitleName(emp.jobTitle);
+      if (jtName) jobTitles.add(jtName);
     });
     return Array.from(jobTitles).sort().map(j => ({ label: j, value: j }));
-  }, [activeEmployees]);
+  }, [activeEmployees, getJobTitleName]);
 
   const statusOptions = React.useMemo(() => [
     { label: 'Đang làm việc', value: 'Đang làm việc' },
@@ -564,7 +561,11 @@ export function EmployeesPage() {
           {/* Job Title + Department */}
           <div className="text-body-xs text-muted-foreground mb-3 flex items-center">
             <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
-            <span className="truncate">{employee.jobTitle} • {employee.department}</span>
+            <span className="truncate">
+              {typeof employee.jobTitle === 'object' ? (employee.jobTitle as { name?: string })?.name : employee.jobTitle}
+              {' • '}
+              {typeof employee.department === 'object' ? (employee.department as { name?: string })?.name : employee.department}
+            </span>
           </div>
 
           {/* Divider */}
@@ -776,10 +777,9 @@ export function EmployeesPage() {
       </AlertDialog>
 
       {/* V2 Import Dialog with Preview */}
-      <GenericImportDialogV2<Employee>
+      <EmployeeImportDialog
         open={isImportV2Open}
         onOpenChange={setIsImportV2Open}
-        config={employeeImportExportConfig}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
         requireBranch={true}
         defaultBranchId={branches[0]?.systemId}
@@ -789,10 +789,9 @@ export function EmployeesPage() {
       />
 
       {/* V2 Export Dialog with Column Selection */}
-      <GenericExportDialogV2<Employee>
+      <EmployeeExportDialog
         open={isExportV2Open}
         onOpenChange={setIsExportV2Open}
-        config={employeeImportExportConfig}
         allData={activeEmployees}
         filteredData={sortedData}
         currentPageData={paginatedData}

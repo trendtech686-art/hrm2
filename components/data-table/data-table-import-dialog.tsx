@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Upload, FileText, X } from 'lucide-react';
-import * as XLSX from 'xlsx';
+// XLSX is lazy loaded in parseFileForPreview and handleDownloadTemplate to reduce bundle size (~500KB)
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -56,7 +56,10 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
     }
   };
 
-  const parseFileForPreview = (file: File) => {
+  const parseFileForPreview = async (file: File) => {
+    // Lazy load XLSX to reduce bundle size (~500KB)
+    const XLSX = await import('xlsx');
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -176,7 +179,7 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
     });
   };
   
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     // If templateUrl is provided, download from that URL
     if (config.templateUrl) {
       const link = document.createElement('a');
@@ -187,6 +190,9 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
       document.body.removeChild(link);
       return;
     }
+    
+    // Lazy load XLSX to reduce bundle size (~500KB)
+    const XLSX = await import('xlsx');
     
     // Fallback: Create a basic template
     const worksheet = XLSX.utils.aoa_to_sheet([

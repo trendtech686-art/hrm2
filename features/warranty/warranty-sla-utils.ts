@@ -6,38 +6,31 @@
 
 import { WarrantyTicket } from './types';
 
-const SLA_STORAGE_KEY = 'warranty-sla-targets';
+const _SLA_STORAGE_KEY = 'warranty-sla-targets';
 
 /**
  * Default SLA Targets (in minutes)
  */
-const DEFAULT_WARRANTY_SLA_TARGETS = {
+export const DEFAULT_WARRANTY_SLA_TARGETS = {
   response: 2 * 60,      // 2 hours - Thời gian phản hồi
   processing: 24 * 60,   // 24 hours - Thời gian xử lý
   return: 48 * 60,       // 48 hours - Thời gian trả hàng
 };
 
 /**
- * Load SLA targets from localStorage
+ * Load SLA targets - deprecated, use useWarrantySLASettings hook instead
+ * @deprecated Use useWarrantySLASettings hook from hooks/use-sla-notification-settings.ts
  */
 export function loadWarrantySLATargets() {
-  try {
-    const stored = localStorage.getItem(SLA_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : DEFAULT_WARRANTY_SLA_TARGETS;
-  } catch {
-    return DEFAULT_WARRANTY_SLA_TARGETS;
-  }
+  return DEFAULT_WARRANTY_SLA_TARGETS;
 }
 
 /**
- * Save SLA targets to localStorage
+ * Save SLA targets - deprecated, use useWarrantySLASettings hook instead
+ * @deprecated Use useWarrantySLASettings hook from hooks/use-sla-notification-settings.ts
  */
-export function saveWarrantySLATargets(targets: typeof DEFAULT_WARRANTY_SLA_TARGETS) {
-  try {
-    localStorage.setItem(SLA_STORAGE_KEY, JSON.stringify(targets));
-  } catch (error) {
-    console.error('Failed to save SLA targets:', error);
-  }
+export function saveWarrantySLATargets(_targets: typeof DEFAULT_WARRANTY_SLA_TARGETS) {
+  console.warn('saveWarrantySLATargets is deprecated. Use useWarrantySLASettings hook instead.');
 }
 
 /**

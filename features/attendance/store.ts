@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AttendanceDataRow, AttendanceDayKey, DailyRecord } from './types';
 import type { SystemId } from '../../lib/id-types';
 
@@ -22,7 +21,6 @@ type AttendanceStoreState = {
 };
 
 export const useAttendanceStore = create<AttendanceStoreState>()(
-  persist(
     (set, get) => ({
       lockedMonths: {},
       lockMonth: (monthYear) =>
@@ -88,10 +86,5 @@ export const useAttendanceStore = create<AttendanceStoreState>()(
             },
           };
         }),
-    }),
-    {
-      name: 'hrm-attendance-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+    })
 );

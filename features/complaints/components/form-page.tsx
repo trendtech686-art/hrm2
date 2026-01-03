@@ -45,11 +45,11 @@ import {
 
 // Hooks & Context
 import { usePageHeader } from "@/contexts/page-header-context";
-import { useOrderStore } from "@/features/orders/store";
+import { useAllOrders } from "@/features/orders/hooks/use-all-orders";
 import { useSalesReturnStore } from "@/features/sales-returns/store";
-import { useBranchStore } from "@/features/settings/branches/store";
+import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
 import { useEmployeeStore } from "@/features/employees/store";
-import { useCustomerStore } from "@/features/customers/store";
+import { useAllCustomers } from "@/features/customers/hooks/use-all-customers";
 import { useNotificationStore } from "@/components/ui/notification-center";
 import { FileUploadAPI } from "@/lib/file-upload-api";
 import { useAuth } from "@/contexts/auth-context";
@@ -141,11 +141,11 @@ export function ComplaintFormPage() {
   const { setPageHeader } = usePageHeader();
   
   const { getComplaintById, addComplaint, updateComplaint } = useComplaintStore();
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
   const { data: salesReturns } = useSalesReturnStore();
-  const { data: _branches } = useBranchStore();
+  const { data: _branches } = useAllBranches();
   const { data: employees } = useEmployeeStore();
-  const { data: customers } = useCustomerStore();
+  const { data: customers = [] } = useAllCustomers();
   const { addNotification } = useNotificationStore();
   const { employee } = useAuth();
   

@@ -17,7 +17,12 @@ import type { SystemId } from '@/lib/id-types';
  * 
  * Note: API returns string systemIds, but we cast to Branch[] for internal use
  */
-export function useAllBranches() {
+export function useAllBranches(): {
+  data: Branch[];
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+} {
   const query = useBranches({ limit: 100 });
   
   return {

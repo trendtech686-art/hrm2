@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from 'next/navigation'
 import { useEmployeeStore } from "./store"
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
 import { usePageHeader } from "../../contexts/page-header-context"
 import { asSystemId } from '@/lib/id-types';
 import { VirtualizedDataTable } from "../../components/data-table/virtualized-data-table"
@@ -27,7 +27,7 @@ export function EmployeesVirtualizedPage() {
   const router = useRouter()
   const employeeStore = useEmployeeStore()
   const { data: allEmployees } = employeeStore
-  const { data: branchesRaw } = useBranchStore()
+  const { data: branchesRaw } = useAllBranches()
 
   // State
   const [globalFilter, setGlobalFilter] = React.useState('')
@@ -128,18 +128,7 @@ export function EmployeesVirtualizedPage() {
   )
 
   // Page header actions
-  // Reset to 20K rows handler
-  const handleResetData = () => {
-    if (window.confirm('Reset về 20,000 employees ban đầu? (Sẽ xóa localStorage)')) {
-      localStorage.removeItem('hrm-employees')
-      window.location.reload()
-    }
-  }
-
   const headerActions = React.useMemo(() => [
-    <Button key="reset" variant="destructive" size="sm" onClick={handleResetData}>
-      🔄 Reset 20K Rows
-    </Button>,
     <Button key="add" size="sm" onClick={() => router.push('/employees/add')}>
       <Plus className="mr-2 h-4 w-4" />
       Thêm mới
@@ -161,21 +150,6 @@ export function EmployeesVirtualizedPage() {
 
   return (
     <div className="w-full space-y-4 p-4">
-      {/* localStorage Warning */}
-      {allEmployees.length < 100 && (
-        <div className="rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
-          <h3 className="font-bold text-amber-900 dark:text-amber-100 mb-2 flex items-center gap-2">
-            ⚠️ Data bị cache trong localStorage!
-          </h3>
-          <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-            Store đang load <strong>{allEmployees.length} employees</strong> từ localStorage thay vì 20,000 rows trong <code>data.ts</code>
-          </p>
-          <Button onClick={handleResetData} variant="destructive" size="sm">
-            🔄 Reset về 20,000 rows
-          </Button>
-        </div>
-      )}
-
       {/* Performance Alert */}
       <div className="rounded-lg border-2 border-green-500 bg-green-50 dark:bg-green-950 p-4">
         <h3 className="font-bold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">

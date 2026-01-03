@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/settings/import-export-logs/page": "app/(authenticated)/settings/import-export-logs/page.js"
+}

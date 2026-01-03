@@ -79,93 +79,106 @@ export interface QuickFilter {
   filter: (task: Task) => boolean;
 }
 
-// Quick Filter Presets
-export const QUICK_FILTERS: QuickFilter[] = [
-  {
-    id: 'my-tasks',
-    name: 'Công việc của tôi',
-    icon: 'User',
-    color: 'blue',
-    filter: (task) => {
-      const _user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-      const employee = JSON.parse(localStorage.getItem('employee') || '{}');
-      return task.assigneeId === employee.systemId;
+// Context for quick filters that need user info
+export interface QuickFilterContext {
+  employeeId?: string;
+  username?: string;
+}
+
+// Factory function to create quick filters with user context
+export function createQuickFilters(context: QuickFilterContext = {}): QuickFilter[] {
+  return [
+    {
+      id: 'my-tasks',
+      name: 'Công việc của tôi',
+      icon: 'User',
+      color: 'blue',
+      filter: (task) => {
+        return context.employeeId ? task.assigneeId === context.employeeId : false;
+      },
     },
-  },
-  {
-    id: 'overdue',
-    name: 'Quá hạn',
-    icon: 'AlertCircle',
-    color: 'red',
-    filter: (task) => {
-      if (!task.dueDate || task.status === 'Hoàn thành' || task.status === 'Đã hủy') {
-        return false;
-      }
-      return new Date(task.dueDate) < new Date();
+    {
+      id: 'overdue',
+      name: 'Quá hạn',
+      icon: 'AlertCircle',
+      color: 'red',
+      filter: (task) => {
+        if (!task.dueDate || task.status === 'Hoàn thành' || task.status === 'Đã hủy') {
+          return false;
+        }
+        return new Date(task.dueDate) < new Date();
+      },
     },
-  },
-  {
-    id: 'high-priority',
-    name: 'Ưu tiên cao',
-    icon: 'ArrowUp',
-    color: 'orange',
-    filter: (task) => task.priority === 'Cao' || task.priority === 'Khẩn cấp',
-  },
-  {
-    id: 'in-progress',
-    name: 'Đang thực hiện',
-    icon: 'Clock',
-    color: 'green',
-    filter: (task) => task.status === 'Đang thực hiện',
-  },
-  {
-    id: 'due-today',
-    name: 'Hạn hôm nay',
-    icon: 'Calendar',
-    color: 'purple',
-    filter: (task) => {
-      if (!task.dueDate) return false;
-      const today = new Date();
-      const due = new Date(task.dueDate);
-      return (
-        today.getDate() === due.getDate() &&
-        today.getMonth() === due.getMonth() &&
-        today.getFullYear() === due.getFullYear()
-      );
+    {
+      id: 'high-priority',
+      name: 'Ưu tiên cao',
+      icon: 'ArrowUp',
+      color: 'orange',
+      filter: (task) => task.priority === 'Cao' || task.priority === 'Khẩn cấp',
     },
-  },
-  {
-    id: 'due-this-week',
-    name: 'Hạn tuần này',
-    icon: 'CalendarDays',
-    color: 'indigo',
-    filter: (task) => {
-      if (!task.dueDate) return false;
-      const today = new Date();
-      const weekEnd = new Date(today);
-      weekEnd.setDate(today.getDate() + (7 - today.getDay()));
-      const due = new Date(task.dueDate);
-      return due >= today && due <= weekEnd;
+    {
+      id: 'in-progress',
+      name: 'Đang thực hiện',
+      icon: 'Clock',
+      color: 'green',
+      filter: (task) => task.status === 'Đang thực hiện',
     },
-  },
-  {
-    id: 'no-assignee',
-    name: 'Chưa gán người',
-    icon: 'UserX',
-    color: 'gray',
-    filter: (task) => !task.assigneeId,
-  },
-  {
-    id: 'created-by-me',
-    name: 'Tôi tạo',
-    icon: 'UserPlus',
-    color: 'teal',
-    filter: (task) => {
-      const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-      return task.createdBy === user.username;
+    {
+      id: 'due-today',
+      name: 'Hạn hôm nay',
+      icon: 'Calendar',
+      color: 'purple',
+      filter: (task) => {
+        if (!task.dueDate) return false;
+        const today = new Date();
+        const due = new Date(task.dueDate);
+        return (
+          today.getDate() === due.getDate() &&
+          today.getMonth() === due.getMonth() &&
+          today.getFullYear() === due.getFullYear()
+        );
+      },
     },
-  },
-];
+    {
+      id: 'due-this-week',
+      name: 'Hạn tuần này',
+      icon: 'CalendarDays',
+      color: 'indigo',
+      filter: (task) => {
+        if (!task.dueDate) return false;
+        const today = new Date();
+        const weekEnd = new Date(today);
+        weekEnd.setDate(today.getDate() + (7 - today.getDay()));
+        const due = new Date(task.dueDate);
+        return due >= today && due <= weekEnd;
+      },
+    },
+    {
+      id: 'no-assignee',
+      name: 'Chưa gán người',
+      icon: 'UserX',
+      color: 'gray',
+      filter: (task) => !task.assigneeId,
+    },
+    {
+      id: 'created-by-me',
+      name: 'Tôi tạo',
+      icon: 'UserPlus',
+      color: 'teal',
+      filter: (task) => {
+        return context.username ? task.createdBy === context.username : false;
+      },
+    },
+  ];
+}
+
+// Legacy QUICK_FILTERS for backward compatibility (deprecated, will not work correctly without user context)
+// Use createQuickFilters() with user context instead
+
+// Legacy QUICK_FILTERS for backward compatibility (deprecated, will not work correctly without user context)
+// Use createQuickFilters() with user context instead
+/** @deprecated Use createQuickFilters() with user context instead */
+export const QUICK_FILTERS: QuickFilter[] = createQuickFilters();
 
 // Field metadata for filter builder
 export interface FilterFieldMeta {

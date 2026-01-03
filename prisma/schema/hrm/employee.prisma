@@ -85,6 +85,7 @@ model Employee {
   tasks_tasks_creatorIdToemployees  Task[]             @relation("tasks_creatorIdToemployees")
   user                              User?
   wikiArticles                      Wiki[]
+  assignedPackagings                Packaging[]
 
   @@index([branchId])
   @@index([departmentId])

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { StockTransfer, StockTransferStatus } from '@/lib/types/prisma-extended';
 import { data as initialData } from './data';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '../../lib/id-types';
@@ -42,7 +41,6 @@ const generateSystemId = (currentCounter: number): SystemId => {
 };
 
 export const useStockTransferStore = create<StockTransferState>()(
-  persist(
     (set, get) => ({
       data: initialData,
       isLoading: false,
@@ -292,10 +290,5 @@ export const useStockTransferStore = create<StockTransferState>()(
 
         return true;
       },
-    }),
-    {
-      name: 'hrm-stock-transfers',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+    })
 );

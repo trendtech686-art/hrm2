@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type SettingsConfigStoreState<TState> = {
   data: TState;
@@ -20,11 +19,10 @@ interface SettingsConfigStoreOptions<TState> {
 }
 
 export function createSettingsConfigStore<TState>({
-  storageKey,
+  storageKey: _storageKey,
   getDefaultState,
 }: SettingsConfigStoreOptions<TState>) {
   return create<SettingsConfigStoreState<TState>>()(
-    persist(
       (set, get) => ({
         data: getDefaultState(),
         setSection: (key, value) => {
@@ -52,27 +50,6 @@ export function createSettingsConfigStore<TState>({
           });
         },
         resetAll: () => set({ data: getDefaultState() }),
-      }),
-      {
-        name: storageKey,
-        storage: createJSONStorage(() => localStorage),
-        version: 1,
-        partialize: (state) => ({ data: state.data }),
-        merge: (persisted, current) => {
-          const typed = persisted as Partial<SettingsConfigStoreState<TState>> | undefined;
-          if (!typed || !typed.data) {
-            return current;
-          }
-
-          return {
-            ...current,
-            data: {
-              ...getDefaultState(),
-              ...typed.data,
-            },
-          };
-        },
-      }
-    )
+      })
   );
 }

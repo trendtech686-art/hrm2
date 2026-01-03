@@ -7,11 +7,11 @@
 import * as React from 'react';
 import { format, parseISO, startOfWeek, startOfQuarter, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { useOrderStore } from '@/features/orders/store';
+import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
 import { useProductStore } from '@/features/products/store';
 import { useEmployeeStore } from '@/features/employees/store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useCustomerStore } from '@/features/customers/store';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
+import { useAllCustomers } from '@/features/customers/hooks/use-all-customers';
 import { useSalesReturnStore } from '@/features/sales-returns/store';
 import { useBrandStore } from '@/features/settings/inventory/brand-store';
 import type { 
@@ -115,7 +115,7 @@ export function useSalesTimeReport(
     sourceIds?: string[];
   }
 ) {
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
   const { findById: findProductById } = useProductStore();
   const { data: returns } = useSalesReturnStore();
   
@@ -241,7 +241,7 @@ export function useSalesEmployeeReport(
     branchIds?: SystemId[];
   }
 ) {
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
   const { data: employees } = useEmployeeStore();
   const { findById: findProductById } = useProductStore();
   const { data: _returns } = useSalesReturnStore();
@@ -316,7 +316,7 @@ export function useSalesProductReport(
     categoryIds?: SystemId[];
   }
 ) {
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
   const { data: _products, findById: findProductById } = useProductStore();
   
   return React.useMemo(() => {
@@ -400,8 +400,8 @@ export function useSalesProductReport(
 
 // Hook: Báo cáo bán hàng theo chi nhánh
 export function useSalesBranchReport(dateRange: ReportDateRange) {
-  const { data: orders } = useOrderStore();
-  const { data: branches } = useBranchStore();
+  const { data: orders } = useAllOrders();
+  const { data: branches } = useAllBranches();
   const { findById: findProductById } = useProductStore();
   
   return React.useMemo(() => {
@@ -487,8 +487,8 @@ export function useSalesCustomerReport(
     customerGroupIds?: string[];
   }
 ) {
-  const { data: orders } = useOrderStore();
-  const { data: customers } = useCustomerStore();
+  const { data: orders } = useAllOrders();
+  const { data: customers = [] } = useAllCustomers();
   const { findById: findProductById } = useProductStore();
   
   return React.useMemo(() => {

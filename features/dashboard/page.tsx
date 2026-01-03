@@ -4,9 +4,9 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentDate, isDateSame, isDateAfter, isDateBefore, addDays, subtractDays, formatDateCustom } from '../../lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useOrderStore } from '../orders/store';
-import { useCustomerStore } from '../customers/store';
-import { useEmployeeStore } from '../employees/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useAllCustomers } from '../customers/hooks/use-all-customers';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { ChartBar, ChartLine, ChartPie } from '../../components/ui/chart';
 import { Package, Truck, DollarSign, Users, ChevronRight, UserCheck, AlertCircle } from 'lucide-react';
@@ -29,9 +29,9 @@ const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary
 };
 
 export function DashboardPage() {
-    const { data: orders } = useOrderStore();
-    const { data: customers } = useCustomerStore();
-    const { data: employees } = useEmployeeStore();
+    const { data: orders } = useAllOrders();
+    const { data: customers = [] } = useAllCustomers();
+    const { data: employees } = useAllEmployees();
     const router = useRouter();
 
     const headerActions = React.useMemo(() => [

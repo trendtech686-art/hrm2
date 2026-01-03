@@ -1,1 +1,12 @@
-{}
+{
+  "[project]/features/leaves/components/leave-form.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/leaves/components/leave-form.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_233ca61d._.js",
+      "static/chunks/node_modules_zod_v4_bdad8e5a._.js",
+      "static/chunks/node_modules_react-day-picker_dist_esm_3ee78fab._.js",
+      "static/chunks/node_modules_ca77a970._.js",
+      "static/chunks/features_leaves_components_leave-form_tsx_4a7e5d62._.js"
+    ]
+  }
+}

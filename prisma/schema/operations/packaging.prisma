@@ -68,7 +68,9 @@ model Packaging {
   ghtkWebhookHistory   Json? // Array of webhook events
 
   // Relations
-  order Order @relation(fields: [orderId], references: [systemId])
+  order            Order     @relation(fields: [orderId], references: [systemId])
+  assignedEmployee Employee? @relation(fields: [assignedEmployeeId], references: [systemId])
+  shipment         Shipment?
 
   @@map("packagings")
 }

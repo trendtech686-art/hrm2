@@ -7,15 +7,15 @@ import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Truck, RefreshCw } from 'lucide-react';
-import { useOrderStore } from '../store';
+import { useOrderDetailActions } from '../hooks/use-order-detail-actions';
 
 interface ShippingTrackingTabProps {
     order: Order;
 }
 
 export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
-    // TODO: Add syncGHTKShipment to useOrderStore when implementing sync functionality
-    const _orderStore = useOrderStore();
+    // ✅ Use React Query hooks for mutations
+    const { syncGHTKShipment } = useOrderDetailActions();
     const [isSyncing, setIsSyncing] = React.useState(false);
     
     // Find the active packaging with shipping partner
@@ -30,9 +30,9 @@ export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
         
         setIsSyncing(true);
         try {
-            // TODO: Implement syncGHTKShipment in useOrderStore
-            console.log('Manual sync requested for order:', order.systemId);
-            // await syncGHTKShipment(order.systemId);
+            // ✅ Use React Query mutation for sync
+            await syncGHTKShipment(order.systemId, shippingPackaging.systemId);
+            console.log('Manual sync completed for order:', order.systemId);
         } catch (error) {
             console.error('Manual sync error:', error);
         } finally {

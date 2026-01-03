@@ -8,11 +8,14 @@ import { useCustomerStore } from './store';
 import { useEmployeeStore } from '../employees/store';
 import { useShallow } from 'zustand/react/shallow';
 import { useProvinceStore } from "../settings/provinces/store";
-import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
-import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
-import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
-import { usePaymentTermStore } from '../settings/customers/payment-terms-store';
-import { useCreditRatingStore } from '../settings/customers/credit-ratings-store';
+import { 
+  useActiveCustomerTypes,
+  useActiveCustomerGroups,
+  useActiveCustomerSources,
+  useActivePaymentTerms,
+  useActiveCreditRatings,
+  useActiveLifecycleStages,
+} from '../settings/customers/hooks/use-all-customer-settings';
 import { NewDocumentsUpload } from '../../components/ui/new-documents-upload';
 import { ExistingDocumentsViewer } from '../../components/ui/existing-documents-viewer';
 import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
@@ -47,7 +50,6 @@ import { CustomerAddresses } from './customer-addresses';
 import { Button } from "../../components/ui/button";
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
 import { usePricingPolicyStore } from '../settings/pricing/store';
-import { useLifecycleStageStore } from '../settings/customers/lifecycle-stages-store';
 
 export type CustomerFormValues = CustomerFormData;
 
@@ -67,20 +69,20 @@ type CustomerFormProps = {
   isEditMode?: boolean;
 };
 
-export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEditMode = false }: CustomerFormProps) {
+export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuccess, isEditMode = false }: CustomerFormProps) {
   const customerIds = useCustomerStore(useShallow(state => state.data.map(c => c.id)));
   const { data: provinces, getWardsByProvinceId: _getWardsByProvinceId } = useProvinceStore();
   const { data: employees } = useEmployeeStore();
   const { data: customers } = useCustomerStore();
   
-  // Settings stores
-  const customerTypes = useCustomerTypeStore();
-  const customerGroups = useCustomerGroupStore();
-  const customerSources = useCustomerSourceStore();
-  const paymentTerms = usePaymentTermStore();
-  const creditRatings = useCreditRatingStore();
+  // Settings - using React Query hooks
+  const { data: customerTypesData } = useActiveCustomerTypes();
+  const { data: customerGroupsData } = useActiveCustomerGroups();
+  const { data: customerSourcesData } = useActiveCustomerSources();
+  const { data: paymentTermsData } = useActivePaymentTerms();
+  const { data: creditRatingsData } = useActiveCreditRatings();
+  const { data: lifecycleStagesData } = useActiveLifecycleStages();
   const pricingPolicies = usePricingPolicyStore(state => state.data);
-  const lifecycleStages = useLifecycleStageStore();
 
   // Debug log
   console.log('CustomerForm - isEditMode:', isEditMode, 'initialData:', initialData?.id);
@@ -243,13 +245,13 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
   React.useEffect(() => {
     // Only apply defaults when creating new customer (not editing)
     if (!isEditMode && !initialData) {
-      // Find default values from settings (only from active items)
-      const defaultType = customerTypes.getActive().find(t => t.isActive && t.isDefault);
-      const defaultGroup = customerGroups.getActive().find(g => g.isActive && g.isDefault);
-      const defaultSource = customerSources.getActive().find(s => s.isActive && s.isDefault);
-      const defaultStage = lifecycleStages.getActive().find(l => l.isActive && l.isDefault);
-      const defaultPaymentTerm = paymentTerms.getActive().find(p => p.isActive && p.isDefault);
-      const defaultCreditRating = creditRatings.getActive().find(c => c.isActive && c.isDefault);
+      // Find default values from settings (data already filtered to active only)
+      const defaultType = customerTypesData.find(t => t.isDefault);
+      const defaultGroup = customerGroupsData.find(g => g.isDefault);
+      const defaultSource = customerSourcesData.find(s => s.isDefault);
+      const defaultStage = lifecycleStagesData.find(l => l.isDefault);
+      const defaultPaymentTerm = paymentTermsData.find(p => p.isDefault);
+      const defaultCreditRating = creditRatingsData.find(c => c.isDefault);
 
       // Apply defaults
       if (defaultType) {
@@ -299,7 +301,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
       // Default contract startDate to today
       form.setValue('contract.startDate', new Date().toISOString());
     }
-  }, [isEditMode, initialData, customerTypes, customerGroups, customerSources, lifecycleStages, paymentTerms, creditRatings, pricingPolicies, form]);
+  }, [isEditMode, initialData, customerTypesData, customerGroupsData, customerSourcesData, lifecycleStagesData, paymentTermsData, creditRatingsData, pricingPolicies, form]);
 
   // Debounced unique ID validation
   React.useEffect(() => {
@@ -330,7 +332,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
   React.useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === 'customerGroup' && value.customerGroup) {
-        const group = customerGroups.getActive().find(g => g.id === value.customerGroup);
+        const group = customerGroupsData.find(g => g.id === value.customerGroup);
         if (group) {
           // Apply default credit limit if current value is 0
           if (group.defaultCreditLimit && group.defaultCreditLimit > 0) {
@@ -354,7 +356,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, customerGroups, pricingPolicies]);
+  }, [form, customerGroupsData, pricingPolicies]);
 
   const handleSubmit = async (values: CustomerFormValues) => {
     try {
@@ -584,7 +586,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
                 name="type" 
                 control={form.control}
                 render={({ field }) => {
-                  const typeOptions = customerTypes.getActive().filter(t => t.isActive).map(type => ({
+                  const typeOptions = customerTypesData.map(type => ({
                     value: type.id,
                     label: type.name,
                   }));
@@ -612,7 +614,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
                 name="customerGroup" 
                 control={form.control}
                 render={({ field }) => {
-                  const groupOptions = customerGroups.getActive().filter(g => g.isActive).map(group => ({
+                  const groupOptions = customerGroupsData.map(group => ({
                     value: group.id,
                     label: group.name,
                   }));
@@ -640,7 +642,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
                 name="lifecycleStage" 
                 control={form.control}
                 render={({ field }) => {
-                  const stageOptions = lifecycleStages.getActive().filter(s => s.isActive).map(stage => ({
+                  const stageOptions = lifecycleStagesData.map(stage => ({
                     value: stage.id,
                     label: stage.name,
                   }));
@@ -669,7 +671,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
                 name="source" 
                 control={form.control}
                 render={({ field }) => {
-                  const sourceOptions = customerSources.getActive().filter(s => s.isActive).map(source => ({
+                  const sourceOptions = customerSourcesData.map(source => ({
                     value: source.id,
                     label: source.name,
                   }));
@@ -932,7 +934,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
                 name="paymentTerms" 
                 control={form.control}
                 render={({ field }) => {
-                  const termOptions = paymentTerms.getActive().filter(t => t.isActive).map(term => ({
+                  const termOptions = paymentTermsData.map(term => ({
                     value: term.id,
                     label: term.name,
                   }));
@@ -960,8 +962,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
                 name="creditRating" 
                 control={form.control}
                 render={({ field }) => {
-                  const activeRatings = creditRatings.getActive().filter(r => r.isActive);
-                  const ratingOptions = activeRatings.map(rating => ({
+                  const ratingOptions = creditRatingsData.map(rating => ({
                     value: rating.id,
                     label: rating.name,
                   }));
@@ -973,7 +974,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel, onSuccess, isEdi
                     
                     // Auto-fill maxDebt from selected rating's maxCreditLimit
                     if (opt?.value) {
-                      const selectedRating = activeRatings.find(r => r.id === opt.value);
+                      const selectedRating = creditRatingsData.find(r => r.id === opt.value);
                       if (selectedRating?.maxCreditLimit) {
                         form.setValue('maxDebt', selectedRating.maxCreditLimit);
                       }

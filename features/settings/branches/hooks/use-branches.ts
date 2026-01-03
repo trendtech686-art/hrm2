@@ -95,9 +95,8 @@ export function useBranchMutations(options: UseBranchMutationsOptions = {}) {
   return { create, update, remove, makeDefault };
 }
 
-export function useAllBranches() {
-  return useBranches({ limit: 100 });
-}
+// Note: useAllBranches is exported from use-all-branches.ts which provides
+// properly typed Branch[] data. Do not re-export here.
 
 export function useDefaultBranch() {
   const { data, ...rest } = useBranches({ isDefault: true, limit: 1 });

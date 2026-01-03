@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { EmployeeSettings, LeaveType, SalaryComponent, WorkShift } from '@/lib/types/prisma-extended';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import { generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, findNextAvailableBusinessId } from '../../../lib/id-utils';
@@ -7,6 +6,7 @@ import { getPrefix, type EntityType } from '../../../lib/smart-prefix';
 import { getEntityConfig } from '../../../lib/id-config';
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SETTINGS_ENTITY_MAP = {
   workShifts: 'work-shifts',
   leaveTypes: 'leave-types',
@@ -624,7 +624,6 @@ const buildInitialState = () => {
 const initialState = buildInitialState();
 
 export const useEmployeeSettingsStore = create<EmployeeSettingsState>()(
-  persist(
     (set, get) => ({
       settings: initialState.settings,
       counters: initialState.counters,
@@ -649,82 +648,5 @@ export const useEmployeeSettingsStore = create<EmployeeSettingsState>()(
           lockDate: current.payrollLockDate,
         };
       },
-    }),
-    {
-      name: 'hrm-employee-settings-storage',
-      storage: createJSONStorage(() => localStorage),
-      version: 3,
-      migrate: (persistedState, version) => {
-        if (!persistedState || !(persistedState as Partial<EmployeeSettingsState>).settings) {
-          return initialState;
-        }
-        const persistedSettings = (persistedState as Partial<EmployeeSettingsState>).settings;
-        const cloned = cloneSettings(persistedSettings);
-        
-        // Migration v2 -> v3: Thêm các component OT mới nếu chưa có
-        if (version < 3) {
-          const existingIds = cloned.salaryComponents.map(c => c.systemId);
-          
-          // Thêm OT cuối tuần (SALCOMP000020) nếu chưa có
-          if (!existingIds.includes(asSystemId('SALCOMP000020'))) {
-            cloned.salaryComponents.push({
-              systemId: asSystemId('SALCOMP000020'),
-              id: asBusinessId('SC000020'),
-              name: 'Làm thêm cuối tuần',
-              description: 'Tiền làm thêm thứ 7 & Chủ nhật. Công thức: Giờ OT x Tiền/giờ x Hệ số cuối tuần (1.5)',
-              category: 'earning',
-              type: 'formula',
-              formula: 'otPayWeekend',
-              taxable: true,
-              partOfSocialInsurance: false,
-              isActive: true,
-              sortOrder: 11,
-              applicableDepartmentSystemIds: [],
-            });
-          }
-          
-          // Thêm OT ngày lễ (SALCOMP000021) nếu chưa có
-          if (!existingIds.includes(asSystemId('SALCOMP000021'))) {
-            cloned.salaryComponents.push({
-              systemId: asSystemId('SALCOMP000021'),
-              id: asBusinessId('SC000021'),
-              name: 'Làm thêm ngày lễ',
-              description: 'Tiền làm thêm các ngày lễ. Công thức: Giờ OT x Tiền/giờ x Hệ số ngày lễ (3)',
-              category: 'earning',
-              type: 'formula',
-              formula: 'otPayHoliday',
-              taxable: true,
-              partOfSocialInsurance: false,
-              isActive: true,
-              sortOrder: 12,
-              applicableDepartmentSystemIds: [],
-            });
-          }
-          
-          // Cập nhật Lương cơ bản (SALCOMP000001) thành formula nếu đang là fixed
-          const baseSalaryComponent = cloned.salaryComponents.find(c => c.systemId === asSystemId('SALCOMP000001'));
-          if (baseSalaryComponent && baseSalaryComponent.type === 'fixed') {
-            baseSalaryComponent.type = 'formula';
-            baseSalaryComponent.formula = 'baseSalary * (workDays / standardWorkDays)';
-            baseSalaryComponent.description = 'Lương theo ngày công thực tế = Lương HĐ × (Ngày công / Ngày chuẩn)';
-            delete (baseSalaryComponent as { amount?: unknown }).amount;
-          }
-          
-          // Cập nhật OT ngày thường (SALCOMP000010) nếu công thức chưa đúng
-          const otWeekdayComponent = cloned.salaryComponents.find(c => c.systemId === asSystemId('SALCOMP000010'));
-          if (otWeekdayComponent && otWeekdayComponent.formula !== 'otPayWeekday') {
-            otWeekdayComponent.name = 'Làm thêm ngày thường';
-            otWeekdayComponent.formula = 'otPayWeekday';
-            otWeekdayComponent.description = 'Tiền làm thêm sau giờ tan làm (18:00) các ngày trong tuần. Công thức: Giờ OT x Tiền/giờ';
-          }
-          
-          // Sắp xếp lại theo sortOrder
-          cloned.salaryComponents.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-        }
-        
-        const counters = buildCounters(cloned);
-        return normalizeSettings(cloned, counters);
-      },
-    }
-  )
+    })
 );

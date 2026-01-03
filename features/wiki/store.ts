@@ -1,5 +1,4 @@
 ﻿import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { getCurrentDate, toISODate } from '../../lib/date-utils';
 import { data as initialData } from './data';
 import type { WikiArticle } from '@/lib/types/prisma-extended';
@@ -14,7 +13,6 @@ type WikiState = {
 };
 
 export const useWikiStore = create<WikiState>()(
-  persist(
     (set, get) => ({
       data: initialData,
       findById: (systemId) => get().data.find((item) => item.systemId === systemId),
@@ -43,10 +41,5 @@ export const useWikiStore = create<WikiState>()(
         set((state) => ({
           data: state.data.filter((item) => item.systemId !== systemId),
         })),
-    }),
-    {
-      name: 'hrm-wiki-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+    })
 );

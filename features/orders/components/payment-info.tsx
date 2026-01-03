@@ -7,8 +7,8 @@ import { DetailField } from '../../../components/ui/detail-field';
 import { cn } from '../../../lib/utils';
 import { ChevronRight, ChevronDown, Printer, Banknote, Minus } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import { useEmployeeStore } from '../../employees/store';
-import { useBranchStore } from '../../settings/branches/store';
+import { useAllEmployees, useEmployeeFinder } from '../../employees/hooks/use-all-employees';
+import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../../settings/store-info/store-info-store';
 import { usePrint } from '../../../lib/use-print';
 import { numberToWords, formatTime, StoreSettings } from '../../../lib/print-service';
@@ -29,8 +29,9 @@ interface PaymentInfoProps {
 
 export function PaymentInfo({ payment, order }: PaymentInfoProps) {
     const [isExpanded, setIsExpanded] = React.useState(false);
-    const { findById: findEmployeeById, data: employees } = useEmployeeStore();
-    const { findById: findBranchById } = useBranchStore();
+    const { findById: findEmployeeById } = useEmployeeFinder();
+    const { data: employees } = useAllEmployees();
+    const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoStore();
     const { print } = usePrint(order.branchSystemId);
 
@@ -91,7 +92,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 recipientName: order.customerName,
                 recipientPhone: phoneStr,
                 recipientAddress: addressStr,
-                recipientType: 'Kh�ch h�ng',
+                recipientType: 'Khách hàng',
                 amount: amount,
                 description: payment.description,
                 paymentMethod: payment.method,
@@ -113,7 +114,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 payerName: order.customerName,
                 payerPhone: phoneStr,
                 payerAddress: addressStr,
-                payerType: 'Kh�ch h�ng',
+                payerType: 'Khách hàng',
                 amount: amount,
                 description: payment.description,
                 paymentMethod: payment.method,
@@ -155,7 +156,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                     {payment.id}
                 </Link>
                 {isWarrantyPayment && (
-                    <Badge variant="secondary" className="ml-2 text-xs">B?o h�nh</Badge>
+                    <Badge variant="secondary" className="ml-2 text-xs">Bảo hành</Badge>
                 )}
                 <div className="flex-grow text-right text-muted-foreground px-4">
                     {formatDate(payment.date)}
@@ -166,7 +167,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 )}>
                     {isPayment ? '-' : '+'}{formatCurrency(Math.abs(payment.amount))}
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0" onClick={handlePrint} title="In phi?u">
+                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0" onClick={handlePrint} title="In phiếu">
                     <Printer className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0">
@@ -178,9 +179,9 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
             {isExpanded && (
                 <div className="p-4 border-t bg-muted/50 space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
-                        <DetailField label="Phuong th?c" value={payment.method} className="py-1 border-0" />
+                        <DetailField label="Phương thức" value={payment.method} className="py-1 border-0" />
                         <DetailField 
-                            label="Ngu?i t?o" 
+                            label="Người tạo" 
                             className="py-1 border-0"
                             value={creator ? (
                                 <Link href={`/employees/${creator.systemId}`} className="text-primary hover:underline">
@@ -188,15 +189,15 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                                 </Link>
                             ) : payment.createdBy}
                         />
-                        <DetailField label="Di?n gi?i" value={payment.description} className="py-1 border-0 col-span-2" />
+                        <DetailField label="Diễn giải" value={payment.description} className="py-1 border-0 col-span-2" />
                         {isWarrantyPayment && (payment as { linkedWarrantySystemId?: string }).linkedWarrantySystemId && (
                             <DetailField 
-                                label="Li�n k?t" 
+                                label="Liên kết" 
                                 value={
                                     <Link href={`/warranty/${(payment as { linkedWarrantySystemId?: string }).linkedWarrantySystemId}`}
                                         className="text-primary hover:underline"
                                     >
-                                        Xem phi?u b?o h�nh
+                                        Xem phiếu bảo hành
                                     </Link>
                                 } 
                                 className="py-1 border-0 col-span-2" 

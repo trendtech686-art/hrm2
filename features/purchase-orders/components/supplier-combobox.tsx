@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
-import { useSupplierStore } from "../../suppliers/store";
+import { useActiveSuppliers } from "../../suppliers/hooks/use-all-suppliers";
 import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { QuickAddSupplierDialog } from "../../suppliers/components/quick-add-supplier-dialog";
@@ -21,12 +21,8 @@ export function SupplierCombobox({
   placeholder = "Chọn nhà cung cấp...",
   className: _className,
 }: SupplierComboboxProps) {
-  const { data: suppliers, getActive } = useSupplierStore();
+  const { data: activeSuppliers } = useActiveSuppliers();
   const [showAddDialog, setShowAddDialog] = React.useState(false);
-
-  // Only show active suppliers
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- suppliers triggers re-render when store changes
-  const activeSuppliers = React.useMemo(() => getActive(), [suppliers, getActive]);
 
   // Find selected supplier
   const selectedSupplier = React.useMemo(

@@ -12,6 +12,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import type { Complaint } from '../types';
 import { useNotificationStore } from '../../../components/ui/notification-center';
+import { useComplaintReminderSettings as _useComplaintReminderSettingsHook } from '../../../hooks/use-reminder-settings';
 
 export interface ReminderSettings {
   enabled: boolean;
@@ -33,36 +34,27 @@ export interface ReminderStatus {
   message: string;
 }
 
-// Load reminder settings from localStorage
+// Default settings
+const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
+  enabled: true,
+  intervals: {
+    firstReminder: 4,
+    secondReminder: 8,
+    escalation: 24,
+  },
+  notifyAssignee: true,
+  notifyCreator: true,
+  notifyManager: true,
+};
+
+// Load reminder settings - deprecated, use hook instead
 function loadReminderSettings(): ReminderSettings {
-  try {
-    const stored = localStorage.getItem('complaints-reminder-settings');
-    if (stored) return JSON.parse(stored);
-  } catch (e) {
-    console.error('Failed to load reminder settings:', e);
-  }
-  
-  // Default settings
-  return {
-    enabled: true,
-    intervals: {
-      firstReminder: 4, // 4 hours
-      secondReminder: 8, // 8 hours
-      escalation: 24, // 24 hours
-    },
-    notifyAssignee: true,
-    notifyCreator: true,
-    notifyManager: true,
-  };
+  return DEFAULT_REMINDER_SETTINGS;
 }
 
-// Save reminder settings
-export function saveReminderSettings(settings: ReminderSettings): void {
-  try {
-    localStorage.setItem('complaints-reminder-settings', JSON.stringify(settings));
-  } catch (e) {
-    console.error('Failed to save reminder settings:', e);
-  }
+// Save reminder settings - deprecated, use hook instead
+export function saveReminderSettings(_settings: ReminderSettings): void {
+  console.warn('saveReminderSettings is deprecated. Use useComplaintReminderSettings hook instead.');
 }
 
 /**

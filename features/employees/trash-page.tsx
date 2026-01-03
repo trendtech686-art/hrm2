@@ -6,7 +6,7 @@ import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useEmployeeStore } from "./store"
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
 import { Card, CardContent } from "../../components/ui/card"
@@ -18,7 +18,7 @@ import type { SystemId } from '@/lib/id-types';
 
 export function EmployeesTrashPage() {
   const { data, getDeleted, restore, permanentDelete } = useEmployeeStore();
-  const { data: branchesRaw } = useBranchStore();
+  const { data: branchesRaw } = useAllBranches();
   const router = useRouter();
   
   usePageHeader({
@@ -118,7 +118,9 @@ export function EmployeesTrashPage() {
               <h3 className="font-semibold truncate">{employee.fullName}</h3>
               <p className="text-body-sm text-muted-foreground">{employee.id}</p>
               <div className="text-body-sm text-muted-foreground mt-1">
-                {employee.department} • {employee.jobTitle}
+                {typeof employee.department === 'object' ? (employee.department as { name?: string })?.name : employee.department}
+                {' • '}
+                {typeof employee.jobTitle === 'object' ? (employee.jobTitle as { name?: string })?.name : employee.jobTitle}
               </div>
             </div>
           </div>

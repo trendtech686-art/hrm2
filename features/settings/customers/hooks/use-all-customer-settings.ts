@@ -2,7 +2,7 @@
  * Convenience hooks for customer settings - flat array access
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { 
   useCustomerTypes, 
   useCustomerGroups, 
@@ -25,6 +25,20 @@ export function useAllCustomerTypes() {
     isError: query.isError,
     error: query.error,
   };
+}
+
+/**
+ * Returns only active customer types
+ */
+export function useActiveCustomerTypes() {
+  const { data, isLoading, isError, error } = useAllCustomerTypes();
+  
+  const activeData = useMemo(
+    () => data.filter(t => !t.isDeleted && t.isActive !== false),
+    [data]
+  );
+  
+  return { data: activeData, isLoading, isError, error };
 }
 
 /**
@@ -69,6 +83,20 @@ export function useAllCustomerGroups() {
 }
 
 /**
+ * Returns only active customer groups
+ */
+export function useActiveCustomerGroups() {
+  const { data, isLoading, isError, error } = useAllCustomerGroups();
+  
+  const activeData = useMemo(
+    () => data.filter(g => !g.isDeleted && g.isActive !== false),
+    [data]
+  );
+  
+  return { data: activeData, isLoading, isError, error };
+}
+
+/**
  * Returns customer groups formatted as options
  */
 export function useCustomerGroupOptions() {
@@ -94,6 +122,20 @@ export function useAllCustomerSources() {
     isError: query.isError,
     error: query.error,
   };
+}
+
+/**
+ * Returns only active customer sources
+ */
+export function useActiveCustomerSources() {
+  const { data, isLoading, isError, error } = useAllCustomerSources();
+  
+  const activeData = useMemo(
+    () => data.filter(s => !s.isDeleted && s.isActive !== false),
+    [data]
+  );
+  
+  return { data: activeData, isLoading, isError, error };
 }
 
 /**
@@ -151,6 +193,20 @@ export function useAllPaymentTerms() {
 }
 
 /**
+ * Returns only active payment terms
+ */
+export function useActivePaymentTerms() {
+  const { data, isLoading, isError, error } = useAllPaymentTerms();
+  
+  const activeData = useMemo(
+    () => data.filter(t => !t.isDeleted && t.isActive !== false),
+    [data]
+  );
+  
+  return { data: activeData, isLoading, isError, error };
+}
+
+/**
  * Hook for finding payment term by systemId
  */
 export function usePaymentTermFinder() {
@@ -178,6 +234,20 @@ export function useAllCreditRatings() {
 }
 
 /**
+ * Returns only active credit ratings
+ */
+export function useActiveCreditRatings() {
+  const { data, isLoading, isError, error } = useAllCreditRatings();
+  
+  const activeData = useMemo(
+    () => data.filter(r => !r.isDeleted && r.isActive !== false),
+    [data]
+  );
+  
+  return { data: activeData, isLoading, isError, error };
+}
+
+/**
  * Hook for finding credit rating by systemId
  */
 export function useCreditRatingFinder() {
@@ -202,6 +272,20 @@ export function useAllLifecycleStages() {
     isError: query.isError,
     error: query.error,
   };
+}
+
+/**
+ * Returns only active lifecycle stages
+ */
+export function useActiveLifecycleStages() {
+  const { data, isLoading, isError, error } = useAllLifecycleStages();
+  
+  const activeData = useMemo(
+    () => data.filter(s => !s.isDeleted && s.isActive !== false),
+    [data]
+  );
+  
+  return { data: activeData, isLoading, isError, error };
 }
 
 /**

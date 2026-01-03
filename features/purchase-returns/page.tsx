@@ -6,7 +6,7 @@ import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate, isDateAfter, isDateBefore } from '../../lib/date-utils';
 import { usePurchaseReturnStore } from "./store";
 import { usePurchaseOrderStore } from "../purchase-orders/store";
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import { usePageHeader } from "../../contexts/page-header-context";
 import { usePrint } from "../../lib/use-print";
@@ -30,12 +30,18 @@ import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types";
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { purchaseReturnConfig } from "../../lib/import-export/configs/purchase-return.config";
 import { useAuth } from "../../contexts/auth-context";
 import { asSystemId } from "../../lib/id-types";
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
+
+// ✅ Dynamic import for Export dialog - lazy loads XLSX library (~500KB) + config
+const PurchaseReturnExportDialog = dynamic(
+  () => import("./components/purchase-returns-import-export-dialogs").then(mod => ({ default: mod.PurchaseReturnExportDialog })),
+  { ssr: false }
+);
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
@@ -241,7 +247,7 @@ const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): ColumnDe
 export function PurchaseReturnsPage() {
   const { data: purchaseReturns } = usePurchaseReturnStore();
   const { data: _allPurchaseOrders } = usePurchaseOrderStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
   const { employee: currentUser } = useAuth();
@@ -302,27 +308,13 @@ export function PurchaseReturnsPage() {
   const [branchFilter, setBranchFilter] = React.useState('all');
   const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>();
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'purchase-returns-column-visibility';
-    const stored = localStorage.getItem(storageKey);
+  const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns((_pr: PurchaseReturn) => undefined);
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (_e) {
-        // Ignore JSON parse errors - use default
-      }
-    }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
-  });
-  
-  React.useEffect(() => {
-    localStorage.setItem('purchase-returns-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  }, []);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('purchase-returns', defaultColumnVisibility);
   
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
@@ -749,10 +741,9 @@ export function PurchaseReturnsPage() {
       />
 
       {/* Export Dialog */}
-      <GenericExportDialogV2<PurchaseReturn>
+      <PurchaseReturnExportDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
-        config={purchaseReturnConfig}
         allData={purchaseReturns}
         filteredData={filteredData}
         currentPageData={paginatedData}

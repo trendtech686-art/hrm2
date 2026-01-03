@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import * as React from 'react';
 
 export interface GlobalSettings {
@@ -22,7 +21,6 @@ interface GlobalSettingsStore {
 }
 
 export const useGlobalSettingsStore = create<GlobalSettingsStore>()(
-  persist(
     (set) => ({
       settings: DEFAULT_SETTINGS,
       setDefaultPageSize: (size) => 
@@ -34,13 +32,7 @@ export const useGlobalSettingsStore = create<GlobalSettingsStore>()(
           settings: { ...state.settings, pageSizeOptions: options },
         })),
       resetSettings: () => set({ settings: DEFAULT_SETTINGS }),
-    }),
-    {
-      name: 'global-settings',
-      storage: createJSONStorage(() => localStorage),
-      version: 1,
-    }
-  )
+    })
 );
 
 /** Hook để lấy default page size */

@@ -1,0 +1,3 @@
+{
+  "/api/orders/[systemId]/packaging/[packagingId]/in-store-pickup/route": "app/api/orders/[systemId]/packaging/[packagingId]/in-store-pickup/route.js"
+}

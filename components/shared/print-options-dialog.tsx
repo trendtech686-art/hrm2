@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip"
+import { usePrintOptions, type PrintOptionsDefaults as _PrintOptionsDefaults } from "../../hooks/use-print-options"
 
 // Loại mẫu in cho đơn hàng - dùng checkbox để chọn nhiều
 export type OrderPrintTemplateType = 'order' | 'delivery' | 'both';
@@ -67,38 +68,6 @@ const PAPER_SIZE_OPTIONS: { value: PaperSize; label: string }[] = [
   { value: 'K57', label: 'K57' },
 ];
 
-// Local storage key for default settings
-const PRINT_OPTIONS_STORAGE_KEY = 'print-options-default';
-
-interface SavedPrintOptions {
-  branchSystemId: string;
-  paperSize: PaperSize;
-  printOrder: boolean;
-  printDelivery: boolean;
-  printPacking: boolean;
-  printShippingLabel: boolean;
-}
-
-function loadDefaultOptions(): SavedPrintOptions | null {
-  try {
-    const saved = localStorage.getItem(PRINT_OPTIONS_STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (_e) {
-    // ignore
-  }
-  return null;
-}
-
-function saveDefaultOptions(options: SavedPrintOptions) {
-  try {
-    localStorage.setItem(PRINT_OPTIONS_STORAGE_KEY, JSON.stringify(options));
-  } catch (_e) {
-    // ignore
-  }
-}
-
 export function PrintOptionsDialog({
   open,
   onOpenChange,
@@ -108,6 +77,7 @@ export function PrintOptionsDialog({
   initialTemplateType,
 }: PrintOptionsDialogProps) {
   const { data: branches } = useBranchStore();
+  const [savedOptions, setSavedOptions] = usePrintOptions();
   const activeBranches = React.useMemo(
     () => branches.filter(b => b.name),
     [branches]
@@ -133,9 +103,7 @@ export function PrintOptionsDialog({
   // Reset form when dialog opens
   React.useEffect(() => {
     if (open) {
-      const savedOptions = loadDefaultOptions();
-      
-      if (savedOptions) {
+      if (savedOptions.branchSystemId) {
         setBranchSystemId(savedOptions.branchSystemId);
         setPaperSize(savedOptions.paperSize);
         setPrintOrder(savedOptions.printOrder);
@@ -161,6 +129,7 @@ export function PrintOptionsDialog({
       }
       setSaveAsDefault(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultBranch, activeBranches, initialTemplateType]);
 
   const handleConfirm = () => {
@@ -171,7 +140,7 @@ export function PrintOptionsDialog({
 
     // Save as default if checked
     if (saveAsDefault) {
-      saveDefaultOptions({
+      setSavedOptions({
         branchSystemId,
         paperSize,
         printOrder,

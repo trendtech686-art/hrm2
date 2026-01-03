@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { data as initialData } from './data';
 import type { PaymentMethod } from '@/lib/types/prisma-extended';
 import { asSystemId, type SystemId } from '@/lib/id-types';
@@ -13,7 +12,6 @@ interface PaymentMethodState {
 }
 
 export const usePaymentMethodStore = create<PaymentMethodState>()(
-  persist(
     (set) => ({
       data: initialData,
       add: (item) => set((state) => {
@@ -33,10 +31,5 @@ export const usePaymentMethodStore = create<PaymentMethodState>()(
       setDefault: (systemId) => set((state) => ({
         data: state.data.map(p => ({ ...p, isDefault: p.systemId === systemId })),
       })),
-    }),
-    {
-      name: 'hrm-payment-method-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+    })
 );

@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
 // Storage key
-const STORAGE_KEY = 'complaints-notification-settings';
+const _STORAGE_KEY = 'complaints-notification-settings';
 
 // Default notification settings
 const defaultNotifications = {
@@ -25,15 +25,11 @@ interface NotificationSettings {
 }
 
 /**
- * Load notification settings from localStorage
+ * Load notification settings - deprecated, use useComplaintsNotificationSettings hook
+ * @deprecated Use useComplaintsNotificationSettings hook from hooks/use-sla-notification-settings.ts
  */
 function loadNotificationSettings(): NotificationSettings {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : defaultNotifications;
-  } catch {
-    return defaultNotifications;
-  }
+  return defaultNotifications;
 }
 
 /**

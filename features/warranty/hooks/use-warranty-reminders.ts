@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { useWarrantyStore } from '../store';
 import type { WarrantyTicket } from '../types';
 import { notifyWarrantyReminder } from '../notification-utils';
+import { useWarrantyReminderTemplates, DEFAULT_WARRANTY_REMINDER_TEMPLATES } from '../../../hooks/use-reminder-settings';
 
 export interface ReminderTemplate {
   id: string;
@@ -16,32 +17,8 @@ export interface ReminderTemplate {
   isDefault?: boolean;
 }
 
-export const DEFAULT_REMINDER_TEMPLATES: ReminderTemplate[] = [
-  {
-    id: 'overdue',
-    name: 'Nhắc nhở quá hạn',
-    message: 'Phiếu bảo hành #{ticketId} đã quá hạn xử lý. Vui lòng kiểm tra và cập nhật trạng thái.',
-    isDefault: true,
-  },
-  {
-    id: 'follow-up',
-    name: 'Theo dõi tiến độ',
-    message: 'Phiếu bảo hành #{ticketId} đang được xử lý. Vui lòng cập nhật tiến độ cho khách hàng {customerName}.',
-    isDefault: true,
-  },
-  {
-    id: 'return-ready',
-    name: 'Sẵn sàng trả hàng',
-    message: 'Sản phẩm bảo hành #{ticketId} đã xử lý xong. Vui lòng chuẩn bị trả hàng cho khách {customerName}.',
-    isDefault: true,
-  },
-  {
-    id: 'custom',
-    name: 'Nhắc nhở tùy chỉnh',
-    message: '',
-    isDefault: false,
-  },
-];
+// Re-export default templates for backward compatibility
+export const DEFAULT_REMINDER_TEMPLATES = DEFAULT_WARRANTY_REMINDER_TEMPLATES;
 
 export interface WarrantyReminder {
   id: string;
@@ -57,31 +34,21 @@ export interface WarrantyReminder {
 }
 
 /**
- * Load reminder templates from settings
+ * Load reminder templates from hook (deprecated - use useWarrantyReminderTemplates directly)
+ * @deprecated Use useWarrantyReminderTemplates hook instead
  */
 export function loadReminderTemplates(): ReminderTemplate[] {
-  try {
-    const stored = localStorage.getItem('warranty_reminder_templates');
-    if (stored) {
-      const custom = JSON.parse(stored) as ReminderTemplate[];
-      return [...DEFAULT_REMINDER_TEMPLATES, ...custom];
-    }
-  } catch (error) {
-    console.error('Failed to load reminder templates:', error);
-  }
+  // Returns default templates for backward compatibility
+  // New code should use useWarrantyReminderTemplates hook
   return DEFAULT_REMINDER_TEMPLATES;
 }
 
 /**
- * Save custom reminder templates
+ * Save custom reminder templates (deprecated - use useWarrantyReminderTemplates hook)
+ * @deprecated Use useWarrantyReminderTemplates hook instead
  */
-export function saveReminderTemplates(templates: ReminderTemplate[]): void {
-  try {
-    const customTemplates = templates.filter(t => !t.isDefault);
-    localStorage.setItem('warranty_reminder_templates', JSON.stringify(customTemplates));
-  } catch (error) {
-    console.error('Failed to save reminder templates:', error);
-  }
+export function saveReminderTemplates(_templates: ReminderTemplate[]): void {
+  console.warn('saveReminderTemplates is deprecated. Use useWarrantyReminderTemplates hook instead.');
 }
 
 /**
@@ -101,7 +68,7 @@ export function formatReminderMessage(template: string, ticket: WarrantyTicket):
 export function useWarrantyReminders() {
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<WarrantyTicket | null>(null);
-  const [templates] = useState<ReminderTemplate[]>(loadReminderTemplates());
+  const [templates] = useWarrantyReminderTemplates();
 
   /**
    * Open reminder modal for a ticket

@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,10267,t=>{"use strict";var e=t.i(618566);function r(){(0,e.redirect)("/sales-returns")}t.s(["default",()=>r])}]);

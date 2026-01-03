@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/cost-adjustments/page": "app/(authenticated)/cost-adjustments/page.js"
+}

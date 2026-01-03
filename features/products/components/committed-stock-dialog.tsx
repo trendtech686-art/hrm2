@@ -4,9 +4,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../compo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
-import { useOrderStore } from '../../orders/store';
+import { useAllOrders } from '../../orders/hooks/use-all-orders';
 import { useWarrantyStore } from '../../warranty/store';
-import { useProductStore } from '../store';
+import { useProductFinder } from '../hooks/use-all-products';
 import { SystemId } from '../../../lib/id-types';
 
 interface CommittedStockDialogProps {
@@ -26,9 +26,9 @@ export function CommittedStockDialog({
   branchName,
   productName,
 }: CommittedStockDialogProps) {
-  const { data: allOrders } = useOrderStore();
+  const { data: allOrders } = useAllOrders();
   const { data: allWarranties } = useWarrantyStore();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
   const router = useRouter();
 
   // Get product to find SKU (business ID)

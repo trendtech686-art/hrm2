@@ -5,7 +5,7 @@ import { useForm, type ControllerProps, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { CashAccount } from "../../cashbook/types";
-import { useBranchStore } from "../branches/store";
+import { useAllBranches } from "../branches/hooks/use-all-branches";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
 import { Input } from "../../../components/ui/input";
 import { CurrencyInput } from "../../../components/ui/currency-input";
@@ -43,7 +43,7 @@ type FormProps = {
 };
 
 export function CashAccountForm({ initialData, onSubmit }: FormProps) {
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
 
   const defaultBranchSystemId = React.useMemo(() => {
     const branch = branches.find(b => b.isDefault);

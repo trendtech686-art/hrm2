@@ -1,7 +1,7 @@
 import type { Complaint } from './types';
 
 // Storage key
-const STORAGE_KEY = 'complaints-sla-settings';
+const _STORAGE_KEY = 'complaints-sla-settings';
 
 // Default SLA settings
 export const defaultSLA = {
@@ -19,15 +19,11 @@ export interface OverdueStatus {
 }
 
 /**
- * Load SLA settings from localStorage, fallback to default
+ * Load SLA settings - deprecated, use useComplaintsSLASettings hook instead
+ * @deprecated Use useComplaintsSLASettings hook from hooks/use-sla-notification-settings.ts
  */
 function loadSLASettings() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : defaultSLA;
-  } catch {
-    return defaultSLA;
-  }
+  return defaultSLA;
 }
 
 export function checkOverdue(complaint: Complaint): OverdueStatus {

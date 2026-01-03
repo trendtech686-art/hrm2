@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     const created = await prisma.customerSetting.create({
       data: {
         systemId: systemId || undefined, // Let Prisma generate if not provided
-        id: id || `${type.toUpperCase()}-${Date.now()}`,
+        id: id || crypto.randomUUID(),
         name,
         type,
         description,

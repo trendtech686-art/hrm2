@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Download, ArrowLeft } from 'lucide-react';
-import * as XLSX from 'xlsx';
+// XLSX is lazy loaded in handleExport to reduce bundle size (~500KB)
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -55,7 +55,7 @@ export function DataTableExportDialog<TData>({
     }
   }, [open, exportableColumns]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     let dataToExport: TData[];
     switch (exportScope) {
       case 'all':
@@ -82,6 +82,9 @@ export function DataTableExportDialog<TData>({
         });
         return rowData;
     });
+
+    // Lazy load XLSX to reduce bundle size (~500KB)
+    const XLSX = await import('xlsx');
 
     const worksheet = XLSX.utils.json_to_sheet(mappedData, { header: headers });
     const workbook = XLSX.utils.book_new();

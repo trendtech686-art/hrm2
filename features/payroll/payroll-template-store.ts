@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { PayrollTemplate } from '../../lib/payroll-types';
 import { generateSystemId, findNextAvailableBusinessId } from '../../lib/id-utils';
 import { getPrefix } from '../../lib/smart-prefix';
@@ -7,7 +6,6 @@ import { getCurrentUserSystemId } from '../../contexts/auth-context';
 import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
 import { asBusinessId, asSystemId, type SystemId } from '../../lib/id-types';
 
-const STORAGE_KEY = 'hrm-payroll-template-store';
 const TEMPLATE_ENTITY = 'payroll-templates' as const;
 
 const resolveActorSystemId = () => asSystemId(getCurrentUserSystemId() || 'SYSTEM00000000');
@@ -246,7 +244,6 @@ const enforceSingleDefault = (templates: PayrollTemplate[], defaultSystemId?: Sy
 };
 
 export const usePayrollTemplateStore = create<PayrollTemplateStoreState>()(
-  persist(
     (set, get) => ({
       templates: [],
       counter: initialCounter,
@@ -389,63 +386,5 @@ export const usePayrollTemplateStore = create<PayrollTemplateStoreState>()(
           },
         });
       },
-    }),
-    {
-      name: STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
-      version: 2,
-      migrate: (persistedState, version) => {
-        if (!persistedState) {
-          return {
-            templates: [],
-            counter: initialCounter,
-          } satisfies Partial<PayrollTemplateStoreState>;
-        }
-
-        const state = persistedState as Partial<PayrollTemplateStoreState>;
-        let templates = state.templates ?? [];
-        
-        // Migration v1 -> v2: Thêm các component OT mới vào templates
-        if (version < 2) {
-          const otWeekend = asSystemId('SALCOMP000020');
-          const otHoliday = asSystemId('SALCOMP000021');
-          const otWeekday = asSystemId('SALCOMP000010');
-          
-          templates = templates.map((template) => {
-            const ids = template.componentSystemIds || [];
-            const hasOtWeekday = ids.includes(otWeekday);
-            const hasOtWeekend = ids.includes(otWeekend);
-            const hasOtHoliday = ids.includes(otHoliday);
-            
-            // Nếu template có OT ngày thường nhưng chưa có OT cuối tuần/ngày lễ, thêm vào
-            if (hasOtWeekday && (!hasOtWeekend || !hasOtHoliday)) {
-              const otIndex = ids.indexOf(otWeekday);
-              const newIds = [...ids];
-              if (!hasOtWeekend) {
-                newIds.splice(otIndex + 1, 0, otWeekend);
-              }
-              if (!hasOtHoliday) {
-                newIds.splice(otIndex + 2, 0, otHoliday);
-              }
-              return { ...template, componentSystemIds: newIds };
-            }
-            return template;
-          });
-        }
-        
-        const sanitizedTemplates = templates.map((template) => ({
-          ...template,
-          componentSystemIds: sanitizeComponentIds(template.componentSystemIds),
-        }));
-
-        const hasDefault = sanitizedTemplates.some((template) => template.isDefault);
-        const finalTemplates = enforceSingleDefault(sanitizedTemplates, hasDefault ? undefined : sanitizedTemplates[0]?.systemId);
-
-        return {
-          templates: finalTemplates,
-          counter: state.counter ?? initialCounter,
-        } satisfies Partial<PayrollTemplateStoreState>;
-      },
-    }
-  )
+    })
 );

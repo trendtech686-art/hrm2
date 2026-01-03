@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type ShippingSettings = {
     weightSource: 'product' | 'custom';
@@ -40,14 +39,8 @@ type ShippingSettingsState = {
 };
 
 export const useShippingSettingsStore = create<ShippingSettingsState>()(
-  persist(
     (set) => ({
       settings: defaultSettings,
       setSettings: (newSettings) => set((state) => ({ settings: { ...state.settings, ...newSettings }})),
-    }),
-    {
-      name: 'shipping-settings-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+    })
 );

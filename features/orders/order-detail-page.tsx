@@ -1,10 +1,12 @@
 'use client'
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime } from '../../lib/date-utils';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useOrderStore } from './store';
+import { useOrderDetailActions } from './hooks/use-order-detail-actions';
 import type { Order, OrderMainStatus, OrderDeliveryStatus, OrderPayment, OrderAddress, Customer } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from './address-utils';
 import { toast } from 'sonner';
@@ -13,13 +15,13 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
 import { Separator } from '../../components/ui/separator';
-import { useCustomerStore } from '../customers/store';
+import { useAllCustomers, useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
 import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
 import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
 import { ArrowLeft, Printer, Check, Copy, ChevronDown, CheckCircle2, FileWarning, Package, Info, ChevronRight, Eye, StickyNote, ArrowDownLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees, useEmployeeFinder, useEmployeeSearcher } from '../employees/hooks/use-all-employees';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
@@ -32,7 +34,7 @@ import { CurrencyInput } from '../../components/ui/currency-input';
 import { DetailField } from '../../components/ui/detail-field';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { Textarea } from '../../components/ui/textarea';
-import { useProductStore } from '../products/store';
+import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
 import { useProductImage } from '../products/components/product-image';
 import { useWarrantyStore } from '../warranty/store';
 import { useComplaintStore } from '../complaints/store';
@@ -43,10 +45,21 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
 import { Combobox, type ComboboxOption } from '../../components/ui/combobox';
 import { PackagingInfo } from './components/packaging-info';
-import { CancelShipmentDialog } from './components/cancel-shipment-dialog';
-import { CancelPackagingDialog } from './components/cancel-packaging-dialog';
-import { DeliveryFailureDialog } from './components/delivery-failure-dialog';
 import { PaymentInfo } from './components/payment-info';
+
+// ✅ Dynamic imports for dialogs - lazy loaded when user triggers actions
+const CancelShipmentDialog = dynamic(
+  () => import('./components/cancel-shipment-dialog').then(m => ({ default: m.CancelShipmentDialog })),
+  { ssr: false }
+);
+const CancelPackagingDialog = dynamic(
+  () => import('./components/cancel-packaging-dialog').then(m => ({ default: m.CancelPackagingDialog })),
+  { ssr: false }
+);
+const DeliveryFailureDialog = dynamic(
+  () => import('./components/delivery-failure-dialog').then(m => ({ default: m.DeliveryFailureDialog })),
+  { ssr: false }
+);
 
 import { ShippingTrackingTab } from './components/shipping-tracking-tab';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../components/ui/collapsible';
@@ -64,12 +77,13 @@ import { OrderWorkflowCard } from './components/order-workflow-card';
 import { getWorkflowTemplates } from '../settings/printer/workflow-templates-page';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useCustomerSlaEvaluation } from '../customers/sla/hooks';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import { OrderPrintButton } from './components/order-print-button';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useBranding, getFullLogoUrl } from '../../hooks/use-branding';
 import { mapSalesReturnToPrintData, SalesReturnForPrint } from '../../lib/print-mappers/sales-return.mapper';
 import { mapPaymentToPrintData, PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
@@ -496,7 +510,7 @@ function PackerSelectionDialog({
     onSubmit: (packerId?: SystemId) => void;
     existingPackerSystemId?: SystemId;
 }) {
-  const { searchEmployees } = useEmployeeStore();
+  const { searchEmployees } = useEmployeeSearcher();
   const [selectedEmployee, setSelectedEmployee] = React.useState<ComboboxOption | null>(null);
 
     const handleSubmit = () => {
@@ -556,7 +570,7 @@ const OrderHistoryTab = ({ order, salesReturnsForOrder, orderComments: _orderCom
     const { data: receipts } = useReceiptStore();
     const { data: payments } = usePaymentStore();
     const { data: warranties } = useWarrantyStore();
-    const { findById: findEmployeeById } = useEmployeeStore();
+    const { findById: findEmployeeById } = useEmployeeFinder();
     const allTransactions = React.useMemo(() => [...receipts, ...payments], [receipts, payments]);
 
     const parseTimestamp = React.useCallback((value?: string) => {
@@ -960,11 +974,11 @@ const ReturnHistoryTab = ({ order, salesReturnsForOrder, getProductTypeLabel, on
     const [expandedReturnId, setExpandedReturnId] = React.useState<string | null>(null);
     const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
     const { data: orders } = useOrderStore();
-    const { data: allProducts } = useProductStore();
-    const { findById: findBranchById } = useBranchStore();
+    const { data: allProducts } = useAllProducts();
+    const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoStore();
     const { print } = usePrint(order.branchSystemId);
-    const { findById: findCustomerById } = useCustomerStore();
+    const { findById: findCustomerById } = useCustomerFinder();
 
     const toggleComboRow = React.useCallback((key: string) => {
         setExpandedCombos(prev => ({ ...prev, [key]: !prev[key] }));
@@ -1504,6 +1518,7 @@ export function OrderDetailPage() {
     const params = useParams<{ systemId?: string; id?: string }>();
     const router = useRouter();
 
+    // Use Zustand store for data only
     const orderStore = useOrderStore();
     const ordersData = orderStore.data;
     const orders = React.useMemo(() => ordersData ?? [], [ordersData]);
@@ -1524,8 +1539,26 @@ export function OrderDetailPage() {
     }, [orderStore, orders, params.id, params.systemId]);
 
     console.log('🔍 [OrderDetail] lookup param:', params.systemId || params.id, 'foundOrder:', !!order, order ? { systemId: order.systemId, id: order.id } : null);
-    const { cancelOrder, addPayment, requestPackaging, confirmPackaging, cancelPackagingRequest, processInStorePickup, confirmPartnerShipment, dispatchFromWarehouse, completeDelivery, failDelivery, cancelDelivery, cancelDeliveryOnly, confirmInStorePickup, cancelGHTKShipment } = orderStore;
-    const { findById: findProductById } = useProductStore();
+    
+    // ✅ Use React Query hooks for mutations (backward compatible with store sync)
+    const {
+        cancelOrder,
+        addPayment,
+        requestPackaging,
+        confirmPackaging,
+        cancelPackagingRequest,
+        processInStorePickup,
+        confirmPartnerShipment,
+        dispatchFromWarehouse,
+        completeDelivery,
+        failDelivery,
+        cancelDelivery,
+        cancelDeliveryOnly,
+        confirmInStorePickup,
+        cancelGHTKShipment,
+        isLoading: _isPending
+    } = useOrderDetailActions();
+    const { findById: findProductById } = useProductFinder();
     const { findById: findProductTypeById } = useProductTypeStore();
     const { data: allSalesReturns } = useSalesReturnStore();
     const { data: pricingPolicies } = usePricingPolicyStore();
@@ -1538,11 +1571,11 @@ export function OrderDetailPage() {
     const { data: allPayments } = usePaymentStore();
     const complaints = useComplaintStore((state) => state.complaints);
     const slaEngine = useCustomerSlaEvaluation();
-    const { data: _branches, findById: findBranchById } = useBranchStore();
+    const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoStore();
     const { print } = usePrint();
     
-    const { data: customers } = useCustomerStore();
+    const { data: customers } = useAllCustomers();
     const customer = order ? customers.find(c => c.systemId === order.customerSystemId) : null;
     const orderBranch = order ? findBranchById?.(order.branchSystemId) : null;
     const { employee: authEmployee } = useAuth();
@@ -1781,7 +1814,7 @@ export function OrderDetailPage() {
     const customerTypes = useCustomerTypeStore();
     const customerGroups = useCustomerGroupStore();
     const customerSources = useCustomerSourceStore();
-    const { findById: findEmployeeById } = useEmployeeStore();
+    const { findById: findEmployeeById } = useEmployeeFinder();
 
     // Branding for print
     const { logoUrl } = useBranding();
@@ -1805,9 +1838,30 @@ export function OrderDetailPage() {
     const [isPackerSelectionOpen, setIsPackerSelectionOpen] = React.useState(false);
     const [cancelPackagingState, setCancelPackagingState] = React.useState<{ packagingSystemId: SystemId } | null>(null);
     const [cancelShipmentState, setCancelShipmentState] = React.useState<{ packagingSystemId: SystemId; type: 'fail' | 'cancel' } | null>(null);
-    const [orderComments, setOrderComments] = React.useState<OrderComment[]>([]);
-    const commentStorageKey = order ? `order-comments-${order.systemId}` : null;
     const [hasOrderWorkflowTemplate, setHasOrderWorkflowTemplate] = React.useState(true);
+
+    // Comments from database
+    const { 
+        comments: dbComments, 
+        addComment: dbAddComment, 
+        deleteComment: dbDeleteComment 
+    } = useComments('order', order?.systemId || '');
+
+    const orderComments = React.useMemo(() => 
+        dbComments.map(c => ({
+            id: c.systemId,
+            content: c.content,
+            author: {
+                systemId: (c.createdBy || 'system') as SystemId,
+                name: c.createdByName || 'Hệ thống',
+                avatar: undefined,
+            },
+            createdAt: new Date(c.createdAt),
+            updatedAt: c.updatedAt ? new Date(c.updatedAt) : undefined,
+            attachments: c.attachments,
+        })), 
+        [dbComments]
+    );
 
     React.useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -1831,113 +1885,20 @@ export function OrderDetailPage() {
         }
     }, [isCancelAlertOpen, resetCancelForm]);
 
-    React.useEffect(() => {
-        if (!commentStorageKey || typeof window === 'undefined') {
-            setOrderComments([]);
-            return;
-        }
-
-        try {
-            const stored = window.localStorage.getItem(commentStorageKey);
-            if (!stored) {
-                setOrderComments([]);
-                return;
-            }
-
-            const parsed = JSON.parse(stored) as Array<{
-                id: string;
-                content: string;
-                author: OrderComment['author'];
-                parentId?: string;
-                createdAt: string;
-                updatedAt?: string;
-            }>;
-            setOrderComments(
-                parsed.map(comment => ({
-                    ...comment,
-                    createdAt: new Date(comment.createdAt),
-                    updatedAt: comment.updatedAt ? new Date(comment.updatedAt) : undefined,
-                }))
-            );
-        } catch (error) {
-            console.error('[OrderDetail] Failed to load order comments', error);
-            setOrderComments([]);
-        }
-    }, [commentStorageKey]);
-
-    const persistOrderComments = React.useCallback((comments: OrderComment[]) => {
-        if (!commentStorageKey || typeof window === 'undefined') return;
-        const serializable = comments.map(comment => ({
-            ...comment,
-            createdAt: new Date(comment.createdAt).toISOString(),
-            updatedAt: comment.updatedAt ? new Date(comment.updatedAt).toISOString() : undefined,
-        }));
-        window.localStorage.setItem(commentStorageKey, JSON.stringify(serializable));
-    }, [commentStorageKey]);
-
-    const handleAddOrderComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
+    const handleAddOrderComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
         if (!order) return;
         const trimmed = content.trim();
         if (!trimmed) return;
+        dbAddComment(trimmed, attachments || []);
+    }, [order, dbAddComment]);
 
-        const randomId = typeof window !== 'undefined' && window.crypto?.randomUUID
-            ? window.crypto.randomUUID()
-            : `order-comment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-        const newComment: OrderComment = {
-            id: randomId,
-            content: trimmed,
-            author: {
-                systemId: currentEmployeeSystemId,
-                name: authEmployee?.fullName || 'Nhân viên',
-                avatar: authEmployee?.avatarUrl,
-            },
-            createdAt: new Date(),
-            parentId,
-        };
-
-        setOrderComments(prev => {
-            const updated = [...prev, newComment];
-            persistOrderComments(updated);
-            return updated;
-        });
-    }, [order, currentEmployeeSystemId, authEmployee?.fullName, authEmployee?.avatarUrl, persistOrderComments]);
-
-    const handleUpdateOrderComment = React.useCallback((commentId: string, content: string) => {
-        const trimmed = content.trim();
-        if (!trimmed) return;
-
-        setOrderComments(prev => {
-            const updated = prev.map(comment =>
-                comment.id === commentId
-                    ? { ...comment, content: trimmed, updatedAt: new Date() }
-                    : comment
-            );
-            persistOrderComments(updated);
-            return updated;
-        });
-    }, [persistOrderComments]);
+    const handleUpdateOrderComment = React.useCallback((_commentId: string, _content: string) => {
+        console.warn('Update comment not yet implemented in database');
+    }, []);
 
     const handleDeleteOrderComment = React.useCallback((commentId: string) => {
-        setOrderComments(prev => {
-            const idsToRemove = new Set<string>([commentId]);
-            const queue = [commentId];
-
-            while (queue.length > 0) {
-                const current = queue.shift()!;
-                prev.forEach(comment => {
-                    if (comment.parentId === current && !idsToRemove.has(comment.id)) {
-                        idsToRemove.add(comment.id);
-                        queue.push(comment.id);
-                    }
-                });
-            }
-
-            const updated = prev.filter(comment => !idsToRemove.has(comment.id));
-            persistOrderComments(updated);
-            return updated;
-        });
-    }, [persistOrderComments]);
+        dbDeleteComment(commentId);
+    }, [dbDeleteComment]);
 
     const commentCurrentUser = React.useMemo(() => {
         if (!authEmployee) return undefined;
@@ -1949,7 +1910,7 @@ export function OrderDetailPage() {
     }, [authEmployee, currentEmployeeSystemId]);
 
     // Get all employees for @mention in comments
-    const { data: allEmployees } = useEmployeeStore();
+    const { data: allEmployees } = useAllEmployees();
     const employeeMentions = React.useMemo(() => {
         return allEmployees
             .filter(e => !e.isDeleted)
@@ -2130,7 +2091,7 @@ export function OrderDetailPage() {
         if (ghtkPackaging && ghtkPackaging.trackingCode) {
             try {
                 console.log('[Cancel Order] Attempting to cancel GHTK shipment first:', ghtkPackaging.trackingCode);
-                const { cancelGHTKShipment } = useOrderStore.getState();
+                // ✅ Use React Query mutation instead of store.getState()
                 const result = await cancelGHTKShipment(
                     order.systemId, 
                     ghtkPackaging.systemId, 
@@ -2192,7 +2153,16 @@ export function OrderDetailPage() {
         resetCancelForm();
         setIsCancelAlertOpen(false); 
     };
-    const handleAddPayment = (paymentData: PaymentFormValues) => { if (order) { addPayment(order.systemId, paymentData, currentEmployeeSystemId); setIsPaymentDialogOpen(false); } };
+    const handleAddPayment = (paymentData: PaymentFormValues) => { 
+        if (order) { 
+            addPayment(order.systemId, {
+                amount: paymentData.amount,
+                paymentMethodId: paymentData.method,
+                note: paymentData.reference,
+            }, currentEmployeeSystemId); 
+            setIsPaymentDialogOpen(false); 
+        } 
+    };
     const handleRequestPackaging = React.useCallback((assignedEmployeeId?: SystemId) => {
         if (order) {
             requestPackaging(order.systemId, currentEmployeeSystemId, assignedEmployeeId);
@@ -2203,7 +2173,9 @@ export function OrderDetailPage() {
     const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } };
     const handleShippingSubmit = async (data: Record<string, unknown>) => { 
         if (order && activePackaging) { 
-            await confirmPartnerShipment(order.systemId, activePackaging.systemId, data); 
+            const provider = String(data.provider || '');
+            const serviceType = data.serviceType ? String(data.serviceType) : undefined;
+            await confirmPartnerShipment(order.systemId, provider, serviceType); 
         } 
     };
     

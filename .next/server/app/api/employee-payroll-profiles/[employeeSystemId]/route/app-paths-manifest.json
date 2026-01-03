@@ -1,0 +1,3 @@
+{
+  "/api/employee-payroll-profiles/[employeeSystemId]/route": "app/api/employee-payroll-profiles/[employeeSystemId]/route.js"
+}

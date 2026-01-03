@@ -15,9 +15,9 @@ import {
   SALES_REPORT_GLOSSARY,
   formatCurrency,
 } from '../components/index';
-import { useOrderStore } from '@/features/orders/store';
-import { useCustomerStore } from '@/features/customers/store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
+import { useCustomerFinder } from '@/features/customers/hooks/use-all-customers';
+import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -127,9 +127,9 @@ export function SalesOrderReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   
-  const { data: orders } = useOrderStore();
-  const { findById: findCustomerById } = useCustomerStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { data: orders } = useAllOrders();
+  const { findById: findCustomerById } = useCustomerFinder();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   
   // Process data
   const { data, summary } = React.useMemo(() => {

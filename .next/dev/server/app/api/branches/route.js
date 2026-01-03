@@ -1,6 +1,6 @@
 var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/branches/route.js")
-R.c("server/chunks/[externals]__3fbf211c._.js")
-R.c("server/chunks/[root-of-the-server]__24f3f014._.js")
+R.c("server/chunks/[externals]__e20423fc._.js")
+R.c("server/chunks/[root-of-the-server]__cfa28b10._.js")
 R.c("server/chunks/[root-of-the-server]__fbbb6d34._.js")
 R.c("server/chunks/_next-internal_server_app_api_branches_route_actions_13d2d717.js")
 R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/app/api/branches/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")

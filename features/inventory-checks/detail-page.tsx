@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useInventoryCheckStore } from './store';
-import { useProductStore } from '../products/store';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
@@ -20,13 +20,14 @@ import {
   mapInventoryCheckLineItems,
   createStoreSettings,
 } from '../../lib/print/inventory-check-print-helper';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from 'sonner';
 import { type SystemId, asSystemId } from '../../lib/id-types';
 import { ActivityHistory } from '../../components/ActivityHistory';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
@@ -55,7 +56,7 @@ export function InventoryCheckDetailPage() {
   const router = useRouter();
   const { isMobile: _isMobile } = useBreakpoint();
   const { findById, balanceCheck, cancelCheck } = useInventoryCheckStore();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeStore();
   const [showBalanceDialog, setShowBalanceDialog] = React.useState(false);
 
@@ -72,46 +73,42 @@ export function InventoryCheckDetailPage() {
   // systemId from params (e.g., "INVCHECK000002")
   const check = findById(systemId as SystemId);
 
-  // Comments state with localStorage persistence
-  type CheckComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<CheckComment[]>(() => {
-    const saved = localStorage.getItem(`inventory-check-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('inventory_check', systemId || '');
+
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId as unknown as SystemId,
+      content: c.content,
+      author: {
+        systemId: (c.createdBy || 'system') as unknown as SystemId,
+        name: c.createdByName || 'Hệ thống',
+        avatar: undefined,
+      },
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
   // Get current employee for comments
   const [currentEmployee, setCurrentEmployee] = React.useState<{ systemId: SystemId; fullName: string; avatar?: string } | null>(null);
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`inventory-check-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = (content: string, attachments?: string[], parentId?: string) => {
-    const newComment: CheckComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
-      author: {
-        systemId: currentEmployee?.systemId || asSystemId('system'),
-        name: currentEmployee?.fullName || 'Hệ thống',
-        avatar: currentEmployee?.avatar,
-      },
-      createdAt: new Date().toISOString(),
-      attachments,
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
+  const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
   };
 
-  const handleUpdateComment = (commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-    ));
+  const handleUpdateComment = (_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
+    dbDeleteComment(commentId);
   };
 
   const commentCurrentUser = React.useMemo(() => ({
@@ -167,7 +164,7 @@ export function InventoryCheckDetailPage() {
     router.push('/inventory-checks');
   }, [check, cancelCheck, router]);
 
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint(check?.branchSystemId);
 

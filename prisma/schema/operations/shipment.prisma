@@ -25,7 +25,7 @@ model Shipment {
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
 
   // Linking
-  packagingSystemId String? // Link to Packaging
+  packagingSystemId String? @unique // Link to Packaging
   orderSystemId     String?
   orderBusinessId   String? // DH000001
 
@@ -65,7 +65,8 @@ model Shipment {
   activityHistory Json?
 
   // === RELATIONS ===
-  order Order @relation(fields: [orderId], references: [systemId])
+  order     Order      @relation(fields: [orderId], references: [systemId])
+  packaging Packaging? @relation(fields: [packagingSystemId], references: [systemId])
 
   @@index([carrier])
   @@index([orderId])

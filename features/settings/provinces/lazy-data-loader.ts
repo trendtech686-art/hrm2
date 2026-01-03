@@ -5,7 +5,7 @@
  * This significantly reduces initial compile time and bundle size.
  */
 
-import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+import { asSystemId, asBusinessId } from '@/lib/id-types';
 import type { Province, District, Ward } from '@/lib/types/prisma-extended';
 
 // Cache for loaded data
@@ -39,7 +39,6 @@ export function loadProvincesSync(): Province[] {
   if (wardsCache.provinces) return wardsCache.provinces;
   
   // Fallback to sync import for initial state - provinces-data is small
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PROVINCES_DATA } = require('./provinces-data');
   wardsCache.provinces = PROVINCES_DATA.map((p: Province) => ({ ...p }));
   return wardsCache.provinces;

@@ -1,1 +1,11 @@
-{}
+{
+  "[project]/features/inventory-checks/components/inventory-checks-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/inventory-checks/components/inventory-checks-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_4c10a91f._.js",
+      "static/chunks/node_modules_xlsx_xlsx_mjs_fef98e92._.js",
+      "static/chunks/node_modules_fb9f303b._.js",
+      "static/chunks/fa5c6_inventory-checks_components_inventory-checks-import-export-dialogs_tsx_2e325959._.js"
+    ]
+  }
+}

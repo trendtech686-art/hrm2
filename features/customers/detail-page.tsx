@@ -1,11 +1,10 @@
 'use client'
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { formatDate as formatDateUtil, getCurrentDate, getDaysDiff, parseDate } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { sanitizeToText } from '@/lib/sanitize';
 import { 
   calculateHealthScore, 
   calculateChurnRisk, 
@@ -13,12 +12,12 @@ import {
   getCustomerSegment,
   getSegmentLabel,
   getSegmentBadgeVariant,
-  getHealthScoreLevel
+  getHealthScoreLevel,
 } from './intelligence-utils';
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
 import { useCustomerStore } from './store';
 import type { Customer } from '@/lib/types/prisma-extended';
-import { useOrderStore } from '../orders/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { useWarrantyStore } from '../warranty/store';
 import { useComplaintStore } from '../complaints/store';
 import { useReceiptStore } from '../receipts/store';
@@ -43,52 +42,46 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
-import { ArrowLeft, Edit, Phone, Mail, ExternalLink, Trash2, Clock, CreditCard, TrendingDown, Eye, MoreHorizontal, Printer, FileSpreadsheet, FileText, HelpCircle, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Clock, CreditCard, TrendingDown, Phone, Mail, ExternalLink, HelpCircle } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { ProgressiveImage } from '../../components/ui/progressive-image';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
-import { CustomerAddresses } from './customer-addresses';
+import { ProgressiveImage } from '../../components/ui/progressive-image';
 import { CopyableText } from '../../components/shared/copy-button';
+
+// Dynamic import for CustomerAddresses (code-splitting)
+const CustomerAddresses = dynamic(() => import('./customer-addresses').then(mod => ({ default: mod.CustomerAddresses })), { ssr: false });
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { sanitizeToText } from '@/lib/sanitize';
 import { useProductStore } from '../products/store';
 import { useSalesReturnStore } from '../sales-returns/store';
-import { calculateWarrantyExpiry, calculateDaysRemaining, getWarrantyStatusBadge } from '../warranty/utils/warranty-checker';
+import { calculateWarrantyExpiry, calculateDaysRemaining } from '../warranty/utils/warranty-checker';
+import type { OrderMainStatus } from '../orders/types';
 import type { ColumnDef } from '../../components/data-table/types';
-import type { Order, OrderMainStatus } from '../orders/types';
 import type { WarrantyTicket } from '../warranty/types';
 import type { Complaint } from '../complaints/types';
-import { CustomerSlaStatusCard } from './components/sla-status-card';
 import { useCustomerSlaEvaluation } from './sla/hooks';
 import { useCustomerSlaEngineStore } from './sla/store';
 import { getActivityLogs, SLA_LOG_UPDATED_EVENT } from './sla/ack-storage';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from '../warranty/types';
-import { complaintStatusLabels, complaintStatusColors, complaintTypeLabels } from '../complaints/types';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
+
+// Dynamic import for CustomerSlaStatusCard (code-splitting)
+const CustomerSlaStatusCard = dynamic(() => import('./components/sla-status-card').then(mod => ({ default: mod.CustomerSlaStatusCard })), { ssr: false });
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { useAuth } from '../../contexts/auth-context';
-
-const normalizeCurrencyValue = (value?: number) => {
-  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
-  return Math.abs(value) < 0.005 ? 0 : value;
-};
-
-const formatCurrency = (value?: number) => {
-  const normalized = normalizeCurrencyValue(value);
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(normalized);
-};
-
-const _formatAddress = (street?: string, ward?: string, province?: string) => {
-    const address = [street, ward, province].filter(Boolean).join(', ');
-    return address || '-';
-};
+// Import extracted components from detail/
+import {
+  formatCurrency,
+  productColumns,
+  warrantyColumns,
+  complaintColumns,
+  debtColumns,
+  createOrderColumnsWithReturns,
+  type DrilldownSearch,
+  type OrderWithReturns,
+  type ComplaintRow,
+} from './detail';
 
 // Simple detail item component - no icons for cleaner look
 const DetailItem = ({ label, value, onClick, className = '' }: { 
@@ -107,399 +100,6 @@ const DetailItem = ({ label, value, onClick, className = '' }: {
     </dd>
   </div>
 );
-
-// Stats summary item
-const _StatItem = ({ label, value, subtext }: { label: string; value: string; subtext?: string }) => (
-  <div className="text-center p-4 rounded-lg bg-muted/50">
-    <div className="text-h3 font-bold">{value}</div>
-    <div className="text-body-sm text-muted-foreground">{label}</div>
-    {subtext && <div className="text-body-xs text-muted-foreground mt-1">{subtext}</div>}
-  </div>
-);
-
-type DrilldownSearch = {
-  query: string;
-  token: string;
-};
-
-const orderStatusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
-    "Đặt hàng": "secondary",
-    "Đang giao dịch": "warning",
-    "Hoàn thành": "success",
-    "Đã hủy": "destructive",
-};
-
-// REMOVED: Complaint status variants
-// const complaintStatusVariants: Record<ComplaintStatus, "default" | "secondary" | "warning" | "success"> = {
-//     "Mới": "secondary", "Đang xử lý": "warning", "Đã giải quyết": "success", "Đã đóng": "default",
-// };
-
-// Column Definitions
-const _orderColumns: ColumnDef<Order>[] = [
-    { id: 'id', accessorKey: 'id', header: 'Mã ĐH', cell: ({ row }) => <span className="font-medium">{row.id}</span>, meta: { displayName: 'Mã ĐH'} },
-    { id: 'orderDate', accessorKey: 'orderDate', header: 'Ngày đặt', cell: ({ row }) => formatDateUtil(row.orderDate), meta: { displayName: 'Ngày đặt'} },
-    { id: 'status', accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => {
-        let displayStatus = row.status;
-        if (row.status === 'Đặt hàng' && (row.stockOutStatus === 'Xuất kho toàn bộ' || row.deliveryStatus === 'Đang giao hàng' || row.deliveryStatus === 'Đã giao hàng')) {
-            displayStatus = 'Đang giao dịch';
-        }
-        return <Badge variant={orderStatusVariants[displayStatus] || orderStatusVariants[row.status]}>{displayStatus}</Badge>;
-    }, meta: { displayName: 'Trạng thái'} },
-    { id: 'grandTotal', accessorKey: 'grandTotal', header: 'Tổng tiền', cell: ({ row }) => formatCurrency(row.grandTotal), meta: { displayName: 'Tổng tiền'} },
-    { id: 'actions', header: 'Hành động', cell: ({ row }) => (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Mở menu</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                    <Link href={`/orders/${row.systemId}`}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Xem chi tiết
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => window.print()}>
-                    <Printer className="mr-2 h-4 w-4" />
-                    In
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Chức năng xuất PDF đang phát triển')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Xuất PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Chức năng xuất Excel đang phát triển')}>
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Xuất Excel
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    ), meta: { displayName: 'Hành động', excludeFromExport: true } },
-];
-
-// Extended order type with return info
-type OrderWithReturns = Order & {
-    returnCount?: number;
-    totalReturnValue?: number;
-    returnIds?: string[];
-};
-
-const productColumns: ColumnDef<{ systemId: string, name: string; quantity: number; orderId: string; orderDate: string; orderSystemId: string; productSystemId: string; warrantyMonths: number; warrantyExpiry: string; daysRemaining: number }>[] = [
-    { id: 'orderId', accessorKey: 'orderId', header: 'Mã ĐH', cell: ({ row }) => <Link href={`/orders/${row.orderSystemId}`} className="font-medium text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã ĐH'} },
-    { id: 'orderDate', accessorKey: 'orderDate', header: 'Ngày mua', cell: ({ row }) => formatDateUtil(row.orderDate), meta: { displayName: 'Ngày mua'} },
-    { id: 'name', accessorKey: 'name', header: 'Tên sản phẩm', cell: ({ row }) => <Link href={`/products/${row.productSystemId}`} className="font-medium text-primary hover:underline">{row.name}</Link>, meta: { displayName: 'Tên sản phẩm'} },
-    { id: 'quantity', accessorKey: 'quantity', header: 'SL', cell: ({ row }) => row.quantity, meta: { displayName: 'Số lượng'} },
-    { id: 'warrantyMonths', accessorKey: 'warrantyMonths', header: 'Bảo hành', cell: ({ row }) => row.warrantyMonths ? `${row.warrantyMonths} tháng` : '—', meta: { displayName: 'Bảo hành'} },
-    { id: 'warrantyExpiry', accessorKey: 'warrantyExpiry', header: 'Hết hạn BH', cell: ({ row }) => row.warrantyExpiry ? formatDateUtil(row.warrantyExpiry) : '—', meta: { displayName: 'Hết hạn BH'} },
-    { id: 'daysRemaining', accessorKey: 'daysRemaining', header: 'Thời gian còn lại', cell: ({ row }) => {
-        if (!row.warrantyMonths) return '—';
-        const badge = getWarrantyStatusBadge(row.daysRemaining);
-        return <Badge variant={badge.variant}>{badge.label}</Badge>;
-    }, meta: { displayName: 'Thời gian còn lại'} },
-    { id: 'actions', header: 'Hành động', cell: ({ row }) => (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Mở menu</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                    <Link href={`/products/${row.productSystemId}`}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Xem sản phẩm
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link href={`/orders/${row.orderSystemId}`}>
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Xem đơn hàng
-                    </Link>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    ), meta: { displayName: 'Hành động', excludeFromExport: true } },
-];
-
-const warrantyColumns: ColumnDef<WarrantyTicket>[] = [
-  {
-    id: 'id',
-    accessorKey: 'id',
-    header: 'Mã BH',
-    cell: ({ row }) => (
-      <Link href={`/warranty/${row.systemId}`} className="font-medium text-primary hover:underline">
-        {row.id}
-      </Link>
-    ),
-    meta: { displayName: 'Mã BH' },
-  },
-  {
-    id: 'status',
-    accessorKey: 'status',
-    header: 'Trạng thái',
-    cell: ({ row }) => (
-      <Badge className={WARRANTY_STATUS_COLORS[row.status] || ''}>
-        {WARRANTY_STATUS_LABELS[row.status] || row.status}
-      </Badge>
-    ),
-    meta: { displayName: 'Trạng thái' },
-  },
-  {
-    id: 'createdAt',
-    accessorKey: 'createdAt',
-    header: 'Ngày tạo',
-    cell: ({ row }) => formatDateUtil(row.createdAt),
-    meta: { displayName: 'Ngày tạo' },
-  },
-  {
-    id: 'branchName',
-    accessorKey: 'branchName',
-    header: 'Chi nhánh',
-    cell: ({ row }) => row.branchName,
-    meta: { displayName: 'Chi nhánh' },
-  },
-  {
-    id: 'trackingCode',
-    accessorKey: 'trackingCode',
-    header: 'Mã vận đơn',
-    cell: ({ row }) => row.trackingCode || '---',
-    meta: { displayName: 'Mã vận đơn' },
-  },
-  {
-    id: 'totalProducts',
-    header: 'Sản phẩm',
-    cell: ({ row }) => row.summary?.totalProducts ?? row.products.length,
-    meta: { displayName: 'Sản phẩm' },
-  },
-  {
-    id: 'actions',
-    header: 'Hành động',
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">Mở menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link href={`/warranty/${row.systemId}`}>
-              <Eye className="mr-2 h-4 w-4" />
-              Xem chi tiết
-            </Link>
-          </DropdownMenuItem>
-          {row.publicTrackingCode && (
-            <DropdownMenuItem onClick={() => {
-              const trackingUrl = `${window.location.origin}/tracking/warranty/${row.publicTrackingCode}`;
-              navigator.clipboard.writeText(trackingUrl);
-              toast.success('Đã copy link tracking');
-            }}>
-              <LinkIcon className="mr-2 h-4 w-4" />
-              Copy link tracking
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-    meta: { displayName: 'Hành động', excludeFromExport: true },
-  },
-];
-
-type ComplaintRow = Complaint & { assignedName: string };
-
-const complaintColumns: ColumnDef<ComplaintRow>[] = [
-  {
-    id: 'id',
-    accessorKey: 'id',
-    header: 'Mã KN',
-    cell: ({ row }) => (
-      <Link href={`/complaints/${row.systemId}`} className="font-medium text-primary hover:underline">
-        {row.id}
-      </Link>
-    ),
-    meta: { displayName: 'Mã KN' },
-  },
-  {
-    id: 'status',
-    accessorKey: 'status',
-    header: 'Trạng thái',
-    cell: ({ row }) => (
-      <Badge className={complaintStatusColors[row.status] || ''}>
-        {complaintStatusLabels[row.status] || row.status}
-      </Badge>
-    ),
-    meta: { displayName: 'Trạng thái' },
-  },
-  {
-    id: 'type',
-    accessorKey: 'type',
-    header: 'Loại',
-    cell: ({ row }) => complaintTypeLabels[row.type] || row.type,
-    meta: { displayName: 'Loại' },
-  },
-  {
-    id: 'createdAt',
-    accessorKey: 'createdAt',
-    header: 'Ngày tạo',
-    cell: ({ row }) => formatDateUtil(row.createdAt),
-    meta: { displayName: 'Ngày tạo' },
-  },
-  {
-    id: 'assignedName',
-    accessorKey: 'assignedName',
-    header: 'Nhân viên xử lý',
-    cell: ({ row }) => row.assignedTo ? (
-      <Link href={`/employees/${row.assignedTo}`} className="text-primary hover:underline">
-        {row.assignedName}
-      </Link>
-    ) : 'Chưa giao',
-    meta: { displayName: 'Nhân viên xử lý' },
-  },
-  {
-    id: 'orderCode',
-    accessorKey: 'orderCode',
-    header: 'Đơn liên quan',
-    cell: ({ row }) => (
-      <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">
-        {row.orderCode || row.orderSystemId}
-      </Link>
-    ),
-    meta: { displayName: 'Đơn liên quan' },
-  },
-  {
-    id: 'actions',
-    header: 'Hành động',
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">Mở menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link href={`/complaints/${row.systemId}`}>
-              <Eye className="mr-2 h-4 w-4" />
-              Xem chi tiết
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href={`/orders/${row.orderSystemId}`}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Xem đơn hàng
-            </Link>
-          </DropdownMenuItem>
-          {row.publicTrackingCode && (
-            <DropdownMenuItem onClick={() => {
-              const trackingUrl = `${window.location.origin}/tracking/complaint/${row.publicTrackingCode}`;
-              navigator.clipboard.writeText(trackingUrl);
-              toast.success('Đã copy link tracking');
-            }}>
-              <LinkIcon className="mr-2 h-4 w-4" />
-              Copy link tracking
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-    meta: { displayName: 'Hành động', excludeFromExport: true },
-  },
-];
-
-// REMOVED: Complaint columns
-// const complaintColumns: ColumnDef<Complaint>[] = [
-//     { id: 'id', accessorKey: 'id', header: 'Mã KN', cell: ({ row }) => <span className="font-medium">{row.id}</span>, meta: { displayName: 'Mã KN'} },
-//     { id: 'title', accessorKey: 'title', header: 'Tiêu đề', cell: ({ row }) => row.title, meta: { displayName: 'Tiêu đề'} },
-//     { id: 'createdDate', accessorKey: 'createdDate', header: 'Ngày tạo', cell: ({ row }) => formatDateUtil(row.createdDate), meta: { displayName: 'Ngày tạo'} },
-//     { id: 'status', accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => <Badge variant={complaintStatusVariants[row.status] as any}>{row.status}</Badge>, meta: { displayName: 'Trạng thái'} },
-// ];
-
-const debtColumns: ColumnDef<{ voucherId: string; type: string; originalSystemId: string; creatorId?: string; creator?: string; createdAt: string; description?: string; amount?: number; complaintSystemId?: string; displayAmount?: number; change?: number; balance?: number }>[] = [
-    { id: 'voucherId', accessorKey: 'voucherId', header: 'Mã phiếu', cell: ({ row }) => {
-        const path = row.type === 'order' ? `/orders/${row.originalSystemId}` 
-            : row.type === 'receipt' ? `/receipts/${row.originalSystemId}` 
-            : row.type === 'sales-return' ? `/returns/${row.originalSystemId}`
-            : row.type === 'complaint-payment' ? `/payments/${row.originalSystemId}`
-            : `/payments/${row.originalSystemId}`;
-        return <Link href={path} className="font-medium text-primary hover:underline">{row.voucherId}</Link>;
-    }, meta: { displayName: 'Mã phiếu' } },
-    { id: 'creator', accessorKey: 'creator', header: 'Người tạo', cell: ({ row }) => {
-        return row.creatorId ? (
-            <Link href={`/employees/${row.creatorId}`} className="text-primary hover:underline">{row.creator}</Link>
-        ) : (
-            <span>{row.creator}</span>
-        );
-    }, meta: { displayName: 'Người tạo' } },
-    { id: 'createdAt', accessorKey: 'createdAt', header: 'Ngày Ghi nhận', cell: ({ row }) => formatDateUtil(row.createdAt), meta: { displayName: 'Ngày Ghi nhận' } },
-    { id: 'description', accessorKey: 'description', header: 'Ghi chú', cell: ({ row }) => {
-        // Hiển thị badge cho complaint payment
-        if (row.type === 'complaint-payment') {
-            return (
-                <span className="flex items-center gap-1">
-                    <span>{row.description}</span>
-                    <Badge variant="outline" className="text-[10px] px-1 py-0">Khiếu nại</Badge>
-                </span>
-            );
-        }
-        return row.description;
-    }, meta: { displayName: 'Ghi chú' } },
-    { id: 'change', accessorKey: 'change', header: 'Giá trị thay đổi', cell: ({ row }) => {
-        // Hiển thị displayAmount nếu có (cho phiếu chi hoàn tiền từ trả hàng/khiếu nại)
-        const displayValue = row.displayAmount !== undefined ? row.displayAmount : row.change;
-        const isRefundFromReturn = row.type === 'payment' && row.displayAmount !== undefined;
-        const isRefundFromComplaint = row.type === 'complaint-payment';
-        return (
-            <span className={displayValue > 0 ? 'text-blue-600' : 'text-green-600'}>
-                {formatCurrency(displayValue)}
-                {(isRefundFromReturn || isRefundFromComplaint) && <span className="text-xs text-muted-foreground ml-1">(tiền mặt)</span>}
-            </span>
-        );
-    }, meta: { displayName: 'Giá trị thay đổi' } },
-    { id: 'balance', accessorKey: 'balance', header: 'Công nợ', cell: ({ row }) => <span className="font-semibold">{formatCurrency(row.balance)}</span>, meta: { displayName: 'Công nợ' } },
-    { id: 'actions', header: 'Hành động', cell: ({ row }) => {
-        const path = row.type === 'order' ? `/orders/${row.originalSystemId}` 
-            : row.type === 'receipt' ? `/receipts/${row.originalSystemId}` 
-            : row.type === 'sales-return' ? `/returns/${row.originalSystemId}`
-            : row.type === 'complaint-payment' ? `/payments/${row.originalSystemId}`
-            : `/payments/${row.originalSystemId}`;
-        return (
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Mở menu</span>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                        <Link href={path}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Xem chi tiết
-                        </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => window.print()}>
-                        <Printer className="mr-2 h-4 w-4" />
-                        In
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toast.info('Chức năng xuất PDF đang phát triển')}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        Xuất PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toast.info('Chức năng xuất Excel đang phát triển')}>
-                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                        Xuất Excel
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-        );
-    }, meta: { displayName: 'Hành động', excludeFromExport: true } },
-];
 
 const customerStatusVariants: Partial<Record<Customer["status"], "default" | "secondary" | "destructive">> = {
   "Đang giao dịch": "default",
@@ -531,7 +131,7 @@ export function CustomerDetailPage() {
 
   useCustomerSlaEvaluation();
 
-  const { data: allOrders } = useOrderStore();
+  const { data: allOrders } = useAllOrders();
   const { data: allSalesReturns } = useSalesReturnStore();
   const { data: allWarrantyTickets } = useWarrantyStore();
   const allComplaints = useComplaintStore((state) => state.complaints);
@@ -540,42 +140,43 @@ export function CustomerDetailPage() {
   const { findById: findEmployeeById } = useEmployeeStore();
   const { employee: authEmployee } = useAuth();
 
-  // Comments state with localStorage persistence
-  type CustomerComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<CustomerComment[]>(() => {
-    const saved = localStorage.getItem(`customer-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('customer', systemId || '');
+
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId as unknown as SystemId,
+      content: c.content,
+      author: {
+        systemId: (c.createdBy || 'system') as unknown as SystemId,
+        name: c.createdByName || 'Hệ thống',
+      },
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
   React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`customer-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
+    // Log update trigger removed - handled by SLA
+  }, []);
 
-  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
-    const newComment: CustomerComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
-      author: {
-        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
-      },
-      createdAt: new Date(),
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
-  }, [authEmployee]);
+  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
+  }, [dbAddComment]);
 
-  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
-    ));
+  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
-  }, []);
+    dbDeleteComment(commentId);
+  }, [dbDeleteComment]);
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
@@ -763,60 +364,8 @@ export function CustomerDetailPage() {
     });
   }, [customerOrders, customerSalesReturns]);
   
-  // Dynamic columns with return info
-  const orderColumnsWithReturns = React.useMemo<ColumnDef<OrderWithReturns>[]>(() => [
-    { id: 'id', accessorKey: 'id', header: 'Mã ĐH', cell: ({ row }) => <span className="font-medium">{row.id}</span>, meta: { displayName: 'Mã ĐH'} },
-    { id: 'orderDate', accessorKey: 'orderDate', header: 'Ngày đặt', cell: ({ row }) => formatDateUtil(row.orderDate), meta: { displayName: 'Ngày đặt'} },
-    { id: 'status', accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => {
-        let displayStatus = row.status;
-        if (row.status === 'Đặt hàng' && (row.stockOutStatus === 'Xuất kho toàn bộ' || row.deliveryStatus === 'Đang giao hàng' || row.deliveryStatus === 'Đã giao hàng')) {
-            displayStatus = 'Đang giao dịch';
-        }
-        return <Badge variant={orderStatusVariants[displayStatus] || orderStatusVariants[row.status]}>{displayStatus}</Badge>;
-    }, meta: { displayName: 'Trạng thái'} },
-    { id: 'grandTotal', accessorKey: 'grandTotal', header: 'Tổng tiền', cell: ({ row }) => formatCurrency(row.grandTotal), meta: { displayName: 'Tổng tiền'} },
-    { id: 'returns', header: 'Hoàn trả', cell: ({ row }) => {
-        if (!row.returnCount || row.returnCount === 0) {
-            return <span className="text-muted-foreground">-</span>;
-        }
-        return (
-            <div className="flex flex-col">
-                <span className="text-amber-600 font-medium">{row.returnCount} phiếu</span>
-                <span className="text-xs text-muted-foreground">{formatCurrency(row.totalReturnValue || 0)}</span>
-            </div>
-        );
-    }, meta: { displayName: 'Hoàn trả'} },
-    { id: 'actions', header: 'Hành động', cell: ({ row }) => (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                    <Link href={`/orders/${row.systemId}`}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Xem chi tiết
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => window.print()}>
-                    <Printer className="mr-2 h-4 w-4" />
-                    In
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Chức năng xuất PDF đang phát triển')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Xuất PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Chức năng xuất Excel đang phát triển')}>
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Xuất Excel
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    ), meta: { displayName: 'Hành động', excludeFromExport: true } },
-  ], []);
+  // Dynamic columns with return info - use extracted function from types
+  const orderColumnsWithReturns = React.useMemo<ColumnDef<OrderWithReturns>[]>(() => createOrderColumnsWithReturns(), []);
   
   // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
   const deliveredCustomerOrders = React.useMemo(

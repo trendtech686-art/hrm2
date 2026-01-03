@@ -1,1 +1,11 @@
-{}
+{
+  "[project]/features/employees/components/employee-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/employees/components/employee-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_f79a0208._.js",
+      "static/chunks/node_modules_xlsx_xlsx_mjs_fef98e92._.js",
+      "static/chunks/node_modules_8f973612._.js",
+      "static/chunks/features_employees_components_employee-import-export-dialogs_tsx_8850f9b5._.js"
+    ]
+  }
+}

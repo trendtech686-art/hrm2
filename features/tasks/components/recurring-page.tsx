@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useRecurringTaskStore } from '../recurring-store';
 import { useTaskStore } from '../store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,10 +50,10 @@ const frequencyLabels: Record<RecurrenceFrequency, string> = {
 };
 
 export function RecurringTasksPage() {
-  const router = useRouter();
+  const _router = useRouter();
   const recurringStore = useRecurringTaskStore();
   const taskStore = useTaskStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
 
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
   const [formData, setFormData] = React.useState({

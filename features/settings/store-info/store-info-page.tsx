@@ -9,8 +9,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useAuth } from '../../../contexts/auth-context';
-import { useBranchStore } from '../branches/store';
-import { useEmployeeStore } from '../../employees/store';
+import { useAllBranches } from '../branches/hooks/use-all-branches';
+import { useBranchMutations } from '../branches/hooks/use-branches';
+import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import type { Branch } from '../branches/types';
 import { BranchForm, type BranchFormValues } from '../branches/branch-form';
 
@@ -72,10 +73,15 @@ const mapInfoToFormValues = (info: StoreGeneralInfo): StoreGeneralInfoFormValues
 });
 
 export function StoreInfoPage() {
-    const branchStore = useBranchStore();
-    const { data: branches, add: addBranch, update: updateBranch, remove: removeBranch } = branchStore;
-    const setDefaultBranch = branchStore.setDefault;
-    const { data: employees } = useEmployeeStore();
+    const branchStore = useAllBranches();
+    const { data: branches } = branchStore;
+    const { create: addBranchMutation, update: updateBranchMutation, remove: removeBranchMutation, makeDefault: setDefaultBranchMutation } = useBranchMutations();
+    const addBranch = (data: Omit<Branch, 'systemId' | 'createdAt' | 'updatedAt'>) => addBranchMutation.mutate(data as unknown as Parameters<typeof addBranchMutation.mutate>[0]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateBranch = (systemId: SystemId, data: Partial<Branch>) => updateBranchMutation.mutate({ systemId: String(systemId), data } as any);
+    const removeBranch = (systemId: SystemId) => removeBranchMutation.mutate(systemId as unknown as string);
+    const setDefaultBranch = (systemId: SystemId) => setDefaultBranchMutation.mutate(systemId as unknown as string);
+    const { data: employees } = useAllEmployees();
     const { employee: authEmployee } = useAuth();
     const { info, updateInfo, reset: resetStoreInfo } = useStoreInfoStore();
     

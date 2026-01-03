@@ -7,10 +7,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
 import { useStockTransferStore } from '../store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useProductStore } from '@/features/products/store';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
+import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useStorageLocationStore } from '@/features/settings/inventory/storage-location-store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
@@ -65,9 +65,10 @@ type FormData = z.infer<typeof formSchema>;
 export function StockTransferFormPage() {
   const router = useRouter();
   const { add, getNextId, isBusinessIdExists } = useStockTransferStore();
-  const { data: branches } = useBranchStore();
-  const { data: allProducts, findById: findProductById } = useProductStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { data: branches } = useAllBranches();
+  const { data: allProducts } = useAllProducts();
+  const { findById: findProductById } = useProductFinder();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { user } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   

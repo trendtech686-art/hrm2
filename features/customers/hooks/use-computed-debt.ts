@@ -16,7 +16,7 @@
  */
 
 import { useMemo } from 'react';
-import { useOrderStore } from '../../orders/store';
+import { useAllOrders } from '../../orders/hooks/use-all-orders';
 import { useReceiptStore } from '../../receipts/store';
 import { usePaymentStore } from '../../payments/store';
 import type { Customer, DebtTransaction } from '../types';
@@ -171,7 +171,7 @@ function computeCustomerDebtTransactions(
  * Hook to get computed debt for a single customer
  */
 export function useComputedCustomerDebt(customer: Customer | null | undefined): ComputedDebtInfo | null {
-  const { data: allOrders } = useOrderStore();
+  const { data: allOrders } = useAllOrders();
   const { data: allReceipts } = useReceiptStore();
   const { data: allPayments } = usePaymentStore();
 
@@ -186,7 +186,7 @@ export function useComputedCustomerDebt(customer: Customer | null | undefined): 
  * Returns a Map of customerSystemId -> ComputedDebtInfo
  */
 export function useAllCustomersComputedDebt(customers: Customer[]): Map<SystemId, ComputedDebtInfo> {
-  const { data: allOrders } = useOrderStore();
+  const { data: allOrders } = useAllOrders();
   const { data: allReceipts } = useReceiptStore();
   const { data: allPayments } = usePaymentStore();
 
@@ -207,7 +207,7 @@ export function useAllCustomersComputedDebt(customers: Customer[]): Map<SystemId
  * Returns customers array with currentDebt AND debtTransactions replaced by computed values
  */
 export function useCustomersWithComputedDebt(customers: Customer[]): Customer[] {
-  const { data: allOrders } = useOrderStore();
+  const { data: allOrders } = useAllOrders();
   const { data: allReceipts } = useReceiptStore();
   const { data: allPayments } = usePaymentStore();
 

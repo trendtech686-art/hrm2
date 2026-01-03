@@ -1,5 +1,7 @@
+'use client'
+
 import * as React from "react";
-import * as XLSX from "xlsx";
+// XLSX is lazy loaded in handleImport/handleExport to reduce bundle size (~500KB)
 import Fuse from "fuse.js";
 import { useProvinceStore } from "./store";
 import { asSystemId, asBusinessId } from "@/lib/id-types";
@@ -457,9 +459,12 @@ export function ProvincesPage() {
     setDialogState(null);
   };
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Lazy load XLSX to reduce bundle size (~500KB)
+    const XLSX = await import('xlsx');
 
     const reader = new FileReader();
     reader.onload = (loadEvent) => {
@@ -558,7 +563,7 @@ export function ProvincesPage() {
     }
   };
 
-  const handleExport = React.useCallback(() => {
+  const handleExport = React.useCallback(async () => {
     const provincesToExport = provinces.map(({ systemId: _systemId, ...rest }) => ({
       "Mã tỉnh": rest.id,
       "Tên Tỉnh/Thành phố": rest.name,
@@ -570,6 +575,9 @@ export function ProvincesPage() {
       "Mã Phường/Xã": rest.id,
       "Tên Phường/Xã": rest.name,
     }));
+
+    // Lazy load XLSX to reduce bundle size (~500KB)
+    const XLSX = await import('xlsx');
 
     const provincesWs = XLSX.utils.json_to_sheet(provincesToExport);
     const wardsWs = XLSX.utils.json_to_sheet(wardsToExport);

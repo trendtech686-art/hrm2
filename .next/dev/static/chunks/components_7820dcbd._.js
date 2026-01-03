@@ -80,7 +80,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$
 ;
 const Card = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c = ({ className, ...props }, ref)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         ref: ref,
-        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("rounded-lg border border-border bg-card text-card-foreground shadow-sm", className),
+        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("rounded-lg border bg-card text-card-foreground shadow-sm", className),
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/card.tsx",
@@ -270,7 +270,7 @@ function MobileCardSkeleton({ count = 3, className }) {
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "flex items-center justify-between mt-3 pt-3 border-t border-border",
+                            className: "flex items-center justify-between mt-3 pt-3 border-t",
                             children: [
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(Skeleton, {
                                     className: "h-5 w-20"
@@ -657,7 +657,7 @@ const touchButtonVariants = (0, __TURBOPACK__imported__module__$5b$project$5d2f$
 /**
  * TouchButton - Mobile-optimized button with minimum 44px touch targets
  * Follows Apple HIG and Material Design guidelines for touch interfaces
- */ const TouchButton = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c = ({ className, variant, size, asChild = false, ...props }, ref)=>{
+ */ const TouchButton = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c = ({ className, variant, size, asChild: _asChild = false, ...props }, ref)=>{
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])(touchButtonVariants({
             variant,
@@ -829,7 +829,7 @@ _c1 = Table;
 Table.displayName = "Table";
 const TableHeader = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c2 = ({ className, ...props }, ref)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("thead", {
         ref: ref,
-        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("[&_tr]:border-b [&_tr]:border-border", className),
+        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("[&_tr]:border-b", className),
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/table.tsx",
@@ -851,7 +851,7 @@ _c5 = TableBody;
 TableBody.displayName = "TableBody";
 const TableFooter = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c6 = ({ className, ...props }, ref)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tfoot", {
         ref: ref,
-        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("border-t border-border bg-muted/50 font-medium [&>tr]:last:border-b-0", className),
+        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("border-t bg-muted/50 font-medium [&>tr]:last:border-b-0", className),
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/table.tsx",
@@ -862,7 +862,7 @@ _c7 = TableFooter;
 TableFooter.displayName = "TableFooter";
 const TableRow = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c8 = ({ className, ...props }, ref)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tr", {
         ref: ref,
-        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("group border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", className),
+        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("group border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", className),
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/table.tsx",
@@ -1089,7 +1089,7 @@ const SelectContent = /*#__PURE__*/ _s(__TURBOPACK__imported__module__$5b$projec
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$radix$2d$ui$2f$react$2d$select$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Portal"], {
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$radix$2d$ui$2f$react$2d$select$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Content"], {
             ref: ref,
-            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("relative max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-select-content-transform-origin]", position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1", className),
+            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("relative max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-select-content-transform-origin]", position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1", className),
             style: {
                 zIndex
             },
@@ -1283,7 +1283,7 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                lineNumber: 86,
+                lineNumber: 80,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1297,7 +1297,7 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                                 children: "Số dòng mỗi trang"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                lineNumber: 92,
+                                lineNumber: 86,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Select"], {
@@ -1312,12 +1312,12 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                                             placeholder: `${pageSize}`
                                         }, void 0, false, {
                                             fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                            lineNumber: 100,
+                                            lineNumber: 94,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                        lineNumber: 99,
+                                        lineNumber: 93,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
@@ -1332,24 +1332,24 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                                                 children: size
                                             }, size, false, {
                                                 fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                                lineNumber: 104,
+                                                lineNumber: 98,
                                                 columnNumber: 17
                                             }, this))
                                     }, void 0, false, {
                                         fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                        lineNumber: 102,
+                                        lineNumber: 96,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                lineNumber: 93,
+                                lineNumber: 87,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                        lineNumber: 91,
+                        lineNumber: 85,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1364,7 +1364,7 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                                 children: "Previous"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                lineNumber: 113,
+                                lineNumber: 107,
                                 columnNumber: 11
                             }, this),
                             pageNumbers.map((page, idx)=>{
@@ -1374,7 +1374,7 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                                         children: "..."
                                     }, `ellipsis-${idx}`, false, {
                                         fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                        lineNumber: 126,
+                                        lineNumber: 120,
                                         columnNumber: 17
                                     }, this);
                                 }
@@ -1386,7 +1386,7 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                                     children: page + 1
                                 }, page, false, {
                                     fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                    lineNumber: 133,
+                                    lineNumber: 127,
                                     columnNumber: 15
                                 }, this);
                             }),
@@ -1399,25 +1399,25 @@ function DataTablePagination({ pageIndex, pageSize, pageCount, rowCount, selecte
                                 children: "Next"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                                lineNumber: 145,
+                                lineNumber: 139,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                        lineNumber: 112,
+                        lineNumber: 106,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/data-table/data-table-pagination.tsx",
-                lineNumber: 90,
+                lineNumber: 84,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/data-table/data-table-pagination.tsx",
-        lineNumber: 85,
+        lineNumber: 79,
         columnNumber: 5
     }, this);
 }
@@ -1703,7 +1703,7 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                                         children: getColumnLabel(column)
                                     }, void 0, false, {
                                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                        lineNumber: 221,
+                                        lineNumber: 237,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1711,24 +1711,24 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                                         children: renderColumnValue(column, row)
                                     }, void 0, false, {
                                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                        lineNumber: 224,
+                                        lineNumber: 240,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, column.id, true, {
                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                lineNumber: 220,
+                                lineNumber: 236,
                                 columnNumber: 11
                             }, this)
                     }["ResponsiveDataTable.useCallback[autoRenderMobileCard]"])
                 }, void 0, false, {
                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                    lineNumber: 218,
+                    lineNumber: 234,
                     columnNumber: 7
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                lineNumber: 217,
+                lineNumber: 233,
                 columnNumber: 5
             }, this)
     }["ResponsiveDataTable.useCallback[autoRenderMobileCard]"], [
@@ -1776,7 +1776,7 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
             className: mobileCardClassName
         }, void 0, false, {
             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-            lineNumber: 271,
+            lineNumber: 287,
             columnNumber: 7
         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("space-y-3", className),
@@ -1786,12 +1786,12 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                     className: "h-16 bg-muted animate-pulse rounded"
                 }, i, false, {
                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                    lineNumber: 275,
+                    lineNumber: 291,
                     columnNumber: 11
                 }, this))
         }, void 0, false, {
             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-            lineNumber: 273,
+            lineNumber: 289,
             columnNumber: 7
         }, this);
     }
@@ -1804,7 +1804,7 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
             className: className
         }, void 0, false, {
             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-            lineNumber: 284,
+            lineNumber: 300,
             columnNumber: 7
         }, this);
     }
@@ -1825,12 +1825,12 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                         children: cardRenderer(row, index)
                     }, row.systemId, false, {
                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                        lineNumber: 302,
+                        lineNumber: 318,
                         columnNumber: 13
                     }, this))
             }, void 0, false, {
                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                lineNumber: 297,
+                lineNumber: 313,
                 columnNumber: 9
             }, this);
         }
@@ -1842,11 +1842,11 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                         children: cardRenderer(row, index)
                     }, row.systemId, false, {
                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                        lineNumber: 317,
+                        lineNumber: 333,
                         columnNumber: 11
                     }, this)),
                 pageCount > 1 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "flex items-center justify-between pt-4 border-t border-border",
+                    className: "flex items-center justify-between pt-4 border-t",
                     children: [
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$mobile$2f$touch$2d$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TouchButton"], {
                             variant: "outline",
@@ -1859,7 +1859,7 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                             children: "Trước"
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 325,
+                            lineNumber: 341,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1875,7 +1875,7 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                    lineNumber: 335,
+                                    lineNumber: 351,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1886,13 +1886,13 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                    lineNumber: 338,
+                                    lineNumber: 354,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 334,
+                            lineNumber: 350,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$mobile$2f$touch$2d$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TouchButton"], {
@@ -1906,19 +1906,19 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
                             children: "Sau"
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 343,
+                            lineNumber: 359,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                    lineNumber: 324,
+                    lineNumber: 340,
                     columnNumber: 11
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-            lineNumber: 315,
+            lineNumber: 331,
             columnNumber: 7
         }, this);
     }
@@ -1927,7 +1927,7 @@ function ResponsiveDataTable({ columns, data, renderMobileCard, autoGenerateMobi
         ...desktopProps
     }, void 0, false, {
         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-        lineNumber: 358,
+        lineNumber: 374,
         columnNumber: 10
     }, this);
 }
@@ -1937,7 +1937,7 @@ _s(ResponsiveDataTable, "G+zNnfsPnBHf5s0BANJdXDbE9s4=", false, function() {
     ];
 });
 _c = ResponsiveDataTable;
-function DesktopDataTable({ columns, data, pageCount, pagination, setPagination, rowCount, rowSelection, setRowSelection, onBulkDelete, showBulkDeleteButton = true, bulkActions, pkgxBulkActions, bulkActionButtons, allSelectedRows, renderSubComponent, expanded, setExpanded, sorting, setSorting, columnVisibility, setColumnVisibility, columnOrder, setColumnOrder, pinnedColumns, setPinnedColumns, onRowClick, getRowStyle, className }) {
+function DesktopDataTable({ columns, data, pageCount, pagination, setPagination, rowCount, rowSelection, setRowSelection, onBulkDelete: _onBulkDelete, showBulkDeleteButton: _showBulkDeleteButton = true, bulkActions, pkgxBulkActions, bulkActionButtons, allSelectedRows, renderSubComponent, expanded, setExpanded, sorting, setSorting, columnVisibility, setColumnVisibility: _setColumnVisibility, columnOrder, setColumnOrder: _setColumnOrder, pinnedColumns, setPinnedColumns: _setPinnedColumns, onRowClick, getRowStyle, className }) {
     _s1();
     const numSelected = Object.keys(rowSelection).length;
     const isAllPageRowsSelected = data.length > 0 && data.every((row)=>rowSelection[row.systemId]);
@@ -1983,17 +1983,17 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])('h-4 w-4 transition-transform', isExpanded && 'rotate-90')
                                 }, void 0, false, {
                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                    lineNumber: 427,
+                                    lineNumber: 443,
                                     columnNumber: 17
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                lineNumber: 418,
+                                lineNumber: 434,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 417,
+                            lineNumber: 433,
                             columnNumber: 13
                         }, this)
                 })["DesktopDataTable.useMemo[displayColumns]"],
@@ -2271,7 +2271,7 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                 }
                 let thClassName = "bg-muted whitespace-nowrap";
                 const isLastLeftSticky = stickyMeta === 'left' && colIndex === leftStickyColumns.length - 1;
-                const isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
+                const _isFirstRightSticky = stickyMeta === 'right' && colIndex === displayColumns.length - rightStickyColumns.length;
                 if (isSticky && stickyMeta === 'left') {
                     const stickyIndex = leftStickyColumns.findIndex((c)=>c.id === column.id);
                     if (stickyIndex !== -1) {
@@ -2302,7 +2302,7 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                 return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableHead"], {
                     style: style,
                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])(thClassName, {
-                        "border-r border-border": isSticky && isLastLeftSticky
+                        "border-r": isSticky && isLastLeftSticky
                     }),
                     children: typeof column.header === 'function' ? column.header({
                         isAllPageRowsSelected,
@@ -2313,13 +2313,13 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                     }) : column.header
                 }, column.id, false, {
                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                    lineNumber: 654,
+                    lineNumber: 670,
                     columnNumber: 11
                 }, this);
             })
         }, void 0, false, {
             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-            lineNumber: 608,
+            lineNumber: 624,
             columnNumber: 5
         }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2330,18 +2330,18 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         ref: headerScrollRef,
                         onScroll: ()=>syncScroll('header'),
-                        className: "sticky top-32 z-30 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+                        className: "sticky top-32 z-30 overflow-x-auto rounded-t-md border border-b-0 bg-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Table"], {
                             ref: headerTableRef,
                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableHeader"], {
                                 className: "bg-muted shadow-sm",
                                 children: [
                                     numSelected > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tr", {
-                                        className: "absolute inset-x-0 top-0 z-50 h-9 bg-muted/95 backdrop-blur-sm border-b border-border shadow-md",
+                                        className: "absolute inset-x-0 top-0 z-50 h-9 bg-muted/95 backdrop-blur-sm border-b shadow-md",
                                         children: [
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
                                                 className: "sticky left-0 z-[60] bg-muted/95 backdrop-blur-sm px-3 w-[48px]",
-                                                children: columns.find((c)=>c.id === 'select') && typeof columns.find((c)=>c.id === 'select').header === 'function' && // @ts-ignore
+                                                children: columns.find((c)=>c.id === 'select') && typeof columns.find((c)=>c.id === 'select').header === 'function' && // @ts-expect-error - header function type is complex with selection props
                                                 columns.find((c)=>c.id === 'select').header({
                                                     isAllPageRowsSelected,
                                                     isSomePageRowsSelected,
@@ -2349,7 +2349,7 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                 })
                                             }, void 0, false, {
                                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                lineNumber: 690,
+                                                lineNumber: 705,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2365,7 +2365,7 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                            lineNumber: 703,
+                                                            lineNumber: 718,
                                                             columnNumber: 25
                                                         }, this),
                                                         bulkActions && bulkActions.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenu"], {
@@ -2381,18 +2381,18 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                                                 className: "ml-2 h-4 w-4"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                                lineNumber: 709,
+                                                                                lineNumber: 724,
                                                                                 columnNumber: 33
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                        lineNumber: 707,
+                                                                        lineNumber: 722,
                                                                         columnNumber: 31
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                    lineNumber: 706,
+                                                                    lineNumber: 721,
                                                                     columnNumber: 29
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuContent"], {
@@ -2405,25 +2405,25 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                                                     className: "mr-2 h-4 w-4"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                                    lineNumber: 719,
+                                                                                    lineNumber: 734,
                                                                                     columnNumber: 51
                                                                                 }, this),
                                                                                 action.label
                                                                             ]
                                                                         }, index, true, {
                                                                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                            lineNumber: 714,
+                                                                            lineNumber: 729,
                                                                             columnNumber: 33
                                                                         }, this))
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                    lineNumber: 712,
+                                                                    lineNumber: 727,
                                                                     columnNumber: 29
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                            lineNumber: 705,
+                                                            lineNumber: 720,
                                                             columnNumber: 27
                                                         }, this),
                                                         pkgxBulkActions && pkgxBulkActions.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenu"], {
@@ -2439,18 +2439,18 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                                                 className: "ml-2 h-4 w-4"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                                lineNumber: 731,
+                                                                                lineNumber: 746,
                                                                                 columnNumber: 33
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                        lineNumber: 729,
+                                                                        lineNumber: 744,
                                                                         columnNumber: 31
                                                                     }, this)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                    lineNumber: 728,
+                                                                    lineNumber: 743,
                                                                     columnNumber: 29
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuContent"], {
@@ -2464,66 +2464,66 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                                                     className: "mr-2 h-4 w-4"
                                                                                 }, void 0, false, {
                                                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                                    lineNumber: 742,
+                                                                                    lineNumber: 757,
                                                                                     columnNumber: 51
                                                                                 }, this),
                                                                                 action.label
                                                                             ]
                                                                         }, index, true, {
                                                                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                            lineNumber: 736,
+                                                                            lineNumber: 751,
                                                                             columnNumber: 33
                                                                         }, this))
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                                    lineNumber: 734,
+                                                                    lineNumber: 749,
                                                                     columnNumber: 29
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                            lineNumber: 727,
+                                                            lineNumber: 742,
                                                             columnNumber: 27
                                                         }, this),
                                                         bulkActionButtons
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                    lineNumber: 702,
+                                                    lineNumber: 717,
                                                     columnNumber: 23
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                lineNumber: 701,
+                                                lineNumber: 716,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                        lineNumber: 689,
+                                        lineNumber: 704,
                                         columnNumber: 19
                                     }, this),
                                     renderHeaderRow(true)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                lineNumber: 687,
+                                lineNumber: 702,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 686,
+                            lineNumber: 701,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                        lineNumber: 681,
+                        lineNumber: 696,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         ref: tableContainerRef,
                         onScroll: ()=>syncScroll('body'),
-                        className: "rounded-b-md border border-border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+                        className: "rounded-b-md border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Table"], {
                             ref: bodyTableRef,
                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableBody"], {
@@ -2584,7 +2584,7 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
                                                         style: style,
                                                         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])(tdClassName, {
-                                                            "border-r border-border": isLastLeftSticky
+                                                            "border-r": isLastLeftSticky
                                                         }),
                                                         onClick: isInteractiveColumn ? (e)=>e.stopPropagation() : undefined,
                                                         children: column.cell({
@@ -2611,13 +2611,13 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                         })
                                                     }, column.id, false, {
                                                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                        lineNumber: 826,
+                                                        lineNumber: 841,
                                                         columnNumber: 27
                                                     }, this);
                                                 })
                                             }, void 0, false, {
                                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                lineNumber: 768,
+                                                lineNumber: 783,
                                                 columnNumber: 21
                                             }, this),
                                             expanded[row.systemId] && renderSubComponent && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableRow"], {
@@ -2627,39 +2627,39 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                                     children: renderSubComponent(row)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                    lineNumber: 857,
+                                                    lineNumber: 872,
                                                     columnNumber: 25
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                                lineNumber: 856,
+                                                lineNumber: 871,
                                                 columnNumber: 23
                                             }, this)
                                         ]
                                     }, `${row.systemId}-${rowIndex}`, true, {
                                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                        lineNumber: 767,
+                                        lineNumber: 782,
                                         columnNumber: 19
                                     }, this))
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                lineNumber: 765,
+                                lineNumber: 780,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 764,
+                            lineNumber: 779,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                        lineNumber: 759,
+                        lineNumber: 774,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 ref: tableContainerRef,
-                className: "rounded-md border border-border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+                className: "rounded-md border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Table"], {
                     ref: fallbackTableRef,
                     children: [
@@ -2668,7 +2668,7 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                             children: renderHeaderRow(true)
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 874,
+                            lineNumber: 889,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableBody"], {
@@ -2679,32 +2679,32 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                                     children: "Không có dữ liệu."
                                 }, void 0, false, {
                                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                    lineNumber: 879,
+                                    lineNumber: 894,
                                     columnNumber: 17
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                                lineNumber: 878,
+                                lineNumber: 893,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                            lineNumber: 877,
+                            lineNumber: 892,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                    lineNumber: 873,
+                    lineNumber: 888,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                lineNumber: 869,
+                lineNumber: 884,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "flex-shrink-0 border-t border-border bg-background px-6 py-3",
+                className: "flex-shrink-0 border-t bg-background px-6 py-3",
                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$data$2d$table$2f$data$2d$table$2d$pagination$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DataTablePagination"], {
                     pageIndex: pagination.pageIndex,
                     pageSize: pagination.pageSize,
@@ -2723,25 +2723,25 @@ function DesktopDataTable({ columns, data, pageCount, pagination, setPagination,
                     selectedRowCount: numSelected
                 }, void 0, false, {
                     fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                    lineNumber: 889,
+                    lineNumber: 904,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                lineNumber: 888,
+                lineNumber: 903,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$data$2d$table$2f$sticky$2d$scrollbar$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["StickyScrollbar"], {
                 targetRef: tableContainerRef
             }, void 0, false, {
                 fileName: "[project]/components/data-table/responsive-data-table.tsx",
-                lineNumber: 902,
+                lineNumber: 917,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-        lineNumber: 678,
+        lineNumber: 693,
         columnNumber: 5
     }, this);
 }
@@ -2756,12 +2756,12 @@ function MobileCardWrapper({ children, onClick, className }) {
             children: children
         }, void 0, false, {
             fileName: "[project]/components/data-table/responsive-data-table.tsx",
-            lineNumber: 928,
+            lineNumber: 943,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/components/data-table/responsive-data-table.tsx",
-        lineNumber: 920,
+        lineNumber: 935,
         columnNumber: 5
     }, this);
 }
@@ -2809,6 +2809,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$
 var __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$modal$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/contexts/modal-context.tsx [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
+'use client';
 ;
 ;
 ;
@@ -2825,7 +2826,7 @@ const DialogProvider = ({ id, children })=>{
         children: children
     }, void 0, false, {
         fileName: "[project]/components/ui/dialog.tsx",
-        lineNumber: 16,
+        lineNumber: 18,
         columnNumber: 10
     }, ("TURBOPACK compile-time value", void 0));
 };
@@ -2839,16 +2840,18 @@ const DialogOverlay = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/dialog.tsx",
-        lineNumber: 29,
+        lineNumber: 31,
         columnNumber: 3
     }, ("TURBOPACK compile-time value", void 0)));
 _c1 = DialogOverlay;
 DialogOverlay.displayName = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$radix$2d$ui$2f$react$2d$dialog$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Overlay"].displayName;
 const DialogContent = /*#__PURE__*/ _s(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c2 = _s(({ className, children, id: propId, open, ...props }, ref)=>{
     _s();
+    // Always call useId unconditionally (React hooks rule)
+    const generatedId = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useId"]();
     // Use either the prop id or the id from context
     const contextId = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useContext"](DialogContext);
-    const id = propId || contextId || `dialog-${__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useId"]()}`;
+    const id = propId || contextId || `dialog-${generatedId}`;
     // Register with our modal context using the open prop
     const { zIndex } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$modal$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useModal"])(id, !!open, 'dialog');
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(DialogPortal, {
@@ -2859,12 +2862,12 @@ const DialogContent = /*#__PURE__*/ _s(__TURBOPACK__imported__module__$5b$projec
                 }
             }, void 0, false, {
                 fileName: "[project]/components/ui/dialog.tsx",
-                lineNumber: 57,
+                lineNumber: 61,
                 columnNumber: 7
             }, ("TURBOPACK compile-time value", void 0)),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$radix$2d$ui$2f$react$2d$dialog$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Content"], {
                 ref: ref,
-                className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("dialog-content fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg sm:rounded-lg", className),
+                className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("dialog-content fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg", className),
                 style: {
                     zIndex
                 },
@@ -2881,7 +2884,7 @@ const DialogContent = /*#__PURE__*/ _s(__TURBOPACK__imported__module__$5b$projec
                                     className: "h-4 w-4"
                                 }, void 0, false, {
                                     fileName: "[project]/components/ui/dialog.tsx",
-                                    lineNumber: 73,
+                                    lineNumber: 77,
                                     columnNumber: 13
                                 }, ("TURBOPACK compile-time value", void 0)),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2889,37 +2892,37 @@ const DialogContent = /*#__PURE__*/ _s(__TURBOPACK__imported__module__$5b$projec
                                     children: "Đóng"
                                 }, void 0, false, {
                                     fileName: "[project]/components/ui/dialog.tsx",
-                                    lineNumber: 74,
+                                    lineNumber: 78,
                                     columnNumber: 13
                                 }, ("TURBOPACK compile-time value", void 0))
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/ui/dialog.tsx",
-                            lineNumber: 69,
+                            lineNumber: 73,
                             columnNumber: 11
                         }, ("TURBOPACK compile-time value", void 0))
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/ui/dialog.tsx",
-                    lineNumber: 67,
+                    lineNumber: 71,
                     columnNumber: 9
                 }, ("TURBOPACK compile-time value", void 0))
             }, void 0, false, {
                 fileName: "[project]/components/ui/dialog.tsx",
-                lineNumber: 58,
+                lineNumber: 62,
                 columnNumber: 7
             }, ("TURBOPACK compile-time value", void 0))
         ]
     }, void 0, true, {
         fileName: "[project]/components/ui/dialog.tsx",
-        lineNumber: 55,
+        lineNumber: 59,
         columnNumber: 5
     }, ("TURBOPACK compile-time value", void 0));
-}, "IeLBPFI31n0GTVSq28zxfMRan5E=", false, function() {
+}, "Uh/TpXHu/jA+i0Mwt6dQWUEXh+Y=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$modal$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useModal"]
     ];
-})), "IeLBPFI31n0GTVSq28zxfMRan5E=", false, function() {
+})), "Uh/TpXHu/jA+i0Mwt6dQWUEXh+Y=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$modal$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useModal"]
     ];
@@ -2931,7 +2934,7 @@ const DialogHeader = ({ className, ...props })=>/*#__PURE__*/ (0, __TURBOPACK__i
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/dialog.tsx",
-        lineNumber: 87,
+        lineNumber: 91,
         columnNumber: 3
     }, ("TURBOPACK compile-time value", void 0));
 _c4 = DialogHeader;
@@ -2941,7 +2944,7 @@ const DialogFooter = ({ className, ...props })=>/*#__PURE__*/ (0, __TURBOPACK__i
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/dialog.tsx",
-        lineNumber: 101,
+        lineNumber: 105,
         columnNumber: 3
     }, ("TURBOPACK compile-time value", void 0));
 _c5 = DialogFooter;
@@ -2952,7 +2955,7 @@ const DialogTitle = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/dialog.tsx",
-        lineNumber: 115,
+        lineNumber: 119,
         columnNumber: 3
     }, ("TURBOPACK compile-time value", void 0)));
 _c7 = DialogTitle;
@@ -2963,7 +2966,7 @@ const DialogDescription = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$proje
         ...props
     }, void 0, false, {
         fileName: "[project]/components/ui/dialog.tsx",
-        lineNumber: 130,
+        lineNumber: 134,
         columnNumber: 3
     }, ("TURBOPACK compile-time value", void 0)));
 _c9 = DialogDescription;
@@ -3056,7 +3059,7 @@ const CommandDialog = ({ children, ...props })=>{
 };
 _c1 = CommandDialog;
 const CommandInput = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c2 = ({ className, ...props }, ref)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-        className: "flex items-center border-b border-border px-3",
+        className: "flex items-center border-b px-3",
         "cmdk-input-wrapper": "",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$search$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Search$3e$__["Search"], {
@@ -3214,21 +3217,24 @@ const PopoverProvider = ({ id, children })=>{
 _c = PopoverProvider;
 const PopoverContent = /*#__PURE__*/ _s(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c1 = _s(({ className, align = "center", sideOffset = 4, id: propId, ...props }, ref)=>{
     _s();
+    // Always call useId unconditionally (React hooks rule)
+    const generatedId = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useId"]();
     // Use either the prop id or the id from context
     const contextId = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useContext"](PopoverContext);
-    const id = propId || contextId || `popover-${__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useId"]()}`;
+    const id = propId || contextId || `popover-${generatedId}`;
     // Get open state from props
     const [open, setOpen] = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](false);
+    const dataState = props["data-state"];
     __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"]({
         "PopoverContent.useEffect": ()=>{
-            if (props["data-state"] === "open") {
+            if (dataState === "open") {
                 setOpen(true);
             } else {
                 setOpen(false);
             }
         }
     }["PopoverContent.useEffect"], [
-        props["data-state"]
+        dataState
     ]);
     // Register with our modal context
     const { zIndex } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$modal$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useModal"])(id, open, 'popover');
@@ -3247,24 +3253,24 @@ const PopoverContent = /*#__PURE__*/ _s(__TURBOPACK__imported__module__$5b$proje
                 children: props.children
             }, void 0, false, {
                 fileName: "[project]/components/ui/popover.tsx",
-                lineNumber: 57,
+                lineNumber: 60,
                 columnNumber: 9
             }, ("TURBOPACK compile-time value", void 0))
         }, void 0, false, {
             fileName: "[project]/components/ui/popover.tsx",
-            lineNumber: 46,
+            lineNumber: 49,
             columnNumber: 7
         }, ("TURBOPACK compile-time value", void 0))
     }, void 0, false, {
         fileName: "[project]/components/ui/popover.tsx",
-        lineNumber: 45,
+        lineNumber: 48,
         columnNumber: 5
     }, ("TURBOPACK compile-time value", void 0));
-}, "8ubM8aWVEcCevfkjnsDG5j+DpdY=", false, function() {
+}, "ZBFOo/9aj1++uwpq2sH6qLwyHa0=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$modal$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useModal"]
     ];
-})), "8ubM8aWVEcCevfkjnsDG5j+DpdY=", false, function() {
+})), "ZBFOo/9aj1++uwpq2sH6qLwyHa0=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$contexts$2f$modal$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useModal"]
     ];
@@ -3634,6 +3640,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$dnd$2d$kit
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$dnd$2d$kit$2f$utilities$2f$dist$2f$utilities$2e$esm$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/@dnd-kit/utilities/dist/utilities.esm.js [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
+'use client';
 ;
 ;
 ;
@@ -3711,7 +3718,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
     ]);
     const handleSave = ()=>{
         // ✅ FIX: Merge localVisibility với columnVisibility, giữ nguyên select & actions
-        setColumnVisibility((prev)=>({
+        setColumnVisibility((_prev)=>({
                 ...localVisibility,
                 select: true,
                 actions: true
@@ -3846,12 +3853,12 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                         className: "h-5 w-5 mr-2 text-muted-foreground"
                     }, void 0, false, {
                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                        lineNumber: 235,
+                        lineNumber: 237,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                    lineNumber: 230,
+                    lineNumber: 232,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3859,7 +3866,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                     children: col.meta?.displayName ?? col.id
                 }, void 0, false, {
                     fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                    lineNumber: 237,
+                    lineNumber: 239,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3871,12 +3878,12 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("h-4 w-4", localPinned.includes(col.id) ? "text-primary fill-current" : "text-muted-foreground")
                     }, void 0, false, {
                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                        lineNumber: 245,
+                        lineNumber: 247,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                    lineNumber: 239,
+                    lineNumber: 241,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3888,18 +3895,18 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                         className: "h-4 w-4"
                     }, void 0, false, {
                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                        lineNumber: 253,
+                        lineNumber: 255,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                    lineNumber: 247,
+                    lineNumber: 249,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-            lineNumber: 222,
+            lineNumber: 224,
             columnNumber: 7
         }, this);
     };
@@ -3922,19 +3929,19 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                             className: "mr-2 h-4 w-4"
                         }, void 0, false, {
                             fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                            lineNumber: 264,
+                            lineNumber: 266,
                             columnNumber: 13
                         }, this),
                         "Điều chỉnh cột"
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                    lineNumber: 263,
+                    lineNumber: 265,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                lineNumber: 261,
+                lineNumber: 263,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogContent"], {
@@ -3947,20 +3954,20 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                 children: "Điều chỉnh cột hiển thị"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 271,
+                                lineNumber: 273,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogDescription"], {
                                 children: "Chọn, sắp xếp và ghim các cột để tùy chỉnh giao diện bảng của bạn."
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 272,
+                                lineNumber: 274,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                        lineNumber: 270,
+                        lineNumber: 272,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3977,7 +3984,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                 children: "Thêm cột hiển thị"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                lineNumber: 280,
+                                                lineNumber: 282,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3987,7 +3994,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                         className: "absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                        lineNumber: 282,
+                                                        lineNumber: 284,
                                                         columnNumber: 25
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -3997,19 +4004,19 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                         onChange: (e)=>setSearch(e.target.value)
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                        lineNumber: 283,
+                                                        lineNumber: 285,
                                                         columnNumber: 25
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                lineNumber: 281,
+                                                lineNumber: 283,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                        lineNumber: 279,
+                                        lineNumber: 281,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$scroll$2d$area$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ScrollArea"], {
@@ -4027,7 +4034,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                                 children: groupName
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                lineNumber: 298,
+                                                                lineNumber: 300,
                                                                 columnNumber: 37
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4041,7 +4048,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                                                 onCheckedChange: (checked)=>toggleColumnVisibility(col.id, !!checked)
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                                lineNumber: 302,
+                                                                                lineNumber: 304,
                                                                                 columnNumber: 45
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -4050,24 +4057,24 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                                                 children: col.meta?.displayName ?? col.id
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                                lineNumber: 307,
+                                                                                lineNumber: 309,
                                                                                 columnNumber: 45
                                                                             }, this)
                                                                         ]
                                                                     }, col.id, true, {
                                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                        lineNumber: 301,
+                                                                        lineNumber: 303,
                                                                         columnNumber: 41
                                                                     }, this))
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                lineNumber: 299,
+                                                                lineNumber: 301,
                                                                 columnNumber: 37
                                                             }, this)
                                                         ]
                                                     }, groupName, true, {
                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                        lineNumber: 297,
+                                                        lineNumber: 299,
                                                         columnNumber: 33
                                                     }, this);
                                                 }),
@@ -4076,24 +4083,24 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                     children: "Không có cột nào."
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                    lineNumber: 315,
+                                                    lineNumber: 317,
                                                     columnNumber: 29
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                            lineNumber: 292,
+                                            lineNumber: 294,
                                             columnNumber: 21
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                        lineNumber: 291,
+                                        lineNumber: 293,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 278,
+                                lineNumber: 280,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4106,12 +4113,12 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                             children: "Cột hiển thị"
                                         }, void 0, false, {
                                             fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                            lineNumber: 323,
+                                            lineNumber: 325,
                                             columnNumber: 21
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                        lineNumber: 322,
+                                        lineNumber: 324,
                                         columnNumber: 18
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$scroll$2d$area$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ScrollArea"], {
@@ -4130,12 +4137,12 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                                 col: col
                                                             }, col.id, false, {
                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                lineNumber: 339,
+                                                                lineNumber: 341,
                                                                 columnNumber: 31
                                                             }, this))
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                        lineNumber: 334,
+                                                        lineNumber: 336,
                                                         columnNumber: 27
                                                     }, this),
                                                     pinnedVisibleColumns.length > 0 && unpinnedVisibleColumns.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4143,7 +4150,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                         children: [
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$separator$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Separator"], {}, void 0, false, {
                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                lineNumber: 346,
+                                                                lineNumber: 348,
                                                                 columnNumber: 33
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -4151,13 +4158,13 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                                 children: "Ghim"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                lineNumber: 347,
+                                                                lineNumber: 349,
                                                                 columnNumber: 33
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                        lineNumber: 345,
+                                                        lineNumber: 347,
                                                         columnNumber: 29
                                                     }, this),
                                                     unpinnedVisibleColumns.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$dnd$2d$kit$2f$sortable$2f$dist$2f$sortable$2e$esm$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SortableContext"], {
@@ -4167,12 +4174,12 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                                 col: col
                                                             }, col.id, false, {
                                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                                lineNumber: 358,
+                                                                lineNumber: 360,
                                                                 columnNumber: 31
                                                             }, this))
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                        lineNumber: 353,
+                                                        lineNumber: 355,
                                                         columnNumber: 27
                                                     }, this),
                                                     pinnedVisibleColumns.length + unpinnedVisibleColumns.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4180,35 +4187,35 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                                         children: "Không có cột nào được hiển thị."
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                        lineNumber: 364,
+                                                        lineNumber: 366,
                                                         columnNumber: 29
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                                lineNumber: 331,
+                                                lineNumber: 333,
                                                 columnNumber: 23
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                            lineNumber: 326,
+                                            lineNumber: 328,
                                             columnNumber: 21
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                        lineNumber: 325,
+                                        lineNumber: 327,
                                         columnNumber: 18
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 321,
+                                lineNumber: 323,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                        lineNumber: 276,
+                        lineNumber: 278,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogFooter"], {
@@ -4222,14 +4229,14 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                 children: "Quay về mặc định"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 372,
+                                lineNumber: 374,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "flex-grow"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 375,
+                                lineNumber: 377,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -4240,7 +4247,7 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                 children: "Thoát"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 376,
+                                lineNumber: 378,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -4250,25 +4257,25 @@ function DataTableColumnCustomizer({ children, columns, columnVisibility, setCol
                                 children: "Lưu"
                             }, void 0, false, {
                                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                                lineNumber: 379,
+                                lineNumber: 381,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                        lineNumber: 371,
+                        lineNumber: 373,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-                lineNumber: 269,
+                lineNumber: 271,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/data-table/data-table-column-toggle.tsx",
-        lineNumber: 260,
+        lineNumber: 262,
         columnNumber: 5
     }, this);
 }
@@ -4386,7 +4393,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$
 ;
 ;
 ;
-const alertVariants = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$class$2d$variance$2d$authority$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cva"])("relative w-full rounded-lg border border-border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground", {
+const alertVariants = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$class$2d$variance$2d$authority$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cva"])("relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground", {
     variants: {
         variant: {
             default: "bg-background text-foreground",
@@ -4459,6 +4466,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/utils.ts [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature(), _s2 = __turbopack_context__.k.signature();
+'use client';
 ;
 ;
 const RadioGroupContext = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createContext"](undefined);
@@ -4499,19 +4507,19 @@ const RadioGroup = /*#__PURE__*/ _s1(__TURBOPACK__imported__module__$5b$project$
             children: children
         }, void 0, false, {
             fileName: "[project]/components/ui/radio-group.tsx",
-            lineNumber: 46,
+            lineNumber: 48,
             columnNumber: 7
         }, ("TURBOPACK compile-time value", void 0))
     }, void 0, false, {
         fileName: "[project]/components/ui/radio-group.tsx",
-        lineNumber: 45,
+        lineNumber: 47,
         columnNumber: 5
     }, ("TURBOPACK compile-time value", void 0));
 }, "d2NLwGQqashc9uQuwvF6mBPsoMM=")), "d2NLwGQqashc9uQuwvF6mBPsoMM=");
 _c1 = RadioGroup;
 RadioGroup.displayName = "RadioGroup";
 // --- RadioGroupItem ---
-const RadioGroupItem = /*#__PURE__*/ _s2(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c2 = _s2(({ className, value, children, ...props }, ref)=>{
+const RadioGroupItem = /*#__PURE__*/ _s2(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["forwardRef"](_c2 = _s2(({ className, value, children: _children, ...props }, ref)=>{
     _s2();
     const { value: selectedValue, onValueChange, name } = useRadioGroup();
     const isChecked = selectedValue === value;
@@ -4534,17 +4542,17 @@ const RadioGroupItem = /*#__PURE__*/ _s2(__TURBOPACK__imported__module__$5b$proj
                 className: "h-2.5 w-2.5 rounded-full bg-current text-current"
             }, void 0, false, {
                 fileName: "[project]/components/ui/radio-group.tsx",
-                lineNumber: 82,
+                lineNumber: 84,
                 columnNumber: 11
             }, ("TURBOPACK compile-time value", void 0))
         }, void 0, false, {
             fileName: "[project]/components/ui/radio-group.tsx",
-            lineNumber: 81,
+            lineNumber: 83,
             columnNumber: 9
         }, ("TURBOPACK compile-time value", void 0))
     }, void 0, false, {
         fileName: "[project]/components/ui/radio-group.tsx",
-        lineNumber: 64,
+        lineNumber: 66,
         columnNumber: 5
     }, ("TURBOPACK compile-time value", void 0));
 }, "TEWcGQhD+ub0m2NnEEOxDVbm0K8=", false, function() {
@@ -5130,7 +5138,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$i
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$import$2d$export$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/import-export-store.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/import-export/utils.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$shared$2f$excel$2d$file$2d$dropzone$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/shared/excel-file-dropzone.tsx [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$hooks$2f$use$2d$all$2d$branches$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/branches/hooks/use-all-branches.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/branches/store.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$pricing$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/pricing/store.ts [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature();
@@ -5223,30 +5231,30 @@ const EditableCell = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d
                                 children: "—"
                             }, void 0, false, {
                                 fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                lineNumber: 158,
+                                lineNumber: 157,
                                 columnNumber: 27
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                            lineNumber: 157,
+                            lineNumber: 156,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$pencil$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Pencil$3e$__["Pencil"], {
                             className: "h-3 w-3 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                         }, void 0, false, {
                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                            lineNumber: 160,
+                            lineNumber: 159,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                    lineNumber: 153,
+                    lineNumber: 152,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                lineNumber: 152,
+                lineNumber: 151,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$popover$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["PopoverContent"], {
@@ -5269,13 +5277,13 @@ const EditableCell = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d
                                             children: "*"
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                            lineNumber: 171,
+                                            lineNumber: 170,
                                             columnNumber: 46
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                    lineNumber: 170,
+                                    lineNumber: 169,
                                     columnNumber: 13
                                 }, this),
                                 isLongText ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$textarea$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Textarea"], {
@@ -5298,7 +5306,7 @@ const EditableCell = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d
                                     rows: 3
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                    lineNumber: 174,
+                                    lineNumber: 173,
                                     columnNumber: 15
                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
                                     autoFocus: true,
@@ -5312,7 +5320,7 @@ const EditableCell = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d
                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("h-9", error && "border-destructive")
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                    lineNumber: 194,
+                                    lineNumber: 193,
                                     columnNumber: 15
                                 }, this),
                                 error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -5320,13 +5328,13 @@ const EditableCell = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d
                                     children: error
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                    lineNumber: 207,
+                                    lineNumber: 206,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                            lineNumber: 169,
+                            lineNumber: 168,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -5343,14 +5351,14 @@ const EditableCell = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d
                                             className: "h-4 w-4 mr-1"
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                            lineNumber: 218,
+                                            lineNumber: 217,
                                             columnNumber: 15
                                         }, this),
                                         "Hủy"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                    lineNumber: 211,
+                                    lineNumber: 210,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -5363,37 +5371,37 @@ const EditableCell = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d
                                             className: "h-4 w-4 mr-1"
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                            lineNumber: 227,
+                                            lineNumber: 226,
                                             columnNumber: 15
                                         }, this),
                                         "Lưu"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                                    lineNumber: 221,
+                                    lineNumber: 220,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                            lineNumber: 210,
+                            lineNumber: 209,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                    lineNumber: 168,
+                    lineNumber: 167,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                lineNumber: 163,
+                lineNumber: 162,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-        lineNumber: 151,
+        lineNumber: 150,
         columnNumber: 5
     }, this);
 }, "/905z5Qom6vX0+UhwkvQvM2GtRo="));
@@ -5413,12 +5421,12 @@ function PreviewTableRowComponent({ row, isSelected, isUnselectable, visibleFiel
                     "aria-label": `Chọn dòng ${row.rowNumber}`
                 }, void 0, false, {
                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                    lineNumber: 272,
+                    lineNumber: 271,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                lineNumber: 271,
+                lineNumber: 270,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
@@ -5426,7 +5434,7 @@ function PreviewTableRowComponent({ row, isSelected, isUnselectable, visibleFiel
                 children: row.rowNumber
             }, void 0, false, {
                 fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                lineNumber: 279,
+                lineNumber: 278,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
@@ -5434,7 +5442,7 @@ function PreviewTableRowComponent({ row, isSelected, isUnselectable, visibleFiel
                 children: getStatusBadge(row.status, row.errors, row.warnings)
             }, void 0, false, {
                 fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                lineNumber: 282,
+                lineNumber: 281,
                 columnNumber: 7
             }, this),
             visibleFields.map((field)=>{
@@ -5450,19 +5458,19 @@ function PreviewTableRowComponent({ row, isSelected, isUnselectable, visibleFiel
                         onSave: (fk, newVal)=>onCellSave(row.rowNumber, fk, newVal)
                     }, void 0, false, {
                         fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                        lineNumber: 294,
+                        lineNumber: 293,
                         columnNumber: 13
                     }, this)
                 }, fieldKey, false, {
                     fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-                    lineNumber: 290,
+                    lineNumber: 289,
                     columnNumber: 11
                 }, this);
             })
         ]
     }, void 0, true, {
         fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
-        lineNumber: 264,
+        lineNumber: 263,
         columnNumber: 5
     }, this);
 }
@@ -5477,7 +5485,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
         "GenericImportDialogV2.useImportExportStore[addImportLog]": (state)=>state.addImportLog
     }["GenericImportDialogV2.useImportExportStore[addImportLog]"]);
     // Auto-fetch branches if not provided
-    const { data: storeBranches } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$hooks$2f$use$2d$all$2d$branches$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useAllBranches"])();
+    const { data: storeBranches } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useBranchStore"])();
     const branches = branchesProp || storeBranches.map((b)=>({
             systemId: b.systemId,
             name: b.name,
@@ -5510,7 +5518,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
     // Row selection state (for preview step)
     const [selectedRows, setSelectedRows] = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](new Set());
     // Import state
-    const [isImporting, setIsImporting] = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](false);
+    const [_isImporting, setIsImporting] = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](false);
     const [importProgress, setImportProgress] = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](0);
     const [importResult, setImportResult] = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](null);
     // Auto-fill chi nhánh mặc định khi mở dialog hoặc khi store load xong
@@ -5550,6 +5558,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
         }
     }["GenericImportDialogV2.useEffect"], [
         open,
+        defaultBranch,
         defaultBranchId
     ]);
     // Initialize selected rows when preview result changes (select all valid rows by default)
@@ -5579,6 +5588,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                 const revalidatedResult = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["previewImportData"])(rawData, config, existingData, importMode, selectedBranchId);
                 setPreviewResult(revalidatedResult);
             }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         }
     }["GenericImportDialogV2.useEffect"], [
         importMode
@@ -5924,8 +5934,8 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                 insertedCount: result.inserted,
                 updatedCount: result.updated,
                 mode: importMode,
-                performedBy: currentUser.name,
-                performedById: currentUser.systemId,
+                performedBy: currentUser?.name || 'System',
+                performedById: currentUser?.systemId || '',
                 performedAt: new Date().toISOString(),
                 branchId: selectedBranchId || undefined,
                 branchName: branch?.name,
@@ -6285,7 +6295,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "rounded-lg border border-border p-4 space-y-4",
+                                    className: "rounded-lg border p-4 space-y-4",
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "flex items-center gap-2",
@@ -6429,7 +6439,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                            className: "text-xs text-muted-foreground border-t border-border pt-3",
+                                            className: "text-xs text-muted-foreground border-t pt-3",
                                             children: "💡 Các dòng lỗi sẽ bị bỏ qua, chỉ import dòng hợp lệ. Chi tiết lỗi được lưu trong lịch sử import."
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/generic-import-dialog-v2.tsx",
@@ -6455,7 +6465,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                     className: "grid grid-cols-4 gap-3",
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "rounded-lg border border-border p-3 text-center",
+                                            className: "rounded-lg border p-3 text-center",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "text-2xl font-bold",
@@ -6480,7 +6490,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "rounded-lg border border-border p-3 text-center",
+                                            className: "rounded-lg border p-3 text-center",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "text-2xl font-bold text-green-600",
@@ -6505,7 +6515,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "rounded-lg border border-border p-3 text-center",
+                                            className: "rounded-lg border p-3 text-center",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "text-2xl font-bold text-destructive",
@@ -6530,7 +6540,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "rounded-lg border border-border p-3 text-center",
+                                            className: "rounded-lg border p-3 text-center",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "text-2xl font-bold text-amber-600",
@@ -6738,7 +6748,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                             className: "mt-4",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                    className: "rounded-md border border-border overflow-hidden",
+                                                    className: "rounded-md border overflow-hidden",
                                                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                         className: "overflow-auto max-h-[300px]",
                                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -6854,7 +6864,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                    className: "flex items-center justify-between mt-4 pt-4 border-t border-border",
+                                                    className: "flex items-center justify-between mt-4 pt-4 border-t",
                                                     children: [
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                             className: "flex items-center gap-4",
@@ -7161,7 +7171,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                     className: "grid grid-cols-3 gap-4",
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "rounded-lg border border-border p-4 text-center",
+                                            className: "rounded-lg border p-4 text-center",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "text-3xl font-bold text-green-600",
@@ -7200,7 +7210,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "rounded-lg border border-border p-4 text-center",
+                                            className: "rounded-lg border p-4 text-center",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "text-3xl font-bold text-destructive",
@@ -7225,7 +7235,7 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "rounded-lg border border-border p-4 text-center",
+                                            className: "rounded-lg border p-4 text-center",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "text-3xl font-bold text-muted-foreground",
@@ -7433,10 +7443,10 @@ function GenericImportDialogV2({ open, onOpenChange, config, branches: branchesP
         columnNumber: 5
     }, this);
 }
-_s1(GenericImportDialogV2, "gneoaYyqNyuyNI61+YeOgPGN7mk=", false, function() {
+_s1(GenericImportDialogV2, "b1PAtzTw9f6qZwnZ1OoceR3H7d0=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$import$2d$export$2f$import$2d$export$2d$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useImportExportStore"],
-        __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$hooks$2f$use$2d$all$2d$branches$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useAllBranches"]
+        __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useBranchStore"]
     ];
 });
 _c3 = GenericImportDialogV2;
@@ -7523,7 +7533,8 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
         }
     }["GenericExportDialogV2.useEffect"], [
         open,
-        config.fields
+        config.fields,
+        selectedColumns.length
     ]);
     // Reset scope when dialog opens
     __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"]({
@@ -7685,8 +7696,8 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
         try {
             // Get selected fields config (including dynamic pricing fields)
             const staticSelectedFields = config.fields.filter((f)=>selectedColumns.includes(f.key));
-            // Add dynamic pricing fields for products
-            let allSelectedFields = [
+            // Add dynamic pricing fields for products (prepared but handled inline in transform)
+            let _allSelectedFieldsFinal = [
                 ...staticSelectedFields
             ];
             const selectedPriceColumns = selectedColumns.filter((k)=>k.startsWith('_price_'));
@@ -7702,8 +7713,8 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                         exportGroup: 'Bảng giá'
                     };
                 });
-                allSelectedFields = [
-                    ...allSelectedFields,
+                _allSelectedFieldsFinal = [
+                    ..._allSelectedFieldsFinal,
                     ...pricingFields
                 ];
             }
@@ -7798,7 +7809,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                     className: "h-5 w-5"
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                    lineNumber: 352,
+                                    lineNumber: 351,
                                     columnNumber: 13
                                 }, this),
                                 "Xuất ",
@@ -7807,20 +7818,20 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 351,
+                            lineNumber: 350,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogDescription"], {
                             children: "Chọn phạm vi và các cột cần xuất"
                         }, void 0, false, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 355,
+                            lineNumber: 354,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                    lineNumber: 350,
+                    lineNumber: 349,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7834,7 +7845,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                     children: "Giới hạn kết quả xuất"
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                    lineNumber: 363,
+                                    lineNumber: 362,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$radio$2d$group$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["RadioGroup"], {
@@ -7853,7 +7864,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             id: "scope-all"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 371,
+                                                            lineNumber: 370,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -7862,13 +7873,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             children: "Tất cả dữ liệu"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 372,
+                                                            lineNumber: 371,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 370,
+                                                    lineNumber: 369,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
@@ -7876,13 +7887,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                     children: allData.length
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 376,
+                                                    lineNumber: 375,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                            lineNumber: 369,
+                                            lineNumber: 368,
                                             columnNumber: 15
                                         }, this),
                                         filteredData.length < allData.length && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7896,7 +7907,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             id: "scope-filtered"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 382,
+                                                            lineNumber: 381,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -7905,13 +7916,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             children: "Kết quả đã lọc"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 383,
+                                                            lineNumber: 382,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 381,
+                                                    lineNumber: 380,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
@@ -7919,13 +7930,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                     children: filteredData.length
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 387,
+                                                    lineNumber: 386,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                            lineNumber: 380,
+                                            lineNumber: 379,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7939,7 +7950,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             id: "scope-page"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 393,
+                                                            lineNumber: 392,
                                                             columnNumber: 19
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -7948,13 +7959,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             children: "Trang hiện tại"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 394,
+                                                            lineNumber: 393,
                                                             columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 392,
+                                                    lineNumber: 391,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
@@ -7962,13 +7973,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                     children: currentPageData.length
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 398,
+                                                    lineNumber: 397,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                            lineNumber: 391,
+                                            lineNumber: 390,
                                             columnNumber: 15
                                         }, this),
                                         selectedData.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -7982,7 +7993,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             id: "scope-selected"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 404,
+                                                            lineNumber: 403,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -7991,13 +8002,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             children: "Các dòng đã chọn"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                            lineNumber: 405,
+                                                            lineNumber: 404,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 403,
+                                                    lineNumber: 402,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
@@ -8005,30 +8016,30 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                     children: selectedData.length
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                    lineNumber: 409,
+                                                    lineNumber: 408,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                            lineNumber: 402,
+                                            lineNumber: 401,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                    lineNumber: 364,
+                                    lineNumber: 363,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 362,
+                            lineNumber: 361,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$separator$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Separator"], {}, void 0, false, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 415,
+                            lineNumber: 414,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8048,7 +8059,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                            lineNumber: 420,
+                                            lineNumber: 419,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -8058,17 +8069,17 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                             children: selectedColumns.length === exportableFields.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                            lineNumber: 423,
+                                            lineNumber: 422,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                    lineNumber: 419,
+                                    lineNumber: 418,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$scroll$2d$area$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ScrollArea"], {
-                                    className: "h-[280px] rounded-md border border-border p-4",
+                                    className: "h-[280px] rounded-md border p-4",
                                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "space-y-4",
                                         children: Object.entries(groupedFields).map(([group, fields])=>{
@@ -8085,12 +8096,12 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$checkbox$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Checkbox"], {
                                                                 id: `group-${group}`,
                                                                 checked: allSelected,
-                                                                // @ts-ignore - indeterminate is valid HTML attribute
+                                                                // @ts-expect-error - indeterminate is valid HTML attribute
                                                                 ref: (el)=>el && (el.indeterminate = someSelected),
                                                                 onCheckedChange: ()=>handleToggleGroup(fields)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                                lineNumber: 443,
+                                                                lineNumber: 442,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -8106,13 +8117,13 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                                lineNumber: 450,
+                                                                lineNumber: 449,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                        lineNumber: 442,
+                                                        lineNumber: 441,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8126,7 +8137,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                                         onCheckedChange: ()=>handleToggleColumn(field.key)
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                                        lineNumber: 460,
+                                                                        lineNumber: 459,
                                                                         columnNumber: 29
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -8139,47 +8150,47 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                                                                 children: "*"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                                                lineNumber: 470,
+                                                                                lineNumber: 469,
                                                                                 columnNumber: 50
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                                        lineNumber: 465,
+                                                                        lineNumber: 464,
                                                                         columnNumber: 29
                                                                     }, this)
                                                                 ]
                                                             }, field.key, true, {
                                                                 fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                                lineNumber: 459,
+                                                                lineNumber: 458,
                                                                 columnNumber: 27
                                                             }, this))
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                        lineNumber: 457,
+                                                        lineNumber: 456,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, group, true, {
                                                 fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                                lineNumber: 441,
+                                                lineNumber: 440,
                                                 columnNumber: 21
                                             }, this);
                                         })
                                     }, void 0, false, {
                                         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                        lineNumber: 433,
+                                        lineNumber: 432,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                    lineNumber: 432,
+                                    lineNumber: 431,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 418,
+                            lineNumber: 417,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8192,7 +8203,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                             children: "Sẽ xuất:"
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                            lineNumber: 485,
+                                            lineNumber: 484,
                                             columnNumber: 15
                                         }, this),
                                         " ",
@@ -8205,7 +8216,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                    lineNumber: 484,
+                                    lineNumber: 483,
                                     columnNumber: 13
                                 }, this),
                                 selectedColumns.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -8220,19 +8231,19 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                    lineNumber: 488,
+                                    lineNumber: 487,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 483,
+                            lineNumber: 482,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                    lineNumber: 360,
+                    lineNumber: 359,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogFooter"], {
@@ -8244,7 +8255,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                             children: "Hủy"
                         }, void 0, false, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 500,
+                            lineNumber: 499,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -8256,7 +8267,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                         className: "mr-2 h-4 w-4 animate-spin"
                                     }, void 0, false, {
                                         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                        lineNumber: 509,
+                                        lineNumber: 508,
                                         columnNumber: 17
                                     }, this),
                                     "Đang xuất..."
@@ -8267,7 +8278,7 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                                         className: "mr-2 h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                                        lineNumber: 514,
+                                        lineNumber: 513,
                                         columnNumber: 17
                                     }, this),
                                     "Xuất Excel (",
@@ -8277,24 +8288,24 @@ function GenericExportDialogV2({ open, onOpenChange, config, allData, filteredDa
                             }, void 0, true)
                         }, void 0, false, {
                             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                            lineNumber: 503,
+                            lineNumber: 502,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-                    lineNumber: 499,
+                    lineNumber: 498,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-            lineNumber: 349,
+            lineNumber: 348,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/components/shared/generic-export-dialog-v2.tsx",
-        lineNumber: 348,
+        lineNumber: 347,
         columnNumber: 5
     }, this);
 }
@@ -8370,7 +8381,7 @@ const AlertDialogContent = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$proj
             }, ("TURBOPACK compile-time value", void 0)),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$radix$2d$ui$2f$react$2d$alert$2d$dialog$2f$dist$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Content"], {
                 ref: ref,
-                className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg transition-opacity duration-200 opacity-0 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 sm:rounded-lg", className),
+                className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg transition-opacity duration-200 opacity-0 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 sm:rounded-lg", className),
                 ...props
             }, void 0, false, {
                 fileName: "[project]/components/ui/alert-dialog.tsx",
@@ -8484,10 +8495,11 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/label.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/select.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$checkbox$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/checkbox.tsx [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$hooks$2f$use$2d$all$2d$branches$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/branches/hooks/use-all-branches.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/features/settings/branches/store.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/utils.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$circle$2d$question$2d$mark$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__CircleHelp$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/circle-question-mark.js [app-client] (ecmascript) <export default as CircleHelp>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/components/ui/tooltip.tsx [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$use$2d$print$2d$options$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/hooks/use-print-options.ts [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
 ;
@@ -8500,7 +8512,8 @@ var _s = __turbopack_context__.k.signature();
 ;
 ;
 ;
-const PRINT_TYPE_OPTIONS = [
+;
+const _PRINT_TYPE_OPTIONS = [
     {
         id: 'order',
         label: 'Đơn hàng'
@@ -8543,17 +8556,10 @@ const PAPER_SIZE_OPTIONS = [
         label: 'K57'
     }
 ];
-// In-memory cache for session defaults
-let sessionDefaultOptions = null;
-function loadDefaultOptions() {
-    return sessionDefaultOptions;
-}
-function saveDefaultOptions(options) {
-    sessionDefaultOptions = options;
-}
-function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, title = "Chọn thông tin bạn muốn in", initialTemplateType }) {
+function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount: _selectedCount, title = "Chọn thông tin bạn muốn in", initialTemplateType }) {
     _s();
-    const { data: branches } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$hooks$2f$use$2d$all$2d$branches$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useAllBranches"])();
+    const { data: branches } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useBranchStore"])();
+    const [savedOptions, setSavedOptions] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$use$2d$print$2d$options$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePrintOptions"])();
     const activeBranches = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"]({
         "PrintOptionsDialog.useMemo[activeBranches]": ()=>branches.filter({
                 "PrintOptionsDialog.useMemo[activeBranches]": (b)=>b.name
@@ -8582,8 +8588,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
     __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"]({
         "PrintOptionsDialog.useEffect": ()=>{
             if (open) {
-                const savedOptions = loadDefaultOptions();
-                if (savedOptions) {
+                if (savedOptions.branchSystemId) {
                     setBranchSystemId(savedOptions.branchSystemId);
                     setPaperSize(savedOptions.paperSize);
                     setPrintOrder(savedOptions.printOrder);
@@ -8609,6 +8614,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                 }
                 setSaveAsDefault(false);
             }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         }
     }["PrintOptionsDialog.useEffect"], [
         open,
@@ -8623,7 +8629,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
         }
         // Save as default if checked
         if (saveAsDefault) {
-            saveDefaultOptions({
+            setSavedOptions({
                 branchSystemId,
                 paperSize,
                 printOrder,
@@ -8678,12 +8684,12 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                         children: title
                     }, void 0, false, {
                         fileName: "[project]/components/shared/print-options-dialog.tsx",
-                        lineNumber: 210,
+                        lineNumber: 188,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                    lineNumber: 209,
+                    lineNumber: 187,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8697,7 +8703,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                     children: "Chọn mẫu in tại chi nhánh"
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 216,
+                                    lineNumber: 194,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Select"], {
@@ -8711,12 +8717,12 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                                 children: selectedBranchName
                                             }, void 0, false, {
                                                 fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                lineNumber: 221,
+                                                lineNumber: 199,
                                                 columnNumber: 17
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                            lineNumber: 220,
+                                            lineNumber: 198,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
@@ -8729,24 +8735,24 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                                     ]
                                                 }, branch.systemId, true, {
                                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                    lineNumber: 227,
+                                                    lineNumber: 205,
                                                     columnNumber: 19
                                                 }, this))
                                         }, void 0, false, {
                                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                            lineNumber: 225,
+                                            lineNumber: 203,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 219,
+                                    lineNumber: 197,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                            lineNumber: 215,
+                            lineNumber: 193,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8757,7 +8763,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                     children: "Chọn loại phiếu in"
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 237,
+                                    lineNumber: 215,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8772,7 +8778,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                                     onCheckedChange: (checked)=>setPrintOrder(checked === true)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                    lineNumber: 241,
+                                                    lineNumber: 219,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -8781,13 +8787,13 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                                     children: "Đơn hàng"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                    lineNumber: 246,
+                                                    lineNumber: 224,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                            lineNumber: 240,
+                                            lineNumber: 218,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8799,7 +8805,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                                     onCheckedChange: (checked)=>setPrintDelivery(checked === true)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                    lineNumber: 253,
+                                                    lineNumber: 231,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -8807,6 +8813,76 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                                     className: "cursor-pointer flex items-center gap-1",
                                                     children: [
                                                         "Phiếu giao hàng",
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipProvider"], {
+                                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Tooltip"], {
+                                                                children: [
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipTrigger"], {
+                                                                        asChild: true,
+                                                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$circle$2d$question$2d$mark$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__CircleHelp$3e$__["CircleHelp"], {
+                                                                            className: "h-3.5 w-3.5 text-muted-foreground"
+                                                                        }, void 0, false, {
+                                                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                                            lineNumber: 241,
+                                                                            columnNumber: 25
+                                                                        }, this)
+                                                                    }, void 0, false, {
+                                                                        fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                                        lineNumber: 240,
+                                                                        columnNumber: 23
+                                                                    }, this),
+                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
+                                                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                                            children: "Yêu cầu đơn hàng đã có đóng gói"
+                                                                        }, void 0, false, {
+                                                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                                            lineNumber: 244,
+                                                                            columnNumber: 25
+                                                                        }, this)
+                                                                    }, void 0, false, {
+                                                                        fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                                        lineNumber: 243,
+                                                                        columnNumber: 23
+                                                                    }, this)
+                                                                ]
+                                                            }, void 0, true, {
+                                                                fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                                lineNumber: 239,
+                                                                columnNumber: 21
+                                                            }, this)
+                                                        }, void 0, false, {
+                                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                            lineNumber: 238,
+                                                            columnNumber: 19
+                                                        }, this)
+                                                    ]
+                                                }, void 0, true, {
+                                                    fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                    lineNumber: 236,
+                                                    columnNumber: 17
+                                                }, this)
+                                            ]
+                                        }, void 0, true, {
+                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                            lineNumber: 230,
+                                            columnNumber: 15
+                                        }, this),
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: "flex items-center space-x-2",
+                                            children: [
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$checkbox$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Checkbox"], {
+                                                    id: "print-packing",
+                                                    checked: printPacking,
+                                                    onCheckedChange: (checked)=>setPrintPacking(checked === true)
+                                                }, void 0, false, {
+                                                    fileName: "[project]/components/shared/print-options-dialog.tsx",
+                                                    lineNumber: 253,
+                                                    columnNumber: 17
+                                                }, this),
+                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
+                                                    htmlFor: "print-packing",
+                                                    className: "cursor-pointer flex items-center gap-1",
+                                                    children: [
+                                                        "Phiếu đóng gói",
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipProvider"], {
                                                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Tooltip"], {
                                                                 children: [
@@ -8864,19 +8940,19 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                             className: "flex items-center space-x-2",
                                             children: [
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$checkbox$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Checkbox"], {
-                                                    id: "print-packing",
-                                                    checked: printPacking,
-                                                    onCheckedChange: (checked)=>setPrintPacking(checked === true)
+                                                    id: "print-shipping-label",
+                                                    checked: printShippingLabel,
+                                                    onCheckedChange: (checked)=>setPrintShippingLabel(checked === true)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
                                                     lineNumber: 275,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
-                                                    htmlFor: "print-packing",
+                                                    htmlFor: "print-shipping-label",
                                                     className: "cursor-pointer flex items-center gap-1",
                                                     children: [
-                                                        "Phiếu đóng gói",
+                                                        "Nhãn giao hàng",
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipProvider"], {
                                                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Tooltip"], {
                                                                 children: [
@@ -8896,7 +8972,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
                                                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                                                            children: "Yêu cầu đơn hàng đã có đóng gói"
+                                                                            children: "Yêu cầu đơn hàng đã xác nhận đóng gói"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/shared/print-options-dialog.tsx",
                                                                             lineNumber: 288,
@@ -8929,87 +9005,17 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                             fileName: "[project]/components/shared/print-options-dialog.tsx",
                                             lineNumber: 274,
                                             columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "flex items-center space-x-2",
-                                            children: [
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$checkbox$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Checkbox"], {
-                                                    id: "print-shipping-label",
-                                                    checked: printShippingLabel,
-                                                    onCheckedChange: (checked)=>setPrintShippingLabel(checked === true)
-                                                }, void 0, false, {
-                                                    fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                    lineNumber: 297,
-                                                    columnNumber: 17
-                                                }, this),
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
-                                                    htmlFor: "print-shipping-label",
-                                                    className: "cursor-pointer flex items-center gap-1",
-                                                    children: [
-                                                        "Nhãn giao hàng",
-                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipProvider"], {
-                                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Tooltip"], {
-                                                                children: [
-                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipTrigger"], {
-                                                                        asChild: true,
-                                                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$circle$2d$question$2d$mark$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__CircleHelp$3e$__["CircleHelp"], {
-                                                                            className: "h-3.5 w-3.5 text-muted-foreground"
-                                                                        }, void 0, false, {
-                                                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                                            lineNumber: 307,
-                                                                            columnNumber: 25
-                                                                        }, this)
-                                                                    }, void 0, false, {
-                                                                        fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                                        lineNumber: 306,
-                                                                        columnNumber: 23
-                                                                    }, this),
-                                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
-                                                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                                                            children: "Yêu cầu đơn hàng đã xác nhận đóng gói"
-                                                                        }, void 0, false, {
-                                                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                                            lineNumber: 310,
-                                                                            columnNumber: 25
-                                                                        }, this)
-                                                                    }, void 0, false, {
-                                                                        fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                                        lineNumber: 309,
-                                                                        columnNumber: 23
-                                                                    }, this)
-                                                                ]
-                                                            }, void 0, true, {
-                                                                fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                                lineNumber: 305,
-                                                                columnNumber: 21
-                                                            }, this)
-                                                        }, void 0, false, {
-                                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                            lineNumber: 304,
-                                                            columnNumber: 19
-                                                        }, this)
-                                                    ]
-                                                }, void 0, true, {
-                                                    fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                                    lineNumber: 302,
-                                                    columnNumber: 17
-                                                }, this)
-                                            ]
-                                        }, void 0, true, {
-                                            fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                            lineNumber: 296,
-                                            columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 238,
+                                    lineNumber: 216,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                            lineNumber: 236,
+                            lineNumber: 214,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -9020,7 +9026,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                     children: "Chọn mẫu in phiếu"
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 321,
+                                    lineNumber: 299,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -9034,18 +9040,18 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                             children: option.label
                                         }, option.value, false, {
                                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                            lineNumber: 324,
+                                            lineNumber: 302,
                                             columnNumber: 17
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 322,
+                                    lineNumber: 300,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                            lineNumber: 320,
+                            lineNumber: 298,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -9057,7 +9063,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                     onCheckedChange: (checked)=>setSaveAsDefault(checked === true)
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 343,
+                                    lineNumber: 321,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$label$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Label"], {
@@ -9066,19 +9072,19 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                                     children: "Đặt làm mặc định cho chức năng in tùy chọn"
                                 }, void 0, false, {
                                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                                    lineNumber: 348,
+                                    lineNumber: 326,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                            lineNumber: 342,
+                            lineNumber: 320,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                    lineNumber: 213,
+                    lineNumber: 191,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogFooter"], {
@@ -9089,7 +9095,7 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                             children: "Thoát"
                         }, void 0, false, {
                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                            lineNumber: 358,
+                            lineNumber: 336,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -9098,30 +9104,31 @@ function PrintOptionsDialog({ open, onOpenChange, onConfirm, selectedCount, titl
                             children: "In"
                         }, void 0, false, {
                             fileName: "[project]/components/shared/print-options-dialog.tsx",
-                            lineNumber: 361,
+                            lineNumber: 339,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/shared/print-options-dialog.tsx",
-                    lineNumber: 357,
+                    lineNumber: 335,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/components/shared/print-options-dialog.tsx",
-            lineNumber: 208,
+            lineNumber: 186,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/components/shared/print-options-dialog.tsx",
-        lineNumber: 207,
+        lineNumber: 185,
         columnNumber: 5
     }, this);
 }
-_s(PrintOptionsDialog, "xZ4uUmqHuRikvK4Y/aNMPZBmKKM=", false, function() {
+_s(PrintOptionsDialog, "2VgdyI/1ik+6/ZQdxfyJLSSwZ9w=", false, function() {
     return [
-        __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$hooks$2f$use$2d$all$2d$branches$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useAllBranches"]
+        __TURBOPACK__imported__module__$5b$project$5d2f$features$2f$settings$2f$branches$2f$store$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useBranchStore"],
+        __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$use$2d$print$2d$options$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePrintOptions"]
     ];
 });
 _c = PrintOptionsDialog;
@@ -9185,7 +9192,7 @@ function StatusBadge({ status, statusMap, className, defaultVariant = 'secondary
         children: config.label
     }, void 0, false, {
         fileName: "[project]/components/StatusBadge.tsx",
-        lineNumber: 59,
+        lineNumber: 58,
         columnNumber: 5
     }, this);
 }
@@ -9570,7 +9577,7 @@ function PageToolbar({ leftActions, rightActions, children, className }) {
             children: children
         }, void 0, false, {
             fileName: "[project]/components/layout/page-toolbar.tsx",
-            lineNumber: 27,
+            lineNumber: 26,
             columnNumber: 7
         }, this);
     }
@@ -9583,7 +9590,7 @@ function PageToolbar({ leftActions, rightActions, children, className }) {
                 children: leftActions
             }, void 0, false, {
                 fileName: "[project]/components/layout/page-toolbar.tsx",
-                lineNumber: 48,
+                lineNumber: 47,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -9591,13 +9598,13 @@ function PageToolbar({ leftActions, rightActions, children, className }) {
                 children: rightActions
             }, void 0, false, {
                 fileName: "[project]/components/layout/page-toolbar.tsx",
-                lineNumber: 53,
+                lineNumber: 52,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/layout/page-toolbar.tsx",
-        lineNumber: 41,
+        lineNumber: 40,
         columnNumber: 5
     }, this);
 }

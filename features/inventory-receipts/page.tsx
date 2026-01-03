@@ -21,7 +21,7 @@ import Fuse from "fuse.js";
 import type { ColumnDef } from "../../components/data-table/types";
 import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches, useBranchFinder } from "../settings/branches/hooks/use-all-branches";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import { usePrint } from "../../lib/use-print";
 import { 
@@ -30,12 +30,18 @@ import {
   mapStockInLineItems,
   createStoreSettings,
 } from "../../lib/print/stock-in-print-helper";
+import dynamic from 'next/dynamic';
 import { toast } from "sonner";
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { inventoryReceiptConfig } from "../../lib/import-export/configs/inventory-receipt.config";
 import { useAuth } from "../../contexts/auth-context";
+import { useColumnVisibility } from "../../hooks/use-column-visibility";
 import { asSystemId } from "../../lib/id-types";
+
+// ✅ Dynamic import for Export dialog - lazy loads XLSX library (~500KB) + config
+const InventoryReceiptExportDialog = dynamic(
+  () => import("./components/inventory-receipts-import-export-dialogs").then(mod => ({ default: mod.InventoryReceiptExportDialog })),
+  { ssr: false }
+);
 
 const getColumns = (
   handlers: {
@@ -201,7 +207,8 @@ export function InventoryReceiptsPage() {
   const { data: receipts } = useInventoryReceiptStore();
   const { data: _allPurchaseOrders } = usePurchaseOrderStore();
   const { data: suppliers, findById: findSupplierById } = useSupplierStore();
-  const { data: branches, findById: findBranchById } = useBranchStore();
+  const { data: branches } = useAllBranches();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
   const { employee: currentUser } = useAuth();
@@ -256,24 +263,7 @@ export function InventoryReceiptsPage() {
   const [branchFilter, setBranchFilter] = React.useState('all');
   const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>();
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const columnVisibilityStorageKey = 'inventory-receipts-column-visibility';
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    if (typeof window === 'undefined') return {};
-    const stored = localStorage.getItem(columnVisibilityStorageKey);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (_e) {
-        // Ignore JSON parse errors - use default
-      }
-    }
-    return {};
-  });
-  
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(columnVisibilityStorageKey, JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('inventory-receipts', {});
   
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
@@ -309,23 +299,19 @@ export function InventoryReceiptsPage() {
   
   React.useEffect(() => {
     if (!columns.length) return;
-    setColumnVisibility(prev => {
-      const next = { ...prev };
-      let changed = false;
+    // Only set visibility for new columns if empty
+    if (Object.keys(columnVisibility).length === 0) {
+      const next: Record<string, boolean> = {};
       columns.forEach(c => {
-        if (!c.id) return;
-        if (typeof next[c.id] === 'undefined') {
-          next[c.id] = true;
-          changed = true;
-        }
+        if (c.id) next[c.id] = true;
       });
-      return changed ? next : prev;
-    });
+      setColumnVisibility(next);
+    }
     setColumnOrder(prev => {
       if (prev.length) return prev;
       return columns.map(c => c.id).filter(Boolean) as string[];
     });
-  }, [columns]);
+  }, [columns, columnVisibility, setColumnVisibility]);
   
   const fuse = React.useMemo(
     () => new Fuse(filteredDataBase, { 
@@ -707,10 +693,9 @@ export function InventoryReceiptsPage() {
       />
 
       {/* Export Dialog */}
-      <GenericExportDialogV2<InventoryReceipt>
+      <InventoryReceiptExportDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
-        config={inventoryReceiptConfig}
         allData={receipts}
         filteredData={filteredData}
         currentPageData={paginatedData}

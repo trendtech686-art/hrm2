@@ -13,14 +13,22 @@ import { PageToolbar } from '../../components/layout/page-toolbar';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { usePageHeader } from '../../contexts/page-header-context';
+import dynamic from 'next/dynamic';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { useAuth } from '../../contexts/auth-context';
 import { Plus, Download, Printer, XCircle, Scale, FileSpreadsheet } from 'lucide-react';
-import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { inventoryCheckImportExportConfig } from '../../lib/import-export/configs/inventory-check.config';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { toast } from 'sonner';
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
+const InventoryCheckImportDialog = dynamic(
+  () => import("./components/inventory-checks-import-export-dialogs").then(mod => ({ default: mod.InventoryCheckImportDialog })),
+  { ssr: false }
+);
+const InventoryCheckExportDialog = dynamic(
+  () => import("./components/inventory-checks-import-export-dialogs").then(mod => ({ default: mod.InventoryCheckExportDialog })),
+  { ssr: false }
+);
 import Fuse from 'fuse.js';
 import { asSystemId } from '../../lib/id-types';
 import type { InventoryCheck } from '@/lib/types/prisma-extended';
@@ -36,7 +44,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePrint } from '../../lib/use-print';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { 
   convertInventoryCheckForPrint,
   mapInventoryCheckToPrintData,
@@ -57,7 +65,8 @@ export function InventoryChecksPage() {
   const { employee: currentUser } = useAuth();
   const { data, balanceCheck, cancelCheck } = useInventoryCheckStore();
   const { info: storeInfo } = useStoreInfoStore();
-  const { findById: findBranchById, data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
+  const { findById: findBranchById } = useBranchFinder();
   const { print, printMultiple } = usePrint();
 
   // Print dialog state
@@ -181,7 +190,9 @@ export function InventoryChecksPage() {
   );
 
   // Default column visibility - 15 columns for sticky scrollbar
+  const columnDefaultsInitialized = React.useRef(false);
   React.useEffect(() => {
+    if (columnDefaultsInitialized.current) return;
     if (!columns || columns.length === 0) return;
     
     const defaultVisibleColumns = [
@@ -201,6 +212,7 @@ export function InventoryChecksPage() {
     
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+    columnDefaultsInitialized.current = true;
   }, [columns]);
 
   // Search & Filter with Fuse.js
@@ -618,10 +630,9 @@ export function InventoryChecksPage() {
       />
 
       {/* Import Dialog */}
-      <GenericImportDialogV2<InventoryCheck>
+      <InventoryCheckImportDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
-        config={inventoryCheckImportExportConfig}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
         existingData={data}
         onImport={handleImport}
@@ -632,10 +643,9 @@ export function InventoryChecksPage() {
       />
 
       {/* Export Dialog */}
-      <GenericExportDialogV2<InventoryCheck>
+      <InventoryCheckExportDialog
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
-        config={inventoryCheckImportExportConfig}
         allData={data}
         filteredData={filteredData}
         currentPageData={paginatedData}

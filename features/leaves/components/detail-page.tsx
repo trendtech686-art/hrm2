@@ -15,6 +15,7 @@ import { Comments, type Comment as CommentType } from '@/components/Comments';
 import { ActivityHistory } from '@/components/ActivityHistory';
 import { useAuth } from '@/contexts/auth-context';
 import type { LeaveStatus } from '@/lib/types/prisma-extended';
+import { useComments } from '@/hooks/use-comments';
 
 const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = {
     "Chờ duyệt": "warning",
@@ -29,42 +30,40 @@ export function LeaveDetailPage() {
   const { employee: authEmployee } = useAuth();
   const request = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
 
-  // Comments state with localStorage persistence
+  // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('leave', systemId || '');
+  
   type LeaveComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<LeaveComment[]>(() => {
-    const saved = localStorage.getItem(`leave-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`leave-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
-    const newComment: LeaveComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
+  const comments = React.useMemo<LeaveComment[]>(() => 
+    dbComments.map(c => ({
+      id: asSystemId(c.systemId),
+      content: c.content,
       author: {
-        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
+        systemId: asSystemId(c.createdBy || 'system'),
+        name: c.createdByName || 'Hệ thống',
       },
-      createdAt: new Date(),
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
-  }, [authEmployee]);
+      createdAt: new Date(c.createdAt),
+      updatedAt: c.updatedAt ? new Date(c.updatedAt) : undefined,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
-  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
-    ));
+  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
+  }, [dbAddComment]);
+
+  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
-  }, []);
+    dbDeleteComment(commentId);
+  }, [dbDeleteComment]);
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),

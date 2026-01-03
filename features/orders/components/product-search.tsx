@@ -6,7 +6,7 @@ import type { ProductFormValues } from '../../products/validation';
 import { useProductStore } from '../../products/store';
 import { useUnitStore } from '../../settings/units/store';
 import { usePricingPolicyStore } from '../../settings/pricing/store';
-import { useBranchStore } from '../../settings/branches/store';
+import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { useImageStore } from '../../products/image-store';
 import { FileUploadAPI, type StagingFile, type ServerFile } from '../../../lib/file-upload-api';
 import { LazyImage } from '../../../components/ui/lazy-image';
@@ -118,7 +118,7 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
     branchSystemId?: string | undefined;
 }) => {
     const { data: allProducts, getActive } = useProductStore();
-    const { data: branches } = useBranchStore();
+    const { data: branches } = useAllBranches();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
 

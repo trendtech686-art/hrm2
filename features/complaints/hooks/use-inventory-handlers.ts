@@ -9,7 +9,6 @@ import { Complaint, ComplaintAction } from '../types';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
 import type { Order } from '../../orders/types';
 import type { Employee } from '../../employees/types';
-import type { DifferenceReason } from '@/lib/types/prisma-extended';
 
 interface UseInventoryHandlersProps {
   complaint: Complaint | null;

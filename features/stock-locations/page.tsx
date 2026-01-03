@@ -1,7 +1,9 @@
+'use client'
+
 import * as React from 'react';
 import { useSettingsPageHeader } from '../settings/use-settings-page-header';
 import { useStockLocationStore } from './store';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import type { StockLocation } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
@@ -14,10 +16,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { SettingsActionButton } from '../../components/settings/SettingsActionButton';
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
 export function StockLocationsPage() {
   const { data, add, update, remove } = useStockLocationStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<StockLocation | null>(null);
@@ -25,27 +28,15 @@ export function StockLocationsPage() {
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'stock-locations-column-visibility';
-    const stored = localStorage.getItem(storageKey);
+  
+  // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+  const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns(() => {}, () => {}, branches);
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (_e) {
-        // Ignore JSON parse errors - use default
-      }
-    }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
-  });
-  
-  React.useEffect(() => {
-    localStorage.setItem('stock-locations-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  }, [branches]);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('stock-locations', defaultColumnVisibility);
   
   const handleAddNew = React.useCallback(() => { setEditingItem(null); setIsFormOpen(true); }, []);
   const handleEdit = React.useCallback((item: StockLocation) => { setEditingItem(item); setIsFormOpen(true); }, []);

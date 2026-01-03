@@ -13,8 +13,8 @@ import { formatDateForDisplay } from '@/lib/date-utils';
 // Types & Store
 import type { Complaint, ComplaintStatus } from "./types";
 import { useComplaintStore } from "./store";
-import { useEmployeeStore } from "../employees/store";
-import { useBranchStore } from "../settings/branches/store";
+import { useAllEmployees } from "../employees/hooks/use-all-employees";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import {
   complaintStatusLabels,
@@ -323,8 +323,8 @@ export function ComplaintsPage() {
     updateComplaint,
   } = useComplaintStore();
   
-  const { data: employees } = useEmployeeStore();
-  const { data: branches } = useBranchStore();
+  const { data: employees } = useAllEmployees();
+  const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoStore();
   const { print: _print, printMultiple } = usePrint();
 

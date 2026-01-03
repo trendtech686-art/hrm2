@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from "react"
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useTaskStore } from "./store"
 import { getColumns } from "./columns"
@@ -8,7 +9,7 @@ import type { Task, TaskStatus, TaskPriority } from "./types"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { useAuth } from "../../contexts/auth-context";
-import { useEmployeeStore } from "../employees/store";
+import { useAllEmployees } from "../employees/hooks/use-all-employees";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { PageFilters } from "../../components/layout/page-filters"
 import { PageToolbar } from "../../components/layout/page-toolbar"
@@ -18,21 +19,33 @@ import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Repeat, Settings } 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { TaskCard } from "./components/task-card";
-import { TaskKanbanView } from "./components/kanban-view";
+// ✅ Lazy load Kanban view - heavy component với @dnd-kit và @tanstack/react-virtual
+const TaskKanbanView = dynamic(
+  () => import("./components/kanban-view").then(mod => ({ default: mod.TaskKanbanView })),
+  { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div> }
+);
 import Fuse from "fuse.js"
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { toast } from "sonner";
 import { QuickFilters, QuickFiltersCompact } from "./components/QuickFilters";
-import { QUICK_FILTERS } from "./types-filter";
+import { createQuickFilters, type QuickFilter } from "./types-filter";
 import type { SystemId } from '../../lib/id-types';
+import { useColumnVisibility } from "../../hooks/use-column-visibility";
 
 export function TasksPage() {
   const store = useTaskStore();
   const { data: allTasks, remove, update, restoreTimer } = store;
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { isMobile } = useBreakpoint();
   const { isAdmin, employee } = useAuth();
   const router = useRouter();
+  
+  // Quick filters with user context (no localStorage access needed)
+  const quickFilters = React.useMemo<QuickFilter[]>(() => 
+    createQuickFilters({
+      employeeId: employee?.systemId,
+      username: employee?.fullName
+    }), [employee?.systemId, employee?.fullName]);
   
   // Quick filters state
   const [activeQuickFilters, setActiveQuickFilters] = React.useState<string[]>([]);
@@ -58,27 +71,15 @@ export function TasksPage() {
   const [priorityFilter, setPriorityFilter] = React.useState<"all" | TaskPriority>('all');
   const [assigneeFilter, setAssigneeFilter] = React.useState('all');
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'tasks-column-visibility';
-    const stored = localStorage.getItem(storageKey);
+  
+  // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+  const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns(() => {}, () => {}, () => {});
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (_e) {
-        // Ignore JSON parse errors - use default
-      }
-    }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
-  });
-  
-  React.useEffect(() => {
-    localStorage.setItem('tasks-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  }, []);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('tasks', defaultColumnVisibility);
   
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
@@ -91,10 +92,11 @@ export function TasksPage() {
   const columns = React.useMemo(() => getColumns(handleDelete, () => {}, router.push, isAdmin), [handleDelete, router, isAdmin]);
   
   // Initialize column visibility and order only once
-  const [isColumnsInitialized, setIsColumnsInitialized] = React.useState(false);
+  const columnDefaultsInitialized = React.useRef(false);
   
   React.useEffect(() => {
-    if (isColumnsInitialized || columns.length === 0) return;
+    if (columnDefaultsInitialized.current) return;
+    if (columns.length === 0) return;
     
     const defaultVisibleColumns = [
       'id', 
@@ -119,8 +121,9 @@ export function TasksPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    setIsColumnsInitialized(true);
-  }, [columns, isColumnsInitialized]);
+    columnDefaultsInitialized.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns]);
 
   // Role-based data filtering
   const employeeSystemId = employee?.systemId;
@@ -161,12 +164,12 @@ export function TasksPage() {
     
     // Apply quick filters
     if (activeQuickFilters.length > 0) {
-      const quickFilterFns = QUICK_FILTERS.filter(qf => activeQuickFilters.includes(qf.id)).map(qf => qf.filter);
+      const quickFilterFns = quickFilters.filter(qf => activeQuickFilters.includes(qf.id)).map(qf => qf.filter);
       data = data.filter(task => quickFilterFns.every(fn => fn(task)));
     }
     
     return data;
-  }, [tasks, globalFilter, statusFilter, priorityFilter, assigneeFilter, fuse, activeQuickFilters]);
+  }, [tasks, globalFilter, statusFilter, priorityFilter, assigneeFilter, fuse, activeQuickFilters, quickFilters]);
 
   // Mobile infinite scroll listener
   React.useEffect(() => {
@@ -235,11 +238,11 @@ export function TasksPage() {
   // Calculate task counts for quick filters
   const quickFilterCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
-    QUICK_FILTERS.forEach(qf => {
+    quickFilters.forEach(qf => {
       counts[qf.id] = tasks.filter(qf.filter).length;
     });
     return counts;
-  }, [tasks]);
+  }, [tasks, quickFilters]);
 
   // Header actions
   const actions = React.useMemo(() => {
@@ -403,12 +406,14 @@ export function TasksPage() {
             activeFilters={activeQuickFilters}
             onToggleFilter={handleToggleQuickFilter}
             taskCounts={quickFilterCounts}
+            filters={quickFilters}
           />
         ) : (
           <QuickFilters
             activeFilters={activeQuickFilters}
             onToggleFilter={handleToggleQuickFilter}
             taskCounts={quickFilterCounts}
+            filters={quickFilters}
           />
         )}
       </div>

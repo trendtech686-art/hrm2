@@ -18,9 +18,9 @@ import type {
 } from './shipping/types';
 import type { OrderFormValues } from './order-form-page';
 import { useShippingSettingsStore } from '@/features/settings/shipping/shipping-settings-store';
-import { useProductStore } from '@/features/products/store';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProvinceStore } from '@/features/settings/provinces/store';
-import { useBranchStore } from '@/features/settings/branches/store';
+import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useOrderStore } from '../store'; // ✅ Import order store
 import { asSystemId } from '@/lib/id-types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -247,9 +247,9 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   const { control, setValue, getValues } = useFormContext<OrderFormValues>();
   const { settings: shippingSettings } = useShippingSettingsStore();
   const { globalConfig: _globalConfig, getDimensions, getWeight: _getWeight, getDefaultShippingOptions: _getDefaultShippingOptions } = useGlobalShippingConfig(); // ✅ Get global config
-  const { findById: findProductByIdBase } = useProductStore();
+  const { findById: findProductByIdBase } = useProductFinder();
   const { data: provinces, getWardsByProvinceId } = useProvinceStore();
-  const { findById: findBranchByIdBase } = useBranchStore();
+  const { findById: findBranchByIdBase } = useBranchFinder();
   const { data: _partners } = useShippingPartnerStore();
   const { data: _allOrders } = useOrderStore(); // ✅ Get all orders for ID generation
 

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { FileUploadAPI, type ServerFile, type StagingFile } from '../../lib/file-upload-api';
 
 // Re-export types for easier importing
@@ -73,7 +72,6 @@ type DocumentStore = {
 };
 
 export const useDocumentStore = create<DocumentStore>()(
-  persist(
     (set, get) => ({
       documents: [],
       stagingDocuments: {},
@@ -304,21 +302,5 @@ export const useDocumentStore = create<DocumentStore>()(
           return { totalFiles: 0, totalSizeMB: 0 };
         }
       },
-    }),
-    {
-      name: 'hrm-documents-metadata', // Chỉ lưu metadata, files thực tế ở server
-      storage: createJSONStorage(() => localStorage),
-      // Persist documents và loadedEmployees để cache hoạt động qua sessions
-      partialize: (state) => ({ 
-        documents: state.documents,
-        loadedEmployees: Array.from(state.loadedEmployees) // Convert Set to Array for JSON
-      } as unknown as DocumentStore),
-      // Rehydrate loadedEmployees từ Array về Set
-      onRehydrateStorage: () => (state) => {
-        if (state && Array.isArray((state as unknown as { loadedEmployees?: string[] }).loadedEmployees)) {
-          state.loadedEmployees = new Set((state as unknown as { loadedEmployees: string[] }).loadedEmployees);
-        }
-      }
-    }
-  )
+    })
 );

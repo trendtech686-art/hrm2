@@ -4,13 +4,21 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useCostAdjustmentStore } from './store';
 import { getColumns } from './columns';
+import dynamic from 'next/dynamic';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
-import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { costAdjustmentImportExportConfig } from '../../lib/import-export/configs/cost-adjustment.config';
 import { usePageHeader } from '../../contexts/page-header-context';
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
+const CostAdjustmentImportDialog = dynamic(
+  () => import("./components/cost-adjustments-import-export-dialogs").then(mod => ({ default: mod.CostAdjustmentImportDialog })),
+  { ssr: false }
+);
+const CostAdjustmentExportDialog = dynamic(
+  () => import("./components/cost-adjustments-import-export-dialogs").then(mod => ({ default: mod.CostAdjustmentExportDialog })),
+  { ssr: false }
+);
 import { ROUTES } from '../../lib/router';
 import { Button } from '../../components/ui/button';
 import { Plus, XCircle, CheckCircle, Printer, FileSpreadsheet, Download } from 'lucide-react';
@@ -36,33 +44,12 @@ import {
 } from '../../components/ui/alert-dialog';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { usePrint } from '../../lib/use-print';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
-
-const COLUMN_LAYOUT_STORAGE_KEY = 'cost-adjustments-column-layout';
-
-type StoredColumnLayout = {
-  visibility?: Record<string, boolean>;
-  order?: string[];
-  pinned?: string[];
-};
-
-const readStoredColumnLayout = (): StoredColumnLayout | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = window.localStorage.getItem(COLUMN_LAYOUT_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored) as StoredColumnLayout;
-    }
-  } catch (error) {
-    console.warn('Failed to parse cost-adjustments column layout from storage:', error);
-  }
-  return null;
-};
+import { useColumnLayout } from '../../hooks/use-column-visibility';
 
 export function CostAdjustmentListPage() {
-  const storedLayoutRef = React.useRef(readStoredColumnLayout());
   const router = useRouter();
   const { data: adjustments, cancel, confirm } = useCostAdjustmentStore();
   const { employee } = useAuth();
@@ -70,7 +57,8 @@ export function CostAdjustmentListPage() {
   
   // Print
   const { print, printMultiple } = usePrint();
-  const { data: branches, findById: getBranchById } = useBranchStore();
+  const { data: branches } = useAllBranches();
+  const { findById: getBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
   const [itemsToPrint, setItemsToPrint] = React.useState<CostAdjustment[]>([]);
@@ -125,16 +113,11 @@ export function CostAdjustmentListPage() {
   const [showImportDialog, setShowImportDialog] = React.useState(false);
   const [showExportDialog, setShowExportDialog] = React.useState(false);
 
-  // Column customization state
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(
-    () => storedLayoutRef.current?.visibility ?? {}
-  );
-  const [columnOrder, setColumnOrder] = React.useState<string[]>(
-    () => storedLayoutRef.current?.order ?? []
-  );
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(
-    () => storedLayoutRef.current?.pinned ?? []
-  );
+  // Column customization state - using React Query hook
+  const [
+    { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns },
+    { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns },
+  ] = useColumnLayout('cost-adjustments', {});
 
   // Debounce search
   React.useEffect(() => {
@@ -143,17 +126,6 @@ export function CostAdjustmentListPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [globalFilter]);
-
-  // Save column layout
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const payload = {
-      visibility: columnVisibility,
-      order: columnOrder,
-      pinned: pinnedColumns,
-    };
-    window.localStorage.setItem(COLUMN_LAYOUT_STORAGE_KEY, JSON.stringify(payload));
-  }, [columnVisibility, columnOrder, pinnedColumns]);
 
   // Page header
   const headerActions = React.useMemo(() => [
@@ -197,26 +169,25 @@ export function CostAdjustmentListPage() {
 
   React.useEffect(() => {
     if (columns.length === 0) return;
-    setColumnVisibility(prev => {
-      if (Object.keys(prev).length > 0) return prev;
-      return buildDefaultVisibility();
-    });
-    setColumnOrder(prev => {
-      if (prev.length > 0) return prev;
-      return buildDefaultOrder();
-    });
-    setPinnedColumns(prev => prev ?? []);
-  }, [columns, buildDefaultOrder, buildDefaultVisibility]);
+
+    // Only set defaults if not already set
+    if (Object.keys(columnVisibility).length === 0) {
+      setColumnVisibility(buildDefaultVisibility());
+    }
+
+    if (columnOrder.length === 0) {
+      setColumnOrder(buildDefaultOrder());
+    }
+
+    // pinnedColumns is always initialized by useColumnLayout, no need to set here
+  }, [columns, buildDefaultOrder, buildDefaultVisibility, columnVisibility, columnOrder, setColumnVisibility, setColumnOrder]);
 
   const resetColumnLayout = React.useCallback(() => {
     setColumnVisibility(buildDefaultVisibility());
     setColumnOrder(buildDefaultOrder());
     setPinnedColumns([]);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(COLUMN_LAYOUT_STORAGE_KEY);
-    }
     toast.success('Đã khôi phục bố cục cột mặc định');
-  }, [buildDefaultVisibility, buildDefaultOrder]);
+  }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
 
   // Fuse search
   const fuseInstance = React.useMemo(() => {
@@ -683,10 +654,9 @@ export function CostAdjustmentListPage() {
       />
 
       {/* Import Dialog */}
-      <GenericImportDialogV2<CostAdjustment>
+      <CostAdjustmentImportDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
-        config={costAdjustmentImportExportConfig}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
         existingData={adjustments}
         onImport={handleImport}
@@ -697,10 +667,9 @@ export function CostAdjustmentListPage() {
       />
 
       {/* Export Dialog */}
-      <GenericExportDialogV2<CostAdjustment>
+      <CostAdjustmentExportDialog
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
-        config={costAdjustmentImportExportConfig}
         allData={adjustments}
         filteredData={sortedData}
         currentPageData={paginatedData}

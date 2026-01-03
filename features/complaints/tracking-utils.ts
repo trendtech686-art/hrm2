@@ -1,38 +1,26 @@
-import type { SystemId, BusinessId } from "@/lib/id-types";
-
 /**
  * Public Tracking Utilities for Complaints
  * Handles tracking URL generation and settings
+ * 
+ * @migrated localStorage → /api/user-preferences
+ * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
-// Storage key
-const STORAGE_KEY = 'complaints-public-tracking-settings';
+import type { SystemId, BusinessId } from "@/lib/id-types";
+import { 
+  getComplaintsTrackingSettingsSync,
+  DEFAULT_TRACKING_SETTINGS as _DEFAULT_TRACKING_SETTINGS,
+  type PublicTrackingSettings 
+} from '@/hooks/use-public-tracking-settings';
 
-// Default tracking settings
-const defaultSettings = {
-  enabled: false,
-  allowCustomerComments: false,
-  showEmployeeName: true,
-  showTimeline: true,
-};
-
-interface PublicTrackingSettings {
-  enabled: boolean;
-  allowCustomerComments: boolean;
-  showEmployeeName: boolean;
-  showTimeline: boolean;
-}
+export type { PublicTrackingSettings };
 
 /**
- * Load public tracking settings from localStorage
+ * Load public tracking settings
+ * @deprecated Use useComplaintsTrackingSettings() hook for React components
  */
 export function loadTrackingSettings(): PublicTrackingSettings {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : defaultSettings;
-  } catch {
-    return defaultSettings;
-  }
+  return getComplaintsTrackingSettingsSync();
 }
 
 /**

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseDate, getCurrentDate, getStartOfDay, addDays, isDateBefore, isDateSame, toISODate } from '@/lib/date-utils';
 import type { LeaveRequest } from "@/lib/types/prisma-extended";
-import { useEmployeeStore } from "@/features/employees/store";
+import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -52,7 +52,7 @@ const calculateBusinessDays = (start?: Date, end?: Date): number => {
 
 
 export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { settings } = useEmployeeSettingsStore();
   
   const employeeOptions: ComboboxOption[] = React.useMemo(() => 

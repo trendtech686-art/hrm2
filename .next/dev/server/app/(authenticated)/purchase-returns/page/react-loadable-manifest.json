@@ -1,1 +1,11 @@
-{}
+{
+  "[project]/features/purchase-returns/components/purchase-returns-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/purchase-returns/components/purchase-returns-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_26cc69d5._.js",
+      "static/chunks/node_modules_xlsx_xlsx_mjs_fef98e92._.js",
+      "static/chunks/node_modules_3ea2e12d._.js",
+      "static/chunks/fa5c6_purchase-returns_components_purchase-returns-import-export-dialogs_tsx_157d65f5._.js"
+    ]
+  }
+}

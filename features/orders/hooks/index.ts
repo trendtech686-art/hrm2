@@ -11,9 +11,17 @@
 // Query hooks
 export { useOrders, useOrder, useOrderStats, orderKeys } from './use-orders';
 
+// Convenience hooks for backward compatibility
+export { useAllOrders, useOrderFinder } from './use-all-orders';
+
 // Mutation hooks
 export { useOrderMutations } from './use-order-mutations';
 export { useOrderActions } from './use-order-actions';
+
+// Feature-specific action hooks
+export { usePackagingActions } from './use-packaging-actions';
+export { useReconciliationActions } from './use-reconciliation-actions';
+export { useOrderDetailActions } from './use-order-detail-actions';
 
 // Utility hooks
 export { useDebounce } from './use-debounce';

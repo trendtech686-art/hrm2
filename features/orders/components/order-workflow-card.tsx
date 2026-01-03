@@ -15,7 +15,10 @@ export function OrderWorkflowCard({
   order,
   onUpdateOrder,
 }: OrderWorkflowCardProps) {
-  // Initialize subtasks from template if empty
+  // Track if we need to initialize from template
+  const needsTemplateInit = React.useRef(false);
+  
+  // Calculate subtasks - don't call onUpdateOrder inside useMemo!
   const subtasks = React.useMemo((): Subtask[] => {
     if (order.subtasks && order.subtasks.length > 0) {
       // Convert order.subtasks to Subtask[] format
@@ -36,17 +39,28 @@ export function OrderWorkflowCard({
     // Get default workflow template for orders
     const template = getWorkflowTemplate('orders');
     if (template.length > 0) {
-      // Save to order - cast to Order's subtasks format
-      const orderSubtasks = template.map(t => ({
-        ...t,
-        metadata: (t.metadata as Record<string, unknown>) ?? undefined,
-      }));
-      onUpdateOrder(order.systemId, { subtasks: orderSubtasks });
+      // Mark for initialization in useEffect (not during render!)
+      needsTemplateInit.current = true;
       return template;
     }
     
     return [];
-  }, [order.subtasks, order.systemId, onUpdateOrder]);
+  }, [order.subtasks]);
+
+  // Initialize subtasks from template AFTER render (in useEffect)
+  React.useEffect(() => {
+    if (needsTemplateInit.current && (!order.subtasks || order.subtasks.length === 0)) {
+      const template = getWorkflowTemplate('orders');
+      if (template.length > 0) {
+        const orderSubtasks = template.map(t => ({
+          ...t,
+          metadata: (t.metadata as Record<string, unknown>) ?? undefined,
+        }));
+        onUpdateOrder(order.systemId, { subtasks: orderSubtasks });
+      }
+      needsTemplateInit.current = false;
+    }
+  }, [order.systemId, order.subtasks, onUpdateOrder]);
 
   const handleToggleComplete = React.useCallback(
     (id: string, completed: boolean) => {

@@ -1,7 +1,9 @@
+'use client'
+
 import * as React from 'react';
 import { usePageHeader } from '../../../contexts/page-header-context';
-import { useProductStore } from '../../products/store';
-import { useBranchStore } from '../../settings/branches/store';
+import { useAllProducts } from '../../products/hooks/use-all-products';
+import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import type { InventoryReportRow, ProductTypeFilter } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
@@ -19,8 +21,8 @@ const formatNumber = (value?: number) => new Intl.NumberFormat('vi-VN').format(v
 const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN').format(value ?? 0);
 
 export function InventoryReportPage() {
-    const { data: products } = useProductStore();
-    const { data: branches } = useBranchStore();
+    const { data: products } = useAllProducts();
+    const { data: branches } = useAllBranches();
     
     const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [globalFilter, setGlobalFilter] = React.useState('');

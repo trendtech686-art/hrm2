@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/wiki/[systemId]/edit/page": "app/(authenticated)/wiki/[systemId]/edit/page.js"
+}

@@ -10,7 +10,7 @@ import { Search, Eye, EyeOff } from "lucide-react";
 import { toast } from 'sonner';
 import { useJobTitleStore } from '@/features/settings/job-titles/store';
 import { useEmployeeStore } from '../store';
-import { useBranchStore } from '@/features/settings/branches/store';
+import { useAllBranches } from '@/hooks/use-branches';
 import { useProvinceStore } from "@/features/settings/provinces/store";
 import { useDocumentStore } from '../document-store';
 import { useShallow } from 'zustand/react/shallow';
@@ -211,7 +211,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   
   const { data: jobTitles } = useJobTitleStore();
   const { data: employees } = useEmployeeStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { data: provinces, wards } = useProvinceStore(
     useShallow((state) => ({
       data: state.data,

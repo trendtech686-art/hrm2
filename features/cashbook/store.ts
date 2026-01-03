@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { data as initialData } from './data';
 import type { CashAccount } from '@/lib/types/prisma-extended';
 import { findNextAvailableBusinessId, generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, type EntityType } from '../../lib/id-utils';
@@ -36,7 +35,6 @@ const ensureBusinessId = (accounts: CashAccount[], provided?: BusinessId): Busin
 };
 
 export const useCashbookStore = create<CashbookState>()(
-  persist(
     (set, get) => ({
       accounts: initialData,
       getAccountById: (id) => get().accounts.find(a => a.id === id),
@@ -66,10 +64,5 @@ export const useCashbookStore = create<CashbookState>()(
           }))
         };
       })
-    }),
-    {
-      name: 'hrm-cashbook-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+    })
 );

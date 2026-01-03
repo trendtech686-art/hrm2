@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { OtherSettingsPage } from '@/features/settings/other-page'
+import { OtherSettingsPage } from '@/features/settings/other'
 
 export const metadata: Metadata = {
   title: 'Cài đặt khác',

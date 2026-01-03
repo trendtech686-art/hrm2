@@ -17,7 +17,7 @@ export function useRealtimeUpdates(
 
   const checkForUpdates = React.useCallback((): boolean => {
     // In real app, this would check localStorage or make API call
-    // For now, simulate with random chance
+    if (typeof window === 'undefined') return false;
     try {
       const storedVersion = localStorage.getItem('complaints-version');
       if (storedVersion && parseInt(storedVersion) > lastVersion) {
@@ -91,6 +91,7 @@ export function useRealtimeUpdates(
  * Call this when data changes (e.g., after create/update/delete)
  */
 export function triggerDataUpdate() {
+  if (typeof window === 'undefined') return;
   try {
     const currentVersion = parseInt(localStorage.getItem('complaints-version') || '0');
     localStorage.setItem('complaints-version', String(currentVersion + 1));
@@ -103,6 +104,7 @@ export function triggerDataUpdate() {
  * Get current data version
  */
 export function getDataVersion(): number {
+  if (typeof window === 'undefined') return 0;
   try {
     return parseInt(localStorage.getItem('complaints-version') || '0');
   } catch {

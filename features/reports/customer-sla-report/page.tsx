@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from 'react';
 import { usePageHeader } from '../../../contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';

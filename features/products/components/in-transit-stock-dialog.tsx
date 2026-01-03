@@ -4,8 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../compo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
-import { useOrderStore } from '../../orders/store';
-import { useProductStore } from '../store';
+import { useAllOrders } from '../../orders/hooks/use-all-orders';
+import { useProductFinder } from '../hooks/use-all-products';
 import type { SystemId } from '../../../lib/id-types';
 
 interface InTransitStockDialogProps {
@@ -25,8 +25,8 @@ export function InTransitStockDialog({
   branchName,
   productName,
 }: InTransitStockDialogProps) {
-  const { data: allOrders } = useOrderStore();
-  const { findById: findProductById } = useProductStore();
+  const { data: allOrders } = useAllOrders();
+  const { findById: findProductById } = useProductFinder();
   const router = useRouter();
 
   const product = React.useMemo(() => findProductById(productSystemId), [findProductById, productSystemId]);

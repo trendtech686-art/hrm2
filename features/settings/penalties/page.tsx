@@ -4,8 +4,8 @@ import * as React from "react"
 import { useRouter } from 'next/navigation';
 import { formatDate } from '../../../lib/date-utils'
 import { usePenaltyStore, usePenaltyTypeStore } from "./store"
-import { useEmployeeStore } from "../../employees/store";
-import { useBranchStore } from "../branches/store";
+import { useAllEmployees } from "../../employees/hooks/use-all-employees";
+import { useAllBranches } from "../branches/hooks/use-all-branches";
 import { useStoreInfoStore } from "../store-info/store-info-store";
 import { useDefaultPageSize } from "../global-settings-store";
 import { getColumns } from "./columns"
@@ -44,27 +44,7 @@ import {
   createStoreSettings,
 } from "../../../lib/print/penalty-print-helper";
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog";
-
-const COLUMN_LAYOUT_STORAGE_KEY = 'penalties-column-layout';
-
-type StoredColumnLayout = {
-  visibility?: Record<string, boolean>;
-  order?: string[];
-  pinned?: string[];
-};
-
-const readStoredColumnLayout = (): StoredColumnLayout | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = window.localStorage.getItem(COLUMN_LAYOUT_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored) as StoredColumnLayout;
-    }
-  } catch (error) {
-    console.warn('Failed to parse penalties column layout from storage:', error);
-  }
-  return null;
-};
+import { useColumnLayout } from '../../../hooks/use-column-visibility';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '';
@@ -72,12 +52,10 @@ const formatCurrency = (value?: number) => {
 };
 
 export function PenaltiesPage() {
-  const storedLayoutRef = React.useRef(readStoredColumnLayout());
-
   const { data: penalties, addMultiple, update } = usePenaltyStore();
   const { data: _penaltyTypes } = usePenaltyTypeStore();
-  const { data: employees } = useEmployeeStore();
-  const { data: branches } = useBranchStore();
+  const { data: employees } = useAllEmployees();
+  const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoStore();
   const router = useRouter();
   const { print: _print, printMultiple } = usePrint();
@@ -122,27 +100,14 @@ export function PenaltiesPage() {
     return () => clearTimeout(timer);
   }, [globalFilter]);
   
-  // Column customization state
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(
-    () => storedLayoutRef.current?.visibility ?? {}
-  );
-  const [columnOrder, setColumnOrder] = React.useState<string[]>(
-    () => storedLayoutRef.current?.order ?? []
-  );
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(
-    () => storedLayoutRef.current?.pinned ?? []
-  );
-
-  // Save column layout to localStorage
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const payload = {
-      visibility: columnVisibility,
-      order: columnOrder,
-      pinned: pinnedColumns,
-    };
-    window.localStorage.setItem(COLUMN_LAYOUT_STORAGE_KEY, JSON.stringify(payload));
-  }, [columnVisibility, columnOrder, pinnedColumns]);
+  // Column customization state using hook
+  const [columnLayout, columnLayoutSetters] = useColumnLayout('penalties', {
+    visibility: {},
+    order: [],
+    pinned: []
+  });
+  const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout;
+  const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
 
   // Row action handlers
   const handleMarkPaid = React.useCallback((penalty: Penalty) => {
@@ -195,18 +160,17 @@ export function PenaltiesPage() {
   React.useEffect(() => {
     if (columns.length === 0) return;
 
-    setColumnVisibility(prev => {
-      if (Object.keys(prev).length > 0) return prev;
-      return buildDefaultVisibility();
-    });
+    // Only set defaults if not already set
+    if (Object.keys(columnVisibility).length === 0) {
+      setColumnVisibility(buildDefaultVisibility());
+    }
 
-    setColumnOrder(prev => {
-      if (prev.length > 0) return prev;
-      return buildDefaultOrder();
-    });
+    if (columnOrder.length === 0) {
+      setColumnOrder(buildDefaultOrder());
+    }
 
-    setPinnedColumns(prev => prev ?? []);
-  }, [columns, buildDefaultOrder, buildDefaultVisibility]);
+    // pinnedColumns is always initialized by useColumnLayout, no need to set here
+  }, [columns, buildDefaultOrder, buildDefaultVisibility, columnVisibility, columnOrder, setColumnVisibility, setColumnOrder]);
 
   const resetColumnLayout = React.useCallback(() => {
     const defaultVisibility = buildDefaultVisibility();
@@ -214,11 +178,8 @@ export function PenaltiesPage() {
     setColumnVisibility(defaultVisibility);
     setColumnOrder(defaultOrder);
     setPinnedColumns([]);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(COLUMN_LAYOUT_STORAGE_KEY);
-    }
     toast.success('Đã khôi phục bố cục cột mặc định');
-  }, [buildDefaultVisibility, buildDefaultOrder]);
+  }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
   
   // ✅ Create Fuse instance for search
   const fuseInstance = React.useMemo(() => {

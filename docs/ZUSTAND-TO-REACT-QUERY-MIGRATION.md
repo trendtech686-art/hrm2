@@ -228,6 +228,7 @@ const { data: employee } = useEmployeeById(id);
 | 25/12/2024 | **Phase 9 STARTED** - Component migration to React Query |
 | 24/12/2024 | **Phase 9 CONTINUED** - 22+ more files migrated |
 | 26/12/2024 | **Phase 9 CONTINUED** - Migrated 13 more files (total 38+) |
+| 26/12/2024 | **Phase 9 MAJOR UPDATE** - useBranchStore fully migrated (159→0), useProductStore (130→33), useCustomerStore (70→13) |
 
 ---
 
@@ -329,14 +330,56 @@ const { data: employee } = useEmployeeById(id);
 | `usePayrollTemplateFinder` | `payroll/hooks/use-payroll.ts` | findById, getDefault |
 | `useAllSalaryComponents` | `settings/employees/hooks/use-employee-settings.ts` | Flat array for salary |
 
-### Migration Statistics (FINAL - 25/12/2024)
+### Migration Statistics (FINAL - 02/01/2026)
 
 | Metric | Count |
 |--------|-------|
-| React Query `useAll*` usages | **948** |
-| `.getActive()` in components | **0** (all removed) |
-| Files using stores for mutations | ~90 (acceptable) |
-| Total files migrated | **55+** |
+| React Query `useAll*` usages | **1000+** |
+| `useBranchStore` component usages | **0** (100% migrated) |
+| `useEmployeeStore` component usages | **17** (mutations only) |
+| `useProductStore` component usages | **33** (mutations/getActive) |
+| `useCustomerStore` component usages | **13** (mutations/computed) |
+| `useOrderStore` component usages | **5** (mutations only) |
+| `getActive()` usages in components | **0** (100% migrated) |
+| Total files migrated | **100+** |
+
+---
+
+## ✅ Phase 8 COMPLETED: Convenience Hooks (02/01/2026)
+
+### New useActive* Hooks Created
+
+| Hook | Location | Purpose |
+|------|----------|---------|
+| `useActiveProducts` | `products/hooks/use-all-products.ts` | Already existed |
+| `useActiveEmployees` | `employees/hooks/use-all-employees.ts` | Already existed |
+| `useActiveSuppliers` | `suppliers/hooks/use-all-suppliers.ts` | Already existed |
+| `useActiveCustomers` | `customers/hooks/use-all-customers.ts` | **New** - replace getActive() |
+| `useActiveOrders` | `orders/hooks/use-all-orders.ts` | **New** - replace getActive() |
+| `useActiveCategories` | `categories/hooks/use-all-categories.ts` | **New** - replace getActive() |
+| `useActiveBrands` | `brands/hooks/use-all-brands.ts` | **New** - replace getActive() |
+| `useActivePricingPolicies` | `settings/pricing/hooks/use-all-pricing-policies.ts` | **New** |
+| `useActiveCustomerTypes` | `settings/customers/hooks/use-all-customer-settings.ts` | **New** |
+| `useActiveCustomerGroups` | `settings/customers/hooks/use-all-customer-settings.ts` | **New** |
+| `useActiveCustomerSources` | `settings/customers/hooks/use-all-customer-settings.ts` | **New** |
+| `useActivePaymentTerms` | `settings/customers/hooks/use-all-customer-settings.ts` | **New** |
+| `useActiveCreditRatings` | `settings/customers/hooks/use-all-customer-settings.ts` | **New** |
+| `useActiveLifecycleStages` | `settings/customers/hooks/use-all-customer-settings.ts` | **New** |
+
+### Files Migrated from getActive() pattern (Phase 8)
+
+| File | Old Pattern | New Pattern |
+|------|-------------|-------------|
+| `settings/trendtech/category-mapping-tab.tsx` | `categoryStore.getActive()` | `useActiveCategories()` |
+| `settings/trendtech/brand-mapping-tab.tsx` | `brandStore.getActive()` | `useActiveBrands()` |
+| `settings/trendtech/price-mapping-tab.tsx` | `pricingPolicyStore.getActive()` | `useActivePricingPolicies()` |
+| `settings/pkgx/category-mapping-tab.tsx` | `productCategories.getActive()` | `useActiveCategories()` |
+| `settings/pkgx/brand-mapping-tab.tsx` | `brandStore.getActive()` | `useActiveBrands()` |
+| `suppliers/page.tsx` | `getActive()` | `useActiveSuppliers()` |
+| `employees/page.tsx` | `getActive()` | `useActiveEmployees()` |
+| `purchase-orders/supplier-combobox.tsx` | `getActive()` | `useActiveSuppliers()` |
+| `customers/page.tsx` | `customerTypes.getActive()` | `useActiveCustomerTypes()` |
+| `customers/customer-form.tsx` | 6x `*.getActive()` | 6x `useActive*()` hooks |
 
 ---
 
@@ -1360,3 +1403,43 @@ module.exports = {
 3. `features/products/store.ts` (618 lines)
 4. `features/customers/store.ts` (507 lines)
 5. `features/employees/store.ts` (314 lines)
+
+---
+
+## 🗄️ localStorage Migration Status (Updated: 27/01/2025)
+
+### ✅ COMPLETED - Migrated to /api/user-preferences
+
+| Category | Key Pattern | Hook/Location | Status |
+|----------|-------------|---------------|--------|
+| Column Visibility | `*-column-visibility` | `hooks/use-column-visibility.ts` | ✅ Done (20+ pages) |
+| Comments | `comment-mode-*` | `hooks/use-comments.ts` | ✅ Done (15+ detail pages) |
+| Active Timer | `active-task-timer` | `hooks/use-active-timer.ts` | ✅ Done |
+| Complaint Templates | `complaint-response-templates` | `hooks/use-complaint-settings.ts` | ✅ Done |
+| Print Options | `print-options-*`, `simple-print-*` | `hooks/use-print-options.ts` | ✅ Done |
+| Reminder Templates | `warranty-reminder-templates`, `complaint-reminder-*` | `hooks/use-reminder-settings.ts` | ✅ Done |
+| SLA/Notification Settings | `*-sla-settings`, `*-notification-settings` | `hooks/use-sla-notification-settings.ts` | ✅ Done |
+| Workflow Templates | `workflow-templates` | `hooks/use-workflow-templates.ts` | ✅ Done |
+| System Settings | `general-settings`, `security-settings`, etc. | `hooks/use-system-settings.ts` | ✅ Done |
+| Customer SLA Storage | `customer-sla-*` | `features/customers/sla/ack-storage.ts` | ✅ Done |
+| Public Tracking Settings | `warranty-public-tracking-*`, `complaints-public-tracking-*` | `hooks/use-public-tracking-settings.ts` | ✅ Done |
+| Feature Flags | `feature-flags` | `features/settings/other-page.tsx` (inline) | ✅ Done |
+| Website Settings | `website-settings`, `redirects-301` | `features/settings/other-page.tsx` (inline) | ✅ Done |
+| Comment Drafts | `comment-draft-*` | `hooks/use-comment-draft.ts` | ✅ Done |
+| Quick Filters (tasks) | `currentUser`, `employee` | `features/tasks/types-filter.ts` (createQuickFilters) | ✅ Done |
+
+### 🟡 KEEP AS-IS (Valid Use Cases)
+
+| Key Pattern | Location | Reason |
+|-------------|----------|--------|
+| `hrm-appearance-storage` | `features/settings/appearance/store.ts`, `app/layout.tsx` | Must be localStorage to avoid theme flash |
+| `ghtk-services-cache` | `features/orders/components/shipping/service-config-form.tsx` | API cache for GHTK services |
+| `warranty-version`, `complaints-version` | `features/*/use-realtime-updates.ts` | Local version tracking for realtime sync |
+| Admin cache clear | `features/settings/other-page.tsx` | Admin tool for clearing localStorage |
+
+### 📊 Summary
+- **Total localStorage usages migrated**: 30+ keys
+- **Remaining valid usages**: 4 patterns (theme, API cache, version tracking, admin tools)
+- **API endpoint**: `/api/user-preferences` with category/key pattern
+- **Hook pattern**: useState + useEffect for load, debounced save (500-1000ms)
+

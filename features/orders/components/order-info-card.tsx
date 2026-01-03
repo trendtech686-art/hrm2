@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useEmployeeStore } from '../../employees/store';
-import { useBranchStore } from '../../settings/branches/store';
+import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '../../../components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
@@ -14,8 +14,8 @@ import { usePaymentMethodStore } from '../../settings/payments/methods/store';
 
 export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnlyMode = false }: { disabled: boolean; isBranchLocked?: boolean; isMetadataOnlyMode?: boolean }) {
     const { control } = useFormContext();
-    const { data: employees } = useEmployeeStore();
-    const { data: branches } = useBranchStore();
+    const { data: employees } = useAllEmployees();
+    const { data: branches } = useAllBranches();
   const salesChannels = useSalesChannelStore((state) => state.data);
   const paymentMethods = usePaymentMethodStore((state) => state.data);
     

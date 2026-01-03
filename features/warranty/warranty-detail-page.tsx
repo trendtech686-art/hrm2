@@ -52,7 +52,7 @@ import { ROUTES, generatePath } from '../../lib/router';
 // Section components
 import { WarrantyCommentsSection, WarrantyHistorySection } from './components/sections/index';
 
-import { useOrderStore } from '../orders/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { asSystemId } from '@/lib/id-types';
 import { usePrint } from '../../lib/use-print';
 import { 
@@ -61,7 +61,7 @@ import {
   mapWarrantyLineItems, 
   createStoreSettings 
 } from '../../lib/print/warranty-print-helper';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 
 const RESPONSE_TEMPLATES = [
@@ -115,7 +115,7 @@ export function WarrantyDetailPage() {
   const totalSettlementAmount = settlement.totalPayment;
   const settlementState = settlement.processingState;
 
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
 
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [showReopenDialog, setShowReopenDialog] = React.useState(false);
@@ -212,7 +212,7 @@ export function WarrantyDetailPage() {
   const responseTemplates = React.useMemo(() => RESPONSE_TEMPLATES, []);
   const isReturned = ticket?.status === 'returned';
 
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint(ticket?.branchSystemId);
 

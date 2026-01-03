@@ -7,18 +7,16 @@ import Fuse from 'fuse.js';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
-  type ColumnDef as TanstackColumnDef,
   type ColumnFiltersState,
   type VisibilityState,
   type ColumnOrderState,
   type RowSelectionState,
 } from '@tanstack/react-table';
-import type { ColumnDef } from '../../components/data-table/types';
 
 // Types & Store
 import type { WarrantyTicket, WarrantyStatus } from './types';
 import { useWarrantyStore } from './store';
-import { useOrderStore } from '../orders/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { WARRANTY_STATUS_LABELS } from './types';
 import { asSystemId } from '@/lib/id-types';
 
@@ -57,7 +55,7 @@ import { loadCardColorSettings } from '../settings/warranty/warranty-settings-pa
 import { checkWarrantyOverdue } from './warranty-sla-utils';
 import { ROUTES, generatePath } from '../../lib/router';
 import { usePrint } from '../../lib/use-print';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import {
   convertWarrantyForPrint,
@@ -193,7 +191,7 @@ export function WarrantyListPage() {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
   const { data: tickets, hardDelete: deleteWarrantyTicket, _migrate } = useWarrantyStore();
-  const { data: orders } = useOrderStore(); // ✅ Add orders
+  const { data: orders } = useAllOrders(); // ✅ Use React Query hook
 
   // Load card color settings
   const cardColors = React.useMemo(() => loadCardColorSettings(), []);
@@ -669,7 +667,7 @@ export function WarrantyListPage() {
   }, [selectedTickets]);
 
   // Print imports
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoStore();
   const { printMultiple } = usePrint();
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);

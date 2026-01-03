@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { usePaymentStore } from '../payments/store';
 import { usePenaltyStore } from '../settings/penalties/store';
 import { usePrint } from '../../lib/use-print';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useDepartmentStore } from '../settings/departments/store';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import {
@@ -106,7 +106,7 @@ export function PayrollListPage() {
   const { batches, updateBatchStatus, payslips } = usePayrollBatchStore();
   const defaultPageSize = useDefaultPageSize();
   const { print: _print } = usePrint();
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { data: departments } = useDepartmentStore();
   const { info: storeInfo } = useStoreInfoStore();
   

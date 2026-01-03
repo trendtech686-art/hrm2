@@ -1,9 +1,12 @@
-import * as React from 'react';
-import { formatDate as _formatDate, getCurrentDate, getStartOfMonth, getEndOfMonth, addMonths, subtractMonths, toISODate, formatMonthYear as _formatMonthYear, formatDateCustom, getDayOfWeek } from '../../lib/date-utils';
-import { ROUTES } from '../../lib/router';
-import * as XLSX from 'xlsx';
+'use client'
 
-import { useEmployeeStore } from '../employees/store';
+import * as React from 'react';
+import { formatDateCustom, getCurrentDate, getStartOfMonth, getEndOfMonth, addMonths, subtractMonths, toISODate, formatMonthYear as _formatMonthYear, formatDate as _formatDate, getDayOfWeek } from '../../lib/date-utils';
+import { ROUTES } from '../../lib/router';
+// XLSX is lazy loaded in handleExport to reduce bundle size (~500KB)
+import type { Range as XLSXRange } from 'xlsx';
+
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useDepartmentStore } from '../settings/departments/store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { generateMockAttendance } from './data';
@@ -58,7 +61,7 @@ const MonthYearPicker = ({ value, onChange }: { value: Date, onChange: (date: Da
 
 
 export function AttendancePage() {
-    const { data: employees } = useEmployeeStore();
+    const { data: employees } = useAllEmployees();
     const { data: departments } = useDepartmentStore();
     const { settings } = useEmployeeSettingsStore();
     
@@ -406,7 +409,7 @@ export function AttendancePage() {
         return sorted;
      }, [filteredData, sorting]);
 
-        const handleExport = React.useCallback(() => {
+        const handleExport = React.useCallback(async () => {
             // Re-check data at call time to avoid stale closure
             const currentFilteredData = (() => {
                 let data = attendanceData;
@@ -446,6 +449,9 @@ export function AttendancePage() {
                 return;
             }
 
+            // Lazy load XLSX to reduce bundle size (~500KB)
+            const XLSX = await import('xlsx');
+
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth() + 1;
             const daysInMonth = new Date(year, month, 0).getDate();
@@ -463,7 +469,7 @@ export function AttendancePage() {
 
             employeeChunks.forEach((chunk, chunkIndex) => {
                 const ws_data: unknown[][] = [];
-                const merges: XLSX.Range[] = [];
+                const merges: XLSXRange[] = [];
             
                 // General Headers - Row 0: Title
                 ws_data[0] = [];
@@ -739,7 +745,11 @@ export function AttendancePage() {
         [currentDate, handleEditRecord, settings, isLocked, isSelectionMode, cellSelection, handleQuickFill]
     );
     
+    const columnDefaultsInitialized = React.useRef(false);
     React.useEffect(() => {
+        if (columnDefaultsInitialized.current) return;
+        if (columns.length === 0) return;
+        
         const initialVisibility: Record<string, boolean> = {};
         columns.forEach(c => {
           initialVisibility[c.id!] = true;
@@ -747,6 +757,7 @@ export function AttendancePage() {
         setColumnVisibility(initialVisibility);
         setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
         setPinnedColumns(['select', 'fullName']);
+        columnDefaultsInitialized.current = true;
       }, [columns]);
 
     const pageCount = Math.ceil(sortedData.length / pagination.pageSize);

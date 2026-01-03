@@ -1,1 +1,11 @@
-{}
+{
+  "[project]/features/shipments/components/shipments-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/shipments/components/shipments-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_75c13acc._.js",
+      "static/chunks/node_modules_xlsx_xlsx_mjs_fef98e92._.js",
+      "static/chunks/node_modules_636cd0e1._.js",
+      "static/chunks/features_shipments_components_shipments-import-export-dialogs_tsx_06232dfc._.js"
+    ]
+  }
+}

@@ -30,9 +30,9 @@ import { Badge } from '@/components/ui/badge';
 import { ComboProductSearchV2 } from '@/components/shared/unified-product-search';
 import { ComboItemsEditTable } from '@/components/shared/combo-items-edit-table';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
-import { useProductStore } from '../store';
+import { useAllProducts } from '../hooks/use-all-products';
 import { usePricingPolicyStore } from '@/features/settings/pricing/store';
-import { useBranchStore } from '@/features/settings/branches/store';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
 import {
   MAX_COMBO_ITEMS,
@@ -118,9 +118,9 @@ function QuantityInput({
 }
 
 export function ComboSection() {
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   const { data: pricingPolicies } = usePricingPolicyStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { findById: findProductTypeById } = useProductTypeStore();
   const [isProductSelectionOpen, setIsProductSelectionOpen] = React.useState(false);
   
@@ -535,6 +535,7 @@ export function ComboSection() {
               <ComboItemsEditTable
                 fields={fields}
                 remove={remove}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 control={form.control as any}
                 fieldName="comboItems"
                 disabled={false}

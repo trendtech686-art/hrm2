@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * Hook để quản lý column visibility
  * Sử dụng database (user preferences) làm source of truth
@@ -292,3 +294,44 @@ export function usePinnedColumns(
 }
 
 export default useColumnVisibility
+
+/**
+ * Combined hook để quản lý toàn bộ column layout (visibility, order, pinned)
+ * Tiện lợi hơn khi cần quản lý tất cả cùng lúc
+ */
+export interface ColumnLayout {
+  visibility: Record<string, boolean>
+  order: string[]
+  pinned: string[]
+}
+
+export interface ColumnLayoutSetters {
+  setVisibility: (visibility: Record<string, boolean>) => void
+  setOrder: (order: string[]) => void
+  setPinned: (pinned: string[]) => void
+}
+
+export function useColumnLayout(
+  tableName: string,
+  defaults: Partial<ColumnLayout> = {}
+): [ColumnLayout, ColumnLayoutSetters, boolean] {
+  const [visibility, setVisibility, loadingVis] = useColumnVisibility(
+    tableName, 
+    defaults.visibility || {}
+  )
+  const [order, setOrder, loadingOrder] = useColumnOrder(
+    tableName, 
+    defaults.order || []
+  )
+  const [pinned, setPinned, loadingPinned] = usePinnedColumns(
+    tableName, 
+    defaults.pinned || []
+  )
+
+  const isLoading = loadingVis || loadingOrder || loadingPinned
+
+  const layout: ColumnLayout = { visibility, order, pinned }
+  const setters: ColumnLayoutSetters = { setVisibility, setOrder, setPinned }
+
+  return [layout, setters, isLoading]
+}

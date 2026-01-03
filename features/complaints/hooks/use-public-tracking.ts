@@ -6,10 +6,10 @@
 import { useMemo } from 'react';
 import { useComplaintStore } from '../store';
 import { useBranchStore } from '../../settings/branches/store';
-import { useEmployeeStore } from '../../employees/store';
+import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import { usePaymentStore } from '../../payments/store';
 import { useReceiptStore } from '../../receipts/store';
-import { useOrderStore } from '../../orders/store';
+import { useAllOrders } from '../../orders/hooks/use-all-orders';
 
 export function usePublicComplaintTracking(complaintId: string | undefined) {
   const { complaints } = useComplaintStore();
@@ -26,10 +26,10 @@ export function usePublicComplaintTracking(complaintId: string | undefined) {
 
   // Only load other stores if complaint exists
   const { data: branches } = useBranchStore();
-  const { data: _employees } = useEmployeeStore();
+  const { data: _employees } = useAllEmployees();
   const payments = usePaymentStore(state => state.data);
   const receipts = useReceiptStore(state => state.data);
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
 
   // Memoize related data calculations
   const relatedData = useMemo(() => {

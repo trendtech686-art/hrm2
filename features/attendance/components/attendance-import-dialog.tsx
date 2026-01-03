@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { formatDateCustom, getCurrentDate, toISODate, addMonths, subtractMonths, formatMonthYear as _formatMonthYear, getStartOfMonth, getEndOfMonth, parseDate } from '../../../lib/date-utils';
 import { excelSerialToTime } from '../utils';
-import * as XLSX from 'xlsx';
+// XLSX is lazy loaded in handlers to reduce bundle size (~500KB)
+import type { Range as XLSXRange } from 'xlsx';
 import type { Employee } from '../../employees/types';
 import type { DailyRecord, ImportPreviewRow } from '../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
@@ -93,7 +94,10 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
         }
     };
     
-    const handleDownloadTemplate = () => {
+    const handleDownloadTemplate = async () => {
+        // Lazy load XLSX to reduce bundle size (~500KB)
+        const XLSX = await import('xlsx');
+        
         const wb = XLSX.utils.book_new();
         const year = selectedMonth.getFullYear();
         const month = selectedMonth.getMonth() + 1;
@@ -108,7 +112,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
     
         employeeChunks.forEach((chunk, chunkIndex) => {
             const ws_data: unknown[][] = [];
-            const merges: XLSX.Range[] = [];
+            const merges: XLSXRange[] = [];
             
             // General Headers - Row 0: Title
             ws_data[0] = [];
@@ -217,10 +221,14 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
         XLSX.writeFile(wb, `Mau_cham_cong_thang_${month}-${year}.xlsx`);
     };
 
-    const handleProcessFile = () => {
+    const handleProcessFile = async () => {
         if (!file) { setError("Vui lòng chọn một file."); return; }
         setIsLoading(true);
         setError(null);
+        
+        // Lazy load XLSX to reduce bundle size (~500KB)
+        const XLSX = await import('xlsx');
+        
         const reader = new FileReader();
         reader.onload = (e) => {
             try {

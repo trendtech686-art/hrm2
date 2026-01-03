@@ -8,7 +8,7 @@ import { ArrowLeft, InfoIcon, AlertCircle } from 'lucide-react';
 
 import { usePurchaseOrderStore } from '../purchase-orders/store';
 import { useSupplierStore } from '../suppliers/store';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { usePurchaseReturnStore } from './store';
 import type { PurchaseReturnLineItem } from '@/lib/types/prisma-extended';
 import { useAuth } from '../../contexts/auth-context';
@@ -76,7 +76,7 @@ export function PurchaseReturnFormPage() {
   const poSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
   const po = poSystemId ? findPO(poSystemId) : null;
   const { findById: findSupplier } = useSupplierStore();
-  const { findById: findBranch } = useBranchStore();
+  const { findById: findBranch } = useBranchFinder();
   const supplier = po ? findSupplier(asSystemId(po.supplierSystemId)) : null;
   const branch = po ? findBranch(asSystemId(po.branchSystemId)) : null;
   const { add: addReturn, data: allPurchaseReturns } = usePurchaseReturnStore();

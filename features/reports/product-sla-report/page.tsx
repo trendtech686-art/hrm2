@@ -1,6 +1,8 @@
+'use client'
+
 import * as React from 'react';
 import { usePageHeader } from '../../../contexts/page-header-context';
-import { useProductStore } from '../../products/store';
+import { useAllProducts } from '../../products/hooks/use-all-products';
 import { useSupplierStore } from '../../suppliers/store';
 import type { StockAlertReportRow, StockAlertFilter } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
@@ -22,7 +24,7 @@ import {
 const _formatNumber = (value?: number) => new Intl.NumberFormat('vi-VN').format(value ?? 0);
 
 export function ProductSlaReportPage() {
-    const { data: products } = useProductStore();
+    const { data: products } = useAllProducts();
     const { data: suppliers } = useSupplierStore();
     
     const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });

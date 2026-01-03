@@ -6,12 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProductStore } from "./store"
 import { useProductCategoryStore } from "../settings/inventory/product-category-store"
-import { useBranchStore } from "../settings/branches/store"
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches"
 import { useBrandStore } from "../settings/inventory/brand-store"
 import { usePricingPolicyStore } from "../settings/pricing/store"
 import { usePkgxSettingsStore } from "../settings/pkgx/store"
 import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync"
-import { createProduct } from "../../lib/pkgx/api-service"
 import type { PkgxProductPayload } from "../settings/pkgx/types"
 import { usePkgxSync } from "./hooks/use-pkgx-sync"
 import { useAuth } from "../../contexts/auth-context"
@@ -24,15 +23,9 @@ import {
 } from '@/lib/print/product-print-helper';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
-import { productImportExportConfig } from "../../lib/import-export/configs/product.config";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
 import { PageFilters } from "../../components/layout/page-filters";
 import { PageToolbar } from "../../components/layout/page-toolbar";
 import { normalizeFieldKey, type BranchInventoryIdentifier } from "./product-importer";
-import { 
-  Card, 
-  CardContent, 
-} from "../../components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,13 +54,17 @@ const PkgxLinkDialog = dynamic(
   { ssr: false }
 );
 
-// Generic components need static import to preserve types
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config (1211 lines)
+const ProductImportDialog = dynamic(
+  () => import("./components/product-import-export-dialogs").then(mod => ({ default: mod.ProductImportDialog })),
+  { ssr: false }
+);
+const ProductExportDialog = dynamic(
+  () => import("./components/product-import-export-dialogs").then(mod => ({ default: mod.ProductExportDialog })),
+  { ssr: false }
+);
 
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
-import { Badge } from "../../components/ui/badge";
-import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { useMediaQuery } from "../../lib/use-media-query";
 import {
   DropdownMenu,
@@ -75,22 +72,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../components/ui/sheet";
-import { MoreVertical, Package, Settings2, SlidersHorizontal, Columns3, Layers, RefreshCw, FileText, DollarSign, PackageSearch, Search, Flag, Image, ExternalLink, Unlink, Printer, Trash2, Play, StopCircle, FileUp, Download } from "lucide-react";
+import { Package, Settings2, SlidersHorizontal, Columns3, Layers, FileUp, Download } from "lucide-react";
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
 import { toast } from "sonner";
 import { formatDate } from '@/lib/date-utils';
 
+// ✅ Extracted components
+import { MobileProductCard } from "./components/mobile-product-card";
+import { ProductFilterControls } from "./components/product-filter-controls";
+import { createBulkActions, createPkgxBulkActions } from "./components/product-bulk-actions";
+import { useTableStateHandlers, TABLE_STATE_STORAGE_KEY, MOBILE_ROW_HEIGHT, MOBILE_LIST_HEIGHT } from "./hooks/use-table-state-handlers";
+import { useProductImportHandler } from "./hooks/use-product-import-handler";
 
-const TABLE_STATE_STORAGE_KEY = 'products-table-state';
-const MOBILE_ROW_HEIGHT = 190;
-const MOBILE_LIST_HEIGHT = 520;
 
 const defaultTableState: ProductQueryParams = {
   search: '',
@@ -105,9 +99,6 @@ const defaultTableState: ProductQueryParams = {
   sorting: DEFAULT_PRODUCT_SORT,
 };
 
-function resolveStateAction<T>(current: T, action: React.SetStateAction<T>): T {
-  return typeof action === 'function' ? (action as (prev: T) => T)(current) : action;
-}
 export function ProductsPage() {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const queryClient = useQueryClient();
@@ -117,7 +108,7 @@ export function ProductsPage() {
     () => categories.filter(category => !category.isDeleted && category.isActive !== false),
     [categories]
   );
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { employee: authEmployee } = useAuth();
   const router = useRouter();
 
@@ -216,29 +207,13 @@ export function ProductsPage() {
   });
   
   // Table state
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'products-column-visibility';
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null;
-    // Just need column structure, so pass null router
+  const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns(() => {}, () => {}, null as unknown as ReturnType<typeof useRouter>);
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (error) {
-        console.warn('[products-page] Failed to parse column visibility', error);
-      }
-    }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
-  });
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem('products-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  }, []);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('products', defaultColumnVisibility);
 
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
@@ -424,6 +399,8 @@ export function ProductsPage() {
     
     try {
       const payload = buildPkgxPayload(product);
+      // ✅ Dynamic import - only load pkgx api-service when actually publishing
+      const { createProduct } = await import("../../lib/pkgx/api-service");
       const response = await createProduct(payload);
       
       if (response.success && response.data) {
@@ -674,119 +651,19 @@ export function ProductsPage() {
     [setTableState]
   );
 
-  const handleSearchChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        search: value,
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleStatusFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        statusFilter: value as ProductQueryParams['statusFilter'],
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleTypeFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        typeFilter: value as ProductQueryParams['typeFilter'],
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleCategoryFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        categoryFilter: value,
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleComboFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        comboFilter: value as ProductQueryParams['comboFilter'],
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleStockLevelFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        stockLevelFilter: value as ProductQueryParams['stockLevelFilter'],
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handlePkgxFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        pkgxFilter: value as ProductQueryParams['pkgxFilter'],
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleDateRangeChange = React.useCallback(
-    (value: [string | undefined, string | undefined] | undefined) => {
-      updateTableState((prev) => ({
-        ...prev,
-        dateRange: value,
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handlePaginationChange = React.useCallback(
-    (action: React.SetStateAction<{ pageIndex: number; pageSize: number }>) => {
-      updateTableState((prev) => ({
-        ...prev,
-        pagination: resolveStateAction(prev.pagination, action),
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleSortingChange = React.useCallback(
-    (action: React.SetStateAction<{ id: string; desc: boolean }>) => {
-      updateTableState((prev) => {
-        const nextSortingSource = resolveStateAction(prev.sorting, action);
-        return {
-          ...prev,
-          sorting: {
-            id: (nextSortingSource.id as ProductQueryParams['sorting']['id']) ?? prev.sorting.id,
-            desc: nextSortingSource.desc,
-          },
-        };
-      });
-    },
-    [updateTableState]
-  );
+  // ✅ Use extracted table state handlers hook
+  const {
+    handleSearchChange,
+    handleStatusFilterChange,
+    handleTypeFilterChange,
+    handleCategoryFilterChange,
+    handleComboFilterChange,
+    handleStockLevelFilterChange,
+    handlePkgxFilterChange,
+    handleDateRangeChange,
+    handlePaginationChange,
+    handleSortingChange,
+  } = useTableStateHandlers({ updateTableState });
 
   const queryParams = tableState;
   const { data: queryResult, isLoading: queryLoading, isFetching } = useProductsQuery(queryParams);
@@ -817,97 +694,13 @@ export function ProductsPage() {
   
   const allSelectedRows = selectedProducts;
 
-  // Import handler - tích hợp với product importer logic
-  const handleImport = React.useCallback(async (data: Partial<Product>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
-    const currentEmployeeSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
-    
-    const results = {
-      success: 0,
-      failed: 0,
-      inserted: 0,
-      updated: 0,
-      skipped: 0,
-      errors: [] as Array<{ row: number; message: string }>,
-    };
-    
-    try {
-      for (let i = 0; i < data.length; i++) {
-        const item = data[i];
-        try {
-          // Check if product exists (by id or barcode)
-          // NOTE: Product uses 'id' (BusinessId) not 'code'
-          const existingProduct = products.find(p => 
-            (item.id && p.id === item.id) || 
-            (item.barcode && p.barcode === item.barcode)
-          );
-          
-          if (existingProduct) {
-            // Product exists
-            if (mode === 'insert-only') {
-              // Skip in insert-only mode
-              results.skipped++;
-              continue;
-            }
-            
-            // Update existing product
-            const updatedFields: Partial<Product> = {
-              ...item,
-              updatedAt: new Date().toISOString(),
-              updatedBy: currentEmployeeSystemId,
-            };
-            // Remove fields that shouldn't be overwritten
-            delete (updatedFields as { systemId?: string }).systemId;
-            delete (updatedFields as { createdAt?: string }).createdAt;
-            delete (updatedFields as { createdBy?: string }).createdBy;
-            
-            update(existingProduct.systemId, updatedFields);
-            results.updated++;
-            results.success++;
-          } else {
-            // Product does not exist
-            if (mode === 'update-only') {
-              // Skip in update-only mode
-              results.skipped++;
-              continue;
-            }
-            
-            // Insert new product
-            const newProduct = {
-              ...item,
-              inventoryByBranch: item.inventoryByBranch || {},
-              committedByBranch: item.committedByBranch || {},
-              inTransitByBranch: item.inTransitByBranch || {},
-              prices: item.prices || {},
-              createdAt: new Date().toISOString(),
-              createdBy: currentEmployeeSystemId,
-              updatedAt: new Date().toISOString(),
-              updatedBy: currentEmployeeSystemId,
-            } as Omit<Product, 'systemId'>;
-            
-            add(newProduct);
-            results.inserted++;
-            results.success++;
-          }
-        } catch (rowError) {
-          results.failed++;
-          results.errors.push({
-            row: i + 2, // Excel row (1-indexed + header)
-            message: rowError instanceof Error ? rowError.message : 'Lỗi không xác định',
-          });
-        }
-      }
-      
-      // Invalidate query cache để refresh danh sách sản phẩm
-      if (results.success > 0) {
-        queryClient.invalidateQueries({ queryKey: ['products'] });
-      }
-      
-      return results;
-    } catch (error) {
-      console.error('[Products Importer] Lỗi nhập sản phẩm', error);
-      throw error;
-    }
-  }, [products, add, update, authEmployee?.systemId, queryClient]);
+  // ✅ Use extracted import handler hook
+  const handleImport = useProductImportHandler({
+    products,
+    add,
+    update,
+    authEmployeeSystemId: authEmployee?.systemId,
+  });
 
   const toolbarLeftActions = (
     <>
@@ -934,9 +727,9 @@ export function ProductsPage() {
     />
   );
 
-  const handleRowClick = (row: Product) => {
+  const handleRowClick = React.useCallback((row: Product) => {
     router.push(`/products/${row.systemId}`);
-  };
+  }, [router]);
 
   // Get unique categories for filter - từ settings
   const categoryOptions = React.useMemo(() => {
@@ -980,84 +773,18 @@ export function ProductsPage() {
   }, [products]);
 
   const renderFilterControls = () => (
-    <>
-      <DataTableDateFilter
-        value={tableState.dateRange}
-        onChange={handleDateRangeChange}
-        title="Ngày tạo"
-      />
-
-      <Select value={tableState.statusFilter} onValueChange={handleStatusFilterChange}>
-        <SelectTrigger className="w-full sm:w-[180px] h-9">
-          <SelectValue placeholder="Tất cả trạng thái" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả trạng thái</SelectItem>
-          <SelectItem value="active">Hoạt động</SelectItem>
-          <SelectItem value="inactive">Tạm ngừng</SelectItem>
-          <SelectItem value="discontinued">Ngừng kinh doanh</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select value={tableState.typeFilter} onValueChange={handleTypeFilterChange}>
-        <SelectTrigger className="w-full sm:w-[180px] h-9">
-          <SelectValue placeholder="Loại sản phẩm" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả loại</SelectItem>
-          <SelectItem value="physical">Hàng hóa</SelectItem>
-          <SelectItem value="service">Dịch vụ</SelectItem>
-          <SelectItem value="digital">Sản phẩm số</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select value={tableState.categoryFilter} onValueChange={handleCategoryFilterChange}>
-        <SelectTrigger className="w-full sm:w-[180px] h-9">
-          <SelectValue placeholder="Danh mục" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả danh mục</SelectItem>
-          {categoryOptions.map(cat => (
-            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={tableState.comboFilter} onValueChange={handleComboFilterChange}>
-        <SelectTrigger className="w-full sm:w-[180px] h-9">
-          <SelectValue placeholder="Sản phẩm combo" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả sản phẩm</SelectItem>
-          <SelectItem value="combo">Chỉ Combo</SelectItem>
-          <SelectItem value="non-combo">Không phải Combo</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select value={tableState.stockLevelFilter} onValueChange={handleStockLevelFilterChange}>
-        <SelectTrigger className="w-full sm:w-[180px] h-9">
-          <SelectValue placeholder="Mức tồn kho" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả mức tồn</SelectItem>
-          <SelectItem value="out-of-stock">Hết hàng ({stockLevelCounts.outOfStock})</SelectItem>
-          <SelectItem value="low-stock">Sắp hết ({stockLevelCounts.lowStock})</SelectItem>
-          <SelectItem value="below-safety">Dưới an toàn ({stockLevelCounts.belowSafety})</SelectItem>
-          <SelectItem value="high-stock">Tồn cao ({stockLevelCounts.highStock})</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select value={tableState.pkgxFilter} onValueChange={handlePkgxFilterChange}>
-        <SelectTrigger className="w-full sm:w-[180px] h-9">
-          <SelectValue placeholder="Trạng thái PKGX" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả PKGX</SelectItem>
-          <SelectItem value="linked">Đã liên kết PKGX</SelectItem>
-          <SelectItem value="not-linked">Chưa liên kết PKGX</SelectItem>
-        </SelectContent>
-      </Select>
-    </>  
+    <ProductFilterControls
+      tableState={tableState}
+      categoryOptions={categoryOptions}
+      stockLevelCounts={stockLevelCounts}
+      onStatusFilterChange={handleStatusFilterChange}
+      onTypeFilterChange={handleTypeFilterChange}
+      onCategoryFilterChange={handleCategoryFilterChange}
+      onComboFilterChange={handleComboFilterChange}
+      onStockLevelFilterChange={handleStockLevelFilterChange}
+      onPkgxFilterChange={handlePkgxFilterChange}
+      onDateRangeChange={handleDateRangeChange}
+    />
   );
 
   const handlePrintLabels = React.useCallback((products: Product[]) => {
@@ -1155,275 +882,32 @@ export function ProductsPage() {
     };
   };
 
-  const bulkActions = [
-    {
-      label: "In tem phụ sản phẩm",
-      icon: Printer,
-      onSelect: (selectedRows: Product[]) => {
-        handlePrintLabels(selectedRows);
-        toast.success(`Đang in tem cho ${selectedRows.length} sản phẩm`);
-      }
-    },
-    {
-      label: "Chuyển vào thùng rác",
-      icon: Trash2,
-      onSelect: (selectedRows: Product[]) => {
-        const systemIds = selectedRows.map(p => p.systemId);
-        systemIds.forEach(id => remove(asSystemId(id)));
-        setRowSelection({});
-        toast.success(`Đã chuyển ${selectedRows.length} sản phẩm vào thùng rác`);
-      }
-    },
-    {
-      label: "Đang hoạt động",
-      icon: Play,
-      onSelect: (selectedRows: Product[]) => {
-        selectedRows.forEach(product => {
-          update(asSystemId(product.systemId), { ...product, status: 'active' });
-        });
-        setRowSelection({});
-        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Đang hoạt động"`);
-      }
-    },
-    {
-      label: "Ngừng kinh doanh",
-      icon: StopCircle,
-      onSelect: (selectedRows: Product[]) => {
-        selectedRows.forEach(product => {
-          update(asSystemId(product.systemId), { ...product, status: 'discontinued' });
-        });
-        setRowSelection({});
-        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Ngừng kinh doanh"`);
-      }
-    }
-  ];
+  // ✅ Use factory functions for bulk actions
+  const bulkActions = React.useMemo(() => createBulkActions({
+    handlePrintLabels,
+    remove,
+    update,
+    setRowSelection,
+  }), [handlePrintLabels, remove, update]);
 
   // ═══════════════════════════════════════════════════════════════
   // PKGX Bulk Actions - Using shared usePkgxBulkSync hook
   // ═══════════════════════════════════════════════════════════════
-  const pkgxBulkActions = React.useMemo(() => [
-    {
-      label: "Đồng bộ tất cả",
-      icon: RefreshCw,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_all');
-      }
-    },
-    {
-      label: "Thông tin cơ bản",
-      icon: FileText,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_basic');
-      }
-    },
-    {
-      label: "Giá",
-      icon: DollarSign,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_price');
-      }
-    },
-    {
-      label: "Tồn kho",
-      icon: PackageSearch,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_inventory');
-      }
-    },
-    {
-      label: "SEO",
-      icon: Search,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_seo');
-      }
-    },
-    {
-      label: "Mô tả",
-      icon: FileText,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_description');
-      }
-    },
-    {
-      label: "Flags",
-      icon: Flag,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_flags');
-      }
-    },
-    {
-      label: "Hình ảnh",
-      icon: Image,
-      onSelect: (selectedRows: Product[]) => {
-        triggerBulkSync(selectedRows, 'sync_images');
-      }
-    },
-    {
-      label: "Xem trên PKGX",
-      icon: ExternalLink,
-      onSelect: (selectedRows: Product[]) => {
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        if (linkedProducts.length === 1) {
-          window.open(`https://phukiengiaxuong.com.vn/admin/goods.php?act=edit_goods&goods_id=${linkedProducts[0].pkgxId}`, '_blank');
-        } else {
-          toast.info(`Đã chọn ${linkedProducts.length} sản phẩm. Vui lòng chọn 1 sản phẩm để xem.`);
-        }
-      }
-    },
-    {
-      label: "Hủy liên kết",
-      icon: Unlink,
-      variant: 'destructive' as const,
-      onSelect: async (selectedRows: Product[]) => {
-        const linkedProducts = selectedRows.filter(p => p.pkgxId);
-        if (linkedProducts.length === 0) {
-          toast.error('Không có sản phẩm nào đã liên kết PKGX');
-          return;
-        }
-        
-        if (!confirm(`Bạn có chắc muốn hủy liên kết ${linkedProducts.length} sản phẩm với PKGX?`)) {
-          return;
-        }
-        
-        let successCount = 0;
-        
-        for (const product of linkedProducts) {
-          try {
-            update(asSystemId(product.systemId), { pkgxId: undefined });
-            successCount++;
-          } catch {
-            // ignore
-          }
-        }
-        
-        setRowSelection({});
-        toast.success(`Đã hủy liên kết ${successCount} sản phẩm với PKGX`);
-      }
-    },
-  ], [triggerBulkSync, update, setRowSelection]);
+  const pkgxBulkActions = React.useMemo(() => createPkgxBulkActions({
+    triggerBulkSync,
+    update,
+    setRowSelection,
+  }), [triggerBulkSync, update]);
 
-  const getStatusVariant = (status?: string) => {
-    if (!status) return 'secondary';
-    switch (status) {
-      case 'active': return 'default';
-      case 'inactive': return 'secondary';
-      case 'discontinued': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
-  const getStatusLabel = (status?: string) => {
-    if (!status) return 'Không xác định';
-    switch (status) {
-      case 'active': return 'Hoạt động';
-      case 'inactive': return 'Tạm ngừng';
-      case 'discontinued': return 'Ngừng kinh doanh';
-      default: return status;
-    }
-  };
-
-  const getTypeLabel = (type?: string) => {
-    if (!type) return '';
-    switch (type) {
-      case 'physical': return 'Hàng hóa';
-      case 'service': return 'Dịch vụ';
-      case 'digital': return 'Sản phẩm số';
-      default: return type;
-    }
-  };
-
-  const MobileProductCard = ({ product }: { product: Product }) => {
-    return (
-      <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleRowClick(product)}>
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            {/* Icon/Avatar */}
-            <Avatar className="h-12 w-12 flex-shrink-0">
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                <Package className="h-6 w-6" />
-              </AvatarFallback>
-            </Avatar>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between mb-1">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-body-sm font-medium truncate">{product.name}</h3>
-                    {product.pkgxId && (
-                      <Badge variant="outline" className="text-body-xs border-blue-500 text-blue-600 flex-shrink-0">
-                        PKGX
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-body-xs text-muted-foreground">{product.id}</p>
-                  {product.shortDescription && (
-                    <p className="text-body-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {product.shortDescription}
-                    </p>
-                  )}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 w-9 p-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/products/${product.systemId}/edit`); }}>
-                      Chỉnh sửa
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(product.systemId); }}>
-                      Chuyển vào thùng rác
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Details */}
-              <div className="space-y-1.5 mt-2">
-                {product.categorySystemId && (
-                  <div className="flex items-center text-body-xs text-muted-foreground">
-                    <Package className="h-3 w-3 mr-1.5" />
-                    <span className="truncate">
-                      {categories.find(c => c.systemId === product.categorySystemId)?.name || product.categorySystemId}
-                    </span>
-                  </div>
-                )}
-                {product.type && (
-                  <div className="flex items-center text-body-xs text-muted-foreground">
-                    <span className="truncate">{getTypeLabel(product.type)}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between mt-3 pt-2 border-t">
-                <Badge variant={getStatusVariant(product.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'} className="text-body-xs">
-                  {getStatusLabel(product.status)}
-                </Badge>
-                {product.unit && (
-                  <span className="text-body-xs text-muted-foreground">
-                    ĐVT: {product.unit}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
+  // ✅ Use extracted MobileProductCard component
+  const renderMobileCard = React.useCallback((product: Product) => (
+    <MobileProductCard
+      product={product}
+      categories={categories}
+      onRowClick={handleRowClick}
+      onDelete={handleDelete}
+    />
+  ), [categories, handleRowClick, handleDelete]);
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -1541,7 +1025,7 @@ export function ProductsPage() {
         <ResponsiveDataTable
           columns={columns}
           data={pageData}
-          renderMobileCard={(product) => <MobileProductCard product={product} />}
+          renderMobileCard={renderMobileCard}
           pageCount={pageCount}
           pagination={tableState.pagination}
           setPagination={handlePaginationChange}
@@ -1586,11 +1070,10 @@ export function ProductsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Import Dialog V2 */}
-      <GenericImportDialogV2<Product>
+      {/* Import Dialog V2 - Lazy loaded with config */}
+      <ProductImportDialog
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
-        config={productImportExportConfig}
         existingData={products}
         onImport={handleImport}
         currentUser={authEmployee ? {
@@ -1599,11 +1082,10 @@ export function ProductsPage() {
         } : undefined}
       />
 
-      {/* Export Dialog V2 */}
-      <GenericExportDialogV2<Product>
+      {/* Export Dialog V2 - Lazy loaded with config */}
+      <ProductExportDialog
         open={isExportOpen}
         onOpenChange={setIsExportOpen}
-        config={productImportExportConfig}
         allData={products}
         filteredData={filteredSnapshot}
         currentPageData={pageData}

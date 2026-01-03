@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTrendtechSettingsStore } from '../store';
-import { useBrandStore } from '../../inventory/brand-store';
+import { useActiveBrands } from '@/features/brands/hooks/use-all-brands';
 import { nanoid } from 'nanoid';
+import { asSystemId } from '@/lib/id-types';
 
 export function BrandMappingTab() {
   const { 
@@ -18,17 +19,15 @@ export function BrandMappingTab() {
     syncBrandsFromTrendtech,
     addLog,
   } = useTrendtechSettingsStore();
-  const brandStore = useBrandStore();
+  const { data: hrmBrands } = useActiveBrands();
   const [isSyncing, setIsSyncing] = React.useState(false);
-  
-  const hrmBrands = React.useMemo(() => brandStore.getActive(), [brandStore]);
   const trendtechBrands = settings.brands;
   const mappings = settings.brandMappings;
 
   // Get unmapped HRM brands
   const unmappedHrmBrands = React.useMemo(() => {
     const mappedIds = new Set(mappings.map((m) => m.hrmBrandSystemId));
-    return hrmBrands.filter((b) => !mappedIds.has(b.systemId));
+    return hrmBrands.filter((b) => !mappedIds.has(asSystemId(b.systemId)));
   }, [hrmBrands, mappings]);
 
   const handleSyncBrands = async () => {
@@ -51,7 +50,7 @@ export function BrandMappingTab() {
     
     addBrandMapping({
       id: nanoid(),
-      hrmBrandSystemId: hrmBrand.systemId,
+      hrmBrandSystemId: asSystemId(hrmBrand.systemId),
       hrmBrandName: hrmBrand.name,
       trendtechBrandId: trendtechBrand.id,
       trendtechBrandName: trendtechBrand.name,

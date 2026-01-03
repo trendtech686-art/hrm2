@@ -15,8 +15,8 @@ import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, 
 
 // stores
 import { useProductStore } from '@/features/products/store';
-import { useEmployeeStore } from '@/features/employees/store';
-import { useBranchStore } from '@/features/settings/branches/store';
+import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useOrderStore } from '../store';
 import { usePaymentMethodStore } from '@/features/settings/payments/methods/store';
 import { useSalesChannelStore } from '@/features/settings/sales-channels/store';
@@ -221,8 +221,8 @@ export function OrderFormPage() {
     const router = useRouter();
     const [searchParams] = useSearchParamsWithSetter();
     const { findById, add, update, addPayment: addOrderPayment, data: allOrders } = useOrderStore();
-    const { data: employees } = useEmployeeStore();
-    const { data: branches } = useBranchStore();
+    const { data: employees } = useAllEmployees();
+    const { data: branches } = useAllBranches();
     const { data: pricingPolicies } = usePricingPolicyStore();
     const { data: allProducts, add: baseAddProduct } = useProductStore();
     const { addEntry: addStockHistoryEntry } = useStockHistoryStore();

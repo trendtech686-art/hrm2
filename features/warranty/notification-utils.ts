@@ -7,7 +7,7 @@
 import { toast } from "sonner";
 
 // Storage key
-const STORAGE_KEY = 'warranty-notification-settings';
+const _STORAGE_KEY = 'warranty-notification-settings';
 
 // Default notification settings
 const defaultNotifications = {
@@ -35,26 +35,19 @@ export interface WarrantyNotificationSettings {
 }
 
 /**
- * Load notification settings from localStorage
+ * Load notification settings - deprecated, use useWarrantyNotificationSettings hook
+ * @deprecated Use useWarrantyNotificationSettings hook from hooks/use-sla-notification-settings.ts
  */
 export function loadWarrantyNotificationSettings(): WarrantyNotificationSettings {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : defaultNotifications;
-  } catch {
-    return defaultNotifications;
-  }
+  return defaultNotifications;
 }
 
 /**
- * Save notification settings to localStorage
+ * Save notification settings - deprecated, use useWarrantyNotificationSettings hook
+ * @deprecated Use useWarrantyNotificationSettings hook from hooks/use-sla-notification-settings.ts
  */
-export function saveWarrantyNotificationSettings(settings: WarrantyNotificationSettings): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch (error) {
-    console.error('Failed to save warranty notification settings:', error);
-  }
+export function saveWarrantyNotificationSettings(_settings: WarrantyNotificationSettings): void {
+  console.warn('saveWarrantyNotificationSettings is deprecated. Use useWarrantyNotificationSettings hook instead.');
 }
 
 /**

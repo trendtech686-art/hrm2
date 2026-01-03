@@ -17,49 +17,6 @@ import { toast } from "sonner";
 import type { Complaint } from "../types";
 import type { SystemId } from "@/lib/id-types";
 
-// Response template interface
-interface ResponseTemplate {
-  id: string;
-  name: string;
-  content: string;
-  category: string;
-  order: number;
-}
-
-// Load templates from localStorage
-function _loadTemplates(): ResponseTemplate[] {
-  try {
-    const stored = localStorage.getItem('complaints-templates');
-    if (stored) return JSON.parse(stored);
-  } catch (e) {
-    console.error('Failed to load templates:', e);
-  }
-  // Default templates if none saved
-  return [
-    {
-      id: '1',
-      name: 'Xin lỗi - Lỗi sản phẩm',
-      content: 'Kính chào Anh/Chị,\n\nChúng tôi xin chân thành xin lỗi về sản phẩm bị lỗi mà Anh/Chị đã nhận được. Đây là sự cố đáng tiếc và chúng tôi hiểu sự bất tiện mà điều này gây ra.\n\nChúng tôi đang xử lý khiếu nại của Anh/Chị và sẽ sớm có phương án giải quyết hợp lý nhất.\n\nTrân trọng,',
-      category: 'product-defect',
-      order: 1,
-    },
-    {
-      id: '2',
-      name: 'Xin lỗi - Giao hàng chậm',
-      content: 'Kính chào Anh/Chị,\n\nChúng tôi xin lỗi vì đơn hàng của Anh/Chị đã bị giao chậm hơn so với dự kiến. Chúng tôi đã liên hệ với đơn vị vận chuyển để làm rõ nguyên nhân.\n\nChúng tôi sẽ có phương án bù trừ hợp lý cho sự chậm trễ này.\n\nTrân trọng,',
-      category: 'shipping-delay',
-      order: 2,
-    },
-    {
-      id: '3',
-      name: 'Xác nhận đang xử lý',
-      content: 'Kính chào Anh/Chị,\n\nChúng tôi đã nhận được khiếu nại của Anh/Chị và đang tiến hành xác minh thông tin.\n\nChúng tôi sẽ phản hồi lại trong thời gian sớm nhất. Xin Anh/Chị vui lòng theo dõi.\n\nTrân trọng,',
-      category: 'general',
-      order: 3,
-    },
-  ];
-}
-
 interface VerificationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

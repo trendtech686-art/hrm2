@@ -9,7 +9,7 @@ import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns
 import { useReceiptStore } from '../receipts/store';
 import { usePaymentStore } from '../payments/store';
 import { useCashbookStore } from './store';
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useReceiptTypeStore } from "../settings/receipt-types/store";
 import { usePaymentTypeStore } from "../settings/payments/types/store";
 import { getColumns } from "./columns";
@@ -57,6 +57,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { PageToolbar } from "../../components/layout/page-toolbar";
 import { PageFilters } from "../../components/layout/page-filters";
+import { useColumnVisibility } from "../../hooks/use-column-visibility";
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
@@ -83,7 +84,7 @@ export function CashbookPage() {
     }
   };
   const { accounts } = useCashbookStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { data: receiptTypes } = useReceiptTypeStore();
   const { data: paymentTypes } = usePaymentTypeStore();
   const router = useRouter();
@@ -102,21 +103,11 @@ export function CashbookPage() {
   const [accountFilter, setAccountFilter] = React.useState('all');
   const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
   const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>(undefined);
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    // ✅ Always use default visibility (don't load from localStorage)
-    const cols = getColumns(accounts, () => {}, router.push);
-    const initial: Record<string, boolean> = {};
-    cols.forEach((c) => { if (c.id) initial[c.id] = true; });
-    return initial;
-  });
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('cashbook', {});
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'type', 'id']);
   const [_expanded, _setExpanded] = React.useState<Record<string, boolean>>({});
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 50 });
-
-  React.useEffect(() => {
-    localStorage.setItem('cashbook-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
 
   // ✅ Mobile infinite scroll state
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
@@ -143,7 +134,11 @@ export function CashbookPage() {
   const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push), [accounts, handleCancel, router]);
 
   // ✅ Set default column visibility - Run ONCE on mount
+  const columnDefaultsInitialized = React.useRef(false);
   React.useEffect(() => {
+    if (columnDefaultsInitialized.current) return;
+    if (columns.length === 0) return;
+    
     const defaultVisibleColumns = [
       'type', 'id', 'date', 'amount', 'targetName', 'paymentMethodName',
       'accountSystemId', 'paymentReceiptTypeName', 'status', 'branchName',
@@ -159,7 +154,9 @@ export function CashbookPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-  }, [columns]); // ✅ Depends on columns
+    columnDefaultsInitialized.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns]);
 
   const fuse = React.useMemo(() => new Fuse(transactions, {
     keys: ["id", "description", "targetName", "originalDocumentId", "createdBy"],

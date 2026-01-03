@@ -35,7 +35,7 @@ import { usePrintTemplateStore } from './store';
 import { TemplateType, PaperSize, TEMPLATE_TYPES as ALL_TEMPLATE_TYPES } from './types';
 import { PREVIEW_DATA } from './preview-data';
 import { TEMPLATE_VARIABLES } from './variables';
-import { useBranchStore } from '../branches/store';
+import { useAllBranches } from '../branches/hooks/use-all-branches';
 import { Button } from '@/components/ui/button';
 import { 
   Select, 
@@ -134,7 +134,7 @@ export function PrintTemplatesPage() {
   });
 
   const { updateTemplate, updateTemplateAllBranches, resetTemplate, getTemplate, setDefaultSize, getDefaultSize } = usePrintTemplateStore();
-  const branchStore = useBranchStore();
+  const branchStore = useAllBranches();
   const branches = branchStore.data;
   const defaultBranch = branches.find(b => b.isDefault) || branches[0];
   const [selectedBranch, setSelectedBranch] = useState<string>(defaultBranch?.systemId || '');

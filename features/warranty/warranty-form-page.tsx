@@ -34,8 +34,8 @@ import { WarrantyProductsSection } from './components/warranty-products-section'
 import { WarrantySummary } from './components/warranty-summary';
 
 // Stores for lookup
-import { useBranchStore } from '../settings/branches/store';
-import { useEmployeeStore } from '../employees/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 
 /**
  * Trang tạo/sửa phiếu bảo hành
@@ -81,8 +81,8 @@ export function WarrantyFormPage() {
   
   const { user } = useAuth();
   const { findById, add, update, generateNextSystemId, data: allTickets } = useWarrantyStore();
-  const { data: branches } = useBranchStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: branches } = useAllBranches();
+  const { data: employees } = useAllEmployees();
 
   const isEditing = !!systemId;
   const ticketSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : null), [systemId]);

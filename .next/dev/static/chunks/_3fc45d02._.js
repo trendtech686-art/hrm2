@@ -9,6 +9,8 @@ __turbopack_context__.s([
     ()=>useAppearanceStore
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/react.mjs [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$middleware$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/middleware.mjs [app-client] (ecmascript)");
+;
 ;
 const defaultCustomTheme = {
     '--background': 'oklch(1 0 0)',
@@ -60,105 +62,37 @@ const defaultCustomTheme = {
     '--font-size-h5': '1.125rem',
     '--font-size-h6': '1rem'
 };
-// API sync helper
-async function syncAppearanceToAPI(settings) {
-    try {
-        const response = await fetch('/api/user-preferences/appearance', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify(settings)
-        });
-        return response.ok;
-    } catch (error) {
-        console.error('[Appearance API] sync error:', error);
-        return false;
-    }
-}
-const useAppearanceStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["create"])()((set, get)=>({
+const useAppearanceStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["create"])()((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$middleware$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["persist"])((set)=>({
         theme: 'slate',
         colorMode: 'light',
         font: 'inter',
         fontSize: 'base',
         customThemeConfig: defaultCustomTheme,
-        initialized: false,
-        setTheme: (theme)=>{
-            set({
+        setTheme: (theme)=>set({
                 theme
-            });
-            syncAppearanceToAPI({
-                theme
-            }).catch(console.error);
-        },
-        setColorMode: (colorMode)=>{
-            set({
+            }),
+        setColorMode: (colorMode)=>set({
                 colorMode
-            });
-            syncAppearanceToAPI({
-                colorMode
-            }).catch(console.error);
-        },
-        setFont: (font)=>{
-            set({
+            }),
+        setFont: (font)=>set({
                 font
-            });
-            syncAppearanceToAPI({
-                font
-            }).catch(console.error);
-        },
-        setFontSize: (size)=>{
-            set({
+            }),
+        setFontSize: (size)=>set({
                 fontSize: size
-            });
-            syncAppearanceToAPI({
-                fontSize: size
-            }).catch(console.error);
-        },
-        setCustomThemeConfig: (config)=>{
-            set({
+            }),
+        setCustomThemeConfig: (config)=>set({
                 customThemeConfig: {
                     ...config
                 }
-            });
-            syncAppearanceToAPI({
-                customThemeConfig: config
-            }).catch(console.error);
-        },
-        updateAppearance: (settings)=>{
-            set((state)=>({
+            }),
+        updateAppearance: (settings)=>set((state)=>({
                     ...state,
                     ...settings
-                }));
-            syncAppearanceToAPI(settings).catch(console.error);
-        },
-        loadFromAPI: async ()=>{
-            if (get().initialized) return;
-            try {
-                const response = await fetch('/api/user-preferences/appearance', {
-                    credentials: 'include'
-                });
-                if (response.ok) {
-                    const json = await response.json();
-                    const data = json.data || json;
-                    if (data && Object.keys(data).length > 0) {
-                        set({
-                            ...data,
-                            initialized: true,
-                            customThemeConfig: data.customThemeConfig || defaultCustomTheme
-                        });
-                    } else {
-                        set({
-                            initialized: true
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('[Appearance Store] loadFromAPI error:', error);
-            }
-        }
-    }));
+                }))
+    }), {
+    name: 'hrm-appearance-storage',
+    storage: (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$middleware$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createJSONStorage"])(()=>localStorage)
+}));
 function getInitialAppearanceState() {
     try {
         const stored = localStorage.getItem('hrm-appearance-storage');
@@ -333,6 +267,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature();
+'use client';
 ;
 const BreakpointContext = /*#__PURE__*/ __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createContext"](undefined);
 function getBreakpoint(width) {
@@ -340,13 +275,6 @@ function getBreakpoint(width) {
     if (width < 1024) return "tablet";
     if (width < 1536) return "desktop";
     return "wide";
-}
-function debounce(func, wait) {
-    let timeout = null;
-    return (...args)=>{
-        if (timeout) clearTimeout(timeout);
-        timeout = setTimeout(()=>func(...args), wait);
-    };
 }
 function BreakpointProvider({ children, debounceMs = 150 }) {
     _s();
@@ -400,7 +328,7 @@ function BreakpointProvider({ children, debounceMs = 150 }) {
         children: children
     }, void 0, false, {
         fileName: "[project]/contexts/breakpoint-context.tsx",
-        lineNumber: 88,
+        lineNumber: 79,
         columnNumber: 5
     }, this);
 }
@@ -425,7 +353,7 @@ function withBreakpoint(Component) {
             ...breakpoint
         }, void 0, false, {
             fileName: "[project]/contexts/breakpoint-context.tsx",
-            lineNumber: 120,
+            lineNumber: 111,
             columnNumber: 12
         }, this);
     }, "vDry4zHS/I48mvcyOApBMXDDBRo=", false, function() {
@@ -492,7 +420,8 @@ async function loadGeneralSettings() {
     }
     // Prevent multiple simultaneous loads
     if (loadPromise) {
-        return loadPromise;
+        const result = await loadPromise;
+        return result ?? DEFAULT_GENERAL_SETTINGS;
     }
     isLoading = true;
     loadPromise = (async ()=>{
@@ -529,7 +458,8 @@ async function loadGeneralSettings() {
         return settingsCache;
     })();
     try {
-        return await loadPromise;
+        const result = await loadPromise;
+        return result ?? DEFAULT_GENERAL_SETTINGS;
     } finally{
         isLoading = false;
         loadPromise = null;
@@ -585,6 +515,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$settings$2d$cache$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/settings-cache.ts [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature();
+'use client';
 ;
 ;
 ;
@@ -620,8 +551,8 @@ function AuthProvider({ children }) {
                 const userObj = {
                     systemId: sessionUser.id || sessionUser.systemId || '',
                     email: sessionUser.email || '',
-                    fullName: sessionUser.name,
-                    name: sessionUser.name || sessionUser.email,
+                    fullName: sessionUser.name ?? undefined,
+                    name: sessionUser.name || sessionUser.email || undefined,
                     role: sessionUser.role || 'STAFF',
                     employeeId: sessionUser.employeeId,
                     employee: sessionUser.employee
@@ -710,7 +641,7 @@ function AuthProvider({ children }) {
         children: children
     }, void 0, false, {
         fileName: "[project]/contexts/auth-context.tsx",
-        lineNumber: 133,
+        lineNumber: 143,
         columnNumber: 10
     }, this);
 }
@@ -2326,6 +2257,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$navi
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$breadcrumb$2d$system$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/lib/breadcrumb-system.ts [app-client] (ecmascript) <locals>");
 ;
 var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature(), _s2 = __turbopack_context__.k.signature(), _s3 = __turbopack_context__.k.signature(), _s4 = __turbopack_context__.k.signature();
+'use client';
 ;
 ;
 ;
@@ -2348,7 +2280,7 @@ function PageHeaderProvider({ children }) {
     const setPageHeader = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"]({
         "PageHeaderProvider.useCallback[setPageHeader]": (state)=>{
             setPageHeaderState({
-                "PageHeaderProvider.useCallback[setPageHeader]": (prev)=>{
+                "PageHeaderProvider.useCallback[setPageHeader]": (_prev)=>{
                     // Auto-generate breadcrumb if not provided
                     let breadcrumb = state.breadcrumb;
                     if (!breadcrumb) {
@@ -2427,12 +2359,12 @@ function PageHeaderProvider({ children }) {
             children: children
         }, void 0, false, {
             fileName: "[project]/contexts/page-header-context.tsx",
-            lineNumber: 123,
+            lineNumber: 125,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/contexts/page-header-context.tsx",
-        lineNumber: 122,
+        lineNumber: 124,
         columnNumber: 5
     }, this);
 }

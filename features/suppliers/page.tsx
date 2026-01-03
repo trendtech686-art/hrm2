@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter } from 'next/navigation';
 import { useSupplierStore } from "./store"
+import { useActiveSuppliers } from "./hooks/use-all-suppliers"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { PageToolbar } from "../../components/layout/page-toolbar"
@@ -25,17 +26,27 @@ import { usePageHeader } from "../../contexts/page-header-context";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
 import { SupplierCard } from "./supplier-card";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from "@/lib/id-types";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { supplierImportExportConfig } from "../../lib/import-export/configs/supplier.config";
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useAuth } from "../../contexts/auth-context";
+import { useColumnVisibility } from "../../hooks/use-column-visibility";
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
+const SupplierImportDialog = dynamic(
+  () => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierImportDialog })),
+  { ssr: false }
+);
+const SupplierExportDialog = dynamic(
+  () => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierExportDialog })),
+  { ssr: false }
+);
 
 export function SuppliersPage() {
-  const { data: suppliersRaw, remove, restore, getActive, getDeleted: _getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
-  const { data: branches } = useBranchStore();
+  const { data: suppliersRaw, remove, restore, getDeleted: _getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
+  const { data: activeSuppliers } = useActiveSuppliers();
+  const { data: branches } = useAllBranches();
   const { employee: currentUser } = useAuth();
   const router = useRouter();
   const { isMobile } = useBreakpoint();
@@ -95,28 +106,15 @@ export function SuppliersPage() {
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'suppliers-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    // Just need column structure, so pass null router
+  
+  // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+  const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns(() => {}, () => {}, () => {}, null as unknown as ReturnType<typeof useRouter>);
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (_e) {
-        // Ignore JSON parse errors - use default
-      }
-    }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
-  });
-  
-  React.useEffect(() => {
-    localStorage.setItem('suppliers-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  }, []);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('suppliers', defaultColumnVisibility);
   
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
@@ -160,10 +158,6 @@ export function SuppliersPage() {
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is stable, only run on mount
   }, []);
-
-  // ✅ Cache active and deleted suppliers
-// eslint-disable-next-line react-hooks/exhaustive-deps -- suppliers triggers re-render when store changes
-const activeSuppliers = React.useMemo(() => getActive(), [suppliers, getActive]);
 
   const fuse = React.useMemo(() => new Fuse(activeSuppliers, { keys: ["name", "taxCode", "phone", "email"] }), [activeSuppliers]);
 
@@ -484,10 +478,9 @@ const activeSuppliers = React.useMemo(() => getActive(), [suppliers, getActive])
       </AlertDialog>
 
       {/* Import Dialog */}
-      <GenericImportDialogV2<Supplier>
+      <SupplierImportDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
-        config={supplierImportExportConfig}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
         existingData={activeSuppliers}
         onImport={handleImport}
@@ -498,10 +491,9 @@ const activeSuppliers = React.useMemo(() => getActive(), [suppliers, getActive])
       />
 
       {/* Export Dialog */}
-      <GenericExportDialogV2<Supplier>
+      <SupplierExportDialog
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
-        config={supplierImportExportConfig}
         allData={activeSuppliers}
         filteredData={sortedData}
         currentPageData={paginatedData}

@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/categories/page": "app/(authenticated)/categories/page.js"
+}

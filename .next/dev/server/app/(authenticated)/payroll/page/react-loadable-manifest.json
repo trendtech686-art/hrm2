@@ -1,1 +1,9 @@
-{}
+{
+  "[project]/components/shared/simple-print-options-dialog.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/components/shared/simple-print-options-dialog.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_649b6a63._.js",
+      "static/chunks/components_shared_simple-print-options-dialog_tsx_2900dec0._.js"
+    ]
+  }
+}

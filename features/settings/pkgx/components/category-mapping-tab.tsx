@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { getCategoryById, updateCategory } from '../../../../lib/pkgx/api-service';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
-import { useProductCategoryStore } from '../../inventory/product-category-store';
+import { useActiveCategories } from '@/features/categories/hooks/use-all-categories';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import type { PkgxCategoryMapping, PkgxCategory, PkgxCategoryFromApi } from '../types';
@@ -22,6 +22,7 @@ import type { HrmCategoryData } from '../hooks';
 import type { CategoryMappingInput } from '../validation';
 import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-dialog';
 import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
+import { asSystemId } from '@/lib/id-types';
 
 // Extended type for PKGX categories table
 interface PkgxCategoryRow extends PkgxCategory {
@@ -43,7 +44,7 @@ export function CategoryMappingTab() {
     syncCategoriesFromPkgx,
     addLog,
   } = usePkgxSettingsStore();
-  const productCategories = useProductCategoryStore();
+  const { data: productCategoriesData } = useActiveCategories();
   
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('pkgx-categories');
@@ -74,8 +75,12 @@ export function CategoryMappingTab() {
   });
   
   const hrmCategories = React.useMemo(
-    () => productCategories.getActive().sort((a, b) => (a.path || '').localeCompare(b.path || '')),
-    [productCategories]
+    () => [...productCategoriesData].sort((a, b) => (a.path || '').localeCompare(b.path || '')).map(c => ({
+      ...c,
+      systemId: asSystemId(c.systemId),
+      parentId: c.parentId ? asSystemId(c.parentId) : undefined,
+    })),
+    [productCategoriesData]
   );
   
   // Validation hook
@@ -264,7 +269,7 @@ export function CategoryMappingTab() {
             metaDescription: hrmCategory.metaDescription,
             shortDescription: hrmCategory.shortDescription,
             longDescription: hrmCategory.longDescription,
-            websiteSeo: hrmCategory.websiteSeo,
+            websiteSeo: hrmCategory.websiteSeo as HrmCategoryData['websiteSeo'],
           };
           entitySync.triggerSyncAction(actionKey, row.id, hrmData, row.name);
         };

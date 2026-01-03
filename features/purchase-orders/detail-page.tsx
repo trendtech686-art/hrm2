@@ -1,11 +1,11 @@
 'use client'
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ROUTES } from '../../lib/router';
 import { formatDateTime, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate } from '@/lib/date-utils';
-import { useForm } from 'react-hook-form';
 import { usePurchaseOrderStore } from './store';
 import { useSupplierStore } from '../suppliers/store';
 import { usePaymentStore } from '../payments/store';
@@ -14,27 +14,21 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
-import { Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, ChevronDown, ChevronRight, Trash2, AlertCircle } from 'lucide-react';
+import { Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { useInventoryReceiptStore } from '../inventory-receipts/store';
 import { useProductStore } from '../products/store';
 import { useStockHistoryStore } from '../stock-history/store';
 import { usePaymentTypeStore } from '../settings/payments/types/store';
 import { useCashbookStore } from '../cashbook/store';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import type { Payment } from '../payments/types';
-import type { Receipt } from '../receipts/types';
-import { Form, FormControl, FormField, FormItem, FormLabel } from '../../components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Input } from '../../components/ui/input';
-import { NumberInput } from '../../components/ui/number-input';
 import { DetailField } from '../../components/ui/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import type { InventoryReceipt } from '../inventory-receipts/types';
 import { ActivityHistory } from '../../components/ActivityHistory';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { usePurchaseReturnStore } from '../purchase-returns/store';
 import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
 import { Badge } from '../../components/ui/badge';
@@ -62,7 +56,7 @@ import {
 } from '../../lib/print-mappers/types';
 import { createPaymentDocument } from '../finance/document-helpers';
 import { PurchaseOrderPaymentItem } from './components/payment-item';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees, useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { mapPaymentToPrintData, PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
 import { mapReceiptToPrintData, ReceiptForPrint } from '../../lib/print-mappers/receipt.mapper';
 import { 
@@ -72,194 +66,15 @@ import {
   createStoreSettings as createSupplierReturnStoreSettings,
 } from '../../lib/print/supplier-return-print-helper';
 
+// Import extracted components
+import { 
+  StatusTimeline,
+  StockHistoryTab,
+  type PaymentConfirmationFormValues,
+} from './detail';
 
-
-const StatusTimeline = ({ status, deliveryStatus, orderDate }: { status: string; deliveryStatus: string, orderDate: string }) => {
-    let currentStep = 0;
-    if (status === 'Hoàn thành' || status === 'Kết thúc' || status === 'Đã trả hàng') {
-        currentStep = 2;
-    } else if (deliveryStatus === 'Đã nhập' || deliveryStatus === 'Đã nhập một phần') {
-        currentStep = 1;
-    }
-
-    const steps = [
-        { name: 'Tạo đơn', date: formatDateCustom(orderDate, "dd/MM/yyyy HH:mm") }, 
-        { name: 'Nhập hàng' }, 
-        { name: 'Hoàn thành' }
-    ];
-
-    return (
-        <div className="flex items-start justify-center pt-2">
-            {steps.map((step, index) => (
-                <React.Fragment key={index}>
-                    <div className="flex flex-col items-center text-center w-28">
-                        <div className={cn(
-                            "flex items-center justify-center w-10 h-9 rounded-full border-2 text-body-sm font-bold",
-                            index <= currentStep ? "bg-primary border-primary text-primary-foreground" : "border-border bg-muted text-muted-foreground"
-                        )}>
-                            <span>{index + 1}</span>
-                        </div>
-                        <p className={cn("text-body-sm mt-2 font-medium", index <= currentStep ? "text-foreground" : "text-muted-foreground")}>{step.name}</p>
-                        {step.date && <p className="text-body-xs text-muted-foreground">{step.date}</p>}
-                    </div>
-                    {index < steps.length - 1 && (
-                        <div className={cn("flex-1 mt-5 border-t-2", index < currentStep ? "border-primary" : "border-border")} />
-                    )}
-                </React.Fragment>
-            ))}
-        </div>
-    );
-};
-
-type PaymentConfirmationFormValues = {
-  paymentMethod: string;
-  accountSystemId: string;
-  amount: number;
-  paymentDate: string;
-  reference?: string;
-};
-
-function PaymentConfirmationDialog({
-  isOpen,
-  onOpenChange,
-  amountRemaining,
-  onSubmit,
-}: {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  amountRemaining: number;
-  onSubmit: (values: PaymentConfirmationFormValues) => void;
-}) {
-  const { accounts } = useCashbookStore();
-  
-  // Get default account for current payment method
-  const getDefaultAccount = React.useCallback((type: 'cash' | 'bank') => {
-    const filtered = accounts.filter(acc => acc.type === type && acc.isActive);
-    const defaultAcc = filtered.find(acc => acc.isDefault);
-    return defaultAcc?.systemId || filtered[0]?.systemId || '';
-  }, [accounts]);
-  
-  const form = useForm<PaymentConfirmationFormValues>({
-    defaultValues: {
-      paymentMethod: 'Tiền mặt',
-      accountSystemId: getDefaultAccount('cash'),
-      amount: amountRemaining > 0 ? amountRemaining : 0,
-      paymentDate: formatDateTime(getCurrentDate()),
-      reference: '',
-    },
-  });
-
-  const { control, handleSubmit, reset, watch, setValue } = form;
-  const paymentMethod = watch('paymentMethod');
-
-  // Filter accounts based on payment method
-  const filteredAccounts = React.useMemo(() => {
-    if (paymentMethod === 'Tiền mặt') {
-      return accounts.filter(acc => acc.type === 'cash' && acc.isActive);
-    } else if (paymentMethod === 'Chuyển khoản') {
-      return accounts.filter(acc => acc.type === 'bank' && acc.isActive);
-    }
-    return [];
-  }, [accounts, paymentMethod]);
-
-  // Update accountSystemId when payment method changes
-  React.useEffect(() => {
-    const accountType = paymentMethod === 'Tiền mặt' ? 'cash' : 'bank';
-    const defaultAccount = getDefaultAccount(accountType);
-    if (defaultAccount) {
-      setValue('accountSystemId', defaultAccount);
-    }
-  }, [paymentMethod, getDefaultAccount, setValue]);
-
-  React.useEffect(() => {
-    if (isOpen) {
-        const defaultAccount = getDefaultAccount('cash');
-        reset({
-            paymentMethod: 'Tiền mặt',
-            accountSystemId: defaultAccount,
-            amount: amountRemaining > 0 ? amountRemaining : 0,
-            paymentDate: formatDateTime(getCurrentDate()),
-            reference: '',
-        });
-    }
-  }, [isOpen, amountRemaining, reset, getDefaultAccount]);
-
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" open={isOpen}>
-        <DialogHeader>
-          <DialogTitle>Xác nhận thanh toán</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form id="payment-confirmation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <FormField control={control} name="paymentMethod" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phương thức thanh toán</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="Tiền mặt">Tiền mặt</SelectItem>
-                    <SelectItem value="Chuyển khoản">Chuyển khoản</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}/>
-            <FormField control={control} name="accountSystemId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tài khoản</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  value={field.value}
-                >
-                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {filteredAccounts.length === 0 ? (
-                      <SelectItem value="no-account" disabled>
-                        Không có tài khoản {paymentMethod === 'Tiền mặt' ? 'tiền mặt' : 'ngân hàng'}
-                      </SelectItem>
-                    ) : (
-                      filteredAccounts.map((account) => (
-                        <SelectItem key={account.systemId} value={account.systemId}>
-                          {account.name} {account.bankAccountNumber ? `(${account.bankAccountNumber})` : ''}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}/>
-            <FormField control={control} name="amount" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Số tiền</FormLabel>
-                {/* FIX: Explicitly cast `field.value` to `number` to match the expected prop type of `NumberInput`. */}
-                <FormControl><NumberInput {...field} value={field.value as number} /></FormControl>
-              </FormItem>
-            )}/>
-            <FormField control={control} name="paymentDate" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Ngày thanh toán</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-              </FormItem>
-            )}/>
-             <FormField control={control} name="reference" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tham chiếu</FormLabel>
-                <FormControl><Input {...field} placeholder="VD: Số hóa đơn, mã giao dịch..." /></FormControl>
-              </FormItem>
-            )}/>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Thoát</Button>
-              <Button type="submit">Thanh toán</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ChangeHistoryTab component removed - now using ActivityHistory component directly
+// Dynamic import for PaymentConfirmationDialog (code-splitting)
+const PaymentConfirmationDialog = dynamic(() => import('./detail').then(mod => ({ default: mod.PaymentConfirmationDialog })), { ssr: false });
 
 import { 
   convertStockInForPrint,
@@ -267,304 +82,6 @@ import {
   mapStockInLineItems,
   createStoreSettings as createStockInStoreSettings,
 } from '../../lib/print/stock-in-print-helper';
-
-function InventoryReceiptDetailView({ 
-  receipt, 
-}: { 
-  receipt: InventoryReceipt;
-}) {
-  const totalQuantity = receipt.items.reduce((sum, item) => sum + Number(item.receivedQuantity), 0);
-  const totalValue = receipt.items.reduce((sum, item) => sum + (Number(item.receivedQuantity) * Number(item.unitPrice)), 0);
-
-  return (
-    <div className="p-6 bg-slate-100 dark:bg-slate-800/20">
-      <div className="space-y-1 text-body-sm mb-6">
-        <h3 className="text-h3">Thông tin phiếu nhập kho</h3>
-        <p className="text-muted-foreground">Người nhập: {receipt.receiverName}</p>
-        <p className="text-muted-foreground">Ghi chú: {receipt.notes || '-'}</p>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-h3">Sản phẩm đã nhập</h3>
-        <div className="border rounded-md bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mã SP</TableHead>
-                <TableHead>Tên sản phẩm</TableHead>
-                <TableHead className="text-center">SL đặt</TableHead>
-                <TableHead className="text-center">SL thực nhập</TableHead>
-                <TableHead className="text-right">Đơn giá</TableHead>
-                <TableHead className="text-right">Thành tiền</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {receipt.items.map(item => (
-                <TableRow key={item.productSystemId}>
-                  <TableCell>
-                    <Link href={`/products/${item.productSystemId}`}
-                      className="text-body-sm font-medium text-primary hover:underline"
-                    >
-                      {item.productId}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{item.productName}</TableCell>
-                  <TableCell className="text-center">{item.orderedQuantity}</TableCell>
-                  <TableCell className="text-body-sm font-semibold text-center">{item.receivedQuantity}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                  <TableCell className="text-body-sm font-semibold text-right">{formatCurrency(item.receivedQuantity * item.unitPrice)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell colSpan={3} className="text-body-sm font-bold text-right">Tổng cộng</TableCell>
-                <TableCell className="text-body-sm font-bold text-center">{totalQuantity}</TableCell>
-                <TableCell />
-                <TableCell className="text-body-sm font-bold text-right">{formatCurrency(totalValue)}</TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-// Updated to use combined transactions
-function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPrintReturn }: { purchaseReturn: PurchaseReturn, allTransactions: (Payment | Receipt)[], onPrintReturn?: () => void }) {
-    const _totalReturnValue = purchaseReturn.items.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
-  
-    const refundReceipt = React.useMemo(() => {
-      if (purchaseReturn.refundAmount <= 0) return null;
-      // Find receipt where supplier refunded money to us
-      return allTransactions.find((transaction): transaction is Receipt => {
-        if (!('payerTypeName' in transaction)) {
-          return false;
-        }
-        const receipt = transaction as Receipt;
-        return receipt.payerTypeName === 'Nhà cung cấp' && receipt.payerName === purchaseReturn.supplierName;
-      }) ?? null;
-    }, [purchaseReturn, allTransactions]);
-
-    return (
-      <div className="p-6 bg-slate-100 dark:bg-slate-800/20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="md:col-span-2 space-y-4 text-body-sm">
-            <h3 className="text-h3">Thông tin đơn trả hàng nhà cung cấp</h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-              <div className="text-body-sm font-medium text-muted-foreground">Chi nhánh:</div>
-              <div className="text-body-sm font-medium">{purchaseReturn.branchName}</div>
-              <div className="text-body-sm font-medium text-muted-foreground">Nhà cung cấp:</div>
-              <div className="text-body-sm font-medium">{purchaseReturn.supplierName}</div>
-              <div className="text-body-sm font-medium text-muted-foreground">Lý do hoàn trả:</div>
-              <div className="text-body-sm font-medium">{purchaseReturn.reason || '-'}</div>
-              <div className="text-body-sm font-medium text-muted-foreground">Nhận hoàn tiền:</div>
-                <div className="text-body-sm font-medium">
-                {purchaseReturn.refundAmount > 0 ? (
-                    <>
-                    <span>{formatCurrency(purchaseReturn.refundAmount)} - {purchaseReturn.refundMethod}</span>
-                    {refundReceipt && (
-                        <Link href={`/receipts/${refundReceipt.systemId}`} className="ml-2 text-body-sm font-medium text-primary hover:underline">
-                        ({refundReceipt.id})
-                        </Link>
-                    )}
-                    </>
-                ) : 'Không'}
-                </div>
-            </div>
-          </div>
-          <div className="flex items-start justify-end">
-            <Button variant="outline" onClick={onPrintReturn}>
-              <Printer className="mr-2 h-4 w-4" />
-              In đơn trả
-            </Button>
-          </div>
-        </div>
-  
-        <div className="space-y-2">
-          <h3 className="text-h3">Thông tin sản phẩm trả</h3>
-          <div className="border rounded-md bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Mã SKU</TableHead>
-                  <TableHead>Tên sản phẩm</TableHead>
-                  <TableHead className="text-center">SL Trả</TableHead>
-                  <TableHead className="text-right">Đơn giá trả</TableHead>
-                  <TableHead className="text-right">Thành tiền</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {purchaseReturn.items.map((item, _index) => (
-                  <TableRow key={item.productSystemId}>
-                    <TableCell>
-                      <Link href={`/products/${item.productSystemId}`}
-                        className="text-body-sm font-medium text-primary hover:underline"
-                      >
-                        {item.productId}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{item.productName}</TableCell>
-                    <TableCell className="text-center">{item.returnQuantity}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                    <TableCell className="text-body-sm font-semibold text-right">{formatCurrency(item.returnQuantity * item.unitPrice)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-               <TableFooter>
-                <TableRow>
-                    <TableCell colSpan={4} className="text-body-sm font-bold text-right">Tổng giá trị trả</TableCell>
-                    <TableCell className="text-body-sm font-bold text-right">{formatCurrency(purchaseReturn.totalReturnValue)}</TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-// Updated to use combined transactions (Payment + Receipt)
-function StockHistoryTab({ 
-  poReceipts, 
-  purchaseReturns, 
-  allTransactions,
-  onPrintReceipt,
-  onPrintReturn,
-}: { 
-  poReceipts: InventoryReceipt[];
-  purchaseReturns: PurchaseReturn[];
-  allTransactions: (Payment | Receipt)[];
-  onPrintReceipt?: (receipt: InventoryReceipt) => void;
-  onPrintReturn?: (purchaseReturn: PurchaseReturn) => void;
-}) {
-    const [expandedRowId, setExpandedRowId] = React.useState<string | null>(null);
-
-    const stockMovements = React.useMemo(() => {
-        const receipts = poReceipts.map(r => ({
-            type: 'receipt' as const,
-            data: r,
-            sortDate: r.receivedDate,
-        }));
-        const returns = purchaseReturns.map(pr => ({
-            type: 'return' as const,
-            data: pr,
-            sortDate: pr.returnDate,
-        }));
-        return [...receipts, ...returns].sort((a, b) => getDaysDiff(parseDate(b.sortDate) || getCurrentDate(), parseDate(a.sortDate) || getCurrentDate()))
-    }, [poReceipts, purchaseReturns]);
-
-    const toggleRow = (systemId: string) => {
-        setExpandedRowId(currentId => (currentId === systemId ? null : systemId));
-    };
-
-    return (
-        <Card>
-            <CardContent className="p-0">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-12"></TableHead>
-                            <TableHead>Mã phiếu</TableHead>
-                            <TableHead>Loại phiếu</TableHead>
-                            <TableHead>Ngày tạo</TableHead>
-                            <TableHead>Nhân viên tạo</TableHead>
-                            <TableHead className="text-center">Tổng SL</TableHead>
-                            <TableHead className="w-[100px] text-right">Thao tác</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {stockMovements.map(movement => {
-                            const isReceipt = movement.type === 'receipt';
-                            const data = movement.data;
-                            const totalQty = isReceipt 
-                                ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity), 0)
-                                : (data as PurchaseReturn).items.reduce((sum, i) => sum + i.returnQuantity, 0);
-
-                            return (
-                                <React.Fragment key={data.systemId}>
-                                    <TableRow onClick={() => toggleRow(data.systemId)} className="cursor-pointer">
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500">
-                                                {expandedRowId === data.systemId ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            <Link href={isReceipt ? `/inventory-receipts/${data.systemId}` : `/purchase-returns/${data.systemId}`}
-                                                className="text-body-sm font-medium text-primary hover:underline"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {data.id}
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell>
-                                            {isReceipt 
-                                                ? <Badge variant="success" className="bg-green-100 text-green-700">Nhập hàng</Badge> 
-                                                : <Badge variant="destructive" className="bg-red-100 text-red-700">Xuất trả NCC</Badge>
-                                            }
-                                        </TableCell>
-                                        {/* FIX: Use type guard `isReceipt` to access correct properties */}
-                                        <TableCell>{formatDateCustom(parseDate(isReceipt ? (data as InventoryReceipt).receivedDate : (data as PurchaseReturn).returnDate) || getCurrentDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
-                                        <TableCell>{isReceipt ? (data as InventoryReceipt).receiverName : (data as PurchaseReturn).creatorName}</TableCell>
-                                        <TableCell className="text-center">{totalQty}</TableCell>
-                                        <TableCell className="text-right">
-                                            {isReceipt ? (
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onPrintReceipt?.(data as InventoryReceipt);
-                                                    }}
-                                                >
-                                                    <Printer className="h-4 w-4" />
-                                                </Button>
-                                            ) : (
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onPrintReturn?.(data as PurchaseReturn);
-                                                    }}
-                                                >
-                                                    <Printer className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                    {expandedRowId === data.systemId && (
-                                        <TableRow className="bg-slate-50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/20">
-                                            <TableCell colSpan={7} className="p-0">
-                                                {isReceipt 
-                                                    ? <InventoryReceiptDetailView 
-                                                        receipt={data as InventoryReceipt} 
-                                                      />
-                                                    : <PurchaseReturnDetailView 
-                                        purchaseReturn={data as PurchaseReturn} 
-                                        allTransactions={allTransactions} 
-                                        onPrintReturn={() => onPrintReturn?.(data as PurchaseReturn)}
-                                      />
-                                                }
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </React.Fragment>
-                            )
-                        })}
-                        {stockMovements.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Chưa có lịch sử xuất nhập kho.</TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    );
-}
 
 export function PurchaseOrderDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -584,13 +101,14 @@ export function PurchaseOrderDetailPage() {
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
   const { data: _paymentTypes } = usePaymentTypeStore();
   const { accounts: _accounts } = useCashbookStore();
-  const _branches = useBranchStore();
+  const { data: _branches } = useAllBranches();
   const { findByPurchaseOrderSystemId, add: addPurchaseReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = asSystemId(authEmployee?.systemId ?? 'SYSTEM');
   const currentUserName = authEmployee?.fullName ?? 'Hệ thống';
   const { findById: findProductTypeById } = useProductTypeStore();
-  const { findById: findEmployeeById, data: employees } = useEmployeeStore();
+  const { findById: findEmployeeById } = useEmployeeFinder();
+  const { data: employees } = useAllEmployees();
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
     const productType = findProductTypeById(asSystemId(productTypeSystemId));
@@ -607,43 +125,39 @@ export function PurchaseOrderDetailPage() {
     totalPaid?: number;
   }>({ isOpen: false, po: null });
 
-  // Comments state with localStorage persistence
-  type POComment = CommentType<string>;
-  const [comments, setComments] = React.useState<POComment[]>(() => {
-    const saved = localStorage.getItem(`purchase-order-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('purchase_order', systemId || '');
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`purchase-order-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = (content: string, attachments?: string[], parentId?: string) => {
-    const newComment: POComment = {
-      id: `comment-${Date.now()}`,
-      content,
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId,
+      content: c.content,
       author: {
-        systemId: currentUserSystemId,
-        name: currentUserName,
-        avatar: authEmployee?.avatar,
+        systemId: c.createdBy || 'system',
+        name: c.createdByName || 'Hệ thống',
+        avatar: undefined,
       },
-      createdAt: new Date().toISOString(),
-      attachments,
-      parentId: parentId || undefined,
-    };
-    setComments(prev => [...prev, newComment]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
+
+  const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
   };
 
-  const handleUpdateComment = (commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-    ));
+  const handleUpdateComment = (_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
+    dbDeleteComment(commentId);
   };
 
   const commentCurrentUser = React.useMemo(() => ({
@@ -784,7 +298,7 @@ export function PurchaseOrderDetailPage() {
     setCancelDialogState({ isOpen: false, po: null });
   };
 
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint(purchaseOrder?.branchSystemId);
 

@@ -4,10 +4,10 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useStockTransferStore } from '../store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useProductStore } from '@/features/products/store';
+import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { usePrint } from '@/lib/use-print';
 import { 
   convertStockTransferForPrint,
@@ -45,7 +45,8 @@ import { Label } from '@/components/ui/label';
 import { ArrowRight, Truck, Package, CheckCircle, XCircle, Printer, Edit, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { Comments, type Comment as CommentType } from '@/components/Comments';
+import { Comments } from '@/components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { formatDateTime } from '@/lib/date-utils';
 import { StockTransferWorkflowCard } from '../components/stock-transfer-workflow-card';
 import type { Subtask } from '@/components/shared/subtask-list';
@@ -65,10 +66,10 @@ const getStatusVariant = (status: StockTransferStatus): 'default' | 'secondary' 
 
 const getStatusLabel = (status: StockTransferStatus): string => {
   switch (status) {
-    case 'pending': return 'Ch? chuy?n';
-    case 'transferring': return '�ang chuy?n';
-    case 'completed': return 'Ho�n th�nh';
-    case 'cancelled': return '�� h?y';
+    case 'pending': return 'Chờ chuyển';
+    case 'transferring': return 'Đang chuyển';
+    case 'completed': return 'Hoàn thành';
+    case 'cancelled': return 'Đã hủy';
     default: return status;
   }
 };
@@ -87,7 +88,7 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
         systemId: transfer.createdBy || '',
         name: transfer.createdByName,
       },
-      description: `T?o phi?u chuy?n kho v?i ${transfer.items.length} s?n ph?m`,
+      description: `Tạo phiếu chuyển kho với ${transfer.items.length} sản phẩm`,
     });
   }
   
@@ -101,11 +102,11 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
         systemId: transfer.transferredBySystemId || '',
         name: transfer.transferredByName || '',
       },
-      description: 'X�c nh?n xu?t kho, dang chuy?n h�ng',
+      description: 'Xác nhận xuất kho, đang chuyển hàng',
       metadata: {
-        oldValue: 'Ch? chuy?n',
-        newValue: '�ang chuy?n',
-        field: 'Tr?ng th�i',
+        oldValue: 'Chờ chuyển',
+        newValue: 'Đang chuyển',
+        field: 'Trạng thái',
       },
     });
   }
@@ -120,11 +121,11 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
         systemId: transfer.receivedBySystemId || '',
         name: transfer.receivedByName || '',
       },
-      description: 'X�c nh?n nh?n h�ng ho�n th�nh',
+      description: 'Xác nhận nhận hàng hoàn thành',
       metadata: {
-        oldValue: '�ang chuy?n',
-        newValue: 'Ho�n th�nh',
-        field: 'Tr?ng th�i',
+        oldValue: 'Đang chuyển',
+        newValue: 'Hoàn thành',
+        field: 'Trạng thái',
       },
     });
   }
@@ -140,8 +141,8 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
         name: transfer.cancelledByName || '',
       },
       description: transfer.cancelReason 
-        ? `H?y phi?u: ${transfer.cancelReason}`
-        : 'H?y phi?u chuy?n kho',
+        ? `Hủy phiếu: ${transfer.cancelReason}`
+        : 'Hủy phiếu chuyển kho',
     });
   }
   
@@ -153,9 +154,9 @@ export function StockTransferDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById, confirmTransfer, confirmReceive, cancelTransfer } = useStockTransferStore();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { user } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
 
@@ -169,7 +170,7 @@ export function StockTransferDetailPage() {
 
   const transfer = findById(asSystemId(systemId || ''));
 
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint(transfer?.fromBranchSystemId);
 
@@ -193,54 +194,51 @@ export function StockTransferDetailPage() {
 
   const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
     const productType = findProductTypeById(productTypeSystemId);
-    return productType?.name || 'H�ng h�a';
+    return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
 
-  // Comments state with localStorage persistence
-  type TransferComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<TransferComment[]>(() => {
-    const saved = localStorage.getItem(`stock-transfer-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('stock_transfer', systemId || '');
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`stock-transfer-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId as unknown as SystemId,
+      content: c.content,
+      author: {
+        systemId: (c.createdBy || 'system') as unknown as SystemId,
+        name: c.createdByName || 'Hệ thống',
+      },
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
   const currentEmployee = React.useMemo(() => {
     if (!user?.employeeId) return null;
     return findEmployeeById(asSystemId(user.employeeId));
   }, [user, findEmployeeById]);
 
-  const handleAddComment = (content: string, _attachments?: string[], parentId?: string) => {
-    const newComment: TransferComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
-      author: {
-        systemId: currentEmployee?.systemId || asSystemId('system'),
-        name: currentEmployee?.fullName || 'Hệ thống',
-      },
-      createdAt: new Date(),
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
+  const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
   };
 
-  const handleUpdateComment = (commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
-    ));
+  const handleUpdateComment = (_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
+    dbDeleteComment(commentId);
   };
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: currentEmployee?.systemId || asSystemId('system'),
-    name: currentEmployee?.fullName || 'H? th?ng',
+    name: currentEmployee?.fullName || 'Hệ thống',
   }), [currentEmployee]);
 
   // Header actions based on status
@@ -256,11 +254,11 @@ export function StockTransferDetailPage() {
           <>
             <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
-              H?y
+              Hủy
             </Button>
             <Button className="h-9" onClick={() => setConfirmTransferOpen(true)}>
               <Truck className="mr-2 h-4 w-4" />
-              Chuy?n h�ng kh?i kho
+              Chuyển hàng khỏi kho
             </Button>
           </>
         )}
@@ -269,11 +267,11 @@ export function StockTransferDetailPage() {
           <>
             <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
-              H?y
+              Hủy
             </Button>
             <Button className="h-9" onClick={() => setConfirmReceiveOpen(true)}>
               <CheckCircle className="mr-2 h-4 w-4" />
-              Nh?n h�ng v�o kho
+              Nhận hàng vào kho
             </Button>
           </>
         )}
@@ -331,9 +329,9 @@ export function StockTransferDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Package className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-h3 font-semibold">Kh�ng t�m th?y phi?u chuy?n kho</h2>
+        <h2 className="text-h3 font-semibold">Không tìm thấy phiếu chuyển kho</h2>
         <Button variant="link" onClick={() => router.push('/stock-transfers')}>
-          Quay l?i danh s�ch
+          Quay lại danh sách
         </Button>
       </div>
     );
@@ -341,45 +339,45 @@ export function StockTransferDetailPage() {
 
   const handleConfirmTransfer = () => {
     if (!currentEmployee) {
-      toast.error('Kh�ng t�m th?y th�ng tin nh�n vi�n');
+      toast.error('Không tìm thấy thông tin nhân viên');
       return;
     }
 
     const success = confirmTransfer(transfer.systemId, currentEmployee.systemId);
     if (success) {
-      toast.success('�� x�c nh?n chuy?n h�ng kh?i kho');
+      toast.success('Đã xác nhận chuyển hàng khỏi kho');
     } else {
-      toast.error('Kh�ng th? x�c nh?n chuy?n h�ng');
+      toast.error('Không thể xác nhận chuyển hàng');
     }
     setConfirmTransferOpen(false);
   };
 
   const handleConfirmReceive = () => {
     if (!currentEmployee) {
-      toast.error('Kh�ng t�m th?y th�ng tin nh�n vi�n');
+      toast.error('Không tìm thấy thông tin nhân viên');
       return;
     }
 
     const success = confirmReceive(transfer.systemId, currentEmployee.systemId, receiveItems);
     if (success) {
-      toast.success('�� x�c nh?n nh?n h�ng v�o kho');
+      toast.success('Đã xác nhận nhận hàng vào kho');
     } else {
-      toast.error('Kh�ng th? x�c nh?n nh?n h�ng');
+      toast.error('Không thể xác nhận nhận hàng');
     }
     setConfirmReceiveOpen(false);
   };
 
   const handleCancel = () => {
     if (!currentEmployee) {
-      toast.error('Kh�ng t�m th?y th�ng tin nh�n vi�n');
+      toast.error('Không tìm thấy thông tin nhân viên');
       return;
     }
 
     const success = cancelTransfer(transfer.systemId, currentEmployee.systemId, cancelReason);
     if (success) {
-      toast.success('�� h?y phi?u chuy?n kho');
+      toast.success('Đã hủy phiếu chuyển kho');
     } else {
-      toast.error('Kh�ng th? h?y phi?u chuy?n kho');
+      toast.error('Không thể hủy phiếu chuyển kho');
     }
     setCancelDialogOpen(false);
     setCancelReason('');
@@ -397,78 +395,78 @@ export function StockTransferDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Row 1: 3 columns - Th�ng tin chuy?n kho + Th�ng tin x? l� + Quy tr�nh */}
+      {/* Row 1: 3 columns - Thông tin chuyển kho + Thông tin xử lý + Quy trình */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Th�ng tin chuy?n kho */}
+        {/* Column 1: Thông tin chuyển kho */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Th�ng tin chuy?n kho</CardTitle>
+            <CardTitle className="text-h3">Thông tin chuyển kho</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DetailField label="M� phi?u" value={transfer.id} />
-            <DetailField label="M� tham chi?u" value={transfer.referenceCode || '-'} />
+            <DetailField label="Mã phiếu" value={transfer.id} />
+            <DetailField label="Mã tham chiếu" value={transfer.referenceCode || '-'} />
             <Separator />
             <div className="space-y-3">
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nh�nh chuy?n</p>
+                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh chuyển</p>
                 <p className="font-medium">{transfer.fromBranchName}</p>
               </div>
               <div className="flex justify-center">
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nh�nh nh?n</p>
+                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh nhận</p>
                 <p className="font-medium">{transfer.toBranchName}</p>
               </div>
             </div>
             {transfer.note && (
               <>
                 <Separator />
-                <DetailField label="Ghi ch�" value={transfer.note} />
+                <DetailField label="Ghi chú" value={transfer.note} />
               </>
             )}
           </CardContent>
         </Card>
 
-        {/* Column 2: Th�ng tin x? l� */}
+        {/* Column 2: Thông tin xử lý */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Th�ng tin x? l�</CardTitle>
+            <CardTitle className="text-h3">Thông tin xử lý</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DetailField label="Ng�y t?o" value={formatDateTime(transfer.createdDate)} />
-            <DetailField label="Ngu?i t?o" value={transfer.createdByName} />
+            <DetailField label="Ngày tạo" value={formatDateTime(transfer.createdDate)} />
+            <DetailField label="Người tạo" value={transfer.createdByName} />
             
             {transfer.transferredDate && (
               <>
                 <Separator />
-                <DetailField label="Ng�y chuy?n" value={formatDateTime(transfer.transferredDate)} />
-                <DetailField label="Ngu?i chuy?n" value={transfer.transferredByName} />
+                <DetailField label="Ngày chuyển" value={formatDateTime(transfer.transferredDate)} />
+                <DetailField label="Người chuyển" value={transfer.transferredByName} />
               </>
             )}
             
             {transfer.receivedDate && (
               <>
                 <Separator />
-                <DetailField label="Ng�y nh?n" value={formatDateTime(transfer.receivedDate)} />
-                <DetailField label="Ngu?i nh?n" value={transfer.receivedByName} />
+                <DetailField label="Ngày nhận" value={formatDateTime(transfer.receivedDate)} />
+                <DetailField label="Người nhận" value={transfer.receivedByName} />
               </>
             )}
             
             {transfer.cancelledDate && (
               <>
                 <Separator />
-                <DetailField label="Ng�y h?y" value={formatDateTime(transfer.cancelledDate)} />
-                <DetailField label="Ngu?i h?y" value={transfer.cancelledByName} />
+                <DetailField label="Ngày hủy" value={formatDateTime(transfer.cancelledDate)} />
+                <DetailField label="Người hủy" value={transfer.cancelledByName} />
                 {transfer.cancelReason && (
-                  <DetailField label="L� do h?y" value={transfer.cancelReason} />
+                  <DetailField label="Lý do hủy" value={transfer.cancelReason} />
                 )}
               </>
             )}
           </CardContent>
         </Card>
 
-        {/* Column 3: Quy tr�nh x? l� */}
+        {/* Column 3: Quy trình xử lý */}
         <StockTransferWorkflowCard
           subtasks={subtasks}
           onSubtasksChange={setSubtasks}
@@ -479,7 +477,7 @@ export function StockTransferDetailPage() {
       {/* Product List - Full Width */}
       <Card>
             <CardHeader>
-              <CardTitle className="text-h3">Danh s�ch s?n ph?m ({transfer.items.length})</CardTitle>
+              <CardTitle className="text-h3">Danh sách sản phẩm ({transfer.items.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -487,18 +485,18 @@ export function StockTransferDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
-                      <TableHead className="w-[60px]">H�nh ?nh</TableHead>
-                      <TableHead>S?n ph?m</TableHead>
-                      <TableHead className="w-[100px]">Lo?i SP</TableHead>
-                      <TableHead className="text-center">SL chuy?n</TableHead>
+                      <TableHead className="w-[60px]">Hình ảnh</TableHead>
+                      <TableHead>Sản phẩm</TableHead>
+                      <TableHead className="w-[100px]">Loại SP</TableHead>
+                      <TableHead className="text-center">SL chuyển</TableHead>
                       {transfer.status === 'completed' && (
-                        <TableHead className="text-center">SL nh?n</TableHead>
+                        <TableHead className="text-center">SL nhận</TableHead>
                       )}
-                      <TableHead className="text-center">CN Chuy?n (Tru?c ? Sau)</TableHead>
-                      <TableHead className="text-center">CN Nh?n (Tru?c ? Sau)</TableHead>
-                      <TableHead className="text-right">�on gi�</TableHead>
-                      <TableHead className="text-right">Th�nh ti?n</TableHead>
-                      <TableHead>Ghi ch�</TableHead>
+                      <TableHead className="text-center">CN Chuyển (Trước → Sau)</TableHead>
+                      <TableHead className="text-center">CN Nhận (Trước → Sau)</TableHead>
+                      <TableHead className="text-right">Đơn giá</TableHead>
+                      <TableHead className="text-right">Thành tiền</TableHead>
+                      <TableHead>Ghi chú</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -506,7 +504,7 @@ export function StockTransferDetailPage() {
                       const product = findProductById(item.productSystemId);
                       const productTypeName = product?.productTypeSystemId 
                         ? getProductTypeName(product.productTypeSystemId)
-                        : 'H�ng h�a';
+                        : 'Hàng hóa';
                       const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
                       const currentFromStock = product?.inventoryByBranch?.[transfer.fromBranchSystemId] || 0;
                       const currentToStock = product?.inventoryByBranch?.[transfer.toBranchSystemId] || 0;
@@ -574,12 +572,12 @@ export function StockTransferDetailPage() {
                           )}
                           <TableCell className="text-center">
                             <span className="text-muted-foreground">{fromBefore}</span>
-                            <span className="mx-1">?</span>
+                            <span className="mx-1">→</span>
                             <span className="font-medium text-red-600">{fromAfter}</span>
                           </TableCell>
                           <TableCell className="text-center">
                             <span className="text-muted-foreground">{toBefore}</span>
-                            <span className="mx-1">?</span>
+                            <span className="mx-1">→</span>
                             <span className="font-medium text-green-600">{toAfter}</span>
                           </TableCell>
                           <TableCell className="text-right text-muted-foreground">
@@ -602,13 +600,13 @@ export function StockTransferDetailPage() {
               
               <div className="flex justify-end">
                 <div className="text-right space-y-1">
-                  <p className="text-body-sm text-muted-foreground">T?ng s? lu?ng chuy?n: {totalQuantity}</p>
+                  <p className="text-body-sm text-muted-foreground">Tổng số lượng chuyển: {totalQuantity}</p>
                   {transfer.status === 'completed' && totalReceived !== totalQuantity && (
                     <p className="text-body-sm text-muted-foreground">
-                      �� nh?n: {totalReceived}
+                      Đã nhận: {totalReceived}
                     </p>
                   )}
-                  <p className="text-h3 font-bold">T?ng gi� tr?: {formatCurrency(totalValue)}</p>
+                  <p className="text-h3 font-bold">Tổng giá trị: {formatCurrency(totalValue)}</p>
                 </div>
               </div>
             </CardContent>
@@ -623,31 +621,31 @@ export function StockTransferDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="B�nh lu?n"
-        placeholder="Th�m b�nh lu?n v? phi?u chuy?n kho..."
+        title="Bình luận"
+        placeholder="Thêm bình luận về phiếu chuyển kho..."
       />
 
       {/* Activity History - Full Width */}
       <ActivityHistory
         history={buildHistoryEntries(transfer)}
-        title="L?ch s? ho?t d?ng"
-        emptyMessage="Chua c� ho?t d?ng"
+        title="Lịch sử hoạt động"
+        emptyMessage="Chưa có hoạt động"
       />
 
       {/* Confirm Transfer Dialog */}
       <AlertDialog open={confirmTransferOpen} onOpenChange={setConfirmTransferOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>X�c nh?n chuy?n h�ng kh?i kho?</AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận chuyển hàng khỏi kho?</AlertDialogTitle>
             <AlertDialogDescription>
-              H? th?ng s? tr? t?n kho t?i chi nh�nh <strong>{transfer.fromBranchName}</strong> v� 
-              ghi nh?n h�ng dang v? t?i chi nh�nh <strong>{transfer.toBranchName}</strong>.
+              Hệ thống sẽ trừ tồn kho tại chi nhánh <strong>{transfer.fromBranchName}</strong> và 
+              ghi nhận hàng đang về tại chi nhánh <strong>{transfer.toBranchName}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>H?y</AlertDialogCancel>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmTransfer}>
-              X�c nh?n chuy?n
+              Xác nhận chuyển
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -657,9 +655,9 @@ export function StockTransferDetailPage() {
       <Dialog open={confirmReceiveOpen} onOpenChange={setConfirmReceiveOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>X�c nh?n nh?n h�ng v�o kho</DialogTitle>
+            <DialogTitle>Xác nhận nhận hàng vào kho</DialogTitle>
             <DialogDescription>
-              Nh?p s? lu?ng th?c t? nh?n du?c cho t?ng s?n ph?m
+              Nhập số lượng thực tế nhận được cho từng sản phẩm
             </DialogDescription>
           </DialogHeader>
           
@@ -667,9 +665,9 @@ export function StockTransferDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>S?n ph?m</TableHead>
-                  <TableHead className="text-center w-[100px]">SL chuy?n</TableHead>
-                  <TableHead className="text-center w-[120px]">SL nh?n</TableHead>
+                  <TableHead>Sản phẩm</TableHead>
+                  <TableHead className="text-center w-[100px]">SL chuyển</TableHead>
+                  <TableHead className="text-center w-[120px]">SL nhận</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -705,10 +703,10 @@ export function StockTransferDetailPage() {
           
           <DialogFooter>
             <Button variant="outline" className="h-9" onClick={() => setConfirmReceiveOpen(false)}>
-              H?y
+              Hủy
             </Button>
             <Button className="h-9" onClick={handleConfirmReceive}>
-              X�c nh?n nh?n h�ng
+              Xác nhận nhận hàng
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -718,31 +716,31 @@ export function StockTransferDetailPage() {
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>H?y phi?u chuy?n kho?</DialogTitle>
+            <DialogTitle>Hủy phiếu chuyển kho?</DialogTitle>
             <DialogDescription>
               {transfer.status === 'transferring' 
-                ? 'H? th?ng s? ho�n l?i t?n kho v? chi nh�nh chuy?n.'
-                : 'Phi?u chuy?n kho s? b? h?y.'
+                ? 'Hệ thống sẽ hoàn lại tồn kho về chi nhánh chuyển.'
+                : 'Phiếu chuyển kho sẽ bị hủy.'
               }
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-2">
-            <Label>L� do h?y</Label>
+            <Label>Lý do hủy</Label>
             <Textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Nh?p l� do h?y phi?u..."
+              placeholder="Nhập lý do hủy phiếu..."
               rows={3}
             />
           </div>
           
           <DialogFooter>
             <Button variant="outline" className="h-9" onClick={() => setCancelDialogOpen(false)}>
-              ��ng
+              Đóng
             </Button>
             <Button variant="destructive" className="h-9" onClick={handleCancel}>
-              X�c nh?n h?y
+              Xác nhận hủy
             </Button>
           </DialogFooter>
         </DialogContent>

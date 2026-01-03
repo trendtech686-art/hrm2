@@ -4,15 +4,21 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useOrderStore } from '../orders/store';
-import { useBranchStore } from '../settings/branches/store';
-import type { PackagingSlip, Order, Packaging, Customer, PaperSize } from '@/lib/types/prisma-extended';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
+import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
+import type { PackagingSlip, Order, Packaging, PaperSize } from '@/lib/types/prisma-extended';
 import type { PrintData, PrintLineItem } from '@/lib/print-service';
+import dynamic from 'next/dynamic';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { packagingConfig } from '../../lib/import-export/configs/packaging.config';
 import { asSystemId } from '../../lib/id-types';
+
+// ✅ Dynamic import for Export dialog - lazy loads XLSX library (~500KB) + config
+const PackagingExportDialog = dynamic(
+  () => import("./components/packaging-import-export-dialogs").then(mod => ({ default: mod.PackagingExportDialog })),
+  { ssr: false }
+);
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
@@ -40,7 +46,7 @@ import {
   mapPackingLineItems,
   createStoreSettings,
 } from '../../lib/print/order-print-helper';
-import { useCustomerStore } from '../customers/store';
+import { useCustomerFinder } from '../customers/hooks/use-all-customers';
 
 function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onConfirm: (reason: string) => void }) {
   const [reason, setReason] = React.useState('');
@@ -49,16 +55,16 @@ function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; on
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>H?y y�u c?u d�ng g�i</DialogTitle>
-          <DialogDescription>Vui l�ng nh?p l� do h?y. H�nh d?ng n�y s? c?p nh?t tr?ng th�i c?a phi?u d�ng g�i th�nh 'H?y d�ng g�i'.</DialogDescription>
+          <DialogTitle>Hủy yêu cầu đóng gói</DialogTitle>
+          <DialogDescription>Vui lòng nhập lý do hủy. Hành động này sẽ cập nhật trạng thái của phiếu đóng gói thành 'Hủy đóng gói'.</DialogDescription>
         </DialogHeader>
         <div className='pt-4'>
-          <Label htmlFor='cancel-reason'>L� do h?y</Label>
-          <Textarea id='cancel-reason' value={reason} onChange={(e) => setReason(e.target.value)} className='mt-2' placeholder='Nh?p l� do...' />
+          <Label htmlFor='cancel-reason'>Lý do hủy</Label>
+          <Textarea id='cancel-reason' value={reason} onChange={(e) => setReason(e.target.value)} className='mt-2' placeholder='Nhập lý do...' />
         </div>
         <DialogFooter>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>Tho�t</Button>
-          <Button variant='destructive' onClick={handleConfirm}>X�c nh?n H?y</Button>
+          <Button variant='outline' onClick={() => onOpenChange(false)}>Thoát</Button>
+          <Button variant='destructive' onClick={handleConfirm}>Xác nhận Hủy</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -66,9 +72,11 @@ function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; on
 }
 
 export function PackagingPage() {
-    const { data: allOrders, confirmPackaging, cancelPackagingRequest } = useOrderStore();
-    const { data: branches, findById: findBranchById } = useBranchStore();
-    const { findById: findCustomerById } = useCustomerStore();
+    const { data: allOrders } = useAllOrders();
+    const { confirmPackaging, cancelPackagingRequest, isConfirming: _isConfirming, isCancelling: _isCancelling } = usePackagingActions();
+    const { data: branches } = useAllBranches();
+    const { findById: findBranchById } = useBranchFinder();
+    const { findById: findCustomerById } = useCustomerFinder();
     const { employee: authEmployee } = useAuth();
     const { info: storeInfo } = useStoreInfoStore();
     const { print, printMultiple } = usePrint();
@@ -83,10 +91,10 @@ export function PackagingPage() {
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
     usePageHeader({
-        title: 'Phi?u d�ng g�i',
+        title: 'Phiếu đóng gói',
         breadcrumb: [
-            { label: 'Trang ch?', href: '/', isCurrent: false },
-            { label: '��ng g�i', href: '/packaging', isCurrent: true }
+            { label: 'Trang chủ', href: '/', isCurrent: false },
+            { label: 'Đóng gói', href: '/packaging', isCurrent: true }
         ],
         showBackButton: false,
     });
@@ -139,28 +147,28 @@ export function PackagingPage() {
         return slips;
     }, [allOrders]);
     
-    const handleConfirm = React.useCallback((orderSystemId: string, packagingSystemId: string) => {
-        confirmPackaging(asSystemId(orderSystemId), asSystemId(packagingSystemId), asSystemId(currentUserSystemId));
+    const handleConfirm = React.useCallback(async (orderSystemId: string, packagingSystemId: string) => {
+        await confirmPackaging(orderSystemId, packagingSystemId, currentUserSystemId);
     }, [confirmPackaging, currentUserSystemId]);
 
     const handleCancelRequest = React.useCallback((orderSystemId: string, packagingSystemId: string) => {
         setCancelDialogState({ orderSystemId, packagingSystemId });
     }, []);
 
-    const handleConfirmCancel = (reason: string) => {
+    const handleConfirmCancel = async (reason: string) => {
         if (cancelDialogState) {
-            cancelPackagingRequest(asSystemId(cancelDialogState.orderSystemId), asSystemId(cancelDialogState.packagingSystemId), asSystemId(currentUserSystemId), reason);
+            await cancelPackagingRequest(cancelDialogState.orderSystemId, cancelDialogState.packagingSystemId, currentUserSystemId, reason);
             setCancelDialogState(null);
         }
     };
 
-    // Handler d? m? dialog in v?i options
+    // Handler để mở dialog in với options
     const handleBulkPrint = React.useCallback((rows: PackagingSlip[]) => {
         setItemsToPrint(rows);
         setPrintDialogOpen(true);
     }, []);
 
-    // Handler khi x�c nh?n in t? dialog
+    // Handler khi xác nhận in từ dialog
     const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
         if (itemsToPrint.length === 0) return;
 
@@ -207,7 +215,7 @@ export function PackagingPage() {
 
         if (printOptionsList.length > 0) {
             printMultiple('packing', printOptionsList);
-            toast.success(`�ang in ${printOptionsList.length} phi?u d�ng g�i`);
+            toast.success(`Đang in ${printOptionsList.length} phiếu đóng gói`);
         }
         
         setPrintDialogOpen(false);
@@ -254,7 +262,7 @@ export function PackagingPage() {
     }, [allOrders, findCustomerById, findBranchById, storeInfo, print]);
 
     const _handleBulkCancelPackaging = React.useCallback((packagingIds: string[]) => {
-        console.log('H?y Phi?u ��ng G�i:', packagingIds);
+        console.log('Hủy Phiếu Đóng Gói:', packagingIds);
         // TODO: Implement bulk cancel logic
     }, []);
 
@@ -264,8 +272,11 @@ export function PackagingPage() {
     
     const columns = React.useMemo(() => getColumns(handleConfirm, handleCancelRequest, handlePrintSinglePackaging), [handleConfirm, handleCancelRequest, handlePrintSinglePackaging]);
     
-    // Update column order when columns change
+    // Update column order when columns change - use ref to prevent infinite loop
+    const columnOrderInitialized = React.useRef(false);
     React.useEffect(() => {
+        if (columnOrderInitialized.current) return;
+        columnOrderInitialized.current = true;
         setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
     }, [columns]);
     
@@ -316,10 +327,10 @@ export function PackagingPage() {
 
     const allSelectedRows = React.useMemo(() => packagingSlips.filter(p => rowSelection[p.systemId]), [packagingSlips, rowSelection]);
 
-    // Bulk actions v?i SimplePrintOptionsDialog
+    // Bulk actions với SimplePrintOptionsDialog
     const bulkActions = React.useMemo(() => [
         {
-            label: 'In phi?u d�ng g�i',
+            label: 'In phiếu đóng gói',
             icon: Printer,
             onSelect: (rows: PackagingSlip[]) => handleBulkPrint(rows),
         },
@@ -346,7 +357,7 @@ export function PackagingPage() {
     const MobilePackagingCard = ({ packaging }: { packaging: PackagingSlip }) => {
         const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' => {
             const map: Record<string, 'default' | 'secondary' | 'destructive'> = {
-                '�� d�ng g�i': 'default', 'Ch? d�ng g�i': 'secondary', 'H?y d�ng g�i': 'destructive'
+                'Đã đóng gói': 'default', 'Chờ đóng gói': 'secondary', 'Hủy đóng gói': 'destructive'
             };
             return map[status] || 'secondary';
         };
@@ -416,42 +427,42 @@ export function PackagingPage() {
                     leftActions={
                         <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
                             <Download className="h-4 w-4 mr-2" />
-                            Xu?t Excel
+                            Xuất Excel
                         </Button>
                     }
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
             )}
-            <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder='T�m ki?m phi?u d�ng g�i (m� phi?u, m� don, kh�ch h�ng)...'>
+            <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder='Tìm kiếm phiếu đóng gói (mã phiếu, mã đơn, khách hàng)...'>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='T?t c? chi nh�nh' /></SelectTrigger>
+                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value='all'>T?t c? chi nh�nh</SelectItem>
+                        <SelectItem value='all'>Tất cả chi nhánh</SelectItem>
                         {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='T?t c? tr?ng th�i' /></SelectTrigger>
+                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='Tất cả trạng thái' /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value='all'>T?t c? tr?ng th�i</SelectItem>
-                        <SelectItem value='Ch? d�ng g�i'>Ch? d�ng g�i</SelectItem>
-                        <SelectItem value='�� d�ng g�i'>�� d�ng g�i</SelectItem>
-                        <SelectItem value='H?y d�ng g�i'>H?y d�ng g�i</SelectItem>
+                        <SelectItem value='all'>Tất cả trạng thái</SelectItem>
+                        <SelectItem value='Chờ đóng gói'>Chờ đóng gói</SelectItem>
+                        <SelectItem value='Đã đóng gói'>Đã đóng gói</SelectItem>
+                        <SelectItem value='Hủy đóng gói'>Hủy đóng gói</SelectItem>
                     </SelectContent>
                 </Select>
             </PageFilters>
             {isMobile ? (
                 <div ref={mobileScrollRef} className='space-y-3 pb-4'>
                     {sortedData.length === 0 ? (
-                        <Card><CardContent className='py-12 text-center'><p className='text-muted-foreground'>Kh�ng t�m th?y phi?u d�ng g�i</p></CardContent></Card>
+                        <Card><CardContent className='py-12 text-center'><p className='text-muted-foreground'>Không tìm thấy phiếu đóng gói</p></CardContent></Card>
                     ) : (
                         <>
                             {sortedData.slice(0, mobileLoadedCount).map(packaging => <MobilePackagingCard key={packaging.systemId} packaging={packaging} />)}
                             {mobileLoadedCount < sortedData.length && (
-                                <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>�ang t?i th�m...</span></div></CardContent></Card>
+                                <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>
                             )}
                             {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && (
-                                <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>�� hi?n th? t?t c? {sortedData.length} phi?u d�ng g�i</span></CardContent></Card>
+                                <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu đóng gói</span></CardContent></Card>
                             )}
                         </>
                     )}
@@ -491,21 +502,20 @@ export function PackagingPage() {
                 onOpenChange={setPrintDialogOpen}
                 selectedCount={itemsToPrint.length}
                 onConfirm={handlePrintConfirm}
-                title="In phi?u d�ng g�i"
+                title="In phiếu đóng gói"
             />
             <CancelDialog isOpen={!!cancelDialogState} onOpenChange={(open) => !open && setCancelDialogState(null)} onConfirm={handleConfirmCancel} />
 
             {/* Export Dialog */}
-            <GenericExportDialogV2<PackagingSlip>
+            <PackagingExportDialog
                 open={exportDialogOpen}
                 onOpenChange={setExportDialogOpen}
-                config={packagingConfig}
                 allData={packagingSlips}
                 filteredData={sortedData}
                 currentPageData={paginatedData}
                 selectedData={allSelectedRows}
                 currentUser={{
-                    name: authEmployee?.fullName || 'H? th?ng',
+                    name: authEmployee?.fullName || 'Hệ thống',
                     systemId: authEmployee?.systemId || asSystemId('SYSTEM'),
                 }}
             />

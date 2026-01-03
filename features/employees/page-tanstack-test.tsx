@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { TanStackDataTable } from '../../components/data-table/tanstack-data-table';
 import { createEmployeeColumns } from './tanstack-columns';
 import { useEmployeeStore } from './store';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { asSystemId } from '@/lib/id-types';
 import { Button } from '../../components/ui/button';
@@ -30,7 +30,7 @@ import type { Employee } from '@/lib/types/prisma-extended';
 export function EmployeesPageTanStackTest() {
   const router = useRouter();
   const { data: employees, remove, getActive } = useEmployeeStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
 
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<string | null>(null);

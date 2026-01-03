@@ -236,8 +236,8 @@ export function GenericExportDialogV2<T>({
         selectedColumns.includes(f.key as string)
       )
       
-      // Add dynamic pricing fields for products
-      let allSelectedFieldsFinal = [...staticSelectedFields]
+      // Add dynamic pricing fields for products (prepared but handled inline in transform)
+      let _allSelectedFieldsFinal = [...staticSelectedFields]
       const selectedPriceColumns = selectedColumns.filter(k => k.startsWith('_price_'))
       
       if (config.entityType === 'products' && selectedPriceColumns.length > 0) {
@@ -252,7 +252,7 @@ export function GenericExportDialogV2<T>({
             exportGroup: 'Bảng giá',
           }
         })
-        allSelectedFieldsFinal = [...allSelectedFieldsFinal, ...pricingFields]
+        _allSelectedFieldsFinal = [..._allSelectedFieldsFinal, ...pricingFields]
       }
 
       // Transform data (with special handling for pricing columns)

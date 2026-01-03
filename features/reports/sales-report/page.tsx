@@ -1,7 +1,9 @@
+'use client'
+
 import * as React from 'react';
 import { usePageHeader } from '../../../contexts/page-header-context';
-import { useOrderStore } from '../../orders/store';
-import { useProductStore } from '../../products/store';
+import { useAllOrders } from '../../orders/hooks/use-all-orders';
+import { useProductFinder } from '../../products/hooks/use-all-products';
 import type { OrderWithProfit } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
@@ -18,8 +20,8 @@ const formatCurrency = (value?: number) => {
 };
 
 export function SalesReportPage() {
-    const { data: orders } = useOrderStore();
-    const { findById: findProductById } = useProductStore();
+    const { data: orders } = useAllOrders();
+    const { findById: findProductById } = useProductFinder();
     
     const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [globalFilter, setGlobalFilter] = React.useState('');

@@ -10,7 +10,7 @@ import { usePricingPolicyStore } from '../../settings/pricing/store';
 import type { PricingPolicy } from '../../settings/pricing/types';
 import type { Product } from '../types';
 import { calculateComboPrice, isComboProduct } from '../combo-utils';
-import { useProductStore } from '../store';
+import { useAllProducts } from './use-all-products';
 import type { SystemId } from '@/lib/id-types';
 
 /**
@@ -41,7 +41,7 @@ export function useSalesPolicies(): PricingPolicy[] {
  */
 export function useProductDefaultPrice(product: Product | null | undefined): number {
   const defaultPolicy = useDefaultSellingPolicy();
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
     if (!product || !defaultPolicy) return 0;
@@ -67,7 +67,7 @@ export function useProductDefaultPrice(product: Product | null | undefined): num
  */
 export function useProductPrices(product: Product | null | undefined): Record<string, number> {
   const { data: pricingPolicies } = usePricingPolicyStore();
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
     if (!product) return {};
@@ -101,7 +101,7 @@ export function usePriceWithPolicyName(
   policySystemId: string
 ): { price: number; policyName: string } {
   const { data: pricingPolicies } = usePricingPolicyStore();
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
     const policy = pricingPolicies.find(p => p.systemId === policySystemId);

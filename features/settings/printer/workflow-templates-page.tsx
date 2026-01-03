@@ -6,6 +6,9 @@
  * - Mỗi chức năng có thể có NHIỀU quy trình
  * - Có switch "Mặc định" để chọn quy trình mặc định cho mỗi chức năng
  * - UI: VirtualizedDataTable với select all + Dialog editor
+ * 
+ * @migrated localStorage → useWorkflowTemplates hook (server-side via /api/workflow-templates)
+ * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
 import * as React from 'react';
@@ -15,6 +18,13 @@ import { Button } from '../../../components/ui/button';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
+import { 
+  useWorkflowTemplates,
+  getWorkflowTemplateSubtasks,
+  getWorkflowTemplatesByType,
+  getWorkflowTemplatesSync,
+  getWorkflowTemplateSync,
+} from '../../../hooks/use-workflow-templates';
 import { 
   Plus, 
   Save, 
@@ -81,11 +91,18 @@ const WORKFLOW_TYPES = [
   { value: 'inventory-checks', label: 'Kiểm kho' },
 ] as const;
 
-const STORAGE_KEY = 'workflow_templates_v4';
+// Re-export types from hook
+export type { WorkflowTemplate } from '../../../hooks/use-workflow-templates';
 
 // ============================================================================
-// Storage Functions
+// Storage Functions - DEPRECATED (kept for reference)
 // ============================================================================
+
+/**
+ * @deprecated Use useWorkflowTemplates() hook instead
+ * Kept for backward compatibility during migration
+ */
+const _STORAGE_KEY = 'workflow_templates_v4';
 
 function getDefaultTemplates(): WorkflowTemplate[] {
   const now = new Date();
@@ -237,37 +254,20 @@ function getDefaultTemplates(): WorkflowTemplate[] {
   ];
 }
 
-function getTemplatesFromStorage(): WorkflowTemplate[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.map((t: Record<string, unknown>) => ({
-        ...t,
-        systemId: t.systemId || t.id, // Migrate old data
-        createdAt: new Date(t.createdAt as string),
-        updatedAt: new Date(t.updatedAt as string),
-        subtasks: (t.subtasks as Record<string, unknown>[]).map((s: Record<string, unknown>) => ({
-          ...s,
-          createdAt: new Date(s.createdAt as string | number | Date),
-          completedAt: s.completedAt ? new Date(s.completedAt as string | number | Date) : undefined,
-        })),
-      }));
-    }
-  } catch (error) {
-    console.error('Failed to load templates:', error);
-  }
-  
+/**
+ * @deprecated Use useWorkflowTemplates() hook instead
+ * localStorage functions are no longer used - data stored in database
+ */
+function _getTemplatesFromStorage(): WorkflowTemplate[] {
+  console.warn('[DEPRECATED] getTemplatesFromStorage() - Use useWorkflowTemplates() hook instead');
   return getDefaultTemplates();
 }
 
-function saveTemplatesToStorage(templates: WorkflowTemplate[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
-  } catch (error) {
-    console.error('Failed to save templates:', error);
-    throw error;
-  }
+/**
+ * @deprecated Use useWorkflowTemplates().setTemplates() instead
+ */
+function _saveTemplatesToStorage(_templates: WorkflowTemplate[]) {
+  console.warn('[DEPRECATED] saveTemplatesToStorage() - Use useWorkflowTemplates() hook instead');
 }
 
 // ============================================================================
@@ -394,7 +394,8 @@ function createColumns(
 // ============================================================================
 
 export function WorkflowTemplatesPage() {
-  const [templates, setTemplates] = React.useState<WorkflowTemplate[]>(() => getTemplatesFromStorage());
+  // Use server-side hook instead of localStorage
+  const { templates, setTemplates, isLoading, error } = useWorkflowTemplates();
   
   // Table states
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -459,10 +460,7 @@ export function WorkflowTemplatesPage() {
     ],
   });
 
-  // Save to storage whenever templates change
-  React.useEffect(() => {
-    saveTemplatesToStorage(templates);
-  }, [templates]);
+  // Note: useWorkflowTemplates hook handles saving automatically - no need for useEffect
 
   const handleEdit = React.useCallback((template: WorkflowTemplate) => {
     setEditingTemplate(template);
@@ -484,20 +482,19 @@ export function WorkflowTemplatesPage() {
 
     if (editingTemplate) {
       // Update existing
-      setTemplates(prev =>
-        prev.map(t =>
-          t.systemId === editingTemplate.systemId
-            ? {
-                ...t,
-                name: formName,
-                label: formLabel,
-                description: formDescription,
-                subtasks: formSubtasks,
-                updatedAt: now,
-              }
-            : t
-        )
+      const newTemplates = templates.map(t =>
+        t.systemId === editingTemplate.systemId
+          ? {
+              ...t,
+              name: formName,
+              label: formLabel,
+              description: formDescription,
+              subtasks: formSubtasks,
+              updatedAt: now,
+            }
+          : t
       );
+      setTemplates(newTemplates);
       toast.success('Đã cập nhật quy trình');
     } else {
       // Create new - check if this is the first template for this function
@@ -515,7 +512,7 @@ export function WorkflowTemplatesPage() {
         createdAt: now,
         updatedAt: now,
       };
-      setTemplates(prev => [...prev, newTemplate]);
+      setTemplates([...templates, newTemplate]);
       toast.success('Đã tạo quy trình mới');
     }
 
@@ -531,20 +528,22 @@ export function WorkflowTemplatesPage() {
 
     const templateToDelete = templates.find(t => t.systemId === deleteTargetId);
     
-    setTemplates(prev => {
-      const newTemplates = prev.filter(t => t.systemId !== deleteTargetId);
-      
-      // If deleted template was default, set another one as default
-      if (templateToDelete?.isDefault) {
-        const sameFunction = newTemplates.filter(t => t.name === templateToDelete.name);
-        if (sameFunction.length > 0 && !sameFunction.some(t => t.isDefault)) {
-          sameFunction[0].isDefault = true;
-        }
-      }
-      
-      return newTemplates;
-    });
+    let newTemplates = templates.filter(t => t.systemId !== deleteTargetId);
     
+    // If deleted template was default, set another one as default
+    if (templateToDelete?.isDefault) {
+      const sameFunction = newTemplates.filter(t => t.name === templateToDelete.name);
+      if (sameFunction.length > 0 && !sameFunction.some(t => t.isDefault)) {
+        // Mutate to set first as default
+        newTemplates = newTemplates.map(t => 
+          t.systemId === sameFunction[0].systemId 
+            ? { ...t, isDefault: true }
+            : t
+        );
+      }
+    }
+    
+    setTemplates(newTemplates);
     toast.success('Đã xóa quy trình');
     setDeleteTargetId(null);
   };
@@ -556,66 +555,78 @@ export function WorkflowTemplatesPage() {
   const handleBulkDeleteConfirm = () => {
     const idsToDelete = Object.keys(rowSelection);
     
-    setTemplates(prev => {
-      const newTemplates = prev.filter(t => !idsToDelete.includes(t.systemId));
-      
-      // Ensure each function has a default
-      WORKFLOW_TYPES.forEach(wt => {
-        const forFunction = newTemplates.filter(t => t.name === wt.value);
-        if (forFunction.length > 0 && !forFunction.some(t => t.isDefault)) {
-          forFunction[0].isDefault = true;
-        }
-      });
-      
-      return newTemplates;
+    let newTemplates = templates.filter(t => !idsToDelete.includes(t.systemId));
+    
+    // Ensure each function has a default
+    WORKFLOW_TYPES.forEach(wt => {
+      const forFunction = newTemplates.filter(t => t.name === wt.value);
+      if (forFunction.length > 0 && !forFunction.some(t => t.isDefault)) {
+        // Set first as default
+        newTemplates = newTemplates.map(t => 
+          t.systemId === forFunction[0].systemId 
+            ? { ...t, isDefault: true }
+            : t
+        );
+      }
     });
     
+    setTemplates(newTemplates);
     setRowSelection({});
     setShowBulkDeleteDialog(false);
     toast.success(`Đã xóa ${idsToDelete.length} quy trình`);
   };
 
   const handleToggleDefault = React.useCallback((template: WorkflowTemplate, checked: boolean) => {
-    setTemplates(prev => {
-      if (checked) {
-        // Bật mặc định cho template này
-        return prev.map(t => {
+    let newTemplates: WorkflowTemplate[];
+    
+    if (checked) {
+      // Bật mặc định cho template này
+      newTemplates = templates.map(t => {
+        if (t.name === template.name) {
+          return {
+            ...t,
+            isDefault: t.systemId === template.systemId,
+            updatedAt: new Date(),
+          };
+        }
+        return t;
+      });
+    } else {
+      // Tắt mặc định - tìm template khác cùng function để set mặc định
+      const otherTemplates = templates.filter(t => t.name === template.name && t.systemId !== template.systemId);
+      if (otherTemplates.length > 0) {
+        const newDefault = otherTemplates[0];
+        newTemplates = templates.map(t => {
           if (t.name === template.name) {
             return {
               ...t,
-              isDefault: t.systemId === template.systemId,
+              isDefault: t.systemId === newDefault.systemId,
               updatedAt: new Date(),
             };
           }
           return t;
         });
       } else {
-        // Tắt mặc định - tìm template khác cùng function để set mặc định
-        const otherTemplates = prev.filter(t => t.name === template.name && t.systemId !== template.systemId);
-        if (otherTemplates.length > 0) {
-          const newDefault = otherTemplates[0];
-          return prev.map(t => {
-            if (t.name === template.name) {
-              return {
-                ...t,
-                isDefault: t.systemId === newDefault.systemId,
-                updatedAt: new Date(),
-              };
-            }
-            return t;
-          });
-        }
         // Không có template khác, giữ nguyên
         toast.error('Phải có ít nhất một quy trình mặc định cho chức năng này');
-        return prev;
+        return;
       }
-    });
-  }, []);
+    }
+    
+    setTemplates(newTemplates);
+  }, [templates, setTemplates]);
 
   const columns = React.useMemo(
     () => createColumns(handleEdit, handleDeleteClick, handleToggleDefault),
     [handleEdit, handleDeleteClick, handleToggleDefault]
   );
+
+  // Show error if any
+  React.useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   return (
     <div className="space-y-6">
@@ -628,7 +639,11 @@ export function WorkflowTemplatesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {templates.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Đang tải...
+            </div>
+          ) : templates.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Chưa có quy trình nào. Nhấn "Tạo quy trình" để bắt đầu.
             </div>
@@ -830,38 +845,33 @@ export function WorkflowTemplatesPage() {
 }
 
 // ============================================================================
-// Export function for other modules
+// Export functions for other modules - Re-exported from hook
 // ============================================================================
 
+/**
+ * Get workflow template subtasks for a specific workflow type (async)
+ * @see hooks/use-workflow-templates.ts
+ */
+export { getWorkflowTemplateSubtasks };
+
+/**
+ * Get all templates for a workflow type (async)
+ * @see hooks/use-workflow-templates.ts
+ */
+export { getWorkflowTemplatesByType };
+
+/**
+ * Synchronous version - uses cached data, returns empty if not loaded
+ * @deprecated Prefer async versions for guaranteed data
+ */
 export function getWorkflowTemplate(workflowName: string): Subtask[] {
-  const templates = getTemplatesFromStorage();
-  // Tìm template mặc định cho chức năng này
-  const template = templates.find(t => t.name === workflowName && t.isDefault);
-  
-  if (!template) {
-    // Fallback: lấy template đầu tiên của chức năng này
-    const fallback = templates.find(t => t.name === workflowName);
-    if (!fallback) return [];
-    
-    return fallback.subtasks.map(s => ({
-      ...s,
-      id: nanoid(),
-      completed: false,
-      completedAt: undefined,
-    }));
-  }
-  
-  // Deep clone and reset completed status
-  return template.subtasks.map(s => ({
-    ...s,
-    id: nanoid(),
-    completed: false,
-    completedAt: undefined,
-  }));
+  return getWorkflowTemplateSync(workflowName);
 }
 
-// Get all templates for a workflow (for selection)
+/**
+ * Synchronous version - uses cached data
+ * @deprecated Prefer async versions for guaranteed data
+ */
 export function getWorkflowTemplates(workflowName: string): WorkflowTemplate[] {
-  const templates = getTemplatesFromStorage();
-  return templates.filter(t => t.name === workflowName);
+  return getWorkflowTemplatesSync().filter(t => t.name === workflowName);
 }

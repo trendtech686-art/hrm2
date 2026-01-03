@@ -20,7 +20,7 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { cn } from "../../../lib/utils";
-import { useBranchStore } from "../../settings/branches/store";
+import { useAllBranches } from "../../settings/branches/hooks/use-all-branches";
 import { EmployeeCombobox } from "./employee-combobox";
 
 interface OrderInfoCardProps {
@@ -48,7 +48,7 @@ export function OrderInfoCard({
   onOrderIdChange,
   onDeliveryDateChange,
 }: OrderInfoCardProps) {
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
 
   const handleDateSelect = (date: Date | undefined) => {

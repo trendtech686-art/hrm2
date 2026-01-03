@@ -4,7 +4,7 @@ import { formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { Banknote, Printer, ChevronRight, ChevronDown } from 'lucide-react';
 import { DetailField } from '@/components/ui/detail-field';
-import { useEmployeeStore } from '../../employees/store';
+import { useAllEmployees, useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 
 interface PaymentItemProps {
     item: {
@@ -27,7 +27,8 @@ const formatCurrency = (value?: number) => {
 
 export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
     const [isExpanded, setIsExpanded] = React.useState(false);
-    const { findById: findEmployeeById, data: employees } = useEmployeeStore();
+    const { findById: findEmployeeById } = useEmployeeFinder();
+    const { data: employees } = useAllEmployees();
 
     const creator = React.useMemo(() => {
         const bySystemId = findEmployeeById(item.creator);

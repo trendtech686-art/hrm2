@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { useCostAdjustmentStore } from './store';
 import { useProductStore } from '../products/store';
 import { ProductImage } from '../products/components/product-image';
-import { useEmployeeStore } from '../employees/store';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
@@ -23,6 +23,7 @@ import { ProductSelectionDialog } from '../shared/product-selection-dialog';
 import { Plus, X, Save, Trash2, Package, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId } from '../../lib/id-types';
+import type { Product } from '@/lib/types/prisma-extended';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
@@ -48,8 +49,8 @@ export function CostAdjustmentFormPage() {
   const router = useRouter();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
-  const { findById: findEmployeeById } = useEmployeeStore();
-  const { findById: findProductById, data: allProducts } = useProductStore();
+  const { findById: findEmployeeById } = useEmployeeFinder();
+  const { findById: findProductById } = useProductStore();
   const { create, generateNextId, isBusinessIdExists } = useCostAdjustmentStore();
   
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);
@@ -91,7 +92,7 @@ export function CostAdjustmentFormPage() {
     return null;
   }, [watchCustomId, isBusinessIdExists]);
   
-  const handleAddProducts = (selectedProducts: typeof allProducts) => {
+  const handleAddProducts = (selectedProducts: Product[]) => {
     selectedProducts.forEach(product => {
       // Check if already added
       const existingIndex = fields.findIndex(f => f.productSystemId === product.systemId);

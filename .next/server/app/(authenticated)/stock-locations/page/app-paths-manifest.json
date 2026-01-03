@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/stock-locations/page": "app/(authenticated)/stock-locations/page.js"
+}

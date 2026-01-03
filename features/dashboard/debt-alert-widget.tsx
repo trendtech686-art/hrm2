@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { AlertTriangle, Phone, MessageSquare, DollarSign, ShoppingBag, ChevronRight } from "lucide-react";
-import { useCustomerStore } from "../customers/store";
+import { useAllCustomers } from "../customers/hooks/use-all-customers";
 import { useCustomersWithComputedDebt } from "../customers/hooks/use-computed-debt";
 import { calculateDebtTrackingInfo, formatDebtDate } from "../customers/debt-tracking-utils";
 import { useMediaQuery } from "../../lib/use-media-query";
@@ -110,7 +110,7 @@ const CustomerDebtCard = ({ customer, onClick }: CustomerDebtCardProps) => {
 export function DebtAlertWidget() {
   const router = useRouter();
   const isMobile = !useMediaQuery("(min-width: 768px)");
-  const customers = useCustomerStore((state) => state.data);
+  const { data: customers = [] } = useAllCustomers();
   
   // Use computed debt from orders/receipts instead of static currentDebt field
   const customersWithDebt = useCustomersWithComputedDebt(customers);

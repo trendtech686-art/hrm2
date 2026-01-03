@@ -3,7 +3,8 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { Users2, PlusCircle, X, Copy } from 'lucide-react';
 import Link from 'next/link';
 import type { Customer } from '../../customers/types';
-import { useCustomerStore } from '../../customers/store';
+import { useAllCustomers } from '../../customers/hooks/use-all-customers';
+import { useCustomerStore } from '../../customers/store'; // Keep for add mutation
 import { useOrderStore } from '../store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -16,7 +17,7 @@ import { toast } from 'sonner';
 import { useCustomerGroupStore } from '../../settings/customers/customer-groups-store';
 import { asSystemId } from '@/lib/id-types';
 import { formatDate } from '@/lib/date-utils';
-import { useEmployeeStore } from '../../employees/store';
+import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { useWarrantyStore } from '../../warranty/store';
 import { useComplaintStore } from '../../complaints/store';
 import { useReceiptStore } from '../../receipts/store';
@@ -66,10 +67,11 @@ const getBadgeToneClass = (tone?: 'destructive' | 'warning') => {
 export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const { control, setValue } = useFormContext();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const { data: allCustomers, add: addCustomer } = useCustomerStore();
+    const { data: allCustomers } = useAllCustomers();
+    const { add: addCustomer } = useCustomerStore(); // Keep for mutation
     const { data: allOrders } = useOrderStore();
     const customerGroupsStore = useCustomerGroupStore();
-    const { findById: findEmployeeById } = useEmployeeStore();
+    const { findById: findEmployeeById } = useEmployeeFinder();
     const { data: warranties = [] } = useWarrantyStore();
     const { data: allReceipts = [] } = useReceiptStore();
     const { data: allPayments = [] } = usePaymentStore();

@@ -152,6 +152,7 @@ enum CustomerStatus {
 enum DeliveryMethod {
   PICKUP
   SHIPPING
+  IN_STORE_PICKUP
 }
 
 enum DeliveryStatus {

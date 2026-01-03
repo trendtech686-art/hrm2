@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';
 import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
@@ -42,10 +41,6 @@ type EmployeeCompState = {
   getPayrollProfile: (employeeSystemId: SystemId) => ResolvedPayrollProfile;
 };
 
-type PersistedEmployeeCompState = Pick<EmployeeCompState, 'profiles'>;
-
-const STORAGE_KEY = 'hrm-employee-comp-store';
-
 const getDefaultComponentIds = (): SystemId[] =>
   useEmployeeSettingsStore.getState().getSalaryComponents().map((component) => component.systemId);
 
@@ -80,7 +75,6 @@ const buildDefaultProfile = (employeeSystemId: SystemId): ResolvedPayrollProfile
 });
 
 export const useEmployeeCompStore = create<EmployeeCompState>()(
-  persist(
     (set, get) => ({
       profiles: {},
       assignComponents: (employeeSystemId, payload) => {
@@ -127,37 +121,5 @@ export const useEmployeeCompStore = create<EmployeeCompState>()(
           usesDefaultComponents: false,
         };
       },
-    }),
-    {
-      name: STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
-      version: 1,
-      migrate: (persistedState) => {
-        if (!persistedState || typeof persistedState !== 'object') {
-          return { profiles: {} } as PersistedEmployeeCompState;
-        }
-        const storedProfiles = (persistedState as PersistedEmployeeCompState).profiles ?? {};
-        const sanitizedEntries = Object.entries(storedProfiles).reduce<Record<SystemId, EmployeePayrollProfile>>(
-          (acc, [employeeSystemId, profile]) => {
-            if (!employeeSystemId || !profile?.employeeSystemId) {
-              return acc;
-            }
-            const normalizedEmployeeId = asSystemId(employeeSystemId);
-            const normalizedProfile: EmployeePayrollProfile = {
-              ...profile,
-              employeeSystemId: asSystemId(profile.employeeSystemId as unknown as string),
-              workShiftSystemId: getValidShiftId(profile.workShiftSystemId),
-              salaryComponentSystemIds: sanitizeComponentIds(profile.salaryComponentSystemIds),
-              createdBy: profile.createdBy ? asSystemId(profile.createdBy as unknown as string) : undefined,
-              updatedBy: profile.updatedBy ? asSystemId(profile.updatedBy as unknown as string) : undefined,
-            };
-            acc[normalizedEmployeeId] = normalizedProfile;
-            return acc;
-          },
-          {}
-        );
-        return { profiles: sanitizedEntries } as PersistedEmployeeCompState;
-      },
-    }
-  )
+    })
 );

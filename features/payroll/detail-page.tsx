@@ -25,7 +25,7 @@ import { PayrollStatusBadge } from './components/status-badge';
 import { PayslipDataTable, type PayslipRow, type PayslipActions } from './components/payslip-data-table';
 import { PayslipEditDialog, type PayslipUpdatePayload } from './components/payslip-edit-dialog';
 import { CreatePaymentDialog } from './components/create-payment-dialog';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useDepartmentStore } from '../settings/departments/store';
 import { usePaymentStore } from '../payments/store';
 import { usePenaltyStore } from '../settings/penalties/store';
@@ -253,8 +253,7 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
   const allPayslips = usePayrollBatchStore((state) => state.payslips);
   const auditLogs = usePayrollBatchStore((state) => state.auditLogs);
   const templates = usePayrollTemplateStore((state) => state.templates);
-  const employeeStore = useEmployeeStore();
-  const employees = employeeStore.data;
+  const { data: employees } = useAllEmployees();
   const departmentStore = useDepartmentStore();
   const departments = departmentStore.data;
 

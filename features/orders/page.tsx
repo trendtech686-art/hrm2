@@ -1,16 +1,14 @@
 'use client'
 
 import * as React from "react"
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOrderStore } from "./store"
+import { useOrderDetailActions } from "./hooks/use-order-detail-actions"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter"
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle"
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2"
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2"
-import { orderImportExportConfig, flattenOrdersForExport } from "../../lib/import-export/configs/order.config"
-import { sapoOrderImportConfig } from "../../lib/import-export/configs/order-sapo.config"
 import type { TemplateType } from "../settings/printer/types"
 import type { PrintOptions } from "../../lib/use-print"
 import {
@@ -41,12 +39,13 @@ import { PageToolbar } from "../../components/layout/page-toolbar"
 import { toast } from "sonner"
 import { useAuth } from "../../contexts/auth-context"
 import { asSystemId, type SystemId } from "../../lib/id-types"
+import { useColumnVisibility } from "../../hooks/use-column-visibility"
 // Print imports
 import { usePrint } from "../../lib/use-print"
-import { useCustomerStore } from "../customers/store"
-import { useBranchStore } from "../settings/branches/store"
+import { useAllCustomers, useCustomerFinder } from "../customers/hooks/use-all-customers"
+import { useAllBranches, useBranchFinder } from "../settings/branches/hooks/use-all-branches";
 import { useProductStore } from "../products/store"
-import { useEmployeeStore } from "../employees/store"
+import { useAllEmployees } from "../employees/hooks/use-all-employees"
 import { 
   convertOrderForPrint,
   convertPackagingToDeliveryForPrint,
@@ -62,6 +61,23 @@ import {
   createStoreSettings,
 } from "../../lib/print/order-print-helper"
 
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + configs
+const OrderImportDialog = dynamic(
+  () => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.OrderImportDialog })),
+  { ssr: false }
+);
+const OrderExportDialog = dynamic(
+  () => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.OrderExportDialog })),
+  { ssr: false }
+);
+const SapoOrderImportDialog = dynamic(
+  () => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.SapoOrderImportDialog })),
+  { ssr: false }
+);
+
+// ✅ Dynamic import for flattenOrdersForExport - only load when export dialog opens
+const loadFlattenOrdersForExport = () => import("./components/order-import-export-dialogs").then(mod => mod.flattenOrdersForExport);
+
 
 const _statusOptions = (Object.keys({
     "Đặt hàng": "", "Đang giao dịch": "", "Hoàn thành": "", "Đã hủy": ""
@@ -71,9 +87,14 @@ const _statusOptions = (Object.keys({
 }));
 
 export function OrdersPage() {
+  // Zustand store for data only
   const orderStore = useOrderStore();
   const ordersData = orderStore.data;
   const orders = React.useMemo(() => ordersData ?? [], [ordersData]);
+  
+  // ✅ Use React Query hooks for mutations
+  const { cancelOrder, isCancelling: _isCancelling } = useOrderDetailActions();
+  
   const router = useRouter();
   const searchParams = useSearchParams();
   const { employee: authEmployee } = useAuth();
@@ -82,12 +103,16 @@ export function OrdersPage() {
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Stores for print and import lookup
-  const customerStore = useCustomerStore();
-  const branchStore = useBranchStore();
+  const { data: allCustomers } = useAllCustomers();
+  const { findById: findCustomerById } = useCustomerFinder();
+  const customerStoreContext = React.useMemo(() => ({ data: allCustomers }), [allCustomers]);
+  const { data: branches } = useAllBranches();
+  const { findById: findBranchById } = useBranchFinder();
+  const branchStore = React.useMemo(() => ({ data: branches }), [branches]);
   const productStore = useProductStore();
-  const employeeStore = useEmployeeStore();
-  const { findById: findCustomerById } = customerStore;
-  const { findById: findBranchById } = branchStore;
+  const { data: employees } = useAllEmployees();
+  // Create store-like context for import/export config
+  const employeeStoreContext = React.useMemo(() => ({ data: employees }), [employees]);
   const { print, printMultiple: _printMultiple, printMixedDocuments } = usePrint();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
@@ -122,28 +147,15 @@ export function OrdersPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'orders-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    // Just need column structure, so pass null router
+  
+  // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+  const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns(() => {}, null as unknown as ReturnType<typeof useRouter>);
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (_e) {
-        // Ignore JSON parse errors - use default
-      }
-    }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
-  });
-  
-  React.useEffect(() => {
-    localStorage.setItem('orders-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  }, []);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('orders', defaultColumnVisibility);
   
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
@@ -257,8 +269,14 @@ export function OrdersPage() {
   
   const columns = React.useMemo(() => getColumns(handleCancelRequest, router, printActions), [handleCancelRequest, router, printActions]);
   
+  // ✅ Track if column defaults have been initialized to prevent infinite loop
+  const columnDefaultsInitialized = React.useRef(false);
+  
   // Set default visible columns - 15+ để có sticky scrollbar
   React.useEffect(() => {
+    if (columnDefaultsInitialized.current) return;
+    if (columns.length === 0) return;
+    
     const defaultVisibleColumns = [
       'id', 'customerName', 'orderDate', 'branchName', 'salesperson', 
       'grandTotal', 'totalPaid', 'debt', 'codAmount', 'status', 
@@ -274,6 +292,8 @@ export function OrdersPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+    columnDefaultsInitialized.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columns]);
 
   const fuse = React.useMemo(() => new Fuse(orders, { 
@@ -296,16 +316,16 @@ export function OrdersPage() {
       return
     }
 
-    orderStore.cancelOrder(idToCancel, currentEmployeeSystemId, {
+    // ✅ Use React Query mutation
+    cancelOrder(idToCancel, currentEmployeeSystemId, {
       reason: finalReason,
       restock: restockItems,
+    }).then(() => {
+      toast.success(`Đơn ${orderPendingCancel.id} đã được hủy.`)
+    }).catch(() => {
+      toast.error('Không thể hủy đơn hàng. Vui lòng thử lại.')
     })
-    const updatedOrder = orderStore.findById?.(idToCancel)
-    if (updatedOrder?.status === 'Đã hủy') {
-      toast.success(`Đơn ${updatedOrder.id} đã được cập nhật trạng thái hủy.`)
-    } else {
-      toast.info('Không thể hủy đơn hàng vì đã vượt điều kiện cho phép. Vui lòng kiểm tra cấu hình hoặc trạng thái giao hàng.')
-    }
+    
     setIsCancelAlertOpen(false)
     setIdToCancel(null)
     resetCancelForm()
@@ -391,15 +411,16 @@ export function OrdersPage() {
     const confirmMessage = `Bạn có chắc muốn hủy ${allSelectedRows.length} đơn hàng đã chọn?`;
     if (!confirm(confirmMessage)) return;
     
+    // ✅ Use React Query mutation for each order
     allSelectedRows.forEach(order => {
-      orderStore.cancelOrder(order.systemId, currentEmployeeSystemId, {
+      cancelOrder(order.systemId, currentEmployeeSystemId, {
         reason: 'Hủy hàng loạt',
         restock: true,
       });
     });
     
     setRowSelection({});
-  }, [allSelectedRows, orderStore, currentEmployeeSystemId]);
+  }, [allSelectedRows, cancelOrder, currentEmployeeSystemId]);
   
   // === BULK PRINT HANDLERS - Mở dialog với initial template type ===
   const handleBulkPrintWithOptions = React.useCallback((selectedRows: Order[], templateType: OrderPrintTemplateType = 'order') => {
@@ -551,34 +572,32 @@ export function OrdersPage() {
       onSelect: (rows: Order[]) => handleBulkPrintWithOptions(rows, 'order'),
     },
   ], [handleBulkPrintWithOptions]);
-  
-  // Prepare orderImportExportConfig with stores for lookup
-  const orderConfigWithStores = React.useMemo(() => ({
-    ...orderImportExportConfig,
-    storeContext: {
-      customerStore,
-      productStore,
-      branchStore,
-      employeeStore,
-    },
-  }), [customerStore, productStore, branchStore, employeeStore]);
 
-  // Prepare sapoOrderImportConfig with stores for lookup
-  const sapoOrderConfigWithStores = React.useMemo(() => ({
-    ...sapoOrderImportConfig,
-    storeContext: {
-      customerStore,
-      productStore,
-      branchStore,
-      employeeStore,
-    },
-  }), [customerStore, productStore, branchStore, employeeStore]);
+  // Store context for import dialogs
+  const storeContext = React.useMemo(() => ({
+    customerStore: customerStoreContext,
+    productStore,
+    branchStore,
+    employeeStore: employeeStoreContext,
+  }), [customerStoreContext, productStore, branchStore, employeeStoreContext]);
 
-  // Flatten orders for export (multi-line per product) - cast to Order[] for component compatibility
-  const ordersForExport = React.useMemo(() => flattenOrdersForExport(orders) as unknown as Order[], [orders]);
-  const filteredOrdersForExport = React.useMemo(() => flattenOrdersForExport(sortedData) as unknown as Order[], [sortedData]);
-  const pageOrdersForExport = React.useMemo(() => flattenOrdersForExport(paginatedData) as unknown as Order[], [paginatedData]);
-  const selectedOrdersForExport = React.useMemo(() => flattenOrdersForExport(allSelectedRows) as unknown as Order[], [allSelectedRows]);
+  // ✅ Lazy load flattenOrdersForExport - only compute when export dialog opens
+  const [ordersForExport, setOrdersForExport] = React.useState<Order[]>([]);
+  const [filteredOrdersForExport, setFilteredOrdersForExport] = React.useState<Order[]>([]);
+  const [pageOrdersForExport, setPageOrdersForExport] = React.useState<Order[]>([]);
+  const [selectedOrdersForExport, setSelectedOrdersForExport] = React.useState<Order[]>([]);
+
+  // Prepare export data only when export dialog opens
+  React.useEffect(() => {
+    if (isExportOpen) {
+      loadFlattenOrdersForExport().then((flattenOrdersForExport) => {
+        setOrdersForExport(flattenOrdersForExport(orders) as unknown as Order[]);
+        setFilteredOrdersForExport(flattenOrdersForExport(sortedData) as unknown as Order[]);
+        setPageOrdersForExport(flattenOrdersForExport(paginatedData) as unknown as Order[]);
+        setSelectedOrdersForExport(flattenOrdersForExport(allSelectedRows) as unknown as Order[]);
+      });
+    }
+  }, [isExportOpen, orders, sortedData, paginatedData, allSelectedRows]);
 
   // Import handler for GenericImportDialogV2
   const handleImport = React.useCallback(async (
@@ -824,24 +843,23 @@ export function OrdersPage() {
         initialTemplateType={initialPrintTemplateType}
       />
 
-      {/* Import Dialog V2 */}
-      <GenericImportDialogV2<Order>
+      {/* Import Dialog V2 - Lazy loaded */}
+      <OrderImportDialog
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
-        config={orderConfigWithStores}
         existingData={orders}
         onImport={handleImport}
         currentUser={authEmployee ? {
           systemId: authEmployee.systemId,
           name: authEmployee.fullName || authEmployee.id,
         } : undefined}
+        storeContext={storeContext}
       />
 
-      {/* Export Dialog V2 */}
-      <GenericExportDialogV2<Order>
+      {/* Export Dialog V2 - Lazy loaded */}
+      <OrderExportDialog
         open={isExportOpen}
         onOpenChange={setIsExportOpen}
-        config={orderImportExportConfig}
         allData={ordersForExport}
         filteredData={filteredOrdersForExport}
         currentPageData={pageOrdersForExport}
@@ -852,17 +870,17 @@ export function OrdersPage() {
         } : { systemId: asSystemId('SYSTEM'), name: 'System' }}
       />
 
-      {/* Sapo Import Dialog V2 */}
-      <GenericImportDialogV2<Order>
+      {/* Sapo Import Dialog V2 - Lazy loaded */}
+      <SapoOrderImportDialog
         open={isSapoImportOpen}
         onOpenChange={setIsSapoImportOpen}
-        config={sapoOrderConfigWithStores}
         existingData={orders}
         onImport={handleImport}
         currentUser={authEmployee ? {
           systemId: authEmployee.systemId,
           name: authEmployee.fullName || authEmployee.id,
         } : undefined}
+        storeContext={storeContext}
       />
     </>
   )

@@ -15,7 +15,7 @@ import { MonthPicker } from '../../components/ui/month-picker';
 import { DatePicker } from '../../components/ui/date-picker';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees, useActiveEmployees } from '../employees/hooks/use-all-employees';
 import { useLeaveStore } from '../leaves/store';
 import { useAttendanceStore } from '../attendance/store';
 import { usePayrollTemplateStore } from './payroll-template-store';
@@ -402,7 +402,8 @@ function getEmployeeSelectionColumns(
 
 export function PayrollRunPage() {
   const router = useRouter();
-  const { data: employeeData, getActive } = useEmployeeStore();
+  const { data: employeeData } = useAllEmployees();
+  const { data: activeEmployees } = useActiveEmployees();
   const { data: leaveRequests } = useLeaveStore();
   const lockedMonths = useAttendanceStore((state) => state.lockedMonths);
   const templates = usePayrollTemplateStore((state) => state.templates);
@@ -468,8 +469,8 @@ export function PayrollRunPage() {
     });
   }, [templates, defaultTemplateSystemId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- employeeData triggers re-evaluation when store changes
-  const employees = React.useMemo(() => getActive(), [employeeData, getActive]);
+  // Use activeEmployees from hook
+  const employees = activeEmployees;
   const employeeLookup = React.useMemo(() => {
     return employees.reduce<Record<SystemId, (typeof employees)[number]>>(
       (acc, employee) => {

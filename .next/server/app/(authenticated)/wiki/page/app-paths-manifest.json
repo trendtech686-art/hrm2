@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/wiki/page": "app/(authenticated)/wiki/page.js"
+}

@@ -1,1 +1,11 @@
-{}
+{
+  "[project]/features/sales-returns/components/sales-returns-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/sales-returns/components/sales-returns-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_d98d2010._.js",
+      "static/chunks/node_modules_xlsx_xlsx_mjs_fef98e92._.js",
+      "static/chunks/node_modules_636cd0e1._.js",
+      "static/chunks/fa5c6_sales-returns_components_sales-returns-import-export-dialogs_tsx_ef943e05._.js"
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/stock-transfers/[systemId]/page": "app/(authenticated)/stock-transfers/[systemId]/page.js"
+}

@@ -7,10 +7,10 @@ import { useReceiptTypeStore } from '../settings/receipt-types/store';
 import { usePaymentMethodStore } from '../settings/payments/methods/store';
 import { useTargetGroupStore } from '../settings/target-groups/store';
 import { useCashbookStore } from '../cashbook/store';
-import { useBranchStore } from '../settings/branches/store';
-import { useCustomerStore } from '../customers/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
+import { useAllCustomers } from '../customers/hooks/use-all-customers';
 import { useSupplierStore } from '../suppliers/store';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useShippingPartnerStore } from '../settings/shipping/store';
 import type { Receipt, ReceiptStatus } from '@/lib/types/prisma-extended';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -66,10 +66,10 @@ export function ReceiptForm({ initialData, onSubmit, isEditing = false }: Receip
   const { data: paymentMethods } = usePaymentMethodStore();
   const { data: targetGroups } = useTargetGroupStore();
   const { accounts } = useCashbookStore();
-  const { data: branches } = useBranchStore();
-  const { data: customers } = useCustomerStore();
+  const { data: branches } = useAllBranches();
+  const { data: customers } = useAllCustomers();
   const { data: suppliers } = useSupplierStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { data: shippingPartners } = useShippingPartnerStore();
 
   // Chỉ lấy active items

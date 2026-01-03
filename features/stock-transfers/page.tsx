@@ -5,20 +5,28 @@ import { useRouter } from 'next/navigation';
 import { useStockTransferStore } from './store';
 import { getColumns } from './columns';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table';
+import dynamic from 'next/dynamic';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
 import { Button } from '../../components/ui/button';
 import { Plus, Printer, FileSpreadsheet, Download } from 'lucide-react';
-import { GenericImportDialogV2 } from '../../components/shared/generic-import-dialog-v2';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { stockTransferImportExportConfig } from '../../lib/import-export/configs/stock-transfer.config';
 import { useAuth } from '../../contexts/auth-context';
 import { asSystemId } from '../../lib/id-types';
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
+const StockTransferImportDialog = dynamic(
+  () => import("./components/stock-transfers-import-export-dialogs").then(mod => ({ default: mod.StockTransferImportDialog })),
+  { ssr: false }
+);
+const StockTransferExportDialog = dynamic(
+  () => import("./components/stock-transfers-import-export-dialogs").then(mod => ({ default: mod.StockTransferExportDialog })),
+  { ssr: false }
+);
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { useMediaQuery } from '../../lib/use-media-query';
@@ -35,33 +43,13 @@ import {
   mapStockTransferLineItems,
   createStoreSettings,
 } from '../../lib/print/stock-transfer-print-helper';
+import { useColumnLayout } from '../../hooks/use-column-visibility';
 
-const COLUMN_LAYOUT_STORAGE_KEY = 'stock-transfers-column-layout';
-
-type StoredColumnLayout = {
-  visibility?: Record<string, boolean>;
-  order?: string[];
-  pinned?: string[];
-};
-
-const readStoredColumnLayout = (): StoredColumnLayout | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = window.localStorage.getItem(COLUMN_LAYOUT_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored) as StoredColumnLayout;
-    }
-  } catch (error) {
-    console.warn('Failed to parse stock-transfers column layout from storage:', error);
-  }
-  return null;
-};
-
+// ✅ Đã chuyển sang sử dụng useColumnLayout hook thay vì localStorage
 export function StockTransfersPage() {
-  const storedLayoutRef = React.useRef(readStoredColumnLayout());
   const router = useRouter();
   const { data: transfers } = useStockTransferStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoStore();
   const { print, printMultiple } = usePrint();
   const { employee: currentUser } = useAuth();
@@ -89,16 +77,14 @@ export function StockTransfersPage() {
   const [toBranchFilter, setToBranchFilter] = React.useState<string>('all');
   const [dateFilter, _setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
 
-  // Column customization state
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(
-    () => storedLayoutRef.current?.visibility ?? {}
-  );
-  const [columnOrder, setColumnOrder] = React.useState<string[]>(
-    () => storedLayoutRef.current?.order ?? []
-  );
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(
-    () => storedLayoutRef.current?.pinned ?? []
-  );
+  // ✅ Sử dụng useColumnLayout hook thay vì localStorage trực tiếp
+  const [columnLayout, columnLayoutSetters] = useColumnLayout('stock-transfers', {
+    visibility: {},
+    order: [],
+    pinned: []
+  });
+  const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout;
+  const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
 
   // Debounce search
   React.useEffect(() => {
@@ -107,17 +93,6 @@ export function StockTransfersPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [globalFilter]);
-
-  // Save column layout
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const payload = {
-      visibility: columnVisibility,
-      order: columnOrder,
-      pinned: pinnedColumns,
-    };
-    window.localStorage.setItem(COLUMN_LAYOUT_STORAGE_KEY, JSON.stringify(payload));
-  }, [columnVisibility, columnOrder, pinnedColumns]);
 
   // Page header
   const headerActions = React.useMemo(() => [
@@ -288,27 +263,25 @@ export function StockTransfersPage() {
 
   React.useEffect(() => {
     if (columns.length === 0) return;
-    setColumnVisibility(prev => {
-      if (Object.keys(prev).length > 0) return prev;
-      return buildDefaultVisibility();
-    });
-    setColumnOrder(prev => {
-      if (prev.length > 0) return prev;
-      return buildDefaultOrder();
-    });
-    setPinnedColumns(prev => prev ?? []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when columns change
-  }, [buildDefaultOrder, buildDefaultVisibility]);
+
+    // Only set defaults if not already set
+    if (Object.keys(columnVisibility).length === 0) {
+      setColumnVisibility(buildDefaultVisibility());
+    }
+
+    if (columnOrder.length === 0) {
+      setColumnOrder(buildDefaultOrder());
+    }
+
+    // pinnedColumns is always initialized by useColumnLayout, no need to set here
+  }, [columns, buildDefaultOrder, buildDefaultVisibility, columnVisibility, columnOrder, setColumnVisibility, setColumnOrder]);
 
   const resetColumnLayout = React.useCallback(() => {
     setColumnVisibility(buildDefaultVisibility());
     setColumnOrder(buildDefaultOrder());
     setPinnedColumns([]);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(COLUMN_LAYOUT_STORAGE_KEY);
-    }
     toast.success('Đã khôi phục bố cục cột mặc định');
-  }, [buildDefaultVisibility, buildDefaultOrder]);
+  }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
 
   // Fuse search
   const fuseInstance = React.useMemo(() => {
@@ -525,10 +498,9 @@ export function StockTransfersPage() {
       />
 
       {/* Import Dialog */}
-      <GenericImportDialogV2<StockTransfer>
+      <StockTransferImportDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
-        config={stockTransferImportExportConfig}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
         existingData={transfers}
         onImport={handleImport}
@@ -539,10 +511,9 @@ export function StockTransfersPage() {
       />
 
       {/* Export Dialog */}
-      <GenericExportDialogV2<StockTransfer>
+      <StockTransferExportDialog
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
-        config={stockTransferImportExportConfig}
         allData={transfers}
         filteredData={sortedData}
         currentPageData={paginatedData}

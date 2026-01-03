@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, ExternalLink, FolderEdit, FileUp, Download } from "lucide-react";
 import { asSystemId, asBusinessId } from "@/lib/id-types";
+import { useColumnVisibility } from "../../hooks/use-column-visibility";
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useProductCategoryStore } from "../settings/inventory/product-category-store";
 import type { ProductCategory } from "../settings/inventory/types";
@@ -21,14 +22,22 @@ import { toast } from "sonner";
 import Fuse from "fuse.js";
 import { getColumns } from "./columns";
 import { MobileCategoryCard } from "./card";
+import dynamic from 'next/dynamic';
 import { usePkgxCategorySync } from "./hooks/use-pkgx-category-sync";
 import { usePkgxSettingsStore } from "../settings/pkgx/store";
 import { updateCategory, updateCategoryBasic } from "@/lib/pkgx/api-service";
 import { PkgxCategoryLinkDialog } from "./components/pkgx-link-dialog";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { categoryImportExportConfig } from "@/lib/import-export/configs/category.config";
 import { useAuth } from "@/contexts/auth-context";
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
+const CategoryImportDialog = dynamic(
+  () => import("./components/categories-import-export-dialogs").then(mod => ({ default: mod.CategoryImportDialog })),
+  { ssr: false }
+);
+const CategoryExportDialog = dynamic(
+  () => import("./components/categories-import-export-dialogs").then(mod => ({ default: mod.CategoryExportDialog })),
+  { ssr: false }
+);
 
 export function ProductCategoriesPage() {
   const router = useRouter();
@@ -59,18 +68,7 @@ export function ProductCategoriesPage() {
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'categories-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      try { return JSON.parse(stored); } catch (_e) { /* Ignore JSON parse errors */ }
-    }
-    return {};
-  });
-
-  React.useEffect(() => {
-    localStorage.setItem('categories-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('categories', {});
 
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'thumbnailImage', 'name']);
@@ -294,10 +292,8 @@ export function ProductCategoriesPage() {
 
   // Set default column visibility - only on mount
   React.useEffect(() => {
-    // Skip if already has stored visibility
-    const storageKey = 'categories-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    if (stored) return;
+    // Skip if visibility is already set
+    if (Object.keys(columnVisibility).length > 0) return;
     
     const defaultVisibleColumns = ['thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt'];
     const columnIds = ['select', 'thumbnailImage', 'id', 'name', 'sortOrder', 'level', 'childCount', 'productCount', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt', 'actions'];
@@ -311,7 +307,8 @@ export function ProductCategoriesPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columnIds);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnVisibility]);
 
   const fuse = React.useMemo(() => new Fuse(activeCategories, {
     keys: ["id", "name", "path", "slug"],
@@ -859,10 +856,9 @@ export function ProductCategoriesPage() {
       />
 
       {/* Import Dialog V2 */}
-      <GenericImportDialogV2<ProductCategory>
+      <CategoryImportDialog
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
-        config={categoryImportExportConfig}
         existingData={activeCategories}
         onImport={handleImport}
         currentUser={authEmployee ? {
@@ -872,10 +868,9 @@ export function ProductCategoriesPage() {
       />
 
       {/* Export Dialog V2 */}
-      <GenericExportDialogV2<ProductCategory>
+      <CategoryExportDialog
         open={isExportOpen}
         onOpenChange={setIsExportOpen}
-        config={categoryImportExportConfig}
         allData={activeCategories}
         filteredData={sortedData}
         currentPageData={paginatedData}

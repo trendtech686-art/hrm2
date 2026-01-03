@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/suppliers/trash/page": "app/(authenticated)/suppliers/trash/page.js"
+}

@@ -18,6 +18,38 @@ export function useAllCustomers() {
 }
 
 /**
+ * Returns only active customers (not deleted, status active)
+ * Replaces legacy useCustomerStore().getActive()
+ */
+export function useActiveCustomers() {
+  const { data, isLoading, isError, error } = useAllCustomers();
+  
+  const activeCustomers = React.useMemo(
+    () => data.filter(c => !c.isDeleted && c.status !== 'inactive'),
+    [data]
+  );
+  
+  return { data: activeCustomers, isLoading, isError, error };
+}
+
+/**
+ * Returns customers formatted as options for Select/Combobox
+ */
+export function useCustomerOptions() {
+  const { data, isLoading } = useActiveCustomers();
+  
+  const options = React.useMemo(
+    () => data.map(c => ({
+      value: c.systemId,
+      label: c.name,
+    })),
+    [data]
+  );
+  
+  return { options, isLoading };
+}
+
+/**
  * Helper hook to find a customer by ID from cached data
  * Replaces legacy findById() method
  */

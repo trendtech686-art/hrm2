@@ -1,7 +1,7 @@
 import { Comments } from '../../../../components/Comments';
 import type { WarrantyTicket } from '../../types';
 import { useWarrantyComments } from '../../hooks/use-warranty-comments';
-import { useEmployeeStore } from '../../../employees/store';
+import { useAllEmployees } from '../../../employees/hooks/use-all-employees';
 import * as React from 'react';
 
 import type { SystemId } from '@/lib/id-types';
@@ -24,7 +24,7 @@ export function WarrantyCommentsSection({
   onUpdateTicket,
   onAddHistory,
 }: WarrantyCommentsSectionProps) {
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
 
   // Get all employees for @mention in comments
   const employeeMentions = React.useMemo(() => {

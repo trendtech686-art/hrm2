@@ -18,7 +18,7 @@ import { ProductSelectionDialog } from '../../shared/product-selection-dialog';
 import { useProductStore } from '../../products/store';
 import type { Product } from '../../products/types';
 import { checkWarrantyStatus, type WarrantyCheckResult } from '../utils/warranty-checker';
-import { useOrderStore } from '../../orders/store';
+import { useAllOrders } from '../../orders/hooks/use-all-orders';
 import { toast } from 'sonner';
 import { ExistingDocumentsViewer } from '../../../components/ui/existing-documents-viewer';
 import { NewDocumentsUpload } from '../../../components/ui/new-documents-upload';
@@ -78,7 +78,7 @@ export function WarrantyProductsSection({ disabled = false, onProductImagesState
   const [_warrantyCheckResults, setWarrantyCheckResults] = React.useState<Record<string, WarrantyCheckResult>>({});
 
   const { data: _allProducts, getActive } = useProductStore();
-  const { data: allOrders } = useOrderStore();
+  const { data: allOrders } = useAllOrders();
   
   // Watch customer name
   const customer = watch('customer');

@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/warranty/[systemId]/page": "app/(authenticated)/warranty/[systemId]/page.js"
+}

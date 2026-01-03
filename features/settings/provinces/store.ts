@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+import { type SystemId, type BusinessId } from '@/lib/id-types';
 import { createCrudStore } from '../../../lib/store-factory';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import type { Province, District, Ward } from '@/lib/types/prisma-extended';
@@ -9,8 +9,8 @@ const API_BASE = '/api/administrative-units';
 
 // Initialize with empty arrays - data will be loaded from API
 const normalizedProvinces: Province[] = [];
-let normalizedDistricts: District[] = [];
-let normalizedWards: Ward[] = [];
+const normalizedDistricts: District[] = [];
+const normalizedWards: Ward[] = [];
 
 // Track loading state across all data types
 let dataLoadedState = {

@@ -154,7 +154,7 @@ async function seedWards() {
         skipDuplicates: true,
       });
       inserted += batch.length;
-    } catch (error) {
+    } catch (_error) {
       // If batch fails, try one by one
       for (const ward of batch) {
         try {

@@ -8,7 +8,7 @@ import { PurchaseProductSearch } from "../../../components/shared/unified-produc
 import { ProductSelectionDialog } from "../../shared/product-selection-dialog";
 import { TaxSelector } from "./tax-selector";
 import { useTaxStore } from "../../settings/taxes/store";
-import { useProductStore } from "../../products/store";
+import { useAllProducts } from "../../products/hooks/use-all-products";
 import { useProductTypeStore } from "../../settings/inventory/product-type-store";
 import { usePurchaseOrderStore } from "../store";
 import type { Product } from "../../products/types";
@@ -173,7 +173,7 @@ export function ProductSelectionCard({
   const defaultPurchaseTax = React.useMemo(() => getDefaultPurchase(), [getDefaultPurchase]);
   
   // Get products store
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   // Get product type store
   const { findById: findProductTypeById } = useProductTypeStore();

@@ -17,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
 import { Spinner } from '../../../components/ui/spinner';
 import { Badge } from '../../../components/ui/badge';
 import { Info } from 'lucide-react';
-import { useProductStore } from '../../products/store';
+import { useProductFinder } from '../../products/hooks/use-all-products';
 import { Button } from '../../../components/ui/button';
 import { cn } from '../../../lib/utils';
 import { getApiUrl } from '../../../lib/api-config';
@@ -74,7 +74,7 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
     const { control, getValues, setValue } = useFormContext();
     const { data: allPartners } = useShippingPartnerStore();
     const { settings: shippingSettings } = useShippingSettingsStore();
-    const { findById: findProductById } = useProductStore();
+    const { findById: findProductById } = useProductFinder();
     
     // ✅ PHASE 3: Use centralized config loading
     const [shippingConfig, setShippingConfig] = React.useState<ShippingConfig | null>(null);

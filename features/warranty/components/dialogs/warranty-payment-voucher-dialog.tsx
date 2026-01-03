@@ -28,6 +28,7 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePaymentStore } from '../../../payments/store';
 import { useReceiptStore } from '../../../receipts/store';
+import { useAllOrders } from '../../../orders/hooks/use-all-orders';
 import { useOrderStore } from '../../../orders/store';
 import { useWarrantyStore } from '../../store';
 import type { SettlementType, WarrantyVoucherDialogBaseProps } from '../../types';
@@ -93,7 +94,8 @@ export function WarrantyPaymentVoucherDialog({
   
   const { add: addPayment, data: payments } = usePaymentStore();
   const { data: receipts } = useReceiptStore();
-  const { data: orders, update: updateOrder } = useOrderStore();
+  const { data: orders } = useAllOrders();
+  const { update: updateOrder } = useOrderStore();
   const { findById: findWarrantyById, addHistory } = useWarrantyStore();
   const { data: paymentTypes } = usePaymentTypeStore();
   const { data: paymentMethods } = usePaymentMethodStore();

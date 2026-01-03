@@ -22,6 +22,7 @@ import { usePaymentStore } from '../../../payments/store';
 import { asSystemId } from '@/lib/id-types';
 import { useReceiptStore } from '../../../receipts/store';
 import { useOrderStore } from '../../../orders/store';
+import { useAllOrders } from '../../../orders/hooks/use-all-orders';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
 
@@ -38,7 +39,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
   const { update, findById, addHistory } = useWarrantyStore();
   const payments = usePaymentStore(state => state.data);
   const receipts = useReceiptStore(state => state.data);
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
 
   const handleCancel = React.useCallback(async () => {
     console.log('[CANCEL DIALOG] handleCancel called', { 

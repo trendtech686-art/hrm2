@@ -1,5 +1,4 @@
 ﻿import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 // Date utils removed - not used in this store
 import type { StockHistoryEntry } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';
@@ -57,7 +56,6 @@ interface StockHistoryState {
 let entryCounter = initialData.length;
 
 export const useStockHistoryStore = create<StockHistoryState>()(
-  persist(
     (set, get) => ({
       entries: migrateHistoryData(initialData), // ✨ Apply migration to initial data
       addEntry: (entry) => set((state) => {
@@ -77,16 +75,5 @@ export const useStockHistoryStore = create<StockHistoryState>()(
           }
           return sortedHistory.filter(e => e.branchSystemId === branchSystemId);
         },
-    }),
-    {
-      name: 'hrm-stock-history-storage',
-      storage: createJSONStorage(() => localStorage),
-      // ✨ Apply migration when rehydrating from localStorage
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.entries = migrateHistoryData(state.entries);
-        }
-      },
-    }
-  )
+    })
 );

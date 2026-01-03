@@ -17,14 +17,15 @@ import {
   mapStockInLineItems,
   createStoreSettings,
 } from '../../lib/print/stock-in-print-helper';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '../../lib/date-utils';
 import { numberToWords } from '../../lib/print-service';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { ActivityHistory } from '../../components/ActivityHistory';
 import { useAuth } from '../../contexts/auth-context';
 import { Card, CardContent } from '../../components/ui/card';
@@ -53,46 +54,43 @@ export function InventoryReceiptDetailPage() {
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   const { employee: authEmployee } = useAuth();
 
-  // Comments state with localStorage persistence
-  type InventoryReceiptComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<InventoryReceiptComment[]>(() => {
-    const saved = localStorage.getItem(`inventory-receipt-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('inventory_receipt', systemId || '');
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`inventory-receipt-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
-    const newComment: InventoryReceiptComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId as unknown as SystemId,
+      content: c.content,
       author: {
-        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
+        systemId: (c.createdBy || 'system') as unknown as SystemId,
+        name: c.createdByName || 'Hệ thống',
       },
-      createdAt: new Date(),
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
-  }, [authEmployee]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
-  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
-    ));
+  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
+  }, [dbAddComment]);
+
+  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
-  }, []);
+    dbDeleteComment(commentId);
+  }, [dbDeleteComment]);
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-    name: authEmployee?.fullName || 'H? th?ng',
+    name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
   const receipt = React.useMemo(() => (systemId ? findReceiptById(asSystemId(systemId)) : undefined), [systemId, findReceiptById]);
@@ -114,7 +112,7 @@ export function InventoryReceiptDetailPage() {
     receipt?.items.reduce((sum, item) => sum + Number(item.receivedQuantity) * Number(item.unitPrice), 0) ?? 0
   ), [receipt]);
 
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint(receipt?.branchSystemId);
 
@@ -153,14 +151,14 @@ export function InventoryReceiptDetailPage() {
         onClick={handlePrint}
       >
         <Printer className="mr-2 h-4 w-4" />
-        In phi?u
+        In phiếu
       </Button>,
     ];
   }, [receipt, handlePrint]);
 
   const badge = React.useMemo(() => {
     if (!receipt) return undefined;
-    const label = receipt.branchName || 'Chua g?n chi nh�nh';
+    const label = receipt.branchName || 'Chưa gán chi nhánh';
     return (
       <Badge variant="outline" className="uppercase tracking-wide">
         {label}
@@ -169,11 +167,11 @@ export function InventoryReceiptDetailPage() {
   }, [receipt]);
 
   usePageHeader({
-    title: receipt ? `Phi?u nh?p kho ${receipt.id}` : 'Chi ti?t phi?u nh?p',
-    subtitle: receipt?.supplierName ? `Nh� cung c?p: ${receipt.supplierName}` : undefined,
+    title: receipt ? `Phiếu nhập kho ${receipt.id}` : 'Chi tiết phiếu nhập',
+    subtitle: receipt?.supplierName ? `Nhà cung cấp: ${receipt.supplierName}` : undefined,
     breadcrumb: [
-      { label: 'Trang ch?', href: ROUTES.DASHBOARD, isCurrent: false },
-      { label: 'Phi?u nh?p kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: false },
+      { label: 'Trang chủ', href: ROUTES.DASHBOARD, isCurrent: false },
+      { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: false },
       { label: receipt?.id || 'Chi ti?t', href: '', isCurrent: true },
     ],
     badge,
@@ -185,10 +183,10 @@ export function InventoryReceiptDetailPage() {
     return (
       <Card>
         <CardContent className="py-10 text-center space-y-4">
-          <p className="text-h3 font-semibold">Kh�ng t�m th?y phi?u nh?p kho.</p>
+          <p className="text-h3 font-semibold">Không tìm thấy phiếu nhập kho.</p>
           <Button className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPTS)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Quay l?i danh s�ch
+            Quay lại danh sách
           </Button>
         </CardContent>
       </Card>
@@ -204,13 +202,13 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="grid gap-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <DetailField label="M� phi?u">{receipt.id}</DetailField>
-            <DetailField label="Ng�y nh?p">{receivedDateLabel}</DetailField>
-            <DetailField label="Chi nh�nh">{receipt.branchName || 'Kh�ng x�c d?nh'}</DetailField>
-            <DetailField label="Kho h�ng">{receipt.warehouseName || 'Kh�ng x�c d?nh'}</DetailField>
+            <DetailField label="Mã phiếu">{receipt.id}</DetailField>
+            <DetailField label="Ngày nhập">{receivedDateLabel}</DetailField>
+            <DetailField label="Chi nhánh">{receipt.branchName || 'Không xác định'}</DetailField>
+            <DetailField label="Kho hàng">{receipt.warehouseName || 'Không xác định'}</DetailField>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <DetailField label="Nh� cung c?p">
+            <DetailField label="Nhà cung cấp">
               {supplier ? (
                 <Link href={ROUTES.PROCUREMENT.SUPPLIER_VIEW.replace(':systemId', supplier.systemId)}
                   className="text-primary hover:underline font-medium"
@@ -221,7 +219,7 @@ export function InventoryReceiptDetailPage() {
                 receipt.supplierName
               )}
             </DetailField>
-            <DetailField label="�on mua h�ng">
+            <DetailField label="Đơn mua hàng">
               {purchaseOrder ? (
                 <Link href={ROUTES.PROCUREMENT.PURCHASE_ORDER_VIEW.replace(':systemId', purchaseOrder.systemId)}
                   className="text-primary hover:underline font-medium"
@@ -232,7 +230,7 @@ export function InventoryReceiptDetailPage() {
                 receipt.purchaseOrderId
               )}
             </DetailField>
-            <DetailField label="Ngu?i nh?n h�ng">
+            <DetailField label="Người nhận hàng">
               {receiver ? (
                 <Link href={ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', receiver.systemId)}
                   className="text-primary hover:underline font-medium"
@@ -245,7 +243,7 @@ export function InventoryReceiptDetailPage() {
             </DetailField>
           </div>
           {receipt.notes && (
-            <DetailField label="Ghi ch�">
+            <DetailField label="Ghi chú">
               <span className="text-body-sm text-muted-foreground">{receipt.notes}</span>
             </DetailField>
           )}
@@ -255,9 +253,9 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="p-0">
           <div className="p-6">
-            <h3 className="text-h3 font-semibold">Danh s�ch s?n ph?m</h3>
+            <h3 className="text-h3 font-semibold">Danh sách sản phẩm</h3>
             <p className="text-body-sm text-muted-foreground">
-              T?ng {receipt.items.length} m?t h�ng � {totalQuantity} don v? � {formatCurrency(totalValue)}
+              Tổng {receipt.items.length} mặt hàng • {totalQuantity} đơn vị • {formatCurrency(totalValue)}
             </p>
           </div>
           <div className="border-t">
@@ -265,13 +263,13 @@ export function InventoryReceiptDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[60px] text-center">STT</TableHead>
-                  <TableHead className="w-[60px]">?nh</TableHead>
-                  <TableHead>M� s?n ph?m</TableHead>
-                  <TableHead>T�n s?n ph?m</TableHead>
-                  <TableHead className="text-center">SL d?t</TableHead>
-                  <TableHead className="text-center">SL th?c nh?p</TableHead>
-                  <TableHead className="text-right">�on gi�</TableHead>
-                  <TableHead className="text-right">Th�nh ti?n</TableHead>
+                  <TableHead className="w-[60px]">Ảnh</TableHead>
+                  <TableHead>Mã sản phẩm</TableHead>
+                  <TableHead>Tên sản phẩm</TableHead>
+                  <TableHead className="text-center">SL đặt</TableHead>
+                  <TableHead className="text-center">SL thực nhập</TableHead>
+                  <TableHead className="text-right">Đơn giá</TableHead>
+                  <TableHead className="text-right">Thành tiền</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -314,7 +312,7 @@ export function InventoryReceiptDetailPage() {
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-right font-semibold">T?ng c?ng</TableCell>
+                  <TableCell colSpan={5} className="text-right font-semibold">Tổng cộng</TableCell>
                   <TableCell className="text-center font-semibold">{totalQuantity}</TableCell>
                   <TableCell />
                   <TableCell className="text-right font-semibold">{formatCurrency(totalValue)}</TableCell>
@@ -342,15 +340,15 @@ export function InventoryReceiptDetailPage() {
         onUpdateComment={handleUpdateComment}
         onDeleteComment={handleDeleteComment}
         currentUser={commentCurrentUser}
-        title="B�nh lu?n"
-        placeholder="Th�m b�nh lu?n v? phi?u nh?p kho..."
+        title="Bình luận"
+        placeholder="Thêm bình luận về phiếu nhập kho..."
       />
 
       {/* Activity History */}
       <ActivityHistory
         history={[]}
-        title="L?ch s? ho?t d?ng"
-        emptyMessage="Chua c� l?ch s? ho?t d?ng"
+        title="Lịch sử hoạt động"
+        emptyMessage="Chưa có lịch sử hoạt động"
         groupByDate
         maxHeight="400px"
       />

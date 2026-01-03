@@ -1,6 +1,9 @@
+'use client'
+
 import * as React from 'react';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useOrderStore } from '../orders/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useReconciliationActions } from '../orders/hooks/use-reconciliation-actions';
 import type { Packaging } from '../orders/types';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { getColumns } from './columns';
@@ -10,16 +13,22 @@ import { PageFilters } from '../../components/layout/page-filters';
 import { Button } from '../../components/ui/button';
 import { CheckCircle2, Download } from 'lucide-react';
 import Fuse from 'fuse.js';
+import dynamic from 'next/dynamic';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { reconciliationConfig } from '../../lib/import-export/configs/reconciliation.config';
 import { asSystemId, type SystemId } from '../../lib/id-types';
+
+// ✅ Dynamic import for Export dialog - lazy loads XLSX library (~500KB) + config
+const ReconciliationExportDialog = dynamic(
+  () => import("./components/reconciliation-import-export-dialogs").then(mod => ({ default: mod.ReconciliationExportDialog })),
+  { ssr: false }
+);
 import { Badge } from '../../components/ui/badge';
 import { formatDate } from '../../lib/date-utils';
 import { useAuth } from '../../contexts/auth-context';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { ROUTES } from '../../lib/router';
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
@@ -33,7 +42,8 @@ export type ReconciliationItem = Packaging & {
 };
 
 export function ReconciliationPage() {
-    const { data: allOrders, confirmCodReconciliation } = useOrderStore();
+    const { data: allOrders } = useAllOrders();
+    const { confirmCodReconciliation, isReconciling: _isReconciling } = useReconciliationActions();
     const { employee: authEmployee } = useAuth();
     const { isMobile } = useBreakpoint();
     const currentEmployeeSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
@@ -44,27 +54,14 @@ export function ReconciliationPage() {
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
     const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     
-    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-        const storageKey = 'reconciliation-column-visibility';
-        const stored = localStorage.getItem(storageKey);
+    // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+    const defaultColumnVisibility = React.useMemo(() => {
         const cols = getColumns();
-        const allColumnIds = cols.map(c => c.id).filter(Boolean);
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                if (allColumnIds.every(id => id in parsed)) return parsed;
-            } catch (_e) {
-                // Ignore JSON parse errors - use default
-            }
-        }
         const initial: Record<string, boolean> = {};
         cols.forEach(c => { if (c.id) initial[c.id] = true; });
         return initial;
-    });
-    
-    React.useEffect(() => {
-        localStorage.setItem('reconciliation-column-visibility', JSON.stringify(columnVisibility));
-    }, [columnVisibility]);
+    }, []);
+    const [columnVisibility, setColumnVisibility] = useColumnVisibility('reconciliation', defaultColumnVisibility);
     
     const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
     const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
@@ -118,10 +115,10 @@ export function ReconciliationPage() {
         reconciliationList.filter(item => rowSelection[item.systemId]),
     [reconciliationList, rowSelection]);
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         const selectedItems = reconciliationList.filter(item => rowSelection[item.systemId]);
         if (selectedItems.length > 0) {
-            confirmCodReconciliation(selectedItems, currentEmployeeSystemId);
+            await confirmCodReconciliation(selectedItems, currentEmployeeSystemId);
             setRowSelection({});
         }
         setIsConfirmOpen(false);
@@ -157,7 +154,11 @@ export function ReconciliationPage() {
     
     const columns = React.useMemo(() => getColumns(), []);
     
+    const columnDefaultsInitialized = React.useRef(false);
     React.useEffect(() => {
+        if (columnDefaultsInitialized.current) return;
+        if (columns.length === 0) return;
+        
         const initialVisibility: Record<string, boolean> = {};
         columns.forEach(c => {
             if (c.id) {
@@ -167,6 +168,8 @@ export function ReconciliationPage() {
         setColumnVisibility(initialVisibility);
         setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
         setPinnedColumns(['select']);
+        columnDefaultsInitialized.current = true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [columns]);
 
 
@@ -271,10 +274,9 @@ export function ReconciliationPage() {
             </AlertDialog>
 
             {/* Export Dialog */}
-            <GenericExportDialogV2<ReconciliationItem>
+            <ReconciliationExportDialog
                 open={exportDialogOpen}
                 onOpenChange={setExportDialogOpen}
-                config={reconciliationConfig}
                 allData={reconciliationList}
                 filteredData={filteredData}
                 currentPageData={paginatedData}

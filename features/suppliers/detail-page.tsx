@@ -18,12 +18,13 @@ import { RelatedDataTable } from '../../components/data-table/related-data-table
 import type { ColumnDef } from '../../components/data-table/types';
 import { usePurchaseOrderStore } from '../purchase-orders/store';
 import { usePaymentStore } from '../payments/store';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees, useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import type { PurchaseOrder, PaymentStatus } from '../purchase-orders/types';
 import { usePurchaseReturnStore } from '../purchase-returns/store';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
+import { useComments } from '../../hooks/use-comments';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '-';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -75,7 +76,8 @@ export function SupplierDetailPage() {
   const { data: allPayments } = usePaymentStore();
   const { data: allPurchaseReturns } = usePurchaseReturnStore();
   const { employee: authEmployee } = useAuth();
-  const { findById: findEmployeeById, data: employees } = useEmployeeStore();
+  const { findById: findEmployeeById } = useEmployeeFinder();
+  const { data: employees } = useAllEmployees();
 
   // Helper để lấy tên nhân viên từ systemId hoặc trả về giá trị gốc nếu đã là tên
   const getEmployeeName = React.useCallback((creatorValue: string): string => {
@@ -91,43 +93,43 @@ export function SupplierDetailPage() {
     const supplierSystemId = React.useMemo<SystemId | null>(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
     const supplier = React.useMemo(() => (supplierSystemId ? findById(supplierSystemId) : null), [supplierSystemId, findById]);
 
-    // Comments state with localStorage persistence
+    // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
+    const { 
+      comments: dbComments, 
+      addComment: dbAddComment, 
+      deleteComment: dbDeleteComment,
+      isLoading: _commentsLoading 
+    } = useComments('supplier', systemIdParam || '');
+    
+    // Transform database comments to component format
     type SupplierComment = CommentType<SystemId>;
-    const [comments, setComments] = React.useState<SupplierComment[]>(() => {
-        const saved = localStorage.getItem(`supplier-comments-${systemIdParam}`);
-        return saved ? JSON.parse(saved) : [];
-    });
+    const comments = React.useMemo<SupplierComment[]>(() => 
+      dbComments.map(c => ({
+        id: asSystemId(c.systemId),
+        content: c.content,
+        author: {
+          systemId: asSystemId(c.createdBy || 'system'),
+          name: c.createdByName || 'Hệ thống',
+        },
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        attachments: c.attachments,
+      })), 
+      [dbComments]
+    );
 
-    React.useEffect(() => {
-        if (systemIdParam) {
-            localStorage.setItem(`supplier-comments-${systemIdParam}`, JSON.stringify(comments));
-        }
-    }, [comments, systemIdParam]);
+    const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+        dbAddComment(content, attachments || []);
+    }, [dbAddComment]);
 
-    const handleAddComment = React.useCallback((content: string, attachments?: string[], parentId?: string) => {
-        const newComment: SupplierComment = {
-            id: asSystemId(`comment-${Date.now()}`),
-            content,
-            author: {
-                systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-                name: authEmployee?.fullName || 'Hệ thống',
-                avatar: authEmployee?.avatar,
-            },
-            createdAt: new Date().toISOString(),
-            attachments,
-            parentId: parentId as SystemId | undefined,
-        };
-        setComments(prev => [...prev, newComment]);
-    }, [authEmployee]);
-
-    const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-        setComments(prev => prev.map(c => 
-            c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-        ));
+    const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+        // TODO: Add update API support in useComments hook
+        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {
-        setComments(prev => prev.filter(c => c.id !== commentId));
+        dbDeleteComment(commentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const commentCurrentUser = React.useMemo(() => ({

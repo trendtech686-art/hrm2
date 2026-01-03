@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTaskStore } from '../store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import type { TaskPriority, TaskStatus } from '../types';
@@ -27,7 +27,7 @@ export function TaskFormPage() {
   const router = useRouter();
   const store = useTaskStore();
   const { findById, add, update } = store;
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { isAdmin, employee: authEmployee } = useAuth();
   
   // Redirect non-admin users

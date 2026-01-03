@@ -15,7 +15,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Loader2, RefreshCw } from 'lucide-react';
 import type { PartnerAccount, PickupAddress } from '@/lib/types/shipping-config';
-import { useBranchStore } from '@/features/settings/branches/store';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { toast } from 'sonner';
 import { getBaseUrl } from '@/lib/api-config';
 
@@ -47,7 +47,7 @@ export function PickupAddressesTab({
   onAccountUpdate: _onAccountUpdate,
   getMappingsRef,
 }: PickupAddressesTabProps) {
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const [loadingWarehouses, setLoadingWarehouses] = useState(false);
   const [partnerWarehouses, setPartnerWarehouses] = useState<PartnerWarehouse[]>([]);
   const [mappings, setMappings] = useState<BranchMapping[]>([]);

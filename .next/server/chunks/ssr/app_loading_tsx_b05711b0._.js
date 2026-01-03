@@ -1,0 +1,3 @@
+module.exports=[563588,a=>{"use strict";var b=a.i(907997);function c(){return(0,b.jsx)("div",{className:"flex min-h-screen items-center justify-center",children:(0,b.jsxs)("div",{className:"flex flex-col items-center gap-4",children:[(0,b.jsx)("div",{className:"h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"}),(0,b.jsx)("p",{className:"text-muted-foreground",children:"Đang tải..."})]})})}a.s(["default",()=>c])}];
+
+//# sourceMappingURL=app_loading_tsx_b05711b0._.js.map

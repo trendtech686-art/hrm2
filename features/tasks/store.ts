@@ -266,14 +266,26 @@ export const useTaskStore = () => {
       store.update(asSystemId(id), { ...task, ...enhancedUpdates });
       console.log('[STORE] Base store.update called');
       
-      // Manage localStorage for active timer
+      // Manage active timer via API instead of localStorage
       if (enhancedUpdates.timerRunning && enhancedUpdates.timerStartedAt) {
-        localStorage.setItem('active-timer', JSON.stringify({ 
-          taskId: task.systemId, 
-          startedAt: enhancedUpdates.timerStartedAt 
-        }));
+        // Start timer via API
+        fetch('/api/active-timer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taskId: task.systemId,
+            startTime: enhancedUpdates.timerStartedAt,
+          }),
+        }).catch(error => {
+          console.error('Error starting timer via API:', error);
+        });
       } else if (enhancedUpdates.timerRunning === false) {
-        localStorage.removeItem('active-timer');
+        // Stop timer via API (delete)
+        fetch('/api/active-timer', {
+          method: 'DELETE',
+        }).catch(error => {
+          console.error('Error stopping timer via API:', error);
+        });
       }
     },
     // Get tasks assigned to specific user
@@ -385,30 +397,34 @@ export const useTaskStore = () => {
         assigneeName: owner?.employeeName || '',
       });
     },
-    // Restore running timer on page load
-    restoreTimer: () => {
-      const stored = localStorage.getItem('active-timer');
-      if (!stored) return;
-      
+    // Restore running timer on page load - now uses API instead of localStorage
+    restoreTimer: async () => {
       try {
-        const { taskId, startedAt } = JSON.parse(stored);
+        const res = await fetch('/api/active-timer');
+        if (!res.ok) return;
+        
+        const timerData = await res.json();
+        if (!timerData || !timerData.taskId) return;
+        
+        const { taskId, startTime } = timerData;
         const task = store.findById(taskId);
         if (!task) {
-          localStorage.removeItem('active-timer');
+          // Timer exists but task not found, delete timer
+          fetch('/api/active-timer', { method: 'DELETE' }).catch(() => {});
           return;
         }
         
         // Calculate elapsed time
-        const _elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+        const _elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000);
         
         store.update(taskId as SystemId, {
           ...task,
           timerRunning: true,
-          timerStartedAt: startedAt,
+          timerStartedAt: startTime,
           totalTrackedSeconds: (task.totalTrackedSeconds || 0),
         });
-      } catch (_e) {
-        localStorage.removeItem('active-timer');
+      } catch (error) {
+        console.error('Error restoring timer from API:', error);
       }
     },
     

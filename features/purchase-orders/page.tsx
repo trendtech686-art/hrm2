@@ -1,12 +1,13 @@
 'use client'
 
 import * as React from "react"
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { toISODate, getCurrentDate, formatDateCustom } from '../../lib/date-utils';
 import { usePurchaseOrderStore } from "./store"
 import { sumPaymentsForPurchaseOrder } from "./payment-utils"
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
@@ -63,10 +64,18 @@ import {
   createStoreSettings,
 } from '../../lib/print/purchase-order-print-helper';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { purchaseOrderImportExportConfig } from "../../lib/import-export/configs/purchase-order.config";
 import { FileSpreadsheet, Download } from "lucide-react";
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX + config
+const PurchaseOrderImportDialog = dynamic(
+  () => import("./components/purchase-order-import-export-dialogs").then(mod => ({ default: mod.PurchaseOrderImportDialog })),
+  { ssr: false }
+);
+const PurchaseOrderExportDialog = dynamic(
+  () => import("./components/purchase-order-import-export-dialogs").then(mod => ({ default: mod.PurchaseOrderExportDialog })),
+  { ssr: false }
+);
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
@@ -97,7 +106,8 @@ type ReceiveDialogState = {
 
 export function PurchaseOrdersPage() {
   const { data: purchaseOrders, cancelOrder, processInventoryReceipt, bulkCancel, syncAllPurchaseOrderStatuses } = usePurchaseOrderStore();
-  const { data: branches, findById: findBranchById } = useBranchStore();
+  const { data: branches } = useAllBranches();
+  const { findById: findBranchById } = useBranchFinder();
   const { data: _suppliers, findById: findSupplierById } = useSupplierStore();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint();
@@ -175,27 +185,13 @@ export function PurchaseOrdersPage() {
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = React.useState('all');
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'purchase-orders-column-visibility';
-    const stored = localStorage.getItem(storageKey);
+  const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns(() => {}, () => {}, () => {}, () => {}, []);
-    const allColumnIds = cols.map(c => c.id).filter(Boolean);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (allColumnIds.every(id => id in parsed)) return parsed;
-      } catch (_e) {
-        // Ignore JSON parse errors - use default
-      }
-    }
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
-  });
-  
-  React.useEffect(() => {
-    localStorage.setItem('purchase-orders-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  }, []);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('purchase-orders', defaultColumnVisibility);
   
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
@@ -747,7 +743,11 @@ export function PurchaseOrdersPage() {
 
   const columns = React.useMemo(() => getColumns(handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches), [handleCancelRequest, handlePrint, handlePayment, handleReceiveGoods, branches]);
   
+  const columnDefaultsInitialized = React.useRef(false);
   React.useEffect(() => {
+    if (columnDefaultsInitialized.current) return;
+    if (columns.length === 0) return;
+    
     const defaultVisibleColumns = [
       'id', 'supplierName', 'branchName', 'buyer', 'orderDate', 'deliveryDate', 
       'shippingFee', 'tax', 'discount', 'notes', 'creatorName', 'grandTotal',
@@ -763,6 +763,8 @@ export function PurchaseOrdersPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+    columnDefaultsInitialized.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columns]);
   
   const fuse = React.useMemo(() => new Fuse(purchaseOrders, { keys: ["id", "supplierName", "status"] }), [purchaseOrders]);
@@ -1261,10 +1263,9 @@ export function PurchaseOrdersPage() {
       />
 
       {/* Import Dialog */}
-      <GenericImportDialogV2<PurchaseOrder>
+      <PurchaseOrderImportDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
-        config={purchaseOrderImportExportConfig}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
         existingData={purchaseOrders}
         onImport={handleImport}
@@ -1275,10 +1276,9 @@ export function PurchaseOrdersPage() {
       />
 
       {/* Export Dialog */}
-      <GenericExportDialogV2<PurchaseOrder>
+      <PurchaseOrderExportDialog
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
-        config={purchaseOrderImportExportConfig}
         allData={purchaseOrders}
         filteredData={sortedData}
         currentPageData={paginatedData}

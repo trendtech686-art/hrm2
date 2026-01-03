@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Payment } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
 import { data as initialData } from './data';
@@ -222,7 +221,6 @@ const buildPayment = (input: PaymentInput, existingPayments: Payment[]): Payment
 };
 
 export const usePaymentStore = create<PaymentStore>()(
-  persist(
     (set, get) => ({
       data: initialPayments,
       businessIdCounter,
@@ -303,23 +301,5 @@ export const usePaymentStore = create<PaymentStore>()(
           });
         }
       },
-    }),
-    {
-      name: 'payment-storage',
-      storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
-        if (state?.data) {
-          const normalized = backfillPaymentMetadata(state.data.map(normalizePayment));
-          const nextSystemCounter = getMaxSystemIdCounter(normalized, SYSTEM_ID_PREFIX);
-          const nextBusinessCounter = getMaxBusinessIdCounter(normalized, BUSINESS_ID_PREFIX);
-          systemIdCounter = nextSystemCounter;
-          businessIdCounter = nextBusinessCounter;
-
-          state.data = normalized;
-          state.systemIdCounter = systemIdCounter;
-          state.businessIdCounter = businessIdCounter;
-        }
-      },
-    }
-  )
+    })
 );

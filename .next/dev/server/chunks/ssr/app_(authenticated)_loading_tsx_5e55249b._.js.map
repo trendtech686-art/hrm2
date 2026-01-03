@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/hrm2/app/%28authenticated%29/loading.tsx"],"sourcesContent":["export default function AuthenticatedLoading() {\r\n  return (\r\n    <div className=\"flex h-[calc(100vh-4rem)] items-center justify-center\">\r\n      <div className=\"flex flex-col items-center gap-4\">\r\n        <div className=\"h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent\" />\r\n        <p className=\"text-sm text-muted-foreground\">Đang tải dữ liệu...</p>\r\n      </div>\r\n    </div>\r\n  )\r\n}\r\n"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACtB,qBACE,8OAAC;QAAI,WAAU;kBACb,cAAA,8OAAC;YAAI,WAAU;;8BACb,8OAAC;oBAAI,WAAU;;;;;;8BACf,8OAAC;oBAAE,WAAU;8BAAgC;;;;;;;;;;;;;;;;;AAIrD"}}]
+}

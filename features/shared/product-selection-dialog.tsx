@@ -1,7 +1,7 @@
 
 import * as React from 'react';
 import { useProductStore } from '../products/store';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import type { Product } from '../products/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../components/ui/dialog';
@@ -159,7 +159,7 @@ interface ProductSelectionDialogProps {
 
 export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchSystemId, showQuantityInput = true, excludeTypes = [] }: ProductSelectionDialogProps) {
     const { data: allProducts, getActive } = useProductStore();
-    const { data: branches } = useBranchStore();
+    const { data: branches } = useAllBranches();
     const { findById: findProductTypeById } = useProductTypeStore();
     const [search, setSearch] = React.useState('');
     const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());

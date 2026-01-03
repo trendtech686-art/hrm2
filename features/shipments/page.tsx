@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useShipmentStore } from './store';
-import { useOrderStore } from '../orders/store';
-import { useCustomerStore } from '../customers/store';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useAllCustomers } from '../customers/hooks/use-all-customers';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePrint } from '../../lib/use-print';
 import { 
@@ -19,12 +19,18 @@ import {
   mapHandoverLineItems,
   createStoreSettings,
 } from '../../lib/print/shipment-print-helper';
+import dynamic from 'next/dynamic';
 import type { ShipmentView } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { shipmentConfig } from '../../lib/import-export/configs/shipment.config';
+import { asSystemId } from '../../lib/id-types';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+
+// ✅ Dynamic import for Export dialog - lazy loads XLSX library (~500KB) + config
+const ShipmentExportDialog = dynamic(
+  () => import("./components/shipments-import-export-dialogs").then(mod => ({ default: mod.ShipmentExportDialog })),
+  { ssr: false }
+);
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { Card, CardContent, CardTitle } from '../../components/ui/card';
@@ -40,13 +46,12 @@ import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../c
 import { toast } from 'sonner';
 import Fuse from 'fuse.js';
 import { useAuth } from '../../contexts/auth-context';
-import { asSystemId } from '../../lib/id-types';
 
 export function ShipmentsPage() {
     const { data: shipmentsData } = useShipmentStore();
-    const { data: allOrders } = useOrderStore();
-    const { data: allCustomers } = useCustomerStore();
-    const { data: branches } = useBranchStore();
+    const { data: allOrders } = useAllOrders();
+    const { data: allCustomers } = useAllCustomers();
+    const { data: branches } = useAllBranches();
     const { info: storeInfo } = useStoreInfoStore();
     const { employee: currentUser } = useAuth();
     const router = useRouter();
@@ -241,7 +246,11 @@ export function ShipmentsPage() {
     
     const columns = React.useMemo(() => getColumns(handlePrintSingleDelivery, handlePrintSingleHandover, router), [handlePrintSingleDelivery, handlePrintSingleHandover, router]);
 
+    const columnDefaultsInitialized = React.useRef(false);
     React.useEffect(() => {
+        if (columnDefaultsInitialized.current) return;
+        if (columns.length === 0) return;
+        
         const defaultVisibleColumns = [
             'select', 'trackingCode', 'packagingDate', 'recipientName', 'recipientPhone',
             'shippingPartner', 'deliveryStatus', 'shippingFeeToPartner', 'codAmount',
@@ -255,6 +264,7 @@ export function ShipmentsPage() {
         });
         setColumnVisibility(initialVisibility);
         setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+        columnDefaultsInitialized.current = true;
     }, [columns]);
     
     const fuseInstance = React.useMemo(() => new Fuse(shipments, { 
@@ -521,10 +531,9 @@ export function ShipmentsPage() {
             />
 
             {/* Export Dialog */}
-            <GenericExportDialogV2<ShipmentView>
+            <ShipmentExportDialog
                 open={exportDialogOpen}
                 onOpenChange={setExportDialogOpen}
-                config={shipmentConfig}
                 allData={shipments}
                 filteredData={sortedData}
                 currentPageData={paginatedData}

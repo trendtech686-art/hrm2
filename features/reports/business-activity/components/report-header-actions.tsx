@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Download, Copy, HelpCircle, Printer, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+// XLSX is lazy loaded in handleExportExcel to reduce bundle size (~500KB)
 
 interface ExportColumn {
   key: string;
@@ -42,7 +42,7 @@ export function ReportHeaderActions({
     columns.filter(c => c.selected !== false).map(c => c.key)
   );
   
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     try {
       // Filter columns
       const exportColumns = columns.filter(c => selectedColumns.includes(c.key));
@@ -55,6 +55,9 @@ export function ReportHeaderActions({
         });
         return obj;
       });
+      
+      // Lazy load XLSX to reduce bundle size (~500KB)
+      const XLSX = await import('xlsx');
       
       // Create workbook
       const ws = XLSX.utils.json_to_sheet(exportData);

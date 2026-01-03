@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from "react";
 import { useSettingsPageHeader } from "../use-settings-page-header";
 import { useTabActionRegistry } from "../use-tab-action-registry";

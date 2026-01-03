@@ -1,1 +1,11 @@
-{}
+{
+  "[project]/features/packaging/components/packaging-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/packaging/components/packaging-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_2a4a11aa._.js",
+      "static/chunks/node_modules_xlsx_xlsx_mjs_fef98e92._.js",
+      "static/chunks/node_modules_636cd0e1._.js",
+      "static/chunks/features_packaging_components_packaging-import-export-dialogs_tsx_85115512._.js"
+    ]
+  }
+}

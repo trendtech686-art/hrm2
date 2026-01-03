@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/cashbook/reports/page": "app/(authenticated)/cashbook/reports/page.js"
+}

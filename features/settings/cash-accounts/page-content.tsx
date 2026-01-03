@@ -3,7 +3,7 @@ import { Plus, MoreHorizontal } from "lucide-react";
 import { useCashbookStore } from "../../cashbook/store";
 import { useReceiptStore } from "../../receipts/store";
 import { usePaymentStore } from "../../payments/store";
-import { useBranchStore } from "../branches/store";
+import { useAllBranches } from "../branches/hooks/use-all-branches";
 import type { CashAccount } from "../../cashbook/types";
 import { CashAccountForm, type CashAccountFormValues } from "./form";
 import { Button } from "../../../components/ui/button";
@@ -29,7 +29,7 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
   const { accounts: data, add, update, remove, setDefault } = useCashbookStore();
   const { data: receipts } = useReceiptStore();
   const { data: payments } = usePaymentStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   
   // Tính số dư hiện tại cho mỗi tài khoản
   const accountsWithBalance = React.useMemo(() => {

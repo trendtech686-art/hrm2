@@ -11,7 +11,7 @@ import { Package, AlertTriangle } from 'lucide-react';
 import type { Product } from '../types';
 import { useProductStore } from '../store';
 import { usePricingPolicyStore } from '../../settings/pricing/store';
-import { useBranchStore } from '../../settings/branches/store';
+import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { useImageStore } from '../image-store';
 import { FileUploadAPI } from '../../../lib/file-upload-api';
 import { LazyImage } from '../../../components/ui/lazy-image';
@@ -37,7 +37,7 @@ export function ComboProductSearch({
 }: ComboProductSearchProps) {
     const { data: _allProducts, getActive } = useProductStore();
     const { data: pricingPolicies } = usePricingPolicyStore();
-    const { data: branches = [] } = useBranchStore();
+    const { data: branches = [] } = useAllBranches();
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
 
     // Get default selling policy
@@ -139,7 +139,9 @@ export function ComboProductSearch({
                             slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
                             status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: typeof f.metadata === 'string' ? f.metadata : JSON.stringify(f.metadata)
                         });
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         updatePermanentImages(productSystemId, 'thumbnail', (files.filter(f => f.documentName === 'thumbnail') as any[]).map(mapFile));
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         updatePermanentImages(productSystemId, 'gallery', (files.filter(f => f.documentName === 'gallery') as any[]).map(mapFile));
                     })
                     .catch(() => {});

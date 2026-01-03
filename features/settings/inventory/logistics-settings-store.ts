@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import type { StateStorage } from 'zustand/middleware';
 import type { ProductLogisticsSettings, LogisticsPreset } from './types';
 
 interface LogisticsSettingsState {
@@ -36,30 +34,7 @@ const defaultSettings: ProductLogisticsSettings = {
   comboDefaults: createPreset({ weight: 1000, length: 35, width: 25, height: 15 }),
 };
 
-const STORAGE_KEY = 'product-logistics-settings';
-
-const memoryStorage = (() => {
-  const store = new Map<string, string | null>();
-  return {
-    getItem: (name: string) => store.get(name) ?? null,
-    setItem: (name: string, value: string) => {
-      store.set(name, value);
-    },
-    removeItem: (name: string) => {
-      store.delete(name);
-    },
-  } satisfies StateStorage;
-})();
-
-const getStorage = (): StateStorage => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage;
-  }
-  return memoryStorage;
-};
-
 export const useProductLogisticsSettingsStore = create<LogisticsSettingsState>()(
-  persist(
     (set) => ({
       settings: cloneSettings(defaultSettings),
       update: (updates) =>
@@ -77,10 +52,5 @@ export const useProductLogisticsSettingsStore = create<LogisticsSettingsState>()
         })),
       save: (nextSettings) => set({ settings: cloneSettings(nextSettings) }),
       reset: () => set({ settings: cloneSettings(defaultSettings) }),
-    }),
-    {
-      name: STORAGE_KEY,
-      storage: createJSONStorage(getStorage),
-    }
-  )
+    })
 );

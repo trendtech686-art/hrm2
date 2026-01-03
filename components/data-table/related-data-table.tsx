@@ -1,6 +1,6 @@
 import * as React from 'react';
 import Fuse from 'fuse.js';
-import * as XLSX from 'xlsx';
+// XLSX is lazy loaded in handleExportExcel to reduce bundle size (~500KB)
 import { Printer, FileSpreadsheet } from 'lucide-react';
 import { ResponsiveDataTable, type BulkAction } from './responsive-data-table';
 import { DataTableToolbar } from './data-table-toolbar';
@@ -216,7 +216,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
       c.id !== 'select' && c.id !== 'actions' && c.id !== 'expander' && c.id !== 'settings'
     );
 
-    const handleExportExcel = (rows: TData[]) => {
+    const handleExportExcel = async (rows: TData[]) => {
       const headers = exportableColumns.map(col => col.meta?.displayName ?? col.id);
       const mappedData = rows.map(row => {
         const rowData: Record<string, unknown> = {};
@@ -226,6 +226,10 @@ export function RelatedDataTable<TData extends { systemId: string }>({
         });
         return rowData;
       });
+      
+      // Lazy load XLSX to reduce bundle size (~500KB)
+      const XLSX = await import('xlsx');
+      
       const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Data');

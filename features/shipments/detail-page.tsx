@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useOrderStore } from '../orders/store';
-import { useCustomerStore } from '../customers/store';
-import { useProductStore } from '../products/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
+import { useCustomerFinder } from '../customers/hooks/use-all-customers';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { useShipmentStore } from './store';
 import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
 import type { Product } from '../products/types';
@@ -23,7 +24,7 @@ import {
   mapDeliveryLineItems,
   createStoreSettings,
 } from '../../lib/print/shipment-print-helper';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { numberToWords } from '../../lib/print-service';
 import { DetailField } from '../../components/ui/detail-field';
@@ -34,6 +35,7 @@ import type { OrderDeliveryStatus } from '../orders/types';
 import { useAuth } from '../../contexts/auth-context';
 import { ROUTES, generatePath } from '../../lib/router';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
+import { useComments } from '../../hooks/use-comments';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0 ?';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -91,56 +93,53 @@ const StatusTimeline = ({ deliveryStatus }: { deliveryStatus?: OrderDeliveryStat
 export function ShipmentDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
     const router = useRouter();
-    const { data: allOrders, dispatchFromWarehouse } = useOrderStore();
+    const { data: allOrders } = useAllOrders();
+    const { dispatchFromWarehouse, isDispatching } = usePackagingActions();
     const { findById: findShipmentById } = useShipmentStore();
-    const { findById: findCustomerById } = useCustomerStore();
-    const { findById: _findProductById } = useProductStore();
+    const { findById: findCustomerById } = useCustomerFinder();
+    const { findById: _findProductById } = useProductFinder();
     const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
     const { employee: authEmployee } = useAuth();
-    const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
+    const _currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
 
-    // Comments state with localStorage persistence
+    // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
+    const { 
+      comments: dbComments, 
+      addComment: dbAddComment, 
+      deleteComment: dbDeleteComment 
+    } = useComments('shipment', systemId || '');
+    
     type ShipmentComment = CommentType<SystemId>;
-    const [comments, setComments] = React.useState<ShipmentComment[]>(() => {
-        const saved = localStorage.getItem(`shipment-comments-${systemId}`);
-        return saved ? JSON.parse(saved) : [];
-    });
+    const comments = React.useMemo<ShipmentComment[]>(() => 
+      dbComments.map(c => ({
+        id: asSystemId(c.systemId),
+        content: c.content,
+        author: {
+          systemId: asSystemId(c.createdBy || 'system'),
+          name: c.createdByName || 'Hệ thống',
+        },
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        attachments: c.attachments,
+      })), 
+      [dbComments]
+    );
 
-    React.useEffect(() => {
-        if (systemId) {
-            localStorage.setItem(`shipment-comments-${systemId}`, JSON.stringify(comments));
-        }
-    }, [comments, systemId]);
+    const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+        dbAddComment(content, attachments || []);
+    }, [dbAddComment]);
 
-    const handleAddComment = React.useCallback((content: string, attachments?: string[], parentId?: string) => {
-        const newComment: ShipmentComment = {
-            id: asSystemId(`comment-${Date.now()}`),
-            content,
-            author: {
-                systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-                name: authEmployee?.fullName || 'Hệ thống',
-                avatar: authEmployee?.avatar,
-            },
-            createdAt: new Date().toISOString(),
-            attachments,
-            parentId: parentId as SystemId | undefined,
-        };
-        setComments(prev => [...prev, newComment]);
-    }, [authEmployee]);
-
-    const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-        setComments(prev => prev.map(c => 
-            c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-        ));
+    const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {
-        setComments(prev => prev.filter(c => c.id !== commentId));
-    }, []);
+        dbDeleteComment(commentId);
+    }, [dbDeleteComment]);
 
     const commentCurrentUser = React.useMemo(() => ({
         systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'H? th?ng',
+        name: authEmployee?.fullName || 'Hệ thống',
         avatar: authEmployee?.avatar,
     }), [authEmployee]);
 
@@ -166,13 +165,13 @@ export function ShipmentDetailPage() {
         return findCustomerById(order.customerSystemId);
     }, [order, findCustomerById]);
     
-    const handleDispatchAll = React.useCallback(() => {
+    const handleDispatchAll = React.useCallback(async () => {
         if (order && packaging) {
-            dispatchFromWarehouse(order.systemId, packaging.systemId, currentUserSystemId);
+            await dispatchFromWarehouse(order.systemId, packaging.systemId);
         }
-    }, [order, packaging, dispatchFromWarehouse, currentUserSystemId]);
+    }, [order, packaging, dispatchFromWarehouse]);
 
-    const { findById: findBranchById } = useBranchStore();
+    const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoStore();
     const { print } = usePrint(order?.branchSystemId);
 
@@ -209,10 +208,11 @@ export function ShipmentDetailPage() {
                     key="dispatch"
                     size="sm"
                     className="h-9 gap-2"
+                    disabled={isDispatching}
                     onClick={handleDispatchAll}
                 >
                     <PackagePlus className="h-4 w-4" />
-                    Xu?t kho
+                    {isDispatching ? 'Đang xử lý...' : 'Xuất kho'}
                 </Button>
             );
         }
@@ -226,7 +226,7 @@ export function ShipmentDetailPage() {
                 onClick={handlePrint}
             >
                 <Printer className="h-4 w-4" />
-                In phi?u
+                In phiếu
             </Button>
         );
 
@@ -240,7 +240,7 @@ export function ShipmentDetailPage() {
                     onClick={() => router.push(generatePath(ROUTES.SALES.ORDER_VIEW, { systemId: order.systemId }))}
                 >
                     <Package className="h-4 w-4" />
-                    Xem don h�ng
+                    Xem đơn hàng
                 </Button>
             );
         }
@@ -251,10 +251,10 @@ export function ShipmentDetailPage() {
                 variant="ghost"
                 size="sm"
                 className="h-9 gap-2"
-                onClick={() => alert('Ch?c nang dang ph�t tri?n')}
+                onClick={() => alert('Chức năng đang phát triển')}
             >
                 <LifeBuoy className="h-4 w-4" />
-                Tr? gi�p
+                Trợ giúp
             </Button>
         );
 
@@ -267,11 +267,12 @@ export function ShipmentDetailPage() {
                 onClick={() => router.push(ROUTES.INTERNAL.SHIPMENTS)}
             >
                 <ArrowLeft className="h-4 w-4" />
-                V? danh s�ch
+                Về danh sách
             </Button>
         );
 
         return actions;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [packaging, order, handleDispatchAll, router, handlePrint]);
 
     const detailBreadcrumb = React.useMemo(() => {

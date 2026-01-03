@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { usePrint } from '../../../lib/use-print';
 import { useStoreInfoStore } from '../../settings/store-info/store-info-store';
 import { usePayrollBatchStore } from '../payroll-batch-store';
-import { useEmployeeStore } from '../../employees/store';
+import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import { useDepartmentStore } from '../../settings/departments/store';
 import {
   convertPayrollBatchForPrint,
@@ -71,7 +71,7 @@ export function PayslipPrintButton({
   const payslip = payslipData || storePayslip;
   const batch = batchData || storeBatch;
   
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { data: departments } = useDepartmentStore();
   const { info: storeInfo } = useStoreInfoStore();
   
@@ -182,7 +182,7 @@ export function BatchPrintButton({
   const payslips = usePayrollBatchStore((state) =>
     batch ? state.payslips.filter((p) => p.batchSystemId === batch.systemId) : []
   );
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { data: departments } = useDepartmentStore();
   const { info: storeInfo } = useStoreInfoStore();
   

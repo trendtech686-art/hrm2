@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
+import { subscribeWithSelector } from 'zustand/middleware';
 import type { Receipt } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
 import { 
@@ -190,7 +190,6 @@ const ensureReceiptBusinessId = (receipts: Receipt[], provided?: BusinessId | st
 
 export const useReceiptStore = create<ReceiptStore>()(
   subscribeWithSelector(
-    persist(
       (set, get) => ({
       data: initialReceipts,
       businessIdCounter,
@@ -296,27 +295,6 @@ export const useReceiptStore = create<ReceiptStore>()(
           });
         }
       },
-    }),
-    {
-      name: 'receipt-storage',
-      storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
-        if (state?.data) {
-          const normalized = backfillReceiptMetadata(state.data.map(receipt => ({
-            ...receipt,
-            status: normalizeReceiptStatus(receipt.status),
-          })));
-          
-          const nextSystemCounter = getMaxSystemIdCounter(normalized, SYSTEM_ID_PREFIX);
-          const nextBusinessCounter = getMaxBusinessIdCounter(normalized, BUSINESS_ID_PREFIX);
-          systemIdCounter = nextSystemCounter;
-          businessIdCounter = nextBusinessCounter;
-
-          state.data = normalized;
-          state.systemIdCounter = systemIdCounter;
-          state.businessIdCounter = businessIdCounter;
-        }
-      },
-    }
-  ))
+    })
+  )
 );

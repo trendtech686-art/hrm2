@@ -1,0 +1,3 @@
+{
+  "/api/shipping/ghtk/track/[trackingCode]/route": "app/api/shipping/ghtk/track/[trackingCode]/route.js"
+}

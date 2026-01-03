@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useCostAdjustmentStore } from './store';
 import { useProductStore } from '../products/store';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
-import { useEmployeeStore } from '../employees/store';
-import { useBranchStore } from '../settings/branches/store';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -38,7 +38,8 @@ import { Label } from '../../components/ui/label';
 import { CheckCircle, XCircle, Printer, Package, TrendingUp, TrendingDown, Eye, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/date-utils';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import type { CostAdjustmentStatus, CostAdjustment } from '@/lib/types/prisma-extended';
 import { usePrint } from '../../lib/use-print';
 import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
@@ -125,11 +126,12 @@ export function CostAdjustmentDetailPage() {
   const router = useRouter();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findProductById } = useProductStore();
   const { findById: findProductTypeById } = useProductTypeStore();
   const { getById, confirm, cancel } = useCostAdjustmentStore();
-  const { findById: findBranchById, data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   
   const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
@@ -174,41 +176,38 @@ export function CostAdjustmentDetailPage() {
     return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
 
-  // Comments state with localStorage persistence
-  type AdjustmentComment = CommentType<string>;
-  const [comments, setComments] = React.useState<AdjustmentComment[]>(() => {
-    const saved = localStorage.getItem(`cost-adjustment-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('cost_adjustment', systemId || '');
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`cost-adjustment-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = (content: string, _attachments?: string[], parentId?: string) => {
-    const newComment: AdjustmentComment = {
-      id: `comment-${Date.now()}`,
-      content,
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId,
+      content: c.content,
       author: {
-        systemId: currentEmployee?.systemId || 'system',
-        name: currentEmployee?.fullName || 'Hệ thống',
+        systemId: c.createdBy || 'system',
+        name: c.createdByName || 'Hệ thống',
       },
-      createdAt: new Date(),
-      parentId: parentId || undefined,
-    };
-    setComments(prev => [...prev, newComment]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
+
+  const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
   };
 
-  const handleUpdateComment = (commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
-    ));
+  const handleUpdateComment = (_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
+    dbDeleteComment(commentId);
   };
 
   const commentCurrentUser = React.useMemo(() => ({

@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/inventory-checks/[systemId]/edit/page": "app/(authenticated)/inventory-checks/[systemId]/edit/page.js"
+}

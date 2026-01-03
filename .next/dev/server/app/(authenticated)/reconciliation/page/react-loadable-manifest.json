@@ -1,1 +1,11 @@
-{}
+{
+  "[project]/features/reconciliation/components/reconciliation-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/features/reconciliation/components/reconciliation-import-export-dialogs.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_f49a751c._.js",
+      "static/chunks/node_modules_xlsx_xlsx_mjs_fef98e92._.js",
+      "static/chunks/node_modules_636cd0e1._.js",
+      "static/chunks/fa5c6_reconciliation_components_reconciliation-import-export-dialogs_tsx_cd2709ee._.js"
+    ]
+  }
+}

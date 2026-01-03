@@ -44,6 +44,7 @@ const fuseOptions: IFuseOptions<Product> = {
 // Cached Fuse index for better performance
 // ========================================
 let cachedFuseIndex: Fuse<Product> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let cachedProductsLength = 0;
 let cachedProductsHash = '';
 

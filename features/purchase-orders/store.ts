@@ -18,7 +18,7 @@ import { useProductStore } from '../products/store';
 import { asSystemId, type SystemId, type BusinessId } from '@/lib/id-types';
 
 // Type alias for store-compatible PurchaseOrder (with branded IDs)
-type PurchaseOrderReference = Omit<PurchaseOrder, 'systemId' | 'id'> & {
+type _PurchaseOrderReference = Omit<PurchaseOrder, 'systemId' | 'id'> & {
   systemId: SystemId;
   id: BusinessId;
 };
@@ -472,7 +472,6 @@ export interface PurchaseOrderStoreState {
 }
 
 // Export typed hook
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const usePurchaseOrderStore = (): PurchaseOrderStoreState => {
   const state = baseStore();
   return {

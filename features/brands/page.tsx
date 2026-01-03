@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, FileUp, Download, ExternalLink, Unlink } from "lucide-react";
 import { asSystemId, asBusinessId, type SystemId as _SystemId } from "@/lib/id-types";
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useBrandStore } from "../settings/inventory/brand-store";
 import type { Brand } from "../settings/inventory/types";
@@ -24,13 +25,21 @@ import { MobileBrandCard } from "./card";
 import { usePkgxBrandSync } from "./hooks/use-pkgx-brand-sync";
 import { usePkgxSettingsStore } from "../settings/pkgx/store";
 import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync";
+import dynamic from 'next/dynamic';
 import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog";
 import { PkgxBrandLinkDialog } from "./components/pkgx-link-dialog";
 import { PkgxBrandDetailDialog } from "./components/pkgx-brand-detail-dialog";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { brandImportExportConfig } from "@/lib/import-export/configs/brand.config";
 import { useAuth } from "@/contexts/auth-context";
+
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
+const BrandImportDialog = dynamic(
+  () => import("./components/brands-import-export-dialogs").then(mod => ({ default: mod.BrandImportDialog })),
+  { ssr: false }
+);
+const BrandExportDialog = dynamic(
+  () => import("./components/brands-import-export-dialogs").then(mod => ({ default: mod.BrandExportDialog })),
+  { ssr: false }
+);
 
 export function BrandsPage() {
   const router = useRouter();
@@ -61,18 +70,13 @@ export function BrandsPage() {
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    const storageKey = 'brands-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      try { return JSON.parse(stored); } catch (_e) { /* Ignore JSON parse errors */ }
-    }
-    return {};
-  });
-
-  React.useEffect(() => {
-    localStorage.setItem('brands-column-visibility', JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
+  const defaultColumnVisibility = React.useMemo(() => {
+    const cols = getColumns(() => {}, () => {}, () => {});
+    const initial: Record<string, boolean> = {};
+    cols.forEach(c => { if (c.id) initial[c.id] = true; });
+    return initial;
+  }, []);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('brands', defaultColumnVisibility);
 
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'logo', 'name']);
@@ -370,10 +374,8 @@ export function BrandsPage() {
 
   // Set default column visibility - only on mount
   React.useEffect(() => {
-    // Skip if already has stored visibility
-    const storageKey = 'brands-column-visibility';
-    const stored = localStorage.getItem(storageKey);
-    if (stored) return;
+    // Skip if visibility is already set
+    if (Object.keys(columnVisibility).length > 0) return;
     
     const defaultVisibleColumns = ['logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt'];
     const columnIds = ['select', 'logo', 'name', 'id', 'productCount', 'website', 'seoPkgx', 'seoTrendtech', 'pkgxStatus', 'pkgx', 'isActive', 'createdAt', 'updatedAt', 'actions'];
@@ -387,7 +389,8 @@ export function BrandsPage() {
     });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columnIds);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnVisibility]);
 
   const fuse = React.useMemo(() => new Fuse(activeBrands, {
     keys: ["id", "name", "description", "website"],
@@ -691,10 +694,9 @@ export function BrandsPage() {
       />
 
       {/* Import Dialog V2 */}
-      <GenericImportDialogV2<Brand>
+      <BrandImportDialog
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
-        config={brandImportExportConfig}
         existingData={activeBrands}
         onImport={handleImport}
         currentUser={authEmployee ? {
@@ -704,10 +706,9 @@ export function BrandsPage() {
       />
 
       {/* Export Dialog V2 */}
-      <GenericExportDialogV2<Brand>
+      <BrandExportDialog
         open={isExportOpen}
         onOpenChange={setIsExportOpen}
-        config={brandImportExportConfig}
         allData={activeBrands}
         filteredData={sortedData}
         currentPageData={paginatedData}

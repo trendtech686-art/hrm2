@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { formatDate } from '../../lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useSalesReturnStore } from './store';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePrint } from '../../lib/use-print';
 import { 
@@ -14,11 +14,16 @@ import {
   mapSalesReturnLineItems,
   createStoreSettingsFromBranch,
 } from '../../lib/print/sales-return-print-helper';
+import dynamic from 'next/dynamic';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
-import { GenericExportDialogV2 } from '../../components/shared/generic-export-dialog-v2';
-import { salesReturnConfig } from '../../lib/import-export/configs/sales-return.config';
 import { asSystemId } from '../../lib/id-types';
+
+// ✅ Dynamic import for Export dialog - lazy loads XLSX library (~500KB) + config
+const SalesReturnExportDialog = dynamic(
+  () => import("./components/sales-returns-import-export-dialogs").then(mod => ({ default: mod.SalesReturnExportDialog })),
+  { ssr: false }
+);
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
 import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
 import { PageToolbar } from '../../components/layout/page-toolbar';
@@ -38,6 +43,7 @@ import { toast } from 'sonner';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
 import Fuse from 'fuse.js';
 import { ROUTES } from '../../lib/router';
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '0';
@@ -47,7 +53,7 @@ const formatCurrency = (value?: number) => {
 export function SalesReturnsPage() {
     const router = useRouter();
     const { data: returns, getActive } = useSalesReturnStore();
-    const { data: branches } = useBranchStore();
+    const { data: branches } = useAllBranches();
     const { info: storeInfo } = useStoreInfoStore();
     const { employee: currentUser } = useAuth();
     
@@ -97,40 +103,15 @@ export function SalesReturnsPage() {
     const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
     const [branchFilter, setBranchFilter] = React.useState('all');
     const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-        // Try to load from localStorage first
-        const storageKey = 'sales-returns-column-visibility';
-        const stored = localStorage.getItem(storageKey);
-        
+    
+    // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+    const defaultColumnVisibility = React.useMemo(() => {
         const cols = getColumns(() => {});
-        const allColumnIds = cols.map(c => c.id).filter(Boolean);
-        
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                // Validate: ensure all current columns exist in stored config
-                const hasAllColumns = allColumnIds.every(id => id in parsed);
-                if (hasAllColumns) {
-                    return parsed;
-                }
-                // If columns changed, reset
-                console.log('⚠️ Column structure changed, resetting visibility');
-            } catch (_e) {
-                console.warn('Failed to parse stored columnVisibility');
-            }
-        }
-        
-        // Fallback: initialize with all columns visible
         const initial: Record<string, boolean> = {};
         cols.forEach(c => { if (c.id) initial[c.id] = true; });
         return initial;
-    });
-    
-    // Save columnVisibility to localStorage whenever it changes
-    React.useEffect(() => {
-        const storageKey = 'sales-returns-column-visibility';
-        localStorage.setItem(storageKey, JSON.stringify(columnVisibility));
-    }, [columnVisibility]);
+    }, []);
+    const [columnVisibility, setColumnVisibility] = useColumnVisibility('sales-returns', defaultColumnVisibility);
     
     const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
     const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['id']);
@@ -422,10 +403,9 @@ export function SalesReturnsPage() {
             />
 
             {/* Export Dialog */}
-            <GenericExportDialogV2<SalesReturn>
+            <SalesReturnExportDialog
                 open={exportDialogOpen}
                 onOpenChange={setExportDialogOpen}
-                config={salesReturnConfig}
                 allData={activeReturns}
                 filteredData={sortedData}
                 currentPageData={paginatedData}

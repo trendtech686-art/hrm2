@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   PayrollBatch,
   PayrollBatchStatus,
@@ -132,7 +131,6 @@ const buildDualIds = (
 };
 
 export const usePayrollBatchStore = create<PayrollBatchStoreState>()(
-  persist(
     (set, get) => ({
       batches: [],
       payslips: [],
@@ -533,33 +531,7 @@ export const usePayrollBatchStore = create<PayrollBatchStoreState>()(
         }
         return createdLog;
       },
-    }),
-    {
-      name: 'hrm-payroll-batch-storage',
-      storage: createJSONStorage(() => localStorage),
-      version: 1,
-      migrate: (persistedState) => {
-        if (!persistedState) {
-          return {
-            batches: [],
-            payslips: [],
-            auditLogs: [],
-            counters: initialCounters,
-          } satisfies Partial<PayrollBatchStoreState>;
-        }
-        const state = persistedState as Partial<PayrollBatchStoreState>;
-        return {
-          batches: state.batches ?? [],
-          payslips: state.payslips ?? [],
-          auditLogs: state.auditLogs ?? [],
-          counters: {
-            ...initialCounters,
-            ...(state.counters ?? {}),
-          },
-        } satisfies Partial<PayrollBatchStoreState>;
-      },
-    }
-  )
+    })
 );
 
 const createAuditLogEntry = (input: LogActionInput) => (state: PayrollBatchStoreState) => {

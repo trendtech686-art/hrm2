@@ -142,7 +142,13 @@ export const createDepartmentColumn = (): ColumnDef<Employee> => ({
   id: "department",
   accessorKey: "department",
   header: "Phòng ban",
-  cell: ({ row }) => row.department || '-',
+  cell: ({ row }) => {
+    const dept = row.department;
+    if (typeof dept === 'object' && dept !== null) {
+      return (dept as { name?: string }).name || '-';
+    }
+    return dept || '-';
+  },
   meta: {
     displayName: "Phòng ban",
     group: "Thông tin công việc"
@@ -156,7 +162,13 @@ export const createJobTitleColumn = (): ColumnDef<Employee> => ({
   id: "jobTitle",
   accessorKey: "jobTitle",
   header: "Chức danh",
-  cell: ({ row }) => row.jobTitle || '-',
+  cell: ({ row }) => {
+    const jt = row.jobTitle;
+    if (typeof jt === 'object' && jt !== null) {
+      return (jt as { name?: string }).name || '-';
+    }
+    return jt || '-';
+  },
   meta: {
     displayName: "Chức danh",
     group: "Thông tin công việc"

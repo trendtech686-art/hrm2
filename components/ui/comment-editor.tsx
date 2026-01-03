@@ -96,6 +96,7 @@ export function CommentEditor({
   );
 
   const editor = useEditor({
+    immediatelyRender: false, // Prevent SSR hydration mismatch
     extensions: [
       StarterKit,
       Image.configure({

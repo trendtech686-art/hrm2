@@ -1,15 +1,16 @@
 ﻿'use client'
 
 import * as React from "react";
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { usePaymentStore } from "./store";
 import { useReceiptStore } from "../receipts/store";
 import { useCashbookStore } from "../cashbook/store";
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { usePaymentTypeStore } from "../settings/payments/types/store";
-import { useCustomerStore } from "../customers/store";
+import { useAllCustomers } from "../customers/hooks/use-all-customers";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
-import { useEmployeeStore } from "../employees/store";
+import { useAllEmployees } from "../employees/hooks/use-all-employees";
 import type { Payment } from '@/lib/types/prisma-extended';
 import type { Receipt } from "../receipts/types";
 import { usePageHeader } from "../../contexts/page-header-context";
@@ -17,10 +18,17 @@ import { ResponsiveDataTable, type BulkAction } from "../../components/data-tabl
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Minus, ReceiptText, Printer, FileSpreadsheet, Download } from "lucide-react";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { paymentImportExportConfig } from "../../lib/import-export/configs/payment.config";
 import { useAuth } from "../../contexts/auth-context";
+
+// Dynamic imports for import/export dialogs to reduce initial bundle size
+const PaymentImportDialog = dynamic(
+    () => import('./components/payment-import-export-dialogs').then(mod => ({ default: mod.PaymentImportDialog })),
+    { ssr: false }
+);
+const PaymentExportDialog = dynamic(
+    () => import('./components/payment-import-export-dialogs').then(mod => ({ default: mod.PaymentExportDialog })),
+    { ssr: false }
+);
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
@@ -43,6 +51,7 @@ import {
   createStoreSettings,
 } from "../../lib/print/payment-print-helper";
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
+import { useColumnVisibility } from "../../hooks/use-column-visibility";
 
 export function PaymentsPage() {
     const router = useRouter();
@@ -51,11 +60,11 @@ export function PaymentsPage() {
     const { data: payments, remove: _remove } = usePaymentStore();
     const { data: receipts } = useReceiptStore();
     const { accounts } = useCashbookStore();
-    const { data: branches } = useBranchStore();
+    const { data: branches } = useAllBranches();
     const { data: paymentTypes } = usePaymentTypeStore();
-    const { data: customers } = useCustomerStore();
+    const { data: customers } = useAllCustomers();
     const { info: storeInfo } = useStoreInfoStore();
-    const { data: employees } = useEmployeeStore();
+    const { data: employees } = useAllEmployees();
     const { print, printMultiple } = usePrint();
     const { employee } = useAuth();
 
@@ -105,22 +114,8 @@ export function PaymentsPage() {
     const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
     const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-        const storageKey = 'payments-column-visibility';
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-            try {
-                return JSON.parse(stored);
-            } catch (_e) {
-                // Ignore JSON parse errors - use default
-            }
-        }
-        return {};
-    });
-    
-    React.useEffect(() => {
-        localStorage.setItem('payments-column-visibility', JSON.stringify(columnVisibility));
-    }, [columnVisibility]);
+    // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+    const [columnVisibility, setColumnVisibility] = useColumnVisibility('payments', {});
     
     const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
     const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
@@ -170,7 +165,11 @@ export function PaymentsPage() {
     const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push, handleSinglePrint, employees), [accounts, handleCancel, router.push, handleSinglePrint, employees]);
     
     // ✅ Set default column visibility - Run ONCE on mount
+    const columnDefaultsInitialized = React.useRef(false);
     React.useEffect(() => {
+      if (columnDefaultsInitialized.current) return;
+      if (columns.length === 0) return;
+      
       const defaultVisibleColumns = [
         'id', 'date', 'amount', 'recipientName', 'recipientTypeName', 'paymentMethodName', 
         'accountSystemId', 'paymentReceiptTypeName', 'status', 'branchName', 
@@ -186,7 +185,9 @@ export function PaymentsPage() {
       });
       setColumnVisibility(initialVisibility);
       setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    }, [columns]); // ✅ Depends on columns
+      columnDefaultsInitialized.current = true;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [columns]);
     
     const fuse = React.useMemo(() => new Fuse(payments, { 
         keys: ["id", "description", "recipientName", "originalDocumentId", "createdBy"],
@@ -751,10 +752,9 @@ export function PaymentsPage() {
             />
 
             {/* Import Dialog */}
-            <GenericImportDialogV2<Payment>
+            <PaymentImportDialog
                 open={showImportDialog}
                 onOpenChange={setShowImportDialog}
-                config={paymentImportExportConfig}
                 branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
                 existingData={payments}
                 onImport={handleImport}
@@ -765,10 +765,9 @@ export function PaymentsPage() {
             />
 
             {/* Export Dialog */}
-            <GenericExportDialogV2<Payment>
+            <PaymentExportDialog
                 open={showExportDialog}
                 onOpenChange={setShowExportDialog}
-                config={paymentImportExportConfig}
                 allData={payments}
                 filteredData={sortedData}
                 currentPageData={paginatedData}

@@ -7,7 +7,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { QUICK_FILTERS } from '../types-filter';
+import { createQuickFilters, type QuickFilter } from '../types-filter';
 import {
   User,
   AlertCircle,
@@ -23,6 +23,8 @@ interface QuickFiltersProps {
   activeFilters: string[];
   onToggleFilter: (filterId: string) => void;
   taskCounts?: Record<string, number>;
+  /** Quick filters to display. If not provided, will use default filters (without user context) */
+  filters?: QuickFilter[];
 }
 
 // Icon mapping
@@ -37,14 +39,18 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   UserPlus,
 };
 
+// Default filters without user context (for backward compatibility)
+const DEFAULT_FILTERS = createQuickFilters();
+
 export function QuickFilters({
   activeFilters,
   onToggleFilter,
   taskCounts = {},
+  filters = DEFAULT_FILTERS,
 }: QuickFiltersProps) {
   return (
     <div className="flex flex-wrap gap-2">
-      {QUICK_FILTERS.map(filter => {
+      {filters.map(filter => {
         const isActive = activeFilters.includes(filter.id);
         const Icon = ICON_MAP[filter.icon];
         const count = taskCounts[filter.id] || 0;
@@ -84,10 +90,11 @@ export function QuickFiltersCompact({
   activeFilters,
   onToggleFilter,
   taskCounts = {},
+  filters = DEFAULT_FILTERS,
 }: QuickFiltersProps) {
   return (
     <div className="flex gap-1 overflow-x-auto pb-2 hide-scrollbar">
-      {QUICK_FILTERS.map(filter => {
+      {filters.map(filter => {
         const isActive = activeFilters.includes(filter.id);
         const Icon = ICON_MAP[filter.icon];
         const count = taskCounts[filter.id] || 0;

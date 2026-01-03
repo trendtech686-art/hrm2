@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useInventoryCheckStore } from './store';
-import { useBranchStore } from '../settings/branches/store';
-import { useProductStore } from '../products/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
+import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -43,8 +43,9 @@ export function InventoryCheckFormPage() {
   const isEditMode = !!systemId;
   
   const { add, update, findById, balanceCheck } = useInventoryCheckStore();
-  const { data: branches } = useBranchStore();
-  const { data: allProducts, findById: findProductById } = useProductStore();
+  const { data: branches } = useAllBranches();
+  const { data: allProducts } = useAllProducts();
+  const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeStore();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';

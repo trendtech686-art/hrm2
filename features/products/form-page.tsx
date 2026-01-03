@@ -12,7 +12,7 @@ import {
 import { Button } from '../../components/ui/button';
 import type { Product } from '@/lib/types/prisma-extended';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useStockHistoryStore } from '../stock-history/store';
 import { useAuth } from '../../contexts/auth-context';
 import { toast } from 'sonner';
@@ -27,7 +27,7 @@ export function ProductFormPage() {
   const [searchParams] = useSearchParamsWithSetter();
   const router = useRouter();
   const { findById, add, update, data: allProducts } = useProductStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const imageStore = useImageStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
   const { employee: authEmployee } = useAuth();

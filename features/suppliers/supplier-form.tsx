@@ -3,7 +3,7 @@ import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import type { Supplier } from '@/lib/types/prisma-extended'
-import { useEmployeeStore } from "../employees/store"
+import { useAllEmployees } from "../employees/hooks/use-all-employees"
 import { useSupplierStore } from "./store";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import {
@@ -53,7 +53,7 @@ type SupplierFormProps = {
 }
 
 export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel }: SupplierFormProps) {
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { data: _suppliers } = useSupplierStore();
   
   const form = useForm<SupplierFormData>({

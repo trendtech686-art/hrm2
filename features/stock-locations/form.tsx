@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import type { StockLocation } from '@/lib/types/prisma-extended';
-import { useBranchStore } from "../settings/branches/store";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
@@ -16,7 +16,7 @@ type FormProps = {
 };
 
 export function StockLocationForm({ initialData, onSubmit }: FormProps) {
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const form = useForm<StockLocationFormValues>({
     defaultValues: initialData || {
       id: '', // Let store generate LOC ID

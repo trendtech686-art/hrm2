@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { LogEntry } from '@/lib/types/prisma-extended';
 import { parseDate, getCurrentDate, subtractDays, getDaysDiff } from '@/lib/date-utils';
 type AuditLogState = {
@@ -49,7 +48,6 @@ const initialLogs: LogEntry[] = [
 ];
 
 export const useAuditLogStore = create<AuditLogState>()(
-  persist(
     (set, get) => ({
       logs: initialLogs,
       addLog: (log) =>
@@ -66,10 +64,5 @@ export const useAuditLogStore = create<AuditLogState>()(
         })),
       getLogsForEntity: (entityId: string) =>
         get().logs.filter((log) => log.entityId === entityId).sort((a, b) => getDaysDiff(parseDate(b.timestamp), parseDate(a.timestamp))),
-    }),
-    {
-      name: 'hrm-audit-log-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
+    })
 );

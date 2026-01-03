@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
 import { asBusinessId } from '@/lib/id-types';
 import type { Branch } from '@/lib/types/prisma-extended';
-import { useBranchStore } from './store';
-import { useEmployeeStore } from '../../employees/store';
+import { useAllBranches } from './hooks/use-all-branches';
+import { useAllEmployees, useEmployeeSearcher } from '../../employees/hooks/use-all-employees';
 import { useProvinceStore } from '../provinces/store';
 import { Button } from '../../../components/ui/button';
 import {
@@ -37,8 +37,9 @@ interface BranchFormProps {
 }
 
 export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps) {
-  const { data: _branches } = useBranchStore();
-  const { searchEmployees, data: allEmployees } = useEmployeeStore();
+  const { data: _branches } = useAllBranches();
+  const { searchEmployees } = useEmployeeSearcher();
+  const { data: allEmployees } = useAllEmployees();
   const { 
     data: provinces, 
     getDistricts3LevelByProvinceId,

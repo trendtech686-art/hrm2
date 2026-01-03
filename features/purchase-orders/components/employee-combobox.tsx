@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useEmployeeStore } from "../../employees/store";
+import { useActiveEmployees } from "../../employees/hooks/use-all-employees";
 import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 
@@ -16,11 +16,7 @@ export function EmployeeCombobox({
   placeholder = "Chọn nhân viên...",
   className: _className,
 }: EmployeeComboboxProps) {
-  const { data: employees, getActive } = useEmployeeStore();
-
-  // Only show active employees
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- employees triggers re-render when store changes
-  const activeEmployees = React.useMemo(() => getActive(), [employees, getActive]);
+  const { data: activeEmployees } = useActiveEmployees();
 
   // Find selected employee
   const selectedEmployee = React.useMemo(

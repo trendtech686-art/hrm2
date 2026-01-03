@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { useWikiStore } from './store';
-import { useEmployeeStore } from '../employees/store';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { asSystemId } from '../../lib/id-types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent } from '../../components/ui/card';
@@ -27,7 +27,7 @@ export function WikiFormPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { findById, add, update, data: articles } = useWikiStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   
   const article = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const isEdit = Boolean(article);

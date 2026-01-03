@@ -13,8 +13,8 @@ import { ArrowLeft, Edit, Printer } from 'lucide-react';
 import { formatDateCustom } from '@/lib/date-utils';
 import { asSystemId } from '@/lib/id-types';
 import { ActivityHistory } from '../../components/ActivityHistory';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { useEmployeeStore } from '../employees/store';
+import { Comments, type Comment } from '../../components/Comments';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { usePrint } from '../../lib/use-print';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { 
@@ -22,6 +22,7 @@ import {
   mapReceiptToPrintData, 
   createStoreSettings 
 } from '../../lib/print/receipt-print-helper';
+import { useComments } from '../../hooks/use-comments';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
@@ -42,7 +43,7 @@ export function ReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById } = useReceiptStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { print } = usePrint();
   const { info: storeInfo } = useStoreInfoStore();
   
@@ -67,43 +68,39 @@ export function ReceiptDetailPage() {
     return findEmployeeById(receipt.createdBy);
   }, [receipt?.createdBy, findEmployeeById]);
 
-  // Comments state with localStorage persistence
-  type ReceiptComment = CommentType<string>;
-  const [comments, setComments] = React.useState<ReceiptComment[]>(() => {
-    const saved = localStorage.getItem(`receipt-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`receipt-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = (content: string, attachments?: string[], parentId?: string) => {
-    const newComment: ReceiptComment = {
-      id: `comment-${Date.now()}`,
-      content,
+  // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('receipt', systemId || '');
+  
+  type ReceiptComment = Comment<string>;
+  const comments = React.useMemo<ReceiptComment[]>(() => 
+    dbComments.map(c => ({
+      id: c.systemId,
+      content: c.content,
       author: {
-        systemId: currentEmployee?.systemId || 'system',
-        name: currentEmployee?.fullName || 'Hệ thống',
-        avatar: currentEmployee?.avatar,
+        systemId: c.createdBy || 'system',
+        name: c.createdByName || 'Hệ thống',
       },
-      createdAt: new Date().toISOString(),
-      attachments,
-      parentId: parentId || undefined,
-    };
-    setComments(prev => [...prev, newComment]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
+
+  const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
   };
 
-  const handleUpdateComment = (commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-    ));
+  const handleUpdateComment = (_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
+    dbDeleteComment(commentId);
   };
 
   const commentCurrentUser = React.useMemo(() => ({

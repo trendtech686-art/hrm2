@@ -23,7 +23,7 @@ import { ScrollArea } from '../../components/ui/scroll-area';
 import { toast } from 'sonner';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
-import { useProductStore } from '../products/store';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { usePrint } from '../../lib/use-print';
 import { numberToWords } from '../../lib/print-service';
 import { 
@@ -32,10 +32,11 @@ import {
   mapSupplierReturnLineItems,
   createStoreSettings,
 } from '../../lib/print/supplier-return-print-helper';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { PurchaseReturnWorkflowCard } from './components/purchase-return-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
+import { useComments } from '../../hooks/use-comments';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
@@ -50,7 +51,7 @@ export function PurchaseReturnDetailPage() {
   const { findById } = usePurchaseReturnStore();
   const { findById: findPurchaseOrder } = usePurchaseOrderStore();
   const { findById: findSupplier } = useSupplierStore();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = React.useState(false);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   const { employee: authEmployee } = useAuth();
@@ -58,44 +59,40 @@ export function PurchaseReturnDetailPage() {
 
   const systemId = React.useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : undefined), [systemIdParam]);
 
-  // Comments state with localStorage persistence
+  // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('purchase_return', systemIdParam || '');
+  
   type PurchaseReturnComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<PurchaseReturnComment[]>(() => {
-    const saved = localStorage.getItem(`purchase-return-comments-${systemIdParam}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  React.useEffect(() => {
-    if (systemIdParam) {
-      localStorage.setItem(`purchase-return-comments-${systemIdParam}`, JSON.stringify(comments));
-    }
-  }, [comments, systemIdParam]);
-
-  const handleAddComment = React.useCallback((content: string, attachments?: string[], parentId?: string) => {
-    const newComment: PurchaseReturnComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
+  const comments = React.useMemo<PurchaseReturnComment[]>(() => 
+    dbComments.map(c => ({
+      id: asSystemId(c.systemId),
+      content: c.content,
       author: {
-        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
-        avatar: authEmployee?.avatar,
+        systemId: asSystemId(c.createdBy || 'system'),
+        name: c.createdByName || 'Hệ thống',
       },
-      createdAt: new Date().toISOString(),
-      attachments,
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
-  }, [authEmployee]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
-  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-    ));
+  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
+  }, [dbAddComment]);
+
+  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
-  }, []);
+    dbDeleteComment(commentId);
+  }, [dbDeleteComment]);
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
@@ -118,7 +115,7 @@ export function PurchaseReturnDetailPage() {
     return purchaseReturn?.items.reduce((sum, item) => sum + item.returnQuantity, 0) || 0;
   }, [purchaseReturn]);
 
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint(purchaseReturn?.branchSystemId);
 

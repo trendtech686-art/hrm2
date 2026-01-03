@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/payroll/templates/page": "app/(authenticated)/payroll/templates/page.js"
+}

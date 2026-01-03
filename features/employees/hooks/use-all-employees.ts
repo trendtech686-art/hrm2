@@ -95,6 +95,7 @@ export function useEmployeeSearcher() {
           label: e.fullName || e.id || 'N/A',
         })),
         total: filtered.length,
+        hasNextPage: filtered.length > limit,
       };
     },
     [data]

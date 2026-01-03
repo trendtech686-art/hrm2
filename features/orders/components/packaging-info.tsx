@@ -11,10 +11,10 @@ import { Separator } from '../../../components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
 import { Badge } from '../../../components/ui/badge';
 import { getGHTKStatusVariant, getGHTKStatusText } from '../../../lib/ghtk-constants';
-import { useEmployeeStore } from '../../employees/store';
+import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { useShipmentStore } from '../../shipments/store';
-import { useBranchStore } from '../../settings/branches/store';
-import { useCustomerStore } from '../../customers/store';
+import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
+import { useCustomerFinder } from '../../customers/hooks/use-all-customers';
 import { usePrint } from '@/lib/use-print';
 import { mapPackingToPrintData, mapPackingLineItems } from '@/lib/print-mappers/packing.mapper';
 import { mapShippingLabelToPrintData } from '@/lib/print-mappers/shipping-label.mapper';
@@ -72,10 +72,10 @@ export function PackagingInfo({
     const isCancelled = packaging.deliveryStatus === 'Đã hủy' || packaging.status === 'Hủy đóng gói';
     const [isExpanded, setIsExpanded] = React.useState(!isCancelled);
     const [isCopied, setIsCopied] = React.useState(false);
-    const { findById: findEmployeeById } = useEmployeeStore();
+    const { findById: findEmployeeById } = useEmployeeFinder();
     const { findByPackagingSystemId, findByTrackingCode } = useShipmentStore();
-    const { findById: findBranchById } = useBranchStore();
-    const { findById: findCustomerById } = useCustomerStore();
+    const { findById: findBranchById } = useBranchFinder();
+    const { findById: findCustomerById } = useCustomerFinder();
     
     // Print functionality
     const branch = findBranchById(order.branchSystemId);

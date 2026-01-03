@@ -1,42 +1,25 @@
 /**
  * Warranty Tracking Utilities
  * Helper functions for public tracking settings
+ * 
+ * @migrated localStorage → /api/user-preferences
+ * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
-export interface PublicTrackingSettings {
-  enabled: boolean;
-  allowCustomerComments: boolean;
-  showEmployeeName: boolean;
-  showTimeline: boolean;
-}
+import { 
+  getWarrantyTrackingSettingsSync,
+  DEFAULT_TRACKING_SETTINGS as _DEFAULT_TRACKING_SETTINGS,
+  type PublicTrackingSettings 
+} from '@/hooks/use-public-tracking-settings';
 
-const STORAGE_KEY = 'warranty-public-tracking-settings';
-
-const defaultSettings: PublicTrackingSettings = {
-  enabled: false, // Default to disabled for security
-  allowCustomerComments: false,
-  showEmployeeName: true,
-  showTimeline: true,
-};
+export type { PublicTrackingSettings };
 
 /**
- * Load tracking settings from localStorage
+ * Load tracking settings
+ * @deprecated Use useWarrantyTrackingSettings() hook for React components
  */
 export function loadTrackingSettings(): PublicTrackingSettings {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    console.log('[Warranty Tracking] Raw localStorage:', stored);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const merged = { ...defaultSettings, ...parsed };
-      console.log('[Warranty Tracking] Loaded settings:', merged);
-      return merged;
-    }
-  } catch (error) {
-    console.error('Failed to load warranty tracking settings:', error);
-  }
-  console.log('[Warranty Tracking] Using default settings:', defaultSettings);
-  return defaultSettings;
+  return getWarrantyTrackingSettingsSync();
 }
 
 /**

@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { Save, Monitor, Globe, Bell, Shield, Upload, Gauge, Building, Clock, Mail, Palette, Image, FileText, Database, MessageSquare, Send, UserCog, CheckCircle, XCircle, AlertTriangle, Trash2, RefreshCw, HardDrive, Cpu, MemoryStick, Server, Activity, Zap, Settings, FolderArchive, Code, ExternalLink, Info, Terminal, Package, Layers, FileCode, ChevronRight, Smartphone, Eye, ImagePlus, Search, Plus, Pencil, Lock, ChevronLeft, ChevronsLeft, ChevronsRight, FileX, ScrollText, Target, FileEdit } from 'lucide-react';
 import { useSettingsPageHeader } from './use-settings-page-header';
@@ -21,6 +23,10 @@ import { TipTapEditor } from '../../components/ui/tiptap-editor';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { useTabActionRegistry, type RegisterTabActions } from './use-tab-action-registry';
 import { useNotificationSettings } from '../../hooks/use-due-date-notifications';
+import { 
+  useGeneralSettings,
+  type GeneralSettings,
+} from '../../hooks/use-system-settings';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { toast } from 'sonner';
 
@@ -31,67 +37,13 @@ type TabContentProps = {
 
 // ═══════════════════════════════════════════════════════════════
 // TAB: GENERAL SETTINGS (Chung)
+// Types and defaults imported from use-system-settings.ts
 // ═══════════════════════════════════════════════════════════════
 
-interface GeneralSettings {
-  // Thông tin doanh nghiệp
-  companyName: string;
-  companyAddress: string;
-  taxCode: string;
-  phoneNumber: string;
-  website: string;
-  email: string;
-  legalRepresentative: string;
-  adminEmail: string;
-  defaultRole: string;
-  // Branding
-  logoUrl: string;
-  faviconUrl: string;
-  // Định dạng hệ thống
-  timezone: string;
-  dateFormat: string;
-  timeFormat: string;
-  currency: string;
-  // Hiển thị
-  defaultPageSize: number;
-  thousandSeparator: string;
-  decimalSeparator: string;
-  // Ngôn ngữ
-  language: string;
-}
-
-const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
-  companyName: '',
-  companyAddress: '',
-  taxCode: '',
-  phoneNumber: '',
-  website: '',
-  email: '',
-  legalRepresentative: '',
-  adminEmail: '',
-  defaultRole: 'employee',
-  logoUrl: '',
-  faviconUrl: '',
-  timezone: 'Asia/Ho_Chi_Minh',
-  dateFormat: 'DD/MM/YYYY',
-  timeFormat: '24h',
-  currency: 'VND',
-  defaultPageSize: 20,
-  thousandSeparator: '.',
-  decimalSeparator: ',',
-  language: 'vi',
-};
-
 function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const [settings, setSettings] = React.useState<GeneralSettings>(() => {
-    try {
-      const stored = localStorage.getItem('general-settings');
-      if (stored) return { ...DEFAULT_GENERAL_SETTINGS, ...JSON.parse(stored) };
-    } catch (_e) { /* ignore */ }
-    return DEFAULT_GENERAL_SETTINGS;
-  });
+  // Use server-side hook instead of localStorage
+  const { settings, updateField, isSaving, saveImmediately, isLoading } = useGeneralSettings();
   
-  const [isSaving, setIsSaving] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = React.useState(false);
   const [isUploadingFavicon, setIsUploadingFavicon] = React.useState(false);
@@ -99,15 +51,22 @@ function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const faviconInputRef = React.useRef<HTMLInputElement>(null);
   const originalSettings = React.useRef(JSON.stringify(settings));
   
+  // Update original when loaded from API
+  React.useEffect(() => {
+    if (!isLoading) {
+      originalSettings.current = JSON.stringify(settings);
+    }
+  }, [isLoading, settings]);
+  
   React.useEffect(() => {
     setHasChanges(JSON.stringify(settings) !== originalSettings.current);
   }, [settings]);
   
   const handleChange = <K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    updateField(key, value);
   };
   
-  const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+  const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
   
   const handleBrandingUpload = async (file: File, type: 'logo' | 'favicon') => {
     const setUploading = type === 'logo' ? setIsUploadingLogo : setIsUploadingFavicon;
@@ -161,19 +120,16 @@ function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
     }
   };
   
-  const handleSave = React.useCallback(() => {
-    setIsSaving(true);
-    try {
-      localStorage.setItem('general-settings', JSON.stringify(settings));
+  const handleSave = React.useCallback(async () => {
+    const success = await saveImmediately();
+    if (success) {
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt chung');
       setHasChanges(false);
-    } catch (_error) {
+    } else {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
-    } finally {
-      setIsSaving(false);
     }
-  }, [settings]);
+  }, [saveImmediately, settings]);
   
   React.useEffect(() => {
     if (!isActive) return;
@@ -500,9 +456,11 @@ function GeneralTabContent({ isActive, onRegisterActions }: TabContentProps) {
 
 // ═══════════════════════════════════════════════════════════════
 // TAB: SECURITY SETTINGS (Bảo mật)
+// Note: Uses local interface (differs from hooks/use-system-settings.ts)
+// Migration: localStorage → /api/user-preferences
 // ═══════════════════════════════════════════════════════════════
 
-interface SecuritySettings {
+interface LocalSecuritySettings {
   minPasswordLength: number;
   requireUppercase: boolean;
   requireNumber: boolean;
@@ -515,7 +473,7 @@ interface SecuritySettings {
   otpEmailExpireMinutes: number;
 }
 
-const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
+const LOCAL_DEFAULT_SECURITY_SETTINGS: LocalSecuritySettings = {
   minPasswordLength: 6,
   requireUppercase: false,
   requireNumber: false,
@@ -528,31 +486,57 @@ const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   otpEmailExpireMinutes: 5,
 };
 
+const SECURITY_PREFERENCE_KEY = 'local-security-settings';
+
 function SecurityTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const [settings, setSettings] = React.useState<SecuritySettings>(() => {
-    try {
-      const stored = localStorage.getItem('security-settings');
-      if (stored) return { ...DEFAULT_SECURITY_SETTINGS, ...JSON.parse(stored) };
-    } catch (_e) { /* ignore */ }
-    return DEFAULT_SECURITY_SETTINGS;
-  });
-  
+  const [settings, setSettings] = React.useState<LocalSecuritySettings>(LOCAL_DEFAULT_SECURITY_SETTINGS);
   const [isSaving, setIsSaving] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
+  const [_isLoading, setIsLoading] = React.useState(true);
   const originalSettings = React.useRef(JSON.stringify(settings));
+  
+  // Load from API on mount
+  React.useEffect(() => {
+    const loadFromAPI = async () => {
+      try {
+        const response = await fetch(`/api/user-preferences?category=system-settings&key=${SECURITY_PREFERENCE_KEY}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.value) {
+            const loaded = { ...LOCAL_DEFAULT_SECURITY_SETTINGS, ...data.value };
+            setSettings(loaded);
+            originalSettings.current = JSON.stringify(loaded);
+          }
+        }
+      } catch (error) {
+        console.error('[SecurityTabContent] Failed to load:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadFromAPI();
+  }, []);
   
   React.useEffect(() => {
     setHasChanges(JSON.stringify(settings) !== originalSettings.current);
   }, [settings]);
   
-  const handleChange = <K extends keyof SecuritySettings>(key: K, value: SecuritySettings[K]) => {
+  const handleChange = <K extends keyof LocalSecuritySettings>(key: K, value: LocalSecuritySettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
   
-  const handleSave = React.useCallback(() => {
+  const handleSave = React.useCallback(async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('security-settings', JSON.stringify(settings));
+      await fetch('/api/user-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: 'system-settings',
+          key: SECURITY_PREFERENCE_KEY,
+          value: settings,
+        }),
+      });
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt bảo mật');
       setHasChanges(false);
@@ -738,9 +722,10 @@ function SecurityTabContent({ isActive, onRegisterActions }: TabContentProps) {
 
 // ═══════════════════════════════════════════════════════════════
 // TAB: MEDIA SETTINGS (Tệp tin)
+// Migration: localStorage → /api/user-preferences
 // ═══════════════════════════════════════════════════════════════
 
-interface MediaSettings {
+interface LocalMediaSettings {
   maxFileSizeMB: number;
   imageMaxWidth: number;
   imageMaxHeight: number;
@@ -770,7 +755,7 @@ interface MediaSettings {
   maxImagesComment: number;
 }
 
-const DEFAULT_MEDIA_SETTINGS: MediaSettings = {
+const LOCAL_DEFAULT_MEDIA_SETTINGS: LocalMediaSettings = {
   maxFileSizeMB: 10,
   imageMaxWidth: 1200,
   imageMaxHeight: 1200,
@@ -800,31 +785,57 @@ const DEFAULT_MEDIA_SETTINGS: MediaSettings = {
   maxImagesComment: 5,
 };
 
+const MEDIA_PREFERENCE_KEY = 'local-media-settings';
+
 function MediaTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const [settings, setSettings] = React.useState<MediaSettings>(() => {
-    try {
-      const stored = localStorage.getItem('media-settings');
-      if (stored) return { ...DEFAULT_MEDIA_SETTINGS, ...JSON.parse(stored) };
-    } catch (_e) { /* ignore */ }
-    return DEFAULT_MEDIA_SETTINGS;
-  });
-  
+  const [settings, setSettings] = React.useState<LocalMediaSettings>(LOCAL_DEFAULT_MEDIA_SETTINGS);
   const [isSaving, setIsSaving] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
+  const [_isLoading, setIsLoading] = React.useState(true);
   const originalSettings = React.useRef(JSON.stringify(settings));
+  
+  // Load from API on mount
+  React.useEffect(() => {
+    const loadFromAPI = async () => {
+      try {
+        const response = await fetch(`/api/user-preferences?category=system-settings&key=${MEDIA_PREFERENCE_KEY}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.value) {
+            const loaded = { ...LOCAL_DEFAULT_MEDIA_SETTINGS, ...data.value };
+            setSettings(loaded);
+            originalSettings.current = JSON.stringify(loaded);
+          }
+        }
+      } catch (error) {
+        console.error('[MediaTabContent] Failed to load:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadFromAPI();
+  }, []);
   
   React.useEffect(() => {
     setHasChanges(JSON.stringify(settings) !== originalSettings.current);
   }, [settings]);
   
-  const handleChange = <K extends keyof MediaSettings>(key: K, value: MediaSettings[K]) => {
+  const handleChange = <K extends keyof LocalMediaSettings>(key: K, value: LocalMediaSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
   
-  const handleSave = React.useCallback(() => {
+  const handleSave = React.useCallback(async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('media-settings', JSON.stringify(settings));
+      await fetch('/api/user-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: 'system-settings',
+          key: MEDIA_PREFERENCE_KEY,
+          value: settings,
+        }),
+      });
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt tệp tin');
       setHasChanges(false);
@@ -1135,9 +1146,10 @@ function MediaTabContent({ isActive, onRegisterActions }: TabContentProps) {
 
 // ═══════════════════════════════════════════════════════════════
 // TAB: INTEGRATION SETTINGS (Tích hợp)
+// Migration: localStorage → /api/user-preferences
 // ═══════════════════════════════════════════════════════════════
 
-interface IntegrationSettings {
+interface LocalIntegrationSettings {
   smtpHost: string;
   smtpPort: number;
   smtpUser: string;
@@ -1147,7 +1159,7 @@ interface IntegrationSettings {
   enableTLS: boolean;
 }
 
-const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettings = {
+const LOCAL_DEFAULT_INTEGRATION_SETTINGS: LocalIntegrationSettings = {
   smtpHost: '',
   smtpPort: 587,
   smtpUser: '',
@@ -1157,32 +1169,58 @@ const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettings = {
   enableTLS: true,
 };
 
+const INTEGRATION_PREFERENCE_KEY = 'local-integration-settings';
+
 function IntegrationTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const [settings, setSettings] = React.useState<IntegrationSettings>(() => {
-    try {
-      const stored = localStorage.getItem('integration-settings');
-      if (stored) return { ...DEFAULT_INTEGRATION_SETTINGS, ...JSON.parse(stored) };
-    } catch (_e) { /* ignore */ }
-    return DEFAULT_INTEGRATION_SETTINGS;
-  });
-  
+  const [settings, setSettings] = React.useState<LocalIntegrationSettings>(LOCAL_DEFAULT_INTEGRATION_SETTINGS);
   const [isSaving, setIsSaving] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [showToken, setShowToken] = React.useState(false);
+  const [_isLoading, setIsLoading] = React.useState(true);
   const originalSettings = React.useRef(JSON.stringify(settings));
+  
+  // Load from API on mount
+  React.useEffect(() => {
+    const loadFromAPI = async () => {
+      try {
+        const response = await fetch(`/api/user-preferences?category=system-settings&key=${INTEGRATION_PREFERENCE_KEY}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.value) {
+            const loaded = { ...LOCAL_DEFAULT_INTEGRATION_SETTINGS, ...data.value };
+            setSettings(loaded);
+            originalSettings.current = JSON.stringify(loaded);
+          }
+        }
+      } catch (error) {
+        console.error('[IntegrationTabContent] Failed to load:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadFromAPI();
+  }, []);
   
   React.useEffect(() => {
     setHasChanges(JSON.stringify(settings) !== originalSettings.current);
   }, [settings]);
   
-  const handleChange = <K extends keyof IntegrationSettings>(key: K, value: IntegrationSettings[K]) => {
+  const handleChange = <K extends keyof LocalIntegrationSettings>(key: K, value: LocalIntegrationSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
   
-  const handleSave = React.useCallback(() => {
+  const handleSave = React.useCallback(async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('integration-settings', JSON.stringify(settings));
+      await fetch('/api/user-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: 'system-settings',
+          key: INTEGRATION_PREFERENCE_KEY,
+          value: settings,
+        }),
+      });
       originalSettings.current = JSON.stringify(settings);
       toast.success('Đã lưu cài đặt tích hợp');
       setHasChanges(false);
@@ -1576,7 +1614,7 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
   }, []);
 
   // API Endpoints info
-  const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+  const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
   const apiEndpoints = [
     { name: 'API Server', url: serverUrl + '/api', status: 'active' },
     { name: 'WebSocket', url: serverUrl.replace('http', 'ws') + '/ws', status: 'active' },
@@ -1586,39 +1624,46 @@ function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
 
   // Environment Variables (safe to expose)
   const envInfo = React.useMemo(() => ({
-    mode: import.meta.env.MODE || 'development',
-    base: import.meta.env.BASE_URL || '/',
-    serverUrl: import.meta.env.VITE_SERVER_URL || 'http://localhost:3001',
-    serverPort: import.meta.env.VITE_SERVER_PORT || '3001',
-    appName: import.meta.env.VITE_APP_NAME || 'HRM System',
-    appVersion: import.meta.env.VITE_APP_VERSION || '1.0.0',
-    buildTime: import.meta.env.VITE_BUILD_TIME || new Date().toISOString(),
-    isProd: import.meta.env.PROD,
-    isDev: import.meta.env.DEV,
+    mode: process.env.NODE_ENV || 'development',
+    base: '/',
+    serverUrl: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001',
+    serverPort: process.env.NEXT_PUBLIC_SERVER_PORT || '3001',
+    appName: process.env.NEXT_PUBLIC_APP_NAME || 'HRM System',
+    appVersion: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
+    buildTime: process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString(),
+    isProd: process.env.NODE_ENV === 'production',
+    isDev: process.env.NODE_ENV === 'development',
   }), []);
 
-  // Feature Flags (for debugging)
-  const featureFlags = React.useMemo(() => {
-    const stored = localStorage.getItem('feature-flags');
-    const defaults = {
-      newDashboard: true,
-      darkMode: true,
-      notifications: true,
-      analytics: true,
-      multiLanguage: false,
-      advancedFilters: true,
-      exportPDF: true,
-      webhooks: false,
-      apiV2: false,
-    };
-    if (stored) {
+  // Feature Flags (for debugging) - Loaded from API
+  const [featureFlags, setFeatureFlags] = React.useState(() => ({
+    newDashboard: true,
+    darkMode: true,
+    notifications: true,
+    analytics: true,
+    multiLanguage: false,
+    advancedFilters: true,
+    exportPDF: true,
+    webhooks: false,
+    apiV2: false,
+  }));
+  
+  // Load feature flags from API
+  React.useEffect(() => {
+    const loadFeatureFlags = async () => {
       try {
-        return { ...defaults, ...JSON.parse(stored) };
-      } catch {
-        return defaults;
+        const response = await fetch('/api/user-preferences?category=system-settings&key=feature-flags');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.value) {
+            setFeatureFlags(prev => ({ ...prev, ...data.value }));
+          }
+        }
+      } catch (error) {
+        console.error('[SystemTab] Failed to load feature flags:', error);
       }
-    }
-    return defaults;
+    };
+    loadFeatureFlags();
   }, []);
 
   // Installed packages info (for debugging)
@@ -2283,7 +2328,7 @@ function NotificationTabContent({ isActive, onRegisterActions }: TabContentProps
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleIntervalChange = (value: number[]) => {
+  const handleIntervalChange = (value: readonly number[]) => {
     setSettings(prev => ({ ...prev, checkInterval: value[0] }));
   };
 
@@ -3544,26 +3589,47 @@ const SAMPLE_REDIRECTS: Redirect301[] = [
   { id: '4', fromUrl: '/blog/old-post', toUrl: '/tin-tuc/bai-viet-moi', isActive: false, hitCount: 12, createdAt: '2024-09-10', updatedAt: '2024-09-10' },
 ];
 
+const WEBSITE_SETTINGS_KEY = 'website-settings';
+const REDIRECTS_KEY = 'redirects-301';
+
 function WebsiteTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const [settings, setSettings] = React.useState<WebsiteSettings>(() => {
-    try {
-      const stored = localStorage.getItem('website-settings');
-      if (stored) return { ...DEFAULT_WEBSITE_SETTINGS, ...JSON.parse(stored) };
-    } catch (_e) { /* ignore */ }
-    return DEFAULT_WEBSITE_SETTINGS;
-  });
-  
-  const [redirects, setRedirects] = React.useState<Redirect301[]>(() => {
-    try {
-      const stored = localStorage.getItem('redirects-301');
-      if (stored) return JSON.parse(stored);
-    } catch (_e) { /* ignore */ }
-    return SAMPLE_REDIRECTS;
-  });
-  
+  const [settings, setSettings] = React.useState<WebsiteSettings>(DEFAULT_WEBSITE_SETTINGS);
+  const [redirects, setRedirects] = React.useState<Redirect301[]>(SAMPLE_REDIRECTS);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [newDomain, setNewDomain] = React.useState('');
+  
+  // Load from API on mount
+  React.useEffect(() => {
+    const loadFromAPI = async () => {
+      try {
+        const [settingsRes, redirectsRes] = await Promise.all([
+          fetch(`/api/user-preferences?category=system-settings&key=${WEBSITE_SETTINGS_KEY}`),
+          fetch(`/api/user-preferences?category=system-settings&key=${REDIRECTS_KEY}`),
+        ]);
+        
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          if (data.value) {
+            setSettings(prev => ({ ...prev, ...data.value }));
+          }
+        }
+        
+        if (redirectsRes.ok) {
+          const data = await redirectsRes.json();
+          if (data.value && Array.isArray(data.value)) {
+            setRedirects(data.value);
+          }
+        }
+      } catch (error) {
+        console.error('[WebsiteTabContent] Failed to load:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadFromAPI();
+  }, []);
   
   // Redirect search and filter
   const [redirectSearch, setRedirectSearch] = React.useState('');
@@ -3577,14 +3643,23 @@ function WebsiteTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const [selectedRedirect, setSelectedRedirect] = React.useState<Redirect301 | null>(null);
   const [redirectFormData, setRedirectFormData] = React.useState({ fromUrl: '', toUrl: '', isActive: true });
   
-  const originalSettings = React.useRef(JSON.stringify(settings));
-  const originalRedirects = React.useRef(JSON.stringify(redirects));
+  const originalSettings = React.useRef(JSON.stringify(DEFAULT_WEBSITE_SETTINGS));
+  const originalRedirects = React.useRef(JSON.stringify(SAMPLE_REDIRECTS));
+  
+  // Update originals when loaded from API
+  React.useEffect(() => {
+    if (!isLoading) {
+      originalSettings.current = JSON.stringify(settings);
+      originalRedirects.current = JSON.stringify(redirects);
+    }
+  }, [isLoading, settings, redirects]);
   
   React.useEffect(() => {
+    if (isLoading) return;
     const settingsChanged = JSON.stringify(settings) !== originalSettings.current;
     const redirectsChanged = JSON.stringify(redirects) !== originalRedirects.current;
     setHasChanges(settingsChanged || redirectsChanged);
-  }, [settings, redirects]);
+  }, [settings, redirects, isLoading]);
   
   const handleChange = <K extends keyof WebsiteSettings>(key: K, value: WebsiteSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -3675,9 +3750,27 @@ function WebsiteTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const handleSave = React.useCallback(async () => {
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      localStorage.setItem('website-settings', JSON.stringify(settings));
-      localStorage.setItem('redirects-301', JSON.stringify(redirects));
+      // Save both settings and redirects to API
+      await Promise.all([
+        fetch('/api/user-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: 'system-settings',
+            key: 'website-settings',
+            value: settings
+          })
+        }),
+        fetch('/api/user-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: 'system-settings',
+            key: 'redirects-301',
+            value: redirects
+          })
+        })
+      ]);
       originalSettings.current = JSON.stringify(settings);
       originalRedirects.current = JSON.stringify(redirects);
       setHasChanges(false);

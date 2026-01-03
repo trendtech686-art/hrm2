@@ -17,7 +17,7 @@ import { Card, CardContent } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
 import { RESOLUTION_LABELS } from '../types';
 import type { WarrantyProduct, WarrantyTicket } from '../types';
-import { useProductStore } from '../../products/store';
+import { useAllProducts } from '../../products/hooks/use-all-products';
 import { useProductTypeStore } from '../../settings/inventory/product-type-store';
 import type { SystemId } from '../../../lib/id-types';
 
@@ -28,7 +28,7 @@ interface WarrantyProductsDetailTableProps {
 
 export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProductsDetailTableProps) {
   const router = useRouter();
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   const { findById: findProductTypeById } = useProductTypeStore();
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);

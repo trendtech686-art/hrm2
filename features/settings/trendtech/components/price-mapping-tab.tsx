@@ -6,14 +6,12 @@ import { Badge } from '../../../../components/ui/badge';
 import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTrendtechSettingsStore } from '../store';
-import { usePricingPolicyStore } from '../../pricing/store';
+import { useActivePricingPolicies } from '../../pricing/hooks/use-all-pricing-policies';
 import type { SystemId } from '@/lib/id-types';
 
 export function PriceMappingTab() {
   const { settings, updatePriceMapping, addLog } = useTrendtechSettingsStore();
-  const pricingPolicyStore = usePricingPolicyStore();
-  
-  const pricingPolicies = React.useMemo(() => pricingPolicyStore.getActive(), [pricingPolicyStore]);
+  const { data: pricingPolicies } = useActivePricingPolicies();
   const { priceMapping } = settings;
 
   const handleUpdateMapping = (field: 'price' | 'compareAtPrice', policyId: string | null) => {

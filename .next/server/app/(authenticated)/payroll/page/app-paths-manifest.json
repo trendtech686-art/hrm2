@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/payroll/page": "app/(authenticated)/payroll/page.js"
+}

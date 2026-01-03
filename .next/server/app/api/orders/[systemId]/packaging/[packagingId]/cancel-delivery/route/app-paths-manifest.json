@@ -1,0 +1,3 @@
+{
+  "/api/orders/[systemId]/packaging/[packagingId]/cancel-delivery/route": "app/api/orders/[systemId]/packaging/[packagingId]/cancel-delivery/route.js"
+}

@@ -6,8 +6,8 @@
  */
 
 import * as React from 'react';
-import { useProductStore } from '../store';
-import { useBranchStore } from '../../settings/branches/store';
+import { useAllProducts } from './use-all-products';
+import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { 
   calculateComboStock, 
   calculateComboStockAllBranches,
@@ -25,7 +25,7 @@ export function useComboStock(
   product: Product | null | undefined,
   branchSystemId: SystemId | undefined
 ): number {
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
     if (!product || !branchSystemId) return 0;
@@ -42,7 +42,7 @@ export function useComboStock(
 export function useComboStockAllBranches(
   product: Product | null | undefined
 ): Record<SystemId, number> {
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
     if (!product) return {};
@@ -58,8 +58,8 @@ export function useComboStockAllBranches(
 export function useComboStockWithBranches(
   product: Product | null | undefined
 ): Array<{ branchSystemId: SystemId; branchName: string; stock: number }> {
-  const { data: allProducts } = useProductStore();
-  const { data: branches } = useBranchStore();
+  const { data: allProducts } = useAllProducts();
+  const { data: branches } = useAllBranches();
   
   return React.useMemo(() => {
     if (!product) return [];
@@ -80,7 +80,7 @@ export function useComboBottlenecks(
   product: Product | null | undefined,
   branchSystemId: SystemId | undefined
 ): Array<{ product: Product; availableForCombo: number; itemQuantity: number }> {
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
     if (!product || !branchSystemId) return [];
@@ -129,7 +129,7 @@ export function useComboItemsWithStock(
   available: number;
   canMakeCombos: number;
 }> {
-  const { data: allProducts } = useProductStore();
+  const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
     if (!comboItems || !branchSystemId) return [];

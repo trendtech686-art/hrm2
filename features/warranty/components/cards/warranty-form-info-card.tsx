@@ -5,8 +5,8 @@ import { FormField, FormItem, FormLabel, FormControl } from '../../../../compone
 import { Input } from '../../../../components/ui/input';
 import { CurrencyInput } from '../../../../components/ui/currency-input';
 import { Combobox } from '../../../../components/ui/combobox';
-import { useBranchStore } from '../../../settings/branches/store';
-import { useEmployeeStore } from '../../../employees/store';
+import { useAllBranches } from '../../../settings/branches/hooks/use-all-branches';
+import { useAllEmployees } from '../../../employees/hooks/use-all-employees';
 
 /**
  * Thông tin bổ sung - Adapted from OrderInfoCard
@@ -21,8 +21,8 @@ import { useEmployeeStore } from '../../../employees/store';
  */
 export function WarrantyFormInfoCard({ disabled }: { disabled?: boolean }) {
   const { control, setValue } = useFormContext();
-  const { data: branches } = useBranchStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: branches } = useAllBranches();
+  const { data: employees } = useAllEmployees();
 
   const branchOptions = React.useMemo(() => 
     branches.map(b => ({ value: b.systemId, label: b.name })), 

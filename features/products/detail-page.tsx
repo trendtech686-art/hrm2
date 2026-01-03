@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useProductStore } from './store';
@@ -18,7 +19,8 @@ import { DetailField } from '../../components/ui/detail-field';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { LazyImage } from '../../components/ui/lazy-image';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useSupplierStore } from '../suppliers/store';
@@ -26,24 +28,26 @@ import { useStockHistoryStore } from '../stock-history/store';
 import { getStockHistoryColumns } from '../stock-history/columns';
 import { purchasePriceHistoryColumns, type PriceHistoryEntry } from './purchase-price-history-columns';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
-import { useBranchStore } from '../settings/branches/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { usePurchaseOrderStore } from '../purchase-orders/store';
 import { useInventoryReceiptStore } from '../inventory-receipts/store';
-import { useOrderStore } from '../orders/store';
-import { useEmployeeStore } from '../employees/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useWarrantyStore } from '../warranty/store';
 import { useInventoryCheckStore } from '../inventory-checks/store';
 import { useStockTransferStore } from '../stock-transfers/store';
-import { CommittedStockDialog } from './components/committed-stock-dialog';
-import { InTransitStockDialog } from './components/in-transit-stock-dialog';
 import { useImageStore } from './image-store';
 import { FileUploadAPI } from '@/lib/file-upload-api';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { calculateComboStock, isComboProduct } from './combo-utils';
 import { StockAlertBadges } from './components/stock-alert-badges';
 import { getProductStockAlerts, getTotalOnHandStock, getSuggestedOrderQuantity } from './stock-alert-utils';
+
+// Dynamic imports for dialogs (code-splitting)
+const CommittedStockDialog = dynamic(() => import('./components/committed-stock-dialog').then(mod => ({ default: mod.CommittedStockDialog })), { ssr: false });
+const InTransitStockDialog = dynamic(() => import('./components/in-transit-stock-dialog').then(mod => ({ default: mod.InTransitStockDialog })), { ssr: false });
 import { useProductTypeStore } from '../settings/inventory/product-type-store';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store';
 import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
@@ -303,7 +307,7 @@ function ComboLowStockWarning({
   product: import('./types').Product;
   allProducts: import('./types').Product[];
 }) {
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   
   // Calculate total combo stock across all branches
   const totalComboStock = React.useMemo(() => {
@@ -506,11 +510,11 @@ export function ProductDetailPage() {
   const { findById: findSupplierById } = useSupplierStore();
   const { data: pricingPolicies } = usePricingPolicyStore();
   const { getHistoryForProduct } = useStockHistoryStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
   const { data: allInventoryReceipts } = useInventoryReceiptStore();
-  const { data: allOrders } = useOrderStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { data: allOrders } = useAllOrders();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { data: allWarranties } = useWarrantyStore();
   const { data: allInventoryChecks } = useInventoryCheckStore();
   const { data: allStockTransfers } = useStockTransferStore();
@@ -540,42 +544,39 @@ export function ProductDetailPage() {
   const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
   const storageLocation = React.useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
 
-  // Comments state with localStorage persistence
-  type ProductComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<ProductComment[]>(() => {
-    const saved = localStorage.getItem(`product-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('product', systemId || '');
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`product-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
-    const newComment: ProductComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId as unknown as SystemId,
+      content: c.content,
       author: {
-        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
+        systemId: (c.createdBy || 'system') as unknown as SystemId,
+        name: c.createdByName || 'Hệ thống',
       },
-      createdAt: new Date(),
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
-  }, [authEmployee]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
-  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
-    ));
+  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
+  }, [dbAddComment]);
+
+  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
-  }, []);
+    dbDeleteComment(commentId);
+  }, [dbDeleteComment]);
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),

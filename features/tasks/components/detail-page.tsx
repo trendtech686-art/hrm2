@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTaskStore } from '../store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { formatDate, formatDateTimeForDisplay } from '@/lib/date-utils';
@@ -51,7 +51,7 @@ export function TaskDetailPage() {
   const store = useTaskStore();
   const { remove, update, approveTask, rejectTask } = store;
   const { isAdmin, employee } = useAuth();
-  const { data: allEmployees } = useEmployeeStore();
+  const { data: allEmployees } = useAllEmployees();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = React.useState(false);
   const [showEvidenceViewer, setShowEvidenceViewer] = React.useState(false);

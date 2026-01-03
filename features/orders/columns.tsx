@@ -114,7 +114,7 @@ export const getColumns = (
   {
     id: "id",
     accessorKey: "id",
-    header: "M� �H",
+    header: "Mã ĐH",
     cell: ({ row }) => (
       <Link href={`/orders/${row.systemId}`} 
         className="text-body-sm font-medium text-primary hover:underline"
@@ -122,76 +122,76 @@ export const getColumns = (
         {row.id}
       </Link>
     ),
-    meta: { displayName: "M� �H", group: "Th�ng tin chung" },
+    meta: { displayName: "Mã ĐH", group: "Thông tin chung" },
     size: 120,
   },
   {
     id: "customerName",
     accessorKey: "customerName",
-    header: "T�n kh�ch h�ng",
+    header: "Tên khách hàng",
     cell: ({ row }) => row.customerName,
-    meta: { displayName: "T�n kh�ch h�ng", group: "Th�ng tin chung" },
+    meta: { displayName: "Tên khách hàng", group: "Thông tin chung" },
   },
   {
     id: "orderDate",
     accessorKey: "orderDate",
-    header: "Ng�y t?o",
+    header: "Ngày tạo",
     cell: ({ row }) => formatDate(row.orderDate),
-    meta: { displayName: "Ng�y t?o", group: "Th�ng tin chung" },
+    meta: { displayName: "Ngày tạo", group: "Thông tin chung" },
   },
   {
     id: 'branchName',
     accessorKey: 'branchName',
-    header: 'Chi nh�nh',
+    header: 'Chi nhánh',
     cell: ({ row }) => row.branchName,
-    meta: { displayName: 'Chi nh�nh', group: "Th�ng tin chung" }
+    meta: { displayName: 'Chi nhánh', group: "Thông tin chung" }
   },
   {
     id: "salesperson",
     accessorKey: "salesperson",
-    header: "NV B�n",
+    header: "NV Bán",
     cell: ({ row }) => row.salesperson,
-    meta: { displayName: "NV B�n", group: "Nh�n vi�n" },
+    meta: { displayName: "NV Bán", group: "Nhân viên" },
   },
   {
     id: "grandTotal",
     accessorKey: "grandTotal",
-    header: "T?ng ti?n",
+    header: "Tổng tiền",
     cell: ({ row }) => formatCurrency(row.grandTotal),
-    meta: { displayName: "T?ng ti?n", group: "T�i ch�nh" },
+    meta: { displayName: "Tổng tiền", group: "Tài chính" },
   },
   {
     id: 'totalPaid',
-    header: '�� thanh to�n',
+    header: 'Đã thanh toán',
     cell: ({ row }) => {
         const totalPaid = (row.payments || []).reduce((sum, p) => sum + p.amount, 0);
         return formatCurrency(totalPaid);
     },
-    meta: { displayName: '�� thanh to�n', group: "T�i ch�nh" }
+    meta: { displayName: 'Đã thanh toán', group: "Tài chính" }
   },
   {
     id: 'debt',
-    header: 'C�n l?i',
+    header: 'Còn lại',
     cell: ({ row }) => {
         const totalPaid = (row.payments || []).reduce((sum, p) => sum + p.amount, 0);
         const remaining = row.grandTotal - totalPaid;
         return <span className={remaining > 0 ? 'text-body-sm text-destructive font-semibold' : ''}>{formatCurrency(remaining)}</span>;
     },
-    meta: { displayName: 'C�n l?i', group: "T�i ch�nh" }
+    meta: { displayName: 'Còn lại', group: "Tài chính" }
   },
   {
     id: "codAmount",
     accessorKey: "codAmount",
-    header: "Thu h? (COD)",
+    header: "Thu hộ (COD)",
     cell: ({ row }) => formatCurrency(row.codAmount),
-    meta: { displayName: "Thu h? (COD)", group: "T�i ch�nh" },
+    meta: { displayName: "Thu hộ (COD)", group: "Tài chính" },
   },
   {
     id: "status",
     accessorKey: "status",
-    header: "Tr?ng th�i",
+    header: "Trạng thái",
     cell: ({ row }) => <Badge variant={mainStatusVariants[row.status]}>{row.status}</Badge>,
-    meta: { displayName: "Tr?ng th�i", group: "Tr?ng th�i" },
+    meta: { displayName: "Trạng thái", group: "Trạng thái" },
   },
   {
     id: "paymentStatus",

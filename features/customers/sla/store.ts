@@ -1,3 +1,10 @@
+/**
+ * Customer SLA Engine Store
+ * 
+ * @migrated localStorage → /api/user-preferences for cache
+ * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
+ */
+
 import { create } from 'zustand';
 import type { Customer } from '../types';
 import type { CustomerSlaSetting } from '../../settings/customers/types';
@@ -9,6 +16,8 @@ import type { CustomerSlaType, CustomerSlaAcknowledgement } from './types';
 import type { SystemId } from '@/lib/id-types';
 import { getCurrentUserName } from '@/contexts/auth-context';
 import { useCustomerStore } from '../store';
+
+const PREFERENCE_CATEGORY = 'customer-sla';
 
 type SlaStoreState = {
   lastEvaluatedAt?: string;
@@ -31,45 +40,107 @@ type SlaStoreActions = {
   isSnoozed: (customerId: SystemId, slaType: CustomerSlaType) => boolean;
   getSnoozeRemaining: (customerId: SystemId, slaType: CustomerSlaType) => number;
   triggerReevaluation: () => void;
+  loadCachedIndex: () => Promise<void>;
 };
 
 type SlaStore = SlaStoreState & SlaStoreActions;
 
-const getPersistedIndex = (): CustomerSlaIndex | null => {
-  if (typeof window === 'undefined') return null;
+// API-backed cache functions
+async function loadIndexFromAPI(): Promise<CustomerSlaIndex | null> {
   try {
-    const raw = window.localStorage.getItem(SLA_EVALUATION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const response = await fetch(`/api/user-preferences?category=${PREFERENCE_CATEGORY}&key=${SLA_EVALUATION_KEY}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.value || null;
+    }
   } catch (error) {
-    console.warn('[customer-sla] Failed to load cached index', error);
-    return null;
+    console.warn('[customer-sla] Failed to load cached index from API:', error);
   }
-};
+  return null;
+}
 
-const getLastRun = () => {
-  if (typeof window === 'undefined') return undefined;
-  return window.localStorage.getItem(SLA_LAST_RUN_KEY) || undefined;
-};
+async function loadLastRunFromAPI(): Promise<string | undefined> {
+  try {
+    const response = await fetch(`/api/user-preferences?category=${PREFERENCE_CATEGORY}&key=${SLA_LAST_RUN_KEY}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.value || undefined;
+    }
+  } catch (error) {
+    console.warn('[customer-sla] Failed to load last run from API:', error);
+  }
+  return undefined;
+}
 
-const persistedIndex = getPersistedIndex();
+let saveTimeout: NodeJS.Timeout | null = null;
+
+async function saveIndexToAPI(index: CustomerSlaIndex, timestamp: string): Promise<void> {
+  // Cancel any pending save
+  if (saveTimeout) clearTimeout(saveTimeout);
+  
+  // Debounce save to avoid too many API calls
+  saveTimeout = setTimeout(async () => {
+    try {
+      await Promise.all([
+        fetch('/api/user-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: PREFERENCE_CATEGORY,
+            key: SLA_EVALUATION_KEY,
+            value: index,
+          }),
+        }),
+        fetch('/api/user-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: PREFERENCE_CATEGORY,
+            key: SLA_LAST_RUN_KEY,
+            value: timestamp,
+          }),
+        }),
+      ]);
+    } catch (error) {
+      console.warn('[customer-sla] Failed to cache index to API:', error);
+    }
+  }, 1000);
+}
 
 // Store reference for re-evaluation
 let _lastCustomers: Customer[] = [];
 let _lastSettings: CustomerSlaSetting[] = [];
 
 export const useCustomerSlaEngineStore = create<SlaStore>((set, get) => {
+  // Start with empty state, load from API async
   const initialState: SlaStoreState = {
-    index: persistedIndex,
-    summary: persistedIndex ? summarizeIndex(persistedIndex) : null,
-    isLoading: false,
+    index: null,
+    summary: null,
+    isLoading: true,
+    lastEvaluatedAt: undefined,
   };
-  const initialLastRun = getLastRun();
-  if (initialLastRun !== undefined) {
-    initialState.lastEvaluatedAt = initialLastRun;
-  }
 
   return {
     ...initialState,
+
+    // Load cached index from API (called on mount)
+    async loadCachedIndex() {
+      const [cachedIndex, lastRun] = await Promise.all([
+        loadIndexFromAPI(),
+        loadLastRunFromAPI(),
+      ]);
+      
+      if (cachedIndex) {
+        set({
+          index: cachedIndex,
+          summary: summarizeIndex(cachedIndex),
+          lastEvaluatedAt: lastRun,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
+    },
 
     evaluate(customers, settings) {
       // Store for re-evaluation
@@ -81,14 +152,8 @@ export const useCustomerSlaEngineStore = create<SlaStore>((set, get) => {
       const nextSummary = summarizeIndex(nextIndex);
       const timestamp = new Date().toISOString();
 
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem(SLA_EVALUATION_KEY, JSON.stringify(nextIndex));
-          window.localStorage.setItem(SLA_LAST_RUN_KEY, timestamp);
-        } catch (error) {
-          console.warn('[customer-sla] Failed to cache index', error);
-        }
-      }
+      // Save to API (debounced)
+      saveIndexToAPI(nextIndex, timestamp);
 
       set({
         index: nextIndex,

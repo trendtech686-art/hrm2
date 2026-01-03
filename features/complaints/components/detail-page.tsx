@@ -14,51 +14,9 @@ import { useComplaintReminders } from "../hooks/use-complaint-reminders";
 import { COMPLAINT_TOAST_MESSAGES as MSG } from '../constants/toast-messages';
 import { handleCancelComplaint as cancelComplaintHandler } from '../handlers/cancel-handler';
 import { handleReopenComplaint as reopenComplaintHandler } from '../handlers/reopen-handler';
+import { useComplaintTemplates } from '../hooks/use-complaint-templates';
 import type { Payment } from '@/features/payments/types';
 import type { Receipt } from '@/features/receipts/types';
-
-// Response template interface
-interface ResponseTemplate {
-  id: string;
-  name: string;
-  content: string;
-  category: string;
-  order: number;
-}
-
-// Load templates from localStorage
-function loadTemplates(): ResponseTemplate[] {
-  try {
-    const stored = localStorage.getItem('complaints-templates');
-    if (stored) return JSON.parse(stored);
-  } catch (e) {
-    console.error('Failed to load templates:', e);
-  }
-  // Default templates
-  return [
-    {
-      id: '1',
-      name: 'Xin lỗi - Lỗi sản phẩm',
-      content: 'Kính chào Anh/Chị,\n\nChúng tôi xin chân thành xin lỗi về sản phẩm bị lỗi mà Anh/Chị đã nhận được. Đây là sự cố đáng tiếc và chúng tôi hiểu sự bất tiện mà điều này gây ra.\n\nChúng tôi đang xử lý khiếu nại của Anh/Chị và sẽ sớm có phương án giải quyết hợp lý nhất.\n\nTrân trọng,',
-      category: 'product-defect',
-      order: 1,
-    },
-    {
-      id: '2',
-      name: 'Xin lỗi - Giao hàng chậm',
-      content: 'Kính chào Anh/Chị,\n\nChúng tôi xin lỗi vì đơn hàng của Anh/Chị đã bị giao chậm hơn so với dự kiến. Chúng tôi đã liên hệ với đơn vị vận chuyển để làm rõ nguyên nhân.\n\nChúng tôi sẽ có phương án bù trừ hợp lý cho sự chậm trễ này.\n\nTrân trọng,',
-      category: 'shipping-delay',
-      order: 2,
-    },
-    {
-      id: '3',
-      name: 'Xác nhận đang xử lý',
-      content: 'Kính chào Anh/Chị,\n\nChúng tôi đã nhận được khiếu nại của Anh/Chị và đang tiến hành xác minh thông tin.\n\nChúng tôi sẽ phản hồi lại trong thời gian sớm nhất. Xin Anh/Chị vui lòng theo dõi.\n\nTrân trọng,',
-      category: 'general',
-      order: 3,
-    },
-  ];
-}
 
 // Types & Store
 import type { Complaint, ComplaintAction } from "../types";
@@ -92,13 +50,13 @@ import {
   mapComplaintLineItems,
   createStoreSettings,
 } from '@/lib/print/complaint-print-helper';
-import { useBranchStore } from '@/features/settings/branches/store';
+import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '@/features/settings/store-info/store-info-store';
 
 // Hooks & Context
 import { usePageHeader } from "@/contexts/page-header-context";
 import { useEmployeeStore } from "@/features/employees/store";
-import { useOrderStore } from "@/features/orders/store";
+import { useAllOrders } from "@/features/orders/hooks/use-all-orders";
 import {
   useComplaintHandlers,
   useVerificationHandlers,
@@ -119,7 +77,7 @@ export function ComplaintDetailPage() {
   console.time('Store Hooks');
   const { getComplaintById, assignComplaint, updateComplaint } = useComplaintStore();
   const { data: employees } = useEmployeeStore();
-  const { data: orders } = useOrderStore();
+  const { data: orders } = useAllOrders();
   // REMOVED: Payments/receipts loaded separately in components that need them
   console.timeEnd('Store Hooks');
 
@@ -198,7 +156,7 @@ export function ComplaintDetailPage() {
   
   // Template dialog state
   const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false);
-  const [templates] = React.useState<ResponseTemplate[]>(() => loadTemplates());
+  const [templates] = useComplaintTemplates();
   
   // Confirm dialogs state
   const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
@@ -328,7 +286,7 @@ export function ComplaintDetailPage() {
   // REPLACED: handleInventoryAdjustment → inventoryHandlers.handleInventoryAdjustment
   const handleInventoryAdjustment = inventoryHandlers.handleInventoryAdjustment;
 
-  const { findById: findBranchById } = useBranchStore();
+  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoStore();
   const { print } = usePrint(complaint?.branchSystemId);
 

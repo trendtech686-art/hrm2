@@ -10,20 +10,19 @@ import { toast } from "sonner";
 import Fuse from 'fuse.js';
 
 import { useCustomerStore } from "./store";
-import { useCustomerTypeStore } from "../settings/customers/customer-types-store";
-import { useBranchStore } from "../settings/branches/store";
+import { useActiveCustomerTypes } from "../settings/customers/hooks/use-all-customer-settings";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { type Customer } from "@/lib/types/prisma-extended";
 import { getColumns } from "./columns";
 import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams } from "./customer-service";
 import { usePersistentState } from "../../hooks/use-persistent-state";
+import { useColumnVisibility } from "../../hooks/use-column-visibility";
 import { asSystemId, asBusinessId, type SystemId } from "../../lib/id-types";
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useMediaQuery } from "../../lib/use-media-query";
 import { useDebounce } from "../../hooks/use-debounce";
 import { isDateAfter, isDateBefore } from "../../lib/date-utils";
-import {
-  customerImportExportConfig,
-} from "../../lib/import-export/configs/customer.config";
+// ✅ customerImportExportConfig moved to customer-import-export-dialogs.tsx for lazy loading
 
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
 import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
@@ -41,9 +40,15 @@ const BulkActionConfirmDialog = dynamic(
   { ssr: false }
 );
 
-// Generic components need static import to preserve types
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
+// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
+const CustomerImportDialog = dynamic(
+  () => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerImportDialog })),
+  { ssr: false }
+);
+const CustomerExportDialog = dynamic(
+  () => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerExportDialog })),
+  { ssr: false }
+);
 
 import {
   Card,
@@ -124,8 +129,8 @@ export function CustomersPage() {
       update: state.update,
     }))
   );
-  const customerTypes = useCustomerTypeStore();
-  const { data: branches } = useBranchStore();
+  const { data: customerTypesData } = useActiveCustomerTypes();
+  const { data: branches } = useAllBranches();
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
@@ -172,30 +177,7 @@ export function CustomersPage() {
   const [pendingAction, setPendingAction] = React.useState<PendingBulkAction>(null);
   const [showImportDialog, setShowImportDialog] = React.useState(false);
   const [showExportDialog, setShowExportDialog] = React.useState(false);
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-    if (typeof window === "undefined") {
-      return {};
-    }
-    const storageKey = "customers-column-visibility";
-    const stored = window.localStorage.getItem(storageKey);
-    const cols = getColumns(() => {}, () => {}, router);
-    const allColumnIds = cols.map((column) => column.id).filter(Boolean) as string[];
-    if (stored) {
-      try {
-        const parsedData = JSON.parse(stored) as Record<string, boolean>;
-        if (allColumnIds.every((id) => id in parsedData)) {
-          return parsedData;
-        }
-      } catch (error) {
-        console.warn("[customers-page] Failed to parse column visibility", error);
-      }
-    }
-    const initial: Record<string, boolean> = {};
-    allColumnIds.forEach((id) => {
-      initial[id] = true;
-    });
-    return initial;
-  });
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('customers', {});
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   const [tableState, setTableState] = usePersistentState<CustomerQueryParams>(TABLE_STATE_STORAGE_KEY, defaultTableState);
@@ -212,13 +194,6 @@ export function CustomersPage() {
       setTableState((prev) => ({ ...prev, showDeleted: false }));
     }
   }, [tableState.showDeleted, setTableState]);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem("customers-column-visibility", JSON.stringify(columnVisibility));
-  }, [columnVisibility]);
 
   const handleDelete = React.useCallback((systemId: string) => {
     setIdToDelete(systemId);
@@ -240,10 +215,11 @@ export function CustomersPage() {
     [handleDelete, handleRestore, router, slaIndex]
   );
 
+  const columnDefaultsInitialized = React.useRef(false);
   React.useEffect(() => {
-    if (columnOrder.length) {
-      return;
-    }
+    if (columnDefaultsInitialized.current) return;
+    if (columns.length === 0) return;
+    
     const defaultVisibleColumns = ["id", "name", "email", "phone", "shippingAddress", "status", "slaStatus", "accountManagerName"];
     const initialVisibility: Record<string, boolean> = {};
     columns.forEach((column) => {
@@ -251,9 +227,10 @@ export function CustomersPage() {
       const alwaysVisible = column.id === "select" || column.id === "actions";
       initialVisibility[column.id] = alwaysVisible || defaultVisibleColumns.includes(column.id);
     });
-    setColumnVisibility((prev) => (Object.keys(prev).length ? prev : initialVisibility));
+    setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map((column) => column.id).filter(Boolean) as string[]);
-  }, [columns, columnOrder.length]);
+    columnDefaultsInitialized.current = true;
+  }, [columns, setColumnVisibility]);
 
   const updateTableState = React.useCallback(
     (updater: (prev: CustomerQueryParams) => CustomerQueryParams) => {
@@ -839,7 +816,7 @@ export function CustomersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả loại KH</SelectItem>
-                    {customerTypes.getActive().map((type) => (
+                    {customerTypesData.map((type) => (
                       <SelectItem key={type.systemId} value={type.id}>
                         {type.name}
                       </SelectItem>
@@ -916,7 +893,7 @@ export function CustomersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả loại</SelectItem>
-                  {customerTypes.getActive().map((type) => (
+                  {customerTypesData.map((type) => (
                     <SelectItem key={type.systemId} value={type.id}>
                       {type.name}
                     </SelectItem>
@@ -985,22 +962,20 @@ export function CustomersPage() {
         />
       )}
 
-      {/* V2 Import Dialog with Preview */}
-      <GenericImportDialogV2<Customer>
+      {/* V2 Import Dialog with Preview - Lazy loaded */}
+      <CustomerImportDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
-        config={customerImportExportConfig}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
         existingData={activeCustomers}
         onImport={handleImportV2}
         currentUser={currentUser}
       />
 
-      {/* V2 Export Dialog with Column Selection */}
-      <GenericExportDialogV2<Customer>
+      {/* V2 Export Dialog with Column Selection - Lazy loaded */}
+      <CustomerExportDialog
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
-        config={customerImportExportConfig}
         allData={activeCustomers}
         filteredData={sortedData}
         currentPageData={pageData}

@@ -2,6 +2,7 @@
  * useAllPricingPolicies - Convenience hook for components needing all policies as flat array
  */
 
+import * as React from 'react';
 import { usePricingPolicies as usePricingPoliciesQuery } from './use-pricing';
 
 // Re-export for backward compatibility
@@ -16,6 +17,21 @@ export function useAllPricingPolicies() {
     isError: query.isError,
     error: query.error,
   };
+}
+
+/**
+ * Returns only active pricing policies (isActive = true)
+ * Replaces legacy usePricingPolicyStore().getActive()
+ */
+export function useActivePricingPolicies() {
+  const { data, isLoading, isError, error } = useAllPricingPolicies();
+  
+  const activePolicies = React.useMemo(
+    () => data.filter(p => p.isActive !== false),
+    [data]
+  );
+  
+  return { data: activePolicies, isLoading, isError, error };
 }
 
 export function useDefaultSellingPolicy() {

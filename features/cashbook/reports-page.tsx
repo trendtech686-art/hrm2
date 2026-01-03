@@ -8,8 +8,8 @@ import { startOfMonth, endOfMonth, isAfter, isBefore, isWithinInterval, isSameDa
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useReceiptStore } from '../receipts/store';
 import { usePaymentStore } from '../payments/store';
-import { useBranchStore } from '../settings/branches/store';
-import { useCustomerStore } from '../customers/store';
+import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
+import { useAllCustomers } from '../customers/hooks/use-all-customers';
 import { useReceiptTypeStore } from '../settings/receipt-types/store';
 import { usePaymentTypeStore } from '../settings/payments/types/store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -41,8 +41,8 @@ export function CashbookReportsPage() {
     ...receipts.map(r => ({ ...r, type: 'receipt' as const })),
     ...payments.map(p => ({ ...p, type: 'payment' as const }))
   ], [receipts, payments]);
-  const { data: branches } = useBranchStore();
-  const { data: _customers } = useCustomerStore();
+  const { data: branches } = useAllBranches();
+  const { data: _customers = [] } = useAllCustomers();
   const { data: _receiptTypes } = useReceiptTypeStore();
   const { data: _paymentTypes } = usePaymentTypeStore();
   

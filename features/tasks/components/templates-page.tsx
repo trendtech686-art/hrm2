@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useTaskTemplateStore } from '../template-store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useTaskStore } from '../store';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,7 +66,7 @@ function FileText(props: React.HTMLAttributes<HTMLDivElement>) { return <div {..
 export function TaskTemplatesPage() {
   const router = useRouter();
   const templateStore = useTaskTemplateStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const taskStore = useTaskStore();
 
   const [searchQuery, setSearchQuery] = React.useState('');

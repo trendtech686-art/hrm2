@@ -7,7 +7,7 @@ import { numberToWords } from '../../lib/print-service';
 import { useSalesReturnStore } from './store';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
 import { usePrint } from '../../lib/use-print';
 import { 
@@ -35,8 +35,8 @@ import { useReceiptStore } from '../receipts/store';
 import { usePaymentStore } from '../payments/store';
 import type { Receipt } from '../receipts/types';
 import type { Payment } from '../payments/types';
-import { useCustomerStore } from '../customers/store';
-import { useEmployeeStore } from '../employees/store';
+import { useCustomerFinder } from '../customers/hooks/use-all-customers';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card';
@@ -45,6 +45,7 @@ import { Comments, type Comment as CommentType } from '../../components/Comments
 import { ActivityHistory } from '../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
+import { useComments } from '../../hooks/use-comments';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -62,51 +63,47 @@ export function SalesReturnDetailPage() {
     const { findById } = useSalesReturnStore();
     const { findById: findReceiptById } = useReceiptStore();
     const { findById: findPaymentById } = usePaymentStore();
-    const { findById: findCustomerById } = useCustomerStore();
-    const { findById: findEmployeeById } = useEmployeeStore();
-    const { findById: findBranchById } = useBranchStore();
+    const { findById: findCustomerById } = useCustomerFinder();
+    const { findById: findEmployeeById } = useEmployeeFinder();
+    const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoStore();
     const { employee: authEmployee } = useAuth();
     const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
 
-    // Comments state with localStorage persistence
+    // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
+    const { 
+      comments: dbComments, 
+      addComment: dbAddComment, 
+      deleteComment: dbDeleteComment 
+    } = useComments('sales_return', systemId || '');
+    
     type ReturnComment = CommentType<SystemId>;
-    const [comments, setComments] = React.useState<ReturnComment[]>(() => {
-        const saved = localStorage.getItem(`sales-return-comments-${systemId}`);
-        return saved ? JSON.parse(saved) : [];
-    });
+    const comments = React.useMemo<ReturnComment[]>(() => 
+      dbComments.map(c => ({
+        id: asSystemId(c.systemId),
+        content: c.content,
+        author: {
+          systemId: asSystemId(c.createdBy || 'system'),
+          name: c.createdByName || 'Hệ thống',
+        },
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        attachments: c.attachments,
+      })), 
+      [dbComments]
+    );
 
-    React.useEffect(() => {
-        if (systemId) {
-            localStorage.setItem(`sales-return-comments-${systemId}`, JSON.stringify(comments));
-        }
-    }, [comments, systemId]);
+    const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+        dbAddComment(content, attachments || []);
+    }, [dbAddComment]);
 
-    const handleAddComment = React.useCallback((content: string, attachments?: string[], parentId?: string) => {
-        const newComment: ReturnComment = {
-            id: asSystemId(`comment-${Date.now()}`),
-            content,
-            author: {
-                systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-                name: authEmployee?.fullName || 'Hệ thống',
-                avatar: authEmployee?.avatar,
-            },
-            createdAt: new Date().toISOString(),
-            attachments,
-            parentId: parentId as SystemId | undefined,
-        };
-        setComments(prev => [...prev, newComment]);
-    }, [authEmployee]);
-
-    const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-        setComments(prev => prev.map(c => 
-            c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-        ));
+    const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {
-        setComments(prev => prev.filter(c => c.id !== commentId));
-    }, []);
+        dbDeleteComment(commentId);
+    }, [dbDeleteComment]);
 
     const commentCurrentUser = React.useMemo(() => ({
         systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),

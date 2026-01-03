@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
-import { useOrderStore } from '../orders/store';
+import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
 import type { PackagingStatus } from '../orders/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -17,10 +18,10 @@ import {
   mapPackingLineItems,
   createStoreSettings,
 } from '../../lib/print/order-print-helper';
-import { useBranchStore } from '../settings/branches/store';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoStore } from '../settings/store-info/store-info-store';
-import { useCustomerStore } from '../customers/store';
-import { useEmployeeStore } from '../employees/store';
+import { useCustomerFinder } from '../customers/hooks/use-all-customers';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
@@ -31,7 +32,8 @@ import { DetailField } from '../../components/ui/detail-field';
 import { useAuth } from '../../contexts/auth-context';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import type { Product } from '../products/types';
-import { Comments, type Comment as CommentType } from '../../components/Comments';
+import { Comments } from '../../components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { ActivityHistory } from '../../components/ActivityHistory';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 
@@ -90,53 +92,50 @@ function CancelPackagingDialog({
 export function PackagingDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
     const router = useRouter();
-    const { data: allOrders, confirmPackaging, cancelPackagingRequest } = useOrderStore();
-    const { findById: findCustomerById } = useCustomerStore();
-    const { findById: findEmployeeById } = useEmployeeStore();
+    const { data: allOrders } = useAllOrders();
+    const { confirmPackaging, cancelPackagingRequest, isConfirming, isCancelling } = usePackagingActions();
+    const { findById: findCustomerById } = useCustomerFinder();
+    const { findById: findEmployeeById } = useEmployeeFinder();
     const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
     const { employee: authEmployee } = useAuth();
     const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
 
     const [isCancelDialogOpen, setIsCancelDialogOpen] = React.useState(false);
 
-    // Comments state with localStorage persistence
-    type PackagingComment = CommentType<SystemId>;
-    const [comments, setComments] = React.useState<PackagingComment[]>(() => {
-        const saved = localStorage.getItem(`packaging-comments-${systemId}`);
-        return saved ? JSON.parse(saved) : [];
-    });
+    // Comments from database
+    const { 
+        comments: dbComments, 
+        addComment: dbAddComment, 
+        deleteComment: dbDeleteComment 
+    } = useComments('packaging', systemId || '');
 
-    React.useEffect(() => {
-        if (systemId) {
-            localStorage.setItem(`packaging-comments-${systemId}`, JSON.stringify(comments));
-        }
-    }, [comments, systemId]);
-
-    const handleAddComment = React.useCallback((content: string, attachments?: string[], parentId?: string) => {
-        const newComment: PackagingComment = {
-            id: asSystemId(`comment-${Date.now()}`),
-            content,
+    const comments = React.useMemo(() => 
+        dbComments.map(c => ({
+            id: c.systemId as unknown as SystemId,
+            content: c.content,
             author: {
-                systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-                name: authEmployee?.fullName || 'Hệ thống',
-                avatar: authEmployee?.avatar,
+                systemId: (c.createdBy || 'system') as unknown as SystemId,
+                name: c.createdByName || 'Hệ thống',
+                avatar: undefined,
             },
-            createdAt: new Date().toISOString(),
-            attachments,
-            parentId: parentId as SystemId | undefined,
-        };
-        setComments(prev => [...prev, newComment]);
-    }, [authEmployee]);
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+            attachments: c.attachments,
+        })), 
+        [dbComments]
+    );
 
-    const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-        setComments(prev => prev.map(c => 
-            c.id === commentId ? { ...c, content, updatedAt: new Date().toISOString() } : c
-        ));
+    const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+        dbAddComment(content, attachments || []);
+    }, [dbAddComment]);
+
+    const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {
-        setComments(prev => prev.filter(c => c.id !== commentId));
-    }, []);
+        dbDeleteComment(commentId);
+    }, [dbDeleteComment]);
 
     const commentCurrentUser = React.useMemo(() => ({
         systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
@@ -175,7 +174,7 @@ export function PackagingDetailPage() {
         return findEmployeeById(packaging.confirmingEmployeeId);
     }, [packaging?.confirmingEmployeeId, findEmployeeById]);
 
-    const { findById: findBranchById } = useBranchStore();
+    const { findById: findBranchById } = useBranchFinder();
     const { info: _storeInfo } = useStoreInfoStore();
     const { print } = usePrint(order?.branchSystemId);
 
@@ -211,9 +210,10 @@ export function PackagingDetailPage() {
                             key="confirm"
                             size="sm"
                             className="h-9"
-                            onClick={() => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId as SystemId)}
+                            disabled={isConfirming}
+                            onClick={() => confirmPackaging(order.systemId, packaging.systemId, currentUserSystemId)}
                         >
-                            Xác nhận đã đóng gói
+                            {isConfirming ? 'Đang xử lý...' : 'Xác nhận đã đóng gói'}
                         </Button>
                     );
                     actions.push(
@@ -222,9 +222,10 @@ export function PackagingDetailPage() {
                             variant="destructive"
                             size="sm"
                             className="h-9"
+                            disabled={isCancelling}
                             onClick={() => setIsCancelDialogOpen(true)}
                         >
-                            Hủy yêu cầu đóng gói
+                            {isCancelling ? 'Đang xử lý...' : 'Hủy yêu cầu đóng gói'}
                         </Button>
                     );
                 }
@@ -257,7 +258,7 @@ export function PackagingDetailPage() {
             );
 
             return actions;
-        }, [packaging, order, confirmPackaging, currentUserSystemId, setIsCancelDialogOpen, router, handlePrint]);
+        }, [packaging, order, confirmPackaging, isConfirming, isCancelling, currentUserSystemId, setIsCancelDialogOpen, router, handlePrint]);
 
         const headerBadge = React.useMemo(() => {
             if (!packaging) return undefined;
@@ -302,9 +303,9 @@ export function PackagingDetailPage() {
         );
     }
     
-    const handleCancelSubmit = (reason: string) => {
+    const handleCancelSubmit = async (reason: string) => {
         if (order && packaging) {
-            cancelPackagingRequest(order.systemId, packaging.systemId, currentUserSystemId as SystemId, reason);
+            await cancelPackagingRequest(order.systemId, packaging.systemId, currentUserSystemId, reason);
         }
     };
 

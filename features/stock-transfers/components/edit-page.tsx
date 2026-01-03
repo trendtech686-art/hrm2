@@ -6,10 +6,10 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useStockTransferStore } from '../store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useProductStore } from '@/features/products/store';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
+import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
 import { ProductImage } from '@/features/products/components/product-image';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 // formatDate import removed - not used
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
-import type { StockTransfer, StockTransferStatus } from '@/lib/types/prisma-extended';
+import type { StockTransfer, StockTransferStatus, Product } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 
@@ -86,9 +86,10 @@ export function StockTransferEditPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById, update } = useStockTransferStore();
-  const { data: branches } = useBranchStore();
-  const { data: allProducts, findById: findProductById } = useProductStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { data: branches } = useAllBranches();
+  useAllProducts(); // Load products for type reference
+  const { findById: findProductById } = useProductFinder();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { user } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   
@@ -217,7 +218,7 @@ export function StockTransferEditPage() {
     fullEditForm.setValue('items', updatedItems);
   }, [fromBranchId, toBranchId, findProductById, fullEditForm, canFullEdit]);
 
-  const handleAddProducts = (selectedProducts: typeof allProducts) => {
+  const handleAddProducts = (selectedProducts: Product[]) => {
     selectedProducts.forEach(product => {
       // Check if already added
       const existingIndex = fields.findIndex(f => f.productSystemId === product.systemId);

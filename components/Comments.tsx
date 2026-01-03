@@ -9,6 +9,7 @@ import { MessageSquare, Reply, Send, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useCommentDraft } from '@/hooks/use-comment-draft';
 
 export interface Comment<AuthorId extends string = string, CommentId extends string = string> {
   id: CommentId;
@@ -110,27 +111,22 @@ export function Comments<
   const [replyingTo, setReplyingTo] = React.useState<CommentId | null>(null);
   const [replyContent, setReplyContent] = React.useState('');
 
-  // Local storage key for draft
-  const draftKey = `comment-draft-${entityType}-${entityId}`;
+  // Comment draft hook (saves to database via API)
+  const { draft, updateDraft, clearDraft } = useCommentDraft(entityType, entityId, enableDraftSaving);
 
   // Load draft on mount
   React.useEffect(() => {
-    if (enableDraftSaving) {
-      const draft = localStorage.getItem(draftKey);
-      if (draft) {
-        setNewComment(draft);
-      }
+    if (enableDraftSaving && draft && !newComment) {
+      setNewComment(draft);
     }
-  }, [draftKey, enableDraftSaving]);
+  }, [draft, enableDraftSaving]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Save draft on change
+  // Save draft when comment changes
   React.useEffect(() => {
-    if (enableDraftSaving && newComment) {
-      localStorage.setItem(draftKey, newComment);
-    } else if (enableDraftSaving && !newComment) {
-      localStorage.removeItem(draftKey);
+    if (enableDraftSaving) {
+      updateDraft(newComment);
     }
-  }, [newComment, draftKey, enableDraftSaving]);
+  }, [newComment, enableDraftSaving, updateDraft]);
 
   // Organize comments into tree structure
   const commentTree = React.useMemo(() => {
@@ -156,7 +152,7 @@ export function Comments<
     setNewComment('');
     setNewCommentText('');
     if (enableDraftSaving) {
-      localStorage.removeItem(draftKey);
+      clearDraft();
     }
   };
 

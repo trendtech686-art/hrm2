@@ -343,7 +343,14 @@ export const getColumns = (
         onSort={() => setSorting?.((s: { id: string; desc: boolean }) => ({ id: 'department', desc: s.id === 'department' ? !s.desc : false }))}
        />
     ),
-    cell: ({ row }) => row.department,
+    cell: ({ row }) => {
+      // Handle both object (from API with include) and string (legacy)
+      const dept = row.department;
+      if (typeof dept === 'object' && dept !== null) {
+        return (dept as { name?: string }).name || '-';
+      }
+      return dept || row.departmentName || '-';
+    },
     meta: {
       displayName: "Phòng ban",
       group: "Thông tin công việc"
@@ -353,7 +360,14 @@ export const getColumns = (
     id: "jobTitle",
     accessorKey: "jobTitle",
     header: "Chức danh",
-    cell: ({ row }) => row.jobTitle,
+    cell: ({ row }) => {
+      // Handle both object (from API with include) and string (legacy)
+      const jt = row.jobTitle;
+      if (typeof jt === 'object' && jt !== null) {
+        return (jt as { name?: string }).name || '-';
+      }
+      return jt || '-';
+    },
     meta: {
       displayName: "Chức danh",
       group: "Thông tin công việc"

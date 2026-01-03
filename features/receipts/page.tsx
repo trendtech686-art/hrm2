@@ -1,12 +1,13 @@
 'use client'
 
 import * as React from "react";
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useReceiptStore } from "./store";
 import { useReceiptTypeStore } from "../settings/receipt-types/store";
 import { useCashbookStore } from "../cashbook/store";
-import { useBranchStore } from "../settings/branches/store";
-import { useCustomerStore } from "../customers/store";
+import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
+import { useAllCustomers } from "../customers/hooks/use-all-customers";
 import { useStoreInfoStore } from "../settings/store-info/store-info-store";
 import type { Receipt } from '@/lib/types/prisma-extended';
 import { usePageHeader } from "@/contexts/page-header-context";
@@ -14,10 +15,17 @@ import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/re
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Printer, FileSpreadsheet, Download } from "lucide-react";
-import { GenericImportDialogV2 } from "../../components/shared/generic-import-dialog-v2";
-import { GenericExportDialogV2 } from "../../components/shared/generic-export-dialog-v2";
-import { receiptImportExportConfig } from "../../lib/import-export/configs/receipt.config";
 import { useAuth } from "../../contexts/auth-context";
+
+// Dynamic imports for import/export dialogs to reduce initial bundle size
+const ReceiptImportDialog = dynamic(
+    () => import('./components/receipt-import-export-dialogs').then(mod => ({ default: mod.ReceiptImportDialog })),
+    { ssr: false }
+);
+const ReceiptExportDialog = dynamic(
+    () => import('./components/receipt-import-export-dialogs').then(mod => ({ default: mod.ReceiptExportDialog })),
+    { ssr: false }
+);
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Fuse from "fuse.js";
 import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
@@ -41,6 +49,7 @@ import {
   createStoreSettings,
 } from "@/lib/print/receipt-print-helper";
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "@/components/shared/simple-print-options-dialog";
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
 const _formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
@@ -59,9 +68,9 @@ export function ReceiptsPage() {
 
     const { data: receipts, remove: _remove } = useReceiptStore();
     const { accounts } = useCashbookStore();
-    const { data: branches } = useBranchStore();
+    const { data: branches } = useAllBranches();
     const { data: receiptTypes } = useReceiptTypeStore();
-    const { data: customers } = useCustomerStore();
+    const { data: customers } = useAllCustomers();
     const { info: storeInfo } = useStoreInfoStore();
     const { print, printMultiple } = usePrint();
     const { employee } = useAuth();
@@ -107,22 +116,13 @@ export function ReceiptsPage() {
     const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
     const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
-        const storageKey = 'receipts-column-visibility';
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-            try {
-                return JSON.parse(stored);
-            } catch (_e) {
-                // Ignore JSON parse errors - use default
-            }
-        }
-        return {};
-    });
-    
-    React.useEffect(() => {
-        localStorage.setItem('receipts-column-visibility', JSON.stringify(columnVisibility));
-    }, [columnVisibility]);
+    const defaultColumnVisibility = React.useMemo(() => {
+        const cols = getColumns([], () => {}, () => {}, () => {});
+        const initial: Record<string, boolean> = {};
+        cols.forEach(c => { if (c.id) initial[c.id] = true; });
+        return initial;
+    }, []);
+    const [columnVisibility, setColumnVisibility] = useColumnVisibility('receipts', defaultColumnVisibility);
     
     const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
     const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
@@ -172,7 +172,11 @@ export function ReceiptsPage() {
     const columns = React.useMemo(() => getColumns(accounts, handleCancel, navigateTo, handleSinglePrint), [accounts, handleCancel, navigateTo, handleSinglePrint]);
     
     // ✅ Set default column visibility - Run ONCE on mount
+    const columnDefaultsInitialized = React.useRef(false);
     React.useEffect(() => {
+      if (columnDefaultsInitialized.current) return;
+      if (columns.length === 0) return;
+      
       const defaultVisibleColumns = [
         'id', 'date', 'amount', 'payerName', 'payerTypeName', 'paymentMethodName', 
         'accountSystemId', 'paymentReceiptTypeName', 'status', 'branchName', 
@@ -188,7 +192,8 @@ export function ReceiptsPage() {
       });
       setColumnVisibility(initialVisibility);
       setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    }, [columns]); // ✅ Depends on columns
+      columnDefaultsInitialized.current = true;
+    }, [columns, setColumnVisibility]);
     
     const fuse = React.useMemo(() => new Fuse(receipts, { 
         keys: ["id", "description", "payerName", "originalDocumentId", "createdBy"],
@@ -670,10 +675,9 @@ export function ReceiptsPage() {
             />
 
             {/* Import Dialog */}
-            <GenericImportDialogV2<Receipt>
+            <ReceiptImportDialog
                 open={showImportDialog}
                 onOpenChange={setShowImportDialog}
-                config={receiptImportExportConfig}
                 branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
                 existingData={receipts}
                 onImport={handleImport}
@@ -684,10 +688,9 @@ export function ReceiptsPage() {
             />
 
             {/* Export Dialog */}
-            <GenericExportDialogV2<Receipt>
+            <ReceiptExportDialog
                 open={showExportDialog}
                 onOpenChange={setShowExportDialog}
-                config={receiptImportExportConfig}
                 allData={receipts}
                 filteredData={sortedData}
                 currentPageData={paginatedData}

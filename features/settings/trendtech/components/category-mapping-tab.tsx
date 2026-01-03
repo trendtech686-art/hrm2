@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTrendtechSettingsStore } from '../store';
-import { useProductCategoryStore } from '../../inventory/product-category-store';
+import { useActiveCategories } from '@/features/categories/hooks/use-all-categories';
 import { nanoid } from 'nanoid';
+import { asSystemId } from '@/lib/id-types';
 
 export function CategoryMappingTab() {
   const { 
@@ -18,17 +19,15 @@ export function CategoryMappingTab() {
     syncCategoriesFromTrendtech,
     addLog,
   } = useTrendtechSettingsStore();
-  const categoryStore = useProductCategoryStore();
+  const { data: hrmCategories } = useActiveCategories();
   const [isSyncing, setIsSyncing] = React.useState(false);
-  
-  const hrmCategories = React.useMemo(() => categoryStore.getActive(), [categoryStore]);
   const trendtechCategories = settings.categories;
   const mappings = settings.categoryMappings;
 
   // Get unmapped HRM categories
   const unmappedHrmCategories = React.useMemo(() => {
     const mappedIds = new Set(mappings.map((m) => m.hrmCategorySystemId));
-    return hrmCategories.filter((c) => !mappedIds.has(c.systemId));
+    return hrmCategories.filter((c) => !mappedIds.has(asSystemId(c.systemId)));
   }, [hrmCategories, mappings]);
 
   const handleSyncCategories = async () => {
@@ -51,7 +50,7 @@ export function CategoryMappingTab() {
     
     addCategoryMapping({
       id: nanoid(),
-      hrmCategorySystemId: hrmCategory.systemId,
+      hrmCategorySystemId: asSystemId(hrmCategory.systemId),
       hrmCategoryName: hrmCategory.name,
       trendtechCatId: trendtechCategory.id,
       trendtechCatName: trendtechCategory.name,

@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from "react";
 import { Plus, Save } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";

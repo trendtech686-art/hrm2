@@ -3,12 +3,12 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Printer, FileSpreadsheet, Clock } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { Printer, FileSpreadsheet } from 'lucide-react';
+// XLSX is lazy loaded in export functions to reduce bundle size (~500KB)
 import { toast } from 'sonner';
 import { formatDate, formatDateCustom, getMonthsDiff } from '@/lib/date-utils';
 import { useEmployeeStore } from '../store';
-import { useBranchStore } from '@/features/settings/branches/store';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { useEmployeeCompStore } from '../employee-comp-store';
@@ -16,9 +16,7 @@ import { useEmployeeSettingsStore } from '@/features/settings/employees/employee
 import { attendanceSnapshotService } from '@/lib/attendance-snapshot-service';
 import { useAttendanceStore } from '@/features/attendance/store';
 import { usePayrollBatchStore } from '@/features/payroll/payroll-batch-store';
-import type { Payslip, PayrollBatch } from '@/lib/payroll-types';
 import { PayrollStatusBadge } from '@/features/payroll/components/status-badge';
-import { PayslipPrintButton } from '@/features/payroll/components/payslip-print-button';
 import { ROUTES } from '@/lib/router';
 import { useAuth } from '@/contexts/auth-context';
 import { usePrint } from '@/lib/use-print';
@@ -47,7 +45,8 @@ import {
   mapLeaveToPrintData,
   createStoreSettings as createLeaveStoreSettings,
 } from '@/lib/print/leave-print-helper';
-import { Comments, type Comment as CommentType } from '@/components/Comments';
+import { Comments } from '@/components/Comments';
+import { useComments } from '@/hooks/use-comments';
 import { ActivityHistory } from '@/components/ActivityHistory';
 import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,13 +73,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RelatedDataTable } from '@/components/data-table/related-data-table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -96,6 +88,13 @@ import { EmployeeAccountTab } from './employee-account-tab';
 
 import type { Penalty, PenaltyStatus } from '@/features/settings/penalties/types';
 import type { LeaveRequest, LeaveStatus } from '@/features/leaves/types';
+
+// Import extracted components from detail folder
+import {
+  PayslipDetailDialog,
+  AttendanceDetailDialog,
+  type PayrollHistoryRow,
+} from '../detail';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '-';
@@ -135,6 +134,20 @@ const formatAddressDisplay = (addr: EmployeeAddress | null | undefined): string 
 const penaltyStatusVariants: Record<PenaltyStatus, "warning" | "success" | "secondary"> = {
     "Chưa thanh toán": "warning", "Đã thanh toán": "success", "Đã hủy": "secondary",
 };
+
+// Helper function for lazy loading XLSX and exporting to Excel
+async function exportToExcel<T extends Record<string, unknown>>(
+    data: T[],
+    headers: string[],
+    sheetName: string,
+    filename: string
+) {
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.json_to_sheet(data, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, filename);
+}
 
 // REMOVED: Internal task status constants
 // const internalTaskStatusNames: Record<InternalTaskStatus, string> = { 'To Do': 'Cần làm', 'In Progress': 'Đang làm', 'Done': 'Hoàn thành' };
@@ -176,35 +189,14 @@ const PlaceholderTabContent = ({ title }: { title: string }) => (
     </Card>
 );
 
-// Column definitions for tabs (static - no actions)
-// taskColumns moved to dynamic inside component
-
-// Payroll history row type for RelatedDataTable
-interface PayrollHistoryRow {
-    systemId: string;
-    batchId: string;
-    monthLabel: string;
-    payDate: string;
-    status: 'draft' | 'reviewed' | 'locked' | 'cancelled';
-    grossEarnings: number;
-    totalInsurance: number;
-    personalIncomeTax: number;
-    otherDeductions: number;
-    totalDeductions: number;
-    netPay: number;
-    batchSystemId?: string;
-    payslipSystemId: string;
-    // For print functionality
-    slip: Payslip;
-    batch?: PayrollBatch;
-}
+// NOTE: PayrollHistoryRow and AttendanceHistoryRow types imported from ../detail
 
 
 export function EmployeeDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById } = useEmployeeStore();
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { employee: authEmployee } = useAuth();
     const getPayrollProfile = useEmployeeCompStore((state) => state.getPayrollProfile);
     const { settings } = useEmployeeSettingsStore();
@@ -218,42 +210,39 @@ export function EmployeeDetailPage() {
 
     const employee = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
 
-  // Comments state with localStorage persistence
-  type EmployeeComment = CommentType<SystemId>;
-  const [comments, setComments] = React.useState<EmployeeComment[]>(() => {
-    const saved = localStorage.getItem(`employee-comments-${systemId}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Comments from database
+  const { 
+    comments: dbComments, 
+    addComment: dbAddComment, 
+    deleteComment: dbDeleteComment 
+  } = useComments('employee', systemId || '');
 
-  React.useEffect(() => {
-    if (systemId) {
-      localStorage.setItem(`employee-comments-${systemId}`, JSON.stringify(comments));
-    }
-  }, [comments, systemId]);
-
-  const handleAddComment = React.useCallback((content: string, _attachments?: string[], parentId?: string) => {
-    const newComment: EmployeeComment = {
-      id: asSystemId(`comment-${Date.now()}`),
-      content,
+  const comments = React.useMemo(() => 
+    dbComments.map(c => ({
+      id: c.systemId as unknown as SystemId,
+      content: c.content,
       author: {
-        systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
-        name: authEmployee?.fullName || 'Hệ thống',
+        systemId: (c.createdBy || 'system') as unknown as SystemId,
+        name: c.createdByName || 'Hệ thống',
       },
-      createdAt: new Date(),
-      parentId: parentId as SystemId | undefined,
-    };
-    setComments(prev => [...prev, newComment]);
-  }, [authEmployee]);
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      attachments: c.attachments,
+    })), 
+    [dbComments]
+  );
 
-  const handleUpdateComment = React.useCallback((commentId: string, content: string) => {
-    setComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, content, updatedAt: new Date() } : c
-    ));
+  const handleAddComment = React.useCallback((content: string, attachments?: string[], _parentId?: string) => {
+    dbAddComment(content, attachments || []);
+  }, [dbAddComment]);
+
+  const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
+    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
-    setComments(prev => prev.filter(c => c.id !== commentId));
-  }, []);
+    dbDeleteComment(commentId);
+  }, [dbDeleteComment]);
 
   const commentCurrentUser = React.useMemo(() => ({
     systemId: authEmployee?.systemId ? asSystemId(authEmployee.systemId) : asSystemId('system'),
@@ -478,7 +467,7 @@ export function EmployeeDetailPage() {
             toast.success(`Đang in ${printOptionsList.length} phiếu chấm công...`);
         };
 
-        const handleExportExcel = (rows: typeof attendanceHistory) => {
+        const handleExportExcel = async (rows: typeof attendanceHistory) => {
             if (rows.length === 0) {
                 toast.error('Chưa chọn dữ liệu nào');
                 return;
@@ -496,10 +485,7 @@ export function EmployeeDetailPage() {
                 'Giờ làm thêm': row.otHours,
             }));
 
-            const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'ChamCong');
-            XLSX.writeFile(wb, `ChamCong_${employee?.id || 'NV'}_selected.xlsx`);
+            await exportToExcel(mappedData, headers, 'ChamCong', `ChamCong_${employee?.id || 'NV'}_selected.xlsx`);
             toast.success(`Đã xuất ${rows.length} dòng ra Excel`);
         };
 
@@ -538,7 +524,7 @@ export function EmployeeDetailPage() {
             toast.success(`Đang in ${printOptionsList.length} phiếu phạt...`);
         };
 
-        const handleExportExcel = (rows: Penalty[]) => {
+        const handleExportExcel = async (rows: Penalty[]) => {
             if (rows.length === 0) {
                 toast.error('Chưa chọn phiếu phạt nào');
                 return;
@@ -553,10 +539,7 @@ export function EmployeeDetailPage() {
                 'Số tiền': row.amount,
             }));
 
-            const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'PhieuPhat');
-            XLSX.writeFile(wb, `PhieuPhat_${employee?.id || 'NV'}_selected.xlsx`);
+            await exportToExcel(mappedData, headers, 'PhieuPhat', `PhieuPhat_${employee?.id || 'NV'}_selected.xlsx`);
             toast.success(`Đã xuất ${rows.length} phiếu phạt ra Excel`);
         };
 
@@ -595,7 +578,7 @@ export function EmployeeDetailPage() {
             toast.success(`Đang in ${printOptionsList.length} đơn nghỉ phép...`);
         };
 
-        const handleExportExcel = (rows: LeaveRequest[]) => {
+        const handleExportExcel = async (rows: LeaveRequest[]) => {
             if (rows.length === 0) {
                 toast.error('Chưa chọn đơn nghỉ phép nào');
                 return;
@@ -612,10 +595,7 @@ export function EmployeeDetailPage() {
                 'Trạng thái': row.status,
             }));
 
-            const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'NghiPhep');
-            XLSX.writeFile(wb, `NghiPhep_${employee?.id || 'NV'}_selected.xlsx`);
+            await exportToExcel(mappedData, headers, 'NghiPhep', `NghiPhep_${employee?.id || 'NV'}_selected.xlsx`);
             toast.success(`Đã xuất ${rows.length} đơn nghỉ phép ra Excel`);
         };
 
@@ -652,7 +632,7 @@ export function EmployeeDetailPage() {
         });
     }, [employee, storeInfo, print]);
 
-    const handleExportSinglePenalty = React.useCallback((row: Penalty) => {
+    const handleExportSinglePenalty = React.useCallback(async (row: Penalty) => {
         const headers = ['Mã phiếu', 'Lý do', 'Ngày lập', 'Trạng thái', 'Số tiền'];
         const mappedData = [{
             'Mã phiếu': row.id,
@@ -661,14 +641,11 @@ export function EmployeeDetailPage() {
             'Trạng thái': row.status,
             'Số tiền': row.amount,
         }];
-        const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'PhieuPhat');
-        XLSX.writeFile(wb, `PhieuPhat_${row.id}.xlsx`);
+        await exportToExcel(mappedData, headers, 'PhieuPhat', `PhieuPhat_${row.id}.xlsx`);
         toast.success('Đã xuất phiếu phạt ra Excel');
     }, []);
 
-    const handleExportSingleLeave = React.useCallback((row: LeaveRequest) => {
+    const handleExportSingleLeave = React.useCallback(async (row: LeaveRequest) => {
         const headers = ['Mã đơn', 'Loại phép', 'Từ ngày', 'Đến ngày', 'Số ngày', 'Lý do', 'Trạng thái'];
         const mappedData = [{
             'Mã đơn': row.id,
@@ -679,10 +656,7 @@ export function EmployeeDetailPage() {
             'Lý do': row.reason,
             'Trạng thái': row.status,
         }];
-        const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'NghiPhep');
-        XLSX.writeFile(wb, `NghiPhep_${row.id}.xlsx`);
+        await exportToExcel(mappedData, headers, 'NghiPhep', `NghiPhep_${row.id}.xlsx`);
         toast.success('Đã xuất đơn nghỉ phép ra Excel');
     }, []);
 
@@ -778,7 +752,7 @@ export function EmployeeDetailPage() {
 
     // ✅ Bulk actions cho tab Công việc
     const taskBulkActions = React.useMemo(() => {
-        const handleExportExcel = (rows: TaskRow[]) => {
+        const handleExportExcel = async (rows: TaskRow[]) => {
             if (rows.length === 0) {
                 toast.error('Chưa chọn công việc nào');
                 return;
@@ -792,6 +766,8 @@ export function EmployeeDetailPage() {
                 'Trạng thái': row.statusName,
             }));
 
+            // Lazy load XLSX
+            const XLSX = await import('xlsx');
             const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'CongViec');
@@ -809,7 +785,7 @@ export function EmployeeDetailPage() {
     }, [employee]);
 
     // ✅ Helper export single task
-    const handleExportSingleTask = React.useCallback((row: TaskRow) => {
+    const handleExportSingleTask = React.useCallback(async (row: TaskRow) => {
         const headers = ['Công việc', 'Độ ưu tiên', 'Hạn chót', 'Trạng thái'];
         const mappedData = [{
             'Công việc': row.title,
@@ -817,6 +793,8 @@ export function EmployeeDetailPage() {
             'Hạn chót': formatDateDisplay(row.dueDate),
             'Trạng thái': row.statusName,
         }];
+        // Lazy load XLSX
+        const XLSX = await import('xlsx');
         const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'CongViec');
@@ -1064,7 +1042,7 @@ export function EmployeeDetailPage() {
             toast.success(`Đang in ${rows.length} phiếu lương...`);
         };
 
-        const handleExportExcel = (rows: PayrollHistoryRow[]) => {
+        const handleExportExcel = async (rows: PayrollHistoryRow[]) => {
             if (rows.length === 0) {
                 toast.error('Chưa chọn dữ liệu nào');
                 return;
@@ -1084,6 +1062,8 @@ export function EmployeeDetailPage() {
                 'Thực lĩnh': row.netPay,
             }));
 
+            // Lazy load XLSX
+            const XLSX = await import('xlsx');
             const ws = XLSX.utils.json_to_sheet(mappedData, { header: headers });
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Lương');
@@ -1370,8 +1350,8 @@ export function EmployeeDetailPage() {
                                     <span>{branchName}</span>
                                 )}
                             </InfoItem>
-                            <InfoItem label="Phòng ban" value={employee.department} />
-                            <InfoItem label="Chức danh" value={employee.jobTitle} />
+                            <InfoItem label="Phòng ban" value={typeof employee.department === 'object' ? (employee.department as { name?: string })?.name : employee.department} />
+                            <InfoItem label="Chức danh" value={typeof employee.jobTitle === 'object' ? (employee.jobTitle as { name?: string })?.name : employee.jobTitle} />
                             <InfoItem label="Số hợp đồng" value={employee.contractNumber} />
                             <InfoItem label="Ngày ký HĐ" value={formatDate(employee.contractStartDate)} />
                             <InfoItem label="Ngày hết hạn HĐ" value={formatDate(employee.contractEndDate)} />
@@ -1678,300 +1658,22 @@ export function EmployeeDetailPage() {
                                 </div>
                         </TabsContent>
 
-        {/* Payslip Detail Dialog */}
-        <Dialog open={isPayslipDialogOpen} onOpenChange={setIsPayslipDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Chi tiết phiếu lương</DialogTitle>
-                    <DialogDescription>
-                        {selectedPayslip?.batch?.id ?? 'Phiếu lương'} - {formatMonthLabel(selectedPayslip?.batch?.payPeriod.monthKey ?? selectedPayslip?.slip.periodMonthKey)}
-                    </DialogDescription>
-                </DialogHeader>
-                {selectedPayslip && (
-                    <div className="space-y-4">
-                        {/* Thông tin chung */}
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm border rounded-lg p-4 bg-muted/30">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Mã bảng lương:</span>
-                                <span className="font-medium">{selectedPayslip.batch?.id ?? '—'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Trạng thái:</span>
-                                {selectedPayslip.batch ? <PayrollStatusBadge status={selectedPayslip.batch.status} /> : <Badge variant="outline">Chưa xác định</Badge>}
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Kỳ lương:</span>
-                                <span className="font-medium">{formatMonthLabel(selectedPayslip.batch?.payPeriod.monthKey ?? selectedPayslip.slip.periodMonthKey)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Ngày trả lương:</span>
-                                <span className="font-medium">{formatDate(selectedPayslip.batch?.payrollDate || selectedPayslip.slip.createdAt) || '—'}</span>
-                            </div>
-                        </div>
-                        
-                        {/* Chi tiết các thành phần lương */}
-                        <div className="space-y-3">
-                            {/* Các khoản thu nhập */}
-                            <div className="rounded-lg border p-4">
-                                <h4 className="font-medium text-green-700 mb-3 flex items-center gap-2">
-                                    <DollarSign className="h-4 w-4" />
-                                    Các khoản thu nhập
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                    {selectedPayslip.slip.components && selectedPayslip.slip.components
-                                        .filter(c => c.category === 'earning')
-                                        .map((comp, idx) => (
-                                            <div key={idx} className="flex justify-between py-1 border-b border-dashed last:border-0">
-                                                <span className="text-muted-foreground">{comp.label}</span>
-                                                <span className="font-medium tabular-nums text-green-600">{formatCurrency(comp.amount)}</span>
-                                            </div>
-                                        ))}
-                                    {/* Nếu không có components chi tiết, hiển thị tổng thu nhập */}
-                                    {(!selectedPayslip.slip.components || selectedPayslip.slip.components.filter(c => c.category === 'earning').length === 0) && (
-                                        <div className="flex justify-between py-1 border-b border-dashed">
-                                            <span className="text-muted-foreground">Thu nhập gộp</span>
-                                            <span className="font-medium tabular-nums text-green-600">{formatCurrency(selectedPayslip.slip.totals.grossEarnings)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between pt-2 font-semibold border-t">
-                                        <span>Tổng thu nhập</span>
-                                        <span className="tabular-nums text-green-600">{formatCurrency(selectedPayslip.slip.totals.grossEarnings)}</span>
-                                    </div>
-                                </div>
-                            </div>
+        {/* Payslip Detail Dialog - Using extracted component */}
+        <PayslipDetailDialog
+          open={isPayslipDialogOpen}
+          onOpenChange={setIsPayslipDialogOpen}
+          selectedPayslip={selectedPayslip}
+          onViewPayroll={handleViewPayroll}
+        />
 
-                            {/* Các khoản khấu trừ */}
-                            <div className="rounded-lg border p-4">
-                                <h4 className="font-medium text-red-700 mb-3 flex items-center gap-2">
-                                    <FileText className="h-4 w-4" />
-                                    Các khoản khấu trừ
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                    {selectedPayslip.slip.components && selectedPayslip.slip.components
-                                        .filter(c => c.category === 'deduction')
-                                        .map((comp, idx) => (
-                                            <div key={idx} className="flex justify-between py-1 border-b border-dashed last:border-0">
-                                                <span className="text-muted-foreground">{comp.label}</span>
-                                                <span className="font-medium tabular-nums text-red-600">-{formatCurrency(comp.amount)}</span>
-                                            </div>
-                                        ))}
-                                    {/* Bảo hiểm chi tiết */}
-                                    {selectedPayslip.slip.totals.employeeSocialInsurance > 0 && (
-                                        <div className="flex justify-between py-1 border-b border-dashed">
-                                            <span className="text-muted-foreground">BHXH (8%)</span>
-                                            <span className="font-medium tabular-nums text-red-600">-{formatCurrency(selectedPayslip.slip.totals.employeeSocialInsurance)}</span>
-                                        </div>
-                                    )}
-                                    {selectedPayslip.slip.totals.employeeHealthInsurance > 0 && (
-                                        <div className="flex justify-between py-1 border-b border-dashed">
-                                            <span className="text-muted-foreground">BHYT (1.5%)</span>
-                                            <span className="font-medium tabular-nums text-red-600">-{formatCurrency(selectedPayslip.slip.totals.employeeHealthInsurance)}</span>
-                                        </div>
-                                    )}
-                                    {selectedPayslip.slip.totals.employeeUnemploymentInsurance > 0 && (
-                                        <div className="flex justify-between py-1 border-b border-dashed">
-                                            <span className="text-muted-foreground">BHTN (1%)</span>
-                                            <span className="font-medium tabular-nums text-red-600">-{formatCurrency(selectedPayslip.slip.totals.employeeUnemploymentInsurance)}</span>
-                                        </div>
-                                    )}
-                                    {/* Thuế TNCN */}
-                                    {selectedPayslip.slip.totals.personalIncomeTax > 0 && (
-                                        <div className="flex justify-between py-1 border-b border-dashed">
-                                            <span className="text-muted-foreground">Thuế TNCN</span>
-                                            <span className="font-medium tabular-nums text-red-600">-{formatCurrency(selectedPayslip.slip.totals.personalIncomeTax)}</span>
-                                        </div>
-                                    )}
-                                    {/* Khấu trừ phạt */}
-                                    {selectedPayslip.slip.totals.penaltyDeductions > 0 && (
-                                        <div className="flex justify-between py-1 border-b border-dashed">
-                                            <span className="text-muted-foreground">Khấu trừ phạt</span>
-                                            <span className="font-medium tabular-nums text-red-600">-{formatCurrency(selectedPayslip.slip.totals.penaltyDeductions)}</span>
-                                        </div>
-                                    )}
-                                    {/* Khấu trừ khác */}
-                                    {selectedPayslip.slip.totals.otherDeductions > 0 && (
-                                        <div className="flex justify-between py-1 border-b border-dashed">
-                                            <span className="text-muted-foreground">Khấu trừ khác</span>
-                                            <span className="font-medium tabular-nums text-red-600">-{formatCurrency(selectedPayslip.slip.totals.otherDeductions)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between pt-2 font-semibold border-t">
-                                        <span>Tổng khấu trừ</span>
-                                        <span className="tabular-nums text-red-600">-{formatCurrency(selectedPayslip.slip.totals.deductions)}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Thông tin bổ sung */}
-                            <div className="rounded-lg border p-4 bg-muted/20">
-                                <h4 className="font-medium mb-3 flex items-center gap-2">
-                                    <FileText className="h-4 w-4" />
-                                    Thông tin chi tiết
-                                </h4>
-                                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Mức đóng BHXH:</span>
-                                        <span className="tabular-nums">{formatCurrency(selectedPayslip.slip.totals.socialInsuranceBase)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Thu nhập chịu thuế:</span>
-                                        <span className="tabular-nums">{formatCurrency(selectedPayslip.slip.totals.taxableIncome)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Giảm trừ bản thân:</span>
-                                        <span className="tabular-nums">{formatCurrency(selectedPayslip.slip.totals.personalDeduction)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Giảm trừ NPT ({selectedPayslip.slip.totals.numberOfDependents}):</span>
-                                        <span className="tabular-nums">{formatCurrency(selectedPayslip.slip.totals.dependentDeduction)}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Đóng góp (nếu có) */}
-                            {selectedPayslip.slip.components && selectedPayslip.slip.components.filter(c => c.category === 'contribution').length > 0 && (
-                                <div className="rounded-lg border p-4">
-                                    <h4 className="font-medium text-blue-700 mb-3 flex items-center gap-2">
-                                        <Building2 className="h-4 w-4" />
-                                        Các khoản đóng góp
-                                    </h4>
-                                    <div className="space-y-2 text-sm">
-                                        {selectedPayslip.slip.components
-                                            .filter(c => c.category === 'contribution')
-                                            .map((comp, idx) => (
-                                                <div key={idx} className="flex justify-between py-1 border-b border-dashed last:border-0">
-                                                    <span className="text-muted-foreground">{comp.label}</span>
-                                                    <span className="font-medium tabular-nums">{formatCurrency(comp.amount)}</span>
-                                                </div>
-                                            ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Tổng kết */}
-                        <div className="rounded-lg border-2 border-primary/30 p-4 bg-primary/5">
-                            <div className="flex justify-between items-center">
-                                <span className="text-lg font-semibold">THỰC LĨNH</span>
-                                <span className="text-2xl font-bold text-primary tabular-nums">{formatCurrency(selectedPayslip.slip.totals.netPay)}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-between gap-2 pt-2">
-                            <PayslipPrintButton
-                                payslipData={selectedPayslip.slip}
-                                batchData={selectedPayslip.batch}
-                                variant="outline"
-                                className="flex-1"
-                            />
-                            <Button 
-                                variant="default" 
-                                className="flex-1"
-                                onClick={() => {
-                                    setIsPayslipDialogOpen(false);
-                                    if (selectedPayslip.batch?.systemId) {
-                                        handleViewPayroll(selectedPayslip.batch.systemId);
-                                    }
-                                }}
-                            >
-                                Xem bảng lương
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
-
-        {/* Attendance Detail Dialog */}
-        <Dialog open={isAttendanceDialogOpen} onOpenChange={setIsAttendanceDialogOpen}>
-            <DialogContent className="max-w-lg">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Clock className="h-5 w-5" />
-                        Chi tiết chấm công
-                    </DialogTitle>
-                    <DialogDescription>
-                        {selectedAttendance?.monthLabel} - {selectedAttendance?.locked ? 'Đã khóa' : 'Chưa khóa'}
-                    </DialogDescription>
-                </DialogHeader>
-                {selectedAttendance && (
-                    <div className="space-y-4">
-                        {/* Thông tin chung */}
-                        <div className="grid grid-cols-2 gap-4 text-sm border rounded-lg p-4 bg-muted/30">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Nhân viên:</span>
-                                <span className="font-medium">{employee.fullName}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Mã NV:</span>
-                                <span className="font-mono">{employee.id}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Kỳ chấm công:</span>
-                                <span className="font-medium">{selectedAttendance.monthLabel}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Trạng thái:</span>
-                                <Badge variant={selectedAttendance.locked ? 'default' : 'outline'} className={selectedAttendance.locked ? 'bg-green-600' : ''}>
-                                    {selectedAttendance.locked ? 'Đã khóa' : 'Chưa khóa'}
-                                </Badge>
-                            </div>
-                        </div>
-
-                        {/* Thống kê chi tiết */}
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950 border">
-                                <p className="text-2xl font-bold text-green-600">{selectedAttendance.workDays}</p>
-                                <p className="text-xs text-muted-foreground">Ngày công</p>
-                            </div>
-                            <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border">
-                                <p className="text-2xl font-bold text-blue-600">{selectedAttendance.leaveDays}</p>
-                                <p className="text-xs text-muted-foreground">Nghỉ phép</p>
-                            </div>
-                            <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950 border">
-                                <p className="text-2xl font-bold text-destructive">{selectedAttendance.absentDays}</p>
-                                <p className="text-xs text-muted-foreground">Vắng</p>
-                            </div>
-                            <div className="text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-950 border">
-                                <p className="text-2xl font-bold text-orange-600">{selectedAttendance.lateArrivals}</p>
-                                <p className="text-xs text-muted-foreground">Đi trễ</p>
-                            </div>
-                            <div className="text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-950 border">
-                                <p className="text-2xl font-bold text-orange-600">{selectedAttendance.earlyDepartures}</p>
-                                <p className="text-xs text-muted-foreground">Về sớm</p>
-                            </div>
-                            <div className="text-center p-3 rounded-lg bg-purple-50 dark:bg-purple-950 border">
-                                <p className="text-2xl font-bold text-purple-600">{selectedAttendance.otHours}</p>
-                                <p className="text-xs text-muted-foreground">Giờ làm thêm</p>
-                            </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex justify-between gap-2 pt-2">
-                            <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => handlePrintSingleAttendance(selectedAttendance)}
-                            >
-                                <Printer className="mr-2 h-4 w-4" />
-                                In phiếu
-                            </Button>
-                            <Button 
-                                variant="default" 
-                                className="flex-1"
-                                onClick={() => {
-                                    setIsAttendanceDialogOpen(false);
-                                    router.push(`/attendance?month=${selectedAttendance.monthKey}`);
-                                }}
-                            >
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Xem bảng chấm công
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
+        {/* Attendance Detail Dialog - Using extracted component */}
+        <AttendanceDetailDialog
+          open={isAttendanceDialogOpen}
+          onOpenChange={setIsAttendanceDialogOpen}
+          selectedAttendance={selectedAttendance}
+          employee={{ fullName: employee.fullName, id: employee.id }}
+          onPrintSingle={handlePrintSingleAttendance}
+        />
 
         </Tabs>
 

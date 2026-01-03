@@ -6,6 +6,7 @@ import { Checkbox } from "../ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { cn } from "../../lib/utils";
 import { useBranchStore } from "../../features/settings/branches/store";
+import { useSimplePrintOptions } from "../../hooks/use-print-options";
 
 // Paper size options matching the order print dialog
 const PAPER_SIZE_OPTIONS = [
@@ -17,8 +18,6 @@ const PAPER_SIZE_OPTIONS = [
 ] as const;
 
 export type PaperSize = typeof PAPER_SIZE_OPTIONS[number]['value'];
-
-const STORAGE_KEY = 'simple-print-options-default';
 
 export interface SimplePrintOptionsResult {
   branchSystemId: string;
@@ -33,28 +32,6 @@ interface SimplePrintOptionsDialogProps {
   title?: string;
 }
 
-// Helper to load saved defaults from localStorage
-function loadSavedDefaults(): Partial<SimplePrintOptionsResult> {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Failed to load print defaults:', e);
-  }
-  return {};
-}
-
-// Helper to save defaults to localStorage
-function saveDefaults(options: SimplePrintOptionsResult) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(options));
-  } catch (e) {
-    console.error('Failed to save print defaults:', e);
-  }
-}
-
 export function SimplePrintOptionsDialog({
   open,
   onOpenChange,
@@ -64,28 +41,27 @@ export function SimplePrintOptionsDialog({
 }: SimplePrintOptionsDialogProps) {
   const { data: branches } = useBranchStore();
   const activeBranches = branches;
+  const [savedDefaults, setSavedDefaults] = useSimplePrintOptions();
 
-  // Form state with saved defaults
-  const savedDefaults = React.useMemo(() => loadSavedDefaults(), []);
+  // Find default branch
   const defaultBranch = activeBranches.find(b => b.isDefault)?.systemId ?? activeBranches[0]?.systemId ?? '';
   
   const [branchSystemId, setBranchSystemId] = React.useState<string>(
-    savedDefaults.branchSystemId ?? defaultBranch
+    savedDefaults.branchSystemId || defaultBranch
   );
   const [paperSize, setPaperSize] = React.useState<PaperSize>(
-    savedDefaults.paperSize ?? 'A4'
+    savedDefaults.paperSize || 'A4'
   );
   const [saveAsDefault, setSaveAsDefault] = React.useState(false);
 
   // Reset form when dialog opens
   React.useEffect(() => {
     if (open) {
-      const defaults = loadSavedDefaults();
-      setBranchSystemId(defaults.branchSystemId ?? defaultBranch);
-      setPaperSize(defaults.paperSize ?? 'A4');
+      setBranchSystemId(savedDefaults.branchSystemId || defaultBranch);
+      setPaperSize(savedDefaults.paperSize || 'A4');
       setSaveAsDefault(false);
     }
-  }, [open, defaultBranch]);
+  }, [open, defaultBranch, savedDefaults]);
 
   const handleConfirm = () => {
     const options: SimplePrintOptionsResult = {
@@ -94,7 +70,7 @@ export function SimplePrintOptionsDialog({
     };
 
     if (saveAsDefault) {
-      saveDefaults(options);
+      setSavedDefaults(options);
     }
 
     onConfirm(options);

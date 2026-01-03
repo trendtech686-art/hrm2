@@ -1,0 +1,3 @@
+{
+  "/(authenticated)/tasks/new/page": "app/(authenticated)/tasks/new/page.js"
+}

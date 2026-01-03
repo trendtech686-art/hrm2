@@ -1,0 +1,3 @@
+{
+  "/api/purchase-returns/[systemId]/route": "app/api/purchase-returns/[systemId]/route.js"
+}
