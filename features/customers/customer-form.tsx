@@ -4,10 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { customerFormSchema, validateUniqueId, type CustomerFormData } from "./validation";
 import type { Customer, CustomerAddress } from "@/lib/types/prisma-extended";
 import { toast } from 'sonner';
-import { useCustomerStore } from './store';
-import { useEmployeeStore } from '../employees/store';
-import { useShallow } from 'zustand/react/shallow';
-import { useProvinceStore } from "../settings/provinces/store";
+import { useAllCustomers } from './hooks/use-all-customers';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
+import { useProvinces } from '../settings/provinces/hooks/use-administrative-units';
 import { 
   useActiveCustomerTypes,
   useActiveCustomerGroups,
@@ -49,7 +48,7 @@ import { Textarea } from "../../components/ui/textarea";
 import { CustomerAddresses } from './customer-addresses';
 import { Button } from "../../components/ui/button";
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '@/lib/id-types';
-import { usePricingPolicyStore } from '../settings/pricing/store';
+import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
 
 export type CustomerFormValues = CustomerFormData;
 
@@ -70,10 +69,10 @@ type CustomerFormProps = {
 };
 
 export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuccess, isEditMode = false }: CustomerFormProps) {
-  const customerIds = useCustomerStore(useShallow(state => state.data.map(c => c.id)));
-  const { data: provinces, getWardsByProvinceId: _getWardsByProvinceId } = useProvinceStore();
-  const { data: employees } = useEmployeeStore();
-  const { data: customers } = useCustomerStore();
+  const { data: customers } = useAllCustomers();
+  const customerIds = React.useMemo(() => customers.map(c => c.id), [customers]);
+  const { data: provinces = [] } = useProvinces();
+  const { data: employees } = useAllEmployees();
   
   // Settings - using React Query hooks
   const { data: customerTypesData } = useActiveCustomerTypes();
@@ -82,10 +81,9 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
   const { data: paymentTermsData } = useActivePaymentTerms();
   const { data: creditRatingsData } = useActiveCreditRatings();
   const { data: lifecycleStagesData } = useActiveLifecycleStages();
-  const pricingPolicies = usePricingPolicyStore(state => state.data);
+  const { data: pricingPolicies = [] } = useAllPricingPolicies();
 
   // Debug log
-  console.log('CustomerForm - isEditMode:', isEditMode, 'initialData:', initialData?.id);
 
   // ============================================
   // IMAGE UPLOAD STATE (like Employee module)
@@ -156,10 +154,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
       }));
       setContractPermanentFiles(mappedContracts);
       
-      console.log('📁 Loaded customer files:', {
-        images: mappedImages.length,
-        contracts: mappedContracts.length
-      });
     } catch (error) {
       console.error('Failed to load customer files:', error);
     } finally {
@@ -414,7 +408,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
       // ============================================
       
       if (imageFilesToDelete.length > 0) {
-        console.log('🗑️ Deleting marked images:', imageFilesToDelete.length);
         for (const fileId of imageFilesToDelete) {
           try {
             await FileUploadAPI.deleteFile(fileId);
@@ -426,7 +419,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
       }
       
       if (contractFilesToDelete.length > 0) {
-        console.log('🗑️ Deleting marked contracts:', contractFilesToDelete.length);
         for (const fileId of contractFilesToDelete) {
           try {
             await FileUploadAPI.deleteFile(fileId);
@@ -443,7 +435,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
       
       // Confirm new images if any
       if (imageSessionId && imageStagingFiles.length > 0 && customerId) {
-        console.log('📤 Confirming customer images:', imageStagingFiles.length);
         try {
           await FileUploadAPI.confirmCustomerImages(imageSessionId, customerId, {
             name: values.name
@@ -457,7 +448,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
 
       // Confirm new contract files if any
       if (contractSessionId && contractStagingFiles.length > 0 && customerId) {
-        console.log('📤 Confirming contract files:', contractStagingFiles.length);
         try {
           await FileUploadAPI.confirmCustomerContractFiles(contractSessionId, customerId, {
             name: values.name

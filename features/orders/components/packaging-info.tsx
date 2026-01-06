@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 import { Badge } from '../../../components/ui/badge';
 import { getGHTKStatusVariant, getGHTKStatusText } from '../../../lib/ghtk-constants';
 import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
-import { useShipmentStore } from '../../shipments/store';
+import { useShipmentFinder } from '../../shipments/hooks/use-shipments';
 import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
 import { useCustomerFinder } from '../../customers/hooks/use-all-customers';
 import { usePrint } from '@/lib/use-print';
@@ -73,7 +73,7 @@ export function PackagingInfo({
     const [isExpanded, setIsExpanded] = React.useState(!isCancelled);
     const [isCopied, setIsCopied] = React.useState(false);
     const { findById: findEmployeeById } = useEmployeeFinder();
-    const { findByPackagingSystemId, findByTrackingCode } = useShipmentStore();
+    const { findByPackagingSystemId, findByTrackingCode } = useShipmentFinder();
     const { findById: findBranchById } = useBranchFinder();
     const { findById: findCustomerById } = useCustomerFinder();
     

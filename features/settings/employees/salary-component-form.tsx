@@ -14,7 +14,7 @@ import { Card, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Checkbox } from "../../../components/ui/checkbox";
 import { ScrollArea } from "../../../components/ui/scroll-area";
-import { useDepartmentStore } from "../departments/store";
+import { useAllDepartments } from "../departments/hooks/use-all-departments";
 import { Info, Calculator, Building2, Banknote, Receipt, Coins } from "lucide-react";
 import type { SystemId } from "@/lib/id-types";
 import { useEmployeeSettingsStore } from "./employee-settings-store";
@@ -34,7 +34,7 @@ const categoryOptions: { value: SalaryComponentCategory; label: string; icon: Re
 ];
 
 export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryComponentFormProps) {
-  const { data: departments } = useDepartmentStore();
+  const { data: departments } = useAllDepartments();
   const { settings } = useEmployeeSettingsStore();
   
   // Format số để hiển thị

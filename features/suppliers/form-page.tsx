@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSupplierStore } from './store';
+import { useSupplierFinder } from './hooks/use-all-suppliers';
 import { SupplierForm, type SupplierFormValues } from './supplier-form';
 import {
   Card,
@@ -19,7 +20,8 @@ import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 export function SupplierFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, add, update } = useSupplierStore();
+  const { add, update } = useSupplierStore();
+  const { findById } = useSupplierFinder();
 
   const supplierSystemId = React.useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
   const supplier = React.useMemo(() => (supplierSystemId ? (findById(supplierSystemId) ?? null) : null), [supplierSystemId, findById]);

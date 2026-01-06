@@ -2,7 +2,7 @@
  * Reconciliation React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/reconciliation-api';
 import type { ReconciliationFilters } from '../api/reconciliation-api';
 
@@ -15,7 +15,12 @@ export const reconciliationKeys = {
 };
 
 export function useReconciliations(filters: ReconciliationFilters = {}) {
-  return useQuery({ queryKey: reconciliationKeys.list(filters), queryFn: () => api.fetchReconciliations(filters), staleTime: 1000 * 60 * 2 });
+  return useQuery({
+    queryKey: reconciliationKeys.list(filters),
+    queryFn: () => api.fetchReconciliations(filters),
+    staleTime: 1000 * 60 * 2,
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useReconciliationById(systemId: string | undefined) {

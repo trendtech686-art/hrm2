@@ -29,7 +29,6 @@ export async function GET(
       return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
     }
 
-    console.log(`[GHTK-LABEL-${requestId}] Print label:`, trackingCode);
 
     const response = await fetch(`${GHTK_API_BASE}/services/label/${trackingCode}`, {
       method: 'GET',
@@ -41,11 +40,6 @@ export async function GET(
 
     const data = await response.json();
     
-    console.log(`[GHTK-LABEL-${requestId}] Print label response:`, {
-      status: response.status,
-      success: data.success,
-      hasLabel: !!data.label
-    });
 
     return NextResponse.json(data);
   } catch (error) {

@@ -5,12 +5,22 @@
 import * as React from 'react';
 import { useCustomers } from './use-customers';
 import type { SystemId } from '@/lib/id-types';
+import type { Customer } from '../types';
+
+// Stable empty array to prevent re-renders
+const EMPTY_CUSTOMERS: Customer[] = [];
 
 export function useAllCustomers() {
   const query = useCustomers({ limit: 30 });
   
+  // Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => 
+    query.data?.data || EMPTY_CUSTOMERS,
+    [query.data?.data]
+  );
+  
   return {
-    data: query.data?.data || [],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

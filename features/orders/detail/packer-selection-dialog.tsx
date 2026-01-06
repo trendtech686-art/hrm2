@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useEmployeeSearcher } from '@/features/employees/hooks/use-all-employees';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 
 interface PackerSelectionDialogProps {
@@ -20,7 +20,7 @@ export function PackerSelectionDialog({
     onSubmit,
     existingPackerSystemId,
 }: PackerSelectionDialogProps) {
-  const { searchEmployees } = useEmployeeStore();
+  const { searchEmployees } = useEmployeeSearcher();
   const [selectedEmployee, setSelectedEmployee] = React.useState<ComboboxOption | null>(null);
 
     const handleSubmit = () => {

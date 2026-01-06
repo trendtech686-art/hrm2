@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { usePaymentMethodStore } from '@/features/settings/payments/methods/store';
+import { useAllPaymentMethods } from '@/features/settings/payments/hooks/use-all-payment-methods';
 import type { PaymentFormValues } from './types';
 
 interface PaymentDialogProps {
@@ -24,7 +24,7 @@ export function PaymentDialog({
   amountDue,
   onSubmit,
 }: PaymentDialogProps) {
-  const { data: paymentMethods } = usePaymentMethodStore();
+  const { data: paymentMethods } = useAllPaymentMethods();
   const defaultPaymentMethod = React.useMemo(
     () => paymentMethods.find(pm => pm.isDefault),
     [paymentMethods]

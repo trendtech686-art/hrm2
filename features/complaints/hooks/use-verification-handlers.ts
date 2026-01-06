@@ -102,16 +102,9 @@ export function useVerificationHandlers({
       
       const hasInventoryCheck = lastVerifiedCorrect?.metadata?.inventoryCheckSystemId;
       
-      console.log('[VERIFY-INCORRECT] Check cancellation needed:', {
-        hasPaymentsReceipts,
-        hasInventoryCheck,
-        willCallHandler: !!(hasPaymentsReceipts || hasInventoryCheck),
-        metadata: lastVerifiedCorrect?.metadata,
-      });
       
       if (hasPaymentsReceipts || hasInventoryCheck) {
         // Use handler to cancel payments/receipts (phiếu tự động khôi phục kho)
-        console.log('[VERIFY-INCORRECT] Calling handler to cancel...');
         const result = await handleVerifyIncorrect(
           complaint,
           currentUser,

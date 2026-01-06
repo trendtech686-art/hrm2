@@ -101,7 +101,6 @@ export function useWarrantyActions({
 
   const handleCompleteTicket = React.useCallback(() => {
     if (isCompletingTicket) {
-      console.log('⚠️ [COMPLETE TICKET] Already processing, ignoring duplicate call');
       return;
     }
 
@@ -114,7 +113,6 @@ export function useWarrantyActions({
     }
 
     if (currentTicket.status !== 'returned') {
-      console.log('[COMPLETE TICKET] Not returned status');
       toast.error('Chỉ có thể kết thúc phiếu đã trả hàng');
       return;
     }

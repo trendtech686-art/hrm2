@@ -33,6 +33,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import type { TabContentProps } from './types';
 
 interface SystemRequirement {
@@ -49,6 +50,7 @@ interface StorageInfo {
 }
 
 export function SystemTabContent({ isActive, onRegisterActions }: TabContentProps) {
+  const queryClient = useQueryClient();
   const [isChecking, setIsChecking] = React.useState(false);
   const [isCleaning, setIsCleaning] = React.useState(false);
   const [cleaningType, setCleaningType] = React.useState<string | null>(null);
@@ -57,20 +59,15 @@ export function SystemTabContent({ isActive, onRegisterActions }: TabContentProp
   const [systemRequirements, setSystemRequirements] = React.useState<SystemRequirement[]>([
     { name: 'Trình duyệt', required: 'Chrome 90+, Firefox 88+, Safari 14+', current: '', status: 'ok' },
     { name: 'JavaScript', required: 'ES2020+', current: '', status: 'ok' },
-    { name: 'LocalStorage', required: '5 MB', current: '', status: 'ok' },
     { name: 'Cookies', required: 'Enabled', current: '', status: 'ok' },
     { name: 'Kết nối mạng', required: 'Online', current: '', status: 'ok' },
   ]);
 
-  // Storage info
+  // Storage info - only Cache Storage (Next.js/React Query uses this)
   const [storageInfo, setStorageInfo] = React.useState<{
-    localStorage: StorageInfo;
-    sessionStorage: StorageInfo;
     cacheStorage: StorageInfo;
     images: { count: number; size: string };
   }>({
-    localStorage: { used: 0, total: 5 * 1024 * 1024, percentage: 0 },
-    sessionStorage: { used: 0, total: 5 * 1024 * 1024, percentage: 0 },
     cacheStorage: { used: 0, total: 50 * 1024 * 1024, percentage: 0 },
     images: { count: 0, size: '0 KB' },
   });
@@ -122,17 +119,6 @@ export function SystemTabContent({ isActive, onRegisterActions }: TabContentProp
       browserStatus = 'ok';
     }
 
-    // Check localStorage
-    let localStorageStatus: 'ok' | 'warning' | 'error' = 'ok';
-    let localStorageInfo = 'Available';
-    try {
-      localStorage.setItem('test', 'test');
-      localStorage.removeItem('test');
-    } catch (_e) {
-      localStorageStatus = 'error';
-      localStorageInfo = 'Không khả dụng';
-    }
-
     // Check cookies
     const cookiesEnabled = navigator.cookieEnabled;
 
@@ -142,7 +128,6 @@ export function SystemTabContent({ isActive, onRegisterActions }: TabContentProp
     setSystemRequirements([
       { name: 'Trình duyệt', required: 'Chrome 90+, Firefox 88+, Safari 14+', current: browserInfo, status: browserStatus },
       { name: 'JavaScript', required: 'ES2020+', current: 'Enabled', status: 'ok' },
-      { name: 'LocalStorage', required: '5 MB', current: localStorageInfo, status: localStorageStatus },
       { name: 'Cookies', required: 'Enabled', current: cookiesEnabled ? 'Enabled' : 'Disabled', status: cookiesEnabled ? 'ok' : 'error' },
       { name: 'Kết nối mạng', required: 'Online', current: isOnline ? 'Online' : 'Offline', status: isOnline ? 'ok' : 'error' },
     ]);
@@ -150,40 +135,27 @@ export function SystemTabContent({ isActive, onRegisterActions }: TabContentProp
     setTimeout(() => setIsChecking(false), 500);
   };
 
-  const calculateStorage = () => {
-    // Calculate localStorage usage
-    let localStorageUsed = 0;
-    for (const key in localStorage) {
-      if (Object.hasOwn(localStorage, key)) {
-        localStorageUsed += localStorage.getItem(key)?.length || 0;
+  const calculateStorage = async () => {
+    // Calculate Cache Storage (Next.js/React Query cache)
+    let cacheUsed = 0;
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        for (const name of cacheNames) {
+          const cache = await caches.open(name);
+          const keys = await cache.keys();
+          cacheUsed += keys.length * 10000; // Estimate ~10KB per cached item
+        }
+      } catch (_e) {
+        // Cache API not available
       }
     }
-    localStorageUsed *= 2; // UTF-16
-
-    // Calculate sessionStorage usage
-    let sessionStorageUsed = 0;
-    for (const key in sessionStorage) {
-      if (Object.hasOwn(sessionStorage, key)) {
-        sessionStorageUsed += sessionStorage.getItem(key)?.length || 0;
-      }
-    }
-    sessionStorageUsed *= 2;
 
     setStorageInfo({
-      localStorage: {
-        used: localStorageUsed,
-        total: 5 * 1024 * 1024,
-        percentage: (localStorageUsed / (5 * 1024 * 1024)) * 100,
-      },
-      sessionStorage: {
-        used: sessionStorageUsed,
-        total: 5 * 1024 * 1024,
-        percentage: (sessionStorageUsed / (5 * 1024 * 1024)) * 100,
-      },
       cacheStorage: {
-        used: Math.random() * 10 * 1024 * 1024,
+        used: cacheUsed,
         total: 50 * 1024 * 1024,
-        percentage: Math.random() * 20,
+        percentage: (cacheUsed / (50 * 1024 * 1024)) * 100,
       },
       images: {
         count: Math.floor(Math.random() * 500) + 50,
@@ -208,12 +180,22 @@ export function SystemTabContent({ isActive, onRegisterActions }: TabContentProp
     
     switch (type) {
       case 'cache': {
-        // Clear cache-related localStorage items
-        const cacheKeys = Object.keys(localStorage).filter(key => 
-          key.includes('cache') || key.includes('query') || key.includes('temp')
-        );
-        cacheKeys.forEach(key => localStorage.removeItem(key));
-        toast.success(`Đã xóa ${cacheKeys.length} mục cache`);
+        // Clear React Query cache (in-memory)
+        queryClient.clear();
+        
+        // Clear Cache API (Service Worker cache) if available
+        let clearedCount = 0;
+        if ('caches' in window) {
+          try {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+            clearedCount = cacheNames.length;
+          } catch (_e) {
+            // Cache API not available or failed
+          }
+        }
+        
+        toast.success(`Đã xóa React Query cache + ${clearedCount} Service Worker caches`);
         break;
       }
       case 'logs':
@@ -230,15 +212,24 @@ export function SystemTabContent({ isActive, onRegisterActions }: TabContentProp
         toast.success('Đã xóa dữ liệu mồ côi');
         break;
       case 'all': {
-        const keysToKeep = ['general-settings', 'security-settings', 'media-settings'];
-        Object.keys(localStorage).forEach(key => {
-          if (!keysToKeep.includes(key)) {
-            localStorage.removeItem(key);
-          }
-        });
+        // Clear React Query cache
+        queryClient.clear();
+        
+        // Clear sessionStorage
         sessionStorage.clear();
+        
+        // Clear Cache API
+        if ('caches' in window) {
+          try {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+          } catch (_e) {
+            // Cache API not available
+          }
+        }
+        
         setDbStats({ totalRecords: dbStats.totalRecords, orphanedRecords: 0, duplicateRecords: 0, oldLogs: 0, tempData: 0 });
-        toast.success('Đã dọn dẹp toàn bộ hệ thống');
+        toast.success('Đã dọn dẹp toàn bộ hệ thống (React Query + Cache API)');
         break;
       }
     }
@@ -750,35 +741,13 @@ export function SystemTabContent({ isActive, onRegisterActions }: TabContentProp
             <HardDrive className="h-5 w-5" />
             Dung lượng lưu trữ
           </CardTitle>
-          <CardDescription>Theo dõi và quản lý dung lượng sử dụng</CardDescription>
+          <CardDescription>Theo dõi và quản lý dung lượng sử dụng (Next.js Cache)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-lg border space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-medium">LocalStorage</span>
-                <span className="text-sm text-muted-foreground">
-                  {formatBytes(storageInfo.localStorage.used)} / {formatBytes(storageInfo.localStorage.total)}
-                </span>
-              </div>
-              <Progress value={storageInfo.localStorage.percentage} className="h-2" />
-              <p className="text-xs text-muted-foreground">{storageInfo.localStorage.percentage.toFixed(1)}% đã sử dụng</p>
-            </div>
-            
-            <div className="p-4 rounded-lg border space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">SessionStorage</span>
-                <span className="text-sm text-muted-foreground">
-                  {formatBytes(storageInfo.sessionStorage.used)} / {formatBytes(storageInfo.sessionStorage.total)}
-                </span>
-              </div>
-              <Progress value={storageInfo.sessionStorage.percentage} className="h-2" />
-              <p className="text-xs text-muted-foreground">{storageInfo.sessionStorage.percentage.toFixed(1)}% đã sử dụng</p>
-            </div>
-            
-            <div className="p-4 rounded-lg border space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">Cache Storage</span>
+                <span className="font-medium">Cache Storage (Service Worker)</span>
                 <span className="text-sm text-muted-foreground">
                   {formatBytes(storageInfo.cacheStorage.used)} / {formatBytes(storageInfo.cacheStorage.total)}
                 </span>

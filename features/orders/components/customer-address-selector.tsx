@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
 import { Switch } from '../../../components/ui/switch';
 import { useCustomerStore } from '../../customers/store';
+import { useCustomerFinder } from '../../customers/hooks/use-all-customers';
 import { Badge } from '../../../components/ui/badge';
 import { AddressBidirectionalConverter } from '../../customers/components/address-bidirectional-converter';
 import { AddressFormDialog } from '../../customers/components/address-form-dialog';
@@ -47,9 +48,10 @@ export function CustomerAddressSelector({
     onOpenBillingDialog
 }: CustomerAddressSelectorProps) {
     const { setValue, watch } = useFormContext();
-    const { update: updateCustomer, findById } = useCustomerStore();
+    const { update: updateCustomer } = useCustomerStore(); // Keep for mutation
+    const { findById } = useCustomerFinder(); // React Query for READ
     
-    // Always get fresh customer data from store
+    // Always get fresh customer data from React Query cache
     const freshCustomer = customer ? findById(asSystemId(customer.systemId)) : null;
     const currentCustomer = freshCustomer || customer;
     
@@ -135,7 +137,6 @@ export function CustomerAddressSelector({
     const handleSelectAddress = (addressId: string) => {
         // ✅ Just update selected ID, don't update form yet (wait for "Xác nhận" button)
         setSelectedAddressId(addressId);
-        console.log('🔘 [Address Selector] Radio selected (not confirmed yet):', addressId);
     };
 
     const handleConfirmAddress = () => {
@@ -143,7 +144,7 @@ export function CustomerAddressSelector({
         const selected = addresses.find(a => a.id === selectedAddressId);
         if (selected) {
             const fieldName = currentAddressType === 'shipping' ? 'shippingAddress' : 'billingAddress';
-            // console.log(`✅ [Address Selector] Confirmed - Updating form ${fieldName}:`, selected); // Removed
+            //  // Removed
             setValue(fieldName, selected);
             setIsDialogOpen(false);
         }

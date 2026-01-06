@@ -20,12 +20,6 @@ export async function GET(request: NextRequest) {
     const ward_street = searchParams.get('ward_street');
     const apiToken = searchParams.get('apiToken');
 
-    console.log(`[GHTK-ADDR-${requestId}] 📥 Get specific addresses request:`, {
-      province,
-      district,
-      ward_street,
-      hasToken: !!apiToken
-    });
 
     if (!province || !district || !ward_street) {
       return NextResponse.json({ 
@@ -42,7 +36,6 @@ export async function GET(request: NextRequest) {
     }
 
     const url = `${GHTK_API_BASE}/services/address/getAddressLevel4?province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}&ward_street=${encodeURIComponent(ward_street)}`;
-    console.log(`[GHTK-ADDR-${requestId}] 🌐 Calling GHTK:`, url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -52,17 +45,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log(`[GHTK-ADDR-${requestId}] 📡 GHTK response status:`, response.status);
 
     const data = await response.json();
     
-    console.log(`[GHTK-ADDR-${requestId}] 📦 GHTK response data:`, {
-      success: data.success,
-      message: data.message || 'No message',
-      dataExists: !!data.data,
-      isArray: Array.isArray(data.data),
-      count: data.data?.length || 0
-    });
 
     return NextResponse.json(data);
   } catch (error) {

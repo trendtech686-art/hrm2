@@ -8,22 +8,13 @@ import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { PageToolbar } from "../../components/layout/page-toolbar"
 import { PageFilters } from "../../components/layout/page-filters"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../../components/ui/alert-dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
 import type { Supplier } from '@/lib/types/prisma-extended'
 import { Button } from "../../components/ui/button"
 import { PlusCircle, Trash2, FileSpreadsheet, Download } from "lucide-react"
-import Fuse from "fuse.js"
+import { useFuseFilter } from "../../hooks/use-fuse-search"
 import { usePageHeader } from "../../contexts/page-header-context";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "../../components/data-table/dynamic-column-customizer";
 import { SupplierCard } from "./supplier-card";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import dynamic from 'next/dynamic';
@@ -33,15 +24,8 @@ import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useAuth } from "../../contexts/auth-context";
 import { useColumnVisibility } from "../../hooks/use-column-visibility";
 
-// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
-const SupplierImportDialog = dynamic(
-  () => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierImportDialog })),
-  { ssr: false }
-);
-const SupplierExportDialog = dynamic(
-  () => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierExportDialog })),
-  { ssr: false }
-);
+const SupplierImportDialog = dynamic(() => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierImportDialog })), { ssr: false });
+const SupplierExportDialog = dynamic(() => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierExportDialog })), { ssr: false });
 
 export function SuppliersPage() {
   const { data: suppliersRaw, remove, restore, getDeleted: _getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
@@ -50,64 +34,26 @@ export function SuppliersPage() {
   const { employee: currentUser } = useAuth();
   const router = useRouter();
   const { isMobile } = useBreakpoint();
-  
-  // ✅ Import/Export dialogs
-  const [showImportDialog, setShowImportDialog] = React.useState(false);
-  const [showExportDialog, setShowExportDialog] = React.useState(false);
-  
-  // ✅ Memoize suppliers để tránh unstable reference
+
+  const [showImportDialog, setShowImportDialog] = React.useState(false), [showExportDialog, setShowExportDialog] = React.useState(false);
   const suppliers = React.useMemo(() => suppliersRaw, [suppliersRaw]);
-  
-  // Calculate deleted count reactively
-  const deletedCount = React.useMemo(() => 
-    suppliers.filter((s) => s.isDeleted).length, 
-    [suppliers]
-  );
-  
-  // ✅ Mobile infinite scroll state
+  const deletedCount = React.useMemo(() => suppliers.filter((s) => s.isDeleted).length, [suppliers]);
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-  
-  // ✅ Memoize headerActions để tránh infinite loop
+
   const headerActions = React.useMemo(() => [
-    <Button 
-      key="trash"
-      variant="outline"
-      size="sm"
-      className="h-9 gap-2"
-      onClick={() => router.push('/suppliers/trash')}
-    >
-      <Trash2 className="mr-2 h-4 w-4" />
-      Thùng rác ({deletedCount})
-    </Button>,
-    <Button
-      key="add"
-      size="sm"
-      className="h-9 gap-2"
-      onClick={() => router.push('/suppliers/new')}
-    >
-      <PlusCircle className="mr-2 h-4 w-4" />
-      Thêm nhà cung cấp
-    </Button>
+    <Button key="trash" variant="outline" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
+    <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhà cung cấp</Button>
   ], [router, deletedCount]);
-  
+
   usePageHeader({
     title: 'Nhà cung cấp',
     actions: headerActions,
-    breadcrumb: [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Nhà cung cấp', href: '/suppliers', isCurrent: true },
-    ],
+    breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Nhà cung cấp', href: '/suppliers', isCurrent: true }],
   });
 
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
-  const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null)
-  
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
-  
-  // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = React.useState(false), [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true }), [globalFilter, setGlobalFilter] = React.useState(''), [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
+
   const defaultColumnVisibility = React.useMemo(() => {
     const cols = getColumns(() => {}, () => {}, () => {}, null as unknown as ReturnType<typeof useRouter>);
     const initial: Record<string, boolean> = {};
@@ -115,89 +61,53 @@ export function SuppliersPage() {
     return initial;
   }, []);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('suppliers', defaultColumnVisibility);
-  
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
+  const [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
-  const handleDelete = React.useCallback((systemId: SystemId) => {
-    setIdToDelete(systemId)
-    setIsAlertOpen(true)
-  }, []);
-  
-  // ✅ Handle restore cho soft delete
+  const handleDelete = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
+
+  const restoreRef = React.useRef(restore), suppliersRef = React.useRef(suppliers);
+  restoreRef.current = restore;
+  suppliersRef.current = suppliers;
+
   const handleRestore = React.useCallback((systemId: SystemId) => {
-    const supplier = suppliers.find(s => s.systemId === systemId);
-    restore(systemId);
-    if (supplier) {
-      toast.success(`Đã khôi phục nhà cung cấp "${supplier.name}"`);
-    }
-  }, [restore, suppliers]);
+    const supplier = suppliersRef.current.find(s => s.systemId === systemId);
+    restoreRef.current(systemId);
+    if (supplier) toast.success(`Đã khôi phục nhà cung cấp "${supplier.name}"`);
+  }, []);
 
-  const handleEdit = React.useCallback((supplier: Supplier) => {
-    router.push(`/suppliers/${supplier.systemId}/edit`);
-  }, [router]);
-
+  const handleEdit = React.useCallback((supplier: Supplier) => { router.push(`/suppliers/${supplier.systemId}/edit`); }, [router]);
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, handleEdit, router), [handleDelete, handleRestore, handleEdit, router]);
-  
-  // ✅ Run once on mount only
+
   React.useEffect(() => {
-    const defaultVisibleColumns = [
-      'id', 'name', 'taxCode', 'phone', 'email', 'address', 'website',
-      'contactPerson', 'accountManager', 'currentDebt', 'bankAccount',
-      'bankName', 'status', 'createdAt', 'updatedAt'
-    ];
+    const defaultVisibleColumns = ['id', 'name', 'taxCode', 'phone', 'email', 'address', 'website', 'contactPerson', 'accountManager', 'currentDebt', 'bankAccount', 'bankName', 'status', 'createdAt', 'updatedAt'];
     const initialVisibility: Record<string, boolean> = {};
-    columns.forEach(c => {
-      if (c.id === 'select' || c.id === 'actions') {
-        initialVisibility[c.id!] = true;
-      } else {
-        initialVisibility[c.id!] = defaultVisibleColumns.includes(c.id!);
-      }
-    });
+    columns.forEach(c => { initialVisibility[c.id!] = c.id === 'select' || c.id === 'actions' ? true : defaultVisibleColumns.includes(c.id!); });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- columns is stable, only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fuse = React.useMemo(() => new Fuse(activeSuppliers, { keys: ["name", "taxCode", "phone", "email"] }), [activeSuppliers]);
+  const searchedData = useFuseFilter(activeSuppliers, globalFilter, React.useMemo(() => ({ keys: ["name", "taxCode", "phone", "email"] }), []));
 
   const confirmDelete = () => {
     if (idToDelete) {
       const supplier = suppliers.find(s => s.systemId === idToDelete);
       remove(idToDelete);
-      if (supplier) {
-        toast.success(`Đã chuyển nhà cung cấp "${supplier.name}" vào thùng rác`);
-      }
+      if (supplier) toast.success(`Đã chuyển nhà cung cấp "${supplier.name}" vào thùng rác`);
     }
-    setIsAlertOpen(false)
-    setIdToDelete(null)
-  }
-
-  const _handleAddNew = () => {
-    router.push('/suppliers/new');
+    setIsAlertOpen(false);
+    setIdToDelete(null);
   };
 
-  const filteredData = React.useMemo(() => {
-    if (globalFilter) {
-        return fuse.search(globalFilter).map(result => result.item);
-    }
-    return activeSuppliers;
-  }, [activeSuppliers, globalFilter, fuse]);
-
   const sortedData = React.useMemo(() => {
-    const sorted = [...filteredData];
+    const sorted = [...searchedData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as Record<string, unknown>)[sorting.id];
-        const bValue = (b as Record<string, unknown>)[sorting.id];
-        // Special handling for date columns
+        const aValue = (a as Record<string, unknown>)[sorting.id], bValue = (b as Record<string, unknown>)[sorting.id];
         if (sorting.id === 'createdAt') {
-          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
-          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
-          // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
+          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0, bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           if (aTime === bTime) {
-            const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
-            const bNum = parseInt(b.systemId.replace(/\D/g, '')) || 0;
+            const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0, bNum = parseInt(b.systemId.replace(/\D/g, '')) || 0;
             return sorting.desc ? bNum - aNum : aNum - bNum;
           }
           return sorting.desc ? bTime - aTime : aTime - bTime;
@@ -208,301 +118,117 @@ export function SuppliersPage() {
       });
     }
     return sorted;
-  }, [filteredData, sorting]);
+  }, [searchedData, sorting]);
 
   const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    return sortedData.slice(start, end);
-  }, [sortedData, pagination]);
-  
-  const allSelectedRows = React.useMemo(() => {
-    return activeSuppliers.filter(s => rowSelection[s.systemId]);
-  }, [activeSuppliers, rowSelection]);
+  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
+  const allSelectedRows = React.useMemo(() => activeSuppliers.filter(s => rowSelection[s.systemId]), [activeSuppliers, rowSelection]);
+  const handleRowClick = (supplier: Supplier) => router.push(`/suppliers/${supplier.systemId}`);
 
-  const handleRowClick = (supplier: Supplier) => {
-    router.push(`/suppliers/${supplier.systemId}`);
-  };
-
-  // Bulk actions
   const handleBulkStatusChange = (status: Supplier['status']) => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
-    if (selectedIds.length === 0) {
-      toast.error('Chưa chọn nhà cung cấp', {
-        description: 'Vui lòng chọn ít nhất một nhà cung cấp',
-      });
-      return;
-    }
-    const systemIds = selectedIds.map(asSystemId);
-    updateStatus(systemIds, status);
+    if (selectedIds.length === 0) { toast.error('Chưa chọn nhà cung cấp', { description: 'Vui lòng chọn ít nhất một nhà cung cấp' }); return; }
+    updateStatus(selectedIds.map(asSystemId), status);
     setRowSelection({});
     toast.success(`Đã cập nhật trạng thái ${selectedIds.length} nhà cung cấp`);
   };
 
   const handleBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
-    if (selectedIds.length === 0) {
-      toast.error('Chưa chọn nhà cung cấp', {
-        description: 'Vui lòng chọn ít nhất một nhà cung cấp',
-      });
-      return;
-    }
-    const systemIds = selectedIds.map(asSystemId);
-    bulkDelete(systemIds);
+    if (selectedIds.length === 0) { toast.error('Chưa chọn nhà cung cấp', { description: 'Vui lòng chọn ít nhất một nhà cung cấp' }); return; }
+    bulkDelete(selectedIds.map(asSystemId));
     setRowSelection({});
     toast.success(`Đã chuyển ${selectedIds.length} nhà cung cấp vào thùng rác`);
   };
 
-  // ✅ Mobile infinite scroll - Reset khi filter thay đổi
-  React.useEffect(() => {
-    setMobileLoadedCount(20);
-  }, [globalFilter, sorting]);
+  React.useEffect(() => { setMobileLoadedCount(20); }, [globalFilter, sorting]);
 
-  // ✅ Mobile infinite scroll - Load more on scroll
   React.useEffect(() => {
     if (!isMobile) return;
-
     const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const scrollHeight = document.documentElement.scrollHeight;
-      const clientHeight = window.innerHeight;
-
-      // Load more when 80% scrolled
-      if (scrollTop + clientHeight >= scrollHeight * 0.8) {
-        setMobileLoadedCount(prev => {
-          if (prev < sortedData.length) {
-            return Math.min(prev + 20, sortedData.length);
-          }
-          return prev;
-        });
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight * 0.8) {
+        setMobileLoadedCount(prev => prev < sortedData.length ? Math.min(prev + 20, sortedData.length) : prev);
       }
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile, sortedData.length]);
 
-  // ✅ Display data - Desktop pagination or Mobile infinite scroll
-  const displayData = React.useMemo(() => {
-    if (isMobile) {
-      return sortedData.slice(0, mobileLoadedCount);
-    }
-    return paginatedData;
-  }, [isMobile, sortedData, mobileLoadedCount, paginatedData]);
-
+  const displayData = React.useMemo(() => isMobile ? sortedData.slice(0, mobileLoadedCount) : paginatedData, [isMobile, sortedData, mobileLoadedCount, paginatedData]);
   const bulkActions = [
-    {
-      label: "Đang giao dịch",
-      onSelect: () => handleBulkStatusChange('Đang Giao Dịch')
-    },
-    {
-      label: "Tạm ngừng",
-      onSelect: () => handleBulkStatusChange('Ngừng Giao Dịch')
-    },
-    {
-      label: "Chuyển vào thùng rác",
-      onSelect: handleBulkDelete
-    }
+    { label: "Đang giao dịch", onSelect: () => handleBulkStatusChange('Đang Giao Dịch') },
+    { label: "Tạm ngừng", onSelect: () => handleBulkStatusChange('Ngừng Giao Dịch') },
+    { label: "Chuyển vào thùng rác", onSelect: handleBulkDelete }
   ];
 
-  // ✅ Import handler
-  const handleImport = React.useCallback(async (
-    importedSuppliers: Partial<Supplier>[], 
-    mode: 'insert-only' | 'update-only' | 'upsert',
-    _branchId?: string
-  ) => {
-    let addedCount = 0;
-    let updatedCount = 0;
-    let skippedCount = 0;
+  const handleImport = React.useCallback(async (importedSuppliers: Partial<Supplier>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
+    let addedCount = 0, updatedCount = 0, skippedCount = 0;
     const errors: Array<{ row: number; message: string }> = [];
-    
     importedSuppliers.forEach((supplier, index) => {
       try {
-        const existing = activeSuppliers.find(s => 
-          s.id.toLowerCase() === (supplier.id || '').toLowerCase()
-        );
-        
+        const existing = activeSuppliers.find(s => s.id.toLowerCase() === (supplier.id || '').toLowerCase());
         if (existing) {
-          if (mode === 'update-only' || mode === 'upsert') {
-            update(existing.systemId, { ...supplier, systemId: existing.systemId });
-            updatedCount++;
-          } else {
-            skippedCount++;
-          }
+          if (mode === 'update-only' || mode === 'upsert') { update(existing.systemId, { ...supplier, systemId: existing.systemId }); updatedCount++; }
+          else skippedCount++;
         } else {
-          if (mode === 'insert-only' || mode === 'upsert') {
-            add(supplier as Supplier);
-            addedCount++;
-          } else {
-            skippedCount++;
-          }
+          if (mode === 'insert-only' || mode === 'upsert') { add(supplier as Supplier); addedCount++; }
+          else skippedCount++;
         }
-      } catch (error) {
-        errors.push({ row: index + 1, message: (error as Error).message });
-      }
+      } catch (error) { errors.push({ row: index + 1, message: (error as Error).message }); }
     });
-    
     if (addedCount > 0 || updatedCount > 0) {
       const messages: string[] = [];
       if (addedCount > 0) messages.push(`${addedCount} nhà cung cấp mới`);
       if (updatedCount > 0) messages.push(`${updatedCount} nhà cung cấp cập nhật`);
       toast.success(`Đã import: ${messages.join(', ')}`);
     }
-    
-    return {
-      success: addedCount + updatedCount,
-      failed: errors.length,
-      inserted: addedCount,
-      updated: updatedCount,
-      skipped: skippedCount,
-      errors,
-    };
+    return { success: addedCount + updatedCount, failed: errors.length, inserted: addedCount, updated: updatedCount, skipped: skippedCount, errors };
   }, [activeSuppliers, add, update]);
 
-  // Get selected suppliers for export
-  const selectedSuppliers = React.useMemo(() => {
-    return activeSuppliers.filter(s => rowSelection[s.systemId]);
-  }, [activeSuppliers, rowSelection]);
+  const selectedSuppliers = React.useMemo(() => activeSuppliers.filter(s => rowSelection[s.systemId]), [activeSuppliers, rowSelection]);
+  const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
 
   return (
     <div className="space-y-4">
-      {/* PageToolbar - Desktop only */}
       {!isMobile && (
-        <PageToolbar
-          rightActions={
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Nhập file
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
-                <Download className="mr-2 h-4 w-4" />
-                Xuất Excel
-              </Button>
-              <DataTableColumnCustomizer
-                columns={columns}
-                columnVisibility={columnVisibility}
-                setColumnVisibility={setColumnVisibility}
-                columnOrder={columnOrder}
-                setColumnOrder={setColumnOrder}
-                pinnedColumns={pinnedColumns}
-                setPinnedColumns={setPinnedColumns}
-              />
-            </div>
-          }
-        />
+        <PageToolbar rightActions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button>
+            <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button>
+            <DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />
+          </div>
+        } />
       )}
-      
-      {/* Mobile Import/Export Buttons */}
       {isMobile && (
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Nhập
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
-            <Download className="mr-2 h-4 w-4" />
-            Xuất
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất</Button>
         </div>
       )}
-
-      {/* PageFilters */}
-      <PageFilters
-        searchValue={globalFilter}
-        onSearchChange={setGlobalFilter}
-        searchPlaceholder="Tìm kiếm nhà cung cấp..."
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm nhà cung cấp..." />
+      <ResponsiveDataTable columns={columns} data={displayData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={searchedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns}
+        renderMobileCard={(supplier) => <SupplierCard supplier={supplier} onEdit={handleEdit} onDelete={handleDelete} onRestore={handleRestore} navigate={router.push} />}
       />
-
-      <ResponsiveDataTable
-        columns={columns}
-        data={displayData}
-        pageCount={pageCount}
-        pagination={pagination}
-        setPagination={setPagination}
-        rowCount={filteredData.length}
-        rowSelection={rowSelection}
-        setRowSelection={setRowSelection}
-        sorting={sorting}
-        setSorting={setSorting}
-        onRowClick={handleRowClick}
-        allSelectedRows={allSelectedRows}
-        bulkActions={bulkActions}
-        expanded={{}}
-        setExpanded={() => {}}
-        columnVisibility={columnVisibility}
-        setColumnVisibility={setColumnVisibility}
-        columnOrder={columnOrder}
-        setColumnOrder={setColumnOrder}
-        pinnedColumns={pinnedColumns}
-        setPinnedColumns={setPinnedColumns}
-        renderMobileCard={(supplier) => (
-          <SupplierCard
-            supplier={supplier}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onRestore={handleRestore}
-            navigate={router.push}
-          />
-        )}
-      />
-
-      {/* Mobile infinite scroll indicator */}
       {isMobile && mobileLoadedCount < sortedData.length && (
         <div className="text-center py-4">
           <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
           <p className="text-body-sm text-muted-foreground mt-2">Đang tải thêm...</p>
         </div>
       )}
-      
       {isMobile && mobileLoadedCount >= sortedData.length && sortedData.length > 20 && (
-        <div className="text-center py-4">
-          <p className="text-body-sm text-muted-foreground">Đã hiển thị tất cả {sortedData.length} kết quả</p>
-        </div>
+        <div className="text-center py-4"><p className="text-body-sm text-muted-foreground">Đã hiển thị tất cả {sortedData.length} kết quả</p></div>
       )}
-
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Nhà cung cấp sẽ được chuyển vào thùng rác. Bạn có thể khôi phục lại sau.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Nhà cung cấp sẽ được chuyển vào thùng rác. Bạn có thể khôi phục lại sau.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Import Dialog */}
-      <SupplierImportDialog
-        open={showImportDialog}
-        onOpenChange={setShowImportDialog}
-        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
-        existingData={activeSuppliers}
-        onImport={handleImport}
-        currentUser={{
-          name: currentUser?.fullName || 'Hệ thống',
-          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
-        }}
-      />
-
-      {/* Export Dialog */}
-      <SupplierExportDialog
-        open={showExportDialog}
-        onOpenChange={setShowExportDialog}
-        allData={activeSuppliers}
-        filteredData={sortedData}
-        currentPageData={paginatedData}
-        selectedData={selectedSuppliers}
-        currentUser={{
-          name: currentUser?.fullName || 'Hệ thống',
-          systemId: currentUser?.systemId || asSystemId('SYSTEM'),
-        }}
-      />
+      <SupplierImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={activeSuppliers} onImport={handleImport} currentUser={currentUserInfo} />
+      <SupplierExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={activeSuppliers} filteredData={sortedData} currentPageData={paginatedData} selectedData={selectedSuppliers} currentUser={currentUserInfo} />
     </div>
   )
 }

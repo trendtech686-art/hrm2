@@ -170,7 +170,6 @@ export async function initWebsiteSettings(): Promise<void> {
   ]);
   
   isInitialized = true;
-  console.log('[WebsiteSettings] Initialized from database');
 }
 
 /**

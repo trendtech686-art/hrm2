@@ -1,5 +1,5 @@
 import * as React from 'react';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../hooks/use-fuse-search';
 import { Plus, CheckCircle2, RotateCcw, Trash2, Search, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -75,26 +75,20 @@ export function PayrollTemplatePage() {
   // Raw data
   const templates = templateStore.templates;
 
-  // Fuse.js for search
-  const fuse = React.useMemo(
-    () =>
-      new Fuse(templates, {
-        keys: ['id', 'name', 'description'],
-        threshold: 0.3,
-        includeScore: true,
-      }),
-    [templates]
+  // Fuse.js for search (lazy-loaded)
+  const fuseOptions = React.useMemo(
+    () => ({
+      keys: ['id', 'name', 'description'],
+      threshold: 0.3,
+      includeScore: true,
+    }),
+    []
   );
+  const searchedData = useFuseFilter(templates, searchQuery.trim(), fuseOptions);
 
   // Filtered data
   const filteredData = React.useMemo(() => {
-    let result = templates;
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const searchResults = fuse.search(searchQuery.trim());
-      result = searchResults.map((r) => r.item);
-    }
+    let result = searchQuery.trim() ? searchedData : templates;
 
     // Default filter
     if (isDefaultFilter.size > 0) {
@@ -106,7 +100,7 @@ export function PayrollTemplatePage() {
     }
 
     return result;
-  }, [templates, searchQuery, isDefaultFilter, fuse]);
+  }, [templates, searchQuery, isDefaultFilter, searchedData]);
 
   // Reset mobile count when filters change
   React.useEffect(() => {

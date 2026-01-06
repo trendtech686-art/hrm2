@@ -1,3 +1,0 @@
-{
-  "/(authenticated)/stock-transfers/[systemId]/edit/page": "app/(authenticated)/stock-transfers/[systemId]/edit/page.js"
-}

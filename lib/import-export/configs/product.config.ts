@@ -421,7 +421,6 @@ export const productFields: FieldConfig<Product>[] = [
         const isValidDomain = validDomains.some(domain => link.includes(domain));
         if (!isValidDomain) {
           // Cho phép các domain khác nhưng cảnh báo
-          console.warn(`Link "${link}" không thuộc các nền tảng video phổ biến`);
         }
       }
       return null;

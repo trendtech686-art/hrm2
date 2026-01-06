@@ -2,17 +2,17 @@
 import { useForm, useWatch, FormProvider } from "react-hook-form";
 import type { Product } from "@/lib/types/prisma-extended";
 import { useAllProducts } from "./hooks/use-all-products";
-import { usePricingPolicyStore } from '../settings/pricing/store';
-import { useUnitStore } from "../settings/units/store";
-import { useSupplierStore } from "../suppliers/store";
+import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
+import { useAllUnits } from "../settings/units/hooks/use-all-units";
+import { useAllSuppliers } from "../suppliers/hooks/use-all-suppliers";
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useSlaSettingsStore } from "../settings/inventory/sla-settings-store";
 import { useProductLogisticsSettingsStore } from "../settings/inventory/logistics-settings-store";
-import { useStorageLocationStore } from "../settings/inventory/storage-location-store";
-import { useBrandStore } from "../settings/inventory/brand-store";
-import { useImporterStore } from "../settings/inventory/importer-store";
-import { useProductTypeStore } from "../settings/inventory/product-type-store";
-import { useProductCategoryStore } from "../settings/inventory/product-category-store";
+import { useStorageLocationFinder } from "../settings/inventory/hooks/use-storage-locations";
+import { useActiveBrands } from "../brands/hooks/use-all-brands";
+import { useImporterFinder } from "../settings/inventory/hooks/use-inventory-settings";
+import { useActiveProductTypes } from "../settings/inventory/hooks/use-all-product-types";
+import { useAllCategories } from "../categories/hooks/use-all-categories";
 import { useImageUpload } from '../../hooks/use-image-upload';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
@@ -52,17 +52,19 @@ export function ProductFormComplete({
   defaultType,
 }: ProductFormCompleteProps) {
   const { data: products } = useAllProducts();
-  const { data: pricingPolicies } = usePricingPolicyStore();
-  const { data: units } = useUnitStore();
-  const { data: suppliers } = useSupplierStore();
+  const { data: pricingPolicies } = useAllPricingPolicies();
+  const { data: units } = useAllUnits();
+  const { data: suppliers } = useAllSuppliers();
   const { data: _branches } = useAllBranches();
   const { settings: slaSettings } = useSlaSettingsStore();
   const { settings: logisticsSettings } = useProductLogisticsSettingsStore();
-  const { getActive: getActiveStorageLocations } = useStorageLocationStore();
-  const { getActive: getActiveBrands } = useBrandStore();
-  const { getActive: getActiveImporters, getDefault: getDefaultImporter } = useImporterStore();
-  const { getActive: getActiveProductTypes } = useProductTypeStore();
-  const { data: productCategories } = useProductCategoryStore();
+  const { getActive: getActiveStorageLocations } = useStorageLocationFinder();
+  const { data: activeBrands } = useActiveBrands();
+  const getActiveBrands = React.useCallback(() => activeBrands, [activeBrands]);
+  const { getActive: getActiveImporters, getDefault: getDefaultImporter } = useImporterFinder();
+  const { data: activeProductTypes } = useActiveProductTypes();
+  const getActiveProductTypes = React.useCallback(() => activeProductTypes, [activeProductTypes]);
+  const { data: productCategories } = useAllCategories();
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // IMAGE MANAGEMENT - Load existing images for edit mode
@@ -78,7 +80,6 @@ export function ProductFormComplete({
       
       FileUploadAPI.getProductFiles(initialData.systemId)
         .then((files) => {
-          console.log('[ProductForm] Loaded files from server:', files);
           
           // Separate thumbnail and gallery files
           const thumbnails: StagingFile[] = [];
@@ -207,24 +208,24 @@ export function ProductFormComplete({
     [activeStorageLocations]
   );
 
-  const activeBrands = React.useMemo(
+  const activeBrandsArray = React.useMemo(
     () => getActiveBrands(),
     [getActiveBrands]
   );
 
   const brandOptions = React.useMemo(
-    () => activeBrands.map(b => ({ value: b.systemId, label: b.name })),
-    [activeBrands]
+    () => activeBrandsArray?.map(b => ({ value: b.systemId, label: b.name })) ?? [],
+    [activeBrandsArray]
   );
 
-  const activeProductTypes = React.useMemo(
+  const activeProductTypesArray = React.useMemo(
     () => getActiveProductTypes(),
     [getActiveProductTypes]
   );
 
   const productTypeOptions = React.useMemo(
-    () => activeProductTypes.map(pt => ({ value: pt.systemId, label: pt.name })),
-    [activeProductTypes]
+    () => activeProductTypesArray?.map(pt => ({ value: pt.systemId, label: pt.name })) ?? [],
+    [activeProductTypesArray]
   );
 
   const categoryOptions = React.useMemo(
@@ -545,7 +546,6 @@ export function ProductFormComplete({
       }));
     }
     
-    console.log('[ProductForm] Submitting with imageFiles:', imageFiles);
     
     // Submit the form data with image files
     onSubmit({

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Customer } from '../../customers/types';
 import { useAllCustomers } from '../../customers/hooks/use-all-customers';
 import { useCustomerStore } from '../../customers/store'; // Keep for add mutation
-import { useOrderStore } from '../store';
+import { useAllOrders } from '../hooks/use-all-orders';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
@@ -18,10 +18,10 @@ import { useCustomerGroupStore } from '../../settings/customers/customer-groups-
 import { asSystemId } from '@/lib/id-types';
 import { formatDate } from '@/lib/date-utils';
 import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
-import { useWarrantyStore } from '../../warranty/store';
+import { useAllWarranties } from '../../warranty/hooks/use-all-warranties';
 import { useComplaintStore } from '../../complaints/store';
-import { useReceiptStore } from '../../receipts/store';
-import { usePaymentStore } from '../../payments/store';
+import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
+import { useAllPayments } from '../../payments/hooks/use-all-payments';
 import { useCustomerSlaEvaluation } from '../../customers/sla/hooks';
 
 const formatCurrency = (value?: number) => {
@@ -69,12 +69,12 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const { data: allCustomers } = useAllCustomers();
     const { add: addCustomer } = useCustomerStore(); // Keep for mutation
-    const { data: allOrders } = useOrderStore();
+    const { data: allOrders } = useAllOrders();
     const customerGroupsStore = useCustomerGroupStore();
     const { findById: findEmployeeById } = useEmployeeFinder();
-    const { data: warranties = [] } = useWarrantyStore();
-    const { data: allReceipts = [] } = useReceiptStore();
-    const { data: allPayments = [] } = usePaymentStore();
+    const { data: warranties = [] } = useAllWarranties();
+    const { data: allReceipts = [] } = useAllReceipts();
+    const { data: allPayments = [] } = useAllPayments();
     const complaints = useComplaintStore((state) => state.complaints || []);
     const slaEngine = useCustomerSlaEvaluation();
 
@@ -101,29 +101,28 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const handleSelect = (option: ComboboxOption | null) => {
         if (option) {
             const fullCustomer = allCustomers.find(c => c.systemId === option.value);
-            // console.log('🔍 [Customer Selector] Selected customer:', fullCustomer); // Removed to prevent circular reference error
+            //  // Removed to prevent circular reference error
             setValue('customer', fullCustomer || null, { shouldValidate: true, shouldDirty: true });
             
             // ✅ Auto-load default addresses when selecting customer
             if (fullCustomer?.addresses) {
-                // console.log('🔍 [Customer Selector] Customer addresses:', fullCustomer.addresses); // Removed
+                //  // Removed
                 const defaultShipping = fullCustomer.addresses.find(a => a.isDefaultShipping);
                 const defaultBilling = fullCustomer.addresses.find(a => a.isDefaultBilling);
                 
-                // console.log('🔍 [Customer Selector] Default shipping:', defaultShipping); // Removed
-                // console.log('🔍 [Customer Selector] Default billing:', defaultBilling); // Removed
+                //  // Removed
+                //  // Removed
                 
                 if (defaultShipping) {
-                    // console.log('✅ [Customer Selector] Setting shippingAddress:', defaultShipping); // Removed
+                    //  // Removed
                     setValue('shippingAddress', defaultShipping, { shouldDirty: true });
                 }
                 if (defaultBilling) {
-                    // console.log('✅ [Customer Selector] Setting billingAddress:', defaultBilling); // Removed
+                    //  // Removed
                     setValue('billingAddress', defaultBilling, { shouldDirty: true });
                 }
-            } else {
-                console.warn('⚠️ [Customer Selector] Customer has no addresses array');
             }
+            // else: no addresses, skip
         } else {
             setValue('customer', null, { shouldValidate: true, shouldDirty: true });
             setValue('shippingAddress', null);

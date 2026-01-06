@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { ActivityHistory, type HistoryEntry } from '../../../components/ActivityHistory';
 import { getActivityLogs } from '../sla/ack-storage';
-import { SLA_TYPE_LABELS } from '../../settings/customers/sla-settings-data';
+import { SLA_TYPE_LABELS } from '../../settings/customers/types';
 import { useCustomerSlaEngineStore } from '../sla/store';
 import type { SystemId } from '@/lib/id-types';
 

@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { usePaymentStore } from '../../../payments/store';
 import { useReceiptStore } from '../../../receipts/store';
 import { useWarrantyStore } from '../../store';
+import { useWarrantyFinder } from '../../hooks/use-all-warranties';
 import type { WarrantyVoucherDialogBaseProps } from '../../types';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime } from '../../../../lib/date-utils';
@@ -60,7 +61,8 @@ export function WarrantyReceiptVoucherDialog({
   const router = useRouter();
   
   const { add: addReceipt } = useReceiptStore();
-  const { findById, addHistory } = useWarrantyStore();
+  const { addHistory } = useWarrantyStore();
+  const { findById } = useWarrantyFinder();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
   const currentUserName = authEmployee?.fullName || authEmployee?.id || 'Hệ thống';

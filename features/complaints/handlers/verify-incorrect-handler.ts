@@ -34,7 +34,6 @@ export async function handleVerifyIncorrect(
   }
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('[VERIFY-INCORRECT] Starting...');
     
     // STEP 1: Hủy phiếu (phiếu tự động khôi phục kho)
     const { cancelledPaymentsReceiptsHistory, inventoryHistory } = await cancelPaymentsReceiptsAndInventory(
@@ -103,22 +102,10 @@ export async function handleVerifyIncorrect(
       ];
     }
     
-    console.log('[VERIFY-INCORRECT] Updating with:', {
-      verification: updates.verification,
-      cancelledPaymentsReceiptsCount: cancelledPaymentsReceipts.length,
-      inventoryHistoryCount: updatedInventoryHistory.length,
-      hasEmployeeImages: !!updates.employeeImages,
-      hasVerificationEvidence: !!updates.verificationEvidence,
-      willPreserve: {
-        inventoryAdjustment: !!complaint.inventoryAdjustment,
-        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
-      }
-    });
     
     // STEP 6: Update
     updateComplaint(complaint.systemId, updates as Partial<Complaint>);
     
-    console.log('[VERIFY-INCORRECT] Complete!');
     
     return {
       success: true,

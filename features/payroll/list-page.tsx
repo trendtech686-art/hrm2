@@ -22,8 +22,8 @@ import { usePaymentStore } from '../payments/store';
 import { usePenaltyStore } from '../settings/penalties/store';
 import { usePrint } from '../../lib/use-print';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
-import { useDepartmentStore } from '../settings/departments/store';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useAllDepartments } from '../settings/departments/hooks/use-all-departments';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import {
   convertPayrollBatchForPrint,
   createStoreSettings,
@@ -107,8 +107,8 @@ export function PayrollListPage() {
   const defaultPageSize = useDefaultPageSize();
   const { print: _print } = usePrint();
   const { data: employees } = useAllEmployees();
-  const { data: departments } = useDepartmentStore();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { data: departments } = useAllDepartments();
+  const { info: storeInfo } = useStoreInfoData();
   
   // Filters state
   const [filters, setFilters] = React.useState<FilterValues>(defaultFilters);

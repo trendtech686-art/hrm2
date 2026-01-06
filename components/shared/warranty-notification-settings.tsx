@@ -1,37 +1,39 @@
 /**
  * Warranty Notification Settings Component
  * Configure notification preferences for warranty tickets
- * Pattern copied from Complaints notification settings
+ * Uses database backend via useWarrantyNotificationSettings hook
  */
 
 import * as React from 'react';
-import { Bell, Mail, MessageSquare, Clock } from 'lucide-react';
+import { Bell, Mail, MessageSquare, Clock, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import {
-  loadWarrantyNotificationSettings,
-  saveWarrantyNotificationSettings,
-  type WarrantyNotificationSettings,
-} from '../../features/warranty/notification-utils';
+  useWarrantyNotificationSettings,
+  type WarrantyNotificationSettings as WarrantyNotificationSettingsType,
+} from '@/hooks/use-sla-notification-settings';
 
 export function WarrantyNotificationSettings() {
-  const [settings, setSettings] = React.useState<WarrantyNotificationSettings>(
-    loadWarrantyNotificationSettings()
-  );
+  const [settings, setSettings, isLoading] = useWarrantyNotificationSettings();
 
-  // Save to localStorage whenever settings change
-  React.useEffect(() => {
-    saveWarrantyNotificationSettings(settings);
-  }, [settings]);
-
-  const handleToggle = (key: keyof WarrantyNotificationSettings) => {
-    setSettings((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const handleToggle = (key: keyof WarrantyNotificationSettingsType) => {
+    setSettings({
+      ...settings,
+      [key]: !settings[key],
+    });
   };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

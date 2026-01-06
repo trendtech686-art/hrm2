@@ -1,12 +1,10 @@
 import { createCrudStore } from '../../../lib/store-factory';
-import { data as initialData } from './data';
 import type { ShippingPartner } from '@/lib/types/prisma-extended';
 import Fuse from 'fuse.js';
 import type { SystemId } from '@/lib/id-types';
 
 // FIX: Replaced import from a non-existent module and replaced it with a mock function.
 const _connectPartner = async (partnerId: string, credentials: Record<string, unknown>): Promise<{ success: boolean; message: string }> => {
-    console.log(`Connecting to ${partnerId} with`, credentials);
     // Simulate success for known partners if they have credentials.
     if (credentials && Object.values(credentials).every(v => v)) {
         return { success: true, message: 'Kết nối thành công.' };
@@ -20,11 +18,10 @@ type ShippingPartnerStoreExtension = {
     disconnect: (systemId: SystemId) => void;
 };
 
-const baseStore = createCrudStore<ShippingPartner>(initialData, 'shipping-partners', {
+const baseStore = createCrudStore<ShippingPartner>([], 'shipping-partners', {
   // ⚠️ DEPRECATED: Store này không còn dùng để lưu credentials nữa
   // Credentials giờ được lưu trong shipping_partners_config (localStorage)
   // Xem: lib/utils/shipping-config-migration.ts và lib/utils/get-shipping-credentials.ts
-  persistKey: 'hrm-shipping-partners' // Keep for backward compatibility
 });
 
 const fuse = new Fuse(baseStore.getState().data, {
@@ -54,12 +51,10 @@ const storeExtension: ShippingPartnerStoreExtension = {
         // ⚠️ DEPRECATED: Không nên dùng hàm này nữa
         // Vui lòng cấu hình trong Settings → Đối tác vận chuyển
         // Credentials sẽ được lưu vào shipping_partners_config
-        console.warn('[ShippingPartnerStore] connect() is deprecated. Use shipping_partners_config instead.');
         
         const partner = baseStore.getState().findById(systemId);
         if (!partner) return { success: false, message: 'Không tìm thấy đối tác vận chuyển.' };
         
-        console.log('[ShippingPartnerStore] Connecting partner:', { systemId, credentials });
         
         const result = { success: true, message: 'Kết nối thành công.' };
         
@@ -71,7 +66,6 @@ const storeExtension: ShippingPartnerStoreExtension = {
                     : p
                 );
                 
-                console.log('[ShippingPartnerStore] Updated partner:', newData.find(p => p.systemId === systemId));
                 
                 return { data: newData };
             });
@@ -80,7 +74,6 @@ const storeExtension: ShippingPartnerStoreExtension = {
     },
     disconnect: (systemId: SystemId) => {
         // ⚠️ DEPRECATED: Không nên dùng hàm này nữa
-        console.warn('[ShippingPartnerStore] disconnect() is deprecated. Use shipping_partners_config instead.');
         
         baseStore.setState(state => ({
             data: state.data.map(p => 

@@ -217,7 +217,6 @@ export class GHTKService {
     }
     
     // ✅ Call through proxy server
-    console.log('[GHTKService.createOrder] pickAddressId:', params.pickAddressId, 'type:', typeof params.pickAddressId);
     
     const payload: Record<string, unknown> = {
       apiToken: this.apiToken,
@@ -294,7 +293,6 @@ export class GHTKService {
       tags: params.tags,
     };
 
-    console.log('📤 [GHTKService] FINAL payload before sending to GHTK:', JSON.stringify(payload, null, 2));
 
     const response = await fetch(`${GHTK_BASE_URL}/submit-order`, {
       method: 'POST',
@@ -304,8 +302,6 @@ export class GHTKService {
       body: JSON.stringify(payload),
     });
 
-    console.log('📡 [GHTKService] Response status:', response.status);
-    console.log('📡 [GHTKService] Response ok:', response.ok);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -314,7 +310,6 @@ export class GHTKService {
     }
 
     const data = await response.json();
-    console.log('📡 [GHTKService] Response data:', data);
     
     // ✅ Handle GHTK error response (success: false)
     if (!data.success) {

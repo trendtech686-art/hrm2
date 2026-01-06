@@ -52,7 +52,6 @@ export function useUserPreference<T>(
       setValue(newValue)
 
       if (!user?.systemId) {
-        console.warn('Cannot save preference: user not logged in')
         return
       }
 

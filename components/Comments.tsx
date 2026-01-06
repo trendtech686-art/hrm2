@@ -66,7 +66,6 @@ interface CommentsProps<
  * Features:
  * - Add/edit/delete comments
  * - Threaded replies (parent-child)
- * - Draft saving to localStorage
  * - Rich text display
  * - Attachments support
  * - Relative timestamps

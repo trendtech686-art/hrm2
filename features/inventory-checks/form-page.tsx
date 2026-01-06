@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useInventoryCheckStore } from './store';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Button } from '../../components/ui/button';
@@ -46,7 +46,7 @@ export function InventoryCheckFormPage() {
   const { data: branches } = useAllBranches();
   const { data: allProducts } = useAllProducts();
   const { findById: findProductById } = useProductFinder();
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
   
@@ -296,7 +296,6 @@ export function InventoryCheckFormPage() {
 
   // Save draft
   const handleSaveDraft = React.useCallback(() => {
-    console.log('handleSaveDraft called:', { branchSystemId, itemsLength: items.length });
     
     if (!validateForm()) {
       return;
@@ -331,23 +330,17 @@ export function InventoryCheckFormPage() {
     }
 
     router.push('/inventory-checks');
-  }, [branchSystemId, items, isEditMode, systemId, findById, selectedBranch, note, update, customId, currentUserSystemId, add, router, validateForm]);
+  }, [isEditMode, systemId, findById, selectedBranch, note, update, customId, currentUserSystemId, add, router, validateForm, branchSystemId, items]);
 
   // Balance
   const handleBalance = React.useCallback(() => {
-    console.log('=== handleBalance DEBUG ===');
-    console.log('branchSystemId:', branchSystemId, 'type:', typeof branchSystemId, 'length:', branchSystemId?.length);
-    console.log('items.length:', items.length);
-    console.log('items:', items);
-    console.log('=========================');
     
     if (!validateForm()) {
       return;
     }
 
-    console.log('Opening balance confirm dialog');
     setShowBalanceConfirm(true);
-  }, [items, branchSystemId, validateForm]);
+  }, [validateForm]);
 
   const confirmBalance = async () => {
     setIsBalancing(true);
@@ -520,7 +513,6 @@ export function InventoryCheckFormPage() {
                 <Select 
                   value={branchSystemId} 
                   onValueChange={(value) => {
-                    console.log('Branch selected:', value);
                     setBranchSystemId(value);
                   }}
                   disabled={isEditMode}

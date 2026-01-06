@@ -243,8 +243,6 @@ export function lookupAddressIds(address: Partial<EmployeeAddress> | null | unde
   const inputLevel = address.inputLevel || '3-level';
   const store = useProvinceStore.getState();
   
-  console.log('[lookupAddressIds] Input address:', address);
-  console.log('[lookupAddressIds] inputLevel:', inputLevel);
   
   let provinceId = address.provinceId || '';
   let provinceName = address.province || '';
@@ -310,7 +308,6 @@ export function lookupAddressIds(address: Partial<EmployeeAddress> | null | unde
     }
     
     if (foundWard) {
-      console.log('[lookupAddressIds] Found ward:', foundWard);
       wardId = foundWard.id;
       wardName = foundWard.name;
       
@@ -331,7 +328,7 @@ export function lookupAddressIds(address: Partial<EmployeeAddress> | null | unde
         districtName = foundWard.districtName || address.district || '';
       }
     } else {
-      console.log('[lookupAddressIds] Ward NOT FOUND for:', address.ward);
+      // Ward not found, will try province lookup below
     }
   }
   
@@ -353,7 +350,6 @@ export function lookupAddressIds(address: Partial<EmployeeAddress> | null | unde
     }
   }
   
-  console.log('[lookupAddressIds] Result:', { provinceId, provinceName, districtId, districtName, wardId, wardName });
   
   return {
     street: address.street || '',
@@ -401,14 +397,9 @@ export function enrichEmployeeAddresses<T extends {
 }>(data: Partial<T>): Partial<T> {
   const result = { ...data };
   
-  console.log('[Address Lookup] Input:', {
-    permanentAddress: data.permanentAddress,
-    temporaryAddress: data.temporaryAddress,
-  });
   
   if (data.permanentAddress) {
     const enriched = lookupAddressIds(data.permanentAddress);
-    console.log('[Address Lookup] permanentAddress enriched:', enriched);
     if (enriched) {
       result.permanentAddress = enriched;
     }
@@ -416,7 +407,6 @@ export function enrichEmployeeAddresses<T extends {
   
   if (data.temporaryAddress) {
     const enriched = lookupAddressIds(data.temporaryAddress);
-    console.log('[Address Lookup] temporaryAddress enriched:', enriched);
     if (enriched) {
       result.temporaryAddress = enriched;
     }

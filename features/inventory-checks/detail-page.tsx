@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useInventoryCheckStore } from './store';
 import { useProductFinder } from '../products/hooks/use-all-products';
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { Button } from '../../components/ui/button';
@@ -21,7 +21,7 @@ import {
   createStoreSettings,
 } from '../../lib/print/inventory-check-print-helper';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from 'sonner';
 import { type SystemId, asSystemId } from '../../lib/id-types';
@@ -57,7 +57,7 @@ export function InventoryCheckDetailPage() {
   const { isMobile: _isMobile } = useBreakpoint();
   const { findById, balanceCheck, cancelCheck } = useInventoryCheckStore();
   const { findById: findProductById } = useProductFinder();
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   const [showBalanceDialog, setShowBalanceDialog] = React.useState(false);
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
@@ -104,7 +104,6 @@ export function InventoryCheckDetailPage() {
   };
 
   const handleUpdateComment = (_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
@@ -165,7 +164,7 @@ export function InventoryCheckDetailPage() {
   }, [check, cancelCheck, router]);
 
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(check?.branchSystemId);
 
   const handlePrint = React.useCallback(() => {

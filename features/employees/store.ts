@@ -1,5 +1,4 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory';
-import { data as initialData } from './data';
 import type { Employee } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
 import Fuse from 'fuse.js';
@@ -21,10 +20,9 @@ type EmployeePersistenceAdapter = {
   hardDelete: (systemId: SystemId) => Promise<void>;
 };
 
-const baseStore = createCrudStore<Employee>(initialData, 'employees', {
+const baseStore = createCrudStore<Employee>([], 'employees', {
   businessIdField: 'id',
-  persistKey: 'hrm-employees', // ✅ Enable localStorage persistence
-  getCurrentUser: getCurrentUserSystemId, // ✅ Track who creates/updates
+  getCurrentUser: getCurrentUserSystemId,
 });
 
 // ✅ Wrap add method to include activity history

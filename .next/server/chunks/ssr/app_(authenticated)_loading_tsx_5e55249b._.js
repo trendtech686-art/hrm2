@@ -1,3 +1,0 @@
-module.exports=[777229,a=>{"use strict";var b=a.i(907997);function c(){return(0,b.jsx)("div",{className:"flex h-[calc(100vh-4rem)] items-center justify-center",children:(0,b.jsxs)("div",{className:"flex flex-col items-center gap-4",children:[(0,b.jsx)("div",{className:"h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent"}),(0,b.jsx)("p",{className:"text-sm text-muted-foreground",children:"Đang tải dữ liệu..."})]})})}a.s(["default",()=>c])}];
-
-//# sourceMappingURL=app_%28authenticated%29_loading_tsx_5e55249b._.js.map

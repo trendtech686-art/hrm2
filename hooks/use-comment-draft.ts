@@ -34,8 +34,8 @@ export function useCommentDraft(entityType: string, entityId: string, enabled: b
         if (isMountedRef.current && data.value) {
           setDraft(data.value);
         }
-      } catch (error) {
-        console.warn('[useCommentDraft] Failed to load draft:', error);
+      } catch {
+        // Silently fail - draft loading is optional
       } finally {
         if (isMountedRef.current) {
           setIsLoading(false);
@@ -73,8 +73,8 @@ export function useCommentDraft(entityType: string, entityId: string, enabled: b
             key: draftKey
           })
         });
-      } catch (error) {
-        console.warn('[useCommentDraft] Failed to delete draft:', error);
+      } catch {
+        // Silently fail - draft deletion is optional
       }
       return;
     }
@@ -91,8 +91,8 @@ export function useCommentDraft(entityType: string, entityId: string, enabled: b
             value: content
           })
         });
-      } catch (error) {
-        console.warn('[useCommentDraft] Failed to save draft:', error);
+      } catch {
+        // Silently fail - draft save is optional
       }
     }, 500);
   }, [draftKey, enabled]);
@@ -124,8 +124,8 @@ export function useCommentDraft(entityType: string, entityId: string, enabled: b
           key: draftKey
         })
       });
-    } catch (error) {
-      console.warn('[useCommentDraft] Failed to clear draft:', error);
+    } catch {
+      // Silently fail - draft deletion is optional
     }
   }, [draftKey, enabled]);
   

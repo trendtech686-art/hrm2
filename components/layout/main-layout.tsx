@@ -8,11 +8,15 @@ import { useMediaQuery } from '../../lib/use-media-query';
 import { cn } from '../../lib/utils';
 import { ModalProvider } from '../../contexts/modal-context';
 import { PageHeader } from './page-header';
+import { useInitIntegrationSettings } from '../../hooks/use-init-integration-settings';
 
 // Component to initialize UI store state based on media query
 function UiStateInitializer() {
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
+    
+    // Initialize integration settings from database
+    useInitIntegrationSettings();
 
     // Set initial sidebar state based on screen size, and update on change
     React.useEffect(() => {

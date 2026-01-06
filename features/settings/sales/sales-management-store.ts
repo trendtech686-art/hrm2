@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export type PrintCopiesOption = '1' | '2' | '3';
 
@@ -27,16 +26,11 @@ const defaultSettings: SalesManagementSettingsValues = {
 };
 
 export const useSalesManagementSettingsStore = create<SalesManagementSettingsState>()(
-  persist(
-    (set) => ({
-      ...defaultSettings,
-      updateSetting: (key, value) => set((state) => ({ ...state, [key]: value })),
-      reset: () => set(() => ({ ...defaultSettings })),
-    }),
-    {
-      name: 'sales-management-settings',
-    }
-  )
+  (set) => ({
+    ...defaultSettings,
+    updateSetting: (key, value) => set((state) => ({ ...state, [key]: value })),
+    reset: () => set(() => ({ ...defaultSettings })),
+  })
 );
 
 export const salesManagementDefaultSettings = defaultSettings;

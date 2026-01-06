@@ -48,7 +48,6 @@ export function loadReminderTemplates(): ReminderTemplate[] {
  * @deprecated Use useWarrantyReminderTemplates hook instead
  */
 export function saveReminderTemplates(_templates: ReminderTemplate[]): void {
-  console.warn('saveReminderTemplates is deprecated. Use useWarrantyReminderTemplates hook instead.');
 }
 
 /**
@@ -132,10 +131,9 @@ export function useWarrantyReminders() {
   /**
    * Schedule automatic reminder for overdue tickets
    */
-  const scheduleAutoReminder = useCallback((ticket: WarrantyTicket): void => {
+  const scheduleAutoReminder = useCallback((_ticket: WarrantyTicket): void => {
     // This would be called by a background job
     // For now, it's a placeholder for future implementation
-    console.log('Auto reminder scheduled for:', ticket.id);
   }, []);
 
   /**
@@ -149,9 +147,8 @@ export function useWarrantyReminders() {
   /**
    * Dismiss a reminder
    */
-  const dismissReminder = useCallback((reminderId: string): void => {
+  const dismissReminder = useCallback((_reminderId: string): void => {
     // TODO: Update reminder status
-    console.log('Reminder dismissed:', reminderId);
   }, []);
 
   return {

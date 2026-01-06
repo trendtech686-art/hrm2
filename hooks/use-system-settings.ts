@@ -330,7 +330,6 @@ export const useIntegrationSettings = createSystemSettingsHook<IntegrationSettin
  * @deprecated Use useGeneralSettings() hook instead
  */
 export function loadGeneralSettings(): GeneralSettings {
-  console.warn('[DEPRECATED] loadGeneralSettings() - Use useGeneralSettings() hook instead');
   return DEFAULT_GENERAL_SETTINGS;
 }
 
@@ -338,14 +337,12 @@ export function loadGeneralSettings(): GeneralSettings {
  * @deprecated Use useGeneralSettings().setSettings() instead
  */
 export function saveGeneralSettings(_settings: GeneralSettings): void {
-  console.warn('[DEPRECATED] saveGeneralSettings() - Use useGeneralSettings() hook instead');
 }
 
 /**
  * @deprecated Use useSecuritySettings() hook instead
  */
 export function loadSecuritySettings(): SecuritySettings {
-  console.warn('[DEPRECATED] loadSecuritySettings() - Use useSecuritySettings() hook instead');
   return DEFAULT_SECURITY_SETTINGS;
 }
 
@@ -353,14 +350,12 @@ export function loadSecuritySettings(): SecuritySettings {
  * @deprecated Use useSecuritySettings().setSettings() instead
  */
 export function saveSecuritySettings(_settings: SecuritySettings): void {
-  console.warn('[DEPRECATED] saveSecuritySettings() - Use useSecuritySettings() hook instead');
 }
 
 /**
  * @deprecated Use useMediaSettings() hook instead
  */
 export function loadMediaSettings(): MediaSettings {
-  console.warn('[DEPRECATED] loadMediaSettings() - Use useMediaSettings() hook instead');
   return DEFAULT_MEDIA_SETTINGS;
 }
 
@@ -368,14 +363,12 @@ export function loadMediaSettings(): MediaSettings {
  * @deprecated Use useMediaSettings().setSettings() instead
  */
 export function saveMediaSettings(_settings: MediaSettings): void {
-  console.warn('[DEPRECATED] saveMediaSettings() - Use useMediaSettings() hook instead');
 }
 
 /**
  * @deprecated Use useIntegrationSettings() hook instead
  */
 export function loadIntegrationSettings(): IntegrationSettings {
-  console.warn('[DEPRECATED] loadIntegrationSettings() - Use useIntegrationSettings() hook instead');
   return DEFAULT_INTEGRATION_SETTINGS;
 }
 
@@ -383,5 +376,4 @@ export function loadIntegrationSettings(): IntegrationSettings {
  * @deprecated Use useIntegrationSettings().setSettings() instead
  */
 export function saveIntegrationSettings(_settings: IntegrationSettings): void {
-  console.warn('[DEPRECATED] saveIntegrationSettings() - Use useIntegrationSettings() hook instead');
 }

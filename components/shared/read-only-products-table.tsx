@@ -4,8 +4,8 @@ import { Package, Eye, ChevronDown, ChevronRight, StickyNote } from 'lucide-reac
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { Button } from '../ui/button';
 import { OptimizedImage } from '../ui/optimized-image';
-import { useProductStore } from '../../features/products/store';
-import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
+import { useProductFinder, useAllProducts } from '../../features/products/hooks/use-all-products';
+import { useProductTypeFinder } from '../../features/settings/inventory/hooks/use-all-product-types';
 import { useTaxStore } from '../../features/settings/taxes/store';
 import { useProductImage } from '../../features/products/components/product-image';
 import { ImagePreviewDialog } from '../ui/image-preview-dialog';
@@ -134,8 +134,9 @@ export function ReadOnlyProductsTable({
     unitPriceHeader = 'Đơn giá',
     discountHeader = 'Chiết khấu',
 }: ReadOnlyProductsTableProps) {
-    const { findById: findProductById, data: allProducts } = useProductStore();
-    const { findById: findProductTypeById } = useProductTypeStore();
+    const { findById: findProductById } = useProductFinder();
+    const { data: allProducts } = useAllProducts();
+    const { findById: findProductTypeById } = useProductTypeFinder();
     const { findById: findTaxById } = useTaxStore();
     
     const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});

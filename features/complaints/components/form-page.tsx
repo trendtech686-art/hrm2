@@ -11,13 +11,14 @@ import { formatDateForDisplay } from '@/lib/date-utils';
 // Types & Store
 import type { Complaint, ComplaintType } from "../types";
 import { useComplaintStore } from "../store";
+import { useComplaintFinder } from "../hooks/use-all-complaints";
 import type { StagingFile } from "@/lib/file-upload-api";
 import { complaintNotifications } from "../notification-utils";
 
 // Product image & type
 import { useProductImage } from '@/features/products/components/product-image';
-import { useProductStore } from '@/features/products/store';
-import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Package, Eye, StickyNote } from 'lucide-react';
 
@@ -46,9 +47,9 @@ import {
 // Hooks & Context
 import { usePageHeader } from "@/contexts/page-header-context";
 import { useAllOrders } from "@/features/orders/hooks/use-all-orders";
-import { useSalesReturnStore } from "@/features/sales-returns/store";
+import { useAllSalesReturns } from "@/features/sales-returns/hooks/use-all-sales-returns";
 import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
-import { useEmployeeStore } from "@/features/employees/store";
+import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
 import { useAllCustomers } from "@/features/customers/hooks/use-all-customers";
 import { useNotificationStore } from "@/components/ui/notification-center";
 import { FileUploadAPI } from "@/lib/file-upload-api";
@@ -140,18 +141,19 @@ export function ComplaintFormPage() {
   const router = useRouter();
   const { setPageHeader } = usePageHeader();
   
-  const { getComplaintById, addComplaint, updateComplaint } = useComplaintStore();
+  const { addComplaint, updateComplaint } = useComplaintStore();
+  const { getComplaintById } = useComplaintFinder();
   const { data: orders } = useAllOrders();
-  const { data: salesReturns } = useSalesReturnStore();
+  const { data: salesReturns } = useAllSalesReturns();
   const { data: _branches } = useAllBranches();
-  const { data: employees } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
   const { data: customers = [] } = useAllCustomers();
   const { addNotification } = useNotificationStore();
   const { employee } = useAuth();
   
   // Product & ProductType for image/type display
-  const { findById: findProductById } = useProductStore();
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductById } = useProductFinder();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   
   // Helper to get product type label
   const getProductTypeLabel = React.useCallback((product: Product | null | undefined) => {
@@ -386,7 +388,6 @@ export function ComplaintFormPage() {
       // Set customer images (hình từ khách hàng) - filter by type 'initial'
       if (complaint.images && complaint.images.length > 0) {
         const customerImages = complaint.images.filter(img => img.type === 'initial');
-        console.log('Loading customer images:', customerImages.length, customerImages);
         
         if (customerImages.length > 0) {
           const stagingFiles: StagingFile[] = customerImages.map((img, idx) => ({
@@ -408,13 +409,11 @@ export function ComplaintFormPage() {
             metadata: '',
           }));
           setCustomerPermanentFiles(stagingFiles);
-          console.log('Set customer permanent files:', stagingFiles.length);
         }
       }
       
       // Set employee images (hình từ nhân viên) - from employeeImages field
       if ((complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages && (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages!.length > 0) {
-        console.log('Loading employee images:', (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages!.length, (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages);
         
         const stagingFiles: StagingFile[] = (complaint as { employeeImages?: EmployeeImageFile[] }).employeeImages!.map((img: EmployeeImageFile, idx: number) => ({
           id: img.id || `existing-employee-${idx}`,
@@ -435,7 +434,6 @@ export function ComplaintFormPage() {
           metadata: '',
         }));
         setEmployeePermanentFiles(stagingFiles);
-        console.log('Set employee permanent files:', stagingFiles.length);
       }
       
       // Set packaging employee if assigned
@@ -592,27 +590,11 @@ export function ComplaintFormPage() {
         f => !customerFilesToDelete.includes(f.id)
       );
       
-      console.log('🖼️ Customer images processing:', {
-        total: customerPermanentFiles.length + customerStagingFiles.length,
-        permanent: customerPermanentFiles.length,
-        staging: customerStagingFiles.length,
-        deleted: customerFilesToDelete.length,
-        cleanedPermanent: cleanedCustomerPermanent.length,
-        sessionId: customerSessionId,
-        targetComplaintId: targetComplaintId,
-        willConfirm: !!(customerSessionId && customerStagingFiles.length > 0)
-      });
       
       // Confirm staging files nếu có NEW files với sessionId (như WARRANTY pattern)
       // ⚠️ FIX: Chỉ cần check customerSessionId và customerStagingFiles.length > 0
       // Không cần check .some(img => img.sessionId) vì tất cả files đều có chung sessionId
       if (customerSessionId && customerStagingFiles.length > 0) {
-        console.log('🔄 Confirming customer staging files:', {
-          sessionId: customerSessionId,
-          fileCount: customerStagingFiles.length,
-          targetId: targetComplaintId,
-          files: customerStagingFiles.map(f => ({ id: f.id, name: f.name, sessionId: f.sessionId }))
-        });
         
         const commitToastId = toast.loading("Đang lưu hình ảnh từ khách hàng...");
         try {
@@ -628,13 +610,11 @@ export function ComplaintFormPage() {
             }
           );
           
-          console.log('✅ Customer confirm result:', result);
           
           const newUrls = result
             .filter((file) => file && typeof file.url === 'string')
             .map((file) => file.url);
           
-          console.log('✅ Customer new URLs:', newUrls);
           
           // Combine cleaned permanent + newly confirmed
           finalCustomerImageUrls = [
@@ -642,15 +622,14 @@ export function ComplaintFormPage() {
             ...newUrls
           ];
           
-          console.log('✅ Final customer URLs:', finalCustomerImageUrls);
           
           toast.success(`Đã lưu ${newUrls.length} hình ảnh mới`, { id: commitToastId });
           
           // Cleanup staging files sau khi confirm thành công
           try {
             await FileUploadAPI.deleteStagingSession(customerSessionId);
-          } catch (cleanupError) {
-            console.warn('Failed to cleanup customer staging files:', cleanupError);
+          } catch (_cleanupError) {
+            // Ignore cleanup errors
           }
         } catch (error) {
           console.error("Failed to commit customer files:", error);
@@ -674,26 +653,10 @@ export function ComplaintFormPage() {
         f => !employeeFilesToDelete.includes(f.id)
       );
       
-      console.log('👤 Employee images processing:', {
-        total: employeePermanentFiles.length + employeeStagingFiles.length,
-        permanent: employeePermanentFiles.length,
-        staging: employeeStagingFiles.length,
-        deleted: employeeFilesToDelete.length,
-        cleanedPermanent: cleanedEmployeePermanent.length,
-        sessionId: employeeSessionId,
-        targetComplaintId: targetComplaintId,
-        willConfirm: !!(employeeSessionId && employeeStagingFiles.length > 0)
-      });
       
       // Confirm staging files nếu có NEW files với sessionId (như WARRANTY pattern)
       // ⚠️ FIX: Chỉ cần check employeeSessionId và employeeStagingFiles.length > 0
       if (employeeSessionId && employeeStagingFiles.length > 0) {
-        console.log('🔄 Confirming employee staging files:', {
-          sessionId: employeeSessionId,
-          fileCount: employeeStagingFiles.length,
-          targetId: targetComplaintId,
-          files: employeeStagingFiles.map(f => ({ id: f.id, name: f.name, sessionId: f.sessionId }))
-        });
         
         const commitToastId = toast.loading("Đang lưu hình ảnh từ nhân viên...");
         try {
@@ -710,13 +673,11 @@ export function ComplaintFormPage() {
             }
           );
           
-          console.log('✅ Employee confirm result:', result);
           
           const newUrls = result
             .filter((file: { url?: string }) => file && file.url)
             .map((file: { url: string }) => file.url);
           
-          console.log('✅ Employee new URLs:', newUrls);
           
           // Combine cleaned permanent + newly confirmed
           finalEmployeeImageUrls = [
@@ -724,15 +685,14 @@ export function ComplaintFormPage() {
             ...newUrls
           ];
           
-          console.log('✅ Final employee URLs:', finalEmployeeImageUrls);
           
           toast.success(`Đã lưu ${newUrls.length} hình ảnh nhân viên`, { id: commitToastId });
           
           // Cleanup staging files sau khi confirm thành công
           try {
             await FileUploadAPI.deleteStagingSession(employeeSessionId);
-          } catch (cleanupError) {
-            console.warn('Failed to cleanup employee staging files:', cleanupError);
+          } catch (_cleanupError) {
+            // Ignore cleanup errors
           }
         } catch (error) {
           console.error("Failed to commit employee files:", error);
@@ -1021,11 +981,6 @@ export function ComplaintFormPage() {
                                 disabled={canOnlyEditNote}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
-                                    console.log('Checkbox checked - item data:', {
-                                      productId: item.productId,
-                                      unitPrice: item.unitPrice,
-                                      fullItem: item
-                                    });
                                     setAffectedProducts(prev => [...prev, {
                                       productSystemId: item.productSystemId,
                                       productId: item.productId,
@@ -1228,7 +1183,6 @@ export function ComplaintFormPage() {
                   const totalExcessAmount = excessItems.reduce((sum, p) => {
                     const qty = p.quantityExcess || 0;
                     const price = p.unitPrice || 0;
-                    console.log('Excess calculation:', { productId: p.productId, qty, price, total: qty * price });
                     return sum + (qty * price);
                   }, 0);
                   
@@ -1252,7 +1206,6 @@ export function ComplaintFormPage() {
                   const totalMissingAmount = missingItems.reduce((sum, p) => {
                     const qty = p.quantityMissing || 0;
                     const price = p.unitPrice || 0;
-                    console.log('Missing calculation:', { productId: p.productId, qty, price, total: qty * price });
                     return sum + (qty * price);
                   }, 0);
                   
@@ -1276,7 +1229,6 @@ export function ComplaintFormPage() {
                   const totalDefectiveAmount = defectiveItems.reduce((sum, p) => {
                     const qty = p.quantityDefective || 0;
                     const price = p.unitPrice || 0;
-                    console.log('Defective calculation:', { productId: p.productId, qty, price, total: qty * price });
                     return sum + (qty * price);
                   }, 0);
                   

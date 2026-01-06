@@ -35,12 +35,10 @@ class GHTKSyncService {
    */
   startAutoSync() {
     if (this.isRunning) {
-      console.log('[GHTK Sync] Already running');
       return;
     }
     
     this.isRunning = true;
-    console.log(`[GHTK Sync] Starting in ${this.mode} mode`);
     
     // Start webhook polling (primary mechanism)
     if (this.mode === 'webhook' || this.mode === 'hybrid') {
@@ -70,7 +68,6 @@ class GHTKSyncService {
     }
     
     this.isRunning = false;
-    console.log('[GHTK Sync] Stopped');
   }
   
   /**
@@ -78,7 +75,6 @@ class GHTKSyncService {
    * This checks if GHTK has pushed any status updates to our server
    */
   private startWebhookPolling() {
-    console.log('[GHTK Sync] Starting webhook polling (every 5s)');
     
     // Run immediately
     this.checkWebhookUpdates();
@@ -98,7 +94,6 @@ class GHTKSyncService {
       const data = await response.json();
       
       if (data.success && data.updates && data.updates.length > 0) {
-        console.log(`[GHTK Sync] Received ${data.updates.length} webhook updates`);
         
         // Process each webhook update
         for (const update of data.updates) {
@@ -119,10 +114,6 @@ class GHTKSyncService {
       const { useOrderStore } = await import('@/features/orders/store');
       const { processGHTKWebhook } = useOrderStore.getState();
       
-      console.log('[GHTK Sync] Processing webhook update:', {
-        trackingCode: update.label_id,
-        statusId: update.status_id,
-      });
       
       processGHTKWebhook(update);
     } catch (error) {
@@ -134,7 +125,6 @@ class GHTKSyncService {
    * Start fallback polling (for orders webhook might miss)
    */
   private startFallbackPolling() {
-    console.log('[GHTK Sync] Starting fallback polling (every 10 min)');
     
     // Run immediately
     this.syncStaleOrders();
@@ -168,11 +158,9 @@ class GHTKSyncService {
       );
       
       if (stalePackagings.length === 0) {
-        console.log('[GHTK Sync] No stale orders to sync');
         return;
       }
       
-      console.log(`[GHTK Sync] Syncing ${stalePackagings.length} stale shipments...`);
       
       // Sync each one with rate limiting
       for (const { order, packaging } of stalePackagings) {
@@ -182,7 +170,6 @@ class GHTKSyncService {
         await this.delay(200);
       }
       
-      console.log('[GHTK Sync] Fallback sync completed');
     } catch (error) {
       console.error('[GHTK Sync] Fallback sync error:', error);
     }
@@ -218,12 +205,10 @@ class GHTKSyncService {
     // Check cache first
     const cached = this.cache.get(trackingCode);
     if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
-      console.log(`[GHTK Sync] Using cached data for ${trackingCode}`);
       return;
     }
     
     try {
-      console.log(`[GHTK Sync] Fetching status for ${trackingCode}...`);
       
       const response = await fetch(getApiUrl(`/shipping/ghtk/track/${trackingCode}`));
       const data = await response.json();
@@ -255,9 +240,8 @@ class GHTKSyncService {
           data: webhookData,
         });
         
-        console.log(`[GHTK Sync] ✓ Synced ${trackingCode}: status ${data.order.status}`);
       } else {
-        console.warn(`[GHTK Sync] ✗ Failed to sync ${trackingCode}:`, data.message);
+        // No update needed - webhook data unchanged
       }
     } catch (error) {
       console.error(`[GHTK Sync] ✗ Error syncing ${trackingCode}:`, error);
@@ -275,7 +259,6 @@ class GHTKSyncService {
       const order = findById(orderSystemId);
       
       if (!order) {
-        console.warn('[GHTK Sync] Order not found:', orderSystemId);
         return;
       }
       
@@ -287,7 +270,6 @@ class GHTKSyncService {
         return;
       }
       
-      console.log(`[GHTK Sync] Force syncing order ${order.id} (${ghtkPackagings.length} packages)...`);
       
       await Promise.all(
         ghtkPackagings.map(p => 
@@ -295,7 +277,6 @@ class GHTKSyncService {
         )
       );
       
-      console.log(`[GHTK Sync] ✓ Order ${order.id} synced`);
     } catch (error) {
       console.error('[GHTK Sync] Order sync error:', error);
       throw error;
@@ -314,7 +295,6 @@ class GHTKSyncService {
    */
   clearCache() {
     this.cache.clear();
-    console.log('[GHTK Sync] Cache cleared');
   }
   
   /**

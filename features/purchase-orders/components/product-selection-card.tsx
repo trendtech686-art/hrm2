@@ -9,8 +9,8 @@ import { ProductSelectionDialog } from "../../shared/product-selection-dialog";
 import { TaxSelector } from "./tax-selector";
 import { useTaxStore } from "../../settings/taxes/store";
 import { useAllProducts } from "../../products/hooks/use-all-products";
-import { useProductTypeStore } from "../../settings/inventory/product-type-store";
-import { usePurchaseOrderStore } from "../store";
+import { useProductTypeFinder } from "../../settings/inventory/hooks/use-all-product-types";
+import { useAllPurchaseOrders } from "../hooks/use-all-purchase-orders";
 import type { Product } from "../../products/types";
 import { useProductImage } from "../../products/components/product-image";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
@@ -176,10 +176,10 @@ export function ProductSelectionCard({
   const { data: allProducts } = useAllProducts();
   
   // Get product type store
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   
   // Get purchase orders for price history
-  const { data: purchaseOrders } = usePurchaseOrderStore();
+  const { data: purchaseOrders } = useAllPurchaseOrders();
 
   // Get product type label
   const getProductTypeLabel = React.useCallback((product: Product) => {

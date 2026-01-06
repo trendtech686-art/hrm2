@@ -3,9 +3,9 @@ import * as React from 'react';
 import { PlusCircle, Package } from 'lucide-react';
 import type { Product } from '../../products/types';
 import type { ProductFormValues } from '../../products/validation';
-import { useProductStore } from '../../products/store';
-import { useUnitStore } from '../../settings/units/store';
-import { usePricingPolicyStore } from '../../settings/pricing/store';
+import { useAllProducts, useActiveProducts } from '../../products/hooks/use-all-products';
+import { useActiveUnits } from '../../settings/units/hooks/use-all-units';
+import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
 import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { useImageStore } from '../../products/image-store';
 import { FileUploadAPI, type StagingFile, type ServerFile } from '../../../lib/file-upload-api';
@@ -25,17 +25,9 @@ const formatCurrency = (value?: number) => {
 };
 
 const SimplifiedProductForm = ({ onSubmit }: { onSubmit: (values: ProductFormValues) => void; }) => {
-    const { data: _products } = useProductStore();
-    const unitData = useUnitStore(state => state.data);
-    const { data: pricingPolicies } = usePricingPolicyStore();
+    const { data: activeUnits } = useActiveUnits();
+    const { data: pricingPolicies } = useAllPricingPolicies();
 
-    const activeUnits = React.useMemo(
-        () => unitData.filter(unit => {
-            const isDeleted = 'isDeleted' in unit && Boolean((unit as { isDeleted?: boolean }).isDeleted);
-            return !isDeleted && unit.isActive !== false;
-        }),
-        [unitData]
-    );
     const unitOptions = React.useMemo(() => activeUnits.map(u => ({ value: u.name, label: u.name })), [activeUnits]);
     const defaultSellingPolicy = React.useMemo(() => pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault), [pricingPolicies]);
 
@@ -117,15 +109,16 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
     defaultPolicyId?: string | undefined;
     branchSystemId?: string | undefined;
 }) => {
-    const { data: allProducts, getActive } = useProductStore();
+    const { data: allProducts } = useAllProducts();
+    const { data: activeProducts } = useActiveProducts();
     const { data: branches } = useAllBranches();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
 
     // Only show active products
     const availableProducts = React.useMemo(() => {
-        return getActive();
-    }, [getActive]);
+        return activeProducts;
+    }, [activeProducts]);
 
     const getComboStockRecord = React.useCallback((product: Product): Record<SystemId, number> => {
         if (!isComboProduct(product) || !product.comboItems?.length) {

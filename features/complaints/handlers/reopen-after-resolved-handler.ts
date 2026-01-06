@@ -28,10 +28,8 @@ export async function handleReopenAfterResolved(
   updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('[REOPEN-AFTER-RESOLVE] Starting...');
     
     // Khong can huy phieu/kho vi ket thuc khong huy gi
-    console.log('[REOPEN-AFTER-RESOLVE] Skip cancel (resolved status)');
     
     // Build timeline action
     const timeline: ComplaintAction[] = [
@@ -55,19 +53,10 @@ export async function handleReopenAfterResolved(
       // KEEP all fields including endedBy, resolvedBy, verification (audit trail)
     };
     
-    console.log('[REOPEN-AFTER-RESOLVE] Updating with:', {
-      status: updates.status,
-      preservedFields: {
-        inventoryAdjustment: !!complaint.inventoryAdjustment,
-        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
-        verification: complaint.verification,
-      }
-    });
     
     // Update
     updateComplaint(complaint.systemId, updates);
     
-    console.log('[REOPEN-AFTER-RESOLVE] Complete!');
     
     toast.success('Đã mở lại khiếu nại');
     

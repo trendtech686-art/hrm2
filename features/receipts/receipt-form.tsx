@@ -3,15 +3,15 @@
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
-import { useReceiptTypeStore } from '../settings/receipt-types/store';
-import { usePaymentMethodStore } from '../settings/payments/methods/store';
-import { useTargetGroupStore } from '../settings/target-groups/store';
-import { useCashbookStore } from '../cashbook/store';
+import { useAllReceiptTypes } from '../settings/receipt-types/hooks/use-all-receipt-types';
+import { useAllPaymentMethods } from '../settings/payments/hooks/use-all-payment-methods';
+import { useAllTargetGroups } from '../settings/target-groups/hooks/use-all-target-groups';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllCustomers } from '../customers/hooks/use-all-customers';
-import { useSupplierStore } from '../suppliers/store';
+import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
-import { useShippingPartnerStore } from '../settings/shipping/store';
+import { useAllShippingPartners } from '../settings/shipping/hooks/use-all-shipping-partners';
 import type { Receipt, ReceiptStatus } from '@/lib/types/prisma-extended';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -62,15 +62,15 @@ interface ReceiptFormProps {
 
 export function ReceiptForm({ initialData, onSubmit, isEditing = false }: ReceiptFormProps) {
   const router = useRouter();
-  const { data: receiptTypes } = useReceiptTypeStore();
-  const { data: paymentMethods } = usePaymentMethodStore();
-  const { data: targetGroups } = useTargetGroupStore();
-  const { accounts } = useCashbookStore();
+  const { data: receiptTypes } = useAllReceiptTypes();
+  const { data: paymentMethods } = useAllPaymentMethods();
+  const { data: targetGroups } = useAllTargetGroups();
+  const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
   const { data: customers } = useAllCustomers();
-  const { data: suppliers } = useSupplierStore();
+  const { data: suppliers } = useAllSuppliers();
   const { data: employees } = useAllEmployees();
-  const { data: shippingPartners } = useShippingPartnerStore();
+  const { data: shippingPartners } = useAllShippingPartners();
 
   // Chỉ lấy active items
   const activeReceiptTypes = React.useMemo(

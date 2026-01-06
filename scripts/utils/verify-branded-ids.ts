@@ -72,7 +72,6 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('✅ All checked seed files are using branded IDs.');
 }
 
 async function collectCandidateFiles(): Promise<string[]> {

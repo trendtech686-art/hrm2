@@ -11,8 +11,8 @@ import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
 import { FileText, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { usePaymentStore } from '../../../payments/store';
-import { useReceiptStore } from '../../../receipts/store';
+import { useAllPayments } from '../../../payments/hooks/use-all-payments';
+import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
 import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
 import type { SettlementMethod } from '../../types';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
@@ -28,8 +28,8 @@ export function WarrantyPaymentHistoryCard({
   warrantyId: _warrantyId,
 }: WarrantyPaymentHistoryCardProps) {
   const router = useRouter();
-  const { data: payments } = usePaymentStore();
-  const { data: receipts } = useReceiptStore();
+  const { data: payments } = useAllPayments();
+  const { data: receipts } = useAllReceipts();
   const { settlementMethods } = useWarrantySettlement(warrantySystemId);
   const currencyFormatter = React.useMemo(() => new Intl.NumberFormat('vi-VN'), []);
 

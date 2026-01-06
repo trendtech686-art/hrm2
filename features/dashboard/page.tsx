@@ -8,7 +8,7 @@ import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { useAllCustomers } from '../customers/hooks/use-all-customers';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { ChartBar, ChartLine, ChartPie } from '../../components/ui/chart';
+import { DynamicChartBar as ChartBar, DynamicChartLine as ChartLine, DynamicChartPie as ChartPie } from '../../components/ui/dynamic-charts';
 import { Package, Truck, DollarSign, Users, ChevronRight, UserCheck, AlertCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';

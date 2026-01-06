@@ -4,10 +4,10 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { Order } from '@/lib/types/prisma-extended';
 import type { SalesReturn } from '@/features/sales-returns/types';
-import { useReceiptStore } from '@/features/receipts/store';
-import { usePaymentStore } from '@/features/payments/store';
-import { useWarrantyStore } from '@/features/warranty/store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
+import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
+import { useAllWarranties } from '@/features/warranty/hooks/use-all-warranties';
+import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { ActivityHistory, type HistoryEntry } from '@/components/ActivityHistory';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatCurrency, type OrderComment } from './types';
@@ -19,10 +19,10 @@ interface OrderHistoryTabProps {
 }
 
 export function OrderHistoryTab({ order, salesReturnsForOrder, orderComments: _orderComments }: OrderHistoryTabProps) {
-    const { data: receipts } = useReceiptStore();
-    const { data: payments } = usePaymentStore();
-    const { data: warranties } = useWarrantyStore();
-    const { findById: findEmployeeById } = useEmployeeStore();
+    const { data: receipts } = useAllReceipts();
+    const { data: payments } = useAllPayments();
+    const { data: warranties } = useAllWarranties();
+    const { findById: findEmployeeById } = useEmployeeFinder();
     const allTransactions = React.useMemo(() => [...receipts, ...payments], [receipts, payments]);
 
     const parseTimestamp = React.useCallback((value?: string) => {

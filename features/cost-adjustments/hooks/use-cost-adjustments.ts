@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for cost adjustments
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchCostAdjustments,
   fetchCostAdjustmentById,
@@ -36,6 +36,7 @@ export function useCostAdjustments(filters: CostAdjustmentFilters = {}) {
     queryKey: costAdjustmentKeys.list(filters),
     queryFn: () => fetchCostAdjustments(filters),
     staleTime: 1000 * 60 * 2, // 2 minutes
+    placeholderData: keepPreviousData,
   });
 }
 

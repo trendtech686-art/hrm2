@@ -1,6 +1,5 @@
 ﻿import { create } from 'zustand';
 import { getCurrentDate, toISODate } from '../../lib/date-utils';
-import { data as initialData } from './data';
 import type { WikiArticle } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
@@ -14,7 +13,7 @@ type WikiState = {
 
 export const useWikiStore = create<WikiState>()(
     (set, get) => ({
-      data: initialData,
+      data: [],
       findById: (systemId) => get().data.find((item) => item.systemId === systemId),
       add: (item) =>
         set((state) => {

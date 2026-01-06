@@ -16,10 +16,10 @@ import Link from 'next/link';
 import { Package, Eye } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { OptimizedImage } from '../ui/optimized-image';
-import { useProductStore } from '../../features/products/store';
-import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
-import { usePricingPolicyStore } from '../../features/settings/pricing/store';
-import { useBranchStore } from '../../features/settings/branches/store';
+import { useProductFinder } from '../../features/products/hooks/use-all-products';
+import { useProductTypeFinder } from '../../features/settings/inventory/hooks/use-all-product-types';
+import { useAllPricingPolicies } from '../../features/settings/pricing/hooks/use-all-pricing-policies';
+import { useAllBranches } from '../../features/settings/branches/hooks/use-all-branches';
 import { useProductImage } from '../../features/products/components/product-image';
 import { ImagePreviewDialog } from '../ui/image-preview-dialog';
 import type { Product } from '../../features/products/types';
@@ -100,10 +100,10 @@ export function ComboItemsReadOnlyTable({
     showStock = true,
     onImagePreview,
 }: ComboItemsReadOnlyTableProps) {
-    const { findById: findProductById, data: _allProducts } = useProductStore();
-    const { findById: findProductTypeById } = useProductTypeStore();
-    const { data: pricingPolicies } = usePricingPolicyStore();
-    const { data: branches } = useBranchStore();
+    const { findById: findProductById } = useProductFinder();
+    const { findById: findProductTypeById } = useProductTypeFinder();
+    const { data: pricingPolicies } = useAllPricingPolicies();
+    const { data: branches } = useAllBranches();
     
     const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
         open: false, image: '', title: ''

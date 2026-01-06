@@ -21,7 +21,7 @@ import { RefreshCw, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddressConversionDialog } from './address-conversion-dialog';
 import { findAllNewWards } from '@/features/settings/provinces/ward-old-to-new-mapping';
-import { useProvinceStore } from '@/features/settings/provinces/store';
+import { useWards2Level } from '@/features/settings/provinces/hooks/use-administrative-units';
 import { asBusinessId } from '@/lib/id-types';
 import type { EnhancedCustomerAddress } from '../types/enhanced-address';
 import type { WardMapping } from '@/features/settings/provinces/ward-old-to-new-mapping';
@@ -41,7 +41,9 @@ export function AddressBidirectionalConverter({
 }: AddressBidirectionalConverterProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [selectedWardMapping, setSelectedWardMapping] = useState<WardMapping | null>(null);
-  const { getWards2LevelByProvinceId } = useProvinceStore();
+  
+  // Fetch 2-level wards for the address province
+  const { data: wards2Level = [] } = useWards2Level(address.provinceId);
 
   // Use controlled or uncontrolled mode
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
@@ -50,25 +52,17 @@ export function AddressBidirectionalConverter({
   // Auto-select nếu chỉ có 1 kết quả
   useEffect(() => {
     if (isOpen && address.inputLevel === '3-level') {
-      console.log('🔍 Finding NEW wards (2-level) for OLD ward:', {
-        oldWardName: address.ward,
-        provinceName: address.province
-      });
       
       // 3-level (cũ) → 2-level (mới): Tìm NEW ward từ OLD ward
       const allNewWardMappings = findAllNewWards(address.ward, address.province);
       
-      console.log('✅ Found NEW ward mappings:', allNewWardMappings);
       
       if (allNewWardMappings.length === 1) {
         setSelectedWardMapping(allNewWardMappings[0]);
-        console.log('✓ Auto-selected:', allNewWardMappings[0]);
       } else if (allNewWardMappings.length === 0) {
         setSelectedWardMapping(null);
-        console.log('❌ No mapping found - ward không có trong FILE3 hoặc không được sáp nhập');
       } else {
         setSelectedWardMapping(null);
-        console.log('⚠️ Multiple results, user must select');
       }
     }
   }, [isOpen, address.ward, address.inputLevel, address.province]);
@@ -95,15 +89,7 @@ export function AddressBidirectionalConverter({
     // newWardName là ward 2 cấp (sau sáp nhập - không có district)
     const newWard = selectedWardMapping.newWardName;
     
-    // Tìm wardId từ store (ward 2 cấp không có districtId)
-    const wards2Level = getWards2LevelByProvinceId(asBusinessId(address.provinceId));
-    console.log('🔍 Looking for 2-level ward:', {
-      wardName: newWard,
-      provinceId: address.provinceId,
-      available2LevelWards: wards2Level.length,
-      sample: wards2Level.slice(0, 3),
-    });
-    
+    // Use wards2Level from React Query hook
     const foundWard = wards2Level.find(w => w.name === newWard);
     
     if (!foundWard) {
@@ -117,7 +103,6 @@ export function AddressBidirectionalConverter({
       return;
     }
     
-    console.log('✅ Found ward:', foundWard);
     
     if (!foundWard) {
       toast.error('Không tìm thấy ward trong database', {

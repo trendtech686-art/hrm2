@@ -3,7 +3,7 @@ import { Download, Upload, Settings2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { DataTableExportDialog } from "./data-table-export-dialog";
 import { DataTableImportDialog } from "./data-table-import-dialog";
-import { DataTableColumnCustomizer } from "./data-table-column-toggle";
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "./dynamic-column-customizer";
 import type { ColumnDef } from './types';
 
 interface DataTableActionsProps<TData> {

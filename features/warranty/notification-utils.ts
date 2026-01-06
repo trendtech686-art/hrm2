@@ -47,7 +47,6 @@ export function loadWarrantyNotificationSettings(): WarrantyNotificationSettings
  * @deprecated Use useWarrantyNotificationSettings hook from hooks/use-sla-notification-settings.ts
  */
 export function saveWarrantyNotificationSettings(_settings: WarrantyNotificationSettings): void {
-  console.warn('saveWarrantyNotificationSettings is deprecated. Use useWarrantyNotificationSettings hook instead.');
 }
 
 /**

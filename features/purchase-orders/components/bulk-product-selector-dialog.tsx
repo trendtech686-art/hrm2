@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useProductStore } from "../../products/store";
+import { useActiveProducts } from "../../products/hooks/use-all-products";
 import { Package, ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductThumbnailCell } from "../../../components/shared/read-only-products-table";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
@@ -41,7 +41,7 @@ export function BulkProductSelectorDialog({
   excludeProductIds: _excludeProductIds = [],
   existingProductIds: _existingProductIds = [],
 }: BulkProductSelectorDialogProps) {
-  const { data: _products, getActive } = useProductStore();
+  const { data: activeProducts } = useActiveProducts();
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = React.useState(0);
@@ -57,8 +57,8 @@ export function BulkProductSelectorDialog({
 
   // Get available products - Filter out combo products (can't import combos)
   const availableProducts = React.useMemo(() => {
-    return getActive().filter(p => p.type !== 'combo');
-  }, [getActive]);
+    return activeProducts.filter(p => p.type !== 'combo');
+  }, [activeProducts]);
 
   // Preview state
   const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({

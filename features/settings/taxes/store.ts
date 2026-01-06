@@ -1,6 +1,5 @@
 import type { SystemId } from '@/lib/id-types';
 import type { UseBoundStore, StoreApi } from 'zustand';
-import { data as initialData } from './data';
 import type { Tax } from '@/lib/types/prisma-extended';
 import { createCrudStore, type CrudState } from '../../../lib/store-factory';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
@@ -12,9 +11,8 @@ type TaxStore = CrudState<Tax> & {
   getDefaultPurchase: () => Tax | undefined;
 };
 
-const baseStore = createCrudStore<Tax>(initialData, 'taxes', {
+const baseStore = createCrudStore<Tax>([], 'taxes', {
   businessIdField: 'id',
-  persistKey: 'hrm-taxes-storage',
   getCurrentUser: getCurrentUserSystemId,
 }) as UseBoundStore<StoreApi<TaxStore>>;
 

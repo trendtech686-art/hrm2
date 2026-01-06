@@ -151,10 +151,10 @@ export const useWarrantyStore = create<WarrantyStore>()((_set, _get) => ({
   calculateSettlementStatus,
   
   // Placeholder methods for backward compatibility
-  addComment: () => console.warn('addComment: Use generic Comments component instead'),
-  updateComment: () => console.warn('updateComment: Use generic Comments component instead'),
-  deleteComment: () => console.warn('deleteComment: Use generic Comments component instead'),
-  replyComment: () => console.warn('replyComment: Use generic Comments component instead'),
+  addComment: () => { /* placeholder */ },
+  updateComment: () => { /* placeholder */ },
+  deleteComment: () => { /* placeholder */ },
+  replyComment: () => { /* placeholder */ },
   generateNextSystemId: () => {
     // Generate next systemId using same pattern as createCrudStore
     const maxSystemId = baseStore.getState().data.reduce((max, item) => {
@@ -163,7 +163,7 @@ export const useWarrantyStore = create<WarrantyStore>()((_set, _get) => ({
     }, 0);
     return asSystemId(`WARRANTY${String(maxSystemId + 1).padStart(6, '0')}`);
   },
-  _migrate: () => console.warn('_migrate: No longer needed with createCrudStore'),
+  _migrate: () => { /* placeholder */ },
 }));
 
 // Subscribe to base store changes

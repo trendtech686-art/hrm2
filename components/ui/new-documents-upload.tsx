@@ -6,7 +6,6 @@ import { Button } from './button';
 import { Card } from './card';
 import { cn } from '../../lib/utils';
 import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
-import { getBaseUrl } from '../../lib/api-config';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,8 +81,7 @@ const compressImage = (file: File, quality: number = 0.75): Promise<File> => {
                 lastModified: Date.now(),
               });
               resolve(compressedFile);
-            } catch (error) {
-              console.warn('WebP creation failed, trying JPEG fallback:', error);
+            } catch {
               // Fallback to JPEG if WebP fails
               canvas.toBlob(
                 (jpegBlob) => {
@@ -200,14 +198,6 @@ export function NewDocumentsUpload({
     const remainingSlots = maxFiles - currentFileCount;
     const totalFilesDropped = acceptedFiles.length;
     
-    console.log('📊 File limit check:', {
-      staging: files.length,
-      existing: existingFileCount,
-      current: currentFileCount,
-      max: maxFiles,
-      remaining: remainingSlots,
-      dropped: totalFilesDropped
-    });
     
     if (currentFileCount >= maxFiles) {
       toast.error(`🚫 Đã đạt giới hạn ${maxFiles} file`, {
@@ -281,10 +271,8 @@ export function NewDocumentsUpload({
           if (file.type.startsWith('image/') && file.size > 512 * 1024) {
             try {
               const compressed = await compressImage(file, 0.75);
-              console.log(`📦 Compressed: ${file.name} (${formatFileSize(file.size)} → ${formatFileSize(compressed.size)})`);
               return compressed;
-            } catch (error) {
-              console.warn('Compression failed:', error);
+            } catch {
               return file;
             }
           }
@@ -364,54 +352,19 @@ export function NewDocumentsUpload({
   }, [fileToDelete, files, onChange]);
 
   const getPreviewUrl = (file: StagingFile) => {
-    const baseUrl = getBaseUrl();
-    
-    console.log('🖼️ getPreviewUrl called:', {
-      fileName: file.name,
-      fileUrl: file.url,
-      sessionId: file.sessionId,
-      currentSessionId
-    });
-    
-    // Priority 1: Check if file has a URL (permanent or otherwise)
+    // In new system, files are uploaded directly to permanent storage
+    // URL is always available and ready to use
     if (file.url) {
-      // Skip blob URLs - these are temporary local previews
-      if (file.url.startsWith('blob:')) {
-        console.log('  → Case: blob URL, fall through');
-        // Fall through to staging URL construction
-      }
-      // Skip staging URLs - need to reconstruct with current session
-      else if (file.url.includes('/api/staging/')) {
-        console.log('  → Case: /api/staging/ URL, fall through');
-        // Fall through to staging URL construction
-      }
-      // Absolute URL (http/https) - use as-is
-      else if (file.url.startsWith('http://') || file.url.startsWith('https://')) {
-        console.log('  → Case: absolute URL, return as-is');
+      // Absolute URL - use as-is
+      if (file.url.startsWith('http://') || file.url.startsWith('https://')) {
         return file.url;
       }
-      // Relative path - prepend baseUrl
-      else if (file.url.startsWith('/')) {
-        const result = `${baseUrl}${file.url}`;
-        console.log('  → Case: relative path, result:', result);
-        return result;
-      }
+      // Relative path - use directly (Next.js serves from /uploads)
+      return file.url;
     }
     
-    // Priority 2: Construct staging URL for newly uploaded files
-    // This requires a valid sessionId
-    const filename = file.filename || file.name || file.id;
-    const sessionId = file.sessionId || currentSessionId;
-
-    // If no sessionId and no valid URL, we can't preview
-    if (!sessionId) {
-      console.log('  → Case: NO sessionId, return empty');
-      return ''; // Return empty - will show broken image
-    }
-    
-    const result = `${baseUrl}/api/staging/files/${sessionId}/${filename}`;
-    console.log('  → Case: construct from sessionId, result:', result);
-    return result;
+    // Fallback - should not happen in new system
+    return '';
   };
 
   const handlePreview = (file: StagingFile) => {
@@ -564,7 +517,6 @@ export function NewDocumentsUpload({
               const img = event.currentTarget;
               const attempts = Number(img.dataset.retryCount || '0');
               if (attempts >= 4) {
-                console.warn('Image preview failed after retries:', previewUrl);
                 return;
               }
               const nextAttempts = attempts + 1;

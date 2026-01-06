@@ -161,33 +161,4 @@ export function DatabaseComments({ entityType, entityId, className }: DatabaseCo
   )
 }
 
-/**
- * Migrate localStorage comments to database
- */
-async function _migrateComments(
-  entityType: string,
-  entityId: string,
-  comments: CommentType<SystemId>[]
-): Promise<void> {
-  try {
-    for (const comment of comments) {
-      await fetch(API_BASE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entityType,
-          entityId,
-          content: comment.content,
-          attachments: comment.attachments || [],
-          createdBy: comment.author?.systemId,
-          createdByName: comment.author?.name,
-        }),
-      })
-    }
-    console.log(`[Migration] Successfully migrated ${comments.length} comments to database`)
-  } catch (error) {
-    console.error(`[Migration] Failed to migrate comments:`, error)
-  }
-}
-
 export default DatabaseComments

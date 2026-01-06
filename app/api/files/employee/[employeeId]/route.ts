@@ -37,7 +37,6 @@ export async function DELETE(
     
     try {
       await fs.rm(employeeDir, { recursive: true, force: true });
-      console.log(`✅ Deleted employee files directory: ${employeeDir}`);
     } catch {
       // Directory might not exist
     }

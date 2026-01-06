@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export type TaxInclusionType = 'inclusive' | 'exclusive';
 
@@ -19,30 +18,25 @@ interface TaxSettingsState {
 }
 
 export const useTaxSettingsStore = create<TaxSettingsState>()(
-  persist(
-    (set, get) => ({
-      priceIncludesTax: false, // Default: Giá chưa bao gồm thuế
-      defaultSaleTaxId: null,
-      defaultPurchaseTaxId: null,
+  (set, get) => ({
+    priceIncludesTax: false, // Default: Giá chưa bao gồm thuế
+    defaultSaleTaxId: null,
+    defaultPurchaseTaxId: null,
 
-      setPriceIncludesTax: (includes) => {
-        set({ priceIncludesTax: includes });
-      },
+    setPriceIncludesTax: (includes) => {
+      set({ priceIncludesTax: includes });
+    },
 
-      setDefaultSaleTaxId: (taxId) => {
-        set({ defaultSaleTaxId: taxId });
-      },
+    setDefaultSaleTaxId: (taxId) => {
+      set({ defaultSaleTaxId: taxId });
+    },
 
-      setDefaultPurchaseTaxId: (taxId) => {
-        set({ defaultPurchaseTaxId: taxId });
-      },
+    setDefaultPurchaseTaxId: (taxId) => {
+      set({ defaultPurchaseTaxId: taxId });
+    },
 
-      getTaxInclusionType: () => {
-        return get().priceIncludesTax ? 'inclusive' : 'exclusive';
-      },
-    }),
-    {
-      name: 'tax-settings',
-    }
-  )
+    getTaxInclusionType: () => {
+      return get().priceIncludesTax ? 'inclusive' : 'exclusive';
+    },
+  })
 );

@@ -154,17 +154,14 @@ export function PublicComplaintTrackingPage() {
 
   const handleEditComment = React.useCallback((_commentId: string, _content: string, _contentText: string) => {
     // Not supported in public tracking
-    console.log('Edit not supported');
   }, []);
 
   const handleDeleteComment = React.useCallback((_commentId: string) => {
     // Not supported in public tracking
-    console.log('Delete not supported');
   }, []);
 
   const _handleReplyComment = React.useCallback((_parentId: string, _content: string, _contentText: string, _attachments: string[], _mentions: string[]) => {
     // Not supported in public tracking
-    console.log('Reply not supported');
   }, []);
 
   const _handleCommentImageUpload = React.useCallback(async (file: File): Promise<string> => {

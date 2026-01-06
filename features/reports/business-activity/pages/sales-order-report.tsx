@@ -8,13 +8,10 @@ import * as React from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
-import { 
-  ReportFilters, 
-  ReportSummaryCards,
-  ReportHeaderActions,
-  SALES_REPORT_GLOSSARY,
-  formatCurrency,
-} from '../components/index';
+import { ReportFilters } from '../components/report-filters';
+import { ReportSummaryCards } from '../components/report-summary-cards';
+import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
+import { formatCurrency } from '@/lib/format-utils';
 import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
 import { useCustomerFinder } from '@/features/customers/hooks/use-all-customers';
 import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';

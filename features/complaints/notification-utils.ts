@@ -113,7 +113,6 @@ export const complaintNotifications = {
     
     if (isNotificationEnabled('smsOnOverdue')) {
       // TODO: Send SMS notification here
-      console.log('SMS notification would be sent:', message);
     }
   },
 };

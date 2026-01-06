@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { usePageHeader } from '../../../contexts/page-header-context';
 import { useAllProducts } from '../../products/hooks/use-all-products';
-import { useSupplierStore } from '../../suppliers/store';
+import { useAllSuppliers } from '../../suppliers/hooks/use-all-suppliers';
 import type { StockAlertReportRow, StockAlertFilter } from '@/lib/types/prisma-extended';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
@@ -11,7 +11,7 @@ import { DataTableToolbar } from '../../../components/data-table/data-table-tool
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../../hooks/use-fuse-search';
 import { Download, PackageX, AlertTriangle, TrendingUp, AlertCircle } from 'lucide-react';
 import { ROUTES } from '../../../lib/router';
 import { 
@@ -25,7 +25,7 @@ const _formatNumber = (value?: number) => new Intl.NumberFormat('vi-VN').format(
 
 export function ProductSlaReportPage() {
     const { data: products } = useAllProducts();
-    const { data: suppliers } = useSupplierStore();
+    const { data: suppliers } = useAllSuppliers();
     
     const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [globalFilter, setGlobalFilter] = React.useState('');
@@ -87,10 +87,11 @@ export function ProductSlaReportPage() {
         return reportData.filter(row => row.alertType === alertFilter);
     }, [reportData, alertFilter]);
 
-    const fuse = React.useMemo(() => new Fuse(filteredByType, { 
+    const fuseOptions = React.useMemo(() => ({ 
         keys: ['productName', 'sku', 'primarySupplierName'], 
         threshold: 0.4 
-    }), [filteredByType]);
+    }), []);
+    const searchedData = useFuseFilter(filteredByType, globalFilter, fuseOptions);
     
     // Count by alert type
     const alertCounts = React.useMemo(() => ({
@@ -102,8 +103,8 @@ export function ProductSlaReportPage() {
     }), [reportData]);
     
     const filteredData = React.useMemo(() => 
-        globalFilter ? fuse.search(globalFilter).map(r => r.item) : filteredByType, 
-        [filteredByType, globalFilter, fuse]
+        globalFilter ? searchedData : filteredByType, 
+        [filteredByType, globalFilter, searchedData]
     );
     
     const sortedData = React.useMemo(() => {

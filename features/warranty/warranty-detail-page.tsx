@@ -29,18 +29,17 @@ import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 
 // Detail-specific components
 import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table';
-import { WarrantyProcessingCard, WarrantySummaryCard } from './components/index';
+import { WarrantyProcessingCard } from './components/cards/warranty-processing-card';
+import { WarrantySummaryCard } from './components/cards/warranty-summary-card';
 import { TicketInfoCard } from './components/detail/ticket-info-card';
 import { CustomerInfoCard } from './components/detail/customer-info-card';
 import { WarrantyWorkflowCard } from './components/detail/workflow-card';
 import { WarrantyImageGalleryCard } from './components/detail/image-gallery-card';
-import {
-  WarrantyCancelDialog,
-  WarrantyReopenFromCancelledDialog,
-  WarrantyReopenFromReturnedDialog,
-  WarrantyReturnMethodDialog,
-  WarrantyReminderDialog,
-} from './components/dialogs/index';
+import { WarrantyCancelDialog } from './components/dialogs/warranty-cancel-dialog';
+import { WarrantyReopenFromCancelledDialog } from './components/dialogs/warranty-reopen-from-cancelled-dialog';
+import { WarrantyReopenFromReturnedDialog } from './components/dialogs/warranty-reopen-from-returned-dialog';
+import { WarrantyReturnMethodDialog } from './components/dialogs/warranty-return-method-dialog';
+import { WarrantyReminderDialog } from './components/dialogs/warranty-reminder-dialog';
 import { useWarrantyReminders } from './hooks/use-warranty-reminders';
 import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking';
 import { useWarrantySettlement } from './hooks/use-warranty-settlement';
@@ -50,7 +49,8 @@ import { checkWarrantyOverdue } from './warranty-sla-utils';
 import { ROUTES, generatePath } from '../../lib/router';
 
 // Section components
-import { WarrantyCommentsSection, WarrantyHistorySection } from './components/sections/index';
+import { WarrantyCommentsSection } from './components/sections/comments-section';
+import { WarrantyHistorySection } from './components/sections/history-section';
 
 import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { asSystemId } from '@/lib/id-types';
@@ -62,7 +62,7 @@ import {
   createStoreSettings 
 } from '../../lib/print/warranty-print-helper';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 
 const RESPONSE_TEMPLATES = [
   {
@@ -213,7 +213,7 @@ export function WarrantyDetailPage() {
   const isReturned = ticket?.status === 'returned';
 
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(ticket?.branchSystemId);
 
   const handlePrint = React.useCallback(() => {

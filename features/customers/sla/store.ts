@@ -53,8 +53,8 @@ async function loadIndexFromAPI(): Promise<CustomerSlaIndex | null> {
       const data = await response.json();
       return data.value || null;
     }
-  } catch (error) {
-    console.warn('[customer-sla] Failed to load cached index from API:', error);
+  } catch (_error) {
+    // Silently fail - return null
   }
   return null;
 }
@@ -66,8 +66,8 @@ async function loadLastRunFromAPI(): Promise<string | undefined> {
       const data = await response.json();
       return data.value || undefined;
     }
-  } catch (error) {
-    console.warn('[customer-sla] Failed to load last run from API:', error);
+  } catch (_error) {
+    // Silently fail - return undefined
   }
   return undefined;
 }
@@ -101,8 +101,8 @@ async function saveIndexToAPI(index: CustomerSlaIndex, timestamp: string): Promi
           }),
         }),
       ]);
-    } catch (error) {
-      console.warn('[customer-sla] Failed to cache index to API:', error);
+    } catch (_error) {
+      // Silently fail - save is not critical
     }
   }, 1000);
 }

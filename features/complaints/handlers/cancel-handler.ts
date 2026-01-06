@@ -28,7 +28,6 @@ export async function handleCancelComplaint(
   updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('[CANCEL] Starting cancel process...');
     
     // STEP 1: Hủy phiếu (phiếu tự động khôi phục kho)
     // HỦY TẤT CẢ: phiếu thu/chi + phiếu kiểm kê
@@ -70,20 +69,10 @@ export async function handleCancelComplaint(
       inventoryHistory: updatedInventoryHistory as Complaint['inventoryHistory'],
     };
     
-    console.log('[CANCEL] Updating complaint with:', {
-      status: updates.status,
-      cancelledPaymentsReceiptsCount: cancelledPaymentsReceipts.length,
-      inventoryHistoryCount: updatedInventoryHistory.length,
-      preservedFields: {
-        inventoryAdjustment: !!complaint.inventoryAdjustment,
-        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
-      }
-    });
     
     // STEP 6: Update
     updateComplaint(complaint.systemId, updates);
     
-    console.log('[CANCEL] Complete!');
     
     toast.success('Đã hủy khiếu nại');
     

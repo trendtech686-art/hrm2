@@ -16,13 +16,14 @@ import {
 } from './intelligence-utils';
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
 import { useCustomerStore } from './store';
+import { useCustomerFinder, useAllCustomers } from './hooks/use-all-customers';
 import type { Customer } from '@/lib/types/prisma-extended';
 import { useAllOrders } from '../orders/hooks/use-all-orders';
-import { useWarrantyStore } from '../warranty/store';
+import { useAllWarranties } from '../warranty/hooks/use-all-warranties';
 import { useComplaintStore } from '../complaints/store';
-import { useReceiptStore } from '../receipts/store';
-import { usePaymentStore } from '../payments/store';
-import { useEmployeeStore } from '../employees/store';
+import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
+import { useAllPayments } from '../payments/hooks/use-all-payments';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
 import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
 import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
@@ -53,8 +54,8 @@ import { CopyableText } from '../../components/shared/copy-button';
 const CustomerAddresses = dynamic(() => import('./customer-addresses').then(mod => ({ default: mod.CustomerAddresses })), { ssr: false });
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { sanitizeToText } from '@/lib/sanitize';
-import { useProductStore } from '../products/store';
-import { useSalesReturnStore } from '../sales-returns/store';
+import { useProductFinder } from '../products/hooks/use-all-products';
+import { useAllSalesReturns } from '../sales-returns/hooks/use-all-sales-returns';
 import { calculateWarrantyExpiry, calculateDaysRemaining } from '../warranty/utils/warranty-checker';
 import type { OrderMainStatus } from '../orders/types';
 import type { ColumnDef } from '../../components/data-table/types';
@@ -66,9 +67,17 @@ import { getActivityLogs, SLA_LOG_UPDATED_EVENT } from './sla/ack-storage';
 
 // Dynamic import for CustomerSlaStatusCard (code-splitting)
 const CustomerSlaStatusCard = dynamic(() => import('./components/sla-status-card').then(mod => ({ default: mod.CustomerSlaStatusCard })), { ssr: false });
-import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import type { HistoryEntry } from '../../components/ActivityHistory';
+// ✅ Heavy components - lazy loaded
+const Comments = dynamic(
+  () => import('../../components/Comments').then(m => ({ default: m.Comments })),
+  { ssr: false }
+);
+const ActivityHistory = dynamic(
+  () => import('../../components/ActivityHistory').then(m => ({ default: m.ActivityHistory })),
+  { ssr: false }
+);
 import { useAuth } from '../../contexts/auth-context';
 // Import extracted components from detail/
 import {
@@ -121,9 +130,9 @@ const _renderCustomerStatusBadge = (status?: Customer["status"]) => {
 export function CustomerDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, update, data, removeMany } = useCustomerStore();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
-  const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById, data]);
+  const { update, removeMany } = useCustomerStore(); // Keep for mutations
+  const { findById } = useCustomerFinder(); // React Query for READ
+  const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const [activeTab, setActiveTab] = React.useState('info');
   const [orderDrilldownSearch, setOrderDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
   const [warrantyDrilldownSearch, setWarrantyDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
@@ -132,12 +141,13 @@ export function CustomerDetailPage() {
   useCustomerSlaEvaluation();
 
   const { data: allOrders } = useAllOrders();
-  const { data: allSalesReturns } = useSalesReturnStore();
-  const { data: allWarrantyTickets } = useWarrantyStore();
+  const { data: allSalesReturns } = useAllSalesReturns();
+  const { data: allWarrantyTickets } = useAllWarranties();
+  const { data: allCustomers = [] } = useAllCustomers();
   const allComplaints = useComplaintStore((state) => state.complaints);
-  const { data: allReceipts } = useReceiptStore();
-  const { data: allPayments } = usePaymentStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
+  const { data: allReceipts } = useAllReceipts();
+  const { data: allPayments } = useAllPayments();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { employee: authEmployee } = useAuth();
 
   // Comments from database
@@ -171,7 +181,6 @@ export function CustomerDetailPage() {
   }, [dbAddComment]);
 
   const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
@@ -432,8 +441,8 @@ export function CustomerDetailPage() {
   const realtimeRFMScores = React.useMemo(() => {
     if (!customer) return null;
     // Need all customers for percentile calculation
-    return calculateRFMScores(customer, data);
-  }, [customer, data]);
+    return calculateRFMScores(customer, allCustomers);
+  }, [customer, allCustomers]);
   
   const realtimeSegment = React.useMemo(() => {
     if (!realtimeRFMScores) return null;
@@ -451,7 +460,7 @@ export function CustomerDetailPage() {
   }, [customer?.lastPurchaseDate]);
 
   // Get products store for warranty info
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
 
   const purchasedProducts = React.useMemo(() => {
     const items: Array<{ systemId: string, name: string; quantity: number; orderId: string; orderDate: string; orderSystemId: string; productSystemId: string; warrantyMonths: number; warrantyExpiry: string; daysRemaining: number }> = [];
@@ -771,12 +780,7 @@ export function CustomerDetailPage() {
   }
 
   // DEBUG: Check if values are calculated
-  // console.log('CustomerDetail Debug:', { 
-  //   realtimeChurnRisk, 
-  //   realtimeHealthScore,
-  //   slaLogsCount: getActivityLogs(customer?.systemId).length 
-  // });
-
+  // 
   return (
     <>
       {/* Delete Confirmation Dialog */}

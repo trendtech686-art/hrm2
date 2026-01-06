@@ -125,13 +125,6 @@ export function PkgxCategoryLinkDialog({
       });
       
       // Log to console
-      console.log('[PKGX Category Link]', {
-        action: 'link_category',
-        status: 'success',
-        categoryId: category.systemId,
-        pkgxCatId,
-        pkgxCatName: selectedPkgxCategory.label,
-      });
 
       toast.success(`Đã liên kết với danh mục PKGX: ${selectedPkgxCategory.label}`);
       onSuccess?.(pkgxCatId);

@@ -1,3 +1,0 @@
-{
-  "/(authenticated)/products/[systemId]/edit/page": "app/(authenticated)/products/[systemId]/edit/page.js"
-}

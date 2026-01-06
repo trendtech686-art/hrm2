@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { useTaskStore } from '../store';
+import { useAllTasks } from '../hooks/use-all-tasks';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -38,7 +38,7 @@ import { Task } from '../types';
 type DateRange = '7d' | '30d' | '90d' | 'all';
 
 export function TasksDashboardPage() {
-  const { data: tasks } = useTaskStore();
+  const { data: tasks } = useAllTasks();
   const { data: employees } = useAllEmployees();
   const { isAdmin: _isAdmin } = useAuth();
   const [dateRange, setDateRange] = React.useState<DateRange>('30d');

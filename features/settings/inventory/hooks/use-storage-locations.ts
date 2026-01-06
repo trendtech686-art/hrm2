@@ -99,3 +99,23 @@ export function useStorageLocationsByBranch(branchId: string | null | undefined)
 export function useAllStorageLocations() {
   return useStorageLocations({ limit: 500 });
 }
+
+/**
+ * Finder hook for looking up storage locations
+ * Replaces useStorageLocationStore().findBySystemId pattern
+ */
+export function useStorageLocationFinder() {
+  const query = useAllStorageLocations();
+  const data = query.data?.data || [];
+
+  const findBySystemId = (systemId: string | undefined) => {
+    if (!systemId) return undefined;
+    return data.find((loc) => loc.systemId === systemId);
+  };
+
+  const getActive = () => {
+    return data.filter((loc) => loc.isActive !== false);
+  };
+
+  return { findBySystemId, getActive, data, isLoading: query.isLoading };
+}

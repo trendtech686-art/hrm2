@@ -45,19 +45,8 @@ export function OtpVerificationPage() {
         toast.success('Xác thực OTP thành công!');
         
         if (from === 'signup') {
-          // Demo: Store user as logged in (in production, use NextAuth)
-          try {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('user', JSON.stringify({
-                email: email,
-                name: 'New User',
-                role: 'user',
-                verified: true
-              }));
-            }
-          } catch (_e) {
-            // localStorage not available in SSR
-          }
+          // NOTE: In production, OTP verification should be handled by NextAuth
+          // This is demo code - actual auth state is managed by NextAuth session
           router.push(ROUTES.DASHBOARD);
         } else {
           // For password reset or other flows

@@ -93,10 +93,8 @@ export function PickupAddressesTab({
       );
       const data = await response.json();
 
-      console.log('[PickupAddresses] GHTK API raw response:', data);
 
       if (data.success && data.data) {
-        console.log('[PickupAddresses] First warehouse raw data:', data.data[0]);
         
         const warehouses: PartnerWarehouse[] = data.data
           .map((w: { pick_address_id?: string; id?: string; pick_address?: string; address?: string; pick_name?: string; name?: string; pick_province?: string; province?: string; city?: string; pick_district?: string; district?: string; pick_ward?: string; ward?: string; pick_tel?: string; tel?: string; phone?: string }, index: number) => {
@@ -114,7 +112,6 @@ export function PickupAddressesTab({
             
             // Skip if no valid ID found
             if (!warehouseId || warehouseId === 'undefined') {
-              console.warn('[PickupAddresses] Skipping warehouse without valid ID:', w);
               return null;
             }
             
@@ -131,8 +128,6 @@ export function PickupAddressesTab({
           })
           .filter((w): w is PartnerWarehouse => w !== null); // Remove null entries
         
-        console.log('[PickupAddresses] Loaded warehouses:', warehouses);
-        console.log('[PickupAddresses] First parsed warehouse:', warehouses[0]);
         setPartnerWarehouses(warehouses);
       } else {
         throw new Error(data.message || 'Không thể tải danh sách kho');
@@ -156,13 +151,6 @@ export function PickupAddressesTab({
   const convertMappingsToPickupAddresses = (
     currentMappings: BranchMapping[]
   ): PickupAddress[] => {
-    console.log('[PickupAddresses] Converting mappings:', {
-      totalMappings: currentMappings.length,
-      mappings: currentMappings,
-      totalBranches: branches.length,
-      totalWarehouses: partnerWarehouses.length,
-      warehouseIds: partnerWarehouses.map(w => w.id)
-    });
 
     return currentMappings
       .filter(m => m.warehouseId) // Only save branches with warehouse selected
@@ -172,12 +160,6 @@ export function PickupAddressesTab({
 
         // ✅ Safety check: Skip if branch or warehouse not found
         if (!branch || !warehouse) {
-          console.warn('[PickupAddresses] Missing data:', { 
-            branchId: m.branchId, 
-            warehouseId: m.warehouseId,
-            branchFound: !!branch,
-            warehouseFound: !!warehouse
-          });
           return null;
         }
 

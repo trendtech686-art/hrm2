@@ -21,10 +21,6 @@ export async function GET(request: NextRequest) {
     const apiToken = searchParams.get('apiToken');
     const partnerCode = searchParams.get('partnerCode');
 
-    console.log(`[GHTK-SOL-${requestId}] Get solutions request:`, {
-      hasToken: !!apiToken,
-      partnerCode
-    });
 
     if (!apiToken) {
       return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
@@ -34,7 +30,6 @@ export async function GET(request: NextRequest) {
     
     for (const url of GHTK_URLS) {
       try {
-        console.log(`[GHTK-SOL-${requestId}] Trying URL: ${url}`);
         
         const response = await fetch(url, {
           method: 'GET',
@@ -47,16 +42,9 @@ export async function GET(request: NextRequest) {
 
         // Get response text first to check if it's JSON
         const responseText = await response.text();
-        console.log(`[GHTK-SOL-${requestId}] Raw response:`, {
-          url,
-          status: response.status,
-          statusText: response.statusText,
-          bodyPreview: responseText.substring(0, 200)
-        });
 
         // If 404, try next URL
         if (response.status === 404) {
-          console.log(`[GHTK-SOL-${requestId}] 404 - trying next URL...`);
           continue;
         }
 
@@ -75,11 +63,6 @@ export async function GET(request: NextRequest) {
           continue;
         }
         
-        console.log(`[GHTK-SOL-${requestId}] Get solutions SUCCESS:`, {
-          url,
-          success: data.success,
-          solutionsCount: data.data?.length || 0
-        });
 
         return NextResponse.json(data);
         

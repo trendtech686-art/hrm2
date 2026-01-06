@@ -1,6 +1,5 @@
 import { createCrudStore } from '../../../lib/store-factory';
 import type { WarrantyTicket } from '../types';
-import { warrantyInitialData } from '../initial-data';
 import { getCurrentUserInfo, getCurrentUserSystemId } from '../../../contexts/auth-context';
 
 // Utility: Get Current User Info
@@ -19,9 +18,8 @@ export function generatePublicTrackingCode(): string {
 }
 
 // Create Base Store with createCrudStore
-export const baseStore = createCrudStore<WarrantyTicket>(warrantyInitialData, 'warranty', {
+export const baseStore = createCrudStore<WarrantyTicket>([], 'warranty', {
   businessIdField: 'id',
-  persistKey: 'hrm-warranty-tickets',
   getCurrentUser: getCurrentUserSystemId,
 });
 

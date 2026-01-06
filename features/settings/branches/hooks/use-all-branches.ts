@@ -11,6 +11,9 @@ import { useBranches } from './use-branches';
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
+// ✅ Stable empty array to prevent re-renders
+const EMPTY_BRANCHES: Branch[] = [];
+
 /**
  * Returns all branches as a flat array
  * Compatible with legacy store pattern: { data: branches }
@@ -25,9 +28,13 @@ export function useAllBranches(): {
 } {
   const query = useBranches({ limit: 100 });
   
+  // ✅ Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => {
+    return (query.data?.data || EMPTY_BRANCHES) as unknown as Branch[];
+  }, [query.data?.data]);
+  
   return {
-    // Cast to Branch[] - API returns string systemId, but we trust the data structure
-    data: (query.data?.data || []) as unknown as Branch[],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

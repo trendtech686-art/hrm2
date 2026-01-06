@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { formatDateTime, getCurrentDate } from '@/lib/date-utils';
-import { useCashbookStore } from '../../cashbook/store';
+import { useAllCashAccounts } from '../../cashbook/hooks/use-all-cash-accounts';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '../../../components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
@@ -30,7 +30,7 @@ export function PaymentConfirmationDialog({
   amountRemaining,
   onSubmit,
 }: PaymentConfirmationDialogProps) {
-  const { accounts } = useCashbookStore();
+  const { accounts } = useAllCashAccounts();
   
   // Get default account for current payment method
   const getDefaultAccount = React.useCallback((type: 'cash' | 'bank') => {

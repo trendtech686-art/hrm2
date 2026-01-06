@@ -66,17 +66,14 @@ export function SupplierCombobox({
   };
 
   const handleChange = (option: ComboboxOption | null) => {
-    console.log('SupplierCombobox - handleChange called:', option);
     if (option?.value === ADD_NEW_VALUE) {
       setShowAddDialog(true);
     } else {
-      console.log('SupplierCombobox - calling onValueChange with:', option?.value || "");
       onValueChange(option?.value ? asSystemId(option.value) : null);
     }
   };
 
   const handleAddSuccess = (supplierId: string) => {
-    console.log('SupplierCombobox - handleAddSuccess:', supplierId);
     onValueChange(asSystemId(supplierId));
   };
 

@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCostAdjustmentStore } from './store';
-import { useProductStore } from '../products/store';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { ProductImage } from '../products/components/product-image';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
@@ -50,7 +50,7 @@ export function CostAdjustmentFormPage() {
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeFinder();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
   const { create, generateNextId, isBusinessIdExists } = useCostAdjustmentStore();
   
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);

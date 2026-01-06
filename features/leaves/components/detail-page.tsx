@@ -58,7 +58,6 @@ export function LeaveDetailPage() {
   }, [dbAddComment]);
 
   const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {

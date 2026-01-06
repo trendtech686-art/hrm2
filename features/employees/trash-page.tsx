@@ -79,10 +79,8 @@ export function EmployeesTrashPage() {
       if (employee) {
         try {
           await deleteEmployeeFiles(employee);
-          console.log('Employee files deleted successfully');
-        } catch (fileError) {
+        } catch (_fileError) {
           // Non-critical: Log error but don't show to user
-          console.warn('Failed to delete employee files (non-critical):', fileError);
         }
       }
     } catch (error) {

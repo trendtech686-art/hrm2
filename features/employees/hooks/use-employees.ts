@@ -148,11 +148,44 @@ export function useEmployeeMutations(options: UseEmployeeMutationsOptions = {}) 
   
   const remove = useMutation({
     mutationFn: deleteEmployee,
+    // Optimistic delete - UI cập nhật ngay lập tức
+    onMutate: async (systemId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: employeeKeys.lists() });
+      
+      // Snapshot previous value for rollback
+      const previousLists = queryClient.getQueriesData({ queryKey: employeeKeys.lists() });
+      
+      // Optimistically update all list queries
+      queryClient.setQueriesData(
+        { queryKey: employeeKeys.lists() },
+        (old: { data?: Array<{ systemId: string }>, pagination?: unknown } | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.filter(item => item.systemId !== systemId),
+          };
+        }
+      );
+      
+      return { previousLists };
+    },
+    onError: (_err, _systemId, context) => {
+      // Rollback on error
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      options.onError?.(_err as Error);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onSettled: () => {
+      // Always refetch after mutation
+      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+    },
   });
   
   return {

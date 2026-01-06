@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Package } from 'lucide-react';
 import type { Product } from '../../features/products/types';
-import { useProductStore } from '../../features/products/store';
+import { useActiveProducts } from '../../features/products/hooks/use-all-products';
 import { VirtualizedCombobox, type ComboboxOption } from '../ui/virtualized-combobox';
 
 const formatCurrency = (value?: number) => {
@@ -28,14 +28,13 @@ export function ProductSearchCombobox({
   showStock = true,
   branchSystemId: _branchSystemId,
 }: ProductSearchComboboxProps) {
-  const { data: _allProducts, getActive } = useProductStore();
+  const { data: activeProducts } = useActiveProducts();
   const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
 
   // Only show active products not yet added
   const availableProducts = React.useMemo(() => {
-    const active = getActive();
-    return active.filter(p => !excludeProductIds.includes(p.systemId));
-  }, [getActive, excludeProductIds]);
+    return activeProducts.filter(p => !excludeProductIds.includes(p.systemId));
+  }, [activeProducts, excludeProductIds]);
 
   // Get total inventory across ALL branches
   const getInventory = (product: Product): number => {

@@ -22,7 +22,6 @@ import {
 import { toast } from 'sonner';
 import type { Product } from '../types';
 import { usePkgxSettingsStore } from '../../settings/pkgx/store';
-import { usePricingPolicyStore } from '../../settings/pricing/store';
 import { useProductStore } from '../store';
 import * as pkgxApi from '../../../lib/pkgx/api-service';
 import { 
@@ -49,7 +48,6 @@ export function EcommerceTab({ product }: EcommerceTabProps) {
   
   const queryClient = useQueryClient();
   const pkgxSettings = usePkgxSettingsStore();
-  const _pricingPolicies = usePricingPolicyStore();
   const { update: updateProduct } = useProductStore();
   
   const isPkgxLinked = !!product.pkgxId;

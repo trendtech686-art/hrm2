@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -23,7 +24,7 @@ export function ApplyPromotionDialog({ open, onOpenChange, onApply, disabled = f
 
   const handleApply = () => {
     if (!promoCode.trim()) {
-      alert('Vui lòng nhập mã giảm giá');
+      toast.error('Vui lòng nhập mã giảm giá');
       return;
     }
     

@@ -19,7 +19,6 @@ import { WARDS_3LEVEL_DATA } from '../../features/settings/provinces/wards-3leve
 const BATCH_SIZE = 500; // Insert in batches for performance
 
 async function seedProvinces() {
-  console.log('🏛️  Seeding provinces...');
   
   const provinces = PROVINCES_DATA.map(p => ({
     systemId: String(p.systemId),
@@ -37,11 +36,9 @@ async function seedProvinces() {
     });
   }
 
-  console.log(`   ✅ ${provinces.length} provinces seeded`);
 }
 
 async function seedDistricts() {
-  console.log('🏘️  Seeding districts...');
   
   const districts = DISTRICTS_DATA.map(d => ({
     systemId: String(d.systemId),
@@ -66,11 +63,9 @@ async function seedDistricts() {
     process.stdout.write(`\r   Processing: ${inserted}/${districts.length}`);
   }
 
-  console.log(`\n   ✅ ${districts.length} districts seeded`);
 }
 
 async function seedWards() {
-  console.log('🏠 Seeding wards (this may take a while)...');
   
   // Combine 2-level and 3-level wards
   const wards2 = WARDS_2LEVEL_DATA.map(w => ({
@@ -98,7 +93,6 @@ async function seedWards() {
   }));
 
   const allWards = [...wards2, ...wards3];
-  console.log(`   Total wards to seed: ${allWards.length}`);
 
   // Batch insert for performance
   let inserted = 0;
@@ -114,11 +108,9 @@ async function seedWards() {
     process.stdout.write(`\r   Processing: ${inserted}/${allWards.length}`);
   }
 
-  console.log(`\n   ✅ ${allWards.length} wards seeded`);
 }
 
 async function main() {
-  console.log('🚀 Starting Administrative Units seed...\n');
   
   const startTime = Date.now();
 
@@ -127,20 +119,15 @@ async function main() {
     await seedDistricts();
     await seedWards();
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`\n✨ Seed completed in ${duration}s`);
+    const _duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     // Print summary
-    const [provinceCount, districtCount, wardCount] = await Promise.all([
+    const [_provinceCount, _districtCount, _wardCount] = await Promise.all([
       prisma.province.count(),
       prisma.district.count(),
       prisma.ward.count(),
     ]);
 
-    console.log('\n📊 Summary:');
-    console.log(`   Provinces: ${provinceCount}`);
-    console.log(`   Districts: ${districtCount}`);
-    console.log(`   Wards: ${wardCount}`);
 
   } catch (error) {
     console.error('❌ Seed failed:', error);

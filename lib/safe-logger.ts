@@ -5,14 +5,12 @@
 /**
  * Safely log an object, handling circular references
  */
-export function safeLog(label: string, obj: unknown) {
+export function safeLog(_label: string, _obj: unknown) {
   try {
-    console.log(label, obj);
+    // console.log(label, safeStringify(obj));
   } catch (_error) {
-    console.log(label, '[Cannot log - circular reference detected]');
-    console.log(label + ' (type):', typeof obj);
-    if (obj && typeof obj === 'object') {
-      console.log(label + ' (keys):', Object.keys(obj));
+    if (_obj && typeof _obj === 'object') {
+      // console.log(label, '[Object - could not stringify]');
     }
   }
 }
@@ -45,10 +43,10 @@ export function safeStringify(obj: unknown, space?: number): string {
 /**
  * Safely log an object as JSON string
  */
-export function safeLogJSON(label: string, obj: unknown, space?: number) {
+export function safeLogJSON(_label: string, _obj: unknown, _space?: number) {
   try {
-    console.log(label, safeStringify(obj, space));
+    // console.log(label, safeStringify(obj, space));
   } catch (_error) {
-    console.log(label, '[Cannot stringify object]');
+    // Silently fail
   }
 }

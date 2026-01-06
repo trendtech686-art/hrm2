@@ -1,3 +1,0 @@
-{
-  "/api/orders/[systemId]/packaging/[packagingId]/fail-delivery/route": "app/api/orders/[systemId]/packaging/[packagingId]/fail-delivery/route.js"
-}

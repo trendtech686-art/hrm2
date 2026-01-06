@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import { OptimizedImage } from "../../../components/ui/optimized-image";
-import { useProductStore } from "../../products/store";
-import { useProductTypeStore } from "../../settings/inventory/product-type-store";
+import { useProductFinder } from "../../products/hooks/use-all-products";
+import { useProductTypeFinder } from "../../settings/inventory/hooks/use-all-product-types";
 import { Package, Eye } from 'lucide-react';
 import type { Complaint } from '../types';
 import type { SystemId } from "@/lib/id-types";
@@ -17,8 +17,8 @@ interface Props {
 
 export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complaint }) => {
   const router = useRouter();
-  const { findById: findProductById } = useProductStore();
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductById } = useProductFinder();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
 
   const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {

@@ -4,103 +4,49 @@ import * as React from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { PlusCircle, Trash2, MoreVertical, Phone, Mail, Building2, FileSpreadsheet, Download } from "lucide-react";
+import { PlusCircle, Trash2, FileSpreadsheet, Download } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
-import Fuse from 'fuse.js';
 
+import { useFuseFilter } from "@/hooks/use-fuse-search";
 import { useCustomerStore } from "./store";
 import { useActiveCustomerTypes } from "../settings/customers/hooks/use-all-customer-settings";
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { type Customer } from "@/lib/types/prisma-extended";
 import { getColumns } from "./columns";
 import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams } from "./customer-service";
-import { usePersistentState } from "../../hooks/use-persistent-state";
-import { useColumnVisibility } from "../../hooks/use-column-visibility";
-import { asSystemId, asBusinessId, type SystemId } from "../../lib/id-types";
-import { usePageHeader } from "../../contexts/page-header-context";
-import { useMediaQuery } from "../../lib/use-media-query";
-import { useDebounce } from "../../hooks/use-debounce";
-import { isDateAfter, isDateBefore } from "../../lib/date-utils";
-// ✅ customerImportExportConfig moved to customer-import-export-dialogs.tsx for lazy loading
-
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
-import { PageFilters } from "../../components/layout/page-filters";
-import { TouchButton } from "../../components/mobile/touch-button";
-import { MobileSearchBar } from "../../components/mobile/mobile-search-bar";
-import { useCustomerSlaEvaluation } from "./sla/hooks";
+import { usePersistentState } from "@/hooks/use-persistent-state";
+import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { asSystemId, asBusinessId, type SystemId } from "@/lib/id-types";
+import { usePageHeader } from "@/contexts/page-header-context";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { useDebounce } from "@/hooks/use-debounce";
+import { isDateAfter, isDateBefore } from "@/lib/date-utils";
 import { useCustomersQuery } from "./hooks/use-customers-query";
 import { useCustomersWithComputedDebt } from "./hooks/use-computed-debt";
+import { useCustomerSlaEvaluation } from "./sla/hooks";
 
-// ✅ Dynamic imports for heavy dialog components (non-generic)
-const BulkActionConfirmDialog = dynamic(
-  () => import("./components/bulk-action-confirm-dialog").then(mod => ({ default: mod.BulkActionConfirmDialog })),
-  { ssr: false }
-);
+import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
+import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
+import { PageFilters } from "@/components/layout/page-filters";
+import { TouchButton } from "@/components/mobile/touch-button";
+import { MobileSearchBar } from "@/components/mobile/mobile-search-bar";
+import { MobileCustomerCard } from "./components/mobile-customer-card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX library (~500KB) + config
-const CustomerImportDialog = dynamic(
-  () => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerImportDialog })),
-  { ssr: false }
-);
-const CustomerExportDialog = dynamic(
-  () => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerExportDialog })),
-  { ssr: false }
-);
-
-import {
-  Card,
-  CardContent,
-} from "../../components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../../components/ui/alert-dialog";
-import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
+const BulkActionConfirmDialog = dynamic(() => import("./components/bulk-action-confirm-dialog").then(mod => ({ default: mod.BulkActionConfirmDialog })), { ssr: false });
+const CustomerImportDialog = dynamic(() => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerImportDialog })), { ssr: false });
+const CustomerExportDialog = dynamic(() => import("./components/customer-import-export-dialogs").then(mod => ({ default: mod.CustomerExportDialog })), { ssr: false });
 
 const TABLE_STATE_STORAGE_KEY = "customers-table-state";
-const MOBILE_ROW_HEIGHT = 190;
-const MOBILE_LIST_HEIGHT = 520;
-
-type PendingBulkAction =
-  | { kind: "delete"; customers: Customer[] }
-  | { kind: "restore"; customers: Customer[] }
-  | { kind: "status"; status: Customer["status"]; customers: Customer[] }
-  | null;
+type PendingBulkAction = { kind: "delete" | "restore"; customers: Customer[] } | { kind: "status"; status: Customer["status"]; customers: Customer[] } | null;
 
 const defaultTableState: CustomerQueryParams = {
-  search: "",
-  statusFilter: "all",
-  typeFilter: "all",
-  dateRange: undefined,
-  showDeleted: false,
-  slaFilter: "all",
-  debtFilter: "all",
-  pagination: { pageIndex: 0, pageSize: 10 },
-  sorting: DEFAULT_CUSTOMER_SORT,
+  search: "", statusFilter: "all", typeFilter: "all", dateRange: undefined, showDeleted: false, slaFilter: "all", debtFilter: "all",
+  pagination: { pageIndex: 0, pageSize: 10 }, sorting: DEFAULT_CUSTOMER_SORT,
 };
 
 function resolveStateAction<T>(current: T, action: React.SetStateAction<T>): T {
@@ -108,67 +54,20 @@ function resolveStateAction<T>(current: T, action: React.SetStateAction<T>): T {
 }
 
 export function CustomersPage() {
-  const {
-    data: customers,
-    remove,
-    removeMany,
-    restore,
-    restoreMany,
-    addMultiple,
-    updateManyStatus,
-    update,
-  } = useCustomerStore(
-    useShallow((state) => ({
-      data: state.data,
-      remove: state.remove,
-      removeMany: state.removeMany,
-      restore: state.restore,
-      restoreMany: state.restoreMany,
-      addMultiple: state.addMultiple,
-      updateManyStatus: state.updateManyStatus,
-      update: state.update,
-    }))
-  );
+  const { data: customers, remove, removeMany, restore, restoreMany, addMultiple, updateManyStatus, update } = useCustomerStore(useShallow((s) => ({ data: s.data, remove: s.remove, removeMany: s.removeMany, restore: s.restore, restoreMany: s.restoreMany, addMultiple: s.addMultiple, updateManyStatus: s.updateManyStatus, update: s.update })));
   const { data: customerTypesData } = useActiveCustomerTypes();
   const { data: branches } = useAllBranches();
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
-
-  // Use computed debt from orders/receipts instead of static currentDebt field
   const customersWithDebt = useCustomersWithComputedDebt(customers);
+  const deletedCount = React.useMemo(() => customers.filter(c => c.isDeleted).length, [customers]);
 
-  const deletedCount = React.useMemo(
-    () => customers.filter((customer) => customer.isDeleted).length,
-    [customers]
-  );
+  const headerActions = React.useMemo(() => [
+    <Button key="trash" variant="outline" size="sm" className="h-9" asChild><Link href="/customers/trash"><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Link></Button>,
+    <Button key="add" size="sm" className="h-9" asChild><Link href="/customers/new"><PlusCircle className="mr-2 h-4 w-4" />Thêm khách hàng</Link></Button>,
+  ], [deletedCount]);
 
-  const headerActions = React.useMemo(
-    () => [
-      <Button key="trash" variant="outline" size="sm" className="h-9" asChild>
-        <Link href="/customers/trash">
-          <Trash2 className="mr-2 h-4 w-4" />
-          Thùng rác ({deletedCount})
-        </Link>
-      </Button>,
-      <Button key="add" size="sm" className="h-9" asChild>
-        <Link href="/customers/new">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Thêm khách hàng
-        </Link>
-      </Button>,
-    ],
-    [deletedCount]
-  );
-
-  usePageHeader({
-    title: 'Danh sách khách hàng',
-    breadcrumb: [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Khách hàng', href: '/customers', isCurrent: true },
-    ],
-    showBackButton: false,
-    actions: headerActions,
-  });
+  usePageHeader({ title: 'Danh sách khách hàng', breadcrumb: [{ label: 'Trang chủ', href: '/' }, { label: 'Khách hàng', href: '/customers', isCurrent: true }], showBackButton: false, actions: headerActions });
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
@@ -182,528 +81,136 @@ export function CustomersPage() {
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   const [tableState, setTableState] = usePersistentState<CustomerQueryParams>(TABLE_STATE_STORAGE_KEY, defaultTableState);
 
-  const queryParams = React.useMemo<CustomerQueryParams>(() => ({
-    ...tableState,
-    showDeleted: false,
-  }), [tableState]);
+  useCustomersQuery(React.useMemo(() => ({ ...tableState, showDeleted: false }), [tableState]));
+  React.useEffect(() => { if (tableState.showDeleted) setTableState(p => ({ ...p, showDeleted: false })); }, [tableState.showDeleted, setTableState]);
 
-  useCustomersQuery(queryParams);
-
-  React.useEffect(() => {
-    if (tableState.showDeleted) {
-      setTableState((prev) => ({ ...prev, showDeleted: false }));
-    }
-  }, [tableState.showDeleted, setTableState]);
-
-  const handleDelete = React.useCallback((systemId: string) => {
-    setIdToDelete(systemId);
-    setIsAlertOpen(true);
-  }, []);
-
-  const handleRestore = React.useCallback(
-    (systemId: string) => {
-      restore(asSystemId(systemId));
-    },
-    [restore]
-  );
+  const handleDelete = React.useCallback((systemId: string) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
+  const handleRestore = React.useCallback((systemId: string) => { restore(asSystemId(systemId)); }, [restore]);
 
   const slaEngine = useCustomerSlaEvaluation();
-  const slaIndex = slaEngine.index;
-  const slaSummary = slaEngine.summary;
-  const columns = React.useMemo(
-    () => getColumns(handleDelete, handleRestore, router, { slaIndex }),
-    [handleDelete, handleRestore, router, slaIndex]
-  );
+  const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, router, { slaIndex: slaEngine.index }), [handleDelete, handleRestore, router, slaEngine.index]);
 
   const columnDefaultsInitialized = React.useRef(false);
   React.useEffect(() => {
-    if (columnDefaultsInitialized.current) return;
-    if (columns.length === 0) return;
-    
-    const defaultVisibleColumns = ["id", "name", "email", "phone", "shippingAddress", "status", "slaStatus", "accountManagerName"];
-    const initialVisibility: Record<string, boolean> = {};
-    columns.forEach((column) => {
-      if (!column.id) return;
-      const alwaysVisible = column.id === "select" || column.id === "actions";
-      initialVisibility[column.id] = alwaysVisible || defaultVisibleColumns.includes(column.id);
-    });
-    setColumnVisibility(initialVisibility);
-    setColumnOrder(columns.map((column) => column.id).filter(Boolean) as string[]);
+    if (columnDefaultsInitialized.current || columns.length === 0) return;
+    const defaultVisible = ["id", "name", "email", "phone", "shippingAddress", "status", "slaStatus", "accountManagerName"];
+    const vis: Record<string, boolean> = {};
+    columns.forEach(c => { if (c.id) vis[c.id] = c.id === "select" || c.id === "actions" || defaultVisible.includes(c.id); });
+    setColumnVisibility(vis);
+    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
     columnDefaultsInitialized.current = true;
   }, [columns, setColumnVisibility]);
 
-  const updateTableState = React.useCallback(
-    (updater: (prev: CustomerQueryParams) => CustomerQueryParams) => {
-      setTableState((prev) => updater(prev));
-    },
-    [setTableState]
-  );
+  const updateTableState = React.useCallback((updater: (prev: CustomerQueryParams) => CustomerQueryParams) => { setTableState(updater); }, [setTableState]);
+  const handleSearchChange = React.useCallback((v: string) => updateTableState(p => ({ ...p, search: v, pagination: { ...p.pagination, pageIndex: 0 } })), [updateTableState]);
+  const handleStatusFilterChange = React.useCallback((v: string) => updateTableState(p => ({ ...p, statusFilter: v, pagination: { ...p.pagination, pageIndex: 0 } })), [updateTableState]);
+  const handleTypeFilterChange = React.useCallback((v: string) => updateTableState(p => ({ ...p, typeFilter: v, pagination: { ...p.pagination, pageIndex: 0 } })), [updateTableState]);
+  const handleDateRangeChange = React.useCallback((v: [string | undefined, string | undefined] | undefined) => updateTableState(p => ({ ...p, dateRange: v, pagination: { ...p.pagination, pageIndex: 0 } })), [updateTableState]);
+  const handlePaginationChange = React.useCallback((action: React.SetStateAction<{ pageIndex: number; pageSize: number }>) => updateTableState(p => ({ ...p, pagination: resolveStateAction(p.pagination, action) })), [updateTableState]);
+  const handleSortingChange = React.useCallback((action: React.SetStateAction<{ id: string; desc: boolean }>) => updateTableState(p => ({ ...p, sorting: { id: (resolveStateAction(p.sorting, action).id as CustomerQueryParams["sorting"]["id"]) ?? p.sorting.id, desc: resolveStateAction(p.sorting, action).desc } })), [updateTableState]);
+  const handleDebtFilterChange = React.useCallback((v: string) => updateTableState(p => ({ ...p, debtFilter: v as typeof p.debtFilter, pagination: { ...p.pagination, pageIndex: 0 } })), [updateTableState]);
+  const handleSlaFilterChange = React.useCallback((v: string) => updateTableState(p => ({ ...p, slaFilter: v as typeof p.slaFilter, pagination: { ...p.pagination, pageIndex: 0 } })), [updateTableState]);
 
-  const handleSearchChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        search: value,
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleStatusFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        statusFilter: value,
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleTypeFilterChange = React.useCallback(
-    (value: string) => {
-      updateTableState((prev) => ({
-        ...prev,
-        typeFilter: value,
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleDateRangeChange = React.useCallback(
-    (value: [string | undefined, string | undefined] | undefined) => {
-      updateTableState((prev) => ({
-        ...prev,
-        dateRange: value,
-        pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handlePaginationChange = React.useCallback(
-    (action: React.SetStateAction<{ pageIndex: number; pageSize: number }>) => {
-      updateTableState((prev) => ({
-        ...prev,
-        pagination: resolveStateAction(prev.pagination, action),
-      }));
-    },
-    [updateTableState]
-  );
-
-  const handleSortingChange = React.useCallback(
-    (action: React.SetStateAction<{ id: string; desc: boolean }>) => {
-      updateTableState((prev) => {
-        const nextSortingSource =
-          typeof action === "function"
-            ? (action as (value: { id: string; desc: boolean }) => { id: string; desc: boolean })({
-                ...prev.sorting,
-              })
-            : action;
-
-        return {
-          ...prev,
-          sorting: {
-            id: (nextSortingSource.id as CustomerQueryParams["sorting"]["id"]) ?? prev.sorting.id,
-            desc: nextSortingSource.desc,
-          },
-        };
-      });
-    },
-    [updateTableState]
-  );
-
-  // Debounce search for performance
   const debouncedSearch = useDebounce(tableState.search, 300);
+  const fuseOptions = React.useMemo(() => ({ keys: ['name', 'email', 'phone', 'company', 'taxCode', 'id'], threshold: 0.3, ignoreLocation: true }), []);
 
-  // Fuse instance for search - use customersWithDebt to include computed debt
-  const fuseInstance = React.useMemo(() => {
-    return new Fuse(customersWithDebt, {
-      keys: ['name', 'email', 'phone', 'company', 'taxCode', 'id'],
-      threshold: 0.3,
-      ignoreLocation: true,
-    });
-  }, [customersWithDebt]);
-
-  // Filter data using useMemo - reactive to store changes
-  // Use customersWithDebt instead of static customers data
-  const filteredData = React.useMemo(() => {
-    // Start with non-deleted customers
-    let dataset = customersWithDebt.filter(customer => !customer.isDeleted);
-
-    // Apply status filter
-    if (tableState.statusFilter !== 'all') {
-      dataset = dataset.filter(customer => customer.status === tableState.statusFilter);
-    }
-
-    // Apply type filter
-    if (tableState.typeFilter !== 'all') {
-      dataset = dataset.filter(customer => customer.type === tableState.typeFilter);
-    }
-
-    // Apply date range filter
-    if (tableState.dateRange && (tableState.dateRange[0] || tableState.dateRange[1])) {
-      dataset = dataset.filter(customer => {
-        if (!customer.createdAt) return false;
-        const createdDate = new Date(customer.createdAt);
-        const fromDate = tableState.dateRange![0] ? new Date(tableState.dateRange![0]) : null;
-        const toDate = tableState.dateRange![1] ? new Date(tableState.dateRange![1]) : null;
-        if (fromDate && isDateBefore(createdDate, fromDate)) return false;
-        if (toDate && isDateAfter(createdDate, toDate)) return false;
-        return true;
+  const preFilteredData = React.useMemo(() => {
+    let data = customersWithDebt.filter(c => !c.isDeleted);
+    if (tableState.statusFilter !== 'all') data = data.filter(c => c.status === tableState.statusFilter);
+    if (tableState.typeFilter !== 'all') data = data.filter(c => c.type === tableState.typeFilter);
+    if (tableState.dateRange?.[0] || tableState.dateRange?.[1]) {
+      data = data.filter(c => {
+        if (!c.createdAt) return false;
+        const d = new Date(c.createdAt), from = tableState.dateRange![0] ? new Date(tableState.dateRange![0]) : null, to = tableState.dateRange![1] ? new Date(tableState.dateRange![1]) : null;
+        return !(from && isDateBefore(d, from)) && !(to && isDateAfter(d, to));
       });
     }
-
-    // Apply SLA filter
-    if (tableState.slaFilter !== 'all') {
-      const relevantSystemIds = new Set<string>();
-      
-      if (tableState.slaFilter === 'followUp') {
-        slaEngine.index?.followUpAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      } else if (tableState.slaFilter === 'reengage') {
-        slaEngine.index?.reEngagementAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      } else if (tableState.slaFilter === 'debt') {
-        slaEngine.index?.debtAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      } else if (tableState.slaFilter === 'health') {
-        slaEngine.index?.healthAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      }
-      
-      dataset = dataset.filter(customer => relevantSystemIds.has(customer.systemId));
+    if (tableState.slaFilter !== 'all' && slaEngine.index) {
+      const ids = new Set<string>();
+      const alerts = { followUp: slaEngine.index.followUpAlerts, reengage: slaEngine.index.reEngagementAlerts, debt: slaEngine.index.debtAlerts, health: slaEngine.index.healthAlerts }[tableState.slaFilter];
+      alerts?.forEach(a => ids.add(a.systemId));
+      data = data.filter(c => ids.has(c.systemId));
     }
-
-    // Apply Debt filter
     if (tableState.debtFilter !== 'all') {
-      if (tableState.debtFilter === 'totalOverdue' || tableState.debtFilter === 'overdue') {
-        dataset = dataset.filter(customer => {
-          if (!customer.debtReminders || customer.debtReminders.length === 0) return false;
-          const now = new Date();
-          return customer.debtReminders.some(reminder => {
-            if (!reminder.dueDate) {
-              return false;
-            }
-            const dueDate = new Date(reminder.dueDate);
-            const amountDue = reminder.amountDue ?? 0;
-            return dueDate < now && amountDue > 0;
-          });
-        });
-      } else if (tableState.debtFilter === 'dueSoon') {
-        dataset = dataset.filter(customer => {
-          if (!customer.debtReminders || customer.debtReminders.length === 0) return false;
-          const now = new Date();
-          const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-          return customer.debtReminders.some(reminder => {
-            if (!reminder.dueDate) {
-              return false;
-            }
-            const dueDate = new Date(reminder.dueDate);
-            const amountDue = reminder.amountDue ?? 0;
-            return dueDate >= now && dueDate <= threeDaysLater && amountDue > 0;
-          });
-        });
-      } else if (tableState.debtFilter === 'hasDebt') {
-        dataset = dataset.filter(customer => (customer.currentDebt || 0) > 0);
-      }
+      const now = new Date();
+      if (tableState.debtFilter === 'totalOverdue' || tableState.debtFilter === 'overdue') data = data.filter(c => c.debtReminders?.some(r => r.dueDate && new Date(r.dueDate) < now && (r.amountDue ?? 0) > 0));
+      else if (tableState.debtFilter === 'dueSoon') { const soon = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); data = data.filter(c => c.debtReminders?.some(r => r.dueDate && new Date(r.dueDate) >= now && new Date(r.dueDate) <= soon && (r.amountDue ?? 0) > 0)); }
+      else if (tableState.debtFilter === 'hasDebt') data = data.filter(c => (c.currentDebt || 0) > 0);
     }
+    return data;
+  }, [customersWithDebt, tableState.statusFilter, tableState.typeFilter, tableState.dateRange, tableState.slaFilter, tableState.debtFilter, slaEngine.index]);
 
-    // Apply search filter
-    if (debouncedSearch.trim()) {
-      fuseInstance.setCollection(dataset);
-      dataset = fuseInstance.search(debouncedSearch.trim()).map(result => result.item);
-    }
+  const searchedData = useFuseFilter(preFilteredData, debouncedSearch.trim(), fuseOptions);
+  const filteredData = React.useMemo(() => debouncedSearch.trim() ? searchedData : preFilteredData, [preFilteredData, debouncedSearch, searchedData]);
 
-    return dataset;
-  }, [customersWithDebt, tableState.statusFilter, tableState.typeFilter, tableState.dateRange, tableState.slaFilter, tableState.debtFilter, debouncedSearch, fuseInstance, slaEngine.index]);
-
-  // Sort data
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredData];
-    const sortKey = tableState.sorting.id as keyof Customer;
-    
+    const key = tableState.sorting.id as keyof Customer;
     sorted.sort((a, b) => {
-      const aValue = a[sortKey] ?? '';
-      const bValue = b[sortKey] ?? '';
-      // Special handling for date columns
-      if (sortKey === 'createdAt') {
-        const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
-        const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
-        // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
-        if (aTime === bTime) {
-          const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
-          const bNum = parseInt(b.systemId.replace(/\D/g, '')) || 0;
-          return tableState.sorting.desc ? bNum - aNum : aNum - bNum;
-        }
-        return tableState.sorting.desc ? bTime - aTime : aTime - bTime;
+      const aV = a[key] ?? '', bV = b[key] ?? '';
+      if (key === 'createdAt') {
+        const aT = aV ? new Date(aV as string | number | Date).getTime() : 0, bT = bV ? new Date(bV as string | number | Date).getTime() : 0;
+        if (aT === bT) { const aN = parseInt(a.systemId.replace(/\D/g, '')) || 0, bN = parseInt(b.systemId.replace(/\D/g, '')) || 0; return tableState.sorting.desc ? bN - aN : aN - bN; }
+        return tableState.sorting.desc ? bT - aT : aT - bT;
       }
-      if (aValue < bValue) return tableState.sorting.desc ? 1 : -1;
-      if (aValue > bValue) return tableState.sorting.desc ? -1 : 1;
-      return 0;
+      return aV < bV ? (tableState.sorting.desc ? 1 : -1) : aV > bV ? (tableState.sorting.desc ? -1 : 1) : 0;
     });
-    
     return sorted;
   }, [filteredData, tableState.sorting]);
 
-  // Pagination
-  const totalRows = sortedData.length;
-  const pageCount = Math.max(1, Math.ceil(totalRows / tableState.pagination.pageSize));
-  
-  const pageData = React.useMemo(() => {
-    const start = tableState.pagination.pageIndex * tableState.pagination.pageSize;
-    const end = start + tableState.pagination.pageSize;
-    return sortedData.slice(start, end);
-  }, [sortedData, tableState.pagination]);
+  const pageCount = Math.max(1, Math.ceil(sortedData.length / tableState.pagination.pageSize));
+  const pageData = React.useMemo(() => sortedData.slice(tableState.pagination.pageIndex * tableState.pagination.pageSize, (tableState.pagination.pageIndex + 1) * tableState.pagination.pageSize), [sortedData, tableState.pagination]);
+  const selectedCustomers = React.useMemo(() => customers.filter(c => rowSelection[c.systemId]), [customers, rowSelection]);
+  const activeCustomers = React.useMemo(() => customers.filter(c => !c.isDeleted), [customers]);
 
-  const selectedCustomers = React.useMemo(
-    () => customers.filter((customer) => rowSelection[customer.systemId]),
-    [customers, rowSelection]
-  );
+  const confirmDelete = React.useCallback(() => { if (idToDelete) { remove(asSystemId(idToDelete)); toast.success("Đã chuyển khách hàng vào thùng rác"); } setIsAlertOpen(false); setIdToDelete(null); }, [idToDelete, remove]);
+  const handleRowClick = React.useCallback((c: Customer) => router.push(`/customers/${c.systemId}`), [router]);
 
-  const confirmDelete = React.useCallback(() => {
-    if (idToDelete) {
-      remove(asSystemId(idToDelete));
-      toast.success("Đã chuyển khách hàng vào thùng rác");
-    }
-    setIsAlertOpen(false);
-    setIdToDelete(null);
-  }, [idToDelete, remove]);
-
-  const handleRowClick = React.useCallback(
-    (customer: Customer) => {
-      router.push(`/customers/${customer.systemId}`);
-    },
-    [router]
-  );
-
-  // Active customers (non-deleted) for import/export operations
-  const activeCustomers = React.useMemo(
-    () => customers.filter(c => !c.isDeleted),
-    [customers]
-  );
-
-  // ===== IMPORT/EXPORT V2 =====
-  // V2 Import handler with upsert support (like employees)
-  const handleImportV2 = React.useCallback(async (
-    data: Partial<Customer>[],
-    mode: 'insert-only' | 'update-only' | 'upsert',
-    _branchId?: string
-  ) => {
-    let inserted = 0;
-    let updated = 0;
-    let skipped = 0;
-    let failed = 0;
+  const handleImportV2 = React.useCallback(async (data: Partial<Customer>[], mode: 'insert-only' | 'update-only' | 'upsert') => {
+    let inserted = 0, updated = 0, skipped = 0, failed = 0;
     const errors: Array<{ row: number; message: string }> = [];
-
     for (let i = 0; i < data.length; i++) {
       const item = data[i];
       try {
-        // Find existing by business ID (id field like KH000001)
-        const existingCustomer = item.id 
-          ? activeCustomers.find(c => c.id === item.id)
-          : null;
-
-        if (existingCustomer) {
-          if (mode === 'insert-only') {
-            skipped++;
-            continue;
-          }
-          // Update existing
-          update(existingCustomer.systemId, { ...existingCustomer, ...item } as Customer);
-          updated++;
+        const existing = item.id ? activeCustomers.find(c => c.id === item.id) : null;
+        if (existing) {
+          if (mode === 'insert-only') { skipped++; continue; }
+          update(existing.systemId, { ...existing, ...item } as Customer); updated++;
         } else {
-          if (mode === 'update-only') {
-            errors.push({ row: i + 2, message: `Không tìm thấy khách hàng với mã ${item.id}` });
-            failed++;
-            continue;
-          }
-          // Insert new - remove systemId if present
-          const { systemId: _systemId, ...newData } = item as Partial<Customer> & { systemId?: string };
-          const dataWithEmptyId = {
-            ...newData,
-            id: asBusinessId(""),
-            status: newData.status || "Đang giao dịch",
-          } as Omit<Customer, "systemId">;
-          addMultiple([dataWithEmptyId]);
-          inserted++;
+          if (mode === 'update-only') { errors.push({ row: i + 2, message: `Không tìm thấy KH mã ${item.id}` }); failed++; continue; }
+          const { systemId: _, ...newData } = item as Partial<Customer> & { systemId?: string };
+          addMultiple([{ ...newData, id: asBusinessId(""), status: newData.status || "Đang giao dịch" } as Omit<Customer, "systemId">]); inserted++;
         }
-      } catch (error) {
-        errors.push({ row: i + 2, message: String(error) });
-        failed++;
-      }
+      } catch (e) { errors.push({ row: i + 2, message: String(e) }); failed++; }
     }
-
-    return {
-      success: inserted + updated,
-      failed,
-      inserted,
-      updated,
-      skipped,
-      errors,
-    };
+    return { success: inserted + updated, failed, inserted, updated, skipped, errors };
   }, [activeCustomers, addMultiple, update]);
 
-  // Current user for logging (mock - replace with actual auth)
-  const currentUser = React.useMemo(() => ({
-    name: 'Admin',
-    systemId: 'USR000001' as SystemId,
-  }), []);
-
-  const bulkActions = React.useMemo(() => {
-    // Main list only shows non-deleted customers
-    return [
-      {
-        label: "Chuyển vào thùng rác",
-        onSelect: (rows: Customer[]) => setPendingAction({ kind: "delete", customers: rows }),
-      },
-      {
-        label: "Đang giao dịch",
-        onSelect: (rows: Customer[]) => setPendingAction({ kind: "status", status: "Đang giao dịch", customers: rows }),
-      },
-      {
-        label: "Ngừng giao dịch",
-        onSelect: (rows: Customer[]) => setPendingAction({ kind: "status", status: "Ngừng Giao Dịch", customers: rows }),
-      },
-    ];
-  }, []);
+  const currentUser = React.useMemo(() => ({ name: 'Admin', systemId: 'USR000001' as SystemId }), []);
+  const bulkActions = React.useMemo(() => [
+    { label: "Chuyển vào thùng rác", onSelect: (rows: Customer[]) => setPendingAction({ kind: "delete", customers: rows }) },
+    { label: "Đang giao dịch", onSelect: (rows: Customer[]) => setPendingAction({ kind: "status", status: "Đang giao dịch", customers: rows }) },
+    { label: "Ngừng giao dịch", onSelect: (rows: Customer[]) => setPendingAction({ kind: "status", status: "Ngừng Giao Dịch", customers: rows }) },
+  ], []);
 
   const bulkDialogCopy = React.useMemo(() => {
     if (!pendingAction) return null;
-    switch (pendingAction.kind) {
-      case "delete":
-        return {
-          title: "Chuyển vào thùng rác",
-          description: `Xác nhận chuyển ${pendingAction.customers.length} khách hàng vào thùng rác?`,
-          confirmLabel: "Chuyển vào thùng rác",
-        };
-      case "restore":
-        return {
-          title: "Khôi phục khách hàng",
-          description: `Khôi phục ${pendingAction.customers.length} khách hàng đã chọn?`,
-          confirmLabel: "Khôi phục",
-        };
-      case "status":
-        return {
-          title: "Cập nhật trạng thái",
-          description: `Xác nhận cập nhật ${pendingAction.customers.length} khách hàng sang trạng thái "${pendingAction.status}"?`,
-          confirmLabel: "Cập nhật",
-        };
-      default:
-        return null;
-    }
+    const count = pendingAction.customers.length;
+    if (pendingAction.kind === "delete") return { title: "Chuyển vào thùng rác", description: `Xác nhận chuyển ${count} khách hàng vào thùng rác?`, confirmLabel: "Chuyển" };
+    if (pendingAction.kind === "restore") return { title: "Khôi phục khách hàng", description: `Khôi phục ${count} khách hàng?`, confirmLabel: "Khôi phục" };
+    if (pendingAction.kind === "status") return { title: "Cập nhật trạng thái", description: `Cập nhật ${count} khách hàng sang "${pendingAction.status}"?`, confirmLabel: "Cập nhật" };
+    return null;
   }, [pendingAction]);
 
   const handleConfirmBulkAction = React.useCallback(() => {
     if (!pendingAction) return;
-    const systemIds = pendingAction.customers.map((customer) => asSystemId(customer.systemId));
-    if (pendingAction.kind === "delete") {
-      removeMany(systemIds);
-      toast.success(`Đã chuyển ${pendingAction.customers.length} khách hàng vào thùng rác`);
-    } else if (pendingAction.kind === "restore") {
-      restoreMany(systemIds);
-      toast.success(`Đã khôi phục ${pendingAction.customers.length} khách hàng`);
-    } else if (pendingAction.kind === "status") {
-      updateManyStatus(systemIds, pendingAction.status);
-      toast.success(`Đã cập nhật trạng thái cho ${pendingAction.customers.length} khách hàng`);
-    }
-    setRowSelection((prev) => {
-      const next = { ...prev };
-      pendingAction.customers.forEach((customer) => {
-        delete next[customer.systemId];
-      });
-      return next;
-    });
+    const ids = pendingAction.customers.map(c => asSystemId(c.systemId));
+    if (pendingAction.kind === "delete") { removeMany(ids); toast.success(`Đã chuyển ${ids.length} khách hàng vào thùng rác`); }
+    else if (pendingAction.kind === "restore") { restoreMany(ids); toast.success(`Đã khôi phục ${ids.length} khách hàng`); }
+    else if (pendingAction.kind === "status") { updateManyStatus(ids, pendingAction.status); toast.success(`Đã cập nhật ${ids.length} khách hàng`); }
+    setRowSelection(p => { const n = { ...p }; pendingAction.customers.forEach(c => delete n[c.systemId]); return n; });
     setPendingAction(null);
   }, [pendingAction, removeMany, restoreMany, updateManyStatus]);
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case "Đang giao dịch":
-        return "default";
-      case "Ngừng giao dịch":
-      case "Ngừng Giao Dịch":
-        return "secondary";
-      case "Nợ xấu":
-        return "destructive";
-      default:
-        return "default";
-    }
-  };
-
-  const MobileCustomerCard = ({ customer }: { customer: Customer }) => (
-    <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleRowClick(customer)}>
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <Avatar className="h-12 w-12 flex-shrink-0">
-            <AvatarImage src="" alt={customer.name} />
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-              {customer.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-1">
-              <div className="flex-1">
-                <h3 className="font-semibold text-body-sm truncate">{customer.name}</h3>
-                <p className="text-body-xs text-muted-foreground">{customer.id}</p>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <TouchButton variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(event) => event.stopPropagation()}>
-                    <MoreVertical className="h-4 w-4" />
-                  </TouchButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      router.push(`/customers/${customer.systemId}/edit`);
-                    }}
-                  >
-                    Chỉnh sửa
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleDelete(customer.systemId);
-                    }}
-                  >
-                    Chuyển vào thùng rác
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <div className="space-y-1.5 mt-2">
-              {customer.company && (
-                <div className="flex items-center text-body-xs text-muted-foreground">
-                  <Building2 className="h-3 w-3 mr-1.5" />
-                  <span className="truncate">{customer.company}</span>
-                </div>
-              )}
-              {customer.email && (
-                <div className="flex items-center text-body-xs text-muted-foreground">
-                  <Mail className="h-3 w-3 mr-1.5" />
-                  <span className="truncate">{customer.email}</span>
-                </div>
-              )}
-              {customer.phone && (
-                <div className="flex items-center text-body-xs text-muted-foreground">
-                  <Phone className="h-3 w-3 mr-1.5" />
-                  <span>{customer.phone}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-between mt-3 pt-2 border-t">
-              <Badge variant={getStatusVariant(customer.status)} className="text-body-xs">
-                {customer.status}
-              </Badge>
-              {customer.accountManagerName && (
-                <span className="text-body-xs text-muted-foreground">NV: {customer.accountManagerName}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -711,277 +218,48 @@ export function CustomersPage() {
         <div className="flex-shrink-0 space-y-4">
           {isMobile ? (
             <div className="space-y-3">
-              <TouchButton onClick={() => router.push("/customers/new")} size="default" className="w-full min-h-touch">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Thêm khách hàng
-              </TouchButton>
+              <TouchButton onClick={() => router.push("/customers/new")} size="default" className="w-full min-h-touch"><PlusCircle className="mr-2 h-4 w-4" />Thêm khách hàng</TouchButton>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Nhập
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Xuất
-                </Button>
-                <DataTableColumnCustomizer
-                  columns={columns}
-                  columnVisibility={columnVisibility}
-                  setColumnVisibility={setColumnVisibility}
-                  columnOrder={columnOrder}
-                  setColumnOrder={setColumnOrder}
-                  pinnedColumns={pinnedColumns}
-                  setPinnedColumns={setPinnedColumns}
-                />
+                <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập</Button>
+                <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất</Button>
+                <DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />
               </div>
-            </div>
-          ) : null}
-
-          {/* Desktop Actions Row */}
-          {!isMobile && (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Nhập file
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
-                <Download className="mr-2 h-4 w-4" />
-                Xuất Excel
-              </Button>
-              <DataTableColumnCustomizer
-                columns={columns}
-                columnVisibility={columnVisibility}
-                setColumnVisibility={setColumnVisibility}
-                columnOrder={columnOrder}
-                setColumnOrder={setColumnOrder}
-                pinnedColumns={pinnedColumns}
-                setPinnedColumns={setPinnedColumns}
-              />
-            </div>
-          )}
-
-          {isMobile ? (
-            <div className="space-y-3">
               <MobileSearchBar value={tableState.search} onChange={handleSearchChange} placeholder="Tìm kiếm khách hàng..." />
               <div className="grid grid-cols-2 gap-2">
-                <Select value={tableState.debtFilter} onValueChange={(value) => {
-                  updateTableState((prev) => ({
-                    ...prev,
-                    debtFilter: value as typeof prev.debtFilter,
-                    pagination: { ...prev.pagination, pageIndex: 0 },
-                  }));
-                }}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Công nợ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả công nợ</SelectItem>
-                    <SelectItem value="totalOverdue">Tổng quá hạn</SelectItem>
-                    <SelectItem value="overdue">Quá hạn</SelectItem>
-                    <SelectItem value="dueSoon">Sắp đến hạn</SelectItem>
-                    <SelectItem value="hasDebt">Có công nợ</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={tableState.slaFilter} onValueChange={(value) => {
-                  updateTableState((prev) => ({
-                    ...prev,
-                    slaFilter: value as typeof prev.slaFilter,
-                    pagination: { ...prev.pagination, pageIndex: 0 },
-                  }));
-                }}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Cảnh báo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả cảnh báo</SelectItem>
-                    <SelectItem value="followUp">Cần liên hệ</SelectItem>
-                    <SelectItem value="reengage">Lâu không mua hàng</SelectItem>
-                    <SelectItem value="debt">Cảnh báo công nợ</SelectItem>
-                    <SelectItem value="health">Nguy cơ mất khách</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={tableState.statusFilter} onValueChange={handleStatusFilterChange}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                    <SelectItem value="Đang giao dịch">Đang giao dịch</SelectItem>
-                    <SelectItem value="Ngừng Giao Dịch">Ngừng giao dịch</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={tableState.typeFilter} onValueChange={handleTypeFilterChange}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Loại KH" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả loại KH</SelectItem>
-                    {customerTypesData.map((type) => (
-                      <SelectItem key={type.systemId} value={type.id}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Select value={tableState.debtFilter} onValueChange={handleDebtFilterChange}><SelectTrigger className="h-9"><SelectValue placeholder="Công nợ" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả công nợ</SelectItem><SelectItem value="totalOverdue">Tổng quá hạn</SelectItem><SelectItem value="overdue">Quá hạn</SelectItem><SelectItem value="dueSoon">Sắp đến hạn</SelectItem><SelectItem value="hasDebt">Có công nợ</SelectItem></SelectContent></Select>
+                <Select value={tableState.slaFilter} onValueChange={handleSlaFilterChange}><SelectTrigger className="h-9"><SelectValue placeholder="Cảnh báo" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả cảnh báo</SelectItem><SelectItem value="followUp">Cần liên hệ</SelectItem><SelectItem value="reengage">Lâu không mua</SelectItem><SelectItem value="debt">Cảnh báo nợ</SelectItem><SelectItem value="health">Nguy cơ mất</SelectItem></SelectContent></Select>
+                <Select value={tableState.statusFilter} onValueChange={handleStatusFilterChange}><SelectTrigger className="h-9"><SelectValue placeholder="Trạng thái" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả trạng thái</SelectItem><SelectItem value="Đang giao dịch">Đang giao dịch</SelectItem><SelectItem value="Ngừng Giao Dịch">Ngừng giao dịch</SelectItem></SelectContent></Select>
+                <Select value={tableState.typeFilter} onValueChange={handleTypeFilterChange}><SelectTrigger className="h-9"><SelectValue placeholder="Loại KH" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả loại</SelectItem>{customerTypesData.map(t => <SelectItem key={t.systemId} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select>
               </div>
-              <div className="flex justify-between items-center pt-2 border-t">
-                <p className="text-body-sm text-muted-foreground">{sortedData.length} khách hàng</p>
-              </div>
+              <p className="text-body-sm text-muted-foreground pt-2 border-t">{sortedData.length} khách hàng</p>
             </div>
           ) : (
-            <PageFilters searchValue={tableState.search} onSearchChange={handleSearchChange} searchPlaceholder="Tìm kiếm khách hàng...">
-              <DataTableDateFilter value={tableState.dateRange} onChange={handleDateRangeChange} title="Ngày tạo" />
-              
-              {/* Debt Filter */}
-              <Select value={tableState.debtFilter} onValueChange={(value) => {
-                updateTableState((prev) => ({
-                  ...prev,
-                  debtFilter: value as typeof prev.debtFilter,
-                  pagination: { ...prev.pagination, pageIndex: 0 },
-                }));
-              }}>
-                <SelectTrigger className="w-[180px] h-9">
-                  <SelectValue placeholder="Công nợ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả công nợ</SelectItem>
-                  <SelectItem value="totalOverdue">Tổng công nợ quá hạn</SelectItem>
-                  <SelectItem value="overdue">Quá hạn thanh toán</SelectItem>
-                  <SelectItem value="dueSoon">Sắp đến hạn</SelectItem>
-                  <SelectItem value="hasDebt">Có công nợ</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* SLA Filter */}
-              {slaSummary && (
-                <Select value={tableState.slaFilter} onValueChange={(value) => {
-                  updateTableState((prev) => ({
-                    ...prev,
-                    slaFilter: value as typeof prev.slaFilter,
-                    pagination: { ...prev.pagination, pageIndex: 0 },
-                  }));
-                }}>
-                  <SelectTrigger className="w-[180px] h-9">
-                    <SelectValue placeholder="Cảnh báo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả cảnh báo</SelectItem>
-                    <SelectItem value="followUp">Cần liên hệ ({slaSummary.followUpAlerts})</SelectItem>
-                    <SelectItem value="reengage">Lâu không mua hàng ({slaSummary.reEngagementAlerts})</SelectItem>
-                    <SelectItem value="debt">Cảnh báo công nợ ({slaSummary.debtAlerts})</SelectItem>
-                    <SelectItem value="health">Nguy cơ mất khách ({slaSummary.healthAlerts})</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-
-              {/* Status Filter */}
-              <Select value={tableState.statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="w-[160px] h-9">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="Đang giao dịch">Đang giao dịch</SelectItem>
-                  <SelectItem value="Ngừng Giao Dịch">Ngừng giao dịch</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Type Filter */}
-              <Select value={tableState.typeFilter} onValueChange={handleTypeFilterChange}>
-                <SelectTrigger className="w-[160px] h-9">
-                  <SelectValue placeholder="Loại KH" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả loại</SelectItem>
-                  {customerTypesData.map((type) => (
-                    <SelectItem key={type.systemId} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </PageFilters>
+            <>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button>
+                <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button>
+                <DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />
+              </div>
+              <PageFilters searchValue={tableState.search} onSearchChange={handleSearchChange} searchPlaceholder="Tìm kiếm khách hàng...">
+                <DataTableDateFilter value={tableState.dateRange} onChange={handleDateRangeChange} title="Ngày tạo" />
+                <Select value={tableState.debtFilter} onValueChange={handleDebtFilterChange}><SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="Công nợ" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả công nợ</SelectItem><SelectItem value="totalOverdue">Tổng công nợ quá hạn</SelectItem><SelectItem value="overdue">Quá hạn thanh toán</SelectItem><SelectItem value="dueSoon">Sắp đến hạn</SelectItem><SelectItem value="hasDebt">Có công nợ</SelectItem></SelectContent></Select>
+                {slaEngine.summary && <Select value={tableState.slaFilter} onValueChange={handleSlaFilterChange}><SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="Cảnh báo" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả cảnh báo</SelectItem><SelectItem value="followUp">Cần liên hệ ({slaEngine.summary.followUpAlerts})</SelectItem><SelectItem value="reengage">Lâu không mua ({slaEngine.summary.reEngagementAlerts})</SelectItem><SelectItem value="debt">Cảnh báo nợ ({slaEngine.summary.debtAlerts})</SelectItem><SelectItem value="health">Nguy cơ mất ({slaEngine.summary.healthAlerts})</SelectItem></SelectContent></Select>}
+                <Select value={tableState.statusFilter} onValueChange={handleStatusFilterChange}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Trạng thái" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả trạng thái</SelectItem><SelectItem value="Đang giao dịch">Đang giao dịch</SelectItem><SelectItem value="Ngừng Giao Dịch">Ngừng giao dịch</SelectItem></SelectContent></Select>
+                <Select value={tableState.typeFilter} onValueChange={handleTypeFilterChange}><SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Loại KH" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả loại</SelectItem>{customerTypesData.map(t => <SelectItem key={t.systemId} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select>
+              </PageFilters>
+            </>
           )}
         </div>
 
         <div className="w-full py-4">
-          <ResponsiveDataTable
-            columns={columns}
-            data={pageData}
-            renderMobileCard={(customer) => <MobileCustomerCard customer={customer} />}
-            pageCount={pageCount}
-            pagination={tableState.pagination}
-            setPagination={handlePaginationChange}
-            rowCount={totalRows}
-            rowSelection={rowSelection}
-            setRowSelection={setRowSelection}
-            bulkActions={bulkActions}
-            allSelectedRows={selectedCustomers}
-            sorting={tableState.sorting}
-            setSorting={handleSortingChange}
-            expanded={expanded}
-            setExpanded={setExpanded}
-            columnVisibility={columnVisibility}
-            setColumnVisibility={setColumnVisibility}
-            columnOrder={columnOrder}
-            setColumnOrder={setColumnOrder}
-            pinnedColumns={pinnedColumns}
-            setPinnedColumns={setPinnedColumns}
-            onRowClick={handleRowClick}
-            mobileVirtualized
-            mobileRowHeight={MOBILE_ROW_HEIGHT}
-            mobileListHeight={MOBILE_LIST_HEIGHT}
-          />
+          <ResponsiveDataTable columns={columns} data={pageData} renderMobileCard={c => <MobileCustomerCard customer={c} onRowClick={handleRowClick} onDelete={handleDelete} />} pageCount={pageCount} pagination={tableState.pagination} setPagination={handlePaginationChange} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} bulkActions={bulkActions} allSelectedRows={selectedCustomers} sorting={tableState.sorting} setSorting={handleSortingChange} expanded={expanded} setExpanded={setExpanded} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} mobileVirtualized mobileRowHeight={190} mobileListHeight={520} />
         </div>
       </div>
 
-      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Khách hàng sẽ được chuyển vào thùng rác. Bạn có thể khôi phục lại sau.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {pendingAction && bulkDialogCopy && (
-        <BulkActionConfirmDialog
-          open
-          title={bulkDialogCopy.title}
-          description={bulkDialogCopy.description}
-          confirmLabel={bulkDialogCopy.confirmLabel}
-          customers={pendingAction.customers}
-          onConfirm={handleConfirmBulkAction}
-          onCancel={() => setPendingAction(null)}
-        />
-      )}
-
-      {/* V2 Import Dialog with Preview - Lazy loaded */}
-      <CustomerImportDialog
-        open={showImportDialog}
-        onOpenChange={setShowImportDialog}
-        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
-        existingData={activeCustomers}
-        onImport={handleImportV2}
-        currentUser={currentUser}
-      />
-
-      {/* V2 Export Dialog with Column Selection - Lazy loaded */}
-      <CustomerExportDialog
-        open={showExportDialog}
-        onOpenChange={setShowExportDialog}
-        allData={activeCustomers}
-        filteredData={sortedData}
-        currentPageData={pageData}
-        selectedData={selectedCustomers}
-        currentUser={currentUser}
-      />
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa khách hàng?</AlertDialogTitle><AlertDialogDescription>Khách hàng sẽ được chuyển vào thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      {pendingAction && bulkDialogCopy && <BulkActionConfirmDialog open title={bulkDialogCopy.title} description={bulkDialogCopy.description} confirmLabel={bulkDialogCopy.confirmLabel} customers={pendingAction.customers} onConfirm={handleConfirmBulkAction} onCancel={() => setPendingAction(null)} />}
+      <CustomerImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={activeCustomers} onImport={handleImportV2} currentUser={currentUser} />
+      <CustomerExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={activeCustomers} filteredData={sortedData} currentPageData={pageData} selectedData={selectedCustomers} currentUser={currentUser} />
     </div>
   );
 }

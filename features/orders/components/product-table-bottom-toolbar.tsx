@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { toast } from 'sonner';
 import { PlusCircle, Gift } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 
@@ -19,7 +20,7 @@ export function ProductTableBottomToolbar({ onAddService, onApplyPromotion, disa
         if (onApplyPromotion) {
             onApplyPromotion();
         } else {
-            alert('Tính năng áp dụng chương trình khuyến mãi đang được phát triển');
+            toast.info('Tính năng áp dụng chương trình khuyến mãi đang được phát triển');
         }
     };
 

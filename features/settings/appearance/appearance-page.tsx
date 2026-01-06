@@ -102,7 +102,6 @@ export function AppearancePage() {
     const handleSave = React.useCallback(() => {
         const { localTheme, localFontSize, localColorMode, localCustomThemeConfig } = stateRef.current;
         
-        console.log('[AppearancePage] Saving:', { localTheme, localColorMode, primary: localCustomThemeConfig['--primary'] });
         
         // Mark that we just saved so useEffect doesn't reset our values
         justSavedRef.current = true;

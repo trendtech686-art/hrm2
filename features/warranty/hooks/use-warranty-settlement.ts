@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { useWarrantyStore } from '../store';
+import { useWarrantyFinder } from './use-all-warranties';
 import { usePaymentStore } from '../../payments/store';
-import { useReceiptStore } from '../../receipts/store';
+import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
 import { calculateWarrantyProcessingState } from '../components/logic/processing';
 import { calculateWarrantySettlementTotal } from '../utils/payment-calculations';
 import type { SettlementMethod, WarrantySettlement, WarrantyTicket } from '../types';
@@ -26,9 +26,9 @@ export function useWarrantySettlement(
   warrantySystemId?: string | null,
   options?: WarrantySettlementOptions,
 ): WarrantySettlementState {
-  const { findById } = useWarrantyStore();
+  const { findById } = useWarrantyFinder();
   const payments = usePaymentStore(state => state.data);
-  const receipts = useReceiptStore(state => state.data);
+  const { data: receipts } = useAllReceipts();
   const overrideTicket = options?.ticket ?? null;
   const normalizedWarrantySystemId = React.useMemo(
     () => (warrantySystemId ? asSystemId(warrantySystemId) : undefined),

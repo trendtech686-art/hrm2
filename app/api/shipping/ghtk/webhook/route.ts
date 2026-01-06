@@ -44,7 +44,6 @@ const rateLimiter = (() => {
       const recentRequests = timestamps.filter(t => now - t < CLEANUP_INTERVAL);
       
       if (recentRequests.length >= MAX_REQUESTS_PER_MINUTE) {
-        console.warn('[GHTK Webhook Security] ⚠️ Rate limit exceeded for:', trackingCode);
         return false;
       }
       
@@ -74,7 +73,6 @@ function verifyWebhookSignature(body: unknown, signature: string | null): boolea
   
   // If no secret is configured, skip verification (development mode)
   if (!WEBHOOK_SECRET) {
-    console.warn('[GHTK Webhook Security] ⚠️ No GHTK_WEBHOOK_SECRET configured - skipping signature verification');
     return true;
   }
   
@@ -98,9 +96,8 @@ function verifyWebhookSignature(body: unknown, signature: string | null): boolea
     
     if (!isValid) {
       console.error('[GHTK Webhook Security] ❌ Invalid signature');
-    } else {
-      console.log('[GHTK Webhook Security] ✅ Signature verified');
     }
+    // Valid signature - no logging needed
     
     return isValid;
   } catch {
@@ -122,7 +119,7 @@ function isGHTKIP(clientIP: string): boolean {
   const isAllowed = GHTK_IPS.includes(clientIP);
   
   if (!isAllowed) {
-    console.warn('[GHTK Webhook Security] ⚠️ Request from non-whitelisted IP:', clientIP);
+    // IP not in whitelist - silently reject
   }
   
   return isAllowed;
@@ -131,7 +128,6 @@ function isGHTKIP(clientIP: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('[GHTK Webhook] Received update:', JSON.stringify(body, null, 2));
     
     const {
       label_id,          // GHTK tracking code
@@ -162,7 +158,6 @@ export async function POST(request: NextRequest) {
     // SECURITY LAYER 2: Rate Limiting
     // ============================================
     if (!rateLimiter.isAllowed(label_id)) {
-      console.warn('[GHTK Webhook] ⚠️ Rate limit exceeded for:', label_id);
       return NextResponse.json({ 
         success: false, 
         message: 'Too many requests' 
@@ -204,13 +199,6 @@ export async function POST(request: NextRequest) {
     // ============================================
     // PROCESS WEBHOOK
     // ============================================
-    console.log('[GHTK Webhook] ✅ Security checks passed. Processing:', {
-      trackingCode: label_id,
-      orderId: partner_id,
-      statusId: status_id,
-      reasonCode: reason_code,
-      actionTime: action_time
-    });
     
     // Store webhook payload for frontend to fetch
     webhookQueue.push({
@@ -232,7 +220,6 @@ export async function POST(request: NextRequest) {
       webhookQueue.shift();
     }
     
-    console.log('[GHTK Webhook] ✅ Stored in queue. Queue size:', webhookQueue.length);
     
     // CRITICAL: Must return HTTP 200 for GHTK to mark as successful
     return NextResponse.json({ 
@@ -273,7 +260,6 @@ export async function GET() {
     const updates = [...webhookQueue];
     webhookQueue.length = 0;
     
-    console.log('[GHTK Webhook] Polled updates, returning', updates.length, 'items');
     
     return NextResponse.json({ 
       success: true, 

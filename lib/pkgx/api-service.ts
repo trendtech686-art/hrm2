@@ -61,12 +61,8 @@ async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise
   }
 
   // DEBUG: Log request details
-  console.log('[PKGX fetchWithAuth] URL:', url);
-  console.log('[PKGX fetchWithAuth] Method:', options.method || 'GET');
-  console.log('[PKGX fetchWithAuth] Headers:', options.headers);
   if (options.body) {
-    console.log('[PKGX fetchWithAuth] Body (raw):', options.body);
-    console.log('[PKGX fetchWithAuth] Body type:', typeof options.body);
+    // Debug: console.log('Request body:', options.body);
   }
 
   try {
@@ -80,18 +76,14 @@ async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise
         ...options.headers,
       },
     };
-    console.log('[PKGX fetchWithAuth] Full fetch options:', JSON.stringify(fetchOptions, null, 2));
     
     const response = await fetch(url, fetchOptions);
 
     const responseText = await response.text();
-    console.log('[PKGX fetchWithAuth] Response text:', responseText);
     
     const data = JSON.parse(responseText);
     
     // DEBUG: Log response
-    console.log('[PKGX fetchWithAuth] Response status:', response.status);
-    console.log('[PKGX fetchWithAuth] Response data:', data);
 
     if (data.error) {
       return { success: false, error: data.message || 'Lỗi từ server PKGX' };
@@ -210,11 +202,9 @@ export async function getProductGallery(goodsId: number): Promise<ApiResponse<Pk
     const response = await fetchWithAuth<PkgxGalleryResponse>(url, { method: 'GET' });
     
     // Debug log
-    console.log('Gallery API response:', response);
     
     if (!response.success) {
       // Nếu API chưa có hoặc lỗi, trả về mảng rỗng
-      console.log('Gallery API error:', response.error);
       return { success: true, data: [] };
     }
     
@@ -446,6 +436,7 @@ export async function updateCategory(
     // SEO fields
     meta_title?: string;
     meta_desc?: string;
+    short_desc?: string;
   }
 ): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number }>> {
   const { apiUrl } = getApiConfig();
@@ -453,7 +444,6 @@ export async function updateCategory(
   const timestamp = Date.now();
   const url = `${apiUrl}?action=update_category&cat_id=${catId}&_t=${timestamp}`;
 
-  console.log('[updateCategory] Calling with catId:', catId, 'payload:', payload);
 
   return fetchWithAuth(url, {
     method: 'POST',
@@ -483,7 +473,6 @@ export async function updateCategoryBasic(
   const timestamp = Date.now();
   const url = `${apiUrl}?action=update_category_basic&cat_id=${catId}&_t=${timestamp}`;
 
-  console.log('[updateCategoryBasic] Calling with catId:', catId, 'payload:', payload);
 
   return fetchWithAuth(url, {
     method: 'POST',

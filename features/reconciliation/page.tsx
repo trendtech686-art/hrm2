@@ -12,10 +12,10 @@ import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { Button } from '../../components/ui/button';
 import { CheckCircle2, Download } from 'lucide-react';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../hooks/use-fuse-search';
 import dynamic from 'next/dynamic';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../components/data-table/dynamic-column-customizer';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 
 // ✅ Dynamic import for Export dialog - lazy loads XLSX library (~500KB) + config
@@ -84,17 +84,15 @@ export function ReconciliationPage() {
         return items;
     }, [allOrders]);
 
-    const fuse = React.useMemo(() => new Fuse(reconciliationList, { 
+    const fuseOptions = React.useMemo(() => ({ 
         keys: ['trackingCode', 'orderId', 'customerName', 'carrier'],
         threshold: 0.4 
-    }), [reconciliationList]);
+    }), []);
+    const searchedData = useFuseFilter(reconciliationList, globalFilter, fuseOptions);
 
     const filteredData = React.useMemo(() => {
-        if (globalFilter) {
-            return fuse.search(globalFilter).map(result => result.item);
-        }
-        return reconciliationList;
-    }, [reconciliationList, globalFilter, fuse]);
+        return globalFilter ? searchedData : reconciliationList;
+    }, [reconciliationList, globalFilter, searchedData]);
 
     const sortedData = React.useMemo(() => {
         return [...filteredData].sort((a, b) => {

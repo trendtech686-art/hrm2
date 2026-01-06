@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { usePaymentStore } from './store';
+import { useAllPayments, usePaymentFinder } from './hooks/use-all-payments';
 import type { Payment } from './types';
 import { PaymentForm, type PaymentFormValues } from './payment-form';
-import { useCashbookStore } from '../cashbook/store';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { toast } from 'sonner';
@@ -19,11 +20,11 @@ import { ArrowLeft } from 'lucide-react';
 export function PaymentFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const router = useRouter();
-  const paymentStore = usePaymentStore();
-  const { findById, add, update } = paymentStore;
-  const paymentsData = paymentStore.data;
+  const { add, update } = usePaymentStore();
+  const { data: paymentsData } = useAllPayments();
+  const { findById } = usePaymentFinder();
   const payments = React.useMemo(() => paymentsData ?? [], [paymentsData]);
-  const { accounts: _accounts } = useCashbookStore();
+  const { accounts: _accounts } = useAllCashAccounts();
   const { employee: currentEmployee } = useAuth();
 
   const paymentSystemId = systemId ? asSystemId(systemId) : undefined;

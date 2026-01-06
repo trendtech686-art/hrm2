@@ -4,11 +4,11 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCostAdjustmentStore } from './store';
-import { useProductStore } from '../products/store';
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useProductFinder } from '../products/hooks/use-all-products';
+import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
@@ -127,12 +127,12 @@ export function CostAdjustmentDetailPage() {
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeFinder();
-  const { findById: findProductById } = useProductStore();
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductById } = useProductFinder();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   const { getById, confirm, cancel } = useCostAdjustmentStore();
   const { data: branches } = useAllBranches();
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   
   const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
@@ -203,7 +203,6 @@ export function CostAdjustmentDetailPage() {
   };
 
   const handleUpdateComment = (_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {

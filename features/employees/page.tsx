@@ -1,121 +1,51 @@
 'use client'
 
-import * as React from "react"
+import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { ROUTES } from '../../lib/router';
-import { formatDate, isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '../../lib/date-utils'
-import { useEmployeeStore } from "./store"
-import { useActiveEmployees } from "./hooks/use-all-employees"
+import { ROUTES } from '@/lib/router';
+import { isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '@/lib/date-utils';
+import { useEmployeeStore } from "./store";
+import { useActiveEmployees } from "./hooks/use-all-employees";
 import { useAllBranches } from "@/hooks/use-branches";
 import { useDefaultPageSize } from "../settings/global-settings-store";
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { getColumns } from "./columns"
-import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter"
-import { toast } from "sonner"
-import { 
-  Card, 
-  CardContent,
-} from "../../components/ui/card"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../../components/ui/alert-dialog"
-import { Button } from "../../components/ui/button"
-import { PlusCircle, Phone, Mail, Building2, Calendar, MoreHorizontal, Trash2, Upload, Download } from "lucide-react"
-import type { Employee } from '@/lib/types/prisma-extended'
-import { type ImportConfig } from "../../components/data-table/data-table-import-dialog";
-import Fuse from "fuse.js"
-import { usePageHeader } from "../../contexts/page-header-context";
+import { getColumns } from "./columns";
+import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
+import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { PlusCircle, Trash2, Upload, Download } from "lucide-react";
+import type { Employee } from '@/lib/types/prisma-extended';
+import { useFuseFilter } from "@/hooks/use-fuse-search";
+import { usePageHeader } from "@/contexts/page-header-context";
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { PageToolbar } from "@/components/layout/page-toolbar";
+import { PageFilters } from "@/components/layout/page-filters";
+import { useColumnLayout } from "@/hooks/use-column-visibility";
+import { MobileEmployeeCard } from "./components/mobile-employee-card";
 
-// ✅ Dynamic imports for Import/Export dialogs - lazy loads XLSX + config
-const EmployeeImportDialog = dynamic(
-  () => import("./components/employee-import-export-dialogs").then(mod => ({ default: mod.EmployeeImportDialog })),
-  { ssr: false }
-);
-const EmployeeExportDialog = dynamic(
-  () => import("./components/employee-import-export-dialogs").then(mod => ({ default: mod.EmployeeExportDialog })),
-  { ssr: false }
-);
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { TouchButton } from "../../components/mobile/touch-button";
-import { Badge } from "../../components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
-import { useMediaQuery } from "../../lib/use-media-query";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu";
-import { PageToolbar } from "../../components/layout/page-toolbar";
-import { PageFilters } from "../../components/layout/page-filters";
-import { useColumnLayout } from "../../hooks/use-column-visibility";
+const EmployeeImportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeImportDialog })), { ssr: false });
+const EmployeeExportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeExportDialog })), { ssr: false });
 
-// ✅ Đã chuyển sang sử dụng useColumnLayout hook thay vì localStorage
 export function EmployeesPage() {
-
   const { data: employees, remove, restore, getDeleted, addMultiple, update } = useEmployeeStore();
   const { data: activeEmployees } = useActiveEmployees();
-  const { data: branchesRaw } = useAllBranches();
-  
+  const { data: branches } = useAllBranches();
   const router = useRouter();
-  
-  // ✅ Memoize branches to prevent re-renders
-  const branches = React.useMemo(() => branchesRaw, [branchesRaw]);
-  
-  // Calculate deleted count reactively
-  const deletedCount = React.useMemo(() => 
-    employees.filter((e: { isDeleted?: boolean }) => e.isDeleted).length, 
-    [employees]
-  );
-  
-  // ✅ Memoize actions to prevent infinite loop
-  const headerActions = React.useMemo(() => [
-    <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees/trash')}>
-      <Trash2 className="mr-2 h-4 w-4" />
-      Thùng rác ({deletedCount})
-    </Button>,
-    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/employees/new')}>
-      <PlusCircle className="mr-2 h-4 w-4" />
-      Thêm nhân viên
-    </Button>
-  ], [router, deletedCount]);
-  
-  // Set page header with actions
-  usePageHeader({
-    title: 'Danh sách nhân viên',
-    breadcrumb: [
-      { label: 'Trang chủ', href: '/', isCurrent: false },
-      { label: 'Nhân viên', href: '/employees', isCurrent: true },
-    ],
-    actions: headerActions,
-    showBackButton: false,
-  });
-  
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
-  const [isAlertOpen, setIsAlertOpen] = React.useState(false)
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null)
-  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false)
-  
-  // V2 Import/Export Dialog states
-  const [isImportV2Open, setIsImportV2Open] = React.useState(false)
-  const [isExportV2Open, setIsExportV2Open] = React.useState(false)
-  
-  // Table state
-  // ✅ Use global default page size from settings
   const defaultPageSize = useDefaultPageSize();
-  
-  // FIX: Cast `setSorting` to the correct type to allow functional updates and prevent stale state issues when sorting columns.
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+  const isMobile = !useMediaQuery("(min-width: 768px)");
+
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isAlertOpen, setIsAlertOpen] = React.useState(false);
+  const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
+  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
+  const [isImportV2Open, setIsImportV2Open] = React.useState(false);
+  const [isExportV2Open, setIsExportV2Open] = React.useState(false);
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [branchFilter, setBranchFilter] = React.useState('all');
@@ -125,686 +55,66 @@ export function EmployeesPage() {
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize });
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  
-  // Debounce search input for better performance
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedGlobalFilter(globalFilter);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [globalFilter]);
-  
-  // ✅ Sử dụng useColumnLayout hook thay vì localStorage trực tiếp
-  const [columnLayout, columnLayoutSetters] = useColumnLayout('employees', {
-    visibility: {},
-    order: [],
-    pinned: []
-  });
+
+  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
+
+  const columnLayoutDefaults = React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []);
+  const [columnLayout, columnLayoutSetters] = useColumnLayout('employees', columnLayoutDefaults);
   const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout;
   const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
 
-  const handleDelete = React.useCallback((systemId: string) => {
-    setIdToDelete(systemId)
-    setIsAlertOpen(true)
-  }, [])
-  
-  const handleRestore = React.useCallback((systemId: string) => {
-    restore(asSystemId(systemId));
-    toast.success("Đã khôi phục nhân viên");
-  }, [restore]);
-  
+  const handleDelete = React.useCallback((systemId: string) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
+  const restoreRef = React.useRef(restore); restoreRef.current = restore;
+  const handleRestore = React.useCallback((systemId: string) => { restoreRef.current(asSystemId(systemId)); toast.success("Đã khôi phục nhân viên"); }, []);
+
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, router, branches), [handleDelete, handleRestore, router, branches]);
+  const deletedCount = React.useMemo(() => employees.filter((e: { isDeleted?: boolean }) => e.isDeleted).length, [employees]);
 
-  const buildDefaultVisibility = React.useCallback(() => {
-    const defaultVisibleColumns = new Set([
-      'id', 'fullName', 'workEmail', 'phone', 'branch', 'department',
-      'jobTitle', 'hireDate', 'employmentStatus', 'dob', 'gender',
-      'nationalId', 'permanentAddress', 'bankName', 'bankAccountNumber', 'baseSalary',
-      'contractType', 'annualLeaveBalance', 'sickLeaveBalance'
-    ]);
-
-    const initialVisibility: Record<string, boolean> = {};
-    columns.forEach(c => {
-      if (!c.id) return;
-      if (c.id === 'select' || c.id === 'actions') {
-        initialVisibility[c.id] = true;
-        return;
-      }
-      initialVisibility[c.id] = defaultVisibleColumns.has(c.id);
-    });
-    return initialVisibility;
-  }, [columns]);
-
-  const buildDefaultOrder = React.useCallback(() => (
-    columns.map(c => c.id).filter(Boolean) as string[]
-  ), [columns]);
-
-  // ✅ Track if defaults have been initialized to prevent infinite loop
+  const defaultVisibleColumns = React.useMemo(() => new Set(['id', 'fullName', 'workEmail', 'phone', 'branch', 'department', 'jobTitle', 'hireDate', 'employmentStatus', 'dob', 'gender', 'nationalId', 'permanentAddress', 'bankName', 'bankAccountNumber', 'baseSalary', 'contractType', 'annualLeaveBalance', 'sickLeaveBalance']), []);
   const defaultsInitialized = React.useRef(false);
+  React.useEffect(() => { if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true; const iv: Record<string, boolean> = {}; columns.forEach(c => { if (!c.id) return; iv[c.id] = c.id === 'select' || c.id === 'actions' || defaultVisibleColumns.has(c.id); }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); }, [columns, defaultVisibleColumns, setColumnVisibility, setColumnOrder]);
+  const resetColumnLayout = React.useCallback(() => { const iv: Record<string, boolean> = {}; columns.forEach(c => { if (!c.id) return; iv[c.id] = c.id === 'select' || c.id === 'actions' || defaultVisibleColumns.has(c.id); }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); setPinnedColumns([]); toast.success('Đã khôi phục bố cục cột mặc định'); }, [columns, defaultVisibleColumns, setColumnVisibility, setColumnOrder, setPinnedColumns]);
 
-  React.useEffect(() => {
-    if (columns.length === 0) return;
-    if (defaultsInitialized.current) return;
+  const confirmDelete = () => { if (idToDelete) { const emp = employees.find(e => e.systemId === idToDelete); remove(asSystemId(idToDelete)); toast.success("Đã xóa nhân viên vào thùng rác", { description: `Nhân viên ${emp?.fullName || ''} đã được chuyển vào thùng rác.` }); } setIsAlertOpen(false); setIdToDelete(null); };
+  const confirmBulkDelete = () => { Object.keys(rowSelection).forEach(s => remove(asSystemId(s))); toast.success("Đã xóa nhân viên vào thùng rác", { description: `Đã chuyển ${Object.keys(rowSelection).length} nhân viên vào thùng rác.` }); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
 
-    // Only set defaults if not already set
-    let needsUpdate = false;
-    
-    if (Object.keys(columnVisibility).length === 0) {
-      setColumnVisibility(buildDefaultVisibility());
-      needsUpdate = true;
-    }
+  const fuseOpts = React.useMemo(() => ({ keys: ["id", "fullName", "workEmail", "phone", "personalEmail", "department", "jobTitle"], threshold: 0.3, ignoreLocation: true, useExtendedSearch: false }), []);
+  const searchedEmployees = useFuseFilter(activeEmployees, debouncedGlobalFilter.trim(), fuseOpts);
+  const getDeptName = React.useCallback((d: unknown): string | undefined => typeof d === 'object' && d ? (d as { name?: string }).name : d as string | undefined, []);
+  const getJobTitleName = React.useCallback((j: unknown): string | undefined => typeof j === 'object' && j ? (j as { name?: string }).name : j as string | undefined, []);
 
-    if (columnOrder.length === 0) {
-      setColumnOrder(buildDefaultOrder());
-      needsUpdate = true;
-    }
+  const filteredData = React.useMemo(() => { let f = activeEmployees; if (branchFilter !== 'all') f = f.filter(e => e.branchSystemId === branchFilter); if (departmentFilter.size > 0) f = f.filter(e => { const n = getDeptName(e.department); return n && departmentFilter.has(n); }); if (jobTitleFilter.size > 0) f = f.filter(e => { const n = getJobTitleName(e.jobTitle); return n && jobTitleFilter.has(n); }); if (statusFilter.size > 0) f = f.filter(e => e.employmentStatus && statusFilter.has(e.employmentStatus)); if (debouncedGlobalFilter?.trim()) { const ids = new Set(searchedEmployees.map(e => e.systemId)); f = f.filter(e => ids.has(e.systemId)); } if (dateFilter && (dateFilter[0] || dateFilter[1])) { const [start, end] = dateFilter; const s = start ? getStartOfDay(start) : null, e = end ? getEndOfDay(end) : null; f = f.filter(emp => { const d = new Date(emp.hireDate); if (!isValidDate(d)) return false; if (s && !e) return isDateAfter(d, s) || isDateSame(d, s); if (!s && e) return isDateBefore(d, e) || isDateSame(d, e); if (s && e) return isDateBetween(d, s, e); return true; }); } return f; }, [activeEmployees, debouncedGlobalFilter, dateFilter, searchedEmployees, branchFilter, departmentFilter, jobTitleFilter, statusFilter, getDeptName, getJobTitleName]);
 
-    // pinnedColumns is always initialized by useColumnLayout, no need to set here
-    
-    if (needsUpdate) {
-      defaultsInitialized.current = true;
-    }
-  }, [columns, buildDefaultOrder, buildDefaultVisibility, columnVisibility, columnOrder, setColumnVisibility, setColumnOrder]);
+  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, branchFilter, departmentFilter, jobTitleFilter, statusFilter, dateFilter]);
 
-  const resetColumnLayout = React.useCallback(() => {
-    const defaultVisibility = buildDefaultVisibility();
-    const defaultOrder = buildDefaultOrder();
-    setColumnVisibility(defaultVisibility);
-    setColumnOrder(defaultOrder);
-    setPinnedColumns([]);
-    toast.success('Đã khôi phục bố cục cột mặc định');
-  }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
-  
-  const confirmDelete = () => {
-    if (idToDelete) {
-      const employee = employees.find(e => e.systemId === idToDelete);
-      remove(asSystemId(idToDelete));
-      toast.success("Đã xóa nhân viên vào thùng rác", {
-        description: `Nhân viên ${employee?.fullName || ''} đã được chuyển vào thùng rác.`,
-      });
-    }
-    setIsAlertOpen(false)
-    setIdToDelete(null)
-  }
-
-  const confirmBulkDelete = () => {
-    const idsToDelete = Object.keys(rowSelection);
-    idsToDelete.forEach(systemId => remove(asSystemId(systemId)));
-    toast.success("Đã xóa nhân viên vào thùng rác", {
-      description: `Đã chuyển ${idsToDelete.length} nhân viên vào thùng rác.`,
-    });
-    setRowSelection({});
-    setIsBulkDeleteAlertOpen(false);
-  }
-  
-  // ✅ Cache active/deleted lists to prevent infinite loops
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- employees triggers re-evaluation when store changes
-  const _deletedEmployees = React.useMemo(() => getDeleted(), [getDeleted, employees]);
-  
-  // ✅ PERFORMANCE: Create Fuse instance once for active employees only
-  const fuseInstance = React.useMemo(() => {
-    return new Fuse(activeEmployees, { 
-      keys: ["id", "fullName", "workEmail", "phone", "personalEmail", "department", "jobTitle"],
-      threshold: 0.3,
-      ignoreLocation: true,
-      useExtendedSearch: false
-    });
-  }, [activeEmployees]);
-  
-  // Helper to get department/jobTitle name from object or string
-  const getDeptName = React.useCallback((dept: unknown): string | undefined => {
-    if (typeof dept === 'object' && dept !== null) {
-      return (dept as { name?: string }).name;
-    }
-    return dept as string | undefined;
-  }, []);
-  
-  const getJobTitleName = React.useCallback((jt: unknown): string | undefined => {
-    if (typeof jt === 'object' && jt !== null) {
-      return (jt as { name?: string }).name;
-    }
-    return jt as string | undefined;
-  }, []);
-
-  const filteredData = React.useMemo(() => {
-    // ✅ Only work with active employees
-    let filtered = activeEmployees;
-
-    if (branchFilter !== 'all') {
-      filtered = filtered.filter(emp => emp.branchSystemId === branchFilter);
-    }
-    
-    if (departmentFilter.size > 0) {
-      filtered = filtered.filter(emp => {
-        const deptName = getDeptName(emp.department);
-        return deptName && departmentFilter.has(deptName);
-      });
-    }
-    
-    if (jobTitleFilter.size > 0) {
-      filtered = filtered.filter(emp => {
-        const jtName = getJobTitleName(emp.jobTitle);
-        return jtName && jobTitleFilter.has(jtName);
-      });
-    }
-    
-    if (statusFilter.size > 0) {
-      filtered = filtered.filter(emp => emp.employmentStatus && statusFilter.has(emp.employmentStatus));
-    }
-    
-    // ✅ FIX: Apply search using pre-built Fuse instance
-    if (debouncedGlobalFilter && debouncedGlobalFilter.trim()) {
-      // Update Fuse data if needed and search
-      fuseInstance.setCollection(filtered);
-      filtered = fuseInstance.search(debouncedGlobalFilter.trim()).map(result => result.item);
-    }
-    
-    if (dateFilter && (dateFilter[0] || dateFilter[1])) {
-      const [start, end] = dateFilter;
-      const startDate = start ? getStartOfDay(start) : null;
-      const endDate = end ? getEndOfDay(end) : null;
-
-      filtered = filtered.filter(employee => {
-        const rowDate = new Date(employee.hireDate);
-        if (!isValidDate(rowDate)) return false;
-        
-        if (startDate && !endDate) return isDateAfter(rowDate, startDate) || isDateSame(rowDate, startDate);
-        if (!startDate && endDate) return isDateBefore(rowDate, endDate) || isDateSame(rowDate, endDate);
-        if (startDate && endDate) return isDateBetween(rowDate, startDate, endDate);
-        return true;
-      });
-    }
-
-    return filtered;
-  }, [activeEmployees, debouncedGlobalFilter, dateFilter, fuseInstance, branchFilter, departmentFilter, jobTitleFilter, statusFilter]);
-  
-  // Reset pagination when filters change
-  React.useEffect(() => {
-    setPagination(p => ({ ...p, pageIndex: 0 }));
-  }, [debouncedGlobalFilter, branchFilter, departmentFilter, jobTitleFilter, statusFilter, dateFilter]);
-  
-  const sortedData = React.useMemo(() => {
-    const sorted = [...filteredData];
-    if (sorting.id) {
-      sorted.sort((a, b) => {
-        const aValue = a[sorting.id as keyof Employee];
-        const bValue = b[sorting.id as keyof Employee];
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-        // Special handling for date columns
-        if (sorting.id === 'createdAt' || sorting.id === 'hireDate') {
-          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
-          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
-          return sorting.desc ? bTime - aTime : aTime - bTime;
-        }
-        if (aValue < bValue) return sorting.desc ? 1 : -1;
-        if (aValue > bValue) return sorting.desc ? -1 : 1;
-        return 0;
-      });
-    }
-    return sorted;
-  }, [filteredData, sorting]);
+  const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const av = a[sorting.id as keyof Employee], bv = b[sorting.id as keyof Employee]; if (av == null) return 1; if (bv == null) return -1; if (sorting.id === 'createdAt' || sorting.id === 'hireDate') { const at = av ? new Date(av as string | number | Date).getTime() : 0, bt = bv ? new Date(bv as string | number | Date).getTime() : 0; return sorting.desc ? bt - at : at - bt; } if (av < bv) return sorting.desc ? 1 : -1; if (av > bv) return sorting.desc ? -1 : 1; return 0; }); return s; }, [filteredData, sorting]);
 
   const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    return sortedData.slice(start, end);
-  }, [sortedData, pagination]);
+  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
+  const allSelectedRows = React.useMemo(() => employees.filter(e => rowSelection[e.systemId]), [employees, rowSelection]);
 
-  const numSelected = Object.keys(rowSelection).length;
-  const allSelectedRows = React.useMemo(() => 
-    employees.filter(emp => rowSelection[emp.systemId]),
-  [employees, rowSelection]);
+  const departmentOpts = React.useMemo(() => { const set = new Set<string>(); activeEmployees.forEach(e => { const n = getDeptName(e.department); if (n) set.add(n); }); return Array.from(set).sort().map(d => ({ label: d, value: d })); }, [activeEmployees, getDeptName]);
+  const jobTitleOpts = React.useMemo(() => { const set = new Set<string>(); activeEmployees.forEach(e => { const n = getJobTitleName(e.jobTitle); if (n) set.add(n); }); return Array.from(set).sort().map(j => ({ label: j, value: j })); }, [activeEmployees, getJobTitleName]);
+  const statusOpts = React.useMemo(() => [{ label: 'Đang làm việc', value: 'Đang làm việc' }, { label: 'Đã nghỉ việc', value: 'Đã nghỉ việc' }, { label: 'Tạm nghỉ', value: 'Tạm nghỉ' }], []);
 
-  const isMobile = !useMediaQuery("(min-width: 768px)");
+  const handleImportV2 = React.useCallback(async (data: Partial<Employee>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => { let inserted = 0, updated = 0, skipped = 0, failed = 0; const errors: Array<{ row: number; message: string }> = []; for (let i = 0; i < data.length; i++) { const item = data[i]; try { const existing = item.id ? activeEmployees.find(e => e.id === item.id) : null; if (existing) { if (mode === 'insert-only') { skipped++; continue; } update(existing.systemId, { ...existing, ...item } as Employee); updated++; } else { if (mode === 'update-only') { errors.push({ row: i + 2, message: `Không tìm thấy nhân viên với mã ${item.id}` }); failed++; continue; } const { systemId: _s, ...newData } = item as Partial<Employee> & { systemId?: string }; addMultiple([newData as Omit<Employee, 'systemId'>]); inserted++; } } catch (e) { errors.push({ row: i + 2, message: String(e) }); failed++; } } return { success: inserted + updated, failed, inserted, updated, skipped, errors }; }, [activeEmployees, update, addMultiple]);
 
-  // Filter options - Only recalculate when employees change
-  const departmentOptions = React.useMemo(() => {
-    const departments = new Set<string>();
-    activeEmployees.forEach(emp => {
-      const deptName = getDeptName(emp.department);
-      if (deptName) departments.add(deptName);
-    });
-    return Array.from(departments).sort().map(d => ({ label: d, value: d }));
-  }, [activeEmployees, getDeptName]);
+  const currentUser = React.useMemo(() => ({ name: 'Admin', systemId: 'USR000001' as SystemId }), []);
+  const bulkActions = [{ label: "Chuyển vào thùng rác", onSelect: () => setIsBulkDeleteAlertOpen(true) }, { label: "Đang làm việc", onSelect: (rows: Employee[]) => { rows.forEach(e => update(e.systemId, { ...e, employmentStatus: "Đang làm việc" })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đang làm việc"` }); setRowSelection({}); } }, { label: "Nghỉ việc", onSelect: (rows: Employee[]) => { rows.forEach(e => update(e.systemId, { ...e, employmentStatus: "Đã nghỉ việc" })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đã nghỉ việc"` }); setRowSelection({}); } }];
+  const handleRowClick = (row: Employee) => router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.systemId));
 
-  const jobTitleOptions = React.useMemo(() => {
-    const jobTitles = new Set<string>();
-    activeEmployees.forEach(emp => {
-      const jtName = getJobTitleName(emp.jobTitle);
-      if (jtName) jobTitles.add(jtName);
-    });
-    return Array.from(jobTitles).sort().map(j => ({ label: j, value: j }));
-  }, [activeEmployees, getJobTitleName]);
-
-  const statusOptions = React.useMemo(() => [
-    { label: 'Đang làm việc', value: 'Đang làm việc' },
-    { label: 'Đã nghỉ việc', value: 'Đã nghỉ việc' },
-    { label: 'Tạm nghỉ', value: 'Tạm nghỉ' },
-  ], []);
-
-
-  const _exportConfig = {
-    fileName: 'Danh_sach_Nhan_vien',
-    columns,
-  }
-
-  const _importConfig: ImportConfig<Employee> = {
-    importer: (items) => {
-      // Convert from Omit<Employee, 'id'> to Omit<Employee, 'systemId'>
-      const itemsWithoutSystemId = items.map(item => {
-        const { systemId: _sysId, ...rest } = item as Partial<Employee> & { systemId?: string };
-        return rest as Omit<Employee, 'systemId'>;
-      });
-      addMultiple(itemsWithoutSystemId);
-    },
-    fileName: 'Mau_Nhap_Nhan_vien',
-    existingData: employees,
-    getUniqueKey: (item: Partial<Employee>) => item.id || item.nationalId || item.workEmail
-  }
-
-  // V2 Import handler with upsert support
-  const handleImportV2 = React.useCallback(async (
-    data: Partial<Employee>[],
-    mode: 'insert-only' | 'update-only' | 'upsert',
-    _branchId?: string
-  ) => {
-    let inserted = 0;
-    let updated = 0;
-    let skipped = 0;
-    let failed = 0;
-    const errors: Array<{ row: number; message: string }> = [];
-
-    for (let i = 0; i < data.length; i++) {
-      const item = data[i];
-      try {
-        // Find existing by business ID (id field like NV000001)
-        const existingEmployee = item.id 
-          ? activeEmployees.find(e => e.id === item.id)
-          : null;
-
-        if (existingEmployee) {
-          if (mode === 'insert-only') {
-            skipped++;
-            continue;
-          }
-          // Update existing
-          update(existingEmployee.systemId, { ...existingEmployee, ...item } as Employee);
-          updated++;
-        } else {
-          if (mode === 'update-only') {
-            errors.push({ row: i + 2, message: `Không tìm thấy nhân viên với mã ${item.id}` });
-            failed++;
-            continue;
-          }
-          // Insert new - remove systemId if present
-          const { systemId: _systemId, ...newEmployeeData } = item as Partial<Employee> & { systemId?: string };
-          addMultiple([newEmployeeData as Omit<Employee, 'systemId'>]);
-          inserted++;
-        }
-      } catch (error) {
-        errors.push({ row: i + 2, message: String(error) });
-        failed++;
-      }
-    }
-
-    return {
-      success: inserted + updated,
-      failed,
-      inserted,
-      updated,
-      skipped,
-      errors,
-    };
-  }, [activeEmployees, update, addMultiple]);
-
-  // Current user for logging (mock - replace with actual auth)
-  const currentUser = React.useMemo(() => ({
-    name: 'Admin',
-    systemId: 'USR000001' as SystemId,
-  }), []);
-
-  const bulkActions = [
-    {
-      label: "Chuyển vào thùng rác",
-      onSelect: (_selectedRows: Employee[]) => {
-        setIsBulkDeleteAlertOpen(true);
-      }
-    },
-    {
-      label: "Đang làm việc",
-      onSelect: (selectedRows: Employee[]) => {
-        selectedRows.forEach(emp => {
-          update(emp.systemId, { ...emp, employmentStatus: "Đang làm việc" });
-        });
-        toast.success("Đã cập nhật trạng thái", {
-          description: `${selectedRows.length} nhân viên đã chuyển sang "Đang làm việc"`,
-        });
-        setRowSelection({});
-      }
-    },
-    {
-      label: "Nghỉ việc",
-      onSelect: (selectedRows: Employee[]) => {
-        selectedRows.forEach(emp => {
-          update(emp.systemId, { ...emp, employmentStatus: "Đã nghỉ việc" });
-        });
-        toast.success("Đã cập nhật trạng thái", {
-          description: `${selectedRows.length} nhân viên đã chuyển sang "Đã nghỉ việc"`,
-        });
-        setRowSelection({});
-      }
-    }
-  ];
-
-  const handleRowClick = (row: Employee) => {
-    router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.systemId));
-  };
-
-  // Mobile Employee Card Component
-  const MobileEmployeeCard = ({ employee }: { employee: Employee }) => {
-    const getInitials = (name: string) => {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    };
-
-    const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-      const map: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-        'Đang làm việc': 'default',
-        'Tạm nghỉ': 'secondary',
-        'Đã nghỉ việc': 'destructive'
-      };
-      return map[status] || 'default';
-    };
-
-    return (
-      <Card 
-        className="hover:shadow-md transition-shadow cursor-pointer"
-        onClick={() => handleRowClick(employee)}
-      >
-        <CardContent className="p-4">
-          {/* Header: Avatar + Name + Code + Menu */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <Avatar className="h-9 w-10 flex-shrink-0">
-                <AvatarImage src={employee.avatarUrl} alt={employee.fullName} />
-                <AvatarFallback className="text-body-xs">{getInitials(employee.fullName)}</AvatarFallback>
-              </Avatar>
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <h3 className="font-semibold text-body-medium truncate">{employee.fullName}</h3>
-                <span className="text-body-xs text-muted-foreground">•</span>
-                <span className="text-body-xs text-muted-foreground font-mono">{employee.id}</span>
-              </div>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <TouchButton
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-10 p-0 flex-shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </TouchButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/employees/${employee.systemId}/edit`); }}>
-                  Chỉnh sửa
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(employee.systemId); }}>
-                  Chuyển vào thùng rác
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Job Title + Department */}
-          <div className="text-body-xs text-muted-foreground mb-3 flex items-center">
-            <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
-            <span className="truncate">
-              {typeof employee.jobTitle === 'object' ? (employee.jobTitle as { name?: string })?.name : employee.jobTitle}
-              {' • '}
-              {typeof employee.department === 'object' ? (employee.department as { name?: string })?.name : employee.department}
-            </span>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t mb-3" />
-
-          {/* Contact Info */}
-          <div className="space-y-2">
-            {employee.workEmail && (
-              <div className="flex items-center text-body-xs text-muted-foreground">
-                <Mail className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                <span className="truncate">{employee.workEmail}</span>
-              </div>
-            )}
-            {employee.phone && (
-              <div className="flex items-center text-body-xs text-muted-foreground">
-                <Phone className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                <span>{employee.phone}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between text-body-xs pt-1">
-              <div className="flex items-center text-muted-foreground">
-                <Calendar className="h-3 w-3 mr-1.5" />
-                <span>{formatDate(employee.hireDate)}</span>
-              </div>
-              <Badge variant={getStatusVariant(employee.employmentStatus)} className="text-body-xs">
-                {employee.employmentStatus}
-              </Badge>
-            </div>
-          </div>
-          
-          {/* Quick Actions */}
-          <div className="flex gap-2 mt-3 pt-3 border-t">
-            {employee.phone && (
-              <TouchButton 
-                variant="outline" 
-                size="sm" 
-                className="flex-1 h-8 text-body-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.href = `tel:${employee.phone}`;
-                }}
-              >
-                <Phone className="h-3 w-3 mr-1.5" />
-                Gọi
-              </TouchButton>
-            )}
-            {employee.workEmail && (
-              <TouchButton 
-                variant="outline" 
-                size="sm" 
-                className="flex-1 h-8 text-body-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.href = `mailto:${employee.workEmail}`;
-                }}
-              >
-                <Mail className="h-3 w-3 mr-1.5" />
-                Email
-              </TouchButton>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
+  const headerActions = React.useMemo(() => [<Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>, <Button key="add" size="sm" className="h-9" onClick={() => router.push('/employees/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhân viên</Button>], [router, deletedCount]);
+  usePageHeader({ title: 'Danh sách nhân viên', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Nhân viên', href: '/employees', isCurrent: true }], actions: headerActions, showBackButton: false });
 
   return (
     <div className="flex flex-col w-full h-full">
-      {/* ===== HÀNG 2: TOOLBAR - Common Actions (Desktop only) ===== */}
-      {!isMobile && (
-        <PageToolbar
-          leftActions={
-            <>
-              {/* V2 Import/Export with preview & logging */}
-              <Button variant="outline" size="sm" className="h-9" onClick={() => setIsImportV2Open(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                Nhập Excel
-              </Button>
-              <Button variant="outline" size="sm" className="h-9" onClick={() => setIsExportV2Open(true)}>
-                <Download className="mr-2 h-4 w-4" />
-                Xuất Excel
-              </Button>
-            </>
-          }
-          rightActions={
-            <DataTableColumnCustomizer
-              columns={columns}
-              columnVisibility={columnVisibility}
-              setColumnVisibility={setColumnVisibility}
-              columnOrder={columnOrder}
-              setColumnOrder={setColumnOrder}
-              pinnedColumns={pinnedColumns}
-              setPinnedColumns={setPinnedColumns}
-              onResetToDefault={resetColumnLayout}
-            />
-          }
-        />
-      )}
-
-      {/* ===== HÀNG 3: FILTERS - Search & Custom Filters (1 hàng) ===== */}
-      <PageFilters
-        searchValue={globalFilter}
-        onSearchChange={setGlobalFilter}
-        searchPlaceholder="Tìm kiếm nhân viên (tên, mã, email, SĐT)..."
-      >
-        {/* Branch Filter */}
-        <Select value={branchFilter} onValueChange={setBranchFilter}>
-          <SelectTrigger className="w-full sm:w-[180px] h-9">
-            <SelectValue placeholder="Tất cả chi nhánh" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-            {branches.map(b => (
-              <SelectItem key={b.systemId} value={b.systemId}>
-                {b.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Department Filter */}
-        {departmentOptions.length > 0 && (
-          <DataTableFacetedFilter
-            title="Phòng ban"
-            options={departmentOptions}
-            selectedValues={departmentFilter}
-            onSelectedValuesChange={setDepartmentFilter}
-          />
-        )}
-
-        {/* Job Title Filter */}
-        {jobTitleOptions.length > 0 && (
-          <DataTableFacetedFilter
-            title="Chức danh"
-            options={jobTitleOptions}
-            selectedValues={jobTitleFilter}
-            onSelectedValuesChange={setJobTitleFilter}
-          />
-        )}
-
-        {/* Status Filter */}
-        <DataTableFacetedFilter
-          title="Trạng thái"
-          options={statusOptions}
-          selectedValues={statusFilter}
-          onSelectedValuesChange={setStatusFilter}
-        />
-      </PageFilters>
-
-      <div className="w-full py-4">
-        <ResponsiveDataTable
-          columns={columns}
-          data={paginatedData}
-          renderMobileCard={(employee) => (
-            <MobileEmployeeCard employee={employee} />
-          )}
-          pageCount={pageCount}
-          pagination={pagination}
-          setPagination={setPagination}
-          rowCount={filteredData.length}
-          rowSelection={rowSelection}
-          setRowSelection={setRowSelection}
-          onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
-          bulkActions={bulkActions}
-          allSelectedRows={allSelectedRows}
-          expanded={expanded}
-          setExpanded={setExpanded}
-          sorting={sorting}
-          setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
-          columnVisibility={columnVisibility}
-          setColumnVisibility={setColumnVisibility}
-          columnOrder={columnOrder}
-          setColumnOrder={setColumnOrder}
-          pinnedColumns={pinnedColumns}
-          setPinnedColumns={setPinnedColumns}
-          onRowClick={handleRowClick}
-        />
-      </div>
-
-      {/* Delete Confirmation Dialogs */}
-      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa nhân viên</AlertDialogTitle>
-            <AlertDialogDescription>
-              Nhân viên sẽ được chuyển vào thùng rác. Bạn có thể khôi phục lại sau nếu cần.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
-            <AlertDialogAction className="h-9" onClick={confirmDelete}>Tiếp tục</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa {numSelected} nhân viên</AlertDialogTitle>
-            <AlertDialogDescription>
-              Các nhân viên sẽ được chuyển vào thùng rác. Bạn có thể khôi phục lại sau nếu cần.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
-            <AlertDialogAction className="h-9" onClick={confirmBulkDelete}>Tiếp tục</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* V2 Import Dialog with Preview */}
-      <EmployeeImportDialog
-        open={isImportV2Open}
-        onOpenChange={setIsImportV2Open}
-        branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
-        requireBranch={true}
-        defaultBranchId={branches[0]?.systemId}
-        existingData={activeEmployees}
-        onImport={handleImportV2}
-        currentUser={currentUser}
-      />
-
-      {/* V2 Export Dialog with Column Selection */}
-      <EmployeeExportDialog
-        open={isExportV2Open}
-        onOpenChange={setIsExportV2Open}
-        allData={activeEmployees}
-        filteredData={sortedData}
-        currentPageData={paginatedData}
-        selectedData={allSelectedRows}
-        appliedFilters={{
-          branch: branchFilter !== 'all' ? branchFilter : undefined,
-          department: departmentFilter.size > 0 ? Array.from(departmentFilter) : undefined,
-          jobTitle: jobTitleFilter.size > 0 ? Array.from(jobTitleFilter) : undefined,
-          status: statusFilter.size > 0 ? Array.from(statusFilter) : undefined,
-          search: debouncedGlobalFilter || undefined,
-        }}
-        currentUser={currentUser}
-      />
+      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" className="h-9" onClick={() => setIsImportV2Open(true)}><Upload className="mr-2 h-4 w-4" />Nhập Excel</Button><Button variant="outline" size="sm" className="h-9" onClick={() => setIsExportV2Open(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm nhân viên (tên, mã, email, SĐT)..."><Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="w-full sm:w-[180px] h-9"><SelectValue placeholder="Tất cả chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select>{departmentOpts.length > 0 && <DataTableFacetedFilter title="Phòng ban" options={departmentOpts} selectedValues={departmentFilter} onSelectedValuesChange={setDepartmentFilter} />}{jobTitleOpts.length > 0 && <DataTableFacetedFilter title="Chức danh" options={jobTitleOpts} selectedValues={jobTitleFilter} onSelectedValuesChange={setJobTitleFilter} />}<DataTableFacetedFilter title="Trạng thái" options={statusOpts} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /></PageFilters>
+      <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={e => <MobileEmployeeCard employee={e} onDelete={handleDelete} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} /></div>
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa nhân viên</AlertDialogTitle><AlertDialogDescription>Nhân viên sẽ được chuyển vào thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmDelete}>Tiếp tục</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa {Object.keys(rowSelection).length} nhân viên</AlertDialogTitle><AlertDialogDescription>Các nhân viên sẽ được chuyển vào thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmBulkDelete}>Tiếp tục</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <EmployeeImportDialog open={isImportV2Open} onOpenChange={setIsImportV2Open} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} requireBranch={true} defaultBranchId={branches[0]?.systemId} existingData={activeEmployees} onImport={handleImportV2} currentUser={currentUser} />
+      <EmployeeExportDialog open={isExportV2Open} onOpenChange={setIsExportV2Open} allData={activeEmployees} filteredData={sortedData} currentPageData={paginatedData} selectedData={allSelectedRows} appliedFilters={{ branch: branchFilter !== 'all' ? branchFilter : undefined, department: departmentFilter.size > 0 ? Array.from(departmentFilter) : undefined, jobTitle: jobTitleFilter.size > 0 ? Array.from(jobTitleFilter) : undefined, status: statusFilter.size > 0 ? Array.from(statusFilter) : undefined, search: debouncedGlobalFilter || undefined }} currentUser={currentUser} />
     </div>
-  )
+  );
 }

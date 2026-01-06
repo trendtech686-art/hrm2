@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { PrintTemplate, TemplateType, PaperSize } from './types';
 import { getDefaultTemplate } from './default-templates';
 
@@ -23,8 +22,7 @@ const getTemplateKey = (type: TemplateType, size: PaperSize, branchId?: string):
   branchId ? `${type}-${size}-${branchId}` : `${type}-${size}`;
 
 export const usePrintTemplateStore = create<PrintTemplateState>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       templates: {} as Record<TemplateKey, PrintTemplate>,
       defaultSizes: {} as Record<TemplateType, PaperSize>,
 
@@ -174,9 +172,5 @@ export const usePrintTemplateStore = create<PrintTemplateState>()(
         const state = get();
         return state.defaultSizes[type] || 'A4';
       },
-    }),
-    {
-      name: 'print-templates-storage',
-    }
-  )
+    })
 );

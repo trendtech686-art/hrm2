@@ -1,7 +1,7 @@
 # Large Files Refactoring Plan
 
 > Created: 31/12/2024
-> Updated: 02/01/2026
+> Updated: 05/01/2025
 > Status: ✅ Completed (except Task 8 gradual migration)
 
 ## 📊 Danh sách Files Cần Tách
@@ -10,8 +10,9 @@
 
 | # | File | Lines | Size | Status | Notes |
 |---|------|-------|------|--------|-------|
-| 1 | `features/settings/other-page.tsx` | 4,226 | 191KB | ✅ DONE | 8 tabs → 10 files trong `features/settings/other/` |
+| 1 | `features/settings/other-page.tsx` | 4,226 | 191KB | ✅ DONE + 🗑️ DELETED | 8 tabs → 10 files trong `features/settings/other/`, file gốc đã xóa |
 | 2 | `features/orders/components/order-detail-page.tsx` | 3,186→1,664 | 183KB | ✅ DONE | Giảm ~48%, 8 components tách vào `features/orders/detail/` |
+| 2b | `features/orders/order-detail-page.tsx` | 3,059 | - | 🗑️ DELETED | File CŨ - đã xóa, thay bởi `components/order-detail-page.tsx` |
 
 ### 🟡 MEDIUM PRIORITY (1500-3000 lines)
 
@@ -19,7 +20,8 @@
 |---|------|-------|------|--------|-------|
 | 3 | `features/employees/components/detail-page.tsx` | 2,001→1,569 | 112KB | ✅ DONE | Giảm 22%, tách vào `features/employees/detail/` |
 | 4 | `features/sales-returns/form-page.tsx` | 1,992→1,019 | 106KB | ✅ DONE | Giảm 49%, tách vào `features/sales-returns/form/` |
-| 5 | `features/employees/components/employee-form.tsx` | 1,794 | 102KB | ⏭️ SKIPPED | Complex StagingFile state - không tách được dễ dàng |
+| 5 | `features/employees/components/employee-form.tsx` | 1,794 | 102KB | ⏭️ SKIPPED | Complex StagingFile state - file `-old` đã xóa |
+| 5b | `features/employees/components/employee-form-old.tsx` | 1,789 | - | 🗑️ DELETED | File backup cũ - đã xóa |
 | 6 | `features/customers/detail-page.tsx` | 2,002→1,460 | 94KB | ✅ DONE | Giảm 27%, tách vào `features/customers/detail/` |
 | 7 | `features/orders/store.ts` | 1,825 | 90KB | 🚧 IN PROGRESS | React Query hooks ready, gradual migration |
 | 8 | `features/products/product-form-complete.tsx` | 2,028→603 | 87KB | ✅ DONE | Giảm 70%, tách vào `features/products/product-form/` |
@@ -257,6 +259,37 @@ features/{feature}/
 | 02/01/2026 | Task 9: Settings pages | ✅ | 3 files refactored |
 | 02/01/2026 | Task 10: purchase-orders/detail-page | ✅ | 1,807 → 1,216 lines (-33%) |
 | 02/01/2026 | Task 11: products/page.tsx | ✅ | 1,620 → 1,054 lines (-35%) |
+| 04/01/2026 | Cleanup: Xóa other-page.tsx | ✅ | 4,358 lines removed |
+| 04/01/2026 | Cleanup: Xóa employee-form-old.tsx | ✅ | 1,789 lines removed |
+| 04/01/2026 | Cleanup: Xóa order-detail-page.tsx (root) | ✅ | 3,059 lines removed |
+| 04/01/2026 | Task 12: warranty-products-section.tsx | ✅ | 909 → ~270 lines (-70%) |
+| 04/01/2026 | Task 13: products/detail-page.tsx | ✅ | 1,541 → 1,075 lines (-30%) |
+| 05/01/2026 | Task 14: category-manager.tsx | ✅ | 1,320 → 401 lines (-70%), CategoryDetailForm → category-detail-form.tsx |
+| 05/01/2026 | Task 15: brand-manager.tsx | ✅ | 1,146 → 356 lines (-69%), BrandDetailForm → brand-detail-form.tsx |
+| 05/01/2026 | Task 16: employee-form.tsx | ✅ | 1,894 → 1,299 lines (-31%), Tách employee-payroll-tab.tsx + employee-documents-tab.tsx |
+
+---
+
+## 📊 Files >1000 lines Analysis (05/01/2026)
+
+### ✅ ĐÃ TÁCH
+| File | Lines | Kết quả | Status |
+|------|-------|---------|--------|
+| `products/detail-page.tsx` | 1,541→1,075 | Tách combo-detail-cards.tsx (-466L, -30%) | DONE |
+| `category-manager.tsx` | 1,320→401 | Tách category-detail-form.tsx (-919L, -70%) | DONE |
+| `brand-manager.tsx` | 1,146→356 | Tách brand-detail-form.tsx (-790L, -69%) | DONE |
+| `employee-form.tsx` | 1,894→1,299 | Tách employee-payroll-tab.tsx (294L) + employee-documents-tab.tsx (300L), -31% | DONE |
+
+### ⏭️ CÓ THỂ TÁCH NHƯNG ƯU TIÊN THẤP
+| File | Lines | Lý do |
+|------|-------|-------|
+| `customer-form.tsx` | 1,508 | 8 tabs share form state, prop drilling phức tạp |
+| `print-templates-page.tsx` | 1,400 | TipTap editor toolbar phụ thuộc editor instance |
+| `service-config-form.tsx` | 1,374 | Shipping config form, tight coupling |
+| `order-detail-page.tsx` | 1,665 | Đã refactor, không cần tách thêm |
+| `employees/detail-page.tsx` | 1,572 | Đã có detail/ folder, acceptable size |
+| `customers/detail-page.tsx` | 1,461 | Đã có detail/ folder, acceptable size |
+| `complaints/form-page.tsx` | 1,409 | Folder đã có 23 components, không cần tách |
 
 ---
 

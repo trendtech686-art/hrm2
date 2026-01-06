@@ -101,9 +101,6 @@ export function ProductFormPage() {
   const handleSubmit = async (values: ProductFormCompleteValues): Promise<Product> => {
     const { _imageFiles, title, seoDescription, ...productData } = values;
     
-    console.log('[FormPage] handleSubmit received _imageFiles:', _imageFiles);
-    console.log('[FormPage] seoPkgx value:', values.seoPkgx);
-    console.log('[FormPage] seoTrendtech value:', values.seoTrendtech);
     
     if (product) {
       // Edit mode - update existing product
@@ -122,17 +119,11 @@ export function ProductFormPage() {
       update(product.systemId, updatedProduct);
       
       // Confirm staging images if any
-      console.log('[FormPage] Checking if need to confirm images...', { 
-        hasImageFiles: !!_imageFiles, 
-        keysLength: _imageFiles ? Object.keys(_imageFiles).length : 0 
-      });
       
       if (_imageFiles && Object.keys(_imageFiles).length > 0) {
-        console.log('[FormPage] Calling confirmAllImages...');
         await confirmAllImages(updatedProduct.systemId, productData, _imageFiles);
-      } else {
-        console.log('[FormPage] No images to confirm');
       }
+      // else: no images to confirm
       
       toast.success('Đã cập nhật sản phẩm thành công');
       router.push(`/products/${product.systemId}`);
@@ -209,7 +200,6 @@ export function ProductFormPage() {
     imageFiles: Record<string, StagingFile[]>
   ) => {
     try {
-      console.log('[ConfirmImages] Starting confirm with:', { productSystemId, imageFiles });
       
       const productMetadata = {
         name: productData.name || product?.name || '',
@@ -218,14 +208,11 @@ export function ProductFormPage() {
       };
       
       for (const [imageType, files] of Object.entries(imageFiles)) {
-        console.log(`[ConfirmImages] Processing ${imageType}:`, files);
         
         if (files.length > 0) {
           const sessionId = files[0]?.sessionId;
-          console.log(`[ConfirmImages] SessionId for ${imageType}:`, sessionId);
           
           if (sessionId) {
-            console.log(`[ConfirmImages] Calling API to confirm ${imageType}...`);
             const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
               sessionId,
               productSystemId,
@@ -236,7 +223,6 @@ export function ProductFormPage() {
                 imageType,
               }
             );
-            console.log(`[ConfirmImages] API returned for ${imageType}:`, confirmedFiles);
             
             imageStore.updatePermanentImages(
               productSystemId,
@@ -261,8 +247,8 @@ export function ProductFormPage() {
             // Cleanup staging
             try {
               await FileUploadAPI.deleteStagingSession(sessionId);
-            } catch (e) {
-              console.warn('Failed to cleanup staging session:', e);
+            } catch (_e) {
+              // Ignore cleanup errors
             }
           }
         }

@@ -1,15 +1,13 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory';
-import { data as initialData } from './data';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import type { SystemId } from '../../lib/id-types';
 import { asSystemId } from '../../lib/id-types';
 import Fuse from 'fuse.js';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';
 
-const baseStore = createCrudStore<Supplier>(initialData, 'suppliers', {
+const baseStore = createCrudStore<Supplier>([], 'suppliers', {
   businessIdField: 'id',
-  persistKey: 'hrm-suppliers', // ✅ Enable persistence
-  getCurrentUser: getCurrentUserSystemId, // ✅ Track who creates/updates
+  getCurrentUser: getCurrentUserSystemId,
 });
 
 const fuse = new Fuse(baseStore.getState().data, {

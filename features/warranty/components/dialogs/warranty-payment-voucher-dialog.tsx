@@ -28,13 +28,15 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePaymentStore } from '../../../payments/store';
 import { useReceiptStore } from '../../../receipts/store';
+import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
 import { useAllOrders } from '../../../orders/hooks/use-all-orders';
 import { useOrderStore } from '../../../orders/store';
 import { useWarrantyStore } from '../../store';
+import { useWarrantyFinder } from '../../hooks/use-all-warranties';
 import type { SettlementType, WarrantyVoucherDialogBaseProps } from '../../types';
-import { usePaymentTypeStore } from '../../../settings/payments/types/store';
-import { usePaymentMethodStore } from '../../../settings/payments/methods/store';
-import { useCashbookStore } from '../../../cashbook/store';
+import { useAllPaymentTypes } from '../../../settings/payments/types/hooks/use-all-payment-types';
+import { useAllPaymentMethods } from '../../../settings/payments/hooks/use-all-payment-methods';
+import { useAllCashAccounts } from '../../../cashbook/hooks/use-all-cash-accounts';
 import { toISODateTime } from '../../../../lib/date-utils';
 import { searchOrders, type OrderSearchResult } from '../../../orders/order-search-api';
 import { VirtualizedCombobox } from '../../../../components/ui/virtualized-combobox';
@@ -62,7 +64,7 @@ interface FormValues {
   mixedCashAmount?: number | undefined;
 }
 
-const detectDirectSettlementType = (paymentMethod?: PaymentMethod | null): Exclude<SettlementType, 'mixed'> => {
+const detectDirectSettlementType = (paymentMethod?: { id?: string; name: string } | null): Exclude<SettlementType, 'mixed'> => {
   if (!paymentMethod) {
     return 'cash';
   }
@@ -93,13 +95,14 @@ export function WarrantyPaymentVoucherDialog({
   const router = useRouter();
   
   const { add: addPayment, data: payments } = usePaymentStore();
-  const { data: receipts } = useReceiptStore();
+  const { data: receipts } = useAllReceipts();
   const { data: orders } = useAllOrders();
   const { update: updateOrder } = useOrderStore();
-  const { findById: findWarrantyById, addHistory } = useWarrantyStore();
-  const { data: paymentTypes } = usePaymentTypeStore();
-  const { data: paymentMethods } = usePaymentMethodStore();
-  const { accounts } = useCashbookStore();
+  const { addHistory } = useWarrantyStore();
+  const { findById: findWarrantyById } = useWarrantyFinder();
+  const { data: paymentTypes } = useAllPaymentTypes();
+  const { data: paymentMethods } = useAllPaymentMethods();
+  const { accounts } = useAllCashAccounts();
   const { employee: authEmployee } = useAuth();
 
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
@@ -154,17 +157,9 @@ export function WarrantyPaymentVoucherDialog({
     
     const state = calculateWarrantyProcessingState(ticket, payments, receipts, totalPaymentFromTicket);
     
-    console.log('💰 [ACTUAL REMAINING CALCULATION]', {
-      totalPaymentFromTicket,
-      remainingAmount: state.remainingAmount,
-      warrantySystemId,
-      paymentsCount: state.warrantyPayments.length,
-      receiptsCount: state.warrantyReceipts.length,
-      warrantyPaymentsTotal: state.warrantyPayments.reduce((sum, p) => p.status !== 'cancelled' ? sum + p.amount : sum, 0)
-    });
     
     return state.remainingAmount;
-  }, [ticket, payments, receipts, warrantySystemId]);
+  }, [ticket, payments, receipts]);
 
   const { control, handleSubmit, watch, reset, setValue } = useForm<FormValues>({
     defaultValues: {
@@ -525,7 +520,7 @@ export function WarrantyPaymentVoucherDialog({
       recipientTypeName: 'Khách hàng',
       recipientName: customer.name,
       description: `${baseNotes} - Chi trực tiếp`,
-      paymentMethodSystemId: selectedPaymentMethod.systemId,
+      paymentMethodSystemId: asSystemId(selectedPaymentMethod.systemId as string),
       paymentMethodName: selectedPaymentMethod.name,
       accountSystemId: asSystemId(values.accountSystemId || ''),
       paymentReceiptTypeSystemId: warrantyRefundType.systemId,
@@ -611,14 +606,6 @@ export function WarrantyPaymentVoucherDialog({
       const currentState = calculateWarrantyProcessingState(ticket, payments, receipts, totalPaymentFromTicket);
       const currentRemainingAmount = currentState.remainingAmount;
       
-      console.log('💰 [PAYMENT VALIDATION]', {
-        totalPaymentFromTicket,
-        totalPayments: currentState.warrantyPayments.reduce((sum, p) => p.status !== 'cancelled' ? sum + p.amount : sum, 0),
-        totalReceipts: currentState.warrantyReceipts.reduce((sum, r) => r.status !== 'cancelled' ? sum + r.amount : sum, 0),
-        currentRemainingAmount,
-        attemptingToPay: values.amount,
-        willExceed: values.amount > currentRemainingAmount
-      });
 
       // Không cho thanh toán vượt quá số tiền còn phải trả
       if (values.amount > currentRemainingAmount) {
@@ -698,7 +685,7 @@ export function WarrantyPaymentVoucherDialog({
         description: values.notes || `Hoàn tiền bảo hành ${warrantyId}`,
         
         // Payment Method - From settings
-        paymentMethodSystemId: selectedPaymentMethod.systemId,
+        paymentMethodSystemId: asSystemId(selectedPaymentMethod.systemId as string),
         paymentMethodName: selectedPaymentMethod.name,
         
         // Account & Type - From settings

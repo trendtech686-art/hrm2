@@ -1,5 +1,5 @@
 import * as React from 'react';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../../hooks/use-fuse-search';
 import { Plus, RotateCcw, Trash2, Search, X, Edit, MoreHorizontal } from 'lucide-react';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Button } from '../../../components/ui/button';
@@ -66,23 +66,22 @@ export function PayrollTemplatesSettingsContent() {
   // Raw data
   const templates = templateStore.templates;
 
-  // Fuse.js for search
-  const fuse = React.useMemo(
-    () =>
-      new Fuse(templates, {
-        keys: ['id', 'name', 'description'],
-        threshold: 0.3,
-        includeScore: true,
-      }),
-    [templates]
+  // Fuse.js for search (lazy-loaded)
+  const fuseOptions = React.useMemo(
+    () => ({
+      keys: ['id', 'name', 'description'],
+      threshold: 0.3,
+      includeScore: true,
+    }),
+    []
   );
+  const searchedData = useFuseFilter(templates, searchQuery.trim(), fuseOptions);
 
   // Filtered data
   const filteredData = React.useMemo(() => {
     if (!searchQuery.trim()) return templates;
-    const searchResults = fuse.search(searchQuery.trim());
-    return searchResults.map((r) => r.item);
-  }, [templates, searchQuery, fuse]);
+    return searchedData;
+  }, [templates, searchQuery, searchedData]);
 
   // Handlers
   const handleOpenCreateDialog = React.useCallback(() => {

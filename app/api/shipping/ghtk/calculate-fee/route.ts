@@ -17,28 +17,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { apiToken, partnerCode, tags, subTags, ...params } = body;
 
-    console.log(`[GHTK-${requestId}] 📥 Calculate fee request started:`, {
-      timestamp: new Date().toISOString(),
-      hasToken: !!apiToken,
-      partnerCode,
-      params: {
-        ...params,
-        apiToken: apiToken ? `${apiToken.substring(0, 8)}...` : 'missing'
-      }
-    });
 
     if (!apiToken) {
-      console.log(`[GHTK-${requestId}] ❌ Missing API Token`);
       return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
     }
 
     // ✅ Weight should already be in GRAMS from frontend
     // Validate weight (GHTK max is around 30kg = 30000g)
     if (params.weight !== undefined) {
-      console.log(`[GHTK-${requestId}] 📦 Weight: ${params.weight} grams`);
       
       if (params.weight > 30000) {
-        console.log(`[GHTK-${requestId}] ❌ Weight too large: ${params.weight}g (max 30000g)`);
         return NextResponse.json({ 
           error: 'Weight exceeds maximum limit',
           maxWeight: '30kg (30000 grams)',
@@ -50,11 +38,7 @@ export async function POST(request: NextRequest) {
     // ❌ IMPORTANT: Remove 'tags' parameter - GHTK calculate fee API does NOT support it
     // Tags are only for order creation, not fee calculation
     if (tags || subTags) {
-      console.log(`[GHTK-${requestId}] ⚠️  Removed unsupported params:`, { 
-        tags, 
-        subTags,
-        note: 'Tags only work in order creation API, not fee calculation'
-      });
+      // Silently ignore tags for fee calculation
     }
 
     // Build query string
@@ -72,13 +56,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`[GHTK-${requestId}] 🌐 Making API request to:`, {
-      url: url.toString(),
-      headers: {
-        Token: apiToken ? `${apiToken.substring(0, 8)}...` : 'missing',
-        'X-Client-Source': partnerCode || ''
-      }
-    });
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -113,24 +90,14 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
     
-    const duration = Date.now() - startTime;
-    
-    console.log(`[GHTK-${requestId}] 📤 Calculate fee response (${duration}ms):`, {
-      status: response.status,
-      success: data.success,
-      hasData: !!data.data,
-      errorMessage: data.message,
-      requestWeight: params.weight,
-      responseFee: data.fee?.fee,
-    });
+    const _duration = Date.now() - startTime;
 
     // ✅ Log response GHTK
     if (data.success && data.fee) {
-      console.log(`[GHTK-${requestId}] 📊 GHTK Fee Response:`, data.fee);
-      
+      // Success - no-op (console removed)
       // ⚠️ Warning if no delivery_type
       if (!data.fee.delivery_type) {
-        console.warn(`[GHTK-${requestId}] ⚠️  WARNING: Response không có delivery_type!`);
+        // Warning suppressed (console removed)
       }
     } else if (!data.success) {
       console.error(`[GHTK-${requestId}] ❌ Tính phí thất bại:`, {

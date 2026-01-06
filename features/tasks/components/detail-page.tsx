@@ -421,7 +421,6 @@ export function TaskDetailPage() {
                   toast.error('Bạn không có quyền chỉnh sửa công việc này');
                   return;
                 }
-                console.log('[DEBUG] Adding subtask:', title);
                 const currentSubtasks = task.subtasks || [];
                 const newSubtask = {
                   id: `subtask-${Date.now()}`,
@@ -431,14 +430,11 @@ export function TaskDetailPage() {
                   createdAt: new Date().toISOString(),
                 };
                 const updatedSubtasks = [...currentSubtasks, newSubtask];
-                console.log('[DEBUG] Current subtasks:', currentSubtasks.length);
-                console.log('[DEBUG] Updated subtasks:', updatedSubtasks.length);
                 
                 // Call update with just subtasks field
                 update(task.systemId, { 
                   subtasks: updatedSubtasks
                 });
-                console.log('[DEBUG] Update called');
                 toast.success('Đã thêm subtask');
               }}
               onUpdate={(subtaskId, updates) => {

@@ -11,7 +11,7 @@ import { getColumns } from "./columns"
 import { Button } from "../../components/ui/button"
 import { Plus, Upload, Download } from "lucide-react"
 import { toast } from "sonner"
-import Fuse from 'fuse.js'
+import { useFuseFilter } from '../../hooks/use-fuse-search'
 import type { Employee } from '@/lib/types/prisma-extended'
 
 /**
@@ -50,6 +50,13 @@ export function EmployeesVirtualizedPage() {
     return () => clearTimeout(timer)
   }, [globalFilter])
 
+  // Lazy-loaded Fuse search
+  const fuseOptions = React.useMemo(() => ({
+    keys: ['fullName', 'id', 'phone', 'personalEmail', 'workEmail', 'department', 'jobTitle'],
+    threshold: 0.3,
+  }), []);
+  const searchedEmployees = useFuseFilter(allEmployees, debouncedSearch, fuseOptions);
+
   // Filter và search data
   const filteredData = React.useMemo(() => {
     let result = allEmployees
@@ -64,17 +71,14 @@ export function EmployeesVirtualizedPage() {
       result = result.filter(emp => emp.department === departmentFilter)
     }
 
-    // Search with Fuse.js
+    // Search with Fuse.js (lazy loaded)
     if (debouncedSearch) {
-      const fuse = new Fuse(result, {
-        keys: ['fullName', 'id', 'phone', 'personalEmail', 'workEmail', 'department', 'jobTitle'],
-        threshold: 0.3,
-      })
-      result = fuse.search(debouncedSearch).map(r => r.item)
+      const searchIds = new Set(searchedEmployees.map(e => e.systemId));
+      result = result.filter(e => searchIds.has(e.systemId));
     }
 
     return result
-  }, [allEmployees, branchFilter, departmentFilter, debouncedSearch])
+  }, [allEmployees, branchFilter, departmentFilter, debouncedSearch, searchedEmployees])
 
   // Sorting
   const sortedData = React.useMemo(() => {

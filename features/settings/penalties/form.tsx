@@ -4,7 +4,8 @@ import { toISODate } from '../../../lib/date-utils';
 import type { Penalty, PenaltyType } from './types';
 import { penaltyCategoryLabels } from './types';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
-import { usePenaltyStore, usePenaltyTypeStore } from './store';
+import { usePenaltyStore } from './store';
+import { useAllPenaltyTypes } from './hooks/use-all-penalties';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
 import { Input } from '../../../components/ui/input';
@@ -28,7 +29,7 @@ interface PenaltyFormProps {
 export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDelete: _onDelete }: PenaltyFormProps) {
   const { data: employees } = useAllEmployees();
   const { data: _penalties } = usePenaltyStore();
-  const { data: penaltyTypes } = usePenaltyTypeStore();
+  const { data: penaltyTypes } = useAllPenaltyTypes();
   
   // Filter active penalty types
   const activePenaltyTypes = React.useMemo(() => 

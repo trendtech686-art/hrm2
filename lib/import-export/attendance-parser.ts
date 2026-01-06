@@ -12,7 +12,7 @@
  * - Row 4+: Dữ liệu nhân viên
  */
 
-import * as XLSX from 'xlsx';
+// XLSX is lazy loaded to reduce bundle size (~500KB)
 import type { AttendanceImportRow } from '@/lib/import-export/types';
 
 // ============================================
@@ -35,8 +35,11 @@ export interface AttendanceParseResult {
 /**
  * Parse file chấm công từ máy CC
  */
-export function parseAttendanceFile(file: ArrayBuffer): AttendanceParseResult {
+export async function parseAttendanceFile(file: ArrayBuffer): Promise<AttendanceParseResult> {
   try {
+    // Lazy load XLSX to reduce bundle size (~500KB)
+    const XLSX = await import('xlsx');
+    
     const workbook = XLSX.read(file, { type: 'array' });
     
     // Tìm sheet "Bảng tổng hợp chấm công"
@@ -202,7 +205,10 @@ export function parseWorkDays(workDays: string): { standard: number; actual: num
 /**
  * Get available sheets in workbook
  */
-export function getAvailableSheets(file: ArrayBuffer): string[] {
+export async function getAvailableSheets(file: ArrayBuffer): Promise<string[]> {
+  // Lazy load XLSX to reduce bundle size (~500KB)
+  const XLSX = await import('xlsx');
+  
   const workbook = XLSX.read(file, { type: 'array' });
   return workbook.SheetNames;
 }
@@ -210,11 +216,14 @@ export function getAvailableSheets(file: ArrayBuffer): string[] {
 /**
  * Preview first N rows of a sheet
  */
-export function previewSheet(
+export async function previewSheet(
   file: ArrayBuffer,
   sheetName: string,
   maxRows = 10
-): unknown[][] {
+): Promise<unknown[][]> {
+  // Lazy load XLSX to reduce bundle size (~500KB)
+  const XLSX = await import('xlsx');
+  
   const workbook = XLSX.read(file, { type: 'array' });
   const sheet = workbook.Sheets[sheetName];
   

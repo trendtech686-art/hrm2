@@ -109,7 +109,6 @@ export function EmployeesPageTanStackTest() {
   // Handle bulk actions
   const handleRowSelectionChange = React.useCallback((rows: Employee[]) => {
     setSelectedRows(rows);
-    console.log('Selected:', rows.length, 'employees');
   }, []);
 
   return (
@@ -178,7 +177,6 @@ export function EmployeesPageTanStackTest() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  console.log('Export:', selectedRows);
                   toast.info('Xuất Excel: ' + selectedRows.length + ' nhân viên');
                 }}
               >

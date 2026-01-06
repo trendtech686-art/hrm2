@@ -33,7 +33,6 @@ export async function GET(
       }, { status: 500 });
     }
 
-    console.log(`[GHTK-TRACK-${requestId}] Tracking:`, trackingCode);
 
     const response = await fetch(`${GHTK_API_BASE}/services/shipment/v2/${trackingCode}`, {
       method: 'GET',
@@ -45,11 +44,6 @@ export async function GET(
 
     const data = await response.json();
     
-    console.log(`[GHTK-TRACK-${requestId}] Response:`, {
-      status: response.status,
-      success: data.success,
-      orderStatus: data.order?.status
-    });
 
     return NextResponse.json(data);
   } catch (error) {

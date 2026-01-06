@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useStockTransferStore } from '../store';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
-import { useStorageLocationStore } from '@/features/settings/inventory/storage-location-store';
+import { useStorageLocationFinder } from '@/features/settings/inventory/hooks/use-storage-locations';
 import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -72,7 +72,7 @@ export function StockTransferFormPage() {
   const { user } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   
-  const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
+  const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationFinder();
   
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);

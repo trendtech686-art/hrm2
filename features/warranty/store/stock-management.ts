@@ -20,14 +20,12 @@ export function commitWarrantyStock(ticket: WarrantyTicket) {
     
     replaceProducts.forEach(warrantyProduct => {
       if (!warrantyProduct.sku) {
-        console.warn('Sản phẩm thiếu SKU, bỏ qua commit:', warrantyProduct.productName);
         return;
       }
       
       const product = productCache.get(warrantyProduct.sku);
       
       if (!product) {
-        console.warn('Không tìm thấy sản phẩm trong kho:', warrantyProduct.sku);
         return;
       }
       
@@ -36,13 +34,6 @@ export function commitWarrantyStock(ticket: WarrantyTicket) {
       // Reuse productStore.commitStock()
       productStore.commitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToCommit);
       
-      console.log('✅ [COMMIT STOCK] Giữ hàng thay thế:', {
-        productId: product.id,
-        productName: product.name,
-        quantity: quantityToCommit,
-        warranty: ticket.id,
-        branch: ticket.branchName
-      });
     });
   }
 }
@@ -68,12 +59,7 @@ export function uncommitWarrantyStock(ticket: WarrantyTicket, options?: { silent
       const quantityToUncommit = warrantyProduct.quantity || 1;
       
       // Reuse productStore.uncommitStock()
-      productStore.uncommitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToUncommit);        console.log('Đã uncommit stock:', {
-          productId: product.id,
-          quantity: quantityToUncommit,
-          warranty: ticket.id
-        });
-      }
+      productStore.uncommitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToUncommit);              }
     });
     
     if (!options?.silent) {
@@ -90,13 +76,6 @@ export function uncommitWarrantyStock(ticket: WarrantyTicket, options?: { silent
  * NEW LOGIC: Bước 4 - Kết thúc
  */
 export function deductWarrantyStock(ticket: WarrantyTicket) {
-  console.log('📤 [DEDUCT FUNCTION CALLED]:', {
-    ticketId: ticket.id,
-    ticketStatus: ticket.status,
-    stockDeducted: ticket.stockDeducted,
-    productsCount: ticket.products.length,
-    replaceProducts: ticket.products.filter(p => p.resolution === 'replace').length
-  });
   
   const replacedProducts = ticket.products.filter(p => p.resolution === 'replace');
   
@@ -127,12 +106,6 @@ export function deductWarrantyStock(ticket: WarrantyTicket) {
       const currentInventory = product.inventoryByBranch[ticket.branchSystemId] || 0;
       const quantityToDeduct = warrantyProduct.quantity || 1;
       
-      console.log('📤 [DEDUCT] Before:', {
-        productId: product.id,
-        currentInventory,
-        quantityToDeduct,
-        branchSystemId: ticket.branchSystemId
-      });
       
       if (currentInventory < quantityToDeduct) {
         deductionResults.push(`${product.name} (${product.id}): Không đủ hàng (Tồn: ${currentInventory}, Cần: ${quantityToDeduct})`);
@@ -151,11 +124,6 @@ export function deductWarrantyStock(ticket: WarrantyTicket) {
       const updatedProduct = freshProductStore.data.find(p => p.systemId === product.systemId);
       const newStockLevel = updatedProduct?.inventoryByBranch[ticket.branchSystemId] || currentInventory - quantityToDeduct;
       
-      console.log('✅ [DEDUCT] After:', {
-        productId: product.id,
-        newStockLevel,
-        expectedLevel: currentInventory - quantityToDeduct
-      });
       
       stockHistoryStore.addEntry({
         productId: asSystemId(product.systemId),
@@ -191,13 +159,6 @@ export function deductWarrantyStock(ticket: WarrantyTicket) {
  * NEW LOGIC: +Tồn kho + +Đang giao dịch
  */
 export function rollbackWarrantyStock(ticket: WarrantyTicket) {
-  console.log('🔄 [ROLLBACK FUNCTION CALLED]:', {
-    ticketId: ticket.id,
-    ticketStatus: ticket.status,
-    stockDeducted: ticket.stockDeducted,
-    productsCount: ticket.products.length,
-    replaceProducts: ticket.products.filter(p => p.resolution === 'replace').length
-  });
   
   const replacedProducts = ticket.products.filter(p => p.resolution === 'replace');
   
@@ -225,12 +186,6 @@ export function rollbackWarrantyStock(ticket: WarrantyTicket) {
       const quantityToRollback = warrantyProduct.quantity || 1;
       const currentInventory = product.inventoryByBranch[ticket.branchSystemId] || 0;
       
-      console.log('🔄 [ROLLBACK] Before:', {
-        productId: product.id,
-        currentInventory,
-        quantityToRollback,
-        branchSystemId: ticket.branchSystemId
-      });
       
       // ✅ Hoàn kho: +Tồn kho (warranty xuất trực tiếp, không qua inTransit)
       productStore.updateInventory(product.systemId as SystemId, ticket.branchSystemId, quantityToRollback);
@@ -240,11 +195,6 @@ export function rollbackWarrantyStock(ticket: WarrantyTicket) {
       const updatedProduct = freshProductStore.data.find(p => p.systemId === product.systemId);
       const newStockLevel = updatedProduct?.inventoryByBranch[ticket.branchSystemId] || currentInventory + quantityToRollback;
       
-      console.log('✅ [ROLLBACK] After:', {
-        productId: product.id,
-        newStockLevel,
-        expectedLevel: currentInventory + quantityToRollback
-      });
       
       // Note: Không cần uncommit vì khi deduct đã uncommit rồi
       

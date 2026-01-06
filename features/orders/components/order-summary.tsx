@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { toast } from 'sonner';
 import { useFormContext, useWatch, useFieldArray, Controller } from 'react-hook-form';
 import { PlusCircle, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -7,8 +8,8 @@ import { CurrencyInput } from '../../../components/ui/currency-input';
 import { Separator } from '../../../components/ui/separator';
 import { Button } from '../../../components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../components/ui/select';
-import { usePaymentMethodStore } from '../../settings/payments/methods/store';
-import { useShippingPartnerStore } from '../../settings/shipping/store';
+import { useAllPaymentMethods } from '../../settings/payments/hooks/use-all-payment-methods';
+import { useAllShippingPartners } from '../../settings/shipping/hooks/use-all-shipping-partners';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { useDebounce } from '../../../hooks/use-debounce';
 
@@ -22,8 +23,8 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
     const { subtotal, shippingFee, grandTotal, payments = [], orderDiscount, orderDiscountType, voucherAmount, deliveryMethod, shippingPartnerId, customer, weight, serviceFees = [] } = useWatch({ control });
 
     const { fields, append, remove } = useFieldArray({ control, name: 'payments' });
-    const { data: paymentMethodsData } = usePaymentMethodStore();
-    const { data: partners } = useShippingPartnerStore();
+    const { data: paymentMethodsData } = useAllPaymentMethods();
+    const { data: partners } = useAllShippingPartners();
     const defaultPaymentMethod = React.useMemo(() => paymentMethodsData.find(pm => pm.isDefault)?.name || 'Tiền mặt', [paymentMethodsData]);
     
     // ✅ PHASE 2: Use useWatch for lineItems count instead of calling it in render
@@ -77,12 +78,12 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
     // Mock function to get suggested shipping fee
     const _handleGetSuggestedFee = React.useCallback(() => {
         if (deliveryMethod !== 'shipping-partner') {
-            alert('Vui lòng chọn phương thức "Đẩy qua hãng vận chuyển"');
+            toast.error('Vui lòng chọn phương thức "Đẩy qua hãng vận chuyển"');
             return;
         }
         
         if (!customer?.shippingAddress_province || !weight) {
-            alert('Vui lòng điền đầy đủ thông tin: địa chỉ giao hàng và cân nặng');
+            toast.error('Vui lòng điền đầy đủ thông tin: địa chỉ giao hàng và cân nặng');
             return;
         }
         
@@ -93,7 +94,7 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
         const suggestedFee = baseFee + weightFee;
         
         setValue('shippingFee', suggestedFee);
-        alert(`Phí gợi ý từ ${partner?.name || 'hãng vận chuyển'}: ${formatCurrency(suggestedFee)}đ`);
+        toast.success(`Phí gợi ý từ ${partner?.name || 'hãng vận chuyển'}: ${formatCurrency(suggestedFee)}đ`);
     }, [deliveryMethod, customer, weight, shippingPartnerId, partners, setValue]);
     
     const paymentMethods = [

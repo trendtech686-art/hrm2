@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for payroll management
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchPayrolls,
   fetchPayrollById,
@@ -69,6 +69,7 @@ export function usePayrolls(filters: PayrollFilters = {}) {
     queryKey: payrollKeys.list(filters),
     queryFn: () => fetchPayrolls(filters),
     staleTime: 1000 * 60 * 2, // 2 minutes
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -170,6 +171,7 @@ export function usePayslips(filters: PayslipFilters = {}) {
     queryKey: payslipKeys.list(filters),
     queryFn: () => fetchPayslips(filters),
     staleTime: 1000 * 60,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -182,6 +184,7 @@ export function usePayslipsByBatch(batchId: string | undefined) {
     queryFn: () => fetchPayslips({ batchId: batchId!, limit: 200 }),
     enabled: !!batchId,
     staleTime: 1000 * 60,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -253,6 +256,7 @@ export function usePayrollTemplates(filters: PayrollTemplateFilters = {}) {
     queryKey: payrollTemplateKeys.list(filters),
     queryFn: () => fetchPayrollTemplates(filters),
     staleTime: 1000 * 60 * 5, // 5 minutes - templates don't change often
+    placeholderData: keepPreviousData,
   });
 }
 

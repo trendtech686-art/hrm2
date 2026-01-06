@@ -6,7 +6,7 @@
  * localStorage đã bị remove khỏi codebase
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 
 const API_BASE = '/api/user-preferences'
@@ -311,27 +311,46 @@ export interface ColumnLayoutSetters {
   setPinned: (pinned: string[]) => void
 }
 
+// Stable empty defaults to prevent re-renders
+const EMPTY_VISIBILITY: Record<string, boolean> = {}
+const EMPTY_ORDER: string[] = []
+const EMPTY_PINNED: string[] = []
+
 export function useColumnLayout(
   tableName: string,
   defaults: Partial<ColumnLayout> = {}
 ): [ColumnLayout, ColumnLayoutSetters, boolean] {
+  // Use stable empty defaults if not provided
+  const defaultVisibility = defaults.visibility ?? EMPTY_VISIBILITY
+  const defaultOrder = defaults.order ?? EMPTY_ORDER
+  const defaultPinned = defaults.pinned ?? EMPTY_PINNED
+  
   const [visibility, setVisibility, loadingVis] = useColumnVisibility(
     tableName, 
-    defaults.visibility || {}
+    defaultVisibility
   )
   const [order, setOrder, loadingOrder] = useColumnOrder(
     tableName, 
-    defaults.order || []
+    defaultOrder
   )
   const [pinned, setPinned, loadingPinned] = usePinnedColumns(
     tableName, 
-    defaults.pinned || []
+    defaultPinned
   )
 
   const isLoading = loadingVis || loadingOrder || loadingPinned
 
-  const layout: ColumnLayout = { visibility, order, pinned }
-  const setters: ColumnLayoutSetters = { setVisibility, setOrder, setPinned }
+  // ✅ Memoize layout object to prevent re-renders
+  const layout: ColumnLayout = useMemo(
+    () => ({ visibility, order, pinned }),
+    [visibility, order, pinned]
+  )
+  
+  // ✅ Memoize setters object to prevent re-renders
+  const setters: ColumnLayoutSetters = useMemo(
+    () => ({ setVisibility, setOrder, setPinned }),
+    [setVisibility, setOrder, setPinned]
+  )
 
   return [layout, setters, isLoading]
 }

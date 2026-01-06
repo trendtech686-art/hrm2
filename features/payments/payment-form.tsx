@@ -3,15 +3,15 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
-import { usePaymentTypeStore } from '../settings/payments/types/store';
-import { usePaymentMethodStore } from '../settings/payments/methods/store';
-import { useTargetGroupStore } from '../settings/target-groups/store';
-import { useCashbookStore } from '../cashbook/store';
+import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
+import { useAllPaymentMethods } from '../settings/payments/hooks/use-all-payment-methods';
+import { useAllTargetGroups } from '../settings/target-groups/hooks/use-all-target-groups';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllCustomers } from '../customers/hooks/use-all-customers';
-import { useSupplierStore } from '../suppliers/store';
+import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
-import { useShippingPartnerStore } from '../settings/shipping/store';
+import { useAllShippingPartners } from '../settings/shipping/hooks/use-all-shipping-partners';
 import { VirtualizedCombobox, type ComboboxOption } from '../../components/ui/virtualized-combobox';
 import { CurrencyInput } from '../../components/ui/currency-input';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -41,15 +41,15 @@ interface PaymentFormProps {
 
 export function PaymentForm({ initialData, onSubmit, isEditing = false }: PaymentFormProps) {
   const router = useRouter();
-  const { data: paymentTypes } = usePaymentTypeStore();
-  const { data: paymentMethods } = usePaymentMethodStore();
-  const { data: targetGroups } = useTargetGroupStore();
-  const { accounts } = useCashbookStore();
+  const { data: paymentTypes } = useAllPaymentTypes();
+  const { data: paymentMethods } = useAllPaymentMethods();
+  const { data: targetGroups } = useAllTargetGroups();
+  const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
   const { data: customers } = useAllCustomers();
-  const { data: suppliers } = useSupplierStore();
+  const { data: suppliers } = useAllSuppliers();
   const { data: employees } = useAllEmployees();
-  const { data: shippingPartners } = useShippingPartnerStore();
+  const { data: shippingPartners } = useAllShippingPartners();
 
   // Chỉ lấy active items
   const activePaymentTypes = paymentTypes.filter(pt => pt.isActive);

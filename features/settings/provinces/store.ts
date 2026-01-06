@@ -21,17 +21,14 @@ let dataLoadedState = {
 
 const provinceBaseStore = createCrudStore<Province>(normalizedProvinces, 'provinces', {
   businessIdField: 'id',
-  persistKey: 'hrm-provinces',
   getCurrentUser: getCurrentUserSystemId,
 });
 
 const districtBaseStore = createCrudStore<District>(normalizedDistricts, 'districts', {
-  persistKey: 'hrm-districts',
   getCurrentUser: getCurrentUserSystemId,
 });
 
 const wardBaseStore = createCrudStore<Ward>(normalizedWards, 'wards', {
-  persistKey: 'hrm-wards',
   getCurrentUser: getCurrentUserSystemId,
 });
 

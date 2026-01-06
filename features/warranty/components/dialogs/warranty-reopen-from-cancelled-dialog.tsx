@@ -18,6 +18,7 @@ import {
 import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket, WarrantyHistory } from '../../types';
 import { useWarrantyStore } from '../../store';
+import { useWarrantyFinder } from '../../hooks/use-all-warranties';
 import { useProductStore } from '../../../products/store';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
@@ -42,7 +43,8 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
   const { user, employee } = useAuth();
   const performerName = employee?.fullName ?? user?.name ?? 'Hệ thống';
   const performerSystemId = employee?.systemId ?? user?.employeeId;
-  const { update, findById } = useWarrantyStore();
+  const { update } = useWarrantyStore();
+  const { findById } = useWarrantyFinder();
 
   const handleReopen = React.useCallback(() => {
     if (!ticket || !reopenReason.trim()) {
@@ -67,20 +69,12 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
           const productSystemId = warrantyProduct.productSystemId ?? fallbackProduct?.systemId;
 
           if (!productSystemId) {
-            console.warn('[WARRANTY REOPEN] Không tìm thấy SystemId cho sản phẩm:', warrantyProduct.productName || warrantyProduct.sku);
             return;
           }
 
           const quantityToCommit = warrantyProduct.quantity || 1;
           productStore.commitStock(productSystemId, ticket.branchSystemId, quantityToCommit);
 
-          console.log('[WARRANTY REOPEN] Đã giữ lại hàng:', {
-            productSystemId,
-            productId: fallbackProduct?.id ?? warrantyProduct.sku,
-            productName: fallbackProduct?.name ?? warrantyProduct.productName,
-            quantity: quantityToCommit,
-            warranty: ticket.id,
-          });
         });
         
         toast.info('Đã giữ hàng cho phiếu bảo hành', {

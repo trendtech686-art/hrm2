@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
 import { useAllOrders } from '../../orders/hooks/use-all-orders';
-import { useWarrantyStore } from '../../warranty/store';
+import { useAllWarranties } from '../../warranty/hooks/use-all-warranties';
 import { useProductFinder } from '../hooks/use-all-products';
 import { SystemId } from '../../../lib/id-types';
 
@@ -27,7 +27,7 @@ export function CommittedStockDialog({
   productName,
 }: CommittedStockDialogProps) {
   const { data: allOrders } = useAllOrders();
-  const { data: allWarranties } = useWarrantyStore();
+  const { data: allWarranties } = useAllWarranties();
   const { findById: findProductById } = useProductFinder();
   const router = useRouter();
 

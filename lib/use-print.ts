@@ -213,7 +213,6 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
     // Bước 1: Xử lý line items nếu có
     let html = templateContent;
     
-    console.log('[processTemplate] Starting, lineItems count:', lineItems?.length);
     
     if (lineItems && lineItems.length > 0) {
       // === XỬ LÝ CÚ PHÁP {{#line_items}}...{{/line_items}} ===
@@ -221,7 +220,6 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
       const lineItemsBlockPattern = /\{\{#line_items\}\}([\s\S]*?)\{\{\/line_items\}\}/gi;
       const lineItemsBlockMatch = html.match(lineItemsBlockPattern);
       
-      console.log('[processTemplate] Block match found:', !!lineItemsBlockMatch, lineItemsBlockMatch?.length);
       
       if (lineItemsBlockMatch && lineItemsBlockMatch.length > 0) {
         // Có block {{#line_items}} - lặp cả block cho mỗi item
@@ -357,9 +355,6 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
   const print = React.useCallback((type: TemplateType, options: PrintOptions) => {
     const { data, lineItems, paperSize, branchId } = options;
 
-    console.log('[usePrint] Starting print for type:', type);
-    console.log('[usePrint] Data keys:', Object.keys(data));
-    console.log('[usePrint] LineItems count:', lineItems?.length || 0);
 
     // Lấy template content
     const size = paperSize || templateStore.getDefaultSize(type);
@@ -370,13 +365,11 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
       return;
     }
 
-    console.log('[usePrint] Template found, length:', templateContent.length);
 
     // Xử lý template
     let html: string;
     try {
       html = processTemplate(templateContent, data, lineItems);
-      console.log('[usePrint] Template processed, html length:', html.length);
     } catch (err) {
       console.error('[usePrint] Error processing template:', err);
       return;
@@ -541,7 +534,6 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
       const templateContent = getTemplateContent(type, size, branchId);
       
       if (!templateContent) {
-        console.warn(`[printMixedDocuments] No template found for type: ${type}, skipping`);
         return;
       }
       

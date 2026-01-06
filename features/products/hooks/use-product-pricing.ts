@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { usePricingPolicyStore } from '../../settings/pricing/store';
+import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
 import type { PricingPolicy } from '../../settings/pricing/types';
 import type { Product } from '../types';
 import { calculateComboPrice, isComboProduct } from '../combo-utils';
@@ -17,7 +17,7 @@ import type { SystemId } from '@/lib/id-types';
  * Get default selling pricing policy (reactive)
  */
 export function useDefaultSellingPolicy(): PricingPolicy | undefined {
-  const { data: pricingPolicies } = usePricingPolicyStore();
+  const { data: pricingPolicies } = useAllPricingPolicies();
   
   return React.useMemo(() => {
     return pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
@@ -28,7 +28,7 @@ export function useDefaultSellingPolicy(): PricingPolicy | undefined {
  * Get all selling pricing policies (reactive)
  */
 export function useSalesPolicies(): PricingPolicy[] {
-  const { data: pricingPolicies } = usePricingPolicyStore();
+  const { data: pricingPolicies } = useAllPricingPolicies();
   
   return React.useMemo(() => {
     return pricingPolicies.filter(p => p.type === 'Bán hàng');
@@ -66,7 +66,7 @@ export function useProductDefaultPrice(product: Product | null | undefined): num
  * Get product prices for all policies (reactive)
  */
 export function useProductPrices(product: Product | null | undefined): Record<string, number> {
-  const { data: pricingPolicies } = usePricingPolicyStore();
+  const { data: pricingPolicies } = useAllPricingPolicies();
   const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {
@@ -100,7 +100,7 @@ export function usePriceWithPolicyName(
   product: Product | null | undefined, 
   policySystemId: string
 ): { price: number; policyName: string } {
-  const { data: pricingPolicies } = usePricingPolicyStore();
+  const { data: pricingPolicies } = useAllPricingPolicies();
   const { data: allProducts } = useAllProducts();
   
   return React.useMemo(() => {

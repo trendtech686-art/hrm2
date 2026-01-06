@@ -248,10 +248,6 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       };
       
       // DEBUG: Log payload để kiểm tra
-      console.log('[PKGX SEO Sync] Product:', product.name);
-      console.log('[PKGX SEO Sync] seoPkgx:', product.seoPkgx);
-      console.log('[PKGX SEO Sync] SEO Chung - seoKeywords:', product.seoKeywords);
-      console.log('[PKGX SEO Sync] Payload being sent:', seoPayload);
       
       const response = await updateProduct(product.pkgxId, seoPayload);
       
@@ -464,7 +460,6 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       if (!url) return false;
       // Bỏ qua localhost, 127.0.0.1, hoặc internal IP
       if (url.includes('localhost') || url.includes('127.0.0.1') || url.includes('192.168.')) {
-        console.log('[PKGX Sync Images] Skipping local URL:', url);
         return false;
       }
       return true;
@@ -475,7 +470,6 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       const { FileUploadAPI } = await import('@/lib/file-upload-api');
       const files = await FileUploadAPI.getProductFiles(product.systemId);
       
-      console.log('[PKGX Sync Images] Files from HRM server:', files);
       
       // Phân loại ảnh theo documentName - CHỈ lấy URL public
       for (const file of files) {
@@ -485,17 +479,11 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
           galleryUrls.push(file.url);
         }
       }
-    } catch (fetchError) {
-      console.warn('[PKGX Sync Images] Không thể lấy ảnh từ HRM server:', fetchError);
+    } catch (_fetchError) {
+      // Silently fail - fallback to product object
     }
 
     // ===== STEP 2: Fallback về product object nếu server không có ảnh =====
-    console.log('[PKGX Sync Images] Product:', product.name, 'systemId:', product.systemId);
-    console.log('[PKGX Sync Images] Thumbnails from server:', thumbnailUrls);
-    console.log('[PKGX Sync Images] Gallery from server:', galleryUrls);
-    console.log('[PKGX Sync Images] product.thumbnailImage:', product.thumbnailImage);
-    console.log('[PKGX Sync Images] product.galleryImages:', product.galleryImages);
-    console.log('[PKGX Sync Images] product.images (legacy):', product.images);
 
     // Nếu server không có, dùng từ product object - CHỈ lấy URL public
     if (thumbnailUrls.length === 0 && product.thumbnailImage && isPublicUrl(product.thumbnailImage)) {
@@ -528,15 +516,11 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       galleryUrls.push(...permanentGallery.map(f => f.url).filter(url => url && isPublicUrl(url)));
     }
 
-    console.log('[PKGX Sync Images] permanentThumbnails from imageStore:', permanentThumbnails);
-    console.log('[PKGX Sync Images] permanentGallery from imageStore:', permanentGallery);
 
     // Final main image và gallery
     const mainImage = thumbnailUrls[0] || null;
     const galleryImages = galleryUrls;
 
-    console.log('[PKGX Sync Images] Final mainImage:', mainImage);
-    console.log('[PKGX Sync Images] Final galleryImages to sync:', galleryImages);
 
     if (!mainImage && galleryImages.length === 0) {
       toast.error('Sản phẩm chưa có hình ảnh', { id: 'pkgx-sync-images' });

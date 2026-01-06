@@ -47,10 +47,7 @@ export function WarrantyReopenFromReturnedDialog({ open, onOpenChange, ticket }:
       // - Mở lại CHỈ để xem lại, không được sửa/thay đổi gì
       // - Nếu muốn điều chỉnh → Phải thao tác thêm (tạo phiếu mới, hoàn hàng thủ công, etc.)
       if (ticket.status === 'completed') {
-        console.log('📋 [REOPEN FROM COMPLETED] Chỉ mở để xem, không động kho/voucher:', {
-          ticketId: ticket.id,
-          note: 'Read-only reopen - No inventory/payment changes'
-        });
+        // No-op: Completed tickets are reopened for viewing only
       }
       
       // ✅ Pass lý do mở lại vào note parameter

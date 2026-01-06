@@ -32,7 +32,7 @@ import { usePenaltyStore } from '../settings/penalties/store';
 import type { PayrollAuditAction, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types';
 import { ensureSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 import { usePrint } from '../../lib/use-print';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import {
   convertPayrollBatchForPrint,
   convertPayslipForPrint,
@@ -491,7 +491,7 @@ export function PayrollDetailPage() {
   const allPenalties = usePenaltyStore((state) => state.data);
 
   // Print integration
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print, printMultiple } = usePrint();
 
   // Dialog state
@@ -726,8 +726,6 @@ export function PayrollDetailPage() {
     );
 
     // Debug: log components
-    console.log('[PayslipPrint] payslip.components:', payslip.components);
-    console.log('[PayslipPrint] payslipForPrint.components:', payslipForPrint.components);
 
     // Use payslip template (not payroll)
     print('payslip', {

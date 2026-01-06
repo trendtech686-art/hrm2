@@ -148,7 +148,7 @@ export function useAuth() {
   if (!context) {
     // Development warning
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-      console.warn('useAuth must be used within AuthProvider - returning default values');
+      // useAuth called outside AuthProvider
     }
     // Return safe defaults instead of throwing
     return {

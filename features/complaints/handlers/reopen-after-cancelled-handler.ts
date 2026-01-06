@@ -27,10 +27,8 @@ export async function handleReopenAfterCancelled(
   updateComplaint: (systemId: string, updates: Partial<Complaint>) => void
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('[REOPEN-AFTER-CANCEL] Starting...');
     
     // Khong can huy phieu/kho vi da huy roi
-    console.log('[REOPEN-AFTER-CANCEL] Skip cancel (already cancelled)');
     
     // Build timeline action
     const timeline: ComplaintAction[] = [
@@ -54,21 +52,10 @@ export async function handleReopenAfterCancelled(
       reopenedAt: new Date(),
     };
     
-    console.log('[REOPEN-AFTER-CANCEL] Updating with:', {
-      status: updates.status,
-      preservedFields: {
-        cancelledPaymentsReceipts: !!complaint.cancelledPaymentsReceipts,
-        inventoryHistory: !!complaint.inventoryHistory,
-        inventoryAdjustment: !!complaint.inventoryAdjustment,
-        compensationMetadata: !!(complaint as Complaint & { compensationMetadata?: unknown }).compensationMetadata,
-        verification: complaint.verification,
-      }
-    });
     
     // Update
     updateComplaint(complaint.systemId, updates);
     
-    console.log('[REOPEN-AFTER-CANCEL] Complete!');
     
     toast.success('Đã mở lại khiếu nại');
     

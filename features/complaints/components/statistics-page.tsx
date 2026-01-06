@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/contexts/page-header-context";
 
-import { useComplaintStore } from "../store";
-import { useEmployeeStore } from "@/features/employees/store";
+import { useAllComplaints } from "../hooks/use-all-complaints";
+import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
 import { useComplaintStatistics } from "../hooks/use-complaint-statistics";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/lib/router";
@@ -106,8 +106,8 @@ function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }:
  */
 export function ComplaintStatisticsPage() {
   const router = useRouter();
-  const { complaints } = useComplaintStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: complaints } = useAllComplaints();
+  const { data: employees } = useAllEmployees();
 
   const stats = useComplaintStatistics(complaints, employees);
 

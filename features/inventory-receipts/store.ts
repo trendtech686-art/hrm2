@@ -1,15 +1,12 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory';
-import { data as initialData } from './data';
 import type { InventoryReceipt, InventoryReceiptLineItem } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from '../../lib/id-types';
 import { useProductStore } from '../products/store';
 
 const baseStore = createCrudStore<InventoryReceipt>(
-  initialData,
+  [],
   'inventory-receipts',
-  {
-    persistKey: 'hrm-inventory-receipts',
-  }
+  {}
 );
 
 export interface InventoryReceiptStoreState extends CrudState<InventoryReceipt> {

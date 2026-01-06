@@ -59,6 +59,14 @@ const specificAddressCache = new Map<string, {
   timestamp: number;
 }>();
 
+// ✅ In-memory cache for pick addresses (1 hour) - NO localStorage
+const PICK_ADDRESS_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+const pickAddressCache = new Map<string, {
+  data: GHTKPickAddress[];
+  timestamp: number;
+  apiToken: string;
+}>();
+
 function getSpecificAddressCacheKey(province: string, district: string, ward: string): string {
   return `${province}|${district}|${ward}`.toLowerCase();
 }
@@ -132,38 +140,37 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
   }, [service.partnerCode]);
 
   const loadGHTKPickAddresses = async () => {
-    // ✅ CACHE LAYER: Check localStorage first (1 hour expiry)
-    const CACHE_KEY = 'ghtk_warehouses_cache_v1';
-    const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+    // ✅ CACHE LAYER: Check in-memory cache first (1 hour expiry)
+    const config = loadShippingConfig();
+    const ghtkData = config.partners.GHTK;
+    const defaultAccount = ghtkData?.accounts?.find(a => a.isDefault && a.active)
+      || ghtkData?.accounts?.find(a => a.active);
+    const currentToken = defaultAccount?.credentials?.apiToken as string | undefined;
     
-    const cached = localStorage.getItem(CACHE_KEY);
+    // Use apiToken as cache key
+    const cacheKey = currentToken || 'default';
+    const cached = pickAddressCache.get(cacheKey);
+    
     if (cached) {
-      try {
-        const { data, timestamp, apiToken } = JSON.parse(cached);
+      const { data, timestamp, apiToken } = cached;
+      
+      // Verify cache is still valid
+      if (
+        Date.now() - timestamp < PICK_ADDRESS_CACHE_DURATION &&
+        apiToken === currentToken &&
+        Array.isArray(data) &&
+        data.length > 0
+      ) {
+        setPickAddresses(data);
         
-        // Verify cache is still valid
-        const config = loadShippingConfig();
-        const ghtkData = config.partners.GHTK;
-        const defaultAccount = ghtkData?.accounts?.find(a => a.isDefault && a.active)
-          || ghtkData?.accounts?.find(a => a.active);
-        const currentToken = defaultAccount?.credentials?.apiToken;
-        
-        if (
-          Date.now() - timestamp < CACHE_DURATION &&
-          apiToken === currentToken &&
-          Array.isArray(data) &&
-          data.length > 0
-        ) {
-          setPickAddresses(data);
-          
-          // Auto-select first if none selected
-          if (!options.pickAddressId && data[0]) {
-            handleInputChange('pickAddressId', data[0].id);
-          }
-          return; // Skip API call ⚡
+        // Auto-select first if none selected
+        if (!options.pickAddressId && data[0]) {
+          handleInputChange('pickAddressId', data[0].id);
         }
-      } catch (_e) {
-        localStorage.removeItem(CACHE_KEY);
+        return; // Skip API call ⚡
+      } else {
+        // Cache expired or invalid
+        pickAddressCache.delete(cacheKey);
       }
     }
     
@@ -234,17 +241,12 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
 
           setPickAddresses(addresses);
           
-          // ✅ SAVE TO CACHE for next time
-          const CACHE_KEY = 'ghtk_warehouses_cache_v1';
-          try {
-            localStorage.setItem(CACHE_KEY, JSON.stringify({
-              data: addresses,
-              timestamp: Date.now(),
-              apiToken: apiToken
-            }));
-          } catch (_cacheError) {
-            // Silently fail - not critical
-          }
+          // ✅ SAVE TO IN-MEMORY CACHE for next time (no localStorage)
+          pickAddressCache.set(cacheKey, {
+            data: addresses,
+            timestamp: Date.now(),
+            apiToken: apiToken
+          });
           
           // ✅ Auto-select first address if none selected
           if (addresses.length > 0 && !options.pickAddressId) {
@@ -292,7 +294,6 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
     
     // ✅ FIXED: Support 2-level address - only province required, district optional
     if (!customerAddress || !customerAddress.province) {
-      console.warn('⚠️ [ServiceConfigForm] No customer address available for specific addresses (missing province)');
       setSpecificAddresses([]);
       return;
     }
@@ -1192,17 +1193,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                     // Clamp to GHTK limits: 10k - 20tr
                     const clampedFee = Math.max(10000, Math.min(20000000, defaultFee));
                     
-                    console.log('💰 [Tag 19] Auto-fill failed delivery fee:', {
-                      shippingFee,
-                      defaultFee,
-                      clampedFee,
-                      meetsGHTKRequirement: clampedFee >= 10000 && clampedFee <= 20000000
-                    });
-                    
-                    // ⚠️ Warn if fee is at minimum
-                    if (clampedFee === 10000 && defaultFee < 10000) {
-                      console.warn('⚠️ Phí ship quá thấp, đã tự động tăng lên 10.000đ (tối thiểu GHTK)');
-                    }
+                    // Note: Fee is clamped to GHTK limits if needed
                     
                     handleInputChange('failedDeliveryFee', clampedFee);
                   } else {
@@ -1251,10 +1242,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
               id="failedDeliveryFee"
               value={options.failedDeliveryFee || 0} 
               onChange={(value) => {
-                // Validate giới hạn GHTK
-                if (value < 10000 || value > 20000000) {
-                  console.warn('⚠️ Số tiền phải từ 10.000đ đến 20.000.000đ');
-                }
+                // Validation is handled by the error display below
                 handleInputChange('failedDeliveryFee', value);
               }}
               placeholder="Nhập số tiền..."

@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`[GHTK-CANCEL-${requestId}] Cancel order:`, trackingCode);
 
     const response = await fetch(`${GHTK_API_BASE}/services/shipment/cancel/${trackingCode}`, {
       method: 'POST',
@@ -45,11 +44,6 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     
-    console.log(`[GHTK-CANCEL-${requestId}] Cancel order response:`, {
-      status: response.status,
-      success: data.success,
-      message: data.message
-    });
 
     // ✅ Trả về response từ GHTK (bao gồm cả success: false)
     return NextResponse.json(data);

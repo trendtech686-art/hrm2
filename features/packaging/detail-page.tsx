@@ -19,10 +19,10 @@ import {
   createStoreSettings,
 } from '../../lib/print/order-print-helper';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
-import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
+import { useStorageLocationFinder } from '../settings/inventory/hooks/use-storage-locations';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
@@ -96,7 +96,7 @@ export function PackagingDetailPage() {
     const { confirmPackaging, cancelPackagingRequest, isConfirming, isCancelling } = usePackagingActions();
     const { findById: findCustomerById } = useCustomerFinder();
     const { findById: findEmployeeById } = useEmployeeFinder();
-    const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
+    const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationFinder();
     const { employee: authEmployee } = useAuth();
     const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
 
@@ -130,7 +130,6 @@ export function PackagingDetailPage() {
     }, [dbAddComment]);
 
     const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {
@@ -175,7 +174,7 @@ export function PackagingDetailPage() {
     }, [packaging?.confirmingEmployeeId, findEmployeeById]);
 
     const { findById: findBranchById } = useBranchFinder();
-    const { info: _storeInfo } = useStoreInfoStore();
+    const { info: _storeInfo } = useStoreInfoData();
     const { print } = usePrint(order?.branchSystemId);
 
     const handlePrint = React.useCallback(() => {

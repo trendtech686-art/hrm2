@@ -92,6 +92,17 @@ export function useActiveImporters() {
   return { ...query, data };
 }
 
+// Importer finder - replacement for useImporterStore().getActive/getDefault pattern
+export function useImporterFinder() {
+  const query = useImporters();
+  const data = query.data || [];
+
+  const getActive = () => data.filter((i: Importer) => i.isActive);
+  const getDefault = () => data.find((i: Importer) => i.isDefault && i.isActive);
+
+  return { getActive, getDefault, data, isLoading: query.isLoading };
+}
+
 // Storage locations - TODO: Implement when storage locations API is ready
 export function useStorageLocations() {
   // Placeholder - returns empty array until storage locations API is implemented

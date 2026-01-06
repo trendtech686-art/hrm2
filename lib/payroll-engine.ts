@@ -176,7 +176,6 @@ const evaluateFormula = (formula: string, context: FormulaContext): number => {
 
     return typeof result === 'number' && !isNaN(result) ? result : 0;
   } catch {
-    console.warn(`[PayrollEngine] Formula evaluation failed: ${formula}`);
     return 0;
   }
 };

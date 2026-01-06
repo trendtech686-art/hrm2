@@ -103,11 +103,8 @@ export function GHTKConfigForm({
   };
 
   const handleSave = () => {
-    console.log('[GHTKConfigForm] handleSave called');
     const isValid = validateForm();
-    console.log('[GHTKConfigForm] Validation result:', isValid, 'Errors:', errors);
     if (!isValid) {
-      console.log('[GHTKConfigForm] Validation failed, stopping...');
       return;
     }
 
@@ -152,10 +149,8 @@ export function GHTKConfigForm({
       });
     }
 
-    console.log('[GHTKConfigForm] Calling onSave with config...');
     onSave(updatedConfig);
     toast.success(isEditMode ? 'Cập nhật tài khoản thành công' : 'Thêm tài khoản mới thành công');
-    console.log('[GHTKConfigForm] Calling onClose...');
     onClose();
   };
 

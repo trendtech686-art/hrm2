@@ -21,6 +21,7 @@ import type { Receipt } from '@/features/receipts/types';
 // Types & Store
 import type { Complaint, ComplaintAction } from "../types";
 import { useComplaintStore } from "../store";
+import { useComplaintFinder } from "../hooks/use-all-complaints";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -51,18 +52,16 @@ import {
   createStoreSettings,
 } from '@/lib/print/complaint-print-helper';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '@/features/settings/store-info/store-info-store';
+import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 
 // Hooks & Context
 import { usePageHeader } from "@/contexts/page-header-context";
-import { useEmployeeStore } from "@/features/employees/store";
+import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
 import { useAllOrders } from "@/features/orders/hooks/use-all-orders";
-import {
-  useComplaintHandlers,
-  useVerificationHandlers,
-  useCompensationHandlers,
-  useInventoryHandlers,
-} from "../hooks/index";
+import { useComplaintHandlers } from "../hooks/use-complaint-handlers";
+import { useVerificationHandlers } from "../hooks/use-verification-handlers";
+import { useCompensationHandlers } from "../hooks/use-compensation-handlers";
+import { useInventoryHandlers } from "../hooks/use-inventory-handlers";
 
 /**
  * MAIN PAGE COMPONENT - Complaint Detail (VIEW ONLY)
@@ -75,8 +74,9 @@ export function ComplaintDetailPage() {
   const { setPageHeader: _setPageHeader } = usePageHeader();
 
   console.time('Store Hooks');
-  const { getComplaintById, assignComplaint, updateComplaint } = useComplaintStore();
-  const { data: employees } = useEmployeeStore();
+  const { assignComplaint, updateComplaint } = useComplaintStore();
+  const { getComplaintById } = useComplaintFinder();
+  const { data: employees } = useAllEmployees();
   const { data: orders } = useAllOrders();
   // REMOVED: Payments/receipts loaded separately in components that need them
   console.timeEnd('Store Hooks');
@@ -95,10 +95,6 @@ export function ComplaintDetailPage() {
   console.time('Data Access');
   const complaint = systemId ? (getComplaintById(asSystemId(systemId)) ?? null) : null;
   
-  console.log('Data Size:', {
-    employees: employees.length,
-    orders: orders.length,
-  });
   console.timeEnd('Data Access');
   
   // Memoize frequently accessed data to avoid repeated searches
@@ -136,14 +132,6 @@ export function ComplaintDetailPage() {
     ? { systemId: employee.systemId, name: employee.fullName }
     : { systemId: asSystemId('SYSTEM'), name: 'Guest User' }, [employee]);
 
-  console.log('Current User:', {
-    hasEmployee: !!employee,
-    currentUser,
-    employeeFromAuth: employee ? {
-      systemId: employee.systemId,
-      fullName: employee.fullName
-    } : null
-  });
 
   // ==========================================
   // State for Verification & Resolution
@@ -287,7 +275,7 @@ export function ComplaintDetailPage() {
   const handleInventoryAdjustment = inventoryHandlers.handleInventoryAdjustment;
 
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(complaint?.branchSystemId);
 
   const handlePrint = React.useCallback(() => {
@@ -422,24 +410,13 @@ export function ComplaintDetailPage() {
           category: 'complaint_refund',
         };
         
-        console.log('Creating payment:', {
-          createdBy: paymentData.createdBy,
-          employee: employee ? { systemId: employee.systemId, fullName: employee.fullName } : null,
-          currentUser
-        });
         
         const addedPayment = addPayment(paymentData);
         paymentSystemId = addedPayment?.systemId;
         paymentId = addedPayment?.id;
         
-        console.log('Payment created:', {
-          systemId: addedPayment?.systemId,
-          businessId: addedPayment?.id,
-          paymentSystemId
-        });
       } else {
         // Đổi hàng - KHÔNG tạo phiếu chi
-        console.log('Đổi hàng - không tạo phiếu chi, chỉ ghi nhận bù trả hàng');
       }
       
       // 2. TAO PHIEU THU - CHI PHI PHAT SINH TU NHAN VIEN
@@ -481,11 +458,6 @@ export function ComplaintDetailPage() {
           category: 'customer_payment',
         };
         
-        console.log('Creating receipt:', {
-          createdBy: receiptData.createdBy,
-          payerName: receiptData.payerName,
-          responsibleEmployee: { systemId: responsibleEmployee.systemId, fullName: responsibleEmployee.fullName }
-        });
         
         const addedReceipt = addReceipt(receiptData);
         receiptSystemId = addedReceipt?.systemId;
@@ -553,12 +525,6 @@ export function ComplaintDetailPage() {
       };
       
       // DEBUG: Log metadata duoc luu
-      console.log('Saving action metadata:', {
-        paymentSystemId,
-        receiptSystemId,
-        paymentFound: !!paymentSystemId,
-        receiptFound: !!receiptSystemId,
-      });
       
       // Update affectedProducts voi so luong da xac minh
       const updatedAffectedProducts = complaint.affectedProducts?.map(p => ({

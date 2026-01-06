@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useStockTransferStore } from '../store';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
-import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
+import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { usePrint } from '@/lib/use-print';
 import { 
@@ -15,7 +15,7 @@ import {
   mapStockTransferLineItems,
   createStoreSettings
 } from '@/lib/print/stock-transfer-print-helper';
-import { useStoreInfoStore } from '@/features/settings/store-info/store-info-store';
+import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
@@ -155,7 +155,7 @@ export function StockTransferDetailPage() {
   const router = useRouter();
   const { findById, confirmTransfer, confirmReceive, cancelTransfer } = useStockTransferStore();
   const { findById: findProductById } = useProductFinder();
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { user } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
@@ -171,7 +171,7 @@ export function StockTransferDetailPage() {
   const transfer = findById(asSystemId(systemId || ''));
 
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(transfer?.fromBranchSystemId);
 
   const handlePrint = React.useCallback(() => {
@@ -229,7 +229,6 @@ export function StockTransferDetailPage() {
   };
 
   const handleUpdateComment = (_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {

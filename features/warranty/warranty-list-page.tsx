@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
-import Fuse from 'fuse.js';
+import { Plus, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw } from 'lucide-react';
+import { useFuseFilter } from '../../hooks/use-fuse-search';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
@@ -20,20 +20,20 @@ import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { WARRANTY_STATUS_LABELS } from './types';
 import { asSystemId } from '@/lib/id-types';
 
-// Column definitions & Mobile card
+// Column definitions & Components
 import { getColumns } from './columns';
 import { WarrantyCard } from './warranty-card';
-import { WarrantyCardContextMenu } from './warranty-card-context-menu';
-import { WarrantyReminderDialog, WarrantyCancelDialog } from './components/dialogs/index';
+import { KanbanColumn } from './components/warranty-kanban-column';
+import { WarrantyReminderDialog } from './components/dialogs/warranty-reminder-dialog';
+import { WarrantyCancelDialog } from './components/dialogs/warranty-cancel-dialog';
 import { useWarrantyReminders } from './hooks/use-warranty-reminders';
 import { useRealtimeUpdates, getWarrantyDataVersion } from './use-realtime-updates';
 
 // UI Components
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
-import { DataTableColumnCustomizer } from '../../components/data-table/data-table-column-toggle';
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../components/data-table/dynamic-column-customizer';
 import { PageFilters } from '../../components/layout/page-filters';
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import {
@@ -56,7 +56,7 @@ import { checkWarrantyOverdue } from './warranty-sla-utils';
 import { ROUTES, generatePath } from '../../lib/router';
 import { usePrint } from '../../lib/use-print';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import {
   convertWarrantyForPrint,
   mapWarrantyToPrintData,
@@ -64,116 +64,6 @@ import {
   createStoreSettings
 } from '../../lib/print/warranty-print-helper';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
-
-/**
- * KanbanColumn Component - Display warranties by status
- */
-function KanbanColumn({
-  status,
-  tickets,
-  onTicketClick,
-  cardColors: _cardColors,
-  onEdit,
-  onGetLink,
-  onStartProcessing,
-  onMarkProcessed,
-  onMarkReturned,
-  onCancel,
-  onRemind,
-}: {
-  status: WarrantyStatus;
-  tickets: WarrantyTicket[];
-  onTicketClick: (ticket: WarrantyTicket) => void;
-  cardColors: ReturnType<typeof loadCardColorSettings>;
-  onEdit: (systemId: string) => void;
-  onGetLink: (systemId: string) => void;
-  onStartProcessing: (systemId: string) => void;
-  onMarkProcessed: (systemId: string) => void;
-  onMarkReturned: (systemId: string) => void;
-  onCancel: (systemId: string) => void;
-  onRemind: (systemId: string) => void;
-}) {
-  const [searchQuery, setSearchQuery] = React.useState('');
-
-  const statusIcons: Record<WarrantyStatus, React.ElementType> = {
-    incomplete: AlertCircle,
-    pending: Clock,
-    processed: CheckCircle2,
-    returned: XCircle,
-    completed: CheckCircle2,
-    cancelled: XCircle,
-  };
-
-  const StatusIcon = statusIcons[status];
-
-  // Filter tickets based on local search
-  const filteredTickets = React.useMemo(() => {
-    if (!searchQuery.trim()) return tickets;
-
-    const query = searchQuery.toLowerCase();
-    return tickets.filter(t =>
-      t.id.toLowerCase().includes(query) ||
-      t.customerName.toLowerCase().includes(query) ||
-      t.customerPhone.includes(query) ||
-      t.trackingCode.toLowerCase().includes(query)
-    );
-  }, [tickets, searchQuery]);
-
-  return (
-    <div className="flex-1 min-w-[300px] flex flex-col max-h-[calc(100vh-320px)]">
-      {/* Header - Neutral bg-muted with icon */}
-      <div className="text-body-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <StatusIcon className="h-4 w-4" />
-          {WARRANTY_STATUS_LABELS[status]}
-        </div>
-        <span className="text-body-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
-          {filteredTickets.length}
-        </span>
-      </div>
-
-      {/* Local Search Input */}
-      <div className="mb-2">
-        <Input
-          placeholder="Tìm kiếm..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-9"
-        />
-      </div>
-
-      {/* Scrollable Cards Area */}
-      <div className="flex-1 space-y-3 overflow-y-auto pb-2">
-        {filteredTickets.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-body-sm">
-            {searchQuery ? 'Không tìm thấy kết quả' : 'Không có bảo hành nào'}
-          </div>
-        ) : (
-          filteredTickets.map((ticket) => (
-            <WarrantyCardContextMenu
-              key={ticket.systemId}
-              ticket={ticket}
-              onEdit={onEdit}
-              onGetLink={onGetLink}
-              onStartProcessing={onStartProcessing}
-              onMarkProcessed={onMarkProcessed}
-              onMarkReturned={onMarkReturned}
-              onCancel={onCancel}
-              onRemind={onRemind}
-            >
-              <div>
-                <WarrantyCard
-                  ticket={ticket}
-                  onClick={() => onTicketClick(ticket)}
-                />
-              </div>
-            </WarrantyCardContextMenu>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
 
 /**
  * Trang danh sách phiếu bảo hành - Nâng cấp với VirtualizedDataTable
@@ -529,7 +419,6 @@ export function WarrantyListPage() {
   const columns = React.useMemo(
     () => {
       const cols = getColumns(handleCancel, handleEdit, router.push, orders); // ✅ Pass orders
-      console.log('📊 Warranty columns generated:', cols.length, 'columns', cols.map(c => c.id));
       return cols;
     },
     [handleCancel, handleEdit, router, orders] // ✅ Add orders dependency
@@ -545,20 +434,15 @@ export function WarrantyListPage() {
   }, [columns]);
 
   // ==========================================
-  // Search with Fuse.js (threshold 0.3)
+  // Search with Fuse.js (lazy loaded)
   // ==========================================
-  const fuse = React.useMemo(() => {
-    return new Fuse(tickets, {
-      keys: ['id', 'customerName', 'customerPhone', 'trackingCode'],
-      threshold: 0.3,
-      ignoreLocation: true,
-    });
-  }, [tickets]);
+  const fuseOptions = React.useMemo(() => ({
+    keys: ['id', 'customerName', 'customerPhone', 'trackingCode'],
+    threshold: 0.3,
+    ignoreLocation: true,
+  }), []);
 
-  const searchedData = React.useMemo(() => {
-    if (!debouncedSearch.trim()) return tickets;
-    return fuse.search(debouncedSearch.trim()).map((result) => result.item);
-  }, [fuse, debouncedSearch, tickets]);
+  const searchedData = useFuseFilter(tickets, debouncedSearch.trim(), fuseOptions);
 
   // ==========================================
   // Filters
@@ -668,7 +552,7 @@ export function WarrantyListPage() {
 
   // Print imports
   const { data: branches } = useAllBranches();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { printMultiple } = usePrint();
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintTickets, setPendingPrintTickets] = React.useState<WarrantyTicket[]>([]);

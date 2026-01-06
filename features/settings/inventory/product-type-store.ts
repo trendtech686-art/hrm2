@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
+import { asSystemId, asBusinessId as _asBusinessId, type SystemId } from '@/lib/id-types';
 import type { ProductType } from './types';
 
 const generateId = () => crypto.randomUUID();
@@ -14,43 +13,11 @@ interface ProductTypeState {
   getActive: () => ProductType[];
 }
 
-const rawData = [
-  {
-    systemId: generateId(),
-    id: 'PT001',
-    name: 'Hàng hóa',
-    description: 'Sản phẩm vật lý có tồn kho',
-    isDefault: true,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    systemId: generateId(),
-    id: 'PT002',
-    name: 'Dịch vụ',
-    description: 'Dịch vụ không có tồn kho',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    systemId: generateId(),
-    id: 'PT003',
-    name: 'Digital',
-    description: 'Sản phẩm số (ebook, khóa học online...)',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-] as const;
-
-const initialData: ProductType[] = rawData.map((item) => ({
-  ...item,
-  systemId: asSystemId(item.systemId),
-  id: asBusinessId(item.id),
-}));
+// Seed data removed for production - use empty array
+const initialData: ProductType[] = [];
 
 export const useProductTypeStore = create<ProductTypeState>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       data: initialData,
       
       add: (productType) => {
@@ -91,9 +58,5 @@ export const useProductTypeStore = create<ProductTypeState>()(
       getActive: () => {
         return get().data.filter((item) => !item.isDeleted && item.isActive !== false);
       },
-    }),
-    {
-      name: 'product-type-storage',
-    }
-  )
+    })
 );

@@ -16,7 +16,7 @@ import { DatePicker } from '../../components/ui/date-picker';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { useAllEmployees, useActiveEmployees } from '../employees/hooks/use-all-employees';
-import { useLeaveStore } from '../leaves/store';
+import { useAllLeaves } from '../leaves/hooks/use-all-leaves';
 import { useAttendanceStore } from '../attendance/store';
 import { usePayrollTemplateStore } from './payroll-template-store';
 import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
@@ -404,7 +404,7 @@ export function PayrollRunPage() {
   const router = useRouter();
   const { data: employeeData } = useAllEmployees();
   const { data: activeEmployees } = useActiveEmployees();
-  const { data: leaveRequests } = useLeaveStore();
+  const { data: leaveRequests } = useAllLeaves();
   const lockedMonths = useAttendanceStore((state) => state.lockedMonths);
   const templates = usePayrollTemplateStore((state) => state.templates);
   const ensureDefaultTemplate = usePayrollTemplateStore((state) => state.ensureDefaultTemplate);

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// FILE UPLOAD API - Main Upload Route
+// FILE UPLOAD API - Main Upload Route with Staging Support
 // ═══════════════════════════════════════════════════════════════
-// POST /api/upload - Upload file
+// POST /api/upload - Upload file (default: staging)
 // Supports: employees, products, customers, warranty, complaints, tasks, wiki
 // ═══════════════════════════════════════════════════════════════
 
@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
     const entityType = (fields.entityType || 'general') as EntityType
     const entityId = fields.entityId || undefined
     const isImage = fields.isImage === 'true'
+    const sessionId = fields.sessionId || undefined // For grouping staging files
+    const status = (fields.status === 'permanent' ? 'permanent' : 'staging') as 'staging' | 'permanent'
     
     // Validate file type
     const allowedTypes = isImage ? ALLOWED_IMAGE_TYPES : ALLOWED_ALL_TYPES
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Get public URL
     const publicUrl = getPublicUrl(relativePath)
     
-    // Save metadata to database
+    // Save metadata to database with staging status
     const fileRecord = await prisma.file.create({
       data: {
         systemId: uuidv4(),
@@ -94,6 +96,8 @@ export async function POST(request: NextRequest) {
         entityId: entityId || '',
         documentType: fields.documentType || null,
         uploadedBy: fields.userId || null,
+        status: status, // staging or permanent
+        sessionId: sessionId || null,
       },
     })
     
@@ -109,6 +113,8 @@ export async function POST(request: NextRequest) {
         url: publicUrl,
         entityType: entityType,
         entityId: entityId,
+        status: fileRecord.status,
+        sessionId: fileRecord.sessionId,
       },
     })
     
@@ -121,11 +127,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/upload - Get upload info
+// GET /api/upload - Get upload info (only permanent files by default)
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const entityType = searchParams.get('entityType')
   const entityId = searchParams.get('entityId')
+  const includeStaging = searchParams.get('includeStaging') === 'true'
+  const sessionId = searchParams.get('sessionId')
   
   try {
     const where: Record<string, unknown> = {}
@@ -135,6 +143,15 @@ export async function GET(request: NextRequest) {
     }
     if (entityId) {
       where.entityId = entityId
+    }
+    
+    // By default only show permanent files, unless includeStaging=true or sessionId provided
+    if (sessionId) {
+      where.sessionId = sessionId
+    } else if (!includeStaging) {
+      where.status = 'permanent'
+    } else {
+      where.status = { in: ['staging', 'permanent'] }
     }
     
     const files = await prisma.file.findMany({
@@ -154,6 +171,8 @@ export async function GET(request: NextRequest) {
         url: `/uploads/${f.filepath}`,
         entityType: f.entityType,
         entityId: f.entityId,
+        status: f.status,
+        sessionId: f.sessionId,
         createdAt: f.uploadedAt,
       })),
     })

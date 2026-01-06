@@ -15,19 +15,21 @@ import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, 
 
 // stores
 import { useProductStore } from '@/features/products/store';
+import { useAllProducts } from '@/features/products/hooks/use-all-products';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useOrderStore } from '../store';
+import { useAllOrders, useOrderFinder } from '../hooks/use-all-orders';
 import { usePaymentMethodStore } from '@/features/settings/payments/methods/store';
 import { useSalesChannelStore } from '@/features/settings/sales-channels/store';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { useSalesManagementSettingsStore } from '@/features/settings/sales/sales-management-store';
-import { usePricingPolicyStore } from '@/features/settings/pricing/store';
+import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import { useStockHistoryStore } from '@/features/stock-history/store';
 import { useCustomerStore } from '@/features/customers/store';
-import { useShippingPartnerStore } from '@/features/settings/shipping/store';
+import { useAllShippingPartners } from '@/features/settings/shipping/hooks/use-all-shipping-partners';
 import { useTaxStore } from '@/features/settings/taxes/store';
-import { SUPPORTED_SHIPPING_PARTNERS as _SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId as _ShippingPartnerId } from '../shipping-partners-config';
+import { SUPPORTED_SHIPPING_PARTNERS as _SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES as _SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId as _ShippingPartnerId } from '../shipping-partners-config';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { generateSystemId, getMaxSystemIdCounter } from '@/lib/id-utils';
 
@@ -220,13 +222,16 @@ export function OrderFormPage() {
     const systemId = Array.isArray(rawSystemId) ? rawSystemId[0] : rawSystemId;
     const router = useRouter();
     const [searchParams] = useSearchParamsWithSetter();
-    const { findById, add, update, addPayment: addOrderPayment, data: allOrders } = useOrderStore();
+    const { add, update, addPayment: addOrderPayment } = useOrderStore();
+    const { data: allOrders } = useAllOrders();
+    const { findById } = useOrderFinder();
     const { data: employees } = useAllEmployees();
     const { data: branches } = useAllBranches();
-    const { data: pricingPolicies } = usePricingPolicyStore();
-    const { data: allProducts, add: baseAddProduct } = useProductStore();
+    const { data: pricingPolicies } = useAllPricingPolicies();
+    const { add: baseAddProduct } = useProductStore();
+    const { data: allProducts } = useAllProducts();
     const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
-    const { data: partners } = useShippingPartnerStore();
+    const { data: partners } = useAllShippingPartners();
     const { getDefaultSale } = useTaxStore();
     const paymentMethods = usePaymentMethodStore((state) => state.data);
     const salesChannels = useSalesChannelStore((state) => state.data);
@@ -373,7 +378,6 @@ export function OrderFormPage() {
         if (defaultSalesChannelName) {
             const currentSource = getValues('source');
             if (!currentSource) {
-                console.log('Setting default source:', defaultSalesChannelName);
                 // Use setTimeout to ensure form is ready and avoid race conditions
                 setTimeout(() => {
                     setValue('source', defaultSalesChannelName, { shouldValidate: true, shouldDirty: true });
@@ -385,7 +389,6 @@ export function OrderFormPage() {
         if (defaultPaymentMethodName) {
             const currentPayment = getValues('expectedPaymentMethod');
             if (!currentPayment) {
-                console.log('Setting default payment method:', defaultPaymentMethodName);
                 setTimeout(() => {
                     setValue('expectedPaymentMethod', defaultPaymentMethodName, { shouldValidate: true, shouldDirty: true });
                 }, 100);
@@ -586,7 +589,7 @@ export function OrderFormPage() {
     const handleApplyPromotion = (code: string) => {
         // TODO: Implement promotion logic
         // For now, just show success message
-        alert(`Đã áp dụng mã giảm giá: ${code}`);
+        toast.success(`Đã áp dụng mã giảm giá: ${code}`);
     };
     
     /**
@@ -594,23 +597,12 @@ export function OrderFormPage() {
      * ✅ SINGLE SOURCE OF TRUTH: Nhận params đã build sẵn từ shipping-integration (previewParams)
      */
     const createGHTKOrder = async (ghtkParams: GHTKCreateOrderParams): Promise<string | null> => {
-        console.log('🔵 [createGHTKOrder] Function called with params:', ghtkParams);
         
         try {
-            console.log('📦 [createGHTKOrder] Step 1: Loading shipping config...');
             // Load shipping config
             const shippingConfig = loadShippingConfig();
-            console.log('📦 [createGHTKOrder] Step 2: Shipping config loaded:', { 
-                hasGHTK: !!shippingConfig?.partners?.GHTK,
-                accountsCount: shippingConfig?.partners?.GHTK?.accounts?.length || 0
-            });
             const ghtkData = shippingConfig.partners.GHTK;
             
-            console.log('📦 [createGHTKOrder] Step 3: Checking GHTK data...', {
-                hasGHTKData: !!ghtkData,
-                hasAccounts: !!ghtkData?.accounts,
-                accountsLength: ghtkData?.accounts?.length
-            });
             
             if (!ghtkData || !ghtkData.accounts || ghtkData.accounts.length === 0) {
                 console.error('❌ [createGHTKOrder] No GHTK account configured');
@@ -618,17 +610,11 @@ export function OrderFormPage() {
                 return null;
             }
             
-            console.log('📦 [createGHTKOrder] Step 4: Finding active GHTK account...');
             // Get active GHTK account
             const ghtkAccount = ghtkData.accounts.find(a => a.isDefault && a.active)
                 || ghtkData.accounts.find(a => a.active)
                 || ghtkData.accounts[0];
             
-            console.log('📦 [createGHTKOrder] Step 5: GHTK account found:', {
-                hasAccount: !!ghtkAccount,
-                isActive: ghtkAccount?.active,
-                hasCredentials: !!ghtkAccount?.credentials
-            });
             
             if (!ghtkAccount || !ghtkAccount.active) {
                 toast.error('Lỗi cấu hình', { description: 'Không tìm thấy tài khoản GHTK khả dụng' });
@@ -648,7 +634,6 @@ export function OrderFormPage() {
             const ghtkService = new GHTKService(apiToken, partnerCode || '');
             
             // ✅ Call GHTK API with params (already built by shipping-integration previewParams)
-            console.log('📦 [createGHTKOrder] Calling GHTK API with params:', ghtkParams);
             toast.info('Đang tạo đơn trên GHTK...', { duration: 2000 });
             const result = await ghtkService.createOrder(ghtkParams);
             
@@ -688,7 +673,6 @@ export function OrderFormPage() {
     const processSubmit = async (data: OrderFormValues) => {
         // ✅ Prevent double submission
         if (isSubmitting) {
-            console.warn('⚠️ Submission already in progress, skipping...');
             return;
         }
         
@@ -926,21 +910,6 @@ export function OrderFormPage() {
                 const partner = data.shippingPartnerId ? partners.find(p => p.id === data.shippingPartnerId) : undefined;
                 const service = partner?.services.find(s => s.id === data.shippingServiceId);
                 
-                console.log('🔍 [DEBUG] Shipping Partner Info:', {
-                    deliveryMethod: data.deliveryMethod,
-                    shippingPartnerId: data.shippingPartnerId,
-                    shippingServiceId: data.shippingServiceId,
-                    partner: partner ? {
-                        id: partner.id,
-                        systemId: partner.systemId,
-                        name: partner.name
-                    } : null,
-                    service: service ? {
-                        id: service.id,
-                        name: service.name
-                    } : null,
-                    allPartners: partners.map(p => ({ id: p.id, systemId: p.systemId, name: p.name }))
-                });
                 
                 // ========================================
                 // 🚚 TẠO ĐƠN VẬN CHUYỂN QUA API ĐỐI TÁC
@@ -953,9 +922,6 @@ export function OrderFormPage() {
                 
                 // Kiểm tra nếu đơn vị vận chuyển có API integration
                 if (partnerId && isSupportedShippingPartner(partnerId)) {
-                    console.log(`=== 🚀 FRONTEND: Calling ${partnerId} API ===`);
-                    console.log('Partner:', partner.name, `(${SHIPPING_PARTNER_NAMES[partnerId]})`);
-                    console.log('Order ID:', finalOrderId);
                     
                     // ✅ Get preview params from window (stored by shipping-integration)
                     // Mỗi đơn vị vận chuyển sẽ có params riêng
@@ -973,7 +939,6 @@ export function OrderFormPage() {
                         return; // ❌ STOP: Không cho tạo đơn
                     }
                     
-                    console.log(`✅ Using ${partnerId} preview params:`, partnerParams);
                     
                     try {
                         // Gọi API tương ứng với từng đơn vị
@@ -1016,13 +981,11 @@ export function OrderFormPage() {
                             
                             default:
                                 // Đơn vị vận chuyển mới chưa implement
-                                console.warn(`⚠️ Partner ${partnerId} not implemented yet`);
                                 toast.warning(`${partner.name} chưa được tích hợp`, {
                                     description: 'Vui lòng tạo vận đơn thủ công trên trang của đối tác'
                                 });
                         }
                         
-                        console.log(`✅ Received tracking code from ${partnerId}:`, partnerTrackingCode);
                         
                         if (!partnerTrackingCode) {
                             throw new Error(`${partner.name} API không trả về mã vận đơn`);
@@ -1042,7 +1005,6 @@ export function OrderFormPage() {
                         }
                         // User chọn tiếp tục → sẽ dùng tracking code tạm
                     }
-                    console.log('==========================================');
                 }
                 
                 // ✅ Only create new packaging if no existing packagings
@@ -1150,11 +1112,7 @@ export function OrderFormPage() {
             update(order.systemId, updatedOrder);
             router.push(`/orders/${order.systemId}`);
         } else {
-            console.log('🔵 [DEBUG] Creating new order with data:', finalOrderData);
             const newItem = add(finalOrderData as Omit<Order, 'systemId'>);
-            console.log('🔵 [DEBUG] New item returned from add():', newItem);
-            console.log('🔵 [DEBUG] New item systemId:', newItem?.systemId);
-            console.log('🔵 [DEBUG] Navigating to:', `/orders/${newItem?.systemId}`);
             if (newItem) {
                 if (!isEditing && formPayments.length > 0) {
                     formPayments.forEach(payment => {

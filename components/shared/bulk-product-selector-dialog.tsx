@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useProductStore } from "../../features/products/store";
+import { useActiveProducts } from "../../features/products/hooks/use-all-products";
 import { Package, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import {
   Dialog,
@@ -44,7 +44,7 @@ export function BulkProductSelectorDialog({
   description,
   branchSystemId: _branchSystemId,
 }: BulkProductSelectorDialogProps) {
-  const { data: _products, getActive } = useProductStore();
+  const { data: activeProducts } = useActiveProducts();
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = React.useState(0);
@@ -60,9 +60,8 @@ export function BulkProductSelectorDialog({
 
   // Get available products
   const availableProducts = React.useMemo(() => {
-    const active = getActive();
-    return active.filter(p => !excludeProductIds.includes(p.systemId));
-  }, [getActive, excludeProductIds]);
+    return activeProducts.filter(p => !excludeProductIds.includes(p.systemId));
+  }, [activeProducts, excludeProductIds]);
 
   // Filter products by search
   const filteredProducts = React.useMemo(() => {

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { PricingPolicy } from '@/lib/types/prisma-extended';
 import { pricingPolicySchema, validateUniqueId } from "./validation";
-import { usePricingPolicyStore } from "./store";
+import { useAllPricingPolicies } from "./hooks/use-all-pricing-policies";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
@@ -21,7 +21,7 @@ type Props = {
 };
 
 export function PricingPolicyForm({ initialData, onSubmit }: Props) {
-  const { data } = usePricingPolicyStore();
+  const { data } = useAllPricingPolicies();
   
   const form = useForm<PricingPolicyFormValues>({
     resolver: zodResolver(pricingPolicySchema),

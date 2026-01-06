@@ -10,7 +10,7 @@ import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Textarea } from '../../../components/ui/textarea';
 import { useAllProducts, useProductFinder } from '../../products/hooks/use-all-products';
-import { usePricingPolicyStore } from '../../settings/pricing/store';
+import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
 import { Separator } from '../../../components/ui/separator';
 import { ProductTableBottomToolbar } from './product-table-bottom-toolbar';
 import { useImageStore } from '../../products/image-store';
@@ -112,7 +112,7 @@ const LineItemRow = React.memo(({
 }) => {
     const { findById: findProductById } = useProductFinder();
     const { data: allProducts } = useAllProducts();
-    const { data: pricingPolicies } = usePricingPolicyStore();
+    const { data: pricingPolicies } = useAllPricingPolicies();
     const effectivePolicyId = React.useMemo(() => {
         if (pricingPolicyId) {
             return pricingPolicyId;

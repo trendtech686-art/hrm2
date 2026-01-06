@@ -17,14 +17,8 @@ export async function GET(request: NextRequest) {
     const apiToken = searchParams.get('apiToken');
     const partnerCode = searchParams.get('partnerCode');
 
-    console.log(`[GHTK-PICK-${requestId}] 📥 Get pick addresses list request:`, {
-      hasToken: !!apiToken,
-      tokenPreview: apiToken ? `${apiToken.substring(0, 10)}...` : 'MISSING',
-      partnerCode: partnerCode || 'NONE'
-    });
 
     if (!apiToken) {
-      console.log(`[GHTK-PICK-${requestId}] ❌ Missing API Token`);
       return NextResponse.json({ 
         success: false,
         error: 'API Token is required' 
@@ -32,7 +26,6 @@ export async function GET(request: NextRequest) {
     }
 
     const url = `${GHTK_API_BASE}/services/shipment/list_pick_add`;
-    console.log(`[GHTK-PICK-${requestId}] 🌐 Calling GHTK:`, url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -43,17 +36,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log(`[GHTK-PICK-${requestId}] 📡 GHTK response status:`, response.status);
 
     const data = await response.json();
     
-    console.log(`[GHTK-PICK-${requestId}] 📦 GHTK response data:`, {
-      success: data.success,
-      message: data.message || 'No message',
-      dataExists: !!data.data,
-      isArray: Array.isArray(data.data),
-      count: data.data?.length || 0,
-    });
 
     return NextResponse.json(data);
   } catch (error) {

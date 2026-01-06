@@ -193,31 +193,11 @@ export function calculateWarrantyProcessingState(
 // DEBUG HELPERS
 // ============================================================
 
-export function debugWarrantyProcessing(state: WarrantyProcessingState): void {
+export function debugWarrantyProcessing(_state: WarrantyProcessingState): void {
 	console.group('[WARRANTY PROCESSING] Debug State');
 
-	console.log('Input:', {
-		ticketId: state.ticket?.id,
-		ticketStatus: state.ticket?.status,
-		cancelledAt: state.ticket?.cancelledAt,
-		totalPayment: state.totalPayment,
-	});
 
-	console.log('Calculations:', {
-		warrantyPayments: state.warrantyPayments.length,
-		warrantyReceipts: state.warrantyReceipts.length,
-		totalPaid: state.totalPaid,
-		remainingAmount: state.remainingAmount,
-		hasTransactions: state.hasTransactions,
-		allCancelled: state.allTransactionsCancelled,
-	});
 
-	console.log('Display Flags:', {
-		shouldHideCard: state.shouldHideCard,
-		canShowActionButtons: state.canShowActionButtons,
-		canShowPaymentButton: state.canShowPaymentButton,
-		canShowReceiptButton: state.canShowReceiptButton,
-	});
 
 	console.groupEnd();
 }

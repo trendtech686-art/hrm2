@@ -40,9 +40,8 @@ export function ExampleUsage<TData extends { id: string }>() {
   // Example import configuration
   const importConfig = {
     fileName: 'data-template',
-    importer: (importedData: Omit<TData, 'id'>[]) => {
+    importer: (_importedData: Omit<TData, 'id'>[]) => {
       // Handle importing data
-      console.log('Importing data:', importedData);
     }
   };
   

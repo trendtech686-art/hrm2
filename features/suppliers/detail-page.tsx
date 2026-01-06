@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate, getDaysDiff, parseDate } from '@/lib/date-utils';
-import { useSupplierStore } from './store';
+import { useSupplierFinder } from './hooks/use-all-suppliers';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -16,11 +16,11 @@ import { ActivityHistory } from '../../components/ActivityHistory';
 import { useAuth } from '../../contexts/auth-context';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import type { ColumnDef } from '../../components/data-table/types';
-import { usePurchaseOrderStore } from '../purchase-orders/store';
-import { usePaymentStore } from '../payments/store';
+import { useAllPurchaseOrders } from '../purchase-orders/hooks/use-all-purchase-orders';
+import { useAllPayments } from '../payments/hooks/use-all-payments';
 import { useAllEmployees, useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import type { PurchaseOrder, PaymentStatus } from '../purchase-orders/types';
-import { usePurchaseReturnStore } from '../purchase-returns/store';
+import { useAllPurchaseReturns } from '../purchase-returns/hooks/use-all-purchase-returns';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
@@ -71,10 +71,10 @@ const debtColumns: ColumnDef<DebtRecord>[] = [
 export function SupplierDetailPage() {
     const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = useSupplierStore();
-  const { data: allPurchaseOrders } = usePurchaseOrderStore();
-  const { data: allPayments } = usePaymentStore();
-  const { data: allPurchaseReturns } = usePurchaseReturnStore();
+  const { findById } = useSupplierFinder();
+  const { data: allPurchaseOrders } = useAllPurchaseOrders();
+  const { data: allPayments } = useAllPayments();
+  const { data: allPurchaseReturns } = useAllPurchaseReturns();
   const { employee: authEmployee } = useAuth();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { data: employees } = useAllEmployees();
@@ -124,7 +124,6 @@ export function SupplierDetailPage() {
 
     const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
         // TODO: Add update API support in useComments hook
-        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {

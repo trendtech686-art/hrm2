@@ -2,9 +2,13 @@
  * useAllJobTitles - Convenience hook for components needing all job titles
  */
 
+import * as React from 'react';
 import { useCallback } from 'react';
 import { useJobTitles } from './use-job-titles';
 import type { JobTitle } from '../api/job-titles-api';
+
+// Stable empty array to prevent re-renders
+const EMPTY_JOB_TITLES: JobTitle[] = [];
 
 /**
  * Returns all job titles as a flat array
@@ -12,8 +16,14 @@ import type { JobTitle } from '../api/job-titles-api';
 export function useAllJobTitles() {
   const query = useJobTitles({ limit: 500 });
   
+  // Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => 
+    query.data?.data || EMPTY_JOB_TITLES,
+    [query.data?.data]
+  );
+  
   return {
-    data: query.data?.data || [],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

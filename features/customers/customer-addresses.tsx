@@ -42,7 +42,6 @@ interface CustomerAddressesProps {
 }
 
 export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddressesProps) {
-  console.log('[CustomerAddresses] Render with addresses:', addresses);
   
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [isConverterOpen, setIsConverterOpen] = React.useState(false);
@@ -82,11 +81,6 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
   };
 
   const handleSave = (addressData: Omit<CustomerAddress, 'id'>) => {
-    console.log('[CustomerAddresses] handleSave called:', {
-      addressData,
-      editingAddress,
-      currentAddresses: addresses,
-    });
 
     let newAddresses: CustomerAddress[];
     let savedAddressId: string;
@@ -111,7 +105,6 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      console.log('[CustomerAddresses] Created new address:', newAddress);
       newAddresses = [...addresses, newAddress];
     }
 
@@ -135,7 +128,6 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
       });
     }
 
-    console.log('[CustomerAddresses] Calling onUpdate with:', newAddresses);
     onUpdate(newAddresses);
     
     const types: string[] = [];

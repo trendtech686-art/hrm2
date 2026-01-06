@@ -86,11 +86,39 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
   
   const remove = useMutation({
     mutationFn: deleteComplaint,
+    // Optimistic delete - UI cập nhật ngay lập tức
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: complaintKeys.lists() });
+      
+      const previousLists = queryClient.getQueriesData({ queryKey: complaintKeys.lists() });
+      
+      queryClient.setQueriesData(
+        { queryKey: complaintKeys.lists() },
+        (old: { data?: Array<{ systemId: string }>, pagination?: unknown } | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.filter(item => item.systemId !== systemId),
+          };
+        }
+      );
+      
+      return { previousLists };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      options.onError?.(_err as Error);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: complaintKeys.all });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: complaintKeys.all });
+    },
   });
   
   return { create, update, remove };

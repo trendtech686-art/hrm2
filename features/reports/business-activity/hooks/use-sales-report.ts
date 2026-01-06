@@ -8,12 +8,12 @@ import * as React from 'react';
 import { format, parseISO, startOfWeek, startOfQuarter, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
-import { useProductStore } from '@/features/products/store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAllCustomers } from '@/features/customers/hooks/use-all-customers';
-import { useSalesReturnStore } from '@/features/sales-returns/store';
-import { useBrandStore } from '@/features/settings/inventory/brand-store';
+import { useAllSalesReturns } from '@/features/sales-returns/hooks/use-all-sales-returns';
+import { useBrandFinder } from '@/features/brands/hooks/use-all-brands';
 import type { 
   ReportDateRange, 
   TimeGrouping,
@@ -116,8 +116,8 @@ export function useSalesTimeReport(
   }
 ) {
   const { data: orders } = useAllOrders();
-  const { findById: findProductById } = useProductStore();
-  const { data: returns } = useSalesReturnStore();
+  const { findById: findProductById } = useProductFinder();
+  const { data: returns } = useAllSalesReturns();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -242,9 +242,9 @@ export function useSalesEmployeeReport(
   }
 ) {
   const { data: orders } = useAllOrders();
-  const { data: employees } = useEmployeeStore();
-  const { findById: findProductById } = useProductStore();
-  const { data: _returns } = useSalesReturnStore();
+  const { data: employees } = useAllEmployees();
+  const { findById: findProductById } = useProductFinder();
+  const { data: _returns } = useAllSalesReturns();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -317,7 +317,8 @@ export function useSalesProductReport(
   }
 ) {
   const { data: orders } = useAllOrders();
-  const { data: _products, findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
+  const { findById: findBrandById } = useBrandFinder();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -353,7 +354,7 @@ export function useSalesProductReport(
             productCode: product?.sku,
             sku: product?.sku,
             categoryName: product?.categories?.[0],
-            brandName: product?.brandSystemId ? useBrandStore.getState().findById(product.brandSystemId)?.name : undefined,
+            brandName: product?.brandSystemId ? findBrandById(product.brandSystemId)?.name : undefined,
             quantitySold: 0,
             quantityReturned: 0,
             netQuantity: 0,
@@ -395,14 +396,14 @@ export function useSalesProductReport(
     };
     
     return { data, summary };
-  }, [orders, dateRange, filters, findProductById]);
+  }, [orders, dateRange, filters, findProductById, findBrandById]);
 }
 
 // Hook: Báo cáo bán hàng theo chi nhánh
 export function useSalesBranchReport(dateRange: ReportDateRange) {
   const { data: orders } = useAllOrders();
   const { data: branches } = useAllBranches();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -489,7 +490,7 @@ export function useSalesCustomerReport(
 ) {
   const { data: orders } = useAllOrders();
   const { data: customers = [] } = useAllCustomers();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findProductById } = useProductFinder();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);

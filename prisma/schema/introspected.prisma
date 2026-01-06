@@ -20,7 +20,7 @@ model AuditLog {
 }
 
 model File {
-  systemId     String   @id
+  systemId     String     @id
   entityType   String
   entityId     String
   documentType String?
@@ -29,11 +29,21 @@ model File {
   filepath     String
   filesize     Int
   mimetype     String
-  uploadedAt   DateTime @default(now())
+  uploadedAt   DateTime   @default(now())
   uploadedBy   String?
+  status       FileStatus @default(staging)
+  sessionId    String?    // For grouping staging files
 
   @@index([entityType, entityId])
+  @@index([status, uploadedAt])
+  @@index([sessionId])
   @@map("files")
+}
+
+enum FileStatus {
+  staging
+  permanent
+  deleted
 }
 
 model Inventory {

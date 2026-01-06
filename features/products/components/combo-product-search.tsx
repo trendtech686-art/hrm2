@@ -9,8 +9,8 @@
 import * as React from 'react';
 import { Package, AlertTriangle } from 'lucide-react';
 import type { Product } from '../types';
-import { useProductStore } from '../store';
-import { usePricingPolicyStore } from '../../settings/pricing/store';
+import { useActiveProducts } from '../hooks/use-all-products';
+import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
 import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { useImageStore } from '../image-store';
 import { FileUploadAPI } from '../../../lib/file-upload-api';
@@ -35,8 +35,8 @@ export function ComboProductSearch({
     excludeProductIds,
     disabled = false 
 }: ComboProductSearchProps) {
-    const { data: _allProducts, getActive } = useProductStore();
-    const { data: pricingPolicies } = usePricingPolicyStore();
+    const { data: activeProducts } = useActiveProducts();
+    const { data: pricingPolicies } = useAllPricingPolicies();
     const { data: branches = [] } = useAllBranches();
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
 
@@ -48,10 +48,10 @@ export function ComboProductSearch({
     // Only show products that can be added to combo (exclude combos, discontinued, deleted)
     // Also exclude products already in the combo
     const availableProducts = React.useMemo(() => {
-        return getActive().filter(p => 
+        return activeProducts.filter(p => 
             canAddToCombo(p) && !excludeProductIds.has(p.systemId)
         );
-    }, [getActive, excludeProductIds]);
+    }, [activeProducts, excludeProductIds]);
 
     // Calculate total available stock (on-hand - committed) across all branches
     const getAvailableStock = (product: Product): number => {

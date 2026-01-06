@@ -28,15 +28,11 @@ type UsePkgxCategorySyncOptions = {
  * Lấy pkgxCatId từ category mapping
  */
 function getPkgxCatId(category: ProductCategory, categoryMappings?: Array<{ hrmCategorySystemId: string; pkgxCatId: number }>) {
-  console.log('[getPkgxCatId] Input category:', { systemId: category.systemId, name: category.name });
-  console.log('[getPkgxCatId] Available mappings:', categoryMappings);
   
   if (!categoryMappings) {
-    console.log('[getPkgxCatId] No mappings found');
     return undefined;
   }
   const mapping = categoryMappings.find(m => m.hrmCategorySystemId === category.systemId);
-  console.log('[getPkgxCatId] Found mapping:', mapping);
   return mapping?.pkgxCatId;
 }
 
@@ -51,7 +47,6 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
     if (addPkgxLog) {
       addPkgxLog(entry);
     }
-    console.log('[PKGX Category Sync]', entry.action, entry.status, entry.message);
   }, [addPkgxLog]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -78,10 +73,9 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
           style: data.style || '',
           grade: data.grade || 0,
         });
-        console.log('[PKGX Category Sync] Auto-refreshed category data from PKGX:', pkgxCatId);
       }
-    } catch (error) {
-      console.warn('[PKGX Category Sync] Failed to refresh category data:', error);
+    } catch (_error) {
+      // Silently ignore sync errors
     }
   }, [updateCategoryInStore]);
 
@@ -109,15 +103,9 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
       };
       
       // DEBUG
-      console.log('[PKGX Category SEO Sync] Category:', category.name);
-      console.log('[PKGX Category SEO Sync] websiteSeo.pkgx:', pkgxSeo);
-      console.log('[PKGX Category SEO Sync] SEO Chung - seoKeywords:', category.seoKeywords);
-      console.log('[PKGX Category SEO Sync] Payload:', seoPayload);
-      console.log('[PKGX Category SEO Sync] Calling updateCategory with catId:', pkgxCatId);
       
       const response = await updateCategory(pkgxCatId, seoPayload);
       
-      console.log('[PKGX Category SEO Sync] API Response:', response);
       
       if (response.success) {
         // Auto-refresh để cập nhật store
@@ -165,7 +153,6 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         long_desc: pkgxSeo?.longDescription || category.longDescription || '',
       };
       
-      console.log('[PKGX Category Desc Sync] Payload:', descPayload);
       
       const response = await updateCategory(pkgxCatId, descPayload);
       
@@ -225,7 +212,6 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         long_desc: pkgxSeo?.longDescription || category.longDescription || '',
       };
       
-      console.log('[PKGX Category Sync All] Payload:', fullPayload);
       
       const response = await updateCategory(pkgxCatId, fullPayload);
       
@@ -274,7 +260,6 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         is_show: category.isActive ? 1 : 0,
       };
       
-      console.log('[PKGX Category Basic Sync] Payload:', basicPayload);
       
       const response = await updateCategoryBasic(pkgxCatId, basicPayload);
       

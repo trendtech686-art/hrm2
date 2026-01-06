@@ -1,12 +1,12 @@
 import * as React from 'react';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../hooks/use-fuse-search';
 // XLSX is lazy loaded in handleExportExcel to reduce bundle size (~500KB)
 import { Printer, FileSpreadsheet } from 'lucide-react';
 import { ResponsiveDataTable, type BulkAction } from './responsive-data-table';
 import { DataTableToolbar } from './data-table-toolbar';
 import { DataTableExportDialog } from './data-table-export-dialog';
 import type { ColumnDef } from './types';
-import { DataTableColumnCustomizer } from './data-table-column-toggle';
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from './dynamic-column-customizer';
 import { Checkbox } from '../ui/checkbox';
 import { useDefaultPageSize } from '../../features/settings/global-settings-store';
 import { isDateSame, isDateAfter, isDateBefore, parseDate, isValidDate, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
@@ -108,15 +108,11 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     }
   }, [columns, isInitialized]);
 
-
-  const fuse = React.useMemo(() => new Fuse(data, { keys: searchKeys as string[] }), [data, searchKeys]);
+  const fuseOptions = React.useMemo(() => ({ keys: searchKeys as string[] }), [searchKeys]);
+  const searchedData = useFuseFilter(data, globalFilter, fuseOptions);
 
   const filteredData = React.useMemo(() => {
-    let filtered = data;
-
-    if (globalFilter) {
-      filtered = fuse.search(globalFilter).map(result => result.item);
-    }
+    let filtered = globalFilter ? searchedData : data;
 
     if (dateFilterColumn && dateFilter && (dateFilter[0] || dateFilter[1])) {
       const [start, end] = dateFilter;
@@ -136,7 +132,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
       });
     }
     return filtered;
-  }, [data, globalFilter, dateFilter, fuse, dateFilterColumn]);
+  }, [data, globalFilter, searchedData, dateFilter, dateFilterColumn]);
 
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredData];

@@ -15,10 +15,11 @@ import * as React from 'react';
 import { Package, AlertTriangle, Plus, Info } from 'lucide-react';
 import type { Product, ProductType as ProductTypeEnum } from '../../features/products/types';
 import { useProductStore } from '../../features/products/store';
-import { usePricingPolicyStore } from '../../features/settings/pricing/store';
-import { useBranchStore } from '../../features/settings/branches/store';
-import { useProductTypeStore } from '../../features/settings/inventory/product-type-store';
-import { useUnitStore } from '../../features/settings/units/store';
+import { useActiveProducts } from '../../features/products/hooks/use-all-products';
+import { useAllPricingPolicies } from '../../features/settings/pricing/hooks/use-all-pricing-policies';
+import { useAllBranches } from '../../features/settings/branches/hooks/use-all-branches';
+import { useProductTypeFinder, useActiveProductTypes } from '../../features/settings/inventory/hooks/use-all-product-types';
+import { useAllUnits } from '../../features/settings/units/hooks/use-all-units';
 import { useImageStore } from '../../features/products/image-store';
 import { FileUploadAPI, type StagingFile, type ServerFile } from '../../lib/file-upload-api';
 import { LazyImage } from '../ui/lazy-image';
@@ -146,9 +147,10 @@ interface QuickAddProductDialogProps {
 
 function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAddProductDialogProps) {
     const { add: addProduct, data: products } = useProductStore();
-    const { data: _productTypes, getActive: getActiveProductTypes } = useProductTypeStore();
-    const { data: units } = useUnitStore();
-    const { data: pricingPolicies } = usePricingPolicyStore();
+    const { data: _productTypes } = useActiveProductTypes();
+    const getActiveProductTypes = React.useCallback(() => _productTypes, [_productTypes]);
+    const { data: units } = useAllUnits();
+    const { data: pricingPolicies = [] } = useAllPricingPolicies();
     
     const [formData, setFormData] = React.useState({
         name: '',
@@ -396,10 +398,10 @@ export function UnifiedProductSearch({
     branchSystemId: _branchSystemId,
     customFilter,
 }: UnifiedProductSearchProps) {
-    const { data: _allProducts, getActive } = useProductStore();
-    const { data: pricingPolicies } = usePricingPolicyStore();
-    const { data: branches } = useBranchStore();
-    const { findById: findProductTypeById } = useProductTypeStore();
+    const { data: activeProducts } = useActiveProducts();
+    const { data: pricingPolicies = [] } = useAllPricingPolicies();
+    const { data: branches } = useAllBranches();
+    const { findById: findProductTypeById } = useProductTypeFinder();
     
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
     const [showQuickAdd, setShowQuickAdd] = React.useState(false);
@@ -417,7 +419,7 @@ export function UnifiedProductSearch({
 
     // Filter products - _allProducts triggers re-evaluation when store changes
     const availableProducts = React.useMemo(() => {
-        return getActive().filter(p => {
+        return activeProducts.filter(p => {
             // Exclude already selected
             if (excludeSet.has(p.systemId)) return false;
             
@@ -435,7 +437,7 @@ export function UnifiedProductSearch({
             return true;
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [_allProducts, getActive, excludeSet, allowedTypes, excludeTypes, customFilter]);
+    }, [activeProducts, excludeSet, allowedTypes, excludeTypes, customFilter]);
 
     // Calculate stock helpers
     const getStockInfo = (product: Product) => {

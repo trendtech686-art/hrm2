@@ -1,5 +1,4 @@
 import type { UseBoundStore, StoreApi } from 'zustand';
-import { data as initialData } from './data';
 import type { SalesChannel } from '@/lib/types/prisma-extended';
 import { createCrudStore, type CrudState } from '../../../lib/store-factory';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
@@ -9,9 +8,8 @@ type SalesChannelStore = CrudState<SalesChannel> & {
   setDefault: (systemId: SystemId) => void;
 };
 
-const baseStore = createCrudStore<SalesChannel>(initialData, 'sales-channels', {
+const baseStore = createCrudStore<SalesChannel>([], 'sales-channels', {
   businessIdField: 'id',
-  persistKey: 'hrm-sales-channel-storage',
   getCurrentUser: getCurrentUserSystemId,
 }) as UseBoundStore<StoreApi<SalesChannelStore>>;
 

@@ -7,9 +7,9 @@ import Link from 'next/link';
 import { ROUTES } from '../../lib/router';
 import { formatDateTime, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate } from '@/lib/date-utils';
 import { usePurchaseOrderStore } from './store';
-import { useSupplierStore } from '../suppliers/store';
-import { usePaymentStore } from '../payments/store';
-import { useReceiptStore } from '../receipts/store';
+import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
+import { useAllPayments } from '../payments/hooks/use-all-payments';
+import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -19,15 +19,22 @@ import { cn } from '../../lib/utils';
 import { useInventoryReceiptStore } from '../inventory-receipts/store';
 import { useProductStore } from '../products/store';
 import { useStockHistoryStore } from '../stock-history/store';
-import { usePaymentTypeStore } from '../settings/payments/types/store';
-import { useCashbookStore } from '../cashbook/store';
+import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { DetailField } from '../../components/ui/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import type { InventoryReceipt } from '../inventory-receipts/types';
-import { ActivityHistory } from '../../components/ActivityHistory';
-import { Comments } from '../../components/Comments';
+// ✅ Heavy components - lazy loaded
+const ActivityHistory = dynamic(
+  () => import('../../components/ActivityHistory').then(m => ({ default: m.ActivityHistory })),
+  { ssr: false }
+);
+const Comments = dynamic(
+  () => import('../../components/Comments').then(m => ({ default: m.Comments })),
+  { ssr: false }
+);
 import { useComments } from '@/hooks/use-comments';
 import { usePurchaseReturnStore } from '../purchase-returns/store';
 import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
@@ -39,15 +46,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { usePrint } from '../../lib/use-print';
-import { 
-  convertPurchaseOrderForPrint,
-  mapPurchaseOrderToPrintData, 
-  mapPurchaseOrderLineItems,
-  createStoreSettings,
-} from '../../lib/print/purchase-order-print-helper';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+// ✅ Print helpers - lazy loaded when print is triggered
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { 
   formatCurrency,
   formatTime,
@@ -57,14 +59,9 @@ import {
 import { createPaymentDocument } from '../finance/document-helpers';
 import { PurchaseOrderPaymentItem } from './components/payment-item';
 import { useAllEmployees, useEmployeeFinder } from '../employees/hooks/use-all-employees';
-import { mapPaymentToPrintData, PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
-import { mapReceiptToPrintData, ReceiptForPrint } from '../../lib/print-mappers/receipt.mapper';
-import { 
-  convertSupplierReturnForPrint,
-  mapSupplierReturnToPrintData, 
-  mapSupplierReturnLineItems,
-  createStoreSettings as createSupplierReturnStoreSettings,
-} from '../../lib/print/supplier-return-print-helper';
+import type { PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
+import type { ReceiptForPrint } from '../../lib/print-mappers/receipt.mapper';
+// ✅ Supplier return print helper - lazy loaded
 
 // Import extracted components
 import { 
@@ -76,12 +73,7 @@ import {
 // Dynamic import for PaymentConfirmationDialog (code-splitting)
 const PaymentConfirmationDialog = dynamic(() => import('./detail').then(mod => ({ default: mod.PaymentConfirmationDialog })), { ssr: false });
 
-import { 
-  convertStockInForPrint,
-  mapStockInToPrintData,
-  mapStockInLineItems,
-  createStoreSettings as createStockInStoreSettings,
-} from '../../lib/print/stock-in-print-helper';
+// ✅ Stock-in print helper - lazy loaded
 
 export function PurchaseOrderDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -91,22 +83,22 @@ export function PurchaseOrderDetailPage() {
   
   // All hooks must be called before any early returns (React hooks rules)
   // Move all hook calls here before the conditional return
-  const { data: suppliers } = useSupplierStore();
+  const { data: suppliers } = useAllSuppliers();
   const { data: allPurchaseOrders } = usePurchaseOrderStore();
-  const { data: allPayments } = usePaymentStore();
-  const { data: allReceiptsFinancial } = useReceiptStore();
+  const { data: allPayments } = useAllPayments();
+  const { data: allReceiptsFinancial } = useAllReceipts();
   const allTransactions = React.useMemo(() => [...allPayments, ...allReceiptsFinancial], [allPayments, allReceiptsFinancial]);
   const { data: allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
   const { data: products, updateInventory, findById: findProductById } = useProductStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
-  const { data: _paymentTypes } = usePaymentTypeStore();
-  const { accounts: _accounts } = useCashbookStore();
+  const { data: _paymentTypes } = useAllPaymentTypes();
+  const { accounts: _accounts } = useAllCashAccounts();
   const { data: _branches } = useAllBranches();
   const { findByPurchaseOrderSystemId, add: addPurchaseReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = asSystemId(authEmployee?.systemId ?? 'SYSTEM');
   const currentUserName = authEmployee?.fullName ?? 'Hệ thống';
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { data: employees } = useAllEmployees();
 
@@ -153,7 +145,6 @@ export function PurchaseOrderDetailPage() {
   };
 
   const handleUpdateComment = (_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
@@ -299,11 +290,19 @@ export function PurchaseOrderDetailPage() {
   };
 
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(purchaseOrder?.branchSystemId);
 
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = React.useCallback(async () => {
     if (!purchaseOrder) return;
+
+    // ✅ Lazy load print helper
+    const { 
+      convertPurchaseOrderForPrint,
+      mapPurchaseOrderToPrintData, 
+      mapPurchaseOrderLineItems,
+      createStoreSettings,
+    } = await import('../../lib/print/purchase-order-print-helper');
 
     const branch = findBranchById(purchaseOrder.branchSystemId);
     const supplier = suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
@@ -333,8 +332,16 @@ export function PurchaseOrderDetailPage() {
   }, [purchaseOrder, findBranchById, storeInfo, print, suppliers, allPayments]);
 
   // Handle print for inventory receipt (phiếu nhập kho)
-  const handlePrintReceipt = React.useCallback((receipt: InventoryReceipt) => {
+  const handlePrintReceipt = React.useCallback(async (receipt: InventoryReceipt) => {
     if (!purchaseOrder) return;
+
+    // ✅ Lazy load print helper
+    const { 
+      convertStockInForPrint,
+      mapStockInToPrintData,
+      mapStockInLineItems,
+      createStoreSettings: createStockInStoreSettings,
+    } = await import('../../lib/print/stock-in-print-helper');
 
     const branch = findBranchById(purchaseOrder.branchSystemId);
     const supplierData = suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
@@ -369,8 +376,16 @@ export function PurchaseOrderDetailPage() {
   }, [purchaseOrder, findBranchById, storeInfo, print, suppliers]);
 
   // Handle print for purchase return (phiếu trả hàng NCC)
-  const handlePrintPurchaseReturn = React.useCallback((purchaseReturn: PurchaseReturn) => {
+  const handlePrintPurchaseReturn = React.useCallback(async (purchaseReturn: PurchaseReturn) => {
     if (!purchaseOrder) return;
+
+    // ✅ Lazy load print helper
+    const { 
+      convertSupplierReturnForPrint,
+      mapSupplierReturnToPrintData, 
+      mapSupplierReturnLineItems,
+      createStoreSettings: createSupplierReturnStoreSettings,
+    } = await import('../../lib/print/supplier-return-print-helper');
 
     const branch = findBranchById(purchaseOrder.branchSystemId);
     const supplierData = suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
@@ -510,9 +525,13 @@ export function PurchaseOrderDetailPage() {
     return suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
   }, [purchaseOrder, suppliers]);
 
-  const handlePrintPayment = React.useCallback((e: React.MouseEvent, item: { type: 'payment' | 'refund'; amount: number; id: string; date: string; method: string; creator: string; description: string }) => {
+  const handlePrintPayment = React.useCallback(async (e: React.MouseEvent, item: { type: 'payment' | 'refund'; amount: number; id: string; date: string; method: string; creator: string; description: string }) => {
       if (!purchaseOrder) return;
       e.stopPropagation();
+      
+      // ✅ Lazy load print mappers
+      const { mapPaymentToPrintData } = await import('../../lib/print-mappers/payment.mapper');
+      const { mapReceiptToPrintData } = await import('../../lib/print-mappers/receipt.mapper');
       
       const isPayment = item.type === 'payment';
       const amount = Math.abs(item.amount);

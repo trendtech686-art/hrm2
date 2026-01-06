@@ -1,3 +1,0 @@
-{
-  "/api/shipping/ghtk/order-status/[trackingCode]/route": "app/api/shipping/ghtk/order-status/[trackingCode]/route.js"
-}

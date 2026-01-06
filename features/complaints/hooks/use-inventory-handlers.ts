@@ -56,7 +56,6 @@ export function useInventoryHandlers({
       // Fallback to employee's branch or default
       if (!branchSystemId) {
         branchSystemId = employee?.branchSystemId || asSystemId('BRANCH000001');
-        console.warn('Order không có branch, dùng fallback:', branchSystemId);
       }
 
       // LAZY LOAD: Import InventoryCheckStore instead of ProductStore

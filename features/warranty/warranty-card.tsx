@@ -49,7 +49,6 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
   // Calculate summary with fallback from products
   const summary = React.useMemo(() => {
     if (ticket.summary?.totalReplaced !== undefined && ticket.summary?.totalOutOfStock !== undefined) {
-      console.log('✅ Using existing summary:', ticket.id, ticket.summary);
       return ticket.summary;
     }
     // Fallback: Calculate from products (with null checks)
@@ -93,9 +92,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
       totalDeduction,
     };
     
-    console.log('⚙️ Calculated summary:', ticket.id, calculated);
     return calculated;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ticket.id only used for logging, not calculation
   }, [ticket.summary, ticket.products]);
 
   // Determine card color (priority: overdue > status)

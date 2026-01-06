@@ -32,7 +32,6 @@ export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
         try {
             // ✅ Use React Query mutation for sync
             await syncGHTKShipment(order.systemId, shippingPackaging.systemId);
-            console.log('Manual sync completed for order:', order.systemId);
         } catch (error) {
             console.error('Manual sync error:', error);
         } finally {

@@ -1,3 +1,0 @@
-{
-  "/(authenticated)/wiki/[systemId]/page": "app/(authenticated)/wiki/[systemId]/page.js"
-}

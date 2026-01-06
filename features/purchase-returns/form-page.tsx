@@ -7,13 +7,13 @@ import { formatDateCustom, parseDate, getCurrentDate, toISODate } from '@/lib/da
 import { ArrowLeft, InfoIcon, AlertCircle } from 'lucide-react';
 
 import { usePurchaseOrderStore } from '../purchase-orders/store';
-import { useSupplierStore } from '../suppliers/store';
+import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { usePurchaseReturnStore } from './store';
 import type { PurchaseReturnLineItem } from '@/lib/types/prisma-extended';
 import { useAuth } from '../../contexts/auth-context';
-import { useCashbookStore } from '../cashbook/store';
-import { usePaymentStore } from '../payments/store';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
+import { useAllPayments } from '../payments/hooks/use-all-payments';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -29,7 +29,7 @@ import type { Payment } from '../payments/types';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
-import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import {
@@ -75,16 +75,16 @@ export function PurchaseReturnFormPage() {
   const { data: allPurchaseOrders, findById: findPO } = usePurchaseOrderStore();
   const poSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
   const po = poSystemId ? findPO(poSystemId) : null;
-  const { findById: findSupplier } = useSupplierStore();
+  const { findById: findSupplier } = useSupplierFinder();
   const { findById: findBranch } = useBranchFinder();
   const supplier = po ? findSupplier(asSystemId(po.supplierSystemId)) : null;
   const branch = po ? findBranch(asSystemId(po.branchSystemId)) : null;
   const { add: addReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
   const { employee: authEmployee } = useAuth();
   const creatorName = authEmployee?.fullName || 'Hệ thống';
-  const { accounts } = useCashbookStore();
-  const { data: allPayments } = usePaymentStore();
-  const { data: allInventoryReceipts } = useInventoryReceiptStore();
+  const { accounts } = useAllCashAccounts();
+  const { data: allPayments } = useAllPayments();
+  const { data: allInventoryReceipts } = useAllInventoryReceipts();
   // State for confirmation dialog
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
   const [pendingSubmit, setPendingSubmit] = React.useState<PurchaseReturnFormValues | null>(null);

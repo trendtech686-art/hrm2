@@ -11,5 +11,9 @@ export * from './types';
 export { PayslipDetailDialog } from './PayslipDetailDialog';
 export { AttendanceDetailDialog } from './AttendanceDetailDialog';
 
+// Column definitions (extracted to reduce detail-page.tsx size)
+export * from './columns';
+
 // Note: PayrollTabContent was considered but not extracted due to tight coupling
 // with component state (columns depend on callbacks like onPrintSingle, etc.)
+

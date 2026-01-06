@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { data as initialData } from './data';
 import type { CashAccount } from '@/lib/types/prisma-extended';
 import { findNextAvailableBusinessId, generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, type EntityType } from '../../lib/id-utils';
 import { asBusinessId, asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
@@ -36,7 +35,7 @@ const ensureBusinessId = (accounts: CashAccount[], provided?: BusinessId): Busin
 
 export const useCashbookStore = create<CashbookState>()(
     (set, get) => ({
-      accounts: initialData,
+      accounts: [],
       getAccountById: (id) => get().accounts.find(a => a.id === id),
       add: (item) => set((state) => {
         const newAccount: CashAccount = {

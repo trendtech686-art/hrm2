@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate as _formatDate, formatDateTime as _formatDateTime, formatDateTimeSeconds as _formatDateTimeSeconds, formatDateCustom as _formatDateCustom, getCurrentDate as _getCurrentDate, toISODate as _toISODate } from '@/lib/date-utils';
 import { useCustomerStore } from './store';
+import { useCustomerFinder } from './hooks/use-all-customers';
 import { asSystemId } from '@/lib/id-types';
 import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -19,7 +20,8 @@ import type { Customer } from '@/lib/types/prisma-extended';
 export function CustomerFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, add, update } = useCustomerStore();
+  const { add, update } = useCustomerStore();
+  const { findById } = useCustomerFinder();
 
   const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const isEditMode = !!customer;

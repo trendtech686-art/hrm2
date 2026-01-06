@@ -1,11 +1,9 @@
 import { createCrudStore } from '../../../lib/store-factory';
-import { data as initialData } from './data';
 import type { ReceiptType } from '@/lib/types/prisma-extended';
 import { toISODate, getCurrentDate } from '../../../lib/date-utils';
 
-const baseStore = createCrudStore<ReceiptType>(initialData, 'receipt-types', {
+const baseStore = createCrudStore<ReceiptType>([], 'receipt-types', {
   businessIdField: 'id',
-  persistKey: 'hrm-receipt-types',
 });
 
 const originalAdd = baseStore.getState().add;

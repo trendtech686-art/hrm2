@@ -6,11 +6,20 @@ import * as React from 'react';
 import { usePayments } from './use-payments';
 import type { Payment } from '@/lib/types/prisma-extended';
 
+// Stable empty array to prevent re-renders
+const EMPTY_PAYMENTS: Payment[] = [];
+
 export function useAllPayments() {
   const query = usePayments({});
   
+  // Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => 
+    query.data?.data || EMPTY_PAYMENTS,
+    [query.data?.data]
+  );
+  
   return {
-    data: query.data?.data || [],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

@@ -93,7 +93,6 @@ export async function DELETE(
     
     if (targetFile) {
       await fs.unlink(path.join(BRANDING_DIR, targetFile));
-      console.log(`✅ Deleted branding ${type}:`, targetFile);
     }
 
     return NextResponse.json({

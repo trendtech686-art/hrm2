@@ -40,9 +40,7 @@ export function ShippingCard({ hidden = false, customer: customerProp }: Shippin
    * Opens address selector dialog with customer's addresses
    */
   const handleChangeDeliveryAddress = () => {
-    console.log('🔵 [ShippingCard] Opening address selector dialog, customer:', customer);
     if (!customer) {
-      console.warn('⚠️ [ShippingCard] No customer available');
       return;
     }
     setIsAddressDialogOpen(true);

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useFormContext } from 'react-hook-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -38,15 +39,15 @@ export function AddServiceDialog({ open, onOpenChange, disabled = false, onAppen
 
   const handleAddService = () => {
     if (!serviceName.trim()) {
-      alert('Vui lòng nhập tên dịch vụ');
+      toast.error('Vui lòng nhập tên dịch vụ');
       return;
     }
     if (servicePrice <= 0) {
-      alert('Giá dịch vụ phải lớn hơn 0');
+      toast.error('Giá dịch vụ phải lớn hơn 0');
       return;
     }
     if (serviceQuantity <= 0) {
-      alert('Số lượng phải lớn hơn 0');
+      toast.error('Số lượng phải lớn hơn 0');
       return;
     }
 

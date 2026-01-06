@@ -1,566 +1,161 @@
 'use client'
-
 import * as React from "react"
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'
 import { formatDate } from '../../../lib/date-utils'
 import { usePenaltyStore, usePenaltyTypeStore } from "./store"
-import { useAllEmployees } from "../../employees/hooks/use-all-employees";
-import { useAllBranches } from "../branches/hooks/use-all-branches";
-import { useStoreInfoStore } from "../store-info/store-info-store";
-import { useDefaultPageSize } from "../global-settings-store";
+import { useAllEmployees } from "../../employees/hooks/use-all-employees"
+import { useAllBranches } from "../branches/hooks/use-all-branches"
+import { useStoreInfoData } from "../store-info/hooks/use-store-info"
+import { useDefaultPageSize } from "../global-settings-store"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable, type BulkAction } from "../../../components/data-table/responsive-data-table"
 import { DataTableFacetedFilter } from "../../../components/data-table/data-table-faceted-filter"
 import { toast } from "sonner"
-import { 
-  Card, 
-  CardContent,
-} from "../../../components/ui/card"
+import { Card, CardContent } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { PlusCircle, User, Calendar, MoreHorizontal, FileText, AlertTriangle, Printer } from "lucide-react"
 import type { Penalty, PenaltyStatus } from "./types"
 import { penaltyCategoryLabels } from "./types"
-import { DataTableExportDialog } from "../../../components/data-table/data-table-export-dialog";
-import { DataTableImportDialog, type ImportConfig } from "../../../components/data-table/data-table-import-dialog";
-import Fuse from "fuse.js"
-import { usePageHeader } from "../../../contexts/page-header-context";
-import { DataTableColumnCustomizer } from "../../../components/data-table/data-table-column-toggle";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
-import { TouchButton } from "../../../components/mobile/touch-button";
-import { Badge } from "../../../components/ui/badge";
-import { useMediaQuery } from "../../../lib/use-media-query";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu";
-import { PageToolbar } from "../../../components/layout/page-toolbar";
-import { PageFilters } from "../../../components/layout/page-filters";
-import { usePrint } from "../../../lib/use-print";
-import { 
-  convertPenaltyForPrint,
-  mapPenaltyToPrintData,
-  createStoreSettings,
-} from "../../../lib/print/penalty-print-helper";
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog";
-import { useColumnLayout } from '../../../hooks/use-column-visibility';
+import { DataTableExportDialog } from "../../../components/data-table/data-table-export-dialog"
+import { DataTableImportDialog, type ImportConfig } from "../../../components/data-table/data-table-import-dialog"
+import { useFuseFilter } from "../../../hooks/use-fuse-search"
+import { usePageHeader } from "../../../contexts/page-header-context"
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../../components/data-table/dynamic-column-customizer'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
+import { TouchButton } from "../../../components/mobile/touch-button"
+import { Badge } from "../../../components/ui/badge"
+import { useMediaQuery } from "../../../lib/use-media-query"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu"
+import { PageToolbar } from "../../../components/layout/page-toolbar"
+import { PageFilters } from "../../../components/layout/page-filters"
+import { usePrint } from "../../../lib/use-print"
+import { convertPenaltyForPrint, mapPenaltyToPrintData, createStoreSettings } from "../../../lib/print/penalty-print-helper"
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog"
+import { useColumnLayout } from '../../../hooks/use-column-visibility'
 
-const formatCurrency = (value?: number) => {
-  if (typeof value !== 'number') return '';
-  return new Intl.NumberFormat('vi-VN').format(value);
-};
+const formatCurrency = (v?: number) => typeof v === 'number' ? new Intl.NumberFormat('vi-VN').format(v) : ''
 
 export function PenaltiesPage() {
-  const { data: penalties, addMultiple, update } = usePenaltyStore();
-  const { data: _penaltyTypes } = usePenaltyTypeStore();
-  const { data: employees } = useAllEmployees();
-  const { data: branches } = useAllBranches();
-  const { info: storeInfo } = useStoreInfoStore();
-  const router = useRouter();
-  const { print: _print, printMultiple } = usePrint();
-  
-  // Print dialog state
-  const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
-  const [itemsToPrint, setItemsToPrint] = React.useState<Penalty[]>([]);
-  
-  // ✅ Use global default page size from settings
-  const defaultPageSize = useDefaultPageSize();
-  
-  // ✅ Memoize actions
-  const headerActions = React.useMemo(() => [
-    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/penalties/new')}>
-      <PlusCircle className="mr-2 h-4 w-4" />
-      Tạo phiếu phạt
-    </Button>
-  ], [router]);
-  
-  // Set page header
-  usePageHeader({
-    actions: headerActions,
-  });
-  
+  const { data: penalties, addMultiple, update } = usePenaltyStore()
+  const { data: _penaltyTypes } = usePenaltyTypeStore()
+  const { data: employees } = useAllEmployees()
+  const { data: branches } = useAllBranches()
+  const { info: storeInfo } = useStoreInfoData()
+  const router = useRouter()
+  const { printMultiple } = usePrint()
+  const defaultPageSize = useDefaultPageSize()
+  const isMobile = !useMediaQuery("(min-width: 768px)")
+
+  const [printDialogOpen, setPrintDialogOpen] = React.useState(false), [itemsToPrint, setItemsToPrint] = React.useState<Penalty[]>([])
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true })
+  const [globalFilter, setGlobalFilter] = React.useState(''), [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('')
+  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set())
+  const [employeeFilter, setEmployeeFilter] = React.useState('all'), [categoryFilter, setCategoryFilter] = React.useState<Set<string>>(new Set())
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize })
+  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
+
+  usePageHeader({ actions: React.useMemo(() => [<Button key="add" size="sm" className="h-9" onClick={() => router.push('/penalties/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu phạt</Button>], [router]) })
+  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t) }, [globalFilter])
+
+  const [columnLayout, columnLayoutSetters] = useColumnLayout('penalties', React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []))
+  const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout
+  const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters
+
+  const handleMarkPaid = React.useCallback((p: Penalty) => { update(p.systemId, { ...p, status: "Đã thanh toán" as PenaltyStatus, updatedAt: new Date().toISOString() }); toast.success("Đã cập nhật trạng thái", { description: `Phiếu phạt ${p.id} đã chuyển sang "Đã thanh toán"` }) }, [update])
+  const handleCancel = React.useCallback((p: Penalty) => { update(p.systemId, { ...p, status: "Đã hủy" as PenaltyStatus, updatedAt: new Date().toISOString() }); toast.success("Đã hủy phiếu phạt", { description: `Phiếu phạt ${p.id} đã bị hủy` }) }, [update])
+  const columns = React.useMemo(() => getColumns(handleMarkPaid, handleCancel, router), [handleMarkPaid, handleCancel, router])
+
+  const defaultVisibleCols = new Set(['select', 'id', 'employeeName', 'penaltyTypeName', 'reason', 'amount', 'issueDate', 'issuerName', 'status', 'category', 'linkedComplaintSystemId', 'linkedOrderSystemId', 'deductedInPayrollId', 'createdAt', 'actions'])
+  const buildDefaultVisibility = React.useCallback(() => Object.fromEntries(columns.map(c => [c.id, c.id === 'select' || c.id === 'actions' || defaultVisibleCols.has(c.id!)])), [columns])
+  const buildDefaultOrder = React.useCallback(() => columns.map(c => c.id).filter(Boolean) as string[], [columns])
+  const defaultsInitialized = React.useRef(false)
   
-  // Table state - default sort by createdAt desc (newest first)
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [employeeFilter, setEmployeeFilter] = React.useState('all');
-  const [categoryFilter, setCategoryFilter] = React.useState<Set<string>>(new Set());
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize });
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  
-  // Debounce search input
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedGlobalFilter(globalFilter);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [globalFilter]);
-  
-  // Column customization state using hook
-  const [columnLayout, columnLayoutSetters] = useColumnLayout('penalties', {
-    visibility: {},
-    order: [],
-    pinned: []
-  });
-  const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout;
-  const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
+  React.useEffect(() => { if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true; setColumnVisibility(buildDefaultVisibility()); setColumnOrder(buildDefaultOrder()) }, [])
+  const resetColumnLayout = React.useCallback(() => { setColumnVisibility(buildDefaultVisibility()); setColumnOrder(buildDefaultOrder()); setPinnedColumns([]); toast.success('Đã khôi phục bố cục cột mặc định') }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns])
 
-  // Row action handlers
-  const handleMarkPaid = React.useCallback((penalty: Penalty) => {
-    update(penalty.systemId, { 
-      ...penalty, 
-      status: "Đã thanh toán" as PenaltyStatus,
-      updatedAt: new Date().toISOString()
-    });
-    toast.success("Đã cập nhật trạng thái", {
-      description: `Phiếu phạt ${penalty.id} đã chuyển sang "Đã thanh toán"`,
-    });
-  }, [update]);
-
-  const handleCancel = React.useCallback((penalty: Penalty) => {
-    update(penalty.systemId, { 
-      ...penalty, 
-      status: "Đã hủy" as PenaltyStatus,
-      updatedAt: new Date().toISOString()
-    });
-    toast.success("Đã hủy phiếu phạt", {
-      description: `Phiếu phạt ${penalty.id} đã bị hủy`,
-    });
-  }, [update]);
-
-  const columns = React.useMemo(() => getColumns(handleMarkPaid, handleCancel, router), [handleMarkPaid, handleCancel, router]);
-
-  const buildDefaultVisibility = React.useCallback(() => {
-    const defaultVisibleColumns = new Set([
-      'select', 'id', 'employeeName', 'penaltyTypeName', 'reason', 'amount', 
-      'issueDate', 'issuerName', 'status', 'category', 'linkedComplaintSystemId',
-      'linkedOrderSystemId', 'deductedInPayrollId', 'createdAt', 'actions'
-    ]);
-
-    const initialVisibility: Record<string, boolean> = {};
-    columns.forEach(c => {
-      if (!c.id) return;
-      if (c.id === 'select' || c.id === 'actions') {
-        initialVisibility[c.id] = true;
-        return;
-      }
-      initialVisibility[c.id] = defaultVisibleColumns.has(c.id);
-    });
-    return initialVisibility;
-  }, [columns]);
-
-  const buildDefaultOrder = React.useCallback(() => (
-    columns.map(c => c.id).filter(Boolean) as string[]
-  ), [columns]);
-
-  React.useEffect(() => {
-    if (columns.length === 0) return;
-
-    // Only set defaults if not already set
-    if (Object.keys(columnVisibility).length === 0) {
-      setColumnVisibility(buildDefaultVisibility());
-    }
-
-    if (columnOrder.length === 0) {
-      setColumnOrder(buildDefaultOrder());
-    }
-
-    // pinnedColumns is always initialized by useColumnLayout, no need to set here
-  }, [columns, buildDefaultOrder, buildDefaultVisibility, columnVisibility, columnOrder, setColumnVisibility, setColumnOrder]);
-
-  const resetColumnLayout = React.useCallback(() => {
-    const defaultVisibility = buildDefaultVisibility();
-    const defaultOrder = buildDefaultOrder();
-    setColumnVisibility(defaultVisibility);
-    setColumnOrder(defaultOrder);
-    setPinnedColumns([]);
-    toast.success('Đã khôi phục bố cục cột mặc định');
-  }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
-  
-  // ✅ Create Fuse instance for search
-  const fuseInstance = React.useMemo(() => {
-    return new Fuse(penalties, { 
-      keys: ["id", "employeeName", "reason", "issuerName", "penaltyTypeName"],
-      threshold: 0.3,
-      ignoreLocation: true,
-      useExtendedSearch: false
-    });
-  }, [penalties]);
-  
+  const searchedPenalties = useFuseFilter(penalties, debouncedGlobalFilter, React.useMemo(() => ({ keys: ["id", "employeeName", "reason", "issuerName", "penaltyTypeName"], threshold: 0.3, ignoreLocation: true, useExtendedSearch: false }), []))
   const filteredData = React.useMemo(() => {
-    let filtered = penalties;
+    let f = debouncedGlobalFilter ? searchedPenalties : penalties
+    if (employeeFilter !== 'all') f = f.filter(p => p.employeeSystemId === employeeFilter)
+    if (statusFilter.size > 0) f = f.filter(p => p.status && statusFilter.has(p.status))
+    if (categoryFilter.size > 0) f = f.filter(p => p.category && categoryFilter.has(p.category))
+    return f
+  }, [penalties, debouncedGlobalFilter, searchedPenalties, employeeFilter, statusFilter, categoryFilter])
+  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })) }, [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter])
 
-    // Employee filter
-    if (employeeFilter !== 'all') {
-      filtered = filtered.filter(p => p.employeeSystemId === employeeFilter);
-    }
-    
-    // Status filter
-    if (statusFilter.size > 0) {
-      filtered = filtered.filter(p => p.status && statusFilter.has(p.status));
-    }
-    
-    // Category filter
-    if (categoryFilter.size > 0) {
-      filtered = filtered.filter(p => p.category && categoryFilter.has(p.category));
-    }
-    
-    // Search filter
-    if (debouncedGlobalFilter && debouncedGlobalFilter.trim()) {
-      fuseInstance.setCollection(filtered);
-      filtered = fuseInstance.search(debouncedGlobalFilter.trim()).map(result => result.item);
-    }
+  const sortedData = React.useMemo(() => [...filteredData].sort((a, b) => {
+    if (!sorting.id) return 0
+    const aV = (a as Record<string, unknown>)[sorting.id], bV = (b as Record<string, unknown>)[sorting.id]
+    if (aV == null) return 1; if (bV == null) return -1
+    if (sorting.id === 'issueDate' || sorting.id === 'createdAt') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; return sorting.desc ? bT - aT : aT - bT }
+    return aV < bV ? (sorting.desc ? 1 : -1) : aV > bV ? (sorting.desc ? -1 : 1) : 0
+  }), [filteredData, sorting])
 
-    return filtered;
-  }, [penalties, debouncedGlobalFilter, fuseInstance, employeeFilter, statusFilter, categoryFilter]);
-  
-  // Reset pagination when filters change
-  React.useEffect(() => {
-    setPagination(p => ({ ...p, pageIndex: 0 }));
-  }, [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter]);
-  
-  const sortedData = React.useMemo(() => {
-    const sorted = [...filteredData];
-    if (sorting.id) {
-      sorted.sort((a, b) => {
-        const aValue = (a as Record<string, unknown>)[sorting.id];
-        const bValue = (b as Record<string, unknown>)[sorting.id];
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-        // Special handling for date columns
-        if (sorting.id === 'issueDate' || sorting.id === 'createdAt') {
-          const aTime = aValue ? new Date(aValue as string).getTime() : 0;
-          const bTime = bValue ? new Date(bValue as string).getTime() : 0;
-          return sorting.desc ? bTime - aTime : aTime - bTime;
-        }
-        if (aValue < bValue) return sorting.desc ? 1 : -1;
-        if (aValue > bValue) return sorting.desc ? -1 : 1;
-        return 0;
-      });
-    }
-    return sorted;
-  }, [filteredData, sorting]);
+  const pageCount = Math.ceil(sortedData.length / pagination.pageSize)
+  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination])
+  const allSelectedRows = React.useMemo(() => penalties.filter(p => rowSelection[p.systemId]), [penalties, rowSelection])
 
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    return sortedData.slice(start, end);
-  }, [sortedData, pagination]);
+  const statusOptions = React.useMemo(() => [{ label: 'Chưa thanh toán', value: 'Chưa thanh toán' }, { label: 'Đã thanh toán', value: 'Đã thanh toán' }, { label: 'Đã hủy', value: 'Đã hủy' }], [])
+  const categoryOptions = React.useMemo(() => [{ label: 'Khiếu nại', value: 'complaint' }, { label: 'Chấm công', value: 'attendance' }, { label: 'Hiệu suất', value: 'performance' }, { label: 'Khác', value: 'other' }], [])
+  const employeeOptions = React.useMemo(() => { const ids = new Set(penalties.map(p => p.employeeSystemId)); return employees.filter(e => ids.has(e.systemId)).map(e => ({ value: e.systemId, label: e.fullName })) }, [penalties, employees])
 
-  const _numSelected = Object.keys(rowSelection).length;
-  const allSelectedRows = React.useMemo(() => 
-    penalties.filter(p => rowSelection[p.systemId]),
-  [penalties, rowSelection]);
+  const exportConfig = { fileName: 'Danh_sach_Phieu_phat', columns }
+  const importConfig: ImportConfig<Penalty> = { importer: items => addMultiple(items.map(({ systemId: _, ...rest }) => rest) as Omit<Penalty, 'systemId'>[]), fileName: 'Mau_Nhap_Phieu_phat', existingData: penalties, getUniqueKey: (item: Penalty) => item.id }
 
-  const isMobile = !useMediaQuery("(min-width: 768px)");
-
-  // Filter options
-  const statusOptions = React.useMemo(() => [
-    { label: 'Chưa thanh toán', value: 'Chưa thanh toán' },
-    { label: 'Đã thanh toán', value: 'Đã thanh toán' },
-    { label: 'Đã hủy', value: 'Đã hủy' },
-  ], []);
-
-  const categoryOptions = React.useMemo(() => [
-    { label: 'Khiếu nại', value: 'complaint' },
-    { label: 'Chấm công', value: 'attendance' },
-    { label: 'Hiệu suất', value: 'performance' },
-    { label: 'Khác', value: 'other' },
-  ], []);
-
-  const employeeOptions = React.useMemo(() => {
-    const empIds = new Set(penalties.map(p => p.employeeSystemId));
-    return employees
-      .filter(e => empIds.has(e.systemId))
-      .map(e => ({ value: e.systemId, label: e.fullName }));
-  }, [penalties, employees]);
-
-  const exportConfig = {
-    fileName: 'Danh_sach_Phieu_phat',
-    columns,
-  }
-
-  const importConfig: ImportConfig<Penalty> = {
-    importer: (items) => {
-      const itemsWithoutSystemId = items.map(item => {
-        const { systemId: _systemId, ...rest } = item as Penalty & { systemId: string };
-        return rest as Omit<Penalty, 'systemId'>;
-      });
-      addMultiple(itemsWithoutSystemId);
-    },
-    fileName: 'Mau_Nhap_Phieu_phat',
-    existingData: penalties,
-    getUniqueKey: (item: Penalty) => item.id
-  }
-
-  // Bulk print handlers
-  const handleBulkPrint = React.useCallback((rows: Penalty[]) => {
-    setItemsToPrint(rows);
-    setPrintDialogOpen(true);
-  }, []);
-
+  const handleBulkPrint = React.useCallback((rows: Penalty[]) => { setItemsToPrint(rows); setPrintDialogOpen(true) }, [])
   const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
-    if (itemsToPrint.length === 0) return;
-    
-    const printItems = itemsToPrint.map(penalty => {
-      const employee = employees.find(e => e.systemId === penalty.employeeSystemId);
-      const selectedBranch = options.branchSystemId 
-        ? branches.find(b => b.systemId === options.branchSystemId)
-        : null;
-      const storeSettings = selectedBranch 
-        ? createStoreSettings(selectedBranch)
-        : createStoreSettings(storeInfo);
-      const penaltyData = convertPenaltyForPrint(penalty, { employee });
-      
-      return {
-        data: mapPenaltyToPrintData(penaltyData, storeSettings),
-        lineItems: [],
-        paperSize: options.paperSize,
-      };
-    });
-
-    printMultiple('penalty', printItems);
-    toast.success(`Đang in ${itemsToPrint.length} phiếu phạt`);
-    setItemsToPrint([]);
-    setPrintDialogOpen(false);
-  }, [itemsToPrint, employees, branches, storeInfo, printMultiple]);
+    if (itemsToPrint.length === 0) return
+    printMultiple('penalty', itemsToPrint.map(penalty => {
+      const employee = employees.find(e => e.systemId === penalty.employeeSystemId)
+      const selectedBranch = options.branchSystemId ? branches.find(b => b.systemId === options.branchSystemId) : null
+      const storeSettings = createStoreSettings(selectedBranch || storeInfo)
+      return { data: mapPenaltyToPrintData(convertPenaltyForPrint(penalty, { employee }), storeSettings), lineItems: [], paperSize: options.paperSize }
+    }))
+    toast.success(`Đang in ${itemsToPrint.length} phiếu phạt`); setItemsToPrint([]); setPrintDialogOpen(false)
+  }, [itemsToPrint, employees, branches, storeInfo, printMultiple])
 
   const bulkActions: BulkAction<Penalty>[] = [
-    {
-      label: "In phiếu",
-      icon: Printer,
-      onSelect: handleBulkPrint,
-    },
-    {
-      label: "Đánh dấu đã thanh toán",
-      onSelect: (selectedRows: Penalty[]) => {
-        selectedRows.forEach(p => {
-          update(p.systemId, { ...p, status: "Đã thanh toán" as PenaltyStatus });
-        });
-        toast.success("Đã cập nhật trạng thái", {
-          description: `${selectedRows.length} phiếu phạt đã chuyển sang "Đã thanh toán"`,
-        });
-        setRowSelection({});
-      }
-    },
-    {
-      label: "Hủy phiếu phạt",
-      onSelect: (selectedRows: Penalty[]) => {
-        selectedRows.forEach(p => {
-          update(p.systemId, { ...p, status: "Đã hủy" as PenaltyStatus });
-        });
-        toast.success("Đã cập nhật trạng thái", {
-          description: `${selectedRows.length} phiếu phạt đã hủy`,
-        });
-        setRowSelection({});
-      }
-    }
-  ];
+    { label: "In phiếu", icon: Printer, onSelect: handleBulkPrint },
+    { label: "Đánh dấu đã thanh toán", onSelect: rows => { rows.forEach(p => update(p.systemId, { ...p, status: "Đã thanh toán" as PenaltyStatus })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã chuyển sang "Đã thanh toán"` }); setRowSelection({}) } },
+    { label: "Hủy phiếu phạt", onSelect: rows => { rows.forEach(p => update(p.systemId, { ...p, status: "Đã hủy" as PenaltyStatus })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã hủy` }); setRowSelection({}) } }
+  ]
+  const handleRowClick = (row: Penalty) => router.push(`/penalties/${row.systemId}`)
 
-  const handleRowClick = (row: Penalty) => {
-    router.push(`/penalties/${row.systemId}`);
-  };
-
-  // Mobile Penalty Card Component
   const MobilePenaltyCard = ({ penalty }: { penalty: Penalty }) => {
-    const getStatusVariant = (status: PenaltyStatus): "warning" | "success" | "secondary" => {
-      const map: Record<PenaltyStatus, "warning" | "success" | "secondary"> = {
-        'Chưa thanh toán': 'warning',
-        'Đã thanh toán': 'success',
-        'Đã hủy': 'secondary'
-      };
-      return map[status] || 'secondary';
-    };
-
+    const statusVariant = { 'Chưa thanh toán': 'warning', 'Đã thanh toán': 'success', 'Đã hủy': 'secondary' }[penalty.status] as "warning" | "success" | "secondary" || 'secondary'
     return (
-      <Card 
-        className="hover:shadow-md transition-shadow cursor-pointer"
-        onClick={() => handleRowClick(penalty)}
-      >
+      <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleRowClick(penalty)}>
         <CardContent className="p-4">
-          {/* Header: ID + Status + Menu */}
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
-              <span className="font-semibold text-sm font-mono">{penalty.id}</span>
-              <Badge variant={getStatusVariant(penalty.status)} className="text-xs ml-auto">
-                {penalty.status}
-              </Badge>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <TouchButton
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-10 p-0 flex-shrink-0 ml-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </TouchButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`); }}>
-                  Chỉnh sửa
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2 flex-1 min-w-0"><AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" /><span className="font-semibold text-sm font-mono">{penalty.id}</span><Badge variant={statusVariant} className="text-xs ml-auto">{penalty.status}</Badge></div>
+            <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-9 w-10 p-0 flex-shrink-0 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           </div>
-
-          {/* Employee Info */}
-          <div className="flex items-center text-sm mb-2">
-            <User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground flex-shrink-0" />
-            <span className="font-medium truncate">{penalty.employeeName}</span>
-          </div>
-
-          {/* Reason */}
-          <div className="text-xs text-muted-foreground mb-3 line-clamp-2">
-            <FileText className="h-3 w-3 mr-1.5 inline-flex flex-shrink-0" />
-            {penalty.reason}
-          </div>
-
-          {/* Divider */}
+          <div className="flex items-center text-sm mb-2"><User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground flex-shrink-0" /><span className="font-medium truncate">{penalty.employeeName}</span></div>
+          <div className="text-xs text-muted-foreground mb-3 line-clamp-2"><FileText className="h-3 w-3 mr-1.5 inline-flex flex-shrink-0" />{penalty.reason}</div>
           <div className="border-t mb-3" />
-
-          {/* Amount + Date + Category */}
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
-              <span className="font-bold text-destructive text-sm">
-                {formatCurrency(penalty.amount)} đ
-              </span>
-              {penalty.category && (
-                <Badge variant="outline" className="text-xs">
-                  {penaltyCategoryLabels[penalty.category]}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center text-muted-foreground">
-              <Calendar className="h-3 w-3 mr-1" />
-              {formatDate(penalty.issueDate)}
-            </div>
+            <div className="flex items-center gap-3"><span className="font-bold text-destructive text-sm">{formatCurrency(penalty.amount)} đ</span>{penalty.category && <Badge variant="outline" className="text-xs">{penaltyCategoryLabels[penalty.category]}</Badge>}</div>
+            <div className="flex items-center text-muted-foreground"><Calendar className="h-3 w-3 mr-1" />{formatDate(penalty.issueDate)}</div>
           </div>
-
-          {/* Issuer */}
-          <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-            Người lập: {penalty.issuerName}
-          </div>
+          <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">Người lập: {penalty.issuerName}</div>
         </CardContent>
       </Card>
-    );
-  };
+    )
+  }
 
   return (
     <div className="flex flex-col w-full h-full">
-      {/* ===== TOOLBAR - Import/Export/Column Customizer (Desktop only) ===== */}
-      {!isMobile && (
-        <PageToolbar
-          leftActions={
-            <>
-              <DataTableImportDialog config={importConfig} />
-              <DataTableExportDialog 
-                allData={penalties} 
-                filteredData={sortedData} 
-                pageData={paginatedData} 
-                config={exportConfig} 
-              />
-            </>
-          }
-          rightActions={
-            <DataTableColumnCustomizer
-              columns={columns}
-              columnVisibility={columnVisibility}
-              setColumnVisibility={setColumnVisibility}
-              columnOrder={columnOrder}
-              setColumnOrder={setColumnOrder}
-              pinnedColumns={pinnedColumns}
-              setPinnedColumns={setPinnedColumns}
-              onResetToDefault={resetColumnLayout}
-            />
-          }
-        />
-      )}
-
-      {/* ===== FILTERS - Search & Custom Filters ===== */}
-      <PageFilters
-        searchValue={globalFilter}
-        onSearchChange={setGlobalFilter}
-        searchPlaceholder="Tìm kiếm phiếu phạt (mã, tên NV, lý do)..."
-      >
-        {/* Employee Filter */}
-        <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-          <SelectTrigger className="w-full sm:w-[180px] h-9">
-            <SelectValue placeholder="Tất cả nhân viên" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả nhân viên</SelectItem>
-            {employeeOptions.map(e => (
-              <SelectItem key={e.value} value={e.value}>
-                {e.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Status Filter */}
-        <DataTableFacetedFilter
-          title="Trạng thái"
-          options={statusOptions}
-          selectedValues={statusFilter}
-          onSelectedValuesChange={setStatusFilter}
-        />
-
-        {/* Category Filter */}
-        <DataTableFacetedFilter
-          title="Phân loại"
-          options={categoryOptions}
-          selectedValues={categoryFilter}
-          onSelectedValuesChange={setCategoryFilter}
-        />
+      {!isMobile && <PageToolbar leftActions={<><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={penalties} filteredData={sortedData} pageData={paginatedData} config={exportConfig} /></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm phiếu phạt (mã, tên NV, lý do)...">
+        <Select value={employeeFilter} onValueChange={setEmployeeFilter}><SelectTrigger className="w-full sm:w-[180px] h-9"><SelectValue placeholder="Tất cả nhân viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả nhân viên</SelectItem>{employeeOptions.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent></Select>
+        <DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} />
+        <DataTableFacetedFilter title="Phân loại" options={categoryOptions} selectedValues={categoryFilter} onSelectedValuesChange={setCategoryFilter} />
       </PageFilters>
-
       <div className="w-full py-4">
-        <ResponsiveDataTable
-          columns={columns}
-          data={paginatedData}
-          renderMobileCard={(penalty) => (
-            <MobilePenaltyCard penalty={penalty} />
-          )}
-          pageCount={pageCount}
-          pagination={pagination}
-          setPagination={setPagination}
-          rowCount={filteredData.length}
-          rowSelection={rowSelection}
-          setRowSelection={setRowSelection}
-          bulkActions={bulkActions}
-          allSelectedRows={allSelectedRows}
-          expanded={expanded}
-          setExpanded={setExpanded}
-          sorting={sorting}
-          setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
-          columnVisibility={columnVisibility}
-          setColumnVisibility={setColumnVisibility}
-          columnOrder={columnOrder}
-          setColumnOrder={setColumnOrder}
-          pinnedColumns={pinnedColumns}
-          setPinnedColumns={setPinnedColumns}
-          onRowClick={handleRowClick}
-          emptyTitle="Chưa có phiếu phạt"
-          emptyDescription="Tạo phiếu phạt để ghi nhận vi phạm"
-        />
+        <ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={p => <MobilePenaltyCard penalty={p} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} emptyTitle="Chưa có phiếu phạt" emptyDescription="Tạo phiếu phạt để ghi nhận vi phạm" />
       </div>
-
-      {/* Print Options Dialog */}
-      <SimplePrintOptionsDialog
-        open={printDialogOpen}
-        onOpenChange={setPrintDialogOpen}
-        onConfirm={handlePrintConfirm}
-        selectedCount={itemsToPrint.length}
-        title="In phiếu phạt"
-      />
+      <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu phạt" />
     </div>
-  );
+  )
 }

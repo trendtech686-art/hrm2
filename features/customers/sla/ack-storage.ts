@@ -29,8 +29,8 @@ async function loadAckMapFromAPI(): Promise<CustomerSlaAckMap> {
       const data = await response.json();
       return data.value || {};
     }
-  } catch (error) {
-    console.warn('[customer-sla] Failed to load ack map from API:', error);
+  } catch (_error) {
+    // Silently fail - return empty map
   }
   return {};
 }
@@ -46,8 +46,8 @@ async function saveAckMapToAPI(map: CustomerSlaAckMap): Promise<void> {
         value: map,
       }),
     });
-  } catch (error) {
-    console.warn('[customer-sla] Failed to save ack map to API:', error);
+  } catch (_error) {
+    // Silently fail - acknowledgement save is not critical
   }
 }
 
@@ -58,8 +58,8 @@ async function loadActivityLogFromAPI(): Promise<SlaActivityLog[]> {
       const data = await response.json();
       return data.value || [];
     }
-  } catch (error) {
-    console.warn('[customer-sla] Failed to load activity log from API:', error);
+  } catch (_error) {
+    // Silently fail - return empty array
   }
   return [];
 }
@@ -77,8 +77,8 @@ async function saveActivityLogToAPI(logs: SlaActivityLog[]): Promise<void> {
         value: trimmed,
       }),
     });
-  } catch (error) {
-    console.warn('[customer-sla] Failed to save activity log to API:', error);
+  } catch (_error) {
+    // Silently fail - activity log save is not critical
   }
 }
 

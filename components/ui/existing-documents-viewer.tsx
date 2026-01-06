@@ -4,7 +4,6 @@ import { Button } from './button';
 import { toast } from 'sonner';
 import { Eye, X, Download, File, RotateCcw } from 'lucide-react';
 import { FileUploadAPI } from '../../lib/file-upload-api';
-import { getFileUrl } from '../../lib/api-config';
 import type { StagingFile } from '../../lib/file-upload-api';
 import { useLazyImage } from '../../hooks/use-lazy-image';
 import {
@@ -133,7 +132,7 @@ export function ExistingDocumentsViewer({
   }, [fileToDelete, deleteMode, files, onChange, onRefresh, onMarkForDeletion]);
 
   const handlePreview = React.useCallback((file: StagingFile) => {
-    const previewUrl = getFileUrl(file.url);
+    const previewUrl = file.url;
 
     if (file.type === 'application/pdf') {
       window.open(previewUrl, '_blank');
@@ -199,7 +198,7 @@ export function ExistingDocumentsViewer({
 
   const handleDownload = React.useCallback(async (file: StagingFile) => {
     try {
-      const downloadUrl = getFileUrl(file.url);
+      const downloadUrl = file.url;
 
       const response = await fetch(downloadUrl);
       const blob = await response.blob();
@@ -324,13 +323,12 @@ function LazyFileCard({
   const { ref, isInView, isLoaded, setIsLoaded } = useLazyImage();
   
   const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
-  const previewUrl = getFileUrl(file.url);
+  const previewUrl = file.url;
 
   const handleImageRetry = (event: React.SyntheticEvent<HTMLImageElement>) => {
     const img = event.currentTarget;
     const attempts = Number(img.dataset.retryCount || '0');
     if (attempts >= 4) {
-      console.warn('Permanent image failed after retries:', previewUrl);
       return;
     }
     const nextAttempts = attempts + 1;

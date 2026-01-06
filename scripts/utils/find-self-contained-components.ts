@@ -55,13 +55,10 @@ async function main() {
     .sort((a, b) => a.file.localeCompare(b.file));
 
   if (reportRows.length === 0) {
-    console.log('✅ No self-contained files detected for the given targets.');
     return;
   }
 
-  console.log('⚠️  Potentially self-contained files (only referenced by themselves):');
   for (const row of reportRows) {
-    console.log(`- ${path.relative(PROJECT_ROOT, row.file)}`);
   }
 }
 
@@ -91,7 +88,6 @@ async function expandTarget(target: string): Promise<string[]> {
       return [absPath];
     }
   } catch {
-    console.warn(`⚠️  Target not found: ${target}`);
   }
   return [];
 }

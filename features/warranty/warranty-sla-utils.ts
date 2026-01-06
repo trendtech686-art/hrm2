@@ -30,7 +30,6 @@ export function loadWarrantySLATargets() {
  * @deprecated Use useWarrantySLASettings hook from hooks/use-sla-notification-settings.ts
  */
 export function saveWarrantySLATargets(_targets: typeof DEFAULT_WARRANTY_SLA_TARGETS) {
-  console.warn('saveWarrantySLATargets is deprecated. Use useWarrantySLASettings hook instead.');
 }
 
 /**

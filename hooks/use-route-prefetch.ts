@@ -50,9 +50,8 @@ export function useIdlePreload() {
       PREFETCH_ROUTES.forEach((route) => {
         try {
           router.prefetch(route);
-        } catch (error) {
-          // Ignore prefetch errors
-          console.debug(`[Prefetch] Failed to prefetch ${route}:`, error);
+        } catch {
+          // Ignore prefetch errors - non-critical
         }
       });
       prefetchedRef.current = true;
@@ -82,8 +81,8 @@ export function usePrefetch() {
   return React.useCallback((route: string) => {
     try {
       router.prefetch(route);
-    } catch (error) {
-      console.debug(`[Prefetch] Failed to prefetch ${route}:`, error);
+    } catch {
+      // Ignore prefetch errors - non-critical
     }
   }, [router]);
 }

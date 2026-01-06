@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { Printer, ArrowLeft } from 'lucide-react';
 
 import { useInventoryReceiptStore } from './store';
-import { usePurchaseOrderStore } from '../purchase-orders/store';
-import { useSupplierStore } from '../suppliers/store';
-import { useEmployeeStore } from '../employees/store';
-import { useProductStore } from '../products/store';
+import { usePurchaseOrderFinder } from '../purchase-orders/hooks/use-all-purchase-orders';
+import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { usePrint } from '../../lib/use-print';
 import { 
   convertStockInForPrint,
@@ -18,7 +18,7 @@ import {
   createStoreSettings,
 } from '../../lib/print/stock-in-print-helper';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '../../lib/date-utils';
@@ -47,10 +47,10 @@ export function InventoryReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById: findReceiptById } = useInventoryReceiptStore();
-  const { findById: findPurchaseOrderById } = usePurchaseOrderStore();
-  const { findById: findSupplierById } = useSupplierStore();
-  const { findById: findEmployeeById } = useEmployeeStore();
-  const { findById: findProductById } = useProductStore();
+  const { findById: findPurchaseOrderById } = usePurchaseOrderFinder();
+  const { findById: findSupplierById } = useSupplierFinder();
+  const { findById: findEmployeeById } = useEmployeeFinder();
+  const { findById: findProductById } = useProductFinder();
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   const { employee: authEmployee } = useAuth();
 
@@ -81,7 +81,6 @@ export function InventoryReceiptDetailPage() {
   }, [dbAddComment]);
 
   const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
@@ -113,7 +112,7 @@ export function InventoryReceiptDetailPage() {
   ), [receipt]);
 
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(receipt?.branchSystemId);
 
   const handlePrint = React.useCallback(() => {

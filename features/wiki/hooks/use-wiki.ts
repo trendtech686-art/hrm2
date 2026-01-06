@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for wiki articles
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchWikiArticles,
   fetchWikiById,
@@ -38,6 +38,7 @@ export function useWikiArticles(filters: WikiFilters = {}) {
     queryKey: wikiKeys.list(filters),
     queryFn: () => fetchWikiArticles(filters),
     staleTime: 1000 * 60 * 5, // 5 minutes - wiki doesn't change often
+    placeholderData: keepPreviousData,
   });
 }
 

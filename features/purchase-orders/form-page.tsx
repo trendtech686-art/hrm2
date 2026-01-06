@@ -9,13 +9,13 @@ import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
 import { useProductStore } from '../products/store';
-import { useSupplierStore } from '../suppliers/store';
+import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
 import { useInventoryReceiptStore } from '../inventory-receipts/store';
 import { useStockHistoryStore } from '../stock-history/store';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
-import { usePaymentTypeStore } from '../settings/payments/types/store';
-import { useCashbookStore } from '../cashbook/store';
+import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { usePaymentStore } from '../payments/store';
 import type { Payment } from '../payments/types';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -48,12 +48,12 @@ export function PurchaseOrderFormPage() {
   const { data: employees } = useAllEmployees();
   const { employee: authEmployee } = useAuth();
   const { data: products, updateInventory, findById: findProductById } = useProductStore();
-  const { data: suppliers } = useSupplierStore();
+  const { data: suppliers } = useAllSuppliers();
   const { data: _allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
   const { add: addPayment } = usePaymentStore();
-  const { data: paymentTypes } = usePaymentTypeStore();
-  const { accounts: _accounts } = useCashbookStore();
+  const { data: paymentTypes } = useAllPaymentTypes();
+  const { accounts: _accounts } = useAllCashAccounts();
 
   const purchaseOrderSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
   const isEditMode = Boolean(purchaseOrderSystemId);
@@ -81,11 +81,9 @@ export function PurchaseOrderFormPage() {
 
   // Wrap setSupplierId to add logging
   const handleSetSupplierId = React.useCallback((id: SystemId | null) => {
-    console.log('=== setSupplierId called with:', id);
     setSupplierId(id);
   }, []);
 
-  console.log('Form render - supplierId state:', supplierId);
 
   // Use ref to keep latest supplierId value
   const supplierIdRef = React.useRef<SystemId | null>(supplierId);
@@ -181,7 +179,6 @@ export function PurchaseOrderFormPage() {
   // Logic copy từ đơn cũ
   React.useEffect(() => {
     if (copyFromOrder && !isEditMode) {
-      console.log('=== Copying from order:', copyFromOrder.id);
       
       // Copy supplier
       setSupplierId(asSystemId(copyFromOrder.supplierSystemId));
@@ -319,20 +316,9 @@ export function PurchaseOrderFormPage() {
     const currentDiscount = discountRef.current;
     const currentDiscountType = discountTypeRef.current;
     
-    console.log('=== handleSave called ===', { 
-      receiveImmediately, 
-      supplierId: currentSupplierId, 
-      branchId, 
-      employeeId, 
-      itemsCount: currentItems.length,
-      shippingFeesCount: currentShippingFees.length,
-      otherFeesCount: currentOtherFees.length,
-      discount: currentDiscount
-    });
     
     // Validation
     if (!currentSupplierId) {
-      console.log('Validation failed: No supplier, supplierId =', currentSupplierId);
       toast.error('Lỗi', {
         description: 'Vui lòng chọn nhà cung cấp',
       });
@@ -340,7 +326,6 @@ export function PurchaseOrderFormPage() {
     }
 
     if (!branchId) {
-      console.log('Validation failed: No branch');
       toast.error('Lỗi', {
         description: 'Vui lòng chọn chi nhánh',
       });
@@ -348,7 +333,6 @@ export function PurchaseOrderFormPage() {
     }
 
     if (!employeeId) {
-      console.log('Validation failed: No employee');
       toast.error('Lỗi', {
         description: 'Vui lòng chọn nhân viên',
       });
@@ -359,7 +343,6 @@ export function PurchaseOrderFormPage() {
     const employeeSystemId: SystemId = employeeId;
 
     if (currentItems.length === 0) {
-      console.log('Validation failed: No items, items.length =', currentItems.length);
       toast.error('Lỗi', {
         description: 'Vui lòng thêm ít nhất một sản phẩm',
       });
@@ -370,18 +353,15 @@ export function PurchaseOrderFormPage() {
     const itemsWithZeroPrice = currentItems.filter(item => item.unitPrice === 0);
     if (itemsWithZeroPrice.length > 0) {
       const itemNames = itemsWithZeroPrice.map(item => item.product.name).join(', ');
-      console.log('Validation failed: Items with zero price:', itemNames);
       toast.error('Cảnh báo', {
         description: `Các sản phẩm sau chưa có giá: ${itemNames}. Vui lòng nhập giá trước khi lưu.`,
       });
       return;
     }
 
-      console.log('All validations passed, starting save...');
       setIsSaving(true);
 
       try {
-        console.log('Building order data...');
         const supplier = suppliers.find((s) => s.systemId === currentSupplierId);
         const branch = branches.find((b) => b.systemId === branchSystemId);
         const employee = employees.find((e) => e.systemId === employeeSystemId);
@@ -406,20 +386,7 @@ export function PurchaseOrderFormPage() {
         const calculatedTax = currentOtherFees.reduce((sum, fee) => sum + fee.amount, 0);
         const calculatedGrandTotal = calculatedSubtotal - calculatedDiscountAmount;
 
-        console.log('Fee arrays:', {
-          shippingFees: currentShippingFees,
-          otherFees: currentOtherFees,
-          shippingFeesLength: currentShippingFees.length,
-          otherFeesLength: currentOtherFees.length
-        });
         
-        console.log('Calculated values:', {
-          subtotal: calculatedSubtotal,
-          discount: calculatedDiscountAmount,
-          shippingFee: calculatedShippingFee,
-          tax: calculatedTax,
-          grandTotal: calculatedGrandTotal
-        });
 
         // Tính payment status
         let initialPaymentStatus: PaymentStatus = 'Chưa thanh toán';
@@ -484,20 +451,16 @@ export function PurchaseOrderFormPage() {
           creatorName: employee?.fullName || '',
         };
 
-        console.log('Final order data:', orderData);
 
         let createdOrder: PurchaseOrder;
         if (isEditMode && purchaseOrderSystemId) {
-          console.log('Updating existing order:', purchaseOrderSystemId);
           update(purchaseOrderSystemId, { ...orderData, systemId: purchaseOrderSystemId });
           createdOrder = { ...orderData, systemId: purchaseOrderSystemId };
           toast.success('Thành công', {
             description: 'Đã cập nhật đơn nhập hàng',
           });
         } else {
-          console.log('Creating new order...');
           createdOrder = add(orderData);
-          console.log('Order created:', createdOrder);
           toast.success('Thành công', {
             description: `Đã tạo đơn nhập hàng ${finalOrderId}`,
           });
@@ -507,7 +470,6 @@ export function PurchaseOrderFormPage() {
       // XỬ LÝ KHI "TẠO & NHẬP HÀNG"
       // ========================================
       if (receiveImmediately && !isEditMode) {
-        console.log('Processing inventory receipt...');
         // 1. Tạo phiếu nhập kho
         const receiptData = {
           id: asBusinessId(''),
@@ -710,7 +672,6 @@ export function PurchaseOrderFormPage() {
 
   // Page header with action buttons
   const handleExit = () => {
-    console.log('Exit button clicked');
     
     if (hasUnsavedChanges && !isSaving) {
       if (window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn thoát?')) {
@@ -722,13 +683,11 @@ export function PurchaseOrderFormPage() {
   };
 
   const handleSaveWithoutReceive = () => {
-    console.log('Tạo & chưa nhập button clicked');
     setHasUnsavedChanges(false); // Reset flag khi save
     handleSave(false);
   };
 
   const handleSaveWithReceive = () => {
-    console.log('Tạo & nhập hàng button clicked');
     setHasUnsavedChanges(false); // Reset flag khi save
     handleSave(true);
   };

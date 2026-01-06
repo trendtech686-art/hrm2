@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { PurchaseOrdersPage } from '@/features/purchase-orders/page'
+import PurchaseOrdersPage from '@/features/purchase-orders/page'
 
 export const metadata: Metadata = {
   title: 'Đơn mua hàng',

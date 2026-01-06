@@ -7,13 +7,14 @@
 
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
-import { WarrantyPaymentVoucherDialog, WarrantyReceiptVoucherDialog } from '../dialogs/index';
+import { WarrantyPaymentVoucherDialog } from '../dialogs/warranty-payment-voucher-dialog';
+import { WarrantyReceiptVoucherDialog } from '../dialogs/warranty-receipt-voucher-dialog';
 import { useAuth } from '../../../../contexts/auth-context';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import type { WarrantyTicket } from '../../types';
 import { useWarrantyTransactionGroups } from '../../hooks/use-warranty-transaction-groups';
 import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement';
-import { WarrantyTransactionGroups } from '../sections/index';
+import { WarrantyTransactionGroups } from '../sections/warranty-transaction-groups';
 import type { Order } from '../../../orders/types';
 import type { WarrantyCustomerInfo } from '../../types';
 
@@ -50,15 +51,6 @@ export function WarrantyProcessingCard({
 
   // DEBUG: Log để kiểm tra
   React.useEffect(() => {
-    console.log('💳 [WARRANTY PROCESSING CARD] State:', {
-      totalPayment,
-      remainingAmount: settlementState.remainingAmount,
-      totalPayments: settlementState.warrantyPayments.reduce((sum, p) => p.status !== 'cancelled' ? sum + p.amount : sum, 0),
-      totalReceipts: settlementState.warrantyReceipts.reduce((sum, r) => r.status !== 'cancelled' ? sum + r.amount : sum, 0),
-      paymentsCount: settlementState.warrantyPayments.length,
-      receiptsCount: settlementState.warrantyReceipts.length,
-      isFullyPaid: settlementState.remainingAmount <= 0
-    });
   }, [settlementState, totalPayment]);
 
   // Get current user name and current time

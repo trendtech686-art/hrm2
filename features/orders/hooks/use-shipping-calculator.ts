@@ -179,14 +179,6 @@ export function useShippingCalculator() {
               const apiToken = (defaultAccount.credentials as { apiToken?: string; partnerCode?: string }).apiToken || '';
               const partnerCodeStr = (defaultAccount.credentials as { apiToken?: string; partnerCode?: string }).partnerCode || 'GHTK';
               
-              console.log('🔑 [GHTK Token Debug]', {
-                hasDefaultAccount: !!defaultAccount,
-                accountId: defaultAccount.id,
-                credentialsKeys: Object.keys(defaultAccount.credentials || {}),
-                hasApiToken: !!(defaultAccount.credentials as { apiToken?: string }).apiToken,
-                apiTokenLength: apiToken.length,
-                partnerCode: partnerCodeStr
-              });
               
               if (!apiToken) {
                 throw new Error('❌ Missing GHTK API Token. Vui lòng cấu hình token trong Settings > Shipping Partners > GHTK');
@@ -208,14 +200,6 @@ export function useShippingCalculator() {
                 value: request.options?.orderValue || 0, // ✅ IMPORTANT: Giá trị hàng hóa (để tính phí bảo hiểm), KHÔNG phải COD
               };
               
-              console.log('🔍 [GHTK Calculator] Request body BEFORE sending:', {
-                province: requestBody.province,
-                district: requestBody.district,
-                ward: requestBody.ward,
-                toWard: request.toWard,
-                toWardCode: request.toWardCode,
-                hasWard: !!requestBody.ward
-              });
               
               // Include service options for accurate pricing
               if (request.options) {

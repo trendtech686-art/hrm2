@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
-import { usePenaltyStore, usePenaltyTypeStore } from './store';
+import { usePenaltyStore } from './store';
+import { useAllPenaltyTypes } from './hooks/use-all-penalties';
 import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { usePageHeader } from '../../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -24,7 +25,7 @@ import {
   mapPenaltyToPrintData, 
   createStoreSettings 
 } from '../../../lib/print/penalty-print-helper';
-import { useStoreInfoStore } from '../store-info/store-info-store';
+import { useStoreInfoData } from '../store-info/hooks/use-store-info';
 import { Printer } from 'lucide-react';
 
 import { ROUTES, generatePath } from '@/lib/router';
@@ -44,11 +45,11 @@ export function PenaltyDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById } = usePenaltyStore();
-  const { data: penaltyTypes } = usePenaltyTypeStore();
+  const { data: penaltyTypes } = useAllPenaltyTypes();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { employee: authEmployee } = useAuth();
   const { print } = usePrint();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   
   const penalty = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
   
@@ -103,7 +104,6 @@ export function PenaltyDetailPage() {
   }, [dbAddComment]);
 
   const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {

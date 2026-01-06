@@ -1,6 +1,5 @@
 import { formatDateCustom, getCurrentDate } from '../../lib/date-utils';
 import { createCrudStore, type CrudState } from '../../lib/store-factory';
-import { data as initialData } from './data';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 import { useProductStore } from '../products/store';
 import { useStockHistoryStore } from '../stock-history/store';
@@ -14,11 +13,9 @@ import { useInventoryReceiptStore } from '../inventory-receipts/store';
 import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
 
 const baseStore = createCrudStore<PurchaseReturn>(
-  initialData,
+  [],
   'purchase-returns',
-  {
-    persistKey: 'hrm-purchase-returns',
-  }
+  {}
 );
 
 const originalAdd = baseStore.getState().add;

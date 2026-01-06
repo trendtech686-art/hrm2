@@ -1,4 +1,5 @@
 ﻿import * as React from 'react';
+import { toast } from 'sonner';
 import { getBaseUrl, getFileUrl } from '@/lib/api-config';
 import { useDocumentStore } from '../document-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,11 +111,9 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       
       // Skip loading if already in cache
       if (loadedEmployees.has(employeeSystemId)) {
-        console.log('✅ Documents already cached for:', employeeSystemId);
         return;
       }
       
-      console.log('🔄 Loading documents for:', employeeSystemId);
       setIsLoading(true);
       setError(null);
       refreshDocuments(employeeSystemId)
@@ -147,7 +146,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      alert('Không thể tải file. Vui lòng thử lại.');
+      toast.error('Không thể tải file. Vui lòng thử lại.');
     }
   };
 
@@ -155,7 +154,6 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     try {
       await navigator.clipboard.writeText(text);
       // Toast notification would be nice here
-      console.log('Copied to clipboard:', text);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -191,10 +189,9 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
       const typeLabel = documentTypeLabels[documentType] || documentType;
       saveAs(content, `${typeLabel}_${new Date().toISOString().split('T')[0]}.zip`);
       
-      console.log('Downloaded all files as ZIP');
     } catch (error) {
       console.error('Failed to create ZIP:', error);
-      alert('Không thể tải xuống tất cả files. Vui lòng thử lại.');
+      toast.error('Không thể tải xuống tất cả files. Vui lòng thử lại.');
     }
   };
 

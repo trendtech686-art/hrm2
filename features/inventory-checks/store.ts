@@ -1,7 +1,6 @@
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';
-import { data as initialData } from './data';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';
 import { asSystemId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
@@ -33,9 +32,8 @@ const createHistoryEntry = (
   metadata,
 });
 
-const baseStore = createCrudStore<InventoryCheck>(initialData, 'inventory-checks', {
+const baseStore = createCrudStore<InventoryCheck>([], 'inventory-checks', {
   businessIdField: 'id',
-  persistKey: 'inventory-checks',
   getCurrentUser: getCurrentUserSystemId,
 });
 

@@ -259,7 +259,6 @@ function getDefaultTemplates(): WorkflowTemplate[] {
  * localStorage functions are no longer used - data stored in database
  */
 function _getTemplatesFromStorage(): WorkflowTemplate[] {
-  console.warn('[DEPRECATED] getTemplatesFromStorage() - Use useWorkflowTemplates() hook instead');
   return getDefaultTemplates();
 }
 
@@ -267,7 +266,6 @@ function _getTemplatesFromStorage(): WorkflowTemplate[] {
  * @deprecated Use useWorkflowTemplates().setTemplates() instead
  */
 function _saveTemplatesToStorage(_templates: WorkflowTemplate[]) {
-  console.warn('[DEPRECATED] saveTemplatesToStorage() - Use useWorkflowTemplates() hook instead');
 }
 
 // ============================================================================

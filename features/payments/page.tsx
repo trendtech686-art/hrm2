@@ -1,782 +1,182 @@
-﻿'use client'
-
-import * as React from "react";
+'use client';
+/**
+ * Payments Page - Thin Page Pattern
+ * Target: < 300 lines
+ */
+import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { usePaymentStore } from "./store";
-import { useReceiptStore } from "../receipts/store";
-import { useCashbookStore } from "../cashbook/store";
-import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
-import { usePaymentTypeStore } from "../settings/payments/types/store";
-import { useAllCustomers } from "../customers/hooks/use-all-customers";
-import { useStoreInfoStore } from "../settings/store-info/store-info-store";
-import { useAllEmployees } from "../employees/hooks/use-all-employees";
+import { usePaymentStore } from './store';
+import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
+import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
+import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
+import { useAllPaymentTypes } from '@/features/settings/payments/types/hooks/use-all-payment-types';
+import { useAllCustomers } from '@/features/customers/hooks/use-all-customers';
+import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import type { Payment } from '@/lib/types/prisma-extended';
-import type { Receipt } from "../receipts/types";
-import { usePageHeader } from "../../contexts/page-header-context";
-import { ResponsiveDataTable, type BulkAction } from "../../components/data-table/responsive-data-table";
-import { Card, CardContent } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
-import { Minus, ReceiptText, Printer, FileSpreadsheet, Download } from "lucide-react";
-import { useAuth } from "../../contexts/auth-context";
-
-// Dynamic imports for import/export dialogs to reduce initial bundle size
-const PaymentImportDialog = dynamic(
-    () => import('./components/payment-import-export-dialogs').then(mod => ({ default: mod.PaymentImportDialog })),
-    { ssr: false }
-);
-const PaymentExportDialog = dynamic(
-    () => import('./components/payment-import-export-dialogs').then(mod => ({ default: mod.PaymentExportDialog })),
-    { ssr: false }
-);
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
-import Fuse from "fuse.js";
-import { DataTableColumnCustomizer } from "../../components/data-table/data-table-column-toggle";
-import { DataTableDateFilter } from "../../components/data-table/data-table-date-filter";
-import { DataTableFacetedFilter } from "../../components/data-table/data-table-faceted-filter";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { PageToolbar } from "../../components/layout/page-toolbar";
-import { PageFilters } from "../../components/layout/page-filters";
-import { useMediaQuery } from "../../lib/use-media-query";
-import { ROUTES, generatePath } from "../../lib/router";
-import { toast } from "sonner";
+import type { Receipt } from '@/features/receipts/types';
+import { usePageHeader } from '@/contexts/page-header-context';
+import { ResponsiveDataTable, type BulkAction } from '@/components/data-table/responsive-data-table';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Minus, ReceiptText, Printer, FileSpreadsheet, Download } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useFuseFilter } from '@/hooks/use-fuse-search';
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer';
+import { DataTableDateFilter } from '@/components/data-table/data-table-date-filter';
+import { DataTableFacetedFilter } from '@/components/data-table/data-table-faceted-filter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageToolbar } from '@/components/layout/page-toolbar';
+import { PageFilters } from '@/components/layout/page-filters';
+import { useMediaQuery } from '@/lib/use-media-query';
+import { ROUTES, generatePath } from '@/lib/router';
+import { toast } from 'sonner';
 import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
-import { getColumns } from "./columns";
-import { asSystemId, type SystemId } from "../../lib/id-types";
-import { MobilePaymentCard } from "./card";
-import { usePrint } from "../../lib/use-print";
-import { 
-  convertPaymentForPrint,
-  mapPaymentToPrintData,
-  createStoreSettings,
-} from "../../lib/print/payment-print-helper";
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../components/shared/simple-print-options-dialog";
-import { useColumnVisibility } from "../../hooks/use-column-visibility";
+import { getColumns } from './columns';
+import { asSystemId, type SystemId } from '@/lib/id-types';
+import { MobilePaymentCard } from './card';
+import { usePrint } from '@/lib/use-print';
+import { convertPaymentForPrint, mapPaymentToPrintData, createStoreSettings } from '@/lib/print/payment-print-helper';
+import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '@/components/shared/simple-print-options-dialog';
+import { useColumnVisibility } from '@/hooks/use-column-visibility';
+
+const PaymentImportDialog = dynamic(() => import('./components/payment-import-export-dialogs').then(m => ({ default: m.PaymentImportDialog })), { ssr: false });
+const PaymentExportDialog = dynamic(() => import('./components/payment-import-export-dialogs').then(m => ({ default: m.PaymentExportDialog })), { ssr: false });
 
 export function PaymentsPage() {
-    const router = useRouter();
-    const isMobile = useMediaQuery("(max-width: 768px)");
+  const router = useRouter();
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const { data: payments, cancel } = usePaymentStore();
+  const { data: receipts } = useAllReceipts();
+  const { accounts } = useAllCashAccounts();
+  const { data: branches } = useAllBranches();
+  const { data: paymentTypes } = useAllPaymentTypes();
+  const { data: customers } = useAllCustomers();
+  const { info: storeInfo } = useStoreInfoData();
+  const { data: employees } = useAllEmployees();
+  const { print, printMultiple } = usePrint();
+  const { employee } = useAuth();
 
-    const { data: payments, remove: _remove } = usePaymentStore();
-    const { data: receipts } = useReceiptStore();
-    const { accounts } = useCashbookStore();
-    const { data: branches } = useAllBranches();
-    const { data: paymentTypes } = usePaymentTypeStore();
-    const { data: customers } = useAllCustomers();
-    const { info: storeInfo } = useStoreInfoStore();
-    const { data: employees } = useAllEmployees();
-    const { print, printMultiple } = usePrint();
-    const { employee } = useAuth();
+  // State
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isAlertOpen, setIsAlertOpen] = React.useState(false);
+  const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
+  const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
+  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [debouncedFilter, setDebouncedFilter] = React.useState('');
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('payments', {});
+  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
+  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
+  const [branchFilter, setBranchFilter] = React.useState<'all' | SystemId>('all');
+  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
+  const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
+  const [customerFilter, setCustomerFilter] = React.useState<Set<string>>(new Set());
+  const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>();
+  const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
+  const [itemsToPrint, setItemsToPrint] = React.useState<Payment[]>([]);
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
 
-    // Print dialog state
-    const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
-    const [itemsToPrint, setItemsToPrint] = React.useState<Payment[]>([]);
-    
-    // Import/Export dialog state
-    const [showImportDialog, setShowImportDialog] = React.useState(false);
-    const [showExportDialog, setShowExportDialog] = React.useState(false);
-    
-    // ✅ Header Actions
-    const headerActions = React.useMemo(() => [
-        <Button
-            key="cashbook"
-            variant="outline"
-            size="sm"
-            className="h-9 gap-2"
-            onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}
-        >
-            <ReceiptText className="h-4 w-4" />
-            Nhật ký quỹ
-        </Button>,
-        <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}>
-            <Minus className="mr-2 h-4 w-4" />
-            Tạo phiếu chi
-        </Button>
-    ], [router]);
-    
-    usePageHeader({
-        title: 'Danh sách phiếu chi',
-        breadcrumb: [
-            { label: 'Trang chủ', href: '/', isCurrent: false },
-            { label: 'Phiếu chi', href: '/payments', isCurrent: true }
-        ],
-        showBackButton: false,
-        actions: headerActions
-    });
+  // Debounce search
+  React.useEffect(() => { const t = setTimeout(() => setDebouncedFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
 
-    const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-    const [isAlertOpen, setIsAlertOpen] = React.useState(false);
-    const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
-    const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
+  // Header actions
+  usePageHeader({ title: 'Danh sách phiếu chi', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Phiếu chi', href: '/payments', isCurrent: true }], showBackButton: false, actions: [
+    <Button key="cashbook" variant="outline" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}><ReceiptText className="h-4 w-4" />Nhật ký quỹ</Button>,
+    <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Tạo phiếu chi</Button>
+  ] });
 
-    const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
-    const [globalFilter, setGlobalFilter] = React.useState('');
-    const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-    const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-    // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
-    const [columnVisibility, setColumnVisibility] = useColumnVisibility('payments', {});
-    
-    const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-    const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
-    
-    // ✅ New Filters
-    const [branchFilter, setBranchFilter] = React.useState<'all' | SystemId>('all');
-    const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-    const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
-    const [customerFilter, setCustomerFilter] = React.useState<Set<string>>(new Set());
-    const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>();
-    
-    // ✅ Debounce search
-    React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedGlobalFilter(globalFilter);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [globalFilter]);
-    
-    const handleCancel = React.useCallback((systemId: SystemId) => {
-        setIdToDelete(systemId);
-        setIsAlertOpen(true);
-    }, []);
-    
-    const _handleEdit = React.useCallback((payment: Payment) => {
-        router.push(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }));
-    }, [router]);
-    
-    const handleRowClick = React.useCallback((payment: Payment) => {
-        router.push(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId }));
-    }, [router]);
+  // Handlers
+  const handleCancel = React.useCallback((id: SystemId) => { setIdToDelete(id); setIsAlertOpen(true); }, []);
+  const handleRowClick = React.useCallback((p: Payment) => router.push(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: p.systemId })), [router]);
+  const handleSinglePrint = React.useCallback((p: Payment) => { const b = branches.find(x => x.systemId === p.branchSystemId); print('payment', { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [] }); }, [branches, storeInfo, print]);
+  const confirmCancel = () => { if (idToDelete) { cancel(idToDelete); toast.success('Đã hủy phiếu chi'); } setIsAlertOpen(false); };
+  const confirmBulkCancel = () => { Object.keys(rowSelection).map(id => asSystemId(id)).forEach(id => cancel(id)); toast.success(`Đã hủy ${Object.keys(rowSelection).length} phiếu chi`); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
 
-    // Single print handler for dropdown action
-    const handleSinglePrint = React.useCallback((payment: Payment) => {
-        const branch = branches.find(b => b.systemId === payment.branchSystemId);
-        const storeSettings = branch 
-            ? createStoreSettings(branch)
-            : createStoreSettings(storeInfo);
-        const paymentData = convertPaymentForPrint(payment, {});
-        
-        print('payment', {
-            data: mapPaymentToPrintData(paymentData, storeSettings),
-            lineItems: [],
-        });
-    }, [branches, storeInfo, print]);
+  // Columns
+  const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push, handleSinglePrint, employees), [accounts, handleCancel, router, handleSinglePrint, employees]);
+  const initRef = React.useRef(false);
+  React.useEffect(() => { if (initRef.current || !columns.length) return; const defaults = ['id', 'date', 'amount', 'recipientName', 'recipientTypeName', 'paymentMethodName', 'accountSystemId', 'paymentReceiptTypeName', 'status', 'branchName', 'description', 'originalDocumentId', 'customerName', 'createdBy', 'createdAt']; const v: Record<string, boolean> = {}; columns.forEach(c => { v[c.id!] = c.id === 'select' || c.id === 'actions' || defaults.includes(c.id!); }); setColumnVisibility(v); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); initRef.current = true; }, [columns, setColumnVisibility]);
 
-    const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push, handleSinglePrint, employees), [accounts, handleCancel, router.push, handleSinglePrint, employees]);
-    
-    // ✅ Set default column visibility - Run ONCE on mount
-    const columnDefaultsInitialized = React.useRef(false);
-    React.useEffect(() => {
-      if (columnDefaultsInitialized.current) return;
-      if (columns.length === 0) return;
-      
-      const defaultVisibleColumns = [
-        'id', 'date', 'amount', 'recipientName', 'recipientTypeName', 'paymentMethodName', 
-        'accountSystemId', 'paymentReceiptTypeName', 'status', 'branchName', 
-        'description', 'originalDocumentId', 'customerName', 'createdBy', 'createdAt'
-      ];
-      const initialVisibility: Record<string, boolean> = {};
-      columns.forEach(c => {
-          if (c.id === 'select' || c.id === 'actions') {
-              initialVisibility[c.id!] = true;
-          } else {
-              initialVisibility[c.id!] = defaultVisibleColumns.includes(c.id!);
-          }
-      });
-      setColumnVisibility(initialVisibility);
-      setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-      columnDefaultsInitialized.current = true;
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [columns]);
-    
-    const fuse = React.useMemo(() => new Fuse(payments, { 
-        keys: ["id", "description", "recipientName", "originalDocumentId", "createdBy"],
-        threshold: 0.3,
-        ignoreLocation: true
-    }), [payments]);
-    
-    const confirmCancel = () => { 
-        if (idToDelete) {
-            const { cancel } = usePaymentStore.getState();
-            cancel(idToDelete);
-            toast.success("Đã hủy phiếu chi");
-        }
-        setIsAlertOpen(false); 
-    };
+  // Filter options
+  const statusOptions = [{ value: 'completed', label: 'Hoàn thành' }, { value: 'cancelled', label: 'Đã hủy' }];
+  const typeOptions = React.useMemo(() => paymentTypes.map(pt => ({ value: pt.systemId, label: pt.name })), [paymentTypes]);
+  const customerOptions = React.useMemo(() => customers.map(c => ({ value: c.systemId, label: c.name })), [customers]);
 
-    const confirmBulkCancel = () => {
-        const idsToCancel = Object.keys(rowSelection).map(id => asSystemId(id));
-        const { cancel } = usePaymentStore.getState();
-        idsToCancel.forEach(id => cancel(id));
-        toast.success(`Đã hủy ${idsToCancel.length} phiếu chi`);
-        setRowSelection({});
-        setIsBulkDeleteAlertOpen(false);
-    };
+  // Filtering
+  const fuseOptions = React.useMemo(() => ({ keys: ['id', 'description', 'recipientName', 'originalDocumentId', 'createdBy'], threshold: 0.3, ignoreLocation: true }), []);
+  const searchedPayments = useFuseFilter(payments, debouncedFilter, fuseOptions);
+  const filteredData = React.useMemo(() => {
+    let r = payments;
+    if (branchFilter !== 'all') r = r.filter(p => p.branchSystemId === branchFilter);
+    if (statusFilter.size > 0) r = r.filter(p => p.status && statusFilter.has(p.status));
+    if (typeFilter.size > 0) r = r.filter(p => p.paymentReceiptTypeSystemId && typeFilter.has(p.paymentReceiptTypeSystemId));
+    if (customerFilter.size > 0) r = r.filter(p => p.customerSystemId && customerFilter.has(p.customerSystemId));
+    if (dateRange?.[0] || dateRange?.[1]) r = r.filter(p => { if (!p.date) return false; const d = new Date(p.date), s = dateRange[0] ? new Date(dateRange[0]) : null, e = dateRange[1] ? new Date(dateRange[1]) : null; if (s && e) return (isAfter(d, s) || isSameDay(d, s)) && (isBefore(d, e) || isSameDay(d, e)); if (s) return isAfter(d, s) || isSameDay(d, s); if (e) return isBefore(d, e) || isSameDay(d, e); return true; });
+    if (debouncedFilter) { const ids = new Set(searchedPayments.map(p => p.systemId)); r = r.filter(p => ids.has(p.systemId)); }
+    return r;
+  }, [payments, branchFilter, statusFilter, typeFilter, customerFilter, dateRange, debouncedFilter, searchedPayments]);
 
-    const _handleAddNew = () => {
-        router.push(ROUTES.FINANCE.PAYMENT_NEW);
-    };
-    
-    // ✅ Filter options
-    const statusOptions = React.useMemo(() => [
-        { value: 'completed', label: 'Hoàn thành' },
-        { value: 'cancelled', label: 'Đã hủy' }
-    ], []);
-    
-    const typeOptions = React.useMemo(() => 
-        paymentTypes.map(pt => ({ value: pt.systemId, label: pt.name }))
-    , [paymentTypes]);
-    
-    const customerOptions = React.useMemo(() => 
-        customers.map(c => ({ value: c.systemId, label: c.name }))
-    , [customers]);
-    
-    // ✅ Apply all filters
-    const filteredData = React.useMemo(() => {
-        let result = payments;
-        
-        // Branch filter
-        if (branchFilter !== 'all') {
-            result = result.filter(r => r.branchSystemId === branchFilter);
-        }
-        
-        // Status filter
-        if (statusFilter.size > 0) {
-            result = result.filter(r => r.status && statusFilter.has(r.status));
-        }
-        
-        // Type filter
-        if (typeFilter.size > 0) {
-            result = result.filter(r => r.paymentReceiptTypeSystemId && typeFilter.has(r.paymentReceiptTypeSystemId));
-        }
-        
-        // Customer filter
-        if (customerFilter.size > 0) {
-            result = result.filter(r => r.customerSystemId && customerFilter.has(r.customerSystemId));
-        }
-        
-        // Date range filter
-        if (dateRange && (dateRange[0] || dateRange[1])) {
-            result = result.filter(r => {
-                if (!r.date) return false;
-                const voucherDate = new Date(r.date);
-                const start = dateRange[0] ? new Date(dateRange[0]) : null;
-                const end = dateRange[1] ? new Date(dateRange[1]) : null;
-                
-                if (start && end) {
-                    return (isAfter(voucherDate, start) || isSameDay(voucherDate, start)) && 
-                           (isBefore(voucherDate, end) || isSameDay(voucherDate, end));
-                } else if (start) {
-                    return isAfter(voucherDate, start) || isSameDay(voucherDate, start);
-                } else if (end) {
-                    return isBefore(voucherDate, end) || isSameDay(voucherDate, end);
-                }
-                return true;
-            });
-        }
-        
-        // Text search (debounced)
-        if (debouncedGlobalFilter) {
-            const searchResults = fuse.search(debouncedGlobalFilter);
-            const searchIds = new Set(searchResults.map(r => r.item.systemId));
-            result = result.filter(r => searchIds.has(r.systemId));
-        }
-        
-        return result;
-    }, [payments, branchFilter, statusFilter, typeFilter, customerFilter, dateRange, debouncedGlobalFilter, fuse]);
-    
-    const filteredPaymentIds = React.useMemo(() => new Set(filteredData.map(p => p.systemId)), [filteredData]);
+  // Running balance
+  const filteredPaymentIds = React.useMemo(() => new Set(filteredData.map(p => p.systemId)), [filteredData]);
+  const runningBalanceByPayment = React.useMemo(() => {
+    if (filteredPaymentIds.size === 0) return new Map<SystemId, number>();
+    const startDate = dateRange?.[0] ? new Date(dateRange[0]) : null;
+    const trackedAccounts = branchFilter === 'all' ? accounts : accounts.filter(a => a.branchSystemId === branchFilter);
+    const accountBalances = new Map<SystemId, number>(); trackedAccounts.forEach(a => accountBalances.set(a.systemId, a.initialBalance));
+    let aggregateRunningBalance = 0; accountBalances.forEach(v => { aggregateRunningBalance += v; });
+    const ensureTracked = (id?: SystemId) => { if (!id) return null; if (!accountBalances.has(id)) { const f = accounts.find(a => a.systemId === id); const init = f?.initialBalance ?? 0; accountBalances.set(id, init); aggregateRunningBalance += init; } return id; };
+    const matchesBranch = (bid?: SystemId) => branchFilter === 'all' || bid === branchFilter;
+    type Tx = (Receipt & { kind: 'receipt' }) | (Payment & { kind: 'payment' });
+    const receiptTx: Tx[] = (receipts ?? []).filter(r => r?.accountSystemId && r?.date && matchesBranch(r.branchSystemId)).map(r => ({ ...r, kind: 'receipt' as const }));
+    const paymentTx: Tx[] = payments.filter(p => p?.accountSystemId && p?.date && matchesBranch(p.branchSystemId)).map(p => ({ ...p, kind: 'payment' as const }));
+    const txs = [...receiptTx, ...paymentTx].sort((a, b) => { const d = differenceInMilliseconds(new Date(a.date), new Date(b.date)); if (d !== 0) return d; const aC = 'createdAt' in a && a.createdAt ? new Date(a.createdAt) : new Date(a.date); const bC = 'createdAt' in b && b.createdAt ? new Date(b.createdAt) : new Date(b.date); return differenceInMilliseconds(aC, bC); });
+    const runningBalances = new Map<SystemId, number>();
+    txs.forEach(tx => { const aid = ensureTracked(tx.accountSystemId); if (!aid) return; const txDate = new Date(tx.date); const delta = tx.kind === 'receipt' ? (tx.status === 'cancelled' ? 0 : tx.amount) : (tx.status === 'cancelled' ? 0 : -tx.amount); if (startDate && txDate < startDate) { accountBalances.set(aid, (accountBalances.get(aid) ?? 0) + delta); aggregateRunningBalance += delta; return; } accountBalances.set(aid, (accountBalances.get(aid) ?? 0) + delta); aggregateRunningBalance += delta; if (tx.kind === 'payment' && filteredPaymentIds.has(tx.systemId)) runningBalances.set(tx.systemId, aggregateRunningBalance); });
+    return runningBalances;
+  }, [accounts, branchFilter, receipts, payments, filteredPaymentIds, dateRange]);
 
-    const runningBalanceByPayment = React.useMemo(() => {
-        if (filteredPaymentIds.size === 0) {
-            return new Map<SystemId, number>();
-        }
+  const dataWithBalance = React.useMemo(() => filteredData.map(p => ({ ...p, runningBalance: runningBalanceByPayment.get(p.systemId) })), [filteredData, runningBalanceByPayment]);
+  const sortedData = React.useMemo(() => { const s = [...dataWithBalance]; if (sorting.id) s.sort((a, b) => { const aV = (a as Record<string, unknown>)[sorting.id], bV = (b as Record<string, unknown>)[sorting.id]; if (sorting.id === 'createdAt' || sorting.id === 'date') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; if (aT === bT) { const aN = parseInt(a.systemId.replace(/\D/g, '')) || 0, bN = parseInt(b.systemId.replace(/\D/g, '')) || 0; return sorting.desc ? bN - aN : aN - bN; } return sorting.desc ? bT - aT : aT - bT; } if (aV < bV) return sorting.desc ? 1 : -1; if (aV > bV) return sorting.desc ? -1 : 1; return 0; }); return s; }, [dataWithBalance, sorting]);
 
-        const startDate = dateRange?.[0] ? new Date(dateRange[0]) : null;
-        const endDate = dateRange?.[1] ? new Date(dateRange[1]) : null;
+  const allSelectedRows = React.useMemo(() => payments.filter(v => rowSelection[v.systemId]), [payments, rowSelection]);
+  const selectedPayments = React.useMemo(() => payments.filter(p => rowSelection[p.systemId]), [payments, rowSelection]);
 
-        const trackedAccounts = branchFilter === 'all'
-            ? accounts
-            : accounts.filter(acc => acc.branchSystemId === branchFilter);
+  // Bulk print
+  const handleBulkPrint = React.useCallback((rows: Payment[]) => { setItemsToPrint(rows); setPrintDialogOpen(true); }, []);
+  const handlePrintConfirm = React.useCallback((opts: SimplePrintOptionsResult) => { if (!itemsToPrint.length) return; const items = itemsToPrint.map(p => { const b = opts.branchSystemId ? branches.find(x => x.systemId === opts.branchSystemId) : branches.find(x => x.systemId === p.branchSystemId); return { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [], paperSize: opts.paperSize }; }); printMultiple('payment', items); toast.success(`Đang in ${itemsToPrint.length} phiếu chi`); setItemsToPrint([]); setPrintDialogOpen(false); }, [itemsToPrint, branches, storeInfo, printMultiple]);
+  const bulkActions: BulkAction<Payment>[] = React.useMemo(() => [{ label: 'In phiếu', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
 
-        const accountBalances = new Map<SystemId, number>();
-        trackedAccounts.forEach(account => {
-            accountBalances.set(account.systemId, account.initialBalance);
-        });
+  // Import handler
+  const handleImport = React.useCallback(async (imported: Partial<Payment>[], mode: 'insert-only' | 'update-only' | 'upsert') => {
+    let added = 0, updated = 0, skipped = 0; const errors: Array<{ row: number; message: string }> = []; const store = usePaymentStore.getState();
+    imported.forEach((p, i) => { try { const ex = payments.find(x => x.id.toLowerCase() === (p.id || '').toLowerCase()); if (ex) { if (mode === 'update-only' || mode === 'upsert') { store.update(asSystemId(ex.systemId), { ...ex, ...p, systemId: ex.systemId } as Payment); updated++; } else skipped++; } else { if (mode === 'insert-only' || mode === 'upsert') { store.add(p as Payment); added++; } else skipped++; } } catch (e) { errors.push({ row: i + 1, message: (e as Error).message }); } });
+    if (added > 0 || updated > 0) toast.success(`Đã import: ${added > 0 ? `${added} phiếu chi mới` : ''}${updated > 0 ? `, ${updated} phiếu cập nhật` : ''}`);
+    return { success: added + updated, failed: errors.length, inserted: added, updated, skipped, errors };
+  }, [payments]);
 
-        let aggregateRunningBalance = 0;
-        accountBalances.forEach(value => {
-            aggregateRunningBalance += value;
-        });
+  // Mobile scroll
+  React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.pageYOffset + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < sortedData.length) setMobileLoadedCount(p => Math.min(p + 20, sortedData.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, sortedData.length]);
+  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedFilter, branchFilter, statusFilter, typeFilter, customerFilter, dateRange]);
 
-        const ensureAccountTracked = (accountId?: SystemId): SystemId | null => {
-            if (!accountId) {
-                return null;
-            }
-            if (!accountBalances.has(accountId)) {
-                const fallback = accounts.find(acc => acc.systemId === accountId);
-                const initial = fallback?.initialBalance ?? 0;
-                accountBalances.set(accountId, initial);
-                aggregateRunningBalance += initial;
-            }
-            return accountId;
-        };
+  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
+  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
 
-        const matchesBranch = (branchId?: SystemId) => branchFilter === 'all' || branchId === branchFilter;
-
-        type BalanceTransaction = (Receipt & { kind: 'receipt' }) | (Payment & { kind: 'payment' });
-
-        const receiptTransactions: BalanceTransaction[] = (receipts ?? [])
-            .filter(r => r && r.accountSystemId && r.date && matchesBranch(r.branchSystemId))
-            .map(r => ({ ...r, kind: 'receipt' as const }));
-
-        const paymentTransactions: BalanceTransaction[] = payments
-            .filter(p => p && p.accountSystemId && p.date && matchesBranch(p.branchSystemId))
-            .map(p => ({ ...p, kind: 'payment' as const }));
-
-        const transactions = [...receiptTransactions, ...paymentTransactions].sort((a, b) => {
-            const primary = differenceInMilliseconds(new Date(a.date), new Date(b.date));
-            if (primary !== 0) {
-                return primary;
-            }
-            const aCreated = ('createdAt' in a && a.createdAt) ? new Date(a.createdAt) : new Date(a.date);
-            const bCreated = ('createdAt' in b && b.createdAt) ? new Date(b.createdAt) : new Date(b.date);
-            return differenceInMilliseconds(aCreated, bCreated);
-        });
-
-        const runningBalances = new Map<SystemId, number>();
-
-        transactions.forEach(transaction => {
-            const accountId = ensureAccountTracked(transaction.accountSystemId);
-            if (!accountId) {
-                return;
-            }
-
-            const transactionDate = new Date(transaction.date);
-            const delta = transaction.kind === 'receipt'
-                ? (transaction.status === 'cancelled' ? 0 : transaction.amount)
-                : (transaction.status === 'cancelled' ? 0 : -transaction.amount);
-
-            if (startDate && transactionDate < startDate) {
-                const current = accountBalances.get(accountId) ?? 0;
-                accountBalances.set(accountId, current + delta);
-                aggregateRunningBalance += delta;
-                return;
-            }
-
-            if (endDate && transactionDate > endDate) {
-                return;
-            }
-
-            const currentBalance = accountBalances.get(accountId) ?? 0;
-            const updatedBalance = currentBalance + delta;
-            accountBalances.set(accountId, updatedBalance);
-            aggregateRunningBalance += delta;
-
-            if (transaction.kind === 'payment' && filteredPaymentIds.has(transaction.systemId)) {
-                runningBalances.set(transaction.systemId, aggregateRunningBalance);
-            }
-        });
-
-        return runningBalances;
-    }, [accounts, branchFilter, receipts, payments, filteredPaymentIds, dateRange]);
-
-    const dataWithRunningBalance = React.useMemo(() =>
-        filteredData.map(payment => ({
-            ...payment,
-            runningBalance: runningBalanceByPayment.get(payment.systemId) ?? undefined,
-        })),
-    [filteredData, runningBalanceByPayment]);
-    
-    const sortedData = React.useMemo(() => {
-      const sorted = [...dataWithRunningBalance];
-      if (sorting.id) {
-        sorted.sort((a, b) => {
-          const aValue = (a as Record<string, unknown>)[sorting.id];
-          const bValue = (b as Record<string, unknown>)[sorting.id];
-          // Special handling for date columns - parse as Date for proper comparison
-          if (sorting.id === 'createdAt' || sorting.id === 'date') {
-            const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
-            const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
-            // Nếu thời gian bằng nhau, sort theo systemId (ID mới hơn = số lớn hơn)
-            if (aTime === bTime) {
-              const aNum = parseInt(a.systemId.replace(/\D/g, '')) || 0;
-              const bNum = parseInt(b.systemId.replace(/\D/g, '')) || 0;
-              return sorting.desc ? bNum - aNum : aNum - bNum;
-            }
-            return sorting.desc ? bTime - aTime : aTime - bTime;
-          }
-          if (aValue < bValue) return sorting.desc ? 1 : -1;
-          if (aValue > bValue) return sorting.desc ? -1 : 1;
-          return 0;
-        });
-      }
-      return sorted;
-    }, [dataWithRunningBalance, sorting]);
-    
-    const allSelectedRows = React.useMemo(() => 
-            payments.filter(v => rowSelection[v.systemId]),
-        [payments, rowSelection]);
-
-    // Bulk print handlers
-    const handleBulkPrint = React.useCallback((rows: Payment[]) => {
-        setItemsToPrint(rows);
-        setPrintDialogOpen(true);
-    }, []);
-
-    const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
-        if (itemsToPrint.length === 0) return;
-        
-        const printItems = itemsToPrint.map(payment => {
-            const selectedBranch = options.branchSystemId 
-                ? branches.find(b => b.systemId === options.branchSystemId)
-                : branches.find(b => b.systemId === payment.branchSystemId);
-            const storeSettings = selectedBranch 
-                ? createStoreSettings(selectedBranch)
-                : createStoreSettings(storeInfo);
-            const paymentData = convertPaymentForPrint(payment, {});
-            
-            return {
-                data: mapPaymentToPrintData(paymentData, storeSettings),
-                lineItems: [],
-                paperSize: options.paperSize,
-            };
-        });
-
-        printMultiple('payment', printItems);
-        toast.success(`Đang in ${itemsToPrint.length} phiếu chi`);
-        setItemsToPrint([]);
-        setPrintDialogOpen(false);
-    }, [itemsToPrint, branches, storeInfo, printMultiple]);
-
-    // Bulk actions
-    const bulkActions: BulkAction<Payment>[] = React.useMemo(() => [
-        {
-            label: 'In phiếu',
-            icon: Printer,
-            onSelect: handleBulkPrint,
-        },
-    ], [handleBulkPrint]);
-
-    // Selected payments for export
-    const selectedPayments = React.useMemo(() => {
-        return payments.filter(p => rowSelection[p.systemId]);
-    }, [payments, rowSelection]);
-
-    // Import handler
-    const handleImport = React.useCallback(async (
-        importedPayments: Partial<Payment>[],
-        mode: 'insert-only' | 'update-only' | 'upsert',
-        _branchId?: string
-    ) => {
-        let addedCount = 0;
-        let updatedCount = 0;
-        let skippedCount = 0;
-        const errors: Array<{ row: number; message: string }> = [];
-        
-        const storeState = usePaymentStore.getState();
-        
-        importedPayments.forEach((payment, index) => {
-            try {
-                const existing = payments.find(p => 
-                    p.id.toLowerCase() === (payment.id || '').toLowerCase()
-                );
-                
-                if (existing) {
-                    if (mode === 'update-only' || mode === 'upsert') {
-                        storeState.update(asSystemId(existing.systemId), { ...existing, ...payment, systemId: existing.systemId } as Payment);
-                        updatedCount++;
-                    } else {
-                        skippedCount++;
-                    }
-                } else {
-                    if (mode === 'insert-only' || mode === 'upsert') {
-                        storeState.add(payment as Payment);
-                        addedCount++;
-                    } else {
-                        skippedCount++;
-                    }
-                }
-            } catch (error) {
-                errors.push({ row: index + 1, message: (error as Error).message });
-            }
-        });
-        
-        if (addedCount > 0 || updatedCount > 0) {
-            const messages: string[] = [];
-            if (addedCount > 0) messages.push(`${addedCount} phiếu chi mới`);
-            if (updatedCount > 0) messages.push(`${updatedCount} phiếu cập nhật`);
-            toast.success(`Đã import: ${messages.join(', ')}`);
-        }
-        
-        return {
-            success: addedCount + updatedCount,
-            failed: errors.length,
-            inserted: addedCount,
-            updated: updatedCount,
-            skipped: skippedCount,
-            errors,
-        };
-    }, [payments]);
-
-    // ✅ Mobile infinite scroll
-    React.useEffect(() => {
-        if (!isMobile) return;
-
-        const handleScroll = () => {
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            const scrollHeight = document.documentElement.scrollHeight;
-            const clientHeight = window.innerHeight;
-            const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
-
-            if (scrollPercentage > 0.8 && mobileLoadedCount < sortedData.length) {
-                setMobileLoadedCount(prev => Math.min(prev + 20, sortedData.length));
-            }
-        };
-
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [isMobile, mobileLoadedCount, sortedData.length]);
-
-    // ✅ Reset mobile loaded count when filters change
-    React.useEffect(() => {
-        setMobileLoadedCount(20);
-    }, [debouncedGlobalFilter, branchFilter, statusFilter, typeFilter, customerFilter, dateRange]);
-
-    const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-    const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
-
-    return (
-        <div className="space-y-4 h-full flex flex-col">
-            {/* Desktop-only Toolbar */}
-            {!isMobile && (
-                <PageToolbar
-                    leftActions={
-                        <>
-                            <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-                                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                Nhập file
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Xuất Excel
-                            </Button>
-                        </>
-                    }
-                    rightActions={[
-                        <DataTableColumnCustomizer
-                            key="customizer"
-                            columns={columns}
-                            columnVisibility={columnVisibility}
-                            setColumnVisibility={setColumnVisibility}
-                            columnOrder={columnOrder}
-                            setColumnOrder={setColumnOrder}
-                            pinnedColumns={pinnedColumns}
-                            setPinnedColumns={setPinnedColumns}
-                        />
-                    ]}
-                />
-            )}
-
-            {/* Filters Row */}
-            <PageFilters
-                searchValue={globalFilter}
-                onSearchChange={setGlobalFilter}
-                searchPlaceholder="Tìm theo mã phiếu, người nhận, chứng từ..."
-                leftFilters={
-                    <DataTableDateFilter
-                        value={dateRange}
-                        onChange={setDateRange}
-                    />
-                }
-                rightFilters={
-                    <>
-                        <Select
-                            value={branchFilter}
-                            onValueChange={(value) => setBranchFilter(value === 'all' ? 'all' : asSystemId(value))}
-                        >
-                            <SelectTrigger className="h-9 w-[150px]">
-                                <SelectValue placeholder="Chi nhánh" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                                {branches.map(branch => (
-                                    <SelectItem key={branch.systemId} value={branch.systemId}>
-                                        {branch.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        
-                        <DataTableFacetedFilter
-                            title="Trạng thái"
-                            options={statusOptions}
-                            selectedValues={statusFilter}
-                            onSelectedValuesChange={setStatusFilter}
-                        />
-                        
-                        <DataTableFacetedFilter
-                            title="Loại phiếu"
-                            options={typeOptions}
-                            selectedValues={typeFilter}
-                            onSelectedValuesChange={setTypeFilter}
-                        />
-                        
-                        <DataTableFacetedFilter
-                            title="Khách hàng"
-                            options={customerOptions}
-                            selectedValues={customerFilter}
-                            onSelectedValuesChange={setCustomerFilter}
-                        />
-                    </>
-                }
-            />
-
-            {/* Mobile View - Cards */}
-            {isMobile ? (
-                <div className="space-y-2 flex-1 overflow-y-auto">
-                    {sortedData.length === 0 ? (
-                        <Card>
-                            <CardContent className="p-8 text-center text-muted-foreground">
-                                Không tìm thấy phiếu chi nào
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <>
-                            {sortedData.slice(0, mobileLoadedCount).map(payment => (
-                                <MobilePaymentCard 
-                                    key={payment.systemId} 
-                                    payment={payment}
-                                    onCancel={handleCancel}
-                                    navigate={(path) => router.push(path)}
-                                    handleRowClick={handleRowClick}
-                                />
-                            ))}
-                            {mobileLoadedCount < sortedData.length && (
-                                <Card>
-                                    <CardContent className="p-4 text-center text-muted-foreground">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                                            <span>Đang tải thêm...</span>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-                            {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && (
-                                <Card>
-                                    <CardContent className="p-4 text-center text-muted-foreground text-sm">
-                                        Đã hiển thị tất cả {sortedData.length} phiếu chi
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </>
-                    )}
-                </div>
-            ) : (
-                /* Desktop View - Table */
-                <div className="w-full py-4">
-                    <ResponsiveDataTable
-                        columns={columns}
-                        data={paginatedData}
-                        pageCount={pageCount}
-                        pagination={pagination}
-                        setPagination={setPagination}
-                        rowCount={dataWithRunningBalance.length}
-                        rowSelection={rowSelection}
-                        setRowSelection={setRowSelection}
-                        onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
-                        sorting={sorting}
-                    setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>}
-                    allSelectedRows={allSelectedRows}
-                    bulkActions={bulkActions}
-                    expanded={{}}
-                    setExpanded={() => {}}
-                    columnVisibility={columnVisibility}
-                    setColumnVisibility={setColumnVisibility}
-                    columnOrder={columnOrder}
-                    setColumnOrder={setColumnOrder}
-                    pinnedColumns={pinnedColumns}
-                    setPinnedColumns={setPinnedColumns}
-                    onRowClick={handleRowClick}
-                    renderMobileCard={(payment) => (
-                        <MobilePaymentCard 
-                            payment={payment}
-                            onCancel={handleCancel}
-                            navigate={(path) => router.push(path)}
-                            handleRowClick={handleRowClick}
-                        />
-                    )}
-                />
-                </div>
-            )}
-
-            {/* Delete Alert Dialog */}
-            <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Hủy phiếu chi?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Phiếu chi sẽ được chuyển sang trạng thái "Đã hủy". Bạn có thể xem lại phiếu đã hủy trong danh sách.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="h-9">Đóng</AlertDialogCancel>
-                        <AlertDialogAction className="h-9" onClick={confirmCancel}>Hủy phiếu</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Bulk Delete Alert Dialog */}
-            <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Hủy {Object.keys(rowSelection).length} phiếu chi?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Các phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="h-9">Đóng</AlertDialogCancel>
-                        <AlertDialogAction className="h-9" onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Print Options Dialog */}
-            <SimplePrintOptionsDialog
-                open={printDialogOpen}
-                onOpenChange={setPrintDialogOpen}
-                onConfirm={handlePrintConfirm}
-                selectedCount={itemsToPrint.length}
-                title="In phiếu chi"
-            />
-
-            {/* Import Dialog */}
-            <PaymentImportDialog
-                open={showImportDialog}
-                onOpenChange={setShowImportDialog}
-                branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
-                existingData={payments}
-                onImport={handleImport}
-                currentUser={{
-                    name: employee?.fullName || 'Hệ thống',
-                    systemId: employee?.systemId || asSystemId('SYSTEM'),
-                }}
-            />
-
-            {/* Export Dialog */}
-            <PaymentExportDialog
-                open={showExportDialog}
-                onOpenChange={setShowExportDialog}
-                allData={payments}
-                filteredData={sortedData}
-                currentPageData={paginatedData}
-                selectedData={selectedPayments}
-                currentUser={{
-                    name: employee?.fullName || 'Hệ thống',
-                    systemId: employee?.systemId || asSystemId('SYSTEM'),
-                }}
-            />
-        </div>
-    );
+  return (
+    <div className="space-y-4 h-full flex flex-col">
+      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={[<DataTableColumnCustomizer key="c" columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />]} />}
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã phiếu, người nhận, chứng từ..." leftFilters={<DataTableDateFilter value={dateRange} onChange={setDateRange} />} rightFilters={<><Select value={branchFilter} onValueChange={v => setBranchFilter(v === 'all' ? 'all' : asSystemId(v))}><SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select><DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /><DataTableFacetedFilter title="Loại phiếu" options={typeOptions} selectedValues={typeFilter} onSelectedValuesChange={setTypeFilter} /><DataTableFacetedFilter title="Khách hàng" options={customerOptions} selectedValues={customerFilter} onSelectedValuesChange={setCustomerFilter} /></>} />
+      {isMobile ? <div className="space-y-2 flex-1 overflow-y-auto">{sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy phiếu chi nào</CardContent></Card> : <>{sortedData.slice(0, mobileLoadedCount).map(p => <MobilePaymentCard key={p.systemId} payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />)}{mobileLoadedCount < sortedData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải thêm...</span></div></CardContent></Card>}</>}</div> : <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={dataWithBalance.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={p => <MobilePaymentCard payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />} /></div>}
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy phiếu chi?</AlertDialogTitle><AlertDialogDescription>Phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmCancel}>Hủy phiếu</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy {Object.keys(rowSelection).length} phiếu chi?</AlertDialogTitle><AlertDialogDescription>Các phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu chi" />
+      <PaymentImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={payments} onImport={handleImport} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />
+      <PaymentExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={payments} filteredData={sortedData} currentPageData={paginatedData} selectedData={selectedPayments} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />
+    </div>
+  );
 }

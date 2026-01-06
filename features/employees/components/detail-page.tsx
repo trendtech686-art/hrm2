@@ -20,8 +20,9 @@ import { PayrollStatusBadge } from '@/features/payroll/components/status-badge';
 import { ROUTES } from '@/lib/router';
 import { useAuth } from '@/contexts/auth-context';
 import { usePrint } from '@/lib/use-print';
-import { useStoreInfoStore } from '@/features/settings/store-info/store-info-store';
-import { useDepartmentStore } from '@/features/settings/departments/store';
+import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { useAllPenalties } from '@/features/settings/penalties/hooks/use-all-penalties';
+import { useAllLeaves } from '@/features/leaves/hooks/use-all-leaves';
 import {
   convertPayslipForPrint,
   mapPayslipToPrintData,
@@ -80,9 +81,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { ColumnDef } from '@/components/data-table/types';
 
-import { usePenaltyStore } from '@/features/settings/penalties/store';
-import { useLeaveStore } from '@/features/leaves/store';
-import { useTaskStore } from '@/features/tasks/store';
+import { useAllTasks } from '@/features/tasks/hooks/use-all-tasks';
 import { EmployeeDocuments } from './employee-documents';
 import { EmployeeAccountTab } from './employee-account-tab';
 
@@ -200,8 +199,7 @@ export function EmployeeDetailPage() {
   const { employee: authEmployee } = useAuth();
     const getPayrollProfile = useEmployeeCompStore((state) => state.getPayrollProfile);
     const { settings } = useEmployeeSettingsStore();
-    const { info: storeInfo } = useStoreInfoStore();
-    const { data: _departments } = useDepartmentStore();
+    const { info: storeInfo } = useStoreInfoData();
     const { print, printMultiple } = usePrint();
     
     // FIX: Split selectors to avoid object recreation on every render
@@ -237,7 +235,6 @@ export function EmployeeDetailPage() {
   }, [dbAddComment]);
 
   const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
@@ -250,9 +247,9 @@ export function EmployeeDetailPage() {
   }), [authEmployee]);
 
   // Fetch data for tabs
-  const { data: allPenalties } = usePenaltyStore();
-  const { data: allTasks } = useTaskStore();
-  const { data: allLeaveRequests } = useLeaveStore();
+  const { data: allPenalties } = useAllPenalties();
+  const { data: allTasks } = useAllTasks();
+  const { data: allLeaveRequests } = useAllLeaves();
   
   const employeePenalties = React.useMemo(() => allPenalties.filter(p => p.employeeSystemId === employee?.systemId), [allPenalties, employee?.systemId]);
   

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { DEFAULT_ROLE_PERMISSIONS, type Permission } from '../../employees/permissions';
 
 export interface CustomRole {
@@ -27,75 +26,62 @@ const getDefaultRoles = (): CustomRole[] => [
   { id: 'Warehouse', name: 'Kho', description: 'Nhân viên kho', permissions: DEFAULT_ROLE_PERMISSIONS.Warehouse, isDefault: true },
 ];
 
+// In-memory store - data should be loaded from database via API
 export const useRoleStore = create<RoleStore>()(
-  persist(
-    (set, _get) => ({
-      roles: getDefaultRoles(),
-      addRole: (name, description) => set((state) => ({
-        roles: [...state.roles, {
-          id: `role_${Date.now()}`,
-          name,
-          description,
-          permissions: [],
-          isDefault: false,
-        }]
-      })),
-      updateRole: (roleId, updates) => set((state) => ({
-        roles: state.roles.map((role) => 
-          role.id === roleId ? { ...role, ...updates } : role
+  (set, _get) => ({
+    roles: getDefaultRoles(),
+    addRole: (name, description) => set((state) => ({
+      roles: [...state.roles, {
+        id: `role_${Date.now()}`,
+        name,
+        description,
+        permissions: [],
+        isDefault: false,
+      }]
+    })),
+    updateRole: (roleId, updates) => set((state) => ({
+      roles: state.roles.map((role) => 
+        role.id === roleId ? { ...role, ...updates } : role
+      )
+    })),
+    deleteRole: (roleId) => set((state) => ({
+      roles: state.roles.filter((role) => role.id !== roleId)
+    })),
+    resetRole: (roleId) => set((state) => {
+      const role = state.roles.find((r) => r.id === roleId);
+      if (!role || !role.isDefault) return state;
+
+      let defaultPerms: Permission[] = [];
+      // Map ID to default permissions (Case sensitive match with initial state)
+      if (role.id === 'Admin') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Admin;
+      else if (role.id === 'Manager') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Manager;
+      else if (role.id === 'Sales') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Sales;
+      else if (role.id === 'Warehouse') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Warehouse;
+
+      return {
+        roles: state.roles.map((r) => 
+          r.id === roleId ? { ...r, permissions: defaultPerms } : r
         )
-      })),
-      deleteRole: (roleId) => set((state) => ({
-        roles: state.roles.filter((role) => role.id !== roleId)
-      })),
-      resetRole: (roleId) => set((state) => {
-        const role = state.roles.find((r) => r.id === roleId);
-        if (!role || !role.isDefault) return state;
-
-        let defaultPerms: Permission[] = [];
-        // Map ID to default permissions (Case sensitive match with initial state)
-        if (role.id === 'Admin') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Admin;
-        else if (role.id === 'Manager') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Manager;
-        else if (role.id === 'Sales') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Sales;
-        else if (role.id === 'Warehouse') defaultPerms = DEFAULT_ROLE_PERMISSIONS.Warehouse;
-
-        return {
-          roles: state.roles.map((r) => 
-            r.id === roleId ? { ...r, permissions: defaultPerms } : r
-          )
-        };
-      }),
-      // Sync default roles with latest permissions from code
-      syncDefaultPermissions: () => set((state) => {
-        const defaultRoles = getDefaultRoles();
-        const updatedRoles = state.roles.map((role) => {
-          if (role.isDefault) {
-            const defaultRole = defaultRoles.find((d) => d.id === role.id);
-            if (defaultRole) {
-              // Merge new permissions: keep existing + add new ones from default
-              const newPerms = defaultRole.permissions.filter(p => !role.permissions.includes(p));
-              return {
-                ...role,
-                permissions: [...role.permissions, ...newPerms],
-              };
-            }
-          }
-          return role;
-        });
-        return { roles: updatedRoles };
-      }),
+      };
     }),
-    {
-      name: 'role-storage',
-      // Auto-sync permissions when store rehydrates
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          // Delay to ensure state is set
-          setTimeout(() => {
-            state.syncDefaultPermissions();
-          }, 0);
+    // Sync default roles with latest permissions from code
+    syncDefaultPermissions: () => set((state) => {
+      const defaultRoles = getDefaultRoles();
+      const updatedRoles = state.roles.map((role) => {
+        if (role.isDefault) {
+          const defaultRole = defaultRoles.find((d) => d.id === role.id);
+          if (defaultRole) {
+            // Merge new permissions: keep existing + add new ones from default
+            const newPerms = defaultRole.permissions.filter(p => !role.permissions.includes(p));
+            return {
+              ...role,
+              permissions: [...role.permissions, ...newPerms],
+            };
+          }
         }
-      },
-    }
-  )
+        return role;
+      });
+      return { roles: updatedRoles };
+    }),
+  })
 );

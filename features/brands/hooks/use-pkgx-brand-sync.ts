@@ -44,7 +44,6 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
     if (addPkgxLog) {
       addPkgxLog(entry);
     }
-    console.log('[PKGX Brand Sync]', entry.action, entry.status, entry.message);
   }, [addPkgxLog]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -69,10 +68,9 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
           sortOrder: response.data.sort_order || 0,
           isShow: response.data.is_show ?? 1,
         });
-        console.log('[PKGX Brand Sync] Auto-refreshed brand data from PKGX:', pkgxBrandId);
       }
-    } catch (error) {
-      console.warn('[PKGX Brand Sync] Failed to refresh brand data:', error);
+    } catch (_error) {
+      // Silently ignore sync errors
     }
   }, [updateBrandInStore]);
 
@@ -95,7 +93,6 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         site_url: brand.website || '',
       };
       
-      console.log('[PKGX Brand Basic Sync] Payload:', basicPayload);
       
       const response = await updateBrand(pkgxBrandId, basicPayload);
       
@@ -148,10 +145,6 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
       };
       
       // DEBUG
-      console.log('[PKGX Brand SEO Sync] Brand:', brand.name);
-      console.log('[PKGX Brand SEO Sync] websiteSeo.pkgx:', pkgxSeo);
-      console.log('[PKGX Brand SEO Sync] SEO Chung - seoKeywords:', brand.seoKeywords);
-      console.log('[PKGX Brand SEO Sync] Payload:', seoPayload);
       
       const response = await updateBrand(pkgxBrandId, seoPayload);
       
@@ -201,7 +194,6 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         long_desc: pkgxSeo?.longDescription || brand.longDescription || '',
       };
       
-      console.log('[PKGX Brand Desc Sync] Payload:', descPayload);
       
       const response = await updateBrand(pkgxBrandId, descPayload);
       
@@ -261,7 +253,6 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         long_desc: pkgxSeo?.longDescription || brand.longDescription || '',
       };
       
-      console.log('[PKGX Brand Sync All] Payload:', fullPayload);
       
       const response = await updateBrand(pkgxBrandId, fullPayload);
       

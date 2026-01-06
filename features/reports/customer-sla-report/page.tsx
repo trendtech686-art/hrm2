@@ -21,7 +21,7 @@ import { getSlaAlertColumns, getDebtAlertColumns, getHealthAlertColumns } from '
 import type { ReportTab, ReportSummary, CustomerSlaAlert } from './types';
 import type { ColumnDef } from '@/components/data-table/types';
 import { ROUTES } from '../../../lib/router';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../../hooks/use-fuse-search';
 import { useCustomerSlaEvaluation } from '../../customers/sla/hooks';
 
 const EMPTY_SUMMARY: ReportSummary = {
@@ -48,54 +48,51 @@ export function CustomerSlaReportPage() {
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
 
   // Current tab data and columns
-  const { currentData, columns, fuse } = React.useMemo(() => {
+  const { currentData, columns, fuseKeys } = React.useMemo(() => {
     switch (activeTab) {
       case 'follow-up':
         return {
           currentData: followUpAlerts,
           columns: getSlaAlertColumns(),
-          fuse: new Fuse(followUpAlerts, { 
-            keys: ['customer.name', 'customer.id', 'customer.phone'], 
-            threshold: 0.4 
-          }),
+          fuseKeys: ['customer.name', 'customer.id', 'customer.phone'],
         };
       case 're-engagement':
         return {
           currentData: reEngagementAlerts,
           columns: getSlaAlertColumns(),
-          fuse: new Fuse(reEngagementAlerts, { 
-            keys: ['customer.name', 'customer.id', 'customer.phone'], 
-            threshold: 0.4 
-          }),
+          fuseKeys: ['customer.name', 'customer.id', 'customer.phone'],
         };
       case 'debt':
         return {
           currentData: debtAlerts,
           columns: getDebtAlertColumns(),
-          fuse: new Fuse(debtAlerts, { 
-            keys: ['customer.name', 'customer.id', 'customer.phone'], 
-            threshold: 0.4 
-          }),
+          fuseKeys: ['customer.name', 'customer.id', 'customer.phone'],
         };
       case 'health':
         return {
           currentData: healthAlerts,
           columns: getHealthAlertColumns(),
-          fuse: new Fuse(healthAlerts, { 
-            keys: ['customer.name', 'customer.id', 'customer.segment'], 
-            threshold: 0.4 
-          }),
+          fuseKeys: ['customer.name', 'customer.id', 'customer.segment'],
         };
       default:
-        return { currentData: [], columns: [], fuse: null };
+        return { currentData: [], columns: [], fuseKeys: ['customer.name'] };
     }
   }, [activeTab, followUpAlerts, reEngagementAlerts, debtAlerts, healthAlerts]);
 
+  // Fuse options based on current tab
+  const fuseOptions = React.useMemo(() => ({ 
+    keys: fuseKeys, 
+    threshold: 0.4 
+  }), [fuseKeys]);
+  
+  // Use lazy-loaded Fuse filter - cast to any[] since currentData is union type
+  const searchedData = useFuseFilter(currentData as unknown[], globalFilter, fuseOptions);
+
   // Filter data
   const filteredData = React.useMemo(() => {
-    if (!globalFilter || !fuse) return currentData;
-    return fuse.search(globalFilter).map(r => r.item);
-  }, [currentData, globalFilter, fuse]);
+    if (!globalFilter) return currentData;
+    return searchedData as typeof currentData;
+  }, [currentData, globalFilter, searchedData]);
 
   // Sorted data
   const sortedData = React.useMemo(() => {

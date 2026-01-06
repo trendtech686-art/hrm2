@@ -5,7 +5,6 @@ import type { CustomThemeConfig } from '../features/settings/appearance/store'
 function applyTheme(customThemeConfig: CustomThemeConfig, colorMode: string, fontSize: string) {
   const root = window.document.documentElement;
   
-  console.log('[ThemeProvider] Applying theme:', { colorMode, fontSize, primary: customThemeConfig['--primary'] });
 
   // Color Mode
   root.classList.remove('light', 'dark');

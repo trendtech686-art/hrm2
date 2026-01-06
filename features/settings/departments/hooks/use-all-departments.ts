@@ -4,9 +4,13 @@
  * Use case: Dropdowns, selects, comboboxes that need all departments
  */
 
+import * as React from 'react';
 import { useCallback } from 'react';
 import { useDepartments } from './use-departments';
 import type { Department } from '../api/departments-api';
+
+// Stable empty array to prevent re-renders
+const EMPTY_DEPARTMENTS: Department[] = [];
 
 /**
  * Returns all departments as a flat array
@@ -15,8 +19,14 @@ import type { Department } from '../api/departments-api';
 export function useAllDepartments() {
   const query = useDepartments({ limit: 500 });
   
+  // Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => 
+    query.data?.data || EMPTY_DEPARTMENTS,
+    [query.data?.data]
+  );
+  
   return {
-    data: query.data?.data || [],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

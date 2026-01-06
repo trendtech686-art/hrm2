@@ -32,8 +32,8 @@ import { useAllCustomers, useCustomerFinder } from '../customers/hooks/use-all-c
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useSalesReturnStore } from './store';
 import { useProductStore } from '../products/store';
-import { useCashbookStore } from '../cashbook/store';
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
+import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 
 // UI Components
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -50,9 +50,9 @@ import { OrderProductSearch } from '../../components/shared/unified-product-sear
 import { LineItemsTable } from '../orders/components/line-items-table';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { usePaymentMethodStore } from '../settings/payments/methods/store';
+import { useAllPaymentMethods } from '../settings/payments/hooks/use-all-payment-methods';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
-import { usePricingPolicyStore } from '../settings/pricing/store';
+import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
 import { Label } from '../../components/ui/label';
 import { ShippingCard } from '../orders/components/shipping-card';
 import { ProductTableToolbar } from '../orders/components/product-table-toolbar';
@@ -89,10 +89,10 @@ export function SalesReturnFormPage() {
     const creatorSystemId = authEmployee?.systemId ?? 'SYSTEM';
     const { add: _addProduct, data: allProducts } = useProductStore(); // For GHTK API
     const products = React.useMemo(() => Array.isArray(allProducts) ? allProducts : [], [allProducts]);
-    const { findById: findProductTypeById } = useProductTypeStore();
-  const { accounts: _accounts } = useCashbookStore();
-  const { data: _paymentMethodsData } = usePaymentMethodStore();
-  const { data: pricingPolicies } = usePricingPolicyStore();
+    const { findById: findProductTypeById } = useProductTypeFinder();
+  const { accounts: _accounts } = useAllCashAccounts();
+  const { data: _paymentMethodsData } = useAllPaymentMethods();
+  const { data: pricingPolicies } = useAllPricingPolicies();
   
   // Get default selling price policy
   const defaultSellingPolicy = React.useMemo(
@@ -244,7 +244,6 @@ export function SalesReturnFormPage() {
       // Lấy chi nhánh từ đơn hàng, nếu không có thì lấy default
       const branchSystemId = order.branchSystemId || branches.find(b => b.isDefault)?.systemId || branches[0]?.systemId;
       
-      console.log('✅ Setting branchSystemId to:', branchSystemId, 'from order:', order.branchSystemId);
       
       // Reset form với data mới
       reset({
@@ -269,7 +268,6 @@ export function SalesReturnFormPage() {
     if (customer && customer.addresses && customer.addresses.length > 0) {
       const defaultShippingAddr = customer.addresses.find(a => a.isDefaultShipping);
       if (defaultShippingAddr) {
-        console.log('🔵 [Sales Return] Setting default shipping address:', defaultShippingAddr);
         setValue('shippingAddress', defaultShippingAddr);
       }
     }
@@ -416,7 +414,6 @@ export function SalesReturnFormPage() {
     
     // ✅ Prevent double submission
     if (isSubmitting) {
-        console.warn('⚠️ Submission already in progress, skipping...');
         return;
     }
     
@@ -522,21 +519,12 @@ export function SalesReturnFormPage() {
         configuration: values.configuration,
     };
     
-    console.log('📋 [Sales Return Form] Exchange items count:', values.exchangeItems.length);
-    console.log('📋 [Sales Return Form] Exchange items:', values.exchangeItems);
-    console.log('📋 [Sales Return Form] Return payload exchangeItems:', returnPayload.exchangeItems);
     
     // ✅ Call GHTK API if using GHTK shipping partner
-    console.log('🔍 [GHTK Check] deliveryMethod:', values.deliveryMethod);
-    console.log('🔍 [GHTK Check] shippingPartnerId:', values.shippingPartnerId);
-    console.log('🔍 [GHTK Check] exchangeItems.length:', values.exchangeItems.length);
     
     const isUsingShippingPartner = values.deliveryMethod === 'deliver-later' || values.deliveryMethod === 'shipping-partner';
-    console.log('🔍 [GHTK Check] isUsingShippingPartner:', isUsingShippingPartner);
-    console.log('🔍 [GHTK Check] Condition result:', isUsingShippingPartner && values.shippingPartnerId === 'GHTK' && values.exchangeItems.length > 0);
     
     if (isUsingShippingPartner && values.shippingPartnerId === 'GHTK' && values.exchangeItems.length > 0) {
-        console.log('📦 [Sales Return] Calling GHTK API for exchange order...');
         
         try {
             // Load shipping config
@@ -574,7 +562,6 @@ export function SalesReturnFormPage() {
             // ✅ Use shipping address from FORM, not from original order
             const shippingAddress = values.shippingAddress;
             
-            console.log('🏠 [GHTK] Shipping address from form:', shippingAddress);
             
             if (!shippingAddress || !customer) {
                 toast.error('Thiếu thông tin giao hàng', { 
@@ -598,7 +585,6 @@ export function SalesReturnFormPage() {
                 ? addressParts.join(', ')
                 : ((shippingAddrAny.address || shippingAddrAny.street || shippingAddrAny.fullAddress || '') as string);
             
-            console.log('🏠 [GHTK] Built customer address:', customerAddress);
             
             if (!customerAddress || !shippingAddress.province || !shippingAddress.district || !shippingAddress.ward) {
                 toast.error('Thiếu thông tin địa chỉ', { 
@@ -675,7 +661,6 @@ export function SalesReturnFormPage() {
             
             const ghtkService = new GHTKService(apiToken, partnerCode || '');
             
-            console.log('📦 [Sales Return] Calling GHTK API with params:', ghtkParams);
             toast.info('Đang tạo đơn trên GHTK...', { duration: 2000 });
             const result = await ghtkService.createOrder(ghtkParams);
             
@@ -705,11 +690,9 @@ export function SalesReturnFormPage() {
         }
     }
     
-    console.log('📋 [Form] Submitting return payload:', returnPayload);
 
     const { newReturn, newOrderSystemId } = addReturn(returnPayload);
     
-    console.log('✅ [Form] Return created:', { newReturn, newOrderSystemId });
     
     // ✅ Navigate to new exchange order if created, otherwise back to original order
     if (newOrderSystemId) {

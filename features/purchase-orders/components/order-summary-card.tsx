@@ -26,7 +26,7 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 import { Plus, X } from "lucide-react";
-import { usePaymentMethodStore } from "../../settings/payments/methods/store";
+import { useAllPaymentMethods } from "../../settings/payments/hooks/use-all-payment-methods";
 
 export type DiscountType = "percentage" | "fixed";
 
@@ -82,7 +82,7 @@ export function OrderSummaryCard({
   onOtherFeesChange,
   onPaymentsChange,
 }: OrderSummaryCardProps) {
-  const { data: paymentMethods } = usePaymentMethodStore();
+  const { data: paymentMethods } = useAllPaymentMethods();
   
   // Calculate actual discount amount
   const discountAmount =

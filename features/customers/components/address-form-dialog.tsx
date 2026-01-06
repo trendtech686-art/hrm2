@@ -72,7 +72,6 @@ export function AddressFormDialog({
   // Reset form when dialog opens/closes or editingAddress changes
   React.useEffect(() => {
     if (isOpen) {
-      console.log('[AddressFormDialog] Opening with editingAddress:', editingAddress);
       if (editingAddress) {
         const level = editingAddress.inputLevel || '2-level';
         setAddressLevel(level);
@@ -93,7 +92,6 @@ export function AddressFormDialog({
           isDefaultBilling: editingAddress.isDefaultBilling || false,
           inputLevel: level,
         };
-        console.log('[AddressFormDialog] Setting formData:', newFormData);
         setFormData(newFormData);
       } else {
         setAddressLevel('2-level');
@@ -121,16 +119,10 @@ export function AddressFormDialog({
   // Get available districts and wards based on selection
   // IMPORTANT: Lookup province by BOTH name and provinceId for compatibility
   const selectedProvince = React.useMemo(() => {
-    console.log('[AddressFormDialog] Looking for province:', { 
-      provinceName: formData.province, 
-      provinceId: formData.provinceId,
-      availableProvinces: provinces.slice(0, 5).map(p => ({ id: p.id, name: p.name }))
-    });
     
     // First try by name
     let found = provinces.find((p) => p.name === formData.province);
     if (found) {
-      console.log('[AddressFormDialog] Found province by name:', found);
       return found;
     }
     
@@ -138,7 +130,6 @@ export function AddressFormDialog({
     if (formData.provinceId) {
       found = provinces.find((p) => p.id === formData.provinceId);
       if (found) {
-        console.log('[AddressFormDialog] Found province by id:', found);
         return found;
       }
     }
@@ -153,12 +144,10 @@ export function AddressFormDialog({
                normalizedInput.includes(normalizedName);
       });
       if (found) {
-        console.log('[AddressFormDialog] Found province by normalized match:', found);
         return found;
       }
     }
     
-    console.log('[AddressFormDialog] Province NOT FOUND');
     return null;
   }, [provinces, formData.province, formData.provinceId]);
 

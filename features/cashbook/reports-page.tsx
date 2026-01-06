@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { startOfMonth, endOfMonth, isAfter, isBefore, isWithinInterval, isSameDay, differenceInMilliseconds, parse as dateParse } from 'date-fns';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useReceiptStore } from '../receipts/store';
-import { usePaymentStore } from '../payments/store';
+import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
+import { useAllPayments } from '../payments/hooks/use-all-payments';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllCustomers } from '../customers/hooks/use-all-customers';
-import { useReceiptTypeStore } from '../settings/receipt-types/store';
-import { usePaymentTypeStore } from '../settings/payments/types/store';
+import { useAllReceiptTypes } from '../settings/receipt-types/hooks/use-all-receipt-types';
+import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { DataTableDateFilter } from '../../components/data-table/data-table-date-filter';
@@ -35,16 +35,16 @@ const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4
 export function CashbookReportsPage() {
   const router = useRouter();
 
-  const { data: receipts } = useReceiptStore();
-  const { data: payments } = usePaymentStore();
+  const { data: receipts } = useAllReceipts();
+  const { data: payments } = useAllPayments();
   const vouchers = React.useMemo(() => [
     ...receipts.map(r => ({ ...r, type: 'receipt' as const })),
     ...payments.map(p => ({ ...p, type: 'payment' as const }))
   ], [receipts, payments]);
   const { data: branches } = useAllBranches();
   const { data: _customers = [] } = useAllCustomers();
-  const { data: _receiptTypes } = useReceiptTypeStore();
-  const { data: _paymentTypes } = usePaymentTypeStore();
+  const { data: _receiptTypes } = useAllReceiptTypes();
+  const { data: _paymentTypes } = useAllPaymentTypes();
   
   const isMobile = useMediaQuery("(max-width: 768px)");
   

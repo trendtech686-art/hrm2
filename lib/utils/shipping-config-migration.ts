@@ -97,9 +97,9 @@ export function saveShippingConfig(config: ShippingConfig): void {
     body: JSON.stringify(config),
   }).then(response => {
     if (response.ok) {
-      console.log('✅ Shipping config saved to database');
+      // Config saved successfully
     } else {
-      console.warn('⚠️ Failed to save shipping config to database');
+      // Save failed, config in cache only
     }
   }).catch(error => {
     console.error('❌ Error saving shipping config to database:', error);

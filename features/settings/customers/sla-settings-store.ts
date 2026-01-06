@@ -1,12 +1,9 @@
 import { createCrudStore } from '../../../lib/store-factory';
 import type { CustomerSlaSetting, CustomerSlaType } from './types';
-import { defaultCustomerSlaSettings } from './sla-settings-data';
 
 export const useCustomerSlaStore = createCrudStore<CustomerSlaSetting>(
-  defaultCustomerSlaSettings, 'sla-settings',
-  {
-    persistKey: 'hrm-customer-sla-settings',
-  }
+  [], 'sla-settings',
+  {}
 );
 
 // Helper function to get SLA by type (simplified - only 1 per type)

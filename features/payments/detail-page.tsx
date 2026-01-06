@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { usePaymentStore } from './store';
+import { usePaymentFinder } from './hooks/use-all-payments';
 import { ROUTES, generatePath } from '../../lib/router';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -17,7 +17,7 @@ import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { usePrint } from '../../lib/use-print';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { 
   convertPaymentForPrint,
   mapPaymentToPrintData, 
@@ -42,10 +42,10 @@ const getStatusBadge = (status?: string) => {
 export function PaymentDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = usePaymentStore();
+  const { findById } = usePaymentFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { print } = usePrint();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   
   const payment = React.useMemo(() => 
     systemId ? findById(asSystemId(systemId)) : null, 
@@ -95,7 +95,6 @@ export function PaymentDetailPage() {
   };
 
   const handleUpdateComment = (_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {
@@ -186,7 +185,6 @@ export function PaymentDetailPage() {
           className="h-9"
           onClick={() => {
             // TODO: Implement cancel confirmation
-            console.log('Cancel payment:', payment.systemId);
           }}
         >
           Hủy phiếu chi

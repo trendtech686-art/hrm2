@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useReactFlow, type Node } from 'reactflow';
 import { useEmployeeStore } from '../../../../employees/store';
 import type { Employee } from '@/lib/types/prisma-extended';
-import { useDepartmentStore } from '../../store';
+import { useAllDepartments } from '../../hooks/use-all-departments';
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
 import { 
@@ -24,7 +24,7 @@ import {
 
 export function useOrgChart() {
   const { data: employees, update: updateEmployee } = useEmployeeStore();
-  const { data: departments } = useDepartmentStore();
+  const { data: departments } = useAllDepartments();
   const { fitView: _fitView, setCenter, setNodes: setReactFlowNodes, getNodes } = useReactFlow();
 
   // State

@@ -4,15 +4,15 @@
  */
 
 import { useMemo } from 'react';
-import { useComplaintStore } from '../store';
-import { useBranchStore } from '../../settings/branches/store';
+import { useAllComplaints } from './use-all-complaints';
+import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import { usePaymentStore } from '../../payments/store';
-import { useReceiptStore } from '../../receipts/store';
+import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
 import { useAllOrders } from '../../orders/hooks/use-all-orders';
 
 export function usePublicComplaintTracking(complaintId: string | undefined) {
-  const { complaints } = useComplaintStore();
+  const { data: complaints } = useAllComplaints();
   
   // Find complaint first - most important operation
   const complaint = useMemo(() => {
@@ -25,10 +25,10 @@ export function usePublicComplaintTracking(complaintId: string | undefined) {
   }, [complaintId, complaints]);
 
   // Only load other stores if complaint exists
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const { data: _employees } = useAllEmployees();
   const payments = usePaymentStore(state => state.data);
-  const receipts = useReceiptStore(state => state.data);
+  const { data: receipts } = useAllReceipts();
   const { data: orders } = useAllOrders();
 
   // Memoize related data calculations

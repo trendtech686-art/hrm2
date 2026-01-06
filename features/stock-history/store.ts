@@ -3,49 +3,6 @@
 import type { StockHistoryEntry } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';
 import type { SystemId } from '../../lib/id-types';
-import { data as initialData } from './data';
-
-// ✨ Migration helper: Convert SKU to systemId for old data
-function migrateHistoryData(entries: StockHistoryEntry[]): StockHistoryEntry[] {
-  // Map SKU → systemId from products
-  const skuToSystemId: Record<string, string> = {
-    'DV-WEB-01': 'SP00000001',
-    'DV-WEB-02': 'SP00000002',
-    'DV-WEB-03': 'SP00000003',
-    'DV-MKT-01': 'SP00000004',
-    'DV-MKT-02': 'SP00000005',
-    'DV-MKT-03': 'SP00000006',
-    'DV-SEO-01': 'SP00000007',
-    'DV-SEO-02': 'SP00000008',
-    'DV-IT-01': 'SP00000009',
-    'DV-DSN-01': 'SP00000010',
-    'SW-CRM-01': 'SP00000011',
-    'SW-ERP-01': 'SP00000012',
-    'SW-WIN-01': 'SP00000013',
-    'SW-OFF-01': 'SP00000014',
-    'SW-ADOBE-01': 'SP00000015',
-    'HW-SRV-01': 'SP00000016',
-    'HW-SRV-02': 'SP00000017',
-    'HW-PC-01': 'SP00000018',
-    'HW-PC-02': 'SP00000019',
-    'HW-LT-01': 'SP00000020',
-    'HW-NET-01': 'SP00000021',
-    'HW-NET-02': 'SP00000022',
-    'HW-CAM-01': 'SP00000023',
-    'MISC-HOST-01': 'SP00000024',
-    'MISC-HOST-02': 'SP00000025',
-    'MISC-SSL-01': 'SP00000026',
-    'MISC-DOMAIN-COM': 'SP00000027',
-    'MISC-DOMAIN-VN': 'SP00000028',
-    'MISC-PRINT-01': 'SP00000029',
-    'MISC-PRINT-02': 'SP00000030',
-  };
-  
-  return entries.map(entry => ({
-    ...entry,
-    productId: asSystemId(skuToSystemId[entry.productId as string] || entry.productId) // Convert or keep if already systemId
-  }));
-}
 
 interface StockHistoryState {
   entries: StockHistoryEntry[];
@@ -53,11 +10,11 @@ interface StockHistoryState {
   getHistoryForProduct: (productId: SystemId, branchSystemId?: 'all' | SystemId) => StockHistoryEntry[];
 }
 
-let entryCounter = initialData.length;
+let entryCounter = 0;
 
 export const useStockHistoryStore = create<StockHistoryState>()(
     (set, get) => ({
-      entries: migrateHistoryData(initialData), // ✨ Apply migration to initial data
+      entries: [], // Seed data removed for production
       addEntry: (entry) => set((state) => {
         entryCounter++;
         const newEntry: StockHistoryEntry = {

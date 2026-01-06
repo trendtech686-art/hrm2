@@ -9,6 +9,9 @@ import { useSuppliers } from './use-suppliers';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
+// ✅ Stable empty array to prevent re-renders
+const EMPTY_SUPPLIERS: Supplier[] = [];
+
 /**
  * Returns all suppliers as a flat array
  * Compatible with legacy store pattern: { data: suppliers }
@@ -16,8 +19,14 @@ import type { SystemId } from '@/lib/id-types';
 export function useAllSuppliers() {
   const query = useSuppliers({ limit: 500 });
   
+  // ✅ Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => 
+    query.data?.data || EMPTY_SUPPLIERS,
+    [query.data?.data]
+  );
+  
   return {
-    data: query.data?.data || [],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

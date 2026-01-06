@@ -1,3 +1,0 @@
-{
-  "/(authenticated)/warranty/[systemId]/update/page": "app/(authenticated)/warranty/[systemId]/update/page.js"
-}

@@ -116,14 +116,12 @@ async function fetchFromAPI<T>(endpoint: string): Promise<T[]> {
     });
     
     if (!response.ok) {
-      console.warn(`[API Sync] Failed to fetch ${endpoint}: ${response.status}`);
       return [];
     }
     
     const json = await response.json();
     return json.data ?? json ?? [];
-  } catch (error) {
-    console.warn(`[API Sync] Error fetching ${endpoint}:`, error);
+  } catch {
     return [];
   }
 }
@@ -145,7 +143,6 @@ async function syncStore<T extends { systemId: string }>(
       if (useStore.setState) {
         useStore.setState({ data: [...items, ...localOnly] });
       }
-      console.log(`[API Sync] ${storeName}: ${items.length} from API`);
     }
     updateStatus('success');
   } catch (e) {
@@ -295,7 +292,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useWikiStore.getState().loadFromAPI();
-            console.log('[API Sync] wiki: synced from API');
             updateStatus('wiki', 'success');
           } catch (e) {
             console.error('[API Sync] wiki failed:', e);
@@ -317,7 +313,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useCashbookStore.getState().loadFromAPI();
-            console.log('[API Sync] cashbook: synced from API');
             updateStatus('cashbook', 'success');
           } catch (e) {
             console.error('[API Sync] cashbook failed:', e);
@@ -327,7 +322,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useReceiptStore.getState().loadFromAPI();
-            console.log('[API Sync] receipts: synced from API');
             updateStatus('receipts', 'success');
           } catch (e) {
             console.error('[API Sync] receipts failed:', e);
@@ -337,7 +331,6 @@ export function useApiSync() {
         (async () => {
           try {
             await usePaymentStore.getState().loadFromAPI();
-            console.log('[API Sync] payments: synced from API');
             updateStatus('payments', 'success');
           } catch (e) {
             console.error('[API Sync] payments failed:', e);
@@ -349,7 +342,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useStockTransferStore.getState().loadFromAPI();
-            console.log('[API Sync] stockTransfers: synced from API');
             updateStatus('stockTransfers', 'success');
           } catch (e) {
             console.error('[API Sync] stockTransfers failed:', e);
@@ -359,7 +351,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useStockHistoryStore.getState().loadFromAPI();
-            console.log('[API Sync] stockHistory: synced from API');
             updateStatus('stockHistory', 'success');
           } catch (e) {
             console.error('[API Sync] stockHistory failed:', e);
@@ -369,7 +360,6 @@ export function useApiSync() {
         (async () => {
           try {
             await usePayrollBatchStore.getState().loadFromAPI();
-            console.log('[API Sync] payrollBatches: synced from API');
             updateStatus('payrollBatches', 'success');
           } catch (e) {
             console.error('[API Sync] payrollBatches failed:', e);
@@ -379,7 +369,6 @@ export function useApiSync() {
         (async () => {
           try {
             await usePayrollTemplateStore.getState().loadFromAPI();
-            console.log('[API Sync] payrollTemplates: synced from API');
             updateStatus('payrollTemplates', 'success');
           } catch (e) {
             console.error('[API Sync] payrollTemplates failed:', e);
@@ -389,7 +378,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useEmployeeDocumentStore.getState().loadFromAPI();
-            console.log('[API Sync] employeeDocuments: synced from API');
             updateStatus('employeeDocuments', 'success');
           } catch (e) {
             console.error('[API Sync] employeeDocuments failed:', e);
@@ -399,7 +387,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useEmployeeCompStore.getState().loadFromAPI();
-            console.log('[API Sync] employeeComp: synced from API');
             updateStatus('employeeComp', 'success');
           } catch (e) {
             console.error('[API Sync] employeeComp failed:', e);
@@ -426,7 +413,6 @@ export function useApiSync() {
         (async () => {
           try {
             await usePaymentMethodStore.getState().loadFromAPI();
-            console.log('[API Sync] paymentMethods: synced from API');
             updateStatus('paymentMethods', 'success');
           } catch (e) {
             console.error('[API Sync] paymentMethods failed:', e);
@@ -436,7 +422,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useAppearanceStore.getState().loadFromAPI();
-            console.log('[API Sync] appearance: synced from API');
             updateStatus('appearance', 'success');
           } catch (e) {
             console.error('[API Sync] appearance failed:', e);
@@ -446,7 +431,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useShippingSettingsStore.getState().loadFromAPI();
-            console.log('[API Sync] shippingSettings: synced from API');
             updateStatus('shippingSettings', 'success');
           } catch (e) {
             console.error('[API Sync] shippingSettings failed:', e);
@@ -456,7 +440,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useEmployeeSettingsStore.getState().loadFromAPI();
-            console.log('[API Sync] employeeSettings: synced from API');
             updateStatus('employeeSettings', 'success');
           } catch (e) {
             console.error('[API Sync] employeeSettings failed:', e);
@@ -466,7 +449,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useTrendtechStore.getState().loadFromAPI();
-            console.log('[API Sync] trendtech: synced from API');
             updateStatus('trendtech', 'success');
           } catch (e) {
             console.error('[API Sync] trendtech failed:', e);
@@ -476,7 +458,6 @@ export function useApiSync() {
         (async () => {
           try {
             await usePkgxStore.getState().loadFromAPI();
-            console.log('[API Sync] pkgx: synced from API');
             updateStatus('pkgx', 'success');
           } catch (e) {
             console.error('[API Sync] pkgx failed:', e);
@@ -488,7 +469,6 @@ export function useApiSync() {
         (async () => {
           try {
             await useGlobalSettingsStore.getState().initFromAPI();
-            console.log('[API Sync] settings: synced from API');
             updateStatus('settings', 'success');
           } catch (e) {
             console.error('[API Sync] settings failed:', e);
@@ -498,7 +478,6 @@ export function useApiSync() {
       ]);
 
       setIsInitialized(true);
-      console.log('[API Sync] ✅ All stores synced from database');
     };
 
     syncAll();

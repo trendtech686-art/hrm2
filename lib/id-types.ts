@@ -112,9 +112,9 @@ export function getDisplayId(entity: DualIDEntity): string {
  * Runtime guard: ensures a string is valid SystemId format and casts it
  * Logs warning if format is invalid
  */
-export function ensureSystemId(id: string, context?: string): SystemId {
+export function ensureSystemId(id: string, _context?: string): SystemId {
   if (!isSystemIdFormat(id)) {
-    console.warn(`[ensureSystemId] Invalid SystemId format: "${id}"${context ? ` in ${context}` : ''}`);
+    // Warning: Invalid format, but proceed anyway for legacy compatibility
   }
   return asSystemId(id);
 }
@@ -123,9 +123,9 @@ export function ensureSystemId(id: string, context?: string): SystemId {
  * Runtime guard: ensures a string is valid BusinessId format and casts it
  * Logs warning if format is invalid
  */
-export function ensureBusinessId(id: string, context?: string): BusinessId {
+export function ensureBusinessId(id: string, _context?: string): BusinessId {
   if (!isBusinessIdFormat(id)) {
-    console.warn(`[ensureBusinessId] Invalid BusinessId format: "${id}"${context ? ` in ${context}` : ''}`);
+    // Warning: Invalid format, but proceed anyway for legacy compatibility
   }
   return asBusinessId(id);
 }

@@ -11,7 +11,7 @@ import { DataTableToolbar } from '../../../components/data-table/data-table-tool
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../../hooks/use-fuse-search';
 import { Download, Package, Layers, PackageOpen } from 'lucide-react';
 import { ROUTES } from '../../../lib/router';
 import { isComboProduct, calculateComboStock, getComboBottleneckProducts } from '../../products/combo-utils';
@@ -104,7 +104,8 @@ export function InventoryReportPage() {
         }
     }, [reportData, productTypeFilter]);
 
-    const fuse = React.useMemo(() => new Fuse(typeFilteredData, { keys: ['productName', 'sku', 'branchName'], threshold: 0.4 }), [typeFilteredData]);
+    const fuseOptions = React.useMemo(() => ({ keys: ['productName', 'sku', 'branchName'], threshold: 0.4 }), []);
+    const searchedData = useFuseFilter(typeFilteredData, globalFilter, fuseOptions);
     
     const summaryStats = React.useMemo(() => {
         const singleRows = reportData.filter(r => !r.isCombo);
@@ -120,7 +121,7 @@ export function InventoryReportPage() {
         return { rowsCount, onHand, available, stockValue, comboCount, comboAvailable };
     }, [reportData, typeFilteredData]);
     
-    const filteredData = React.useMemo(() => globalFilter ? fuse.search(globalFilter).map(r => r.item) : typeFilteredData, [typeFilteredData, globalFilter, fuse]);
+    const filteredData = React.useMemo(() => globalFilter ? searchedData : typeFilteredData, [typeFilteredData, globalFilter, searchedData]);
     
     const sortedData = React.useMemo(() => {
         const sorted = [...filteredData];

@@ -5,9 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '@/lib/date-utils';
 import Link from 'next/link';
-import { usePurchaseReturnStore } from './store';
-import { usePurchaseOrderStore } from '../purchase-orders/store';
-import { useSupplierStore } from '../suppliers/store';
+import { usePurchaseReturnFinder } from './hooks/use-all-purchase-returns';
+import { usePurchaseOrderFinder } from '../purchase-orders/hooks/use-all-purchase-orders';
+import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -33,7 +33,7 @@ import {
   createStoreSettings,
 } from '../../lib/print/supplier-return-print-helper';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { PurchaseReturnWorkflowCard } from './components/purchase-return-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 import { useComments } from '../../hooks/use-comments';
@@ -48,9 +48,9 @@ const formatCurrency = (value?: number) => {
 export function PurchaseReturnDetailPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = usePurchaseReturnStore();
-  const { findById: findPurchaseOrder } = usePurchaseOrderStore();
-  const { findById: findSupplier } = useSupplierStore();
+  const { findById } = usePurchaseReturnFinder();
+  const { findById: findPurchaseOrder } = usePurchaseOrderFinder();
+  const { findById: findSupplier } = useSupplierFinder();
   const { findById: findProductById } = useProductFinder();
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = React.useState(false);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
@@ -87,7 +87,6 @@ export function PurchaseReturnDetailPage() {
   }, [dbAddComment]);
 
   const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
@@ -116,7 +115,7 @@ export function PurchaseReturnDetailPage() {
   }, [purchaseReturn]);
 
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(purchaseReturn?.branchSystemId);
 
   const handlePrint = React.useCallback(() => {

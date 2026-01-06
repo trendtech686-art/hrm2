@@ -3,7 +3,8 @@
  * Provides data fetching and mutations for shipment management
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useAllShipments } from './use-all-shipments';
 import {
   fetchShipments,
   fetchShipmentById,
@@ -38,6 +39,7 @@ export function useShipments(filters: ShipmentFilters = {}) {
     queryKey: shipmentKeys.list(filters),
     queryFn: () => fetchShipments(filters),
     staleTime: 1000 * 60, // 1 minute - shipments change frequently
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -186,3 +188,33 @@ export function usePendingShipments() {
 export function useShipmentsInTransit() {
   return useShipments({ status: 'Đang giao hàng' });
 }
+
+/**
+ * Finder hook for looking up shipments by various IDs
+ * Replaces useShipmentStore().findById pattern
+ */
+export function useShipmentFinder() {
+  const { data } = useAllShipments();
+
+  const findById = (systemId: string | undefined) => {
+    if (!systemId) return undefined;
+    return data.find((s) => s.systemId === systemId);
+  };
+
+  const findByPackagingSystemId = (packagingSystemId: string | undefined) => {
+    if (!packagingSystemId) return undefined;
+    return data.find((s) => s.packagingSystemId === packagingSystemId);
+  };
+
+  const findByTrackingCode = (trackingCode: string | undefined) => {
+    if (!trackingCode) return undefined;
+    return data.find((s) => s.trackingCode === trackingCode);
+  };
+
+  return {
+    findById,
+    findByPackagingSystemId,
+    findByTrackingCode,
+  };
+}
+

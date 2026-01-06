@@ -5,7 +5,7 @@ import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { cn } from "../../lib/utils";
-import { useBranchStore } from "../../features/settings/branches/store";
+import { useAllBranches } from "../../features/settings/branches/hooks/use-all-branches";
 import { useSimplePrintOptions } from "../../hooks/use-print-options";
 
 // Paper size options matching the order print dialog
@@ -39,7 +39,7 @@ export function SimplePrintOptionsDialog({
   selectedCount,
   title = 'Tùy chọn in',
 }: SimplePrintOptionsDialogProps) {
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const activeBranches = branches;
   const [savedDefaults, setSavedDefaults] = useSimplePrintOptions();
 

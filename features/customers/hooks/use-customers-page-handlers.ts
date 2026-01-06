@@ -1,0 +1,374 @@
+/**
+ * Hooks for customers page handlers
+ * Extracted to reduce page.tsx size
+ */
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { useShallow } from 'zustand/react/shallow';
+import { useCustomerStore } from '../store';
+import { usePersistentState } from '@/hooks/use-persistent-state';
+import type { Customer } from '@/lib/types/prisma-extended';
+import { asSystemId, type SystemId } from '@/lib/id-types';
+import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams, type CustomerSortKey } from '../customer-service';
+
+const TABLE_STATE_STORAGE_KEY = 'customers-table-state';
+
+type SlaFilterValue = CustomerQueryParams['slaFilter'];
+type DebtFilterValue = CustomerQueryParams['debtFilter'];
+
+const defaultTableState: CustomerQueryParams = {
+  search: '',
+  statusFilter: 'all',
+  typeFilter: 'all',
+  dateRange: undefined,
+  showDeleted: false,
+  slaFilter: 'all',
+  debtFilter: 'all',
+  pagination: { pageIndex: 0, pageSize: 10 },
+  sorting: DEFAULT_CUSTOMER_SORT,
+};
+
+type PendingBulkAction =
+  | { kind: 'delete'; customers: Customer[] }
+  | { kind: 'restore'; customers: Customer[] }
+  | { kind: 'status'; status: Customer['status']; customers: Customer[] }
+  | null;
+
+function resolveStateAction<T>(current: T, action: React.SetStateAction<T>): T {
+  return typeof action === 'function' ? (action as (prev: T) => T)(current) : action;
+}
+
+/**
+ * Hook for customer table state management (filters, pagination, sorting)
+ */
+export function useCustomerTableState() {
+  const [tableState, setTableState] = usePersistentState<CustomerQueryParams>(
+    TABLE_STATE_STORAGE_KEY,
+    defaultTableState
+  );
+
+  // Derived setters for individual filter properties
+  const setSearch = React.useCallback(
+    (value: React.SetStateAction<string>) =>
+      setTableState((prev) => ({
+        ...prev,
+        search: resolveStateAction(prev.search, value),
+      })),
+    [setTableState]
+  );
+
+  const setStatusFilter = React.useCallback(
+    (value: React.SetStateAction<string>) =>
+      setTableState((prev) => ({
+        ...prev,
+        statusFilter: resolveStateAction(prev.statusFilter, value),
+      })),
+    [setTableState]
+  );
+
+  const setTypeFilter = React.useCallback(
+    (value: React.SetStateAction<string>) =>
+      setTableState((prev) => ({
+        ...prev,
+        typeFilter: resolveStateAction(prev.typeFilter, value),
+      })),
+    [setTableState]
+  );
+
+  const setSlaFilter = React.useCallback(
+    (value: React.SetStateAction<SlaFilterValue>) =>
+      setTableState((prev) => ({
+        ...prev,
+        slaFilter: resolveStateAction(prev.slaFilter, value),
+      })),
+    [setTableState]
+  );
+
+  const setDebtFilter = React.useCallback(
+    (value: React.SetStateAction<DebtFilterValue>) =>
+      setTableState((prev) => ({
+        ...prev,
+        debtFilter: resolveStateAction(prev.debtFilter, value),
+      })),
+    [setTableState]
+  );
+
+  const setDateRange = React.useCallback(
+    (value: React.SetStateAction<[string | undefined, string | undefined] | undefined>) =>
+      setTableState((prev) => ({
+        ...prev,
+        dateRange: resolveStateAction(prev.dateRange, value),
+      })),
+    [setTableState]
+  );
+
+  const setPagination = React.useCallback(
+    (value: React.SetStateAction<{ pageIndex: number; pageSize: number }>) =>
+      setTableState((prev) => ({
+        ...prev,
+        pagination: resolveStateAction(prev.pagination, value),
+      })),
+    [setTableState]
+  );
+
+  const setSorting = React.useCallback(
+    (value: React.SetStateAction<{ id: CustomerSortKey; desc: boolean }>) =>
+      setTableState((prev) => ({
+        ...prev,
+        sorting: resolveStateAction(prev.sorting, value),
+      })),
+    [setTableState]
+  );
+
+  const resetFilters = React.useCallback(() => {
+    setTableState(defaultTableState);
+  }, [setTableState]);
+
+  return {
+    tableState,
+    setTableState,
+    setSearch,
+    setStatusFilter,
+    setTypeFilter,
+    setSlaFilter,
+    setDebtFilter,
+    setDateRange,
+    setPagination,
+    setSorting,
+    resetFilters,
+  };
+}
+
+/**
+ * Hook for row selection state
+ */
+export function useCustomerRowSelection() {
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+
+  const selectedIds = React.useMemo(
+    () => Object.keys(rowSelection).filter((id) => rowSelection[id]),
+    [rowSelection]
+  );
+
+  const clearSelection = React.useCallback(() => {
+    setRowSelection({});
+  }, []);
+
+  return {
+    rowSelection,
+    setRowSelection,
+    selectedIds,
+    clearSelection,
+  };
+}
+
+/**
+ * Hook for customer bulk actions
+ */
+export function useCustomerBulkActions(selectedIds: string[], clearSelection: () => void) {
+  const {
+    removeMany,
+    restoreMany,
+    updateManyStatus,
+  } = useCustomerStore(
+    useShallow((state) => ({
+      remove: state.remove,
+      removeMany: state.removeMany,
+      restore: state.restore,
+      restoreMany: state.restoreMany,
+      updateManyStatus: state.updateManyStatus,
+    }))
+  );
+
+  const [pendingBulkAction, setPendingBulkAction] = React.useState<PendingBulkAction>(null);
+
+  const confirmBulkAction = React.useCallback(() => {
+    if (!pendingBulkAction) return;
+
+    const customerIds = pendingBulkAction.customers.map((c) => asSystemId(c.systemId));
+
+    switch (pendingBulkAction.kind) {
+      case 'delete':
+        removeMany(customerIds);
+        toast.success(`Đã xóa ${customerIds.length} khách hàng`);
+        break;
+      case 'restore':
+        restoreMany(customerIds);
+        toast.success(`Đã khôi phục ${customerIds.length} khách hàng`);
+        break;
+      case 'status':
+        updateManyStatus(customerIds, pendingBulkAction.status);
+        toast.success(`Đã cập nhật trạng thái ${customerIds.length} khách hàng`);
+        break;
+    }
+
+    clearSelection();
+    setPendingBulkAction(null);
+  }, [pendingBulkAction, removeMany, restoreMany, updateManyStatus, clearSelection]);
+
+  const cancelBulkAction = React.useCallback(() => {
+    setPendingBulkAction(null);
+  }, []);
+
+  const requestBulkDelete = React.useCallback((customers: Customer[]) => {
+    setPendingBulkAction({ kind: 'delete', customers });
+  }, []);
+
+  const requestBulkRestore = React.useCallback((customers: Customer[]) => {
+    setPendingBulkAction({ kind: 'restore', customers });
+  }, []);
+
+  const requestBulkStatusChange = React.useCallback((customers: Customer[], status: Customer['status']) => {
+    setPendingBulkAction({ kind: 'status', status, customers });
+  }, []);
+
+  return {
+    pendingBulkAction,
+    confirmBulkAction,
+    cancelBulkAction,
+    requestBulkDelete,
+    requestBulkRestore,
+    requestBulkStatusChange,
+  };
+}
+
+/**
+ * Hook for single customer actions
+ */
+export function useCustomerActions() {
+  const router = useRouter();
+  const { remove, restore, update } = useCustomerStore(
+    useShallow((state) => ({
+      remove: state.remove,
+      restore: state.restore,
+      update: state.update,
+    }))
+  );
+
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState<SystemId | null>(null);
+
+  const handleView = React.useCallback(
+    (customer: Customer) => {
+      router.push(`/customers/${customer.systemId}`);
+    },
+    [router]
+  );
+
+  const handleEdit = React.useCallback(
+    (customer: Customer) => {
+      router.push(`/customers/${customer.systemId}/edit`);
+    },
+    [router]
+  );
+
+  const handleDeleteRequest = React.useCallback((customerId: SystemId) => {
+    setDeleteConfirmId(customerId);
+  }, []);
+
+  const handleDeleteConfirm = React.useCallback(() => {
+    if (deleteConfirmId) {
+      remove(deleteConfirmId);
+      toast.success('Đã xóa khách hàng');
+      setDeleteConfirmId(null);
+    }
+  }, [deleteConfirmId, remove]);
+
+  const handleDeleteCancel = React.useCallback(() => {
+    setDeleteConfirmId(null);
+  }, []);
+
+  const handleRestore = React.useCallback(
+    (customerId: SystemId) => {
+      restore(customerId);
+      toast.success('Đã khôi phục khách hàng');
+    },
+    [restore]
+  );
+
+  const handleStatusChange = React.useCallback(
+    (customer: Customer, newStatus: Customer['status']) => {
+      update(customer.systemId, { ...customer, status: newStatus });
+      toast.success(`Đã cập nhật trạng thái khách hàng`);
+    },
+    [update]
+  );
+
+  return {
+    deleteConfirmId,
+    handleView,
+    handleEdit,
+    handleDeleteRequest,
+    handleDeleteConfirm,
+    handleDeleteCancel,
+    handleRestore,
+    handleStatusChange,
+  };
+}
+
+/**
+ * Hook for import/export dialogs
+ */
+export function useCustomerImportExport() {
+  const [showImportDialog, setShowImportDialog] = React.useState(false);
+  const [showExportDialog, setShowExportDialog] = React.useState(false);
+
+  const { addMultiple } = useCustomerStore(
+    useShallow((state) => ({
+      addMultiple: state.addMultiple,
+    }))
+  );
+
+  const handleImportComplete = React.useCallback(
+    (importedCustomers: Customer[]) => {
+      addMultiple(importedCustomers);
+      toast.success(`Đã nhập ${importedCustomers.length} khách hàng`);
+      setShowImportDialog(false);
+    },
+    [addMultiple]
+  );
+
+  return {
+    showImportDialog,
+    setShowImportDialog,
+    showExportDialog,
+    setShowExportDialog,
+    handleImportComplete,
+  };
+}
+
+/**
+ * Hook for column customization
+ */
+export function useCustomerColumnState() {
+  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
+  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'name']);
+
+  return {
+    columnOrder,
+    setColumnOrder,
+    pinnedColumns,
+    setPinnedColumns,
+  };
+}
+
+/**
+ * Hook for mobile-specific state
+ */
+export function useCustomerMobileState() {
+  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
+
+  const loadMore = React.useCallback(() => {
+    setMobileLoadedCount((prev) => prev + 20);
+  }, []);
+
+  const resetMobileCount = React.useCallback(() => {
+    setMobileLoadedCount(20);
+  }, []);
+
+  return {
+    mobileLoadedCount,
+    loadMore,
+    resetMobileCount,
+  };
+}

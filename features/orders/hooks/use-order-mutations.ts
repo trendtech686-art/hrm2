@@ -73,12 +73,39 @@ export function useOrderMutations(options: UseOrderMutationsOptions = {}) {
   
   const remove = useMutation({
     mutationFn: deleteOrder,
+    // Optimistic delete - UI cập nhật ngay lập tức
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: orderKeys.lists() });
+      
+      const previousLists = queryClient.getQueriesData({ queryKey: orderKeys.lists() });
+      
+      queryClient.setQueriesData(
+        { queryKey: orderKeys.lists() },
+        (old: { data?: Array<{ systemId: string }>, pagination?: unknown } | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.filter(item => item.systemId !== systemId),
+          };
+        }
+      );
+      
+      return { previousLists };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      options.onError?.(_err as Error);
+    },
     onSuccess: () => {
-      // Invalidate all order queries
-      queryClient.invalidateQueries({ queryKey: orderKeys.all });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
   });
   
   return {

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { NumberInput } from '../../../components/ui/number-input';
-import { useShippingPartnerStore } from '../../settings/shipping/store';
+import { useAllShippingPartners } from '../../settings/shipping/hooks/use-all-shipping-partners';
 import { useShippingSettingsStore } from '../../settings/shipping/shipping-settings-store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Label } from '../../../components/ui/label';
@@ -72,7 +72,7 @@ const PartnerAvatar = ({ name }: { name: string }) => {
 export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
     const router = useRouter();
     const { control, getValues, setValue } = useFormContext();
-    const { data: allPartners } = useShippingPartnerStore();
+    const { data: allPartners } = useAllShippingPartners();
     const { settings: shippingSettings } = useShippingSettingsStore();
     const { findById: findProductById } = useProductFinder();
     
@@ -162,27 +162,22 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                 totalWeightInGrams = lineItems.reduce((sum: number, item: { productSystemId: string; quantity: number }) => {
                     const product = findProductById(item.productSystemId);
                     if (!product || !product.weight) {
-                        console.warn('⚠️ Product missing weight:', item.productSystemId);
                         return sum;
                     }
                     const weightInGrams = product.weightUnit === 'kg' ? product.weight * 1000 : product.weight;
                     return sum + (weightInGrams * item.quantity);
                 }, 0);
-                console.log('📦 Auto-calculated weight from products:', totalWeightInGrams, 'grams');
             } else {
                 totalWeightInGrams = shippingSettings.customWeight || 1000; // Fallback to 1kg
-                console.log('⚖️ Using custom weight:', totalWeightInGrams, 'grams');
             }
             
             // Ensure minimum weight of 100g for API
             if (totalWeightInGrams < 100) {
-                console.warn('⚠️ Weight too low, setting to minimum 100g');
                 totalWeightInGrams = 100;
             }
             
             if (getValues('weight') !== Math.round(totalWeightInGrams)) {
                 setValue('weight', Math.round(totalWeightInGrams));
-                console.log('🔄 Updated weight field to:', Math.round(totalWeightInGrams), 'grams');
             }
 
             setValue('length', shippingSettings.length);
@@ -256,19 +251,11 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                                (customer && customer.shippingAddress_province);
         
         if (!hasValidAddress || !weight) {
-            console.log('⚠️ Missing required info:', { 
-                hasValidAddress, 
-                weight,
-                shippingAddress: !!shippingAddress,
-                customerProvince: !!customer?.shippingAddress_province 
-            });
             setEstimatedFees({});
             return;
         }
 
         const calculate = async () => {
-            console.log('🚚 Starting fee calculation for', connectedPartners.length, 'partners');
-            console.log('📍 Delivery info:', { province, ward, weight, cod });
             
             setIsLoading(true);
             setEstimatedFees({}); // Clear old fees for a clean loading state
@@ -308,11 +295,6 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                             addr.partnerWarehouseId === selectedId
                         ) || pickupAddresses[0]; // fallback to first address
                         
-                        console.log('📍 Pick address info:', {
-                            total: pickupAddresses.length,
-                            selected: selectedPickupAddress,
-                            selectedId: selectedId
-                        });
                         
                         // Auto-detect address level and format for API
                         let ghtk_province = province;
@@ -321,12 +303,6 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                         
                         // Use shippingAddress from form if available
                         if (shippingAddress && typeof shippingAddress === 'object') {
-                            console.log('📍 Using selected shipping address:', {
-                                inputLevel: shippingAddress.inputLevel,
-                                autoFilled: shippingAddress.autoFilled,
-                                hasDistrict: !!shippingAddress.district,
-                                address: shippingAddress
-                            });
                             
                             ghtk_province = shippingAddress.province;
                             
@@ -334,23 +310,19 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                                 // 3-level address: có sẵn district
                                 ghtk_district = shippingAddress.district;
                                 ghtk_ward = shippingAddress.ward || '';
-                                console.log('🏢 Using 3-level address format:', { ghtk_province, ghtk_district, ghtk_ward });
                             } else if (shippingAddress.inputLevel === '2-level') {
                                 // 2-level address: dùng ward làm district
                                 ghtk_district = shippingAddress.ward;
                                 ghtk_ward = ''; // Để trống cho 2-level
-                                console.log('🏠 Using 2-level address format:', { ghtk_province, ghtk_district, ghtk_ward });
                             } else {
                                 // Fallback: cố gắng suy đoán
                                 ghtk_district = shippingAddress.district || shippingAddress.ward || 'Quận 1';
-                                console.log('🔄 Using fallback address format:', { ghtk_province, ghtk_district, ghtk_ward });
                             }
                         } else {
                             // Legacy format từ customer fields
                             ghtk_district = customer?.shippingAddress_district || 
                                            customer?.shippingAddress_ward || 
                                            'Quận 1';
-                            console.log('📝 Using legacy customer fields:', { ghtk_province, ghtk_district, ghtk_ward });
                         }
                         
                         const requestData = {
@@ -368,10 +340,6 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                             deliver_option: 'none'
                         };
                         
-                        console.log('🌐 Calling GHTK API with:', {
-                            ...requestData,
-                            apiToken: requestData.apiToken ? `${requestData.apiToken.substring(0, 8)}...` : 'missing'
-                        });
 
                         const response = await fetch(getApiUrl('/shipping/ghtk/calculate-fee'), {
                             method: 'POST',
@@ -383,12 +351,6 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
 
                         const data = await response.json();
                         
-                        console.log('📦 GHTK API response:', {
-                            success: data.success,
-                            status: response.status,
-                            fee: data.data?.fee?.fee,
-                            message: data.message
-                        });
                         
                         if (data.success && data.data?.fee) {
                             const fee = data.data.fee;
@@ -402,7 +364,6 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
                                     rawData: fee
                                 }]
                             };
-                            console.log('✅ GHTK calculation success:', result);
                             return result;
                         } else {
                             const errorMsg = data.message || 'GHTK API failed';

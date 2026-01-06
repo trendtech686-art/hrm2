@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import type { Importer } from './types';
@@ -15,69 +14,65 @@ interface ImporterState {
   findById: (systemId: SystemId) => Importer | undefined;
 }
 
+// In-memory store - data should be loaded from database via API
 export const useImporterStore = create<ImporterState>()(
-  persist(
-    (set, get) => ({
-      data: [],
+  (set, get) => ({
+    data: [],
+    
+    add: (importer) => set((state) => {
+      // Nếu đây là item đầu tiên hoặc isDefault = true, set làm default
+      const isFirstItem = state.data.filter(d => !d.isDeleted).length === 0;
+      const shouldBeDefault = isFirstItem || importer.isDefault;
       
-      add: (importer) => set((state) => {
-        // Nếu đây là item đầu tiên hoặc isDefault = true, set làm default
-        const isFirstItem = state.data.filter(d => !d.isDeleted).length === 0;
-        const shouldBeDefault = isFirstItem || importer.isDefault;
-        
-        // Nếu item mới là default, bỏ default của các item khác
-        const updatedData = shouldBeDefault
-          ? state.data.map(item => ({ ...item, isDefault: false }))
-          : state.data;
-        
-        return {
-          data: [
-            ...updatedData,
-            {
-              ...importer,
-              systemId: asSystemId(nanoid()),
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              isActive: importer.isActive ?? true,
-              isDefault: shouldBeDefault,
-              isDeleted: false,
-            },
-          ],
-        };
-      }),
+      // Nếu item mới là default, bỏ default của các item khác
+      const updatedData = shouldBeDefault
+        ? state.data.map(item => ({ ...item, isDefault: false }))
+        : state.data;
       
-      update: (systemId, importer) => set((state) => ({
-        data: state.data.map((item) =>
-          item.systemId === systemId
-            ? { ...item, ...importer, updatedAt: new Date().toISOString() }
-            : item
-        ),
-      })),
-      
-      remove: (systemId) => set((state) => ({
-        data: state.data.map((item) =>
-          item.systemId === systemId
-            ? { ...item, isDeleted: true, updatedAt: new Date().toISOString() }
-            : item
-        ),
-      })),
-      
-      setDefault: (systemId) => set((state) => ({
-        data: state.data.map((item) => ({
-          ...item,
-          isDefault: item.systemId === systemId,
-          updatedAt: item.systemId === systemId ? new Date().toISOString() : item.updatedAt,
-        })),
-      })),
-      
-      getActive: () => get().data.filter((item) => !item.isDeleted && item.isActive),
-      
-      getDefault: () => get().data.find((item) => !item.isDeleted && item.isDefault),
-      
-      findById: (systemId) => get().data.find((item) => item.systemId === systemId),
+      return {
+        data: [
+          ...updatedData,
+          {
+            ...importer,
+            systemId: asSystemId(nanoid()),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isActive: importer.isActive ?? true,
+            isDefault: shouldBeDefault,
+            isDeleted: false,
+          },
+        ],
+      };
     }),
-    {
-      name: 'importer-storage',
-    }
-  )
+    
+    update: (systemId, importer) => set((state) => ({
+      data: state.data.map((item) =>
+        item.systemId === systemId
+          ? { ...item, ...importer, updatedAt: new Date().toISOString() }
+          : item
+      ),
+    })),
+    
+    remove: (systemId) => set((state) => ({
+      data: state.data.map((item) =>
+        item.systemId === systemId
+          ? { ...item, isDeleted: true, updatedAt: new Date().toISOString() }
+          : item
+      ),
+    })),
+    
+    setDefault: (systemId) => set((state) => ({
+      data: state.data.map((item) => ({
+        ...item,
+        isDefault: item.systemId === systemId,
+        updatedAt: item.systemId === systemId ? new Date().toISOString() : item.updatedAt,
+      })),
+    })),
+    
+    getActive: () => get().data.filter((item) => !item.isDeleted && item.isActive),
+    
+    getDefault: () => get().data.find((item) => !item.isDeleted && item.isDefault),
+    
+    findById: (systemId) => get().data.find((item) => item.systemId === systemId),
+  })
 );

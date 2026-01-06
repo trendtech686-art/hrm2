@@ -3,10 +3,10 @@ import { Printer } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { toast } from 'sonner';
 import { usePrint } from '../../../lib/use-print';
-import { useStoreInfoStore } from '../../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../../settings/store-info/hooks/use-store-info';
 import { usePayrollBatchStore } from '../payroll-batch-store';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
-import { useDepartmentStore } from '../../settings/departments/store';
+import { useAllDepartments } from '../../settings/departments/hooks/use-all-departments';
 import {
   convertPayrollBatchForPrint,
   convertPayslipForPrint,
@@ -72,8 +72,8 @@ export function PayslipPrintButton({
   const batch = batchData || storeBatch;
   
   const { data: employees } = useAllEmployees();
-  const { data: departments } = useDepartmentStore();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { data: departments } = useAllDepartments();
+  const { info: storeInfo } = useStoreInfoData();
   
   // Print hook
   const { print } = usePrint();
@@ -183,8 +183,8 @@ export function BatchPrintButton({
     batch ? state.payslips.filter((p) => p.batchSystemId === batch.systemId) : []
   );
   const { data: employees } = useAllEmployees();
-  const { data: departments } = useDepartmentStore();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { data: departments } = useAllDepartments();
+  const { info: storeInfo } = useStoreInfoData();
   
   const { print } = usePrint();
 

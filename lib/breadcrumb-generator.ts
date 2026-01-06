@@ -57,8 +57,7 @@ function findEntityDisplayName(entityType: EntityType, systemId: string): string
 
     // Priority: name > title > id (business ID) > systemId
     return item.name || item.title || item.id || systemId;
-  } catch (error) {
-    console.warn(`[Breadcrumb] Failed to lookup ${entityType}:`, error);
+  } catch {
     return null;
   }
 }

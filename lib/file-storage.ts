@@ -23,7 +23,6 @@ export class FileStorageManager {
   private ensureDirectoryExists() {
     // Trong môi trường thực tế, cần tạo folder trên server
     // Ở đây chúng ta sẽ mô phỏng
-    console.log(`Ensuring directory exists: ${this.baseDir}`);
   }
 
   // Upload file và lưu vật lý
@@ -71,21 +70,19 @@ export class FileStorageManager {
   }
 
   // Mô phỏng lưu file lên server
-  private async saveFileToServer(file: File, path: string): Promise<void> {
+  private async saveFileToServer(_file: File, _path: string): Promise<void> {
     // Trong thực tế, đây sẽ là FormData upload lên server
     return new Promise((resolve) => {
       setTimeout(() => {
-        console.log(`File saved to: ${path} (${file.size} bytes)`);
         resolve();
       }, 100);
     });
   }
 
   // Xóa file vật lý
-  async deleteFile(storedFile: StoredFile): Promise<boolean> {
+  async deleteFile(_storedFile: StoredFile): Promise<boolean> {
     try {
       // Gọi API xóa file trên server
-      console.log(`Deleting file: ${storedFile.path}`);
       return true;
     } catch (error) {
       console.error('Delete failed:', error);
@@ -113,8 +110,8 @@ export class FileStorageManager {
     ];
 
     subDirs.forEach(dir => {
-      const fullPath = `${employeeDir}/${dir}`;
-      console.log(`Creating directory: ${fullPath}`);
+      const _fullPath = `${employeeDir}/${dir}`;
+      // TODO: Create directory via server API
     });
 
     return employeeDir;

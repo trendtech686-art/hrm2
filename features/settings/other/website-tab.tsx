@@ -80,19 +80,12 @@ const DEFAULT_WEBSITE_SETTINGS: WebsiteSettings = {
   custom404RedirectDelay: 5,
 };
 
-const SAMPLE_REDIRECTS: Redirect301[] = [
-  { id: '1', fromUrl: '/old-page', toUrl: '/new-page', isActive: true, hitCount: 156, createdAt: '2024-12-01', updatedAt: '2024-12-15' },
-  { id: '2', fromUrl: '/products/old-category', toUrl: '/san-pham/danh-muc-moi', isActive: true, hitCount: 89, createdAt: '2024-11-15', updatedAt: '2024-12-10' },
-  { id: '3', fromUrl: '/about-us', toUrl: '/gioi-thieu', isActive: true, hitCount: 234, createdAt: '2024-10-20', updatedAt: '2024-11-05' },
-  { id: '4', fromUrl: '/blog/old-post', toUrl: '/tin-tuc/bai-viet-moi', isActive: false, hitCount: 12, createdAt: '2024-09-10', updatedAt: '2024-09-10' },
-];
-
 const WEBSITE_SETTINGS_KEY = 'website-settings';
 const REDIRECTS_KEY = 'redirects-301';
 
 export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const [settings, setSettings] = React.useState<WebsiteSettings>(DEFAULT_WEBSITE_SETTINGS);
-  const [redirects, setRedirects] = React.useState<Redirect301[]>(SAMPLE_REDIRECTS);
+  const [redirects, setRedirects] = React.useState<Redirect301[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
@@ -142,7 +135,7 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
   const [redirectFormData, setRedirectFormData] = React.useState({ fromUrl: '', toUrl: '', isActive: true });
   
   const originalSettings = React.useRef(JSON.stringify(DEFAULT_WEBSITE_SETTINGS));
-  const originalRedirects = React.useRef(JSON.stringify(SAMPLE_REDIRECTS));
+  const originalRedirects = React.useRef<string>('[]');
   
   // Update originals when loaded from API
   React.useEffect(() => {

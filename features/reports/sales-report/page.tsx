@@ -10,7 +10,7 @@ import { ResponsiveDataTable } from '../../../components/data-table/responsive-d
 import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import Fuse from 'fuse.js';
+import { useFuseFilter } from '../../../hooks/use-fuse-search';
 import { Download } from 'lucide-react';
 import { ROUTES } from '../../../lib/router';
 
@@ -40,7 +40,8 @@ export function SalesReportPage() {
             });
     }, [orders, findProductById]);
 
-    const fuse = React.useMemo(() => new Fuse(reportData, { keys: ['id', 'customerName', 'salesperson'], threshold: 0.4 }), [reportData]);
+    const fuseOptions = React.useMemo(() => ({ keys: ['id', 'customerName', 'salesperson'], threshold: 0.4 }), []);
+    const searchedData = useFuseFilter(reportData, globalFilter, fuseOptions);
     const summaryStats = React.useMemo(() => {
         const totalOrders = reportData.length;
         const revenue = reportData.reduce((sum, order) => sum + order.grandTotal, 0);
@@ -48,7 +49,7 @@ export function SalesReportPage() {
         return { totalOrders, revenue, profit };
     }, [reportData]);
     
-    const filteredData = React.useMemo(() => globalFilter ? fuse.search(globalFilter).map(r => r.item) : reportData, [reportData, globalFilter, fuse]);
+    const filteredData = React.useMemo(() => globalFilter ? searchedData : reportData, [reportData, globalFilter, searchedData]);
     
     const sortedData = React.useMemo(() => {
         const sorted = [...filteredData];

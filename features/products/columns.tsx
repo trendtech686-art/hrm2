@@ -10,7 +10,7 @@ import { OptimizedImage } from "../../components/ui/optimized-image"
 import type { ColumnDef } from '../../components/data-table/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Button } from "../../components/ui/button";
-import { MoreHorizontal, RotateCcw, Globe, ShoppingCart, Wrench, FileDigit, Layers, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { MoreHorizontal, RotateCcw, Globe } from "lucide-react";
 import { usePricingPolicyStore } from '../settings/pricing/store';
 import { useProductCategoryStore } from '../settings/inventory/product-category-store';
 import { PkgxProductActionsCell } from './pkgx-product-actions-cell';
@@ -21,65 +21,14 @@ import { StockAlertBadge } from './components/stock-alert-badges';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell';
 
-const formatCurrency = (value?: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return '-';
-    return new Intl.NumberFormat('vi-VN').format(value);
-};
-
-const formatDateTime = (dateStr?: string | null) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-};
-
-const _getStatusBadgeVariant = (status?: 'active' | 'inactive' | 'discontinued'): "success" | "secondary" | "destructive" => {
-  switch (status) {
-    case 'active': return 'success';
-    case 'inactive': return 'secondary';
-    case 'discontinued': return 'destructive';
-    default: return 'secondary';
-  }
-};
-
-const _getStatusLabel = (status?: 'active' | 'inactive' | 'discontinued'): string => {
-  switch (status) {
-    case 'active': return 'Đang bán';
-    case 'inactive': return 'Ngừng bán';
-    case 'discontinued': return 'Ngừng SX';
-    default: return 'Không rõ';
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════
-// SEO SCORE HELPERS - Tính điểm SEO cho từng website
-// ═══════════════════════════════════════════════════════════════
-import type { WebsiteSeoData } from '@/lib/types/prisma-extended';
-
-const calculateSeoScore = (seo: WebsiteSeoData | undefined): number => {
-  if (!seo) return 0;
-  
-  let score = 0;
-  if (seo.seoTitle && seo.seoTitle.length >= 30) score += 25;
-  if (seo.metaDescription && seo.metaDescription.length >= 100) score += 25;
-  if (seo.seoKeywords) score += 15;
-  if (seo.shortDescription) score += 15;
-  if (seo.longDescription && seo.longDescription.length >= 200) score += 20;
-  
-  return score;
-};
-
-const getSeoStatusBadge = (score: number) => {
-  if (score >= 80) return <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100"><CheckCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
-  if (score >= 50) return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100"><AlertTriangle className="h-3 w-3 mr-1" /> {score}%</Badge>;
-  if (score > 0) return <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100"><XCircle className="h-3 w-3 mr-1" /> {score}%</Badge>;
-  return <Badge variant="outline" className="text-muted-foreground">—</Badge>;
-};
+// Import helpers from extracted file
+import {
+  formatCurrency,
+  formatDateTime,
+  calculateSeoScore,
+  getSeoStatusBadge,
+  getProductTypeConfig,
+} from './column-helpers';
 
 export const getColumns = (
   onDelete: (systemId: string) => void,
@@ -183,14 +132,7 @@ export const getColumns = (
       accessorKey: "type",
       header: "Loại",
       cell: ({ row }) => {
-        const typeConfig = {
-          physical: { label: 'Hàng hóa', icon: ShoppingCart, variant: 'secondary' as const },
-          service: { label: 'Dịch vụ', icon: Wrench, variant: 'secondary' as const },
-          digital: { label: 'Sản phẩm số', icon: FileDigit, variant: 'secondary' as const },
-          combo: { label: 'Combo', icon: Layers, variant: 'secondary' as const }
-        };
-        const type = (row.type || 'physical') as keyof typeof typeConfig;
-        const config = typeConfig[type] || typeConfig.physical;
+        const config = getProductTypeConfig(row.type);
         const Icon = config.icon;
         return (
           <Badge variant={config.variant} className="gap-1">

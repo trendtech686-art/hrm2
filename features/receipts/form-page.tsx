@@ -3,8 +3,9 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useReceiptStore, type ReceiptInput } from './store';
+import { useAllReceipts, useReceiptFinder } from './hooks/use-all-receipts';
 import { ReceiptForm, type ReceiptFormValues } from './receipt-form';
-import { useCashbookStore } from '../cashbook/store';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES, generatePath } from '@/lib/router';
 import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
@@ -20,8 +21,10 @@ type ReceiptUpsertPayload = Omit<ReceiptInput, 'createdAt'>;
 export function ReceiptFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const router = useRouter();
-  const { data, findById, add, update } = useReceiptStore();
-  const { accounts: _accounts } = useCashbookStore();
+  const { add, update } = useReceiptStore();
+  const { data } = useAllReceipts();
+  const { findById } = useReceiptFinder();
+  const { accounts: _accounts } = useAllCashAccounts();
   const { employee: currentEmployee } = useAuth();
 
   const resolvedSystemId = React.useMemo(() => {

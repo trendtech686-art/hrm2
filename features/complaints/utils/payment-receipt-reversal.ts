@@ -82,15 +82,9 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     const receiptSystemId = actionMetadata?.receiptSystemId;
     const inventoryCheckSystemId = actionMetadata?.inventoryCheckSystemId;
     
-    console.log('[REVERSAL] Found metadata:', {
-      paymentSystemId,
-      receiptSystemId,
-      inventoryCheckSystemId,
-    });
     
     // Check if there's anything to cancel
     if (!paymentSystemId && !receiptSystemId && !inventoryCheckSystemId) {
-      console.log('✅ [COMPLAINT REVERSAL] No payments/receipts/inventory to cancel');
       return result;
     }
 
@@ -100,20 +94,12 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     if (paymentSystemId) {
       const payment = paymentStore.data.find(v => v.systemId === paymentSystemId);
       
-      console.log('[REVERSAL] Payment check:', {
-        paymentSystemId,
-        foundPayment: !!payment,
-        paymentId: payment?.id,
-        currentStatus: payment?.status,
-        totalPayments: paymentStore.data.length,
-      });
       
       if (payment) {
         result.totalAmount += payment.amount || 0;
         
         // ✅ LUÔN LUÔN mark as cancelled (KHÔNG BAO GIỜ XÓA - audit trail)
         if (payment.status !== 'cancelled') {
-          console.log('🔥 [REVERSAL] BEFORE update - Payment status:', payment.status);
           
           paymentStore.update(payment.systemId, {
             ...payment,
@@ -123,8 +109,7 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
           });
           
           // Verify the update worked
-          const updatedPayment = paymentStore.data.find(v => v.systemId === paymentSystemId);
-          console.log('🔥 [REVERSAL] AFTER update - Payment status:', updatedPayment?.status);
+          const _updatedPayment = paymentStore.data.find(v => v.systemId === paymentSystemId);
           
           result.cancelledPaymentsReceipts.push(`Phiếu chi ${payment.id} (${payment.amount.toLocaleString('vi-VN')}đ)`);
           
@@ -139,13 +124,10 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
             cancelledReason: reason,
           });
           
-          console.log('✅ [COMPLAINT REVERSAL] Marked payment as cancelled:', payment.id);
-        } else {
-          console.log('⚠️ [COMPLAINT REVERSAL] Payment already cancelled:', payment.id);
         }
-      } else {
-        console.log('❌ [COMPLAINT REVERSAL] Payment not found in store:', paymentSystemId);
+        // else: already cancelled, skip
       }
+      // else: payment not found, skip
     }
 
     // ============================================
@@ -154,20 +136,12 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     if (receiptSystemId) {
       const receipt = receiptStore.data.find(v => v.systemId === receiptSystemId);
       
-      console.log('[REVERSAL] Receipt check:', {
-        receiptSystemId,
-        foundReceipt: !!receipt,
-        receiptId: receipt?.id,
-        currentStatus: receipt?.status,
-        totalReceipts: receiptStore.data.length,
-      });
       
       if (receipt) {
         result.totalAmount += receipt.amount || 0;
         
         // ✅ LUÔN LUÔN mark as cancelled (KHÔNG BAO GIỜ XÓA - audit trail)
         if (receipt.status !== 'cancelled') {
-          console.log('🔥 [REVERSAL] BEFORE update - Receipt status:', receipt.status);
           
           receiptStore.update(receipt.systemId, {
             ...receipt,
@@ -176,10 +150,8 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
           });
           
           // Verify the update worked
-          const updatedReceipt = receiptStore.data.find(v => v.systemId === receiptSystemId);
-          console.log('🔥 [REVERSAL] AFTER update - Receipt status:', updatedReceipt?.status);
+          const _updatedReceipt = receiptStore.data.find(v => v.systemId === receiptSystemId);
           
-          console.log('✅ [COMPLAINT REVERSAL] Marked receipt as cancelled:', receipt.id);
           
           result.cancelledPaymentsReceipts.push(`Phiếu thu ${receipt.id} (${receipt.amount.toLocaleString('vi-VN')}đ)`);
           
@@ -194,10 +166,8 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
             cancelledReason: reason,
           });
           
-          console.log('✅ [COMPLAINT REVERSAL] Marked receipt as cancelled:', receipt.id);
-        } else {
-          console.log('⚠️ [COMPLAINT REVERSAL] Receipt already cancelled:', receipt.id);
         }
+        // else: already cancelled, skip
       }
     }
 
@@ -220,7 +190,6 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
           cancelledReason: reason,
         });
         
-        console.log('✅ [COMPLAINT REVERSAL] Cancelled inventory check:', inventoryCheck.id);
         
         // Lưu lịch sử
         result.inventoryHistory = {
@@ -230,12 +199,10 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
           reason,
           inventoryCheckSystemId,
         };
-      } else if (inventoryCheck?.status === 'cancelled') {
-        console.log('⚠️ [COMPLAINT REVERSAL] Inventory check already cancelled:', inventoryCheck.id);
       }
+      // else: already cancelled, skip
     }
 
-    console.log('✅ [COMPLAINT REVERSAL] Complete:', result);
     return result;
     
   } catch (error) {

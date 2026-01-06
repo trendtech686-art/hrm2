@@ -7,11 +7,20 @@ import { useProducts } from './use-products';
 import type { Product } from '../types';
 import type { SystemId } from '@/lib/id-types';
 
+// Stable empty array to prevent re-renders
+const EMPTY_PRODUCTS: Product[] = [];
+
 export function useAllProducts() {
   const query = useProducts({ limit: 50 });
   
+  // Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => 
+    query.data?.data || EMPTY_PRODUCTS,
+    [query.data?.data]
+  );
+  
   return {
-    data: query.data?.data || [] as Product[],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

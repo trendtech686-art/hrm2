@@ -3,7 +3,7 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { DeliveryMethodCard } from './shipping/delivery-method-card';
 import { useDebounce } from '@/features/orders/hooks/use-debounce';
 import { GHTKService, type GHTKCreateOrderParams } from '@/features/settings/shipping/integrations/ghtk-service';
-import { useShippingPartnerStore } from '@/features/settings/shipping/store';
+import { useAllShippingPartners } from '@/features/settings/shipping/hooks/use-all-shipping-partners';
 import { loadShippingConfig } from '@/lib/utils/shipping-config-migration';
 import { useGlobalShippingConfig } from '@/features/orders/hooks/use-global-shipping-config'; // ✅ Import global config hook
 import { getGHTKCredentials } from '@/lib/utils/get-shipping-credentials'; // ✅ Import helper
@@ -19,9 +19,9 @@ import type {
 import type { OrderFormValues } from './order-form-page';
 import { useShippingSettingsStore } from '@/features/settings/shipping/shipping-settings-store';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
-import { useProvinceStore } from '@/features/settings/provinces/store';
+import { useProvinces, useWards2Level } from '@/features/settings/provinces/hooks/use-administrative-units';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
-import { useOrderStore } from '../store'; // ✅ Import order store
+import { useAllOrders } from '../hooks/use-all-orders'; // ✅ Import orders hook
 import { asSystemId } from '@/lib/id-types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Product, Branch, Customer } from '@/lib/types/prisma-extended';
@@ -248,10 +248,24 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   const { settings: shippingSettings } = useShippingSettingsStore();
   const { globalConfig: _globalConfig, getDimensions, getWeight: _getWeight, getDefaultShippingOptions: _getDefaultShippingOptions } = useGlobalShippingConfig(); // ✅ Get global config
   const { findById: findProductByIdBase } = useProductFinder();
-  const { data: provinces, getWardsByProvinceId } = useProvinceStore();
+  const { data: provinces = [] } = useProvinces();
   const { findById: findBranchByIdBase } = useBranchFinder();
-  const { data: _partners } = useShippingPartnerStore();
-  const { data: _allOrders } = useOrderStore(); // ✅ Get all orders for ID generation
+  const { data: _partners } = useAllShippingPartners();
+  const { data: _allOrders } = useAllOrders(); // ✅ Get all orders for ID generation
+
+  // Get customer from props or form for province lookup
+  const customerFromFormEarly = useWatch({ control, name: 'customer' });
+  const customerEarly = customerProp !== undefined ? customerProp : customerFromFormEarly;
+  
+  // Calculate provinceId for wards lookup (used in legacy address fallback)
+  const legacyProvinceId = React.useMemo(() => {
+    if (!customerEarly?.shippingAddress_province) return undefined;
+    const province = provinces.find(p => p.name === customerEarly.shippingAddress_province);
+    return province?.id;
+  }, [customerEarly?.shippingAddress_province, provinces]);
+  
+  // Fetch wards for legacy address province
+  const { data: legacyWards = [] } = useWards2Level(legacyProvinceId);
 
   const findProductById = React.useCallback(
     (id?: string | null) => {
@@ -271,8 +285,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
 
   // ✅ PHASE 2: Convert watch to useWatch for better performance
   // Use customer from props if provided, otherwise watch from form
-  const customerFromForm = useWatch({ control, name: 'customer' });
-  const customer = customerProp !== undefined ? customerProp : customerFromForm;
+  // Note: customerEarly is already defined above for province lookup
+  const customer = customerEarly;
   const watchedBranchSystemId = useWatch({ control, name: 'branchSystemId' }) as string | undefined;
   const branchSystemId = React.useMemo(() => {
     if (!watchedBranchSystemId || watchedBranchSystemId.trim().length === 0) return undefined;
@@ -368,14 +382,13 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     // Removed console.log with potential circular references
     
     if (!customer) {
-      console.warn('⚠️ [Customer Address] No customer');
       return null;
     }
 
     // ✅ PRIORITY 1: Get from form's selected shippingAddress field (user can change this)
     if (formShippingAddress) {
       const shippingAddr = formShippingAddress;
-      // console.log('🔍 [Customer Address] Checking formShippingAddress:', shippingAddr); // Removed
+      //  // Removed
       
       if (shippingAddr.province) {
         const province = provinces.find(p => p.name === shippingAddr.province);
@@ -392,14 +405,12 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
             ward: shippingAddr.ward || '',
             wardCode: ((shippingAddr as Record<string, unknown>).wardCode as string) || undefined
           };
-          // console.log('✅ [Customer Address] From form shippingAddress field:', result); // Removed
+          //  // Removed
           return result;
-        } else {
-          console.warn('⚠️ [Customer Address] Province not found in provinces list:', shippingAddr.province);
         }
-      } else {
-        console.warn('⚠️ [Customer Address] formShippingAddress has no province field');
+        // else: district not found, fall through to next priority
       }
+      // else: province not found, fall through to next priority
     }
 
     // ✅ PRIORITY 2: Try to get from addresses array (default shipping address)
@@ -438,8 +449,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       return null;
     }
 
-    const wards = getWardsByProvinceId(province.id);
-    const ward = wards.find(w => w.name === customer.shippingAddress_ward);
+    // Use legacyWards from useWards2Level hook (fetched above based on legacyProvinceId)
+    const ward = legacyWards.find(w => w.name === customer.shippingAddress_ward);
 
     const result = {
       name: customer.name,
@@ -459,8 +470,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     customer, 
     formShippingAddress,
     shippingAddressKey,
-    provinces, 
-    getWardsByProvinceId, 
+    provinces,
+    legacyWards,
   ]);
 
   // ✅ Auto-set default shipping address to form when customer changes
@@ -468,7 +479,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     if (customer && customer.addresses && customer.addresses.length > 0 && !formShippingAddress) {
       const defaultShipping = customer.addresses.find(addr => addr.isDefaultShipping) || customer.addresses[0];
       if (defaultShipping) {
-        // console.log('🔄 [Auto-set] Setting default shipping address to form:', defaultShipping); // Removed
+        //  // Removed
         setValue('shippingAddress', defaultShipping);
       }
     }
@@ -527,7 +538,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       return null;
     }
 
-    console.warn('[ShippingIntegration] No pickup address mapped for branch:', branch.name);
     toast.warning('Chưa cấu hình địa chỉ lấy hàng', {
       description: `Chi nhánh "${branch.name}" chưa được ánh xạ với kho GHTK. Vui lòng cấu hình trong Cài đặt → Đối tác vận chuyển.`,
       duration: 6000,
@@ -556,7 +566,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
           duration: 4000
         });
       } else {
-        console.log('✅ [Address Preload] Customer address and branch loaded successfully');
         // Show success toast when address is fully loaded
         if (customerProvince && customerDistrict && pickupAddress) {
           toast.success('Đã tải thông tin địa chỉ', {
@@ -598,15 +607,10 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     // Removed console.log with potential circular references
     
     if (!pickupAddress || !customerAddress) {
-      console.warn('⚠️ [Shipping Request] Missing address:', {
-        pickupAddress: !!pickupAddress,
-        customerAddress: !!customerAddress
-      });
       return null;
     }
     
     if (packageInfo.weight <= 0) {
-      console.warn('⚠️ [Shipping Request] Invalid weight:', packageInfo.weight);
       return null;
     }
     
@@ -643,7 +647,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     };
     
     // Removed console.log - only log essential info
-    console.log('✅ [Shipping Request] Built request with weight:', result.weight, 'g');
     
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- serviceOptions fields trigger recalculation
@@ -771,12 +774,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   // ✅ Update form value when user manually edits codAmount
   React.useEffect(() => {
     if (customCodAmount !== null) {
-      console.log('💰 [ShippingIntegration] User edited COD amount:', {
-        customCodAmount,
-        autoCodAmount: codAmount,
-        grandTotal,
-        totalPaid
-      });
       setValue('codAmount', customCodAmount);
     }
   }, [customCodAmount, setValue, codAmount, grandTotal, totalPaid]);
@@ -805,18 +802,9 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       // ✅ FIX: Only auto-update codAmount if user hasn't manually edited it
       // If customCodAmount is set, it means user manually edited the field
       if (customCodAmount === null) {
-        console.log('💰 [ShippingIntegration] Auto-updating COD amount:', {
-          autoCodAmount: codAmount,
-          grandTotal,
-          totalPaid
-        });
         setValue('codAmount', codAmount);
-      } else {
-        console.log('💰 [ShippingIntegration] Skipping auto-update (user edited):', {
-          customCodAmount,
-          autoCodAmount: codAmount
-        });
       }
+      // else: user manually edited codAmount, keep their value
       // ✅ Remove duplicate weight setValue - already handled above
       setValue('length', shippingSettings.length);
       setValue('width', shippingSettings.width);
@@ -974,9 +962,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     
     // Show all validation errors
     if (validationErrors.length > 0) {
-      console.log('🚨 Validation Errors:', validationErrors);
-      // console.log('📍 Customer Address:', customerAddress); // Removed
-      // console.log('📦 Pickup Address:', pickupAddress); // Removed
+      //  // Removed
+      //  // Removed
       toast.error('Dữ liệu không hợp lệ', {
         description: validationErrors.join(', '),
         duration: 8000,
@@ -1008,7 +995,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
           orderId: String(orderId), // Override với orderId đã generate
         };
 
-        console.log('📤 [Create Shipment] Params gửi lên GHTK (100% GIỐNG preview):', params); // ✅ Log để verify
+ // ✅ Log để verify
         
         const result = await ghtkService.createOrder(params as GHTKCreateOrderParams);
 
@@ -1016,10 +1003,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
           const trackingCode = result.order.label;
           
           // Check for duplicate tracking code
-          const existingOrder = getValues().trackingCode;
-          if (existingOrder && existingOrder === trackingCode) {
-            console.warn('[ShippingIntegration] Duplicate tracking code detected:', trackingCode);
-          }
+          const _existingOrder = getValues().trackingCode;
+          // Duplicate check: existingOrder && existingOrder === trackingCode
           
           setValue('trackingCode', trackingCode);
           setValue('configuration', { 

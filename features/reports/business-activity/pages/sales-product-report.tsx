@@ -8,15 +8,12 @@ import * as React from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
-import { 
-  ReportChart, 
-  ReportFilters, 
-  ReportSummaryCards,
-  ReportHeaderActions,
-  SALES_REPORT_GLOSSARY,
-  formatCurrency,
-} from '../components/index';
-import { useSalesProductReport } from '../hooks/index';
+import { DynamicReportChart as ReportChart } from '../components/dynamic-report-chart';
+import { ReportFilters } from '../components/report-filters';
+import { ReportSummaryCards } from '../components/report-summary-cards';
+import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
+import { formatCurrency } from '@/lib/format-utils';
+import { useSalesProductReport } from '../hooks/use-sales-report';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

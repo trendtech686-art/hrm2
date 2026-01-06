@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import Fuse from 'fuse.js';
-import { useWikiStore } from './store';
+import { useFuseFilter } from '../../hooks/use-fuse-search';
+import { useAllWiki } from './hooks/use-all-wiki';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -42,7 +42,7 @@ function ArticleCard({ article }: { article: WikiArticle }) {
 }
 
 export function WikiPage() {
-  const { data: articles } = useWikiStore();
+  const { data: articles } = useAllWiki();
   const router = useRouter();
   
   const _articleStats = React.useMemo(() => {
@@ -70,15 +70,12 @@ export function WikiPage() {
   });
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const fuse = React.useMemo(() => new Fuse(articles, { 
+  const fuseOptions = React.useMemo(() => ({ 
     keys: ['title', 'category', 'tags', 'author', 'content'],
     threshold: 0.4,
-  }), [articles]);
+  }), []);
   
-  const filteredArticles = React.useMemo(() => 
-    searchQuery ? fuse.search(searchQuery).map(result => result.item) : articles,
-    [searchQuery, fuse, articles]
-  );
+  const filteredArticles = useFuseFilter(articles, searchQuery, fuseOptions);
   
   const articlesByCategory = React.useMemo(() => {
     return filteredArticles.reduce((acc, article) => {

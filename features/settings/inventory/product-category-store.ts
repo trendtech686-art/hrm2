@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
 import type { ProductCategory } from './types';
 
@@ -46,7 +45,8 @@ interface ProductCategoryState {
   isBusinessIdExists: (id: string) => boolean;
 }
 
-const rawData = [
+// Sample data (kept for reference, not used in production)
+const _rawData = [
   // Level 0 - Root categories
   {
     systemId: 'CATEGORY000001',
@@ -274,18 +274,13 @@ const rawData = [
   },
 ] as const;
 
-const initialData: ProductCategory[] = rawData.map((item) => ({
-  ...item,
-  systemId: asSystemId(item.systemId),
-  id: asBusinessId(item.id),
-  parentId: 'parentId' in item && item.parentId ? asSystemId(item.parentId) : undefined,
-}));
+// Use empty data for production - seed data removed
+const initialData: ProductCategory[] = [];
 
-const INITIAL_COUNTER = rawData.length;
+const INITIAL_COUNTER = 0;
 
 export const useProductCategoryStore = create<ProductCategoryState>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       data: initialData,
       counter: INITIAL_COUNTER,
       
@@ -401,9 +396,5 @@ export const useProductCategoryStore = create<ProductCategoryState>()(
       getNextId: () => generateBusinessId(get().counter),
       
       isBusinessIdExists: (id: string) => get().data.some((item) => String(item.id) === id),
-    }),
-    {
-      name: 'product-category-storage',
-    }
-  )
+    })
 );

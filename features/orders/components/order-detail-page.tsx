@@ -26,7 +26,7 @@ import { DetailField } from '@/components/ui/detail-field';
 import { ImagePreviewDialog } from '@/components/ui/image-preview-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
-import { useWarrantyStore } from '@/features/warranty/store';
+import { useAllWarranties } from '@/features/warranty/hooks/use-all-warranties';
 import { useComplaintStore } from '@/features/complaints/store';
 import Link from 'next/link';
 import { Spinner } from '@/components/ui/spinner';
@@ -41,9 +41,9 @@ const DeliveryFailureDialog = dynamic(() => import('./delivery-failure-dialog').
 
 import { ShippingTrackingTab } from './shipping-tracking-tab';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useSalesReturnStore } from '@/features/sales-returns/store';
-import { useReceiptStore } from '@/features/receipts/store';
-import { usePaymentStore } from '@/features/payments/store';
+import { useAllSalesReturns } from '@/features/sales-returns/hooks/use-all-sales-returns';
+import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
+import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
 import { useShippingSettingsStore as _useShippingSettingsStore } from '@/features/settings/shipping/shipping-settings-store';
 import { PartnerShipmentForm as _PartnerShipmentForm } from './partner-shipment-form';
 import { useAuth } from '@/contexts/auth-context';
@@ -52,14 +52,14 @@ import { OrderWorkflowCard } from './order-workflow-card';
 import { getWorkflowTemplates } from '@/features/settings/printer/workflow-templates-page';
 import { Comments } from '@/components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
-import { usePricingPolicyStore } from '@/features/settings/pricing/store';
+import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
+import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import { useCustomerSlaEvaluation } from '@/features/customers/sla/hooks';
 import { OrderPrintButton } from './order-print-button';
 import { useAllBranches, useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useBranding, getFullLogoUrl } from '@/hooks/use-branding';
 import { mapPaymentToPrintData, PaymentForPrint } from '@/lib/print-mappers/payment.mapper';
-import { useStoreInfoStore } from '@/features/settings/store-info/store-info-store';
+import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { usePrint } from '@/lib/use-print';
 import { StoreSettings, numberToWords, formatTime } from '@/lib/print-service';
 
@@ -135,24 +135,23 @@ export function OrderDetailPage() {
         return null;
     }, [orderStore, orders, params.id, params.systemId]);
 
-    console.log('🔍 [OrderDetail] lookup param:', params.systemId || params.id, 'foundOrder:', !!order, order ? { systemId: order.systemId, id: order.id } : null);
     const { cancelOrder, addPayment, requestPackaging, confirmPackaging, cancelPackagingRequest, processInStorePickup, confirmPartnerShipment, dispatchFromWarehouse, completeDelivery, failDelivery, cancelDelivery, cancelDeliveryOnly, confirmInStorePickup, cancelGHTKShipment } = orderStore;
     const { findById: findProductById } = useProductFinder();
-    const { findById: findProductTypeById } = useProductTypeStore();
-    const { data: allSalesReturns } = useSalesReturnStore();
-    const { data: pricingPolicies } = usePricingPolicyStore();
+    const { findById: findProductTypeById } = useProductTypeFinder();
+    const { data: allSalesReturns } = useAllSalesReturns();
+    const { data: pricingPolicies } = useAllPricingPolicies();
     const defaultPricingPolicy = React.useMemo(
         () => (pricingPolicies ?? []).find(policy => policy.type === 'Bán hàng' && policy.isDefault),
         [pricingPolicies]
     );
-    const { data: warranties } = useWarrantyStore();
-    const { data: allReceipts } = useReceiptStore();
-    const { data: allPayments } = usePaymentStore();
+    const { data: warranties } = useAllWarranties();
+    const { data: allReceipts } = useAllReceipts();
+    const { data: allPayments } = useAllPayments();
     const complaints = useComplaintStore((state) => state.complaints);
     const slaEngine = useCustomerSlaEvaluation();
     const { data: _branches } = useAllBranches();
     const { findById: findBranchById } = useBranchFinder();
-    const { info: storeInfo } = useStoreInfoStore();
+    const { info: storeInfo } = useStoreInfoData();
     const { print } = usePrint();
     
     const { data: customers } = useAllCustomers();
@@ -473,7 +472,6 @@ export function OrderDetailPage() {
     }, [order, dbAddComment]);
 
     const handleUpdateOrderComment = React.useCallback((_commentId: string, _content: string) => {
-        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteOrderComment = React.useCallback((commentId: string) => {
@@ -670,7 +668,6 @@ export function OrderDetailPage() {
         
         if (ghtkPackaging && ghtkPackaging.trackingCode) {
             try {
-                console.log('[Cancel Order] Attempting to cancel GHTK shipment first:', ghtkPackaging.trackingCode);
                 const { cancelGHTKShipment } = useOrderStore.getState();
                 const result = await cancelGHTKShipment(
                     order.systemId, 

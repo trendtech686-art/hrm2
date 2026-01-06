@@ -17,7 +17,7 @@ import type { PayrollBatch, Payslip } from '../../../lib/payroll-types';
 import type { SystemId } from '../../../lib/id-types';
 import type { Employee } from '../../employees/types';
 import { usePaymentStore } from '../../payments/store';
-import { useCashbookStore } from '../../cashbook/store';
+import { useAllCashAccounts } from '../../cashbook/hooks/use-all-cash-accounts';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import { asSystemId } from '../../../lib/id-types';
 
@@ -59,7 +59,7 @@ export function CreatePaymentDialog({
 
   // Stores
   const paymentStore = usePaymentStore();
-  const { accounts: cashAccounts } = useCashbookStore();
+  const { accounts: cashAccounts } = useAllCashAccounts();
 
   // Computed
   const totalNet = React.useMemo(() => {

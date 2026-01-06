@@ -28,7 +28,6 @@ export async function cancelPaymentsReceiptsAndInventory(
   cancelledPaymentsReceiptsHistory: ReversalResult['cancelledPaymentsReceiptsHistory'];
   inventoryHistory: ReversalResult['inventoryHistory'] | null;
 }> {
-  console.log(`[CANCEL UTIL] Starting: ${reason}`);
   
   // STEP 1: Check xem co phieu/kho khong
   // ⚠️ CRITICAL: Phiếu chi/thu được lưu trong METADATA của action verified-correct CUỐI CÙNG
@@ -40,16 +39,8 @@ export async function cancelPaymentsReceiptsAndInventory(
   const hasPaymentsReceipts = actionMetadata?.paymentSystemId || actionMetadata?.receiptSystemId;
   const hasInventoryCheck = actionMetadata?.inventoryCheckSystemId;
   
-  console.log('[CANCEL UTIL] Check:', { 
-    hasPaymentsReceipts, 
-    hasInventoryCheck,
-    paymentSystemId: actionMetadata?.paymentSystemId,
-    receiptSystemId: actionMetadata?.receiptSystemId,
-    inventoryCheckSystemId: actionMetadata?.inventoryCheckSystemId,
-  });
   
   if (!hasPaymentsReceipts && !hasInventoryCheck) {
-    console.log('[CANCEL UTIL] Nothing to cancel');
     return { cancelledPaymentsReceiptsHistory: [], inventoryHistory: null };
   }
   
@@ -61,10 +52,6 @@ export async function cancelPaymentsReceiptsAndInventory(
     options
   );
   
-  console.log('[CANCEL UTIL] Result:', {
-    paymentsReceiptsCount: result.cancelledPaymentsReceiptsHistory.length,
-    hasInventoryHistory: !!result.inventoryHistory,
-  });
   
   return {
     cancelledPaymentsReceiptsHistory: result.cancelledPaymentsReceiptsHistory ?? [],

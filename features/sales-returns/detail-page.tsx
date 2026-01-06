@@ -4,11 +4,11 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDateTime as formatDateTimeUtil, formatTimeForDisplay as formatTime } from '../../lib/date-utils';
 import { numberToWords } from '../../lib/print-service';
-import { useSalesReturnStore } from './store';
+import { useSalesReturnFinder } from './hooks/use-all-sales-returns';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { usePrint } from '../../lib/use-print';
 import { 
   convertSalesReturnForPrint,
@@ -31,8 +31,8 @@ import Link from 'next/link';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { DetailField } from '../../components/ui/detail-field';
 import { Separator } from '../../components/ui/separator';
-import { useReceiptStore } from '../receipts/store';
-import { usePaymentStore } from '../payments/store';
+import { useReceiptFinder } from '../receipts/hooks/use-all-receipts';
+import { usePaymentFinder } from '../payments/hooks/use-all-payments';
 import type { Receipt } from '../receipts/types';
 import type { Payment } from '../payments/types';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
@@ -60,13 +60,13 @@ const formatDate = (dateString?: string) => {
 export function SalesReturnDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
     const router = useRouter();
-    const { findById } = useSalesReturnStore();
-    const { findById: findReceiptById } = useReceiptStore();
-    const { findById: findPaymentById } = usePaymentStore();
+    const { findById } = useSalesReturnFinder();
+    const { findById: findReceiptById } = useReceiptFinder();
+    const { findById: findPaymentById } = usePaymentFinder();
     const { findById: findCustomerById } = useCustomerFinder();
     const { findById: findEmployeeById } = useEmployeeFinder();
     const { findById: findBranchById } = useBranchFinder();
-    const { info: storeInfo } = useStoreInfoStore();
+    const { info: storeInfo } = useStoreInfoData();
     const { employee: authEmployee } = useAuth();
     const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
 
@@ -98,7 +98,6 @@ export function SalesReturnDetailPage() {
     }, [dbAddComment]);
 
     const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {

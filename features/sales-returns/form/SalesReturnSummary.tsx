@@ -16,9 +16,9 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 
 import { useOrderFinder } from '@/features/orders/hooks/use-all-orders';
-import { useSalesReturnStore } from '../store';
-import { useCashbookStore } from '@/features/cashbook/store';
-import { usePaymentMethodStore } from '@/features/settings/payments/methods/store';
+import { useAllSalesReturns } from '../hooks/use-all-sales-returns';
+import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
+import { useAllPaymentMethods } from '@/features/settings/payments/hooks/use-all-payment-methods';
 
 import { formatCurrency, type FormValues } from './types';
 
@@ -57,9 +57,9 @@ export const SalesReturnSummary = () => {
   // Stores
   const { findById: findOrder } = useOrderFinder();
   const order = findOrder(systemId!);
-  const { data: allSalesReturns } = useSalesReturnStore();
-  const { accounts } = useCashbookStore();
-  const { data: paymentMethodsData } = usePaymentMethodStore();
+  const { data: allSalesReturns } = useAllSalesReturns();
+  const { accounts } = useAllCashAccounts();
+  const { data: paymentMethodsData } = useAllPaymentMethods();
 
   // Calculations
   const totalReturnValue = React.useMemo(

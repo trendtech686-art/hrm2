@@ -25,7 +25,7 @@ import { Checkbox } from "../ui/checkbox"
 import { ScrollArea } from "../ui/scroll-area"
 import { Separator } from "../ui/separator"
 import { Badge } from "../ui/badge"
-import * as XLSX from 'xlsx'
+// XLSX is lazy loaded in handleExport to reduce bundle size (~500KB)
 import { toast } from "sonner"
 import {
   useImportExportStore,
@@ -274,6 +274,9 @@ export function GenericExportDialogV2<T>({
         
         return row
       })
+
+      // Lazy load XLSX to reduce bundle size (~500KB)
+      const XLSX = await import('xlsx')
 
       // Create workbook
       const ws = XLSX.utils.json_to_sheet(transformedData)

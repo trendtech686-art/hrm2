@@ -6,20 +6,22 @@ import { formatDate, parseDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { validateUniqueId } from '@/features/products/validation';
 import type { SystemId, BusinessId } from '@/lib/id-types';
-import { Search, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from 'sonner';
-import { useJobTitleStore } from '@/features/settings/job-titles/store';
-import { useEmployeeStore } from '../store';
+import { useAllJobTitles } from '@/features/settings/job-titles/hooks/use-all-job-titles';
+import { useAllEmployees } from '../hooks/use-all-employees';
 import { useAllBranches } from '@/hooks/use-branches';
-import { useProvinceStore } from "@/features/settings/provinces/store";
+import { useProvinces } from "@/features/settings/provinces/hooks/use-administrative-units";
 import { useDocumentStore } from '../document-store';
 import { useShallow } from 'zustand/react/shallow';
-import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
-import { ExistingDocumentsViewer } from '@/components/ui/existing-documents-viewer';
 import { FileUploadAPI } from '@/lib/file-upload-api';
 import type { StagingFile, UploadedFile } from '@/lib/file-upload-api';
 import { AddressFormDialog } from '@/features/customers/components/address-form-dialog';
 import type { CustomerAddress } from '@/features/customers/types';
+
+// Extracted tab components
+import { EmployeePayrollTab } from './employee-payroll-tab';
+import { EmployeeDocumentsTab } from './employee-documents-tab';
 
 import {
   Form,
@@ -41,10 +43,8 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useEmployeeSettingsStore } from "@/features/settings/employees/employee-settings-store";
 import { useEmployeeCompStore, type EmployeePayrollProfileInput } from "../employee-comp-store";
 // Helper type for local form state for addresses
@@ -143,41 +143,7 @@ const toEmployeeAddress = (parts: AddressParts): EmployeeAddress => ({
   inputLevel: parts.inputLevel,
 });
 
-const legalDocuments = [
-  "Sơ yếu lý lịch",
-  "Căn cước công dân (CCCD) / CMND",
-  "Giấy khai sinh",
-  "Sổ hộ khẩu / Giấy xác nhận thông tin cư trú",
-  "Giấy khám sức khỏe",
-  "Bằng cấp, chứng chỉ chuyên môn",
-];
-
-const workProcessDocuments = [
-    "Hợp đồng lao động (và các phụ lục)",
-    "Quyết định tuyển dụng / Bổ nhiệm",
-    "Cam kết bảo mật thông tin (NDA)",
-    "Hồ sơ Thuế thu nhập cá nhân (TNCN)",
-    "Thông tin tài khoản ngân hàng",
-    "Hồ sơ Bảo hiểm (BHXH, BHYT, BHTN)",
-    "Bản mô tả công việc",
-];
-
-const terminationDocuments = [
-    "Đơn xin thôi việc / Thông báo chấm dứt hợp đồng",
-    "Quyết định thôi việc",
-    "Biên bản bàn giao công việc & tài sản",
-    "Thỏa thuận chấm dứt hợp đồng",
-    "Hồ sơ thanh toán chế độ (lương, phép năm, trợ cấp)",
-    "Hồ sơ chốt sổ Bảo hiểm xã hội",
-];
-
-const multiFileDocuments = [
-    { id: "decisions", title: "Các quyết định (lương, thưởng, thăng chức, kỷ luật)", maxFiles: 25, description: "Tối đa 25 file, 80MB" },
-    { id: "kpi", title: "Tài liệu đánh giá hiệu suất (KPI)", maxFiles: 15, description: "Tối đa 15 file, 60MB" },
-    { id: "requests", title: "Đơn từ (nghỉ phép, nghỉ ốm,...)", maxFiles: 30, description: "Tối đa 30 file, 100MB" },
-];
-
-const formatCurrencyDisplay = (value?: number) => {
+const _formatCurrencyDisplay = (value?: number) => {
   if (typeof value !== 'number') return 'Theo công thức';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
@@ -199,7 +165,6 @@ const removeUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> 
 };
 
 export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEditMode = false }: EmployeeFormProps) {
-  const [documentSearch, setDocumentSearch] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [password, setPassword] = React.useState(initialData?.password || '');
   const [confirmPassword, setConfirmPassword] = React.useState(initialData?.password || '');
@@ -209,15 +174,10 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   const [addressDialogTarget, setAddressDialogTarget] = React.useState<'permanent' | 'temporary'>('permanent');
   const [addressDialogEditingAddress, setAddressDialogEditingAddress] = React.useState<CustomerAddress | null>(null);
   
-  const { data: jobTitles } = useJobTitleStore();
-  const { data: employees } = useEmployeeStore();
+  const { data: jobTitles } = useAllJobTitles();
+  const { data: employees } = useAllEmployees();
   const { data: branches } = useAllBranches();
-  const { data: provinces, wards } = useProvinceStore(
-    useShallow((state) => ({
-      data: state.data,
-      wards: state.wards,
-    }))
-  );
+  const { data: provinces = [] } = useProvinces();
   // FIX: Use useShallow to prevent infinite loops caused by new object references
   const { workShifts, salaryComponents } = useEmployeeSettingsStore(
     useShallow((state) => ({
@@ -394,41 +354,14 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
     [provinces]
   );
 
-  const findWardRecord = React.useCallback(
-    (provinceName: string, wardName: string) => {
-      // First try exact match
-      let found = wards.find((ward) => ward.name === wardName && ward.provinceName === provinceName);
-      if (found) return found;
-      
-      // Try with normalized province name matching
-      const normalizedProvince = provinceName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
-      found = wards.find((ward) => {
-        if (ward.name !== wardName) return false;
-        const wardProvince = (ward.provinceName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
-        return wardProvince === normalizedProvince ||
-               wardProvince.includes(normalizedProvince) ||
-               normalizedProvince.includes(wardProvince);
-      });
-      
-      return found;
-    },
-    [wards]
-  );
-
   const buildEditingAddressPayload = React.useCallback(
     (source: AddressParts | null, target: 'permanent' | 'temporary'): CustomerAddress | null => {
-      console.log('[buildEditingAddressPayload] source:', source, 'target:', target);
       
       if (!source || (!source.street && !source.province && !source.ward)) {
-        console.log('[buildEditingAddressPayload] No source data, returning null');
         return null;
       }
-
-      const wardRecord = source.ward ? findWardRecord(source.province, source.ward) : undefined;
-      console.log('[buildEditingAddressPayload] wardRecord:', wardRecord);
       
       const resolvedProvinceId = source.provinceId || findProvinceIdByName(source.province);
-      console.log('[buildEditingAddressPayload] resolvedProvinceId:', resolvedProvinceId, 'from provinceId:', source.provinceId, 'or from name:', source.province);
 
       const result = {
         id: '',
@@ -436,10 +369,10 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         street: source.street,
         province: source.province,
         provinceId: resolvedProvinceId,
-        district: source.district || wardRecord?.districtName || '',
-        districtId: source.districtId || wardRecord?.districtId || 0,
+        district: source.district || '',
+        districtId: source.districtId || 0,
         ward: source.ward,
-        wardId: source.wardId || wardRecord?.id || '',
+        wardId: source.wardId || '',
         contactName: source.contactName || '',
         contactPhone: source.contactPhone || '',
         notes: source.notes || '',
@@ -449,10 +382,9 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         autoFilled: source.inputLevel === '2-level',
       };
       
-      console.log('[buildEditingAddressPayload] result:', result);
       return result;
     },
-    [findProvinceIdByName, findWardRecord]
+    [findProvinceIdByName]
   );
 
   const openAddressDialog = React.useCallback(
@@ -924,16 +856,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         description: error instanceof Error ? error.message : 'Lỗi không xác định'
       });
     }
-  };  const lowercasedSearch = documentSearch.toLowerCase();
-  const filteredLegalDocuments = legalDocuments.filter(doc => doc.toLowerCase().includes(lowercasedSearch));
-  const filteredWorkProcessDocuments = workProcessDocuments.filter(doc => doc.toLowerCase().includes(lowercasedSearch));
-  const filteredMultiFileDocuments = multiFileDocuments.filter(doc => doc.title.toLowerCase().includes(lowercasedSearch));
-  const filteredTerminationDocuments = terminationDocuments.filter(doc => doc.toLowerCase().includes(lowercasedSearch));
-  
-  // Check if search has results - only show "no results" message when actively searching
-  const hasSearchResults = filteredLegalDocuments.length > 0 || filteredWorkProcessDocuments.length > 0 || filteredMultiFileDocuments.length > 0 || filteredTerminationDocuments.length > 0;
-  const isSearching = documentSearch.trim().length > 0;
-  const showNoResultsMessage = isSearching && !hasSearchResults;
+  };
 
   const dialogTitle = `${addressDialogEditingAddress ? 'Chỉnh sửa' : 'Thêm'} ${
     addressDialogTarget === 'permanent' ? 'địa chỉ thường trú' : 'địa chỉ tạm trú'
@@ -1374,265 +1297,17 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
           </TabsContent>
           
           <TabsContent value="documents" className="mt-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-                <h3 className="text-h5 font-medium">Tài liệu & Hồ sơ nhân viên</h3>
-                <div className="relative w-full sm:max-w-xs">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Tìm kiếm tài liệu..."
-                        className="w-full pl-8 h-9"
-                        value={documentSearch}
-                        onChange={(e) => setDocumentSearch(e.target.value)}
-                    />
-                </div>
-            </div>
-            
-            {/* 3-Row Layout */}
-            <div className="space-y-6">
-                {/* Row 1: Legal Documents */}
-                {(!isSearching || filteredLegalDocuments.length > 0) && (
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-h6 text-primary">1. Tài liệu pháp lý</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {(isSearching ? filteredLegalDocuments : legalDocuments).map(doc => {
-                                    const permanentFiles = getPermanentFiles('legal', doc);
-                                    const stagingFiles = getStagingFiles('legal', doc);
-                                    const hasExistingFiles = permanentFiles.length > 0;
-                                    const callbacks = getDocumentCallbacks('legal', doc);
-
-                                    return (
-                                        <div key={doc} className="space-y-3 p-3 border rounded-lg bg-muted/30">
-                                            <h5 className="text-sm font-medium text-foreground">{doc}</h5>
-                                            
-                                            {/* Option A: Separate Components */}
-                                            {isEditMode && hasExistingFiles && (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
-                                                        <span>✓</span>
-                                                        <span>File đã lưu vĩnh viễn</span>
-                                                    </div>
-                                                    <ExistingDocumentsViewer
-                                                        files={permanentFiles}
-                                                        onChange={(updatedFiles) => {
-                                                            // Chỉ update permanent files, staging sẽ được merge trong handleDocumentUpload
-                                                            handleDocumentUpload('legal', doc, updatedFiles);
-                                                        }}
-                                                        onRefresh={handleRefreshDocuments}
-                                                        onMarkForDeletion={handleMarkForDeletion}
-                                                        markedForDeletion={filesToDelete}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* New files upload section */}
-                                            <div className="space-y-2">
-                                                {isEditMode && hasExistingFiles && (
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                                                        <span>📤</span>
-                                                        <span>Thêm file mới (tạm thời)</span>
-                                                    </div>
-                                                )}
-                                                <NewDocumentsUpload
-                                                    maxFiles={3}
-                                                    maxTotalSize={30 * 1024 * 1024} // 30MB for legal docs
-                                                    value={stagingFiles}
-                                                    onChange={callbacks.onChange}
-                                                    sessionId={getDocumentSessionId('legal', doc)}
-                                                    onSessionChange={callbacks.onSessionChange}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Row 2: Work Process Documents */}
-                {(!isSearching || filteredWorkProcessDocuments.length > 0 || filteredMultiFileDocuments.length > 0) && (
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-h6 text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {(isSearching ? filteredWorkProcessDocuments : workProcessDocuments).map(doc => {
-                                    const permanentFiles = getPermanentFiles('work-process', doc);
-                                    const stagingFiles = getStagingFiles('work-process', doc);
-                                    const hasExistingFiles = permanentFiles.length > 0;
-                                    const callbacks = getDocumentCallbacks('work-process', doc);
-
-                                    return (
-                                        <div key={doc} className="space-y-3 p-3 border rounded-lg bg-muted/30">
-                                            <h5 className="text-sm font-medium text-foreground">{doc}</h5>
-                                            
-                                            {isEditMode && hasExistingFiles && (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
-                                                        <span>✓</span>
-                                                        <span>File đã lưu vĩnh viễn</span>
-                                                    </div>
-                                                    <ExistingDocumentsViewer
-                                                        files={permanentFiles}
-                                                        onChange={(updatedFiles) => {
-                                                            const allFiles = [...updatedFiles, ...stagingFiles];
-                                                            handleDocumentUpload('work-process', doc, allFiles);
-                                                        }}
-                                                        onRefresh={handleRefreshDocuments}
-                                                        onMarkForDeletion={handleMarkForDeletion}
-                                                        markedForDeletion={filesToDelete}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-2">
-                                                {isEditMode && hasExistingFiles && (
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                                                        <span>📤</span>
-                                                        <span>Thêm file mới (tạm thời)</span>
-                                                    </div>
-                                                )}
-                                                <NewDocumentsUpload
-                                                    maxFiles={5}
-                                                    maxTotalSize={40 * 1024 * 1024} // 40MB for work process docs
-                                                    value={stagingFiles}
-                                                    onChange={callbacks.onChange}
-                                                    sessionId={getDocumentSessionId('work-process', doc)}
-                                                    onSessionChange={callbacks.onSessionChange}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {(isSearching ? filteredMultiFileDocuments : multiFileDocuments).map(doc => {
-                                    const permanentFiles = getPermanentFiles(doc.id, doc.title);
-                                    const stagingFiles = getStagingFiles(doc.id, doc.title);
-                                    const hasExistingFiles = permanentFiles.length > 0;
-                                    const callbacks = getDocumentCallbacks(doc.id, doc.title);
-
-                                    return (
-                                        <div key={doc.id} className="space-y-3 p-3 border rounded-lg bg-muted/30">
-                                            <div className="flex items-start justify-between">
-                                                <h5 className="text-sm font-medium text-foreground">{doc.title}</h5>
-                                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full whitespace-nowrap">
-                                                    {doc.description}
-                                                </span>
-                                            </div>
-                                            
-                                            {isEditMode && hasExistingFiles && (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
-                                                        <span>✓</span>
-                                                        <span>File đã lưu vĩnh viễn</span>
-                                                    </div>
-                                                    <ExistingDocumentsViewer
-                                                        files={permanentFiles}
-                                                        onChange={(updatedFiles) => {
-                                                            const allFiles = [...updatedFiles, ...stagingFiles];
-                                                            handleDocumentUpload(doc.id, doc.title, allFiles);
-                                                        }}
-                                                        onRefresh={handleRefreshDocuments}
-                                                        onMarkForDeletion={handleMarkForDeletion}
-                                                        markedForDeletion={filesToDelete}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-2">
-                                                {isEditMode && hasExistingFiles && (
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                                                        <span>📤</span>
-                                                        <span>Thêm file mới (tạm thời)</span>
-                                                    </div>
-                                                )}
-                                                <NewDocumentsUpload
-                                                    maxFiles={doc.id === 'requests' ? 30 : doc.id === 'decisions' ? 25 : 15}
-                                                    maxTotalSize={doc.id === 'requests' ? 100 * 1024 * 1024 : doc.id === 'decisions' ? 80 * 1024 * 1024 : 60 * 1024 * 1024}
-                                                    value={stagingFiles}
-                                                    onChange={callbacks.onChange}
-                                                    sessionId={getDocumentSessionId(doc.id, doc.title)}
-                                                    onSessionChange={callbacks.onSessionChange}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Row 3: Termination Documents */}
-                {(!isSearching || filteredTerminationDocuments.length > 0) && (
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-h6 text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {(isSearching ? filteredTerminationDocuments : terminationDocuments).map(doc => {
-                                    const permanentFiles = getPermanentFiles('termination', doc);
-                                    const stagingFiles = getStagingFiles('termination', doc);
-                                    const hasExistingFiles = permanentFiles.length > 0;
-                                    const callbacks = getDocumentCallbacks('termination', doc);
-
-                                    return (
-                                        <div key={doc} className="space-y-3 p-3 border rounded-lg bg-muted/30">
-                                            <h5 className="text-sm font-medium text-foreground">{doc}</h5>
-                                            
-                                            {isEditMode && hasExistingFiles && (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
-                                                        <span>✓</span>
-                                                        <span>File đã lưu vĩnh viễn</span>
-                                                    </div>
-                                                    <ExistingDocumentsViewer
-                                                        files={permanentFiles}
-                                                        onChange={(updatedFiles) => {
-                                                            const allFiles = [...updatedFiles, ...stagingFiles];
-                                                            handleDocumentUpload('termination', doc, allFiles);
-                                                        }}
-                                                        onRefresh={handleRefreshDocuments}
-                                                        onMarkForDeletion={handleMarkForDeletion}
-                                                        markedForDeletion={filesToDelete}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-2">
-                                                {isEditMode && hasExistingFiles && (
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
-                                                        <span>📤</span>
-                                                        <span>Thêm file mới (tạm thời)</span>
-                                                    </div>
-                                                )}
-                                                <NewDocumentsUpload
-                                                    maxFiles={5}
-                                                    maxTotalSize={35 * 1024 * 1024} // 35MB for termination docs
-                                                    value={stagingFiles}
-                                                    onChange={callbacks.onChange}
-                                                    sessionId={getDocumentSessionId('termination', doc)}
-                                                    onSessionChange={callbacks.onSessionChange}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-            
-            {showNoResultsMessage && (
-                <div className="text-center text-muted-foreground py-8">
-                    Không tìm thấy tài liệu nào khớp với "{documentSearch}".
-                </div>
-            )}
+            <EmployeeDocumentsTab
+              isEditMode={isEditMode}
+              getPermanentFiles={getPermanentFiles}
+              getStagingFiles={getStagingFiles}
+              getDocumentCallbacks={getDocumentCallbacks}
+              getDocumentSessionId={getDocumentSessionId}
+              handleDocumentUpload={handleDocumentUpload}
+              handleRefreshDocuments={handleRefreshDocuments}
+              handleMarkForDeletion={handleMarkForDeletion}
+              filesToDelete={filesToDelete}
+            />
           </TabsContent>
 
           {!isEditMode && (
@@ -1655,230 +1330,15 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               </div>
             </TabsContent>
           )}
-          <TabsContent value="payroll" className="mt-6 space-y-6">
-            {!isEditMode && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-h6">Thiết lập ca làm việc</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    name="payrollWorkShiftSystemId"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ca làm việc mặc định</FormLabel>
-                        <Select
-                          onValueChange={(value) => field.onChange(value ? asSystemId(value) : undefined)}
-                          value={field.value ?? undefined}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn ca áp dụng" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {workShifts.length === 0 && (
-                              <SelectItem value="__empty" disabled>
-                                Chưa có ca làm việc trong cài đặt
-                              </SelectItem>
-                            )}
-                            {workShifts.map((shift) => (
-                              <SelectItem key={shift.systemId} value={shift.systemId}>
-                                {shift.name} ({shift.startTime} - {shift.endTime})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Bỏ trống để dùng lịch mặc định trong phần Cài đặt &gt; Nhân viên.
-                          </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    <p className="font-medium text-foreground">Ghi chú</p>
-                    <p>
-                      Ca mặc định giúp đồng bộ chấm công và tính công chuẩn. Bạn vẫn có thể đổi ca cho từng ngày
-                      trực tiếp tại module Chấm công.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {!isEditMode && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-h6">Thành phần lương</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Chọn các khoản thu nhập/phụ cấp sẽ gắn với nhân viên này. Danh sách được lấy trực tiếp từ phần Cài đặt
-                    &gt; Thành phần lương.
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    name="payrollSalaryComponentSystemIds"
-                    control={form.control}
-                    rules={{
-                      validate: (value) => (value?.length ?? 0) > 0 || 'Cần ít nhất 1 thành phần lương',
-                    }}
-                    render={({ field }) => {
-                      const selectedValues = new Set<SystemId>(field.value ?? []);
-                      return (
-                        <FormItem>
-                          <FormLabel className="sr-only">Thành phần lương</FormLabel>
-                          <div className="space-y-3">
-                            {salaryComponents.length === 0 && (
-                              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                                Chưa có thành phần lương nào. Vào phần Cài đặt để tạo mới.
-                              </div>
-                            )}
-                            {salaryComponents.map((component) => {
-                              const checked = selectedValues.has(component.systemId);
-                              return (
-                                <label
-                                  key={component.systemId}
-                                  className="flex items-start justify-between gap-4 rounded-lg border p-3"
-                                >
-                                  <div>
-                                    <p className="font-medium text-foreground">{component.name}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {component.type === 'fixed'
-                                        ? formatCurrencyDisplay(component.amount)
-                                        : component.formula || 'Tự nhập công thức'}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {component.taxable ? 'Tính thuế TNCN' : 'Không tính thuế'} ·{' '}
-                                      {component.partOfSocialInsurance ? 'Tính BHXH' : 'Không tính BHXH'}
-                                    </p>
-                                  </div>
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(isChecked) => {
-                                      const next = new Set(selectedValues);
-                                      if (isChecked) {
-                                        next.add(component.systemId);
-                                      } else {
-                                        next.delete(component.systemId);
-                                      }
-                                      field.onChange(Array.from(next));
-                                    }}
-                                    className="mt-1"
-                                  />
-                                </label>
-                              );
-                            })}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-2">
-                            <span>
-                              Đang chọn {selectedValues.size}/{salaryComponents.length} thành phần
-                            </span>
-                            <Button type="button" variant="outline" size="sm" onClick={handleResetPayrollComponents}>
-                              Dùng cấu hình mặc định
-                            </Button>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-h6">Trả lương & tài khoản</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  name="payrollPaymentMethod"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel>Hình thức chi trả</FormLabel>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        value={(field.value as 'bank_transfer' | 'cash') ?? 'bank_transfer'}
-                        className="grid gap-3 md:grid-cols-2"
-                      >
-                        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-                          <RadioGroupItem value="bank_transfer" />
-                          <div className="space-y-1">
-                            <p className="font-medium">Chuyển khoản</p>
-                            <p className="text-sm text-muted-foreground">
-                              Sử dụng tài khoản ngân hàng để chuyển lương hàng tháng.
-                            </p>
-                          </div>
-                        </label>
-                        <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-                          <RadioGroupItem value="cash" />
-                          <div className="space-y-1">
-                            <p className="font-medium">Tiền mặt</p>
-                            <p className="text-sm text-muted-foreground">
-                              Áp dụng khi trả lương trực tiếp hoặc qua phong bì.
-                            </p>
-                          </div>
-                        </label>
-                      </RadioGroup>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  <FormField
-                    name="payrollPayoutAccountNumber"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Số tài khoản trả lương</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ví dụ: 0123456789" {...field} value={field.value as string || ''} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    name="payrollPayoutBankName"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ngân hàng</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Vietcombank, MB, ..." {...field} value={field.value as string || ''} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    name="payrollPayoutBankBranch"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Chi nhánh</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Chi nhánh giao dịch" {...field} value={field.value as string || ''} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={handleCopyPayrollBank}>
-                    Sao chép từ tab Thông tin cá nhân
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Để trống nếu nhân viên dùng cùng tài khoản với phần Thông tin cá nhân.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="payroll" className="mt-6">
+            <EmployeePayrollTab
+              control={form.control}
+              isEditMode={isEditMode}
+              workShifts={workShifts}
+              salaryComponents={salaryComponents}
+              onResetPayrollComponents={handleResetPayrollComponents}
+              onCopyPayrollBank={handleCopyPayrollBank}
+            />
           </TabsContent>
 
         </Tabs>

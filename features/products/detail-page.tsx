@@ -11,19 +11,27 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Edit, Info, Printer, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video } from 'lucide-react';
+import { Edit, Printer, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video } from 'lucide-react';
 import { usePrint } from '@/lib/use-print';
-import { mapProductToLabelPrintData } from '@/lib/print-mappers/product-label.mapper';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+// ✅ Print mapper - lazy loaded when print is triggered
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { DetailField } from '../../components/ui/detail-field';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { LazyImage } from '../../components/ui/lazy-image';
-import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
-import { usePricingPolicyStore } from '../settings/pricing/store';
-import { useSupplierStore } from '../suppliers/store';
+import type { HistoryEntry } from '../../components/ActivityHistory';
+// ✅ Heavy components - lazy loaded
+const Comments = dynamic(
+  () => import('../../components/Comments').then(m => ({ default: m.Comments })),
+  { ssr: false }
+);
+const ActivityHistory = dynamic(
+  () => import('../../components/ActivityHistory').then(m => ({ default: m.ActivityHistory })),
+  { ssr: false }
+);
+import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
+import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useStockHistoryStore } from '../stock-history/store';
 import { getStockHistoryColumns } from '../stock-history/columns';
 import { purchasePriceHistoryColumns, type PriceHistoryEntry } from './purchase-price-history-columns';
@@ -31,28 +39,32 @@ import { RelatedDataTable } from '../../components/data-table/related-data-table
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { usePurchaseOrderStore } from '../purchase-orders/store';
-import { useInventoryReceiptStore } from '../inventory-receipts/store';
+import { useAllPurchaseOrders } from '../purchase-orders/hooks/use-all-purchase-orders';
+import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
 import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
-import { useWarrantyStore } from '../warranty/store';
-import { useInventoryCheckStore } from '../inventory-checks/store';
-import { useStockTransferStore } from '../stock-transfers/store';
+import { useAllWarranties } from '../warranty/hooks/use-all-warranties';
+import { useAllInventoryChecks } from '../inventory-checks/hooks/use-all-inventory-checks';
+import { useAllStockTransfers } from '../stock-transfers/hooks/use-all-stock-transfers';
 import { useImageStore } from './image-store';
 import { FileUploadAPI } from '@/lib/file-upload-api';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { calculateComboStock, isComboProduct } from './combo-utils';
 import { StockAlertBadges } from './components/stock-alert-badges';
+import { ComboItemsCard, ComboLowStockWarning, ComboInventoryCard } from './components/combo-detail-cards';
 import { getProductStockAlerts, getTotalOnHandStock, getSuggestedOrderQuantity } from './stock-alert-utils';
 
 // Dynamic imports for dialogs (code-splitting)
 const CommittedStockDialog = dynamic(() => import('./components/committed-stock-dialog').then(mod => ({ default: mod.CommittedStockDialog })), { ssr: false });
 const InTransitStockDialog = dynamic(() => import('./components/in-transit-stock-dialog').then(mod => ({ default: mod.InTransitStockDialog })), { ssr: false });
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
-import { useProductCategoryStore } from '../settings/inventory/product-category-store';
-import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
-import { useBrandStore } from '../settings/inventory/brand-store';
-import { EcommerceTab } from './components/ecommerce-tab';
+import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
+import { useCategoryFinder } from '../categories/hooks/use-all-categories';
+import { useStorageLocationFinder } from '../settings/inventory/hooks/use-storage-locations';
+import { useBrandFinder } from '../brands/hooks/use-all-brands';
+const EcommerceTab = dynamic(
+  () => import('./components/ecommerce-tab').then(m => ({ default: m.EcommerceTab })),
+  { ssr: false, loading: () => <div className="p-4 text-center text-muted-foreground">Đang tải...</div> }
+);
 import { sanitizeHtml } from '@/lib/sanitize';
 import { toast } from 'sonner';
 import {
@@ -100,428 +112,25 @@ const getTypeLabel = (type?: string) => {
   }
 };
 
-/**
- * ComboItemsCard - Hiển thị thành phần combo trong trang Detail
- */
-function ComboItemsCard({ 
-  product, 
-  pricingPolicies,
-  onImagePreview,
-}: { 
-  product: import('./types').Product;
-  pricingPolicies: { systemId: string; name: string; isDefault?: boolean; type: string }[];
-  onImagePreview?: (imageUrl: string) => void;
-}) {
-  const { data: allProducts } = useProductStore();
-  const defaultPricingPolicy = pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
-  
-  // Get combo items with product details
-  const comboItemsWithDetails = React.useMemo(() => {
-    if (!product.comboItems) return [];
-    return product.comboItems.map(item => {
-      const childProduct = allProducts.find(p => p.systemId === item.productSystemId);
-      
-      // Fallback price: 1) default policy price, 2) first available price, 3) costPrice, 4) 0
-      let unitPrice = 0;
-      if (childProduct) {
-        if (defaultPricingPolicy && childProduct.prices?.[defaultPricingPolicy.systemId]) {
-          unitPrice = childProduct.prices[defaultPricingPolicy.systemId];
-        } else if (childProduct.prices && Object.keys(childProduct.prices).length > 0) {
-          // Get first available price from any pricing policy
-          const firstPriceKey = Object.keys(childProduct.prices)[0];
-          unitPrice = childProduct.prices[firstPriceKey] || 0;
-        } else if (childProduct.costPrice) {
-          // Fallback to cost price if no selling price available
-          unitPrice = childProduct.costPrice;
-        }
-      }
-      
-      const costPrice = childProduct?.costPrice || 0;
-      
-      return {
-        ...item,
-        product: childProduct,
-        unitPrice,
-        costPrice,
-        lineTotal: unitPrice * item.quantity,
-        lineCostTotal: costPrice * item.quantity,
-      };
-    });
-  }, [product.comboItems, allProducts, defaultPricingPolicy]);
-  
-  // Calculate totals
-  const totalOriginalPrice = comboItemsWithDetails.reduce((sum, item) => sum + item.lineTotal, 0);
-  const totalCostPrice = comboItemsWithDetails.reduce((sum, item) => sum + item.lineCostTotal, 0);
-  
-  // Get pricing type label
-  const getPricingTypeLabel = () => {
-    switch (product.comboPricingType) {
-      case 'fixed': return 'Giá cố định';
-      case 'sum_discount_percent': return `Giảm ${product.comboDiscount || 0}%`;
-      case 'sum_discount_amount': return `Giảm ${formatCurrency(product.comboDiscount || 0)}`;
-      default: return 'Chưa cài đặt';
-    }
-  };
-  
-  // Calculate final combo price
-  const comboPrice = React.useMemo(() => {
-    if (product.comboPricingType === 'fixed') {
-      return product.comboDiscount || 0;
-    }
-    if (product.comboPricingType === 'sum_discount_percent') {
-      return Math.round(totalOriginalPrice * (1 - (product.comboDiscount || 0) / 100));
-    }
-    if (product.comboPricingType === 'sum_discount_amount') {
-      return Math.max(0, totalOriginalPrice - (product.comboDiscount || 0));
-    }
-    return totalOriginalPrice;
-  }, [product.comboPricingType, product.comboDiscount, totalOriginalPrice]);
-  
-  // Savings = how much customer saves (should be positive)
-  // If totalOriginalPrice is 0 or less than comboPrice, savings = 0
-  const savings = totalOriginalPrice > comboPrice ? totalOriginalPrice - comboPrice : 0;
-  
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-h3">
-          Thành phần Combo
-          <Badge variant="secondary" className="ml-2">{comboItemsWithDetails.length} sản phẩm</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Combo Items Table */}
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="text-center w-16">SL</TableHead>
-                <TableHead className="text-right w-28">Đơn giá</TableHead>
-                <TableHead className="text-right w-28">Thành tiền</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {comboItemsWithDetails.map((item, index) => (
-                <TableRow key={item.productSystemId || index}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      {item.product?.thumbnailImage ? (
-                        <div 
-                          className="group/thumbnail relative w-10 h-10 rounded-md border overflow-hidden bg-muted flex-shrink-0 cursor-pointer"
-                          onClick={() => onImagePreview?.(item.product!.thumbnailImage!)}
-                        >
-                          <LazyImage
-                            src={item.product.thumbnailImage}
-                            alt={item.product.name}
-                            className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75"
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
-                            <Eye className="w-4 h-4 text-white drop-shadow-md" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-10 h-10 rounded-md border bg-muted flex-shrink-0 flex items-center justify-center text-muted-foreground text-body-xs">
-                          N/A
-                        </div>
-                      )}
-                      {item.product ? (
-                        <div className="min-w-0">
-                          <Link 
-                            href={`/products/${item.product.systemId}`}
-                            className="text-primary hover:underline font-medium block truncate"
-                          >
-                            {item.product.name}
-                          </Link>
-                          <p className="text-body-xs text-muted-foreground truncate">
-                            {item.product.id} · {getTypeLabel(item.product.type)}
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground italic text-body-sm">Sản phẩm không tồn tại</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center font-medium">{item.quantity}</TableCell>
-                  <TableCell className="text-right">
-                    <div>
-                      <p>{formatCurrency(item.unitPrice)}</p>
-                      <p className="text-body-xs text-muted-foreground">Vốn: {formatCurrency(item.costPrice)}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">{formatCurrency(item.lineTotal)}</TableCell>
-                </TableRow>
-              ))}
-              <TableRow className="bg-muted/50">
-                <TableCell colSpan={3} className="text-right text-body-sm text-muted-foreground">Tổng giá gốc:</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalOriginalPrice)}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
-        
-        {/* Pricing Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-          <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Cách tính giá</p>
-            <p className="font-medium">{getPricingTypeLabel()}</p>
-          </div>
-          <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Giá combo</p>
-            <p className="text-h3 text-primary">{formatCurrency(comboPrice)}</p>
-          </div>
-          <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Tiết kiệm</p>
-            <p className="font-medium">
-              {savings > 0 ? (
-                <>
-                  <span className="text-green-600">{formatCurrency(savings)}</span>
-                  {totalOriginalPrice > 0 && (
-                    <span className="text-body-xs ml-1 text-muted-foreground">
-                      ({Math.round((savings / totalOriginalPrice) * 100)}%)
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className="text-muted-foreground">-</span>
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Giá vốn combo</p>
-            <p className="font-medium">{formatCurrency(totalCostPrice)}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * ComboLowStockWarning - Hiển thị cảnh báo khi combo sắp hết hàng
- */
-function ComboLowStockWarning({
-  product,
-  allProducts
-}: {
-  product: import('./types').Product;
-  allProducts: import('./types').Product[];
-}) {
-  const { data: branches } = useAllBranches();
-  
-  // Calculate total combo stock across all branches
-  const totalComboStock = React.useMemo(() => {
-    let total = 0;
-    branches.forEach(branch => {
-      const branchStock = calculateComboStock(
-        product.comboItems || [],
-        allProducts,
-        branch.systemId
-      );
-      total += branchStock;
-    });
-    return total;
-  }, [product.comboItems, allProducts, branches]);
-  
-  const reorderLevel = product.reorderLevel ?? 0;
-  const safetyStock = product.safetyStock ?? 0;
-  
-  // Determine alert level
-  const isCritical = totalComboStock <= safetyStock && safetyStock > 0;
-  const isLow = totalComboStock <= reorderLevel && reorderLevel > 0;
-  
-  if (!isCritical && !isLow) return null;
-  
-  return (
-    <div className={`mt-3 p-3 rounded-lg flex items-start gap-2 ${
-      isCritical 
-        ? 'bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800' 
-        : 'bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
-    }`}>
-      <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
-        isCritical ? 'text-red-600' : 'text-amber-600'
-      }`} />
-      <div className="text-body-sm">
-        {isCritical ? (
-          <>
-            <p className="font-medium text-red-700 dark:text-red-400">
-              Tồn kho dưới mức an toàn!
-            </p>
-            <p className="text-red-600 dark:text-red-500">
-              Hiện có {totalComboStock} combo, dưới mức an toàn ({safetyStock}).
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="font-medium text-amber-700 dark:text-amber-400">
-              Cần đặt hàng bổ sung
-            </p>
-            <p className="text-amber-600 dark:text-amber-500">
-              Hiện có {totalComboStock} combo, dưới mức đặt hàng lại ({reorderLevel}).
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * ComboInventoryCard - Hiển thị tồn kho combo theo chi nhánh
- * Combo không có tồn kho riêng, tính từ MIN(tồn SP con / số lượng trong combo)
- */
-function ComboInventoryCard({ 
-  product, 
-  branches,
-  allProducts,
-  onCommittedClick,
-  onInTransitClick,
-}: { 
-  product: import('./types').Product;
-  branches: { systemId: SystemId; name: string }[];
-  allProducts: import('./types').Product[];
-  onCommittedClick?: (branch: { systemId: SystemId; name: string }) => void;
-  onInTransitClick?: (branch: { systemId: SystemId; name: string }) => void;
-}) {
-  // Get combo items with product details
-  const _comboItemsWithDetails = React.useMemo(() => {
-    if (!product.comboItems) return [];
-    return product.comboItems.map(item => {
-      const childProduct = allProducts.find(p => p.systemId === item.productSystemId);
-      return {
-        ...item,
-        product: childProduct,
-      };
-    });
-  }, [product.comboItems, allProducts]);
-  
-  // Calculate combo stock for each branch
-  const comboStockByBranch = React.useMemo(() => {
-    return branches.map(branch => {
-      const comboStock = calculateComboStock(
-        product.comboItems || [],
-        allProducts,
-        branch.systemId
-      );
-      
-      // Get committed and inTransit for THIS combo product (not child products)
-      const committed = product.committedByBranch?.[branch.systemId] || 0;
-      const inTransit = product.inTransitByBranch?.[branch.systemId] || 0;
-      
-      // Available = comboStock - committed
-      const available = Math.max(0, comboStock - committed);
-      
-      return {
-        branch,
-        comboStock,
-        available,
-        committed,
-        inTransit,
-      };
-    });
-  }, [product.comboItems, product.committedByBranch, product.inTransitByBranch, allProducts, branches]);
-  
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-h3">Tồn kho theo chi nhánh</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Chi nhánh</TableHead>
-                <TableHead>Điểm lưu kho</TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    Tồn kho (Combo)
-                    <Info className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                </TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    Có thể bán
-                    <Info className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                </TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    Đang giao dịch
-                    <Info className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                </TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    Hàng đang về
-                    <Info className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                </TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    Đang giao
-                    <Info className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {comboStockByBranch.map(({ branch, comboStock, available, committed, inTransit }) => (
-                <TableRow key={branch.systemId}>
-                  <TableCell className="font-medium">{branch.name}</TableCell>
-                  <TableCell className="text-muted-foreground">Mặc định</TableCell>
-                  <TableCell className="font-semibold">{comboStock}</TableCell>
-                  <TableCell className={available > 0 ? 'font-medium' : 'text-muted-foreground'}>{available}</TableCell>
-                  <TableCell 
-                    className={committed > 0 ? 'text-primary cursor-pointer hover:underline font-medium' : ''}
-                    onClick={() => {
-                      if (committed > 0 && onCommittedClick) {
-                        onCommittedClick(branch);
-                      }
-                    }}
-                  >
-                    {committed}
-                  </TableCell>
-                  <TableCell className={inTransit > 0 ? 'font-medium' : ''}>{inTransit}</TableCell>
-                  <TableCell 
-                    className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline font-medium' : ''}
-                    onClick={() => {
-                      if (inTransit > 0 && onInTransitClick) {
-                        onInTransitClick(branch);
-                      }
-                    }}
-                  >
-                    {inTransit}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function ProductDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById: findProductById, data: allProducts, remove } = useProductStore();
-  const { findById: findSupplierById } = useSupplierStore();
-  const { data: pricingPolicies } = usePricingPolicyStore();
+  const { findById: findSupplierById } = useSupplierFinder();
+  const { data: pricingPolicies } = useAllPricingPolicies();
   const { getHistoryForProduct } = useStockHistoryStore();
   const { data: branches } = useAllBranches();
-  const { data: allPurchaseOrders } = usePurchaseOrderStore();
-  const { data: allInventoryReceipts } = useInventoryReceiptStore();
+  const { data: allPurchaseOrders } = useAllPurchaseOrders();
+  const { data: allInventoryReceipts } = useAllInventoryReceipts();
   const { data: allOrders } = useAllOrders();
   const { findById: findEmployeeById } = useEmployeeFinder();
-  const { data: allWarranties } = useWarrantyStore();
-  const { data: allInventoryChecks } = useInventoryCheckStore();
-  const { data: allStockTransfers } = useStockTransferStore();
-  const { findById: findProductTypeById } = useProductTypeStore();
-  const { findById: findCategoryById } = useProductCategoryStore();
-  const { findById: _findStorageLocationById } = useStorageLocationStore();
-  const { findById: findBrandById } = useBrandStore();
+  const { data: allWarranties } = useAllWarranties();
+  const { data: allInventoryChecks } = useAllInventoryChecks();
+  const { data: allStockTransfers } = useAllStockTransfers();
+  const { findById: findProductTypeById } = useProductTypeFinder();
+  const { findById: findCategoryById } = useCategoryFinder();
+  const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationFinder();
+  const { findById: findBrandById } = useBrandFinder();
   const { employee: authEmployee } = useAuth();
   
   const [historyBranchFilter, setHistoryBranchFilter] = React.useState<'all' | SystemId>('all');
@@ -541,7 +150,6 @@ export function ProductDetailPage() {
   const productType = React.useMemo(() => (product?.productTypeSystemId ? findProductTypeById(product.productTypeSystemId) : null), [product, findProductTypeById]);
   const category = React.useMemo(() => (product?.categorySystemId ? findCategoryById(product.categorySystemId) : null), [product, findCategoryById]);
   const brand = React.useMemo(() => (product?.brandSystemId ? findBrandById(product.brandSystemId) : null), [product, findBrandById]);
-  const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
   const storageLocation = React.useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
 
   // Comments from database
@@ -571,7 +179,6 @@ export function ProductDetailPage() {
   }, [dbAddComment]);
 
   const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   }, []);
 
   const handleDeleteComment = React.useCallback((commentId: string) => {
@@ -797,7 +404,7 @@ export function ProductDetailPage() {
   }, [previewSources]);
 
   const { print: printLabel } = usePrint();
-  const storeInfo = useStoreInfoStore(state => state.info);
+  const { info: storeInfo } = useStoreInfoData();
   const storeSettings = React.useMemo(() => ({
     name: storeInfo.brandName || storeInfo.companyName,
     address: storeInfo.headquartersAddress,
@@ -811,14 +418,16 @@ export function ProductDetailPage() {
     [pricingPolicies]
   );
 
-  const handlePrintLabel = React.useCallback(() => {
+  const handlePrintLabel = React.useCallback(async () => {
     if (!product) return;
+    // ✅ Lazy load print mapper
+    const { mapProductToLabelPrintData } = await import('@/lib/print-mappers/product-label.mapper');
     // Resolve category & brand name for label
     const categoryName = product.categorySystemId
-      ? useProductCategoryStore.getState().findById(product.categorySystemId)?.name || product.category
+      ? findCategoryById(product.categorySystemId)?.name || product.category
       : product.category;
     const brandName = product.brandSystemId
-      ? useBrandStore.getState().findById(product.brandSystemId)?.name || ''
+      ? findBrandById(product.brandSystemId)?.name || ''
       : '';
     const defaultPrice = defaultSellingPolicy
       ? product.prices?.[defaultSellingPolicy.systemId]
@@ -829,7 +438,7 @@ export function ProductDetailPage() {
       price: defaultPrice ?? product.sellingPrice,
     });
     printLabel('product-label', { data: printData });
-  }, [product, printLabel, storeSettings, defaultSellingPolicy]);
+  }, [product, printLabel, storeSettings, defaultSellingPolicy, findBrandById, findCategoryById]);
 
   const handleMoveToTrash = React.useCallback(() => {
     if (!product) return;

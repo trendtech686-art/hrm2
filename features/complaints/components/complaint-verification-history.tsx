@@ -2,7 +2,6 @@ import React from "react";
 import { ComplaintCompensationSection } from "./complaint-compensation-section";
 import { ComplaintVerifiedIncorrectSection } from "./complaint-verified-incorrect-section";
 import type { Complaint } from "../types";
-import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 interface Props {
   complaint: Complaint;
@@ -22,13 +21,6 @@ export const ComplaintVerificationHistory: React.FC<Props> = ({ complaint }) => 
     .filter(a => a.actionType === 'verified-correct' || a.actionType === 'verified-incorrect')
     .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime()); // Moi nhat truoc
   
-  console.log('[VerificationHistory] Actions:', {
-    total: verificationActions.length,
-    actions: verificationActions.map(a => ({
-      type: a.actionType,
-      time: formatDateTimeForDisplay(a.performedAt),
-    })),
-  });
   
   if (verificationActions.length === 0) {
     return null;

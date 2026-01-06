@@ -1,10 +1,9 @@
 import { createCrudStore } from '../../lib/store-factory';
-import { templateData as initialData } from './template-data';
 import type { TaskTemplate, UseTemplateOptions } from './template-types';
 import type { Task } from './types';
 import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
 
-const baseStore = createCrudStore<TaskTemplate>(initialData, 'task-templates');
+const baseStore = createCrudStore<TaskTemplate>([], 'task-templates');
 
 export const useTaskTemplateStore = () => {
   const store = baseStore();

@@ -18,9 +18,11 @@ import {
 import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket, WarrantyHistory } from '../../types';
 import { useWarrantyStore } from '../../store';
+import { useWarrantyFinder } from '../../hooks/use-all-warranties';
 import { usePaymentStore } from '../../../payments/store';
-import { asSystemId } from '@/lib/id-types';
 import { useReceiptStore } from '../../../receipts/store';
+import { asSystemId } from '@/lib/id-types';
+import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
 import { useOrderStore } from '../../../orders/store';
 import { useAllOrders } from '../../../orders/hooks/use-all-orders';
 import { useAuth } from '../../../../contexts/auth-context';
@@ -36,17 +38,13 @@ interface WarrantyCancelDialogProps {
 export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }: WarrantyCancelDialogProps) {
   const [cancelReason, setCancelReason] = React.useState('');
   const { user: currentUser } = useAuth();
-  const { update, findById, addHistory } = useWarrantyStore();
+  const { update, addHistory } = useWarrantyStore();
+  const { findById } = useWarrantyFinder();
   const payments = usePaymentStore(state => state.data);
-  const receipts = useReceiptStore(state => state.data);
+  const { data: receipts } = useAllReceipts();
   const { data: orders } = useAllOrders();
 
   const handleCancel = React.useCallback(async () => {
-    console.log('[CANCEL DIALOG] handleCancel called', { 
-      hasTicket: !!ticket, 
-      cancelReason,
-      ticketId: ticket?.id 
-    });
     
     if (!currentUser) {
       toast.error('Vui lòng đăng nhập');
@@ -69,26 +67,12 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       if (hasDeductedStock) {
         // Đã xuất kho → Hoàn hàng về kho
         rollbackWarrantyStock(ticket);
-        console.log('[CANCEL DIALOG] Rollback completed/returned warranty (restore stock):', {
-          status: ticket.status,
-          ticketId: ticket.id,
-          stockDeducted: ticket.stockDeducted,
-          products: ticket.products.filter(p => p.resolution === 'replace').length
-        });
       } else if (ticket.status === 'pending' || ticket.status === 'processed') {
         // Chưa xuất kho, chỉ uncommit (giải phóng hàng giữ chỗ)
         uncommitWarrantyStock(ticket);
-        console.log('[CANCEL DIALOG] Uncommit pending/processing warranty:', {
-          status: ticket.status,
-          ticketId: ticket.id
-        });
       } else if (ticket.status === 'returned') {
         // Đã trả hàng nhưng chưa kết thúc → vẫn đang giữ hàng thay thế
         uncommitWarrantyStock(ticket);
-        console.log('[CANCEL DIALOG] Uncommit returned warranty:', {
-          status: ticket.status,
-          ticketId: ticket.id
-        });
       }
       // incomplete: không làm gì cả (chưa commit)
       
@@ -102,12 +86,6 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
         r.status !== 'cancelled'
       );
       
-      console.log('[CANCEL DIALOG] Found transactions:', {
-        payments: relatedPayments.length,
-        receipts: relatedReceipts.length,
-        paymentIds: relatedPayments.map(p => p.id),
-        receiptIds: relatedReceipts.map(r => r.id)
-      });
       
       const allVouchers = [...relatedPayments, ...relatedReceipts];
       
@@ -121,12 +99,6 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
         // Soft delete payments - update status to 'cancelled' + save cancelReason in description
         relatedPayments.forEach(payment => {
           const newDescription = `[HỦY] ${cancelReason}${payment.description ? ` | Gốc: ${payment.description}` : ''}`;
-          console.log('[CANCEL DIALOG] Saving payment with description:', {
-            paymentId: payment.id,
-            originalDesc: payment.description,
-            newDescription,
-            cancelReason
-          });
           
           paymentStore.update(payment.systemId, {
             ...payment,
@@ -135,7 +107,6 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
             description: newDescription,
           });
           cancelledCount.payments++;
-          console.log('[WARRANTY CANCEL] Cancelled payment:', payment.id);
           
           // ✅ UPDATE ORDER: Remove payment from order.payments and decrease paidAmount
           if (payment.linkedOrderSystemId) {
@@ -147,12 +118,6 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
               // Decrease paidAmount (payment.amount is negative, so we subtract it back)
               const newPaidAmount = (order.paidAmount || 0) - Math.abs(payment.amount);
               
-              console.log('[WARRANTY CANCEL] Updating order:', {
-                orderId: order.id,
-                oldPaidAmount: order.paidAmount,
-                newPaidAmount,
-                removedPayment: payment.id
-              });
               
               orderStore.update(payment.linkedOrderSystemId, {
                 payments: updatedPayments,
@@ -171,7 +136,6 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
             description: `[HỦY] ${cancelReason}${receipt.description ? ` | Gốc: ${receipt.description}` : ''}`,
           });
           cancelledCount.receipts++;
-          console.log('[WARRANTY CANCEL] Cancelled receipt:', receipt.id);
         });
         
         const voucherList = allVouchers.map(v => `${v.id} (${v.amount.toLocaleString('vi-VN')}đ)`).join(', ');

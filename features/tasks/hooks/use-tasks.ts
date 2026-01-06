@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for task management
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchTasks,
   fetchTaskById,
@@ -43,6 +43,7 @@ export function useTasks(filters: TaskFilters = {}) {
     queryKey: taskKeys.list(filters),
     queryFn: () => fetchTasks(filters),
     staleTime: 1000 * 60, // 1 minute - tasks change frequently
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -118,11 +119,39 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
 
   const remove = useMutation({
     mutationFn: (systemId: string) => deleteTask(systemId),
+    // Optimistic delete - UI cập nhật ngay lập tức
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.lists() });
+      
+      const previousLists = queryClient.getQueriesData({ queryKey: taskKeys.lists() });
+      
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.lists() },
+        (old: { data?: Array<{ systemId: string }>, pagination?: unknown } | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.filter(item => item.systemId !== systemId),
+          };
+        }
+      );
+      
+      return { previousLists };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      options.onError?.(_err as Error);
+    },
     onSuccess: () => {
-      invalidateTasks();
       options.onSuccess?.();
     },
-    onError: options.onError,
+    onSettled: () => {
+      invalidateTasks();
+    },
   });
 
   const restore = useMutation({

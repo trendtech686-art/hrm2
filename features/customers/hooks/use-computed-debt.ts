@@ -17,8 +17,8 @@
 
 import { useMemo } from 'react';
 import { useAllOrders } from '../../orders/hooks/use-all-orders';
-import { useReceiptStore } from '../../receipts/store';
-import { usePaymentStore } from '../../payments/store';
+import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
+import { useAllPayments } from '../../payments/hooks/use-all-payments';
 import type { Customer, DebtTransaction } from '../types';
 import type { Order } from '../../orders/types';
 import type { Receipt } from '../../receipts/types';
@@ -172,8 +172,8 @@ function computeCustomerDebtTransactions(
  */
 export function useComputedCustomerDebt(customer: Customer | null | undefined): ComputedDebtInfo | null {
   const { data: allOrders } = useAllOrders();
-  const { data: allReceipts } = useReceiptStore();
-  const { data: allPayments } = usePaymentStore();
+  const { data: allReceipts } = useAllReceipts();
+  const { data: allPayments } = useAllPayments();
 
   return useMemo(() => {
     if (!customer) return null;
@@ -187,8 +187,8 @@ export function useComputedCustomerDebt(customer: Customer | null | undefined): 
  */
 export function useAllCustomersComputedDebt(customers: Customer[]): Map<SystemId, ComputedDebtInfo> {
   const { data: allOrders } = useAllOrders();
-  const { data: allReceipts } = useReceiptStore();
-  const { data: allPayments } = usePaymentStore();
+  const { data: allReceipts } = useAllReceipts();
+  const { data: allPayments } = useAllPayments();
 
   return useMemo(() => {
     const debtMap = new Map<SystemId, ComputedDebtInfo>();
@@ -208,8 +208,8 @@ export function useAllCustomersComputedDebt(customers: Customer[]): Map<SystemId
  */
 export function useCustomersWithComputedDebt(customers: Customer[]): Customer[] {
   const { data: allOrders } = useAllOrders();
-  const { data: allReceipts } = useReceiptStore();
-  const { data: allPayments } = usePaymentStore();
+  const { data: allReceipts } = useAllReceipts();
+  const { data: allPayments } = useAllPayments();
 
   return useMemo(() => {
     return customers.map(customer => {

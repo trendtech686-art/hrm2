@@ -21,7 +21,7 @@ import type {
   LifecycleStage,
   CustomerSlaSetting,
 } from "./types";
-import { SLA_TYPE_LABELS } from "./sla-settings-data";
+import { SLA_TYPE_LABELS } from "./types";
 
 interface ColumnFactoryOptions<TItem extends BaseSetting> {
   onEdit: (item: TItem) => void;

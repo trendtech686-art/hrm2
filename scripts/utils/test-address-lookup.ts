@@ -15,20 +15,13 @@ import { useProvinceStore } from '@/features/settings/provinces/store';
 
 // Helper để test
 async function runTests() {
-  console.log('=== TEST ADDRESS LOOKUP ===');
   
   // Get store state
   const store = useProvinceStore.getState();
-  console.log('Provinces count:', store.data.length);
-  console.log('Districts count:', store.districts.length);
-  console.log('Wards count:', store.wards.length);
   
   // Sample provinces
-  console.log('\n--- Sample Provinces ---');
-  console.log(store.data.slice(0, 5).map(p => `${p.id}: ${p.name}`));
   
   // Test 1: Find province
-  console.log('\n--- Test findProvinceByName ---');
   const testProvinces = [
     'An Giang',
     'Bắc Ninh', 
@@ -40,11 +33,9 @@ async function runTests() {
   
   testProvinces.forEach(name => {
     const result = findProvinceByName(name);
-    console.log(`"${name}" => `, result);
   });
   
   // Test 2: Find district 
-  console.log('\n--- Test findDistrictByName ---');
   // Need provinceId first
   const hcm = findProvinceByName('TP Hồ Chí Minh');
   if (hcm) {
@@ -57,12 +48,10 @@ async function runTests() {
     
     testDistricts.forEach(name => {
       const result = findDistrictByName(name, hcm.id);
-      console.log(`"${name}" (province: ${hcm.id}) => `, result);
     });
   }
   
   // Test 3: Full lookup
-  console.log('\n--- Test lookupAddressIds ---');
   const testAddresses = [
     {
       street: '123 Nguyễn Văn Linh',
@@ -87,13 +76,10 @@ async function runTests() {
   ];
   
   testAddresses.forEach((addr, i) => {
-    console.log(`\nAddress ${i + 1}:`, addr);
     const result = lookupAddressIds(addr);
-    console.log('Result:', result);
   });
   
   // Test 4: enrichEmployeeAddresses
-  console.log('\n--- Test enrichEmployeeAddresses ---');
   const testEmployee = {
     id: 'NV001',
     fullName: 'Test Employee',
@@ -110,11 +96,8 @@ async function runTests() {
     temporaryAddress: null,
   };
   
-  console.log('Input:', testEmployee);
   const enriched = enrichEmployeeAddresses(testEmployee);
-  console.log('Enriched:', enriched);
   
-  console.log('\n=== END TESTS ===');
 }
 
 runTests().catch(console.error);

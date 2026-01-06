@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { CurrencyInput } from '../../../components/ui/currency-input';
-import { usePricingPolicyStore } from '../pricing/store';
+import { useActivePricingPolicies } from '../pricing/hooks/use-all-pricing-policies';
 import {
   customerTypeSchema,
   customerGroupSchema,
@@ -58,7 +58,7 @@ import type {
   LifecycleStage,
   CustomerSlaSetting,
 } from './types';
-import { SLA_TYPE_LABELS } from './sla-settings-data';
+import { SLA_TYPE_LABELS } from './types';
 
 // Base props interface
 interface BaseFormDialogProps<T> {
@@ -222,8 +222,7 @@ export function CustomerGroupFormDialog({
   existingIds,
 }: BaseFormDialogProps<CustomerGroup>) {
   const isEdit = !!initialData;
-  const { getActive: getActivePriceLists } = usePricingPolicyStore();
-  const activePriceLists = getActivePriceLists();
+  const { data: activePriceLists } = useActivePricingPolicies();
 
   const form = useForm<CustomerGroupFormData>({
     resolver: zodResolver(customerGroupSchema) as unknown as Parameters<typeof useForm<CustomerGroupFormData>>[0]['resolver'],

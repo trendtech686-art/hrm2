@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { subscribeWithSelector } from 'zustand/middleware'
 
 export type Theme = "slate" | "blue" | "green" | "amber" | "rose" | "purple" | "orange" | "teal" | "custom"
 export type Font = "inter" | "poppins" | "roboto" | "source-sans-3"
@@ -124,7 +124,7 @@ type AppearanceState = {
 }
 
 export const useAppearanceStore = create<AppearanceState>()(
-  persist(
+  subscribeWithSelector(
     (set) => ({
       theme: 'slate',
       colorMode: 'light',
@@ -137,24 +137,91 @@ export const useAppearanceStore = create<AppearanceState>()(
       setFontSize: (size) => set({ fontSize: size }),
       setCustomThemeConfig: (config) => set({ customThemeConfig: { ...config } }),
       updateAppearance: (settings) => set((state) => ({ ...state, ...settings })),
-    }),
-    {
-      name: 'hrm-appearance-storage',
-      storage: createJSONStorage(() => localStorage),
-    }
+    })
   )
 )
 
-// Helper to get initial state from localStorage synchronously
+// ========================================
+// Database Sync Functions
+// ========================================
+
+const APPEARANCE_API = '/api/user-preferences/appearance';
+let saveTimeout: NodeJS.Timeout | null = null;
+let isInitialized = false;
+
+// Helper to get initial state (returns default since we use database now)
 export function getInitialAppearanceState() {
-  try {
-    const stored = localStorage.getItem('hrm-appearance-storage');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.state as Pick<AppearanceState, 'theme' | 'colorMode' | 'font' | 'fontSize' | 'customThemeConfig'>;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
+  return null; // Database-backed, no localStorage
 }
+
+/**
+ * Sync appearance settings to database (debounced)
+ */
+export function syncAppearanceToDatabase(): void {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  
+  saveTimeout = setTimeout(async () => {
+    try {
+      const state = useAppearanceStore.getState();
+      const settings = {
+        theme: state.theme,
+        colorMode: state.colorMode,
+        font: state.font,
+        fontSize: state.fontSize,
+        customThemeConfig: state.customThemeConfig,
+      };
+      
+      await fetch(APPEARANCE_API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+    } catch (error) {
+      console.warn('Error syncing appearance to database:', error);
+    }
+  }, 1000);
+}
+
+/**
+ * Load appearance settings from database
+ * Call this after user logs in to restore their settings
+ */
+export async function loadAppearanceFromDatabase() {
+  try {
+    const response = await fetch(APPEARANCE_API);
+    if (!response.ok) return;
+    
+    const { data } = await response.json();
+    if (!data) return;
+    
+    useAppearanceStore.setState({
+      theme: data.theme ?? useAppearanceStore.getState().theme,
+      colorMode: data.colorMode ?? useAppearanceStore.getState().colorMode,
+      font: data.font ?? useAppearanceStore.getState().font,
+      fontSize: data.fontSize ?? useAppearanceStore.getState().fontSize,
+      customThemeConfig: data.customThemeConfig ?? useAppearanceStore.getState().customThemeConfig,
+    });
+    
+    isInitialized = true;
+  } catch (error) {
+    console.warn('Error loading appearance from database:', error);
+  }
+}
+
+// Auto-save when settings change (after initial load)
+useAppearanceStore.subscribe(
+  (state) => ({ 
+    theme: state.theme, 
+    colorMode: state.colorMode, 
+    font: state.font, 
+    fontSize: state.fontSize 
+  }),
+  () => {
+    if (isInitialized) {
+      syncAppearanceToDatabase();
+    }
+  },
+  { equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b) }
+);

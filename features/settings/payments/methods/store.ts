@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { data as initialData } from './data';
 import type { PaymentMethod } from '@/lib/types/prisma-extended';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 
@@ -13,7 +12,7 @@ interface PaymentMethodState {
 
 export const usePaymentMethodStore = create<PaymentMethodState>()(
     (set) => ({
-      data: initialData,
+      data: [],
       add: (item) => set((state) => {
         const newItem: PaymentMethod = { 
             ...item, 

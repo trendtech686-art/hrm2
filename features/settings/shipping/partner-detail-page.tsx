@@ -58,9 +58,7 @@ export function ShippingPartnerDetailPage() {
   });
 
   const handleRefresh = () => {
-    console.log('[PartnerDetailPage] Refreshing config...');
     const freshConfig = loadShippingConfig();
-    console.log('[PartnerDetailPage] Fresh accounts:', freshConfig.partners[partnerCode]?.accounts?.length);
     setConfig(freshConfig);
   };
 
@@ -70,7 +68,6 @@ export function ShippingPartnerDetailPage() {
   };
 
   const handleAccountSaved = () => {
-    console.log('[PartnerDetailPage] Account saved, refreshing...');
     handleRefresh();
     setAccountDialogOpen(false);
   };

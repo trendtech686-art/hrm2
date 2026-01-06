@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useSupplierStore } from "../store";
 import { toast } from 'sonner';
-import { useProvinceStore } from "../../settings/provinces/store";
+import { useProvinces, useWards2Level } from "../../settings/provinces/hooks/use-administrative-units";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +28,7 @@ export function QuickAddSupplierDialog({
   onSuccess,
 }: QuickAddSupplierDialogProps) {
   const { add } = useSupplierStore();
-  const { data: provinces, getWardsByProvinceId } = useProvinceStore();
+  const { data: provinces = [] } = useProvinces();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Form state
@@ -99,11 +99,8 @@ export function QuickAddSupplierDialog({
     [provinces, formData.city]
   );
 
-  // Get wards for selected province
-  const availableWards = React.useMemo(
-    () => (selectedProvince ? getWardsByProvinceId(selectedProvince.id) : []),
-    [selectedProvince, getWardsByProvinceId]
-  );
+  // Get wards for selected province using React Query hook
+  const { data: availableWards = [] } = useWards2Level(selectedProvince?.id);
 
   const wardOptions = React.useMemo(
     () => availableWards.map((w) => ({ value: w.name, label: w.name })),

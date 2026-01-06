@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle } from "lucide-react";
 import type { Complaint } from "../types";
 import { usePaymentStore } from "../../payments/store";
-import { useReceiptStore } from "../../receipts/store";
+import { useAllReceipts } from "../../receipts/hooks/use-all-receipts";
 import { useInventoryCheckStore } from "../../inventory-checks/store";
 import { formatDateTimeForDisplay } from "@/lib/date-utils";
 
@@ -82,7 +82,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   // STATE - Subscribe directly to stores for real-time updates
   // ============================================================
   const payments = usePaymentStore(state => state.data);
-  const receipts = useReceiptStore(state => state.data);
+  const { data: receipts } = useAllReceipts();
   const inventoryCheckStore = useInventoryCheckStore();
   const inventoryChecks = inventoryCheckStore.data;
   
@@ -103,13 +103,6 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
     : null;
   
   // Debug
-  console.log('[CompensationSection] Data check:', {
-    paymentsCount: payments?.length,
-    receiptsCount: receipts?.length,
-    inventoryChecksCount: Array.isArray(inventoryChecks) ? inventoryChecks.length : 'not array',
-    inventoryCheckSystemId,
-    foundInventoryCheck: !!inventoryCheck,
-  });
   
   // Check if this action has been processed (has payment/receipt)
   const hasBeenProcessed = !!actionMetadata?.paymentSystemId || !!actionMetadata?.receiptSystemId;
@@ -117,18 +110,6 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   const _cancelledHistory = complaint.cancelledPaymentsReceipts || [];
   
   // Debug payment/receipt loading
-  console.log('[CompensationSection] Payment/Receipt:', {
-    actionMetadata,
-    hasBeenProcessed,
-    paymentSystemId: actionMetadata?.paymentSystemId,
-    receiptSystemId: actionMetadata?.receiptSystemId,
-    foundPayment: !!payment,
-    foundReceipt: !!receipt,
-    totalPayments: payments.length,
-    totalReceipts: receipts.length,
-    paymentId: payment?.id,
-    receiptId: receipt?.id,
-  });
   
   // ============================================================
   // BADGE STATE - Đã hủy
@@ -140,17 +121,6 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
     inventoryCheck?.status === 'cancelled';
   
   // Debug
-  console.log('[CompensationSection] Badge check:', {
-    hasBeenProcessed,
-    hasBeenCancelled,
-    paymentExists: !!payment,
-    receiptExists: !!receipt,
-    paymentStatus: payment?.status,
-    receiptStatus: receipt?.status,
-    paymentId: payment?.id,
-    receiptId: receipt?.id,
-    actionMetadata,
-  });
   
   // ============================================================
   // RENDER

@@ -84,3 +84,18 @@ export function useStoreInfoMutations(options: MutationCallbacks = {}) {
     isLoading: update.isPending || reset.isPending || uploadLogo.isPending,
   };
 }
+
+/**
+ * Convenience hook to get store info (replaces useStoreInfoStore pattern)
+ * 
+ * Usage:
+ *   const { info: storeInfo } = useStoreInfoData();
+ */
+export function useStoreInfoData() {
+  const query = useStoreInfo();
+  return {
+    info: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}

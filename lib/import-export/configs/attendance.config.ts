@@ -212,12 +212,8 @@ export const attendanceImportExportConfig: ImportExportConfig<AttendanceImportRo
   },
 
   // After import hook
-  afterImport: (results) => {
-    console.log(`Import chấm công hoàn tất:
-      - Thêm mới: ${results.inserted.length}
-      - Cập nhật: ${results.updated.length}
-      - Lỗi: ${results.failed.length}
-      - Bỏ qua: ${results.skipped.length}`);
+  afterImport: (_results) => {
+    // Called after import completes
   },
 };
 

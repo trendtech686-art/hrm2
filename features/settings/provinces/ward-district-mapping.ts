@@ -117,7 +117,6 @@ export function loadWardDistrictMapping(data?: ReadonlyArray<WardDistrictDataInp
 
     wardDistrictMap.set(normalized.wardId, normalized);
   });
-  console.log(`✅ Loaded ${wardDistrictMap.size} ward-district mappings`);
 }
 
 // Auto-load on import

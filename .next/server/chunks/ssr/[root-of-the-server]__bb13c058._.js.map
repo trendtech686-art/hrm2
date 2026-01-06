@@ -1,1 +1,0 @@
-{"version":3,"sources":["../../../../app/page.tsx"],"sourcesContent":["import { redirect } from 'next/navigation'\r\n\r\nexport default function HomePage() {\r\n  redirect('/dashboard')\r\n}\r\n"],"names":[],"mappings":"wYAAA,EAAA,CAAA,CAAA,QAAA,IAAA,EAAA,EAAA,CAAA,CAAA,QAEe,SAAS,IACtB,CAAA,EAAA,EAAA,QAAA,AAAQ,EAAC,aACX"}

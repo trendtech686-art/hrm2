@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { toast } from 'sonner';
 import { Upload, FileText, X } from 'lucide-react';
 // XLSX is lazy loaded in parseFileForPreview and handleDownloadTemplate to reduce bundle size (~500KB)
 import { Button } from '../ui/button';
@@ -52,7 +53,7 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
       setStep('preview');
     } else {
       setFile(null);
-      alert("Vui lòng chọn một file Excel hợp lệ (.xlsx, .xls, .csv).");
+      toast.error("Vui lòng chọn một file Excel hợp lệ (.xlsx, .xls, .csv).");
     }
   };
 
@@ -98,7 +99,7 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
         setStep('preview');
       } catch (error) {
         console.error("Error parsing Excel file:", error);
-        alert("Đã có lỗi xảy ra khi đọc file. Vui lòng kiểm tra định dạng file và thử lại.");
+        toast.error("Đã có lỗi xảy ra khi đọc file. Vui lòng kiểm tra định dạng file và thử lại.");
       }
     };
     reader.readAsBinaryString(file);
@@ -133,12 +134,12 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
       .map(row => row.data);
     
     if (selectedData.length === 0) {
-      alert("Vui lòng chọn ít nhất một dòng để nhập.");
+      toast.error("Vui lòng chọn ít nhất một dòng để nhập.");
       return;
     }
     
     config.importer(selectedData as Omit<TData, 'id'>[]);
-    alert(`Nhập thành công ${selectedData.length} mục!`);
+    toast.success(`Nhập thành công ${selectedData.length} mục!`);
     handleClose();
   };
   

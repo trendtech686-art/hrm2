@@ -1,13 +1,14 @@
 'use client'
 
 import * as React from 'react';
+import { toast } from 'sonner';
 import { useRouter, useParams } from 'next/navigation';
 import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useProductFinder } from '../products/hooks/use-all-products';
-import { useShipmentStore } from './store';
-import { useStorageLocationStore } from '../settings/inventory/storage-location-store';
+import { useShipmentFinder } from './hooks/use-shipments';
+import { useStorageLocationFinder } from '../settings/inventory/hooks/use-storage-locations';
 import type { Product } from '../products/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -25,7 +26,7 @@ import {
   createStoreSettings,
 } from '../../lib/print/shipment-print-helper';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { numberToWords } from '../../lib/print-service';
 import { DetailField } from '../../components/ui/detail-field';
 import { Timeline, TimelineItem } from '../../components/ui/timeline';
@@ -95,10 +96,10 @@ export function ShipmentDetailPage() {
     const router = useRouter();
     const { data: allOrders } = useAllOrders();
     const { dispatchFromWarehouse, isDispatching } = usePackagingActions();
-    const { findById: findShipmentById } = useShipmentStore();
+    const { findById: findShipmentById } = useShipmentFinder();
     const { findById: findCustomerById } = useCustomerFinder();
     const { findById: _findProductById } = useProductFinder();
-    const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationStore();
+    const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationFinder();
     const { employee: authEmployee } = useAuth();
     const _currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
 
@@ -130,7 +131,6 @@ export function ShipmentDetailPage() {
     }, [dbAddComment]);
 
     const handleUpdateComment = React.useCallback((_commentId: string, _content: string) => {
-        console.warn('Update comment not yet implemented in database');
     }, []);
 
     const handleDeleteComment = React.useCallback((commentId: string) => {
@@ -172,7 +172,7 @@ export function ShipmentDetailPage() {
     }, [order, packaging, dispatchFromWarehouse]);
 
     const { findById: findBranchById } = useBranchFinder();
-    const { info: storeInfo } = useStoreInfoStore();
+    const { info: storeInfo } = useStoreInfoData();
     const { print } = usePrint(order?.branchSystemId);
 
     const handlePrint = React.useCallback(() => {
@@ -251,7 +251,7 @@ export function ShipmentDetailPage() {
                 variant="ghost"
                 size="sm"
                 className="h-9 gap-2"
-                onClick={() => alert('Chức năng đang phát triển')}
+                onClick={() => toast.info('Chức năng đang phát triển')}
             >
                 <LifeBuoy className="h-4 w-4" />
                 Trợ giúp
@@ -406,7 +406,7 @@ export function ShipmentDetailPage() {
                             variant="link" 
                             size="sm" 
                             className="h-auto p-0"
-                            onClick={() => alert('Chức năng lịch sử chi tiết đang phát triển')}
+                            onClick={() => toast.info('Chức năng lịch sử chi tiết đang phát triển')}
                         >
                             <History className="mr-1.5 h-4 w-4" />
                             Xem chi tiết

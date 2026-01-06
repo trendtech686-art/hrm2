@@ -68,13 +68,6 @@ export function updateStatus(ticketSystemId: SystemId, newStatus: WarrantyTicket
   const ticket = baseStore.getState().data.find(t => t.systemId === ticketSystemId);
   if (!ticket) return;
   
-  console.log('[STATUS CHANGE]', {
-    ticketId: ticket.id,
-    oldStatus: ticket.status,
-    newStatus: newStatus,
-    productsCount: ticket.products.length,
-    replacedProducts: ticket.products.filter(p => p.resolution === 'replace').length
-  });
   
   const nowIso = toISODateTime(getCurrentDate());
   const timestampUpdates = computeTimestampUpdates(ticket, newStatus, nowIso);
@@ -87,13 +80,6 @@ export function updateStatus(ticketSystemId: SystemId, newStatus: WarrantyTicket
 
   // XUẤT KHO khi completed (CHỈ 1 LẦN DUY NHẤT - không trừ lại khi reopen)
   if (newStatus === 'completed' && ticket.status !== 'completed' && !ticket.stockDeducted) {
-    console.log('[COMPLETED - DEDUCT] Xuất kho (LẦN ĐẦU TIÊN):', {
-      ticketId: ticket.id,
-      oldStatus: ticket.status,
-      newStatus: newStatus,
-      stockDeducted: ticket.stockDeducted,
-      action: '-Đang giao dịch + -Tồn kho'
-    });
     deductWarrantyStock(ticket);
     
     // Set flag để không trừ lại lần nữa
@@ -102,12 +88,6 @@ export function updateStatus(ticketSystemId: SystemId, newStatus: WarrantyTicket
       stockDeducted: true,
     } as Parameters<typeof originalUpdate>[1]);
   } else if (newStatus === 'completed' && ticket.stockDeducted) {
-    console.log('[COMPLETED - SKIP DEDUCT] Đã trừ kho rồi, bỏ qua:', {
-      ticketId: ticket.id,
-      oldStatus: ticket.status,
-      newStatus: newStatus,
-      stockDeducted: ticket.stockDeducted
-    });
     
     // Chỉ update status, KHÔNG trừ kho nữa
     originalUpdate(ticketSystemId, baseUpdate as Parameters<typeof originalUpdate>[1]);

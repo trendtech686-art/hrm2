@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+import { asSystemId, asBusinessId as _asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
 import type { StorageLocation } from './storage-location-types';
 
 interface StorageLocationStore {
@@ -13,39 +12,11 @@ interface StorageLocationStore {
   getActive: () => StorageLocation[];
 }
 
-const rawData = [
-  {
-    systemId: crypto.randomUUID(),
-    id: 'KHO-A',
-    name: 'Kho A',
-    description: 'Kho chính',
-    isDefault: true,
-    isActive: true,
-    isDeleted: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    systemId: crypto.randomUUID(),
-    id: 'KHO-B',
-    name: 'Kho B',
-    description: 'Kho phụ',
-    isActive: true,
-    isDeleted: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-] as const;
-
-const initialData: StorageLocation[] = rawData.map((item) => ({
-  ...item,
-  systemId: asSystemId(item.systemId),
-  id: asBusinessId(item.id),
-}));
+// Seed data removed for production - use empty array
+const initialData: StorageLocation[] = [];
 
 export const useStorageLocationStore = create<StorageLocationStore>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       data: initialData,
 
       add: (location) => {
@@ -89,9 +60,5 @@ export const useStorageLocationStore = create<StorageLocationStore>()(
       getActive: () => {
         return get().data.filter((loc) => !loc.isDeleted && loc.isActive);
       },
-    }),
-    {
-      name: 'storage-location-storage',
-    }
-  )
+    })
 );

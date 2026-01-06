@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
 import type { Brand } from './types';
 
@@ -24,8 +23,8 @@ const generateBusinessId = (currentCounter: number): BusinessId => {
   return asBusinessId(`TH${String(currentCounter + 1).padStart(6, '0')}`);
 };
 
-// Sample brand data
-const rawData = [
+// Sample brand data (kept for reference, not used in production)
+const _rawData = [
   {
     systemId: 'BRAND000001',
     id: 'HOCO',
@@ -149,21 +148,18 @@ const rawData = [
   },
 ] as const;
 
-const initialData: Brand[] = rawData.map((item) => ({
-  ...item,
-  systemId: asSystemId(item.systemId),
-  id: asBusinessId(item.id),
-}));
+// Use empty data for production - seed data removed
+const initialData: Brand[] = [];
 
-const INITIAL_COUNTER = rawData.length;
+const INITIAL_COUNTER = 0;
 
+// In-memory store - data should be loaded from database via API
 export const useBrandStore = create<BrandState>()(
-  persist(
-    (set, get) => ({
-      data: initialData,
-      counter: INITIAL_COUNTER,
-      
-      add: (brand) => {
+  (set, get) => ({
+    data: initialData,
+    counter: INITIAL_COUNTER,
+    
+    add: (brand) => {
         const currentCounter = get().counter;
         const { id, ...rest } = brand;
         const businessId = id && id.trim() 
@@ -212,9 +208,5 @@ export const useBrandStore = create<BrandState>()(
       getNextId: () => generateBusinessId(get().counter),
       
       isBusinessIdExists: (id: string) => get().data.some((item) => String(item.id) === id),
-    }),
-    {
-      name: 'brand-storage',
-    }
-  )
+    })
 );

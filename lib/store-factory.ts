@@ -36,7 +36,7 @@ async function syncToAPI<T>(
     });
     
     if (!response.ok) {
-      console.warn(`[Store Factory API] ${action} failed for ${apiEndpoint}:`, response.status);
+      // Request failed, will return false
     }
     return response.ok;
   } catch (error) {
@@ -324,7 +324,7 @@ export const createCrudStore = <T extends ItemWithSystemId>(
         });
         if (response.ok) {
           const json = await response.json();
-          const pagination = json.pagination || {};
+          const _pagination = json.pagination || {};
           const lastItem = json.data?.[0];
           
           // Initialize counters from the latest item (highest IDs)
@@ -341,7 +341,6 @@ export const createCrudStore = <T extends ItemWithSystemId>(
             _initialized: true 
           });
           
-          console.log(`[Store Factory] ${apiEndpoint} initialized. Total records: ${pagination.total || 'unknown'}`);
         }
       } catch (error) {
         console.error(`[Store Factory] loadFromAPI error for ${apiEndpoint}:`, error);

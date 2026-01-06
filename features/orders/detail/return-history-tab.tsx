@@ -6,10 +6,10 @@ import { Printer, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 import type { Order } from '@/lib/types/prisma-extended';
 import type { SalesReturn } from '@/features/sales-returns/types';
-import { useOrderStore } from '@/features/orders/store';
+import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
 import { useAllProducts } from '@/features/products/hooks/use-all-products';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '@/features/settings/store-info/store-info-store';
+import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { useCustomerFinder } from '@/features/customers/hooks/use-all-customers';
 import { usePrint } from '@/lib/use-print';
 import { mapSalesReturnToPrintData, type SalesReturnForPrint } from '@/lib/print-mappers/sales-return.mapper';
@@ -30,10 +30,10 @@ interface ReturnHistoryTabProps {
 export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLabel, onPreview }: ReturnHistoryTabProps) {
     const [expandedReturnId, setExpandedReturnId] = React.useState<string | null>(null);
     const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
-    const { data: orders } = useOrderStore();
+    const { data: orders } = useAllOrders();
     const { data: allProducts } = useAllProducts();
     const { findById: findBranchById } = useBranchFinder();
-    const { info: storeInfo } = useStoreInfoStore();
+    const { info: storeInfo } = useStoreInfoData();
     const { print } = usePrint(order.branchSystemId);
     const { findById: findCustomerById } = useCustomerFinder();
 

@@ -31,3 +31,18 @@ export function useUnitOptions() {
   
   return { options, isLoading };
 }
+
+/**
+ * Finder hook to lookup units by name
+ * Replaces useUnitStore().data pattern
+ */
+export function useUnitFinder() {
+  const { data } = useAllUnits();
+
+  const findByName = (name: string | undefined) => {
+    if (!name) return undefined;
+    return data.find((u) => u.name === name);
+  };
+
+  return { findByName, data };
+}

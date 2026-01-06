@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { CashbookReportsPage } from '@/features/cashbook/reports-page'
+import { DynamicCashbookReportsPage } from '@/features/cashbook/dynamic-reports-page'
 
 export const metadata: Metadata = {
   title: 'Báo cáo sổ quỹ',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <CashbookReportsPage />
+  return <DynamicCashbookReportsPage />
 }

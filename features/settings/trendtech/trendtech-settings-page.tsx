@@ -3,15 +3,13 @@ import { TabsContent } from '../../../components/ui/tabs';
 import { TrendingUp } from 'lucide-react';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import {
-  GeneralConfigTab,
-  CategoryMappingTab,
-  BrandMappingTab,
-  PriceMappingTab,
-  ProductMappingTab,
-  SyncSettingsTab,
-  LogTab,
-} from './components/index';
+import { GeneralConfigTab } from './components/general-config-tab';
+import { CategoryMappingTab } from './components/category-mapping-tab';
+import { BrandMappingTab } from './components/brand-mapping-tab';
+import { PriceMappingTab } from './components/price-mapping-tab';
+import { ProductMappingTab } from './components/product-mapping-tab';
+import { SyncSettingsTab } from './components/sync-settings-tab';
+import { LogTab } from './components/log-tab';
 
 const TRENDTECH_TABS = [
   { value: 'general', label: 'Cấu hình chung' },

@@ -47,7 +47,6 @@ export function useActiveTimer() {
   const startTimer = useCallback(
     async (taskId: string, description?: string) => {
       if (!user?.systemId) {
-        console.warn('Cannot start timer: user not logged in')
         return null
       }
 

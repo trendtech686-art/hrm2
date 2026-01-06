@@ -21,11 +21,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
     }
 
-    console.log(`[GHTK-ORDER-${requestId}] 📥 Create order request:`, {
-      hasToken: !!apiToken,
-      partnerCode,
-      pickAddress: orderData.pick_address?.address,
-    });
 
     const response = await fetch(`${GHTK_API_BASE}/services/shipment/order/?ver=1.5`, {
       method: 'POST',
@@ -38,13 +33,8 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
-    const duration = Date.now() - startTime;
+    const _duration = Date.now() - startTime;
     
-    console.log(`[GHTK-ORDER-${requestId}] 📤 Create order response (${duration}ms):`, {
-      status: response.status,
-      success: data.success,
-      order: data.order?.label
-    });
 
     return NextResponse.json(data);
   } catch (error) {

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { AlertTriangle, Clock, DollarSign, TrendingUp } from "lucide-react";
-import { useCustomerStore } from "./store";
-import { calculateTotalOverdueDebt } from "./debt-tracking-utils";
+import { useActiveCustomers } from "./hooks/use-all-customers";
+import { calculateTotalOverdueDebt, getOverdueDebtCustomers, getDueSoonCustomers } from "./debt-tracking-utils";
 import { AlertListBox } from "./components/alert-list-box";
 
 const formatCurrency = (value: number) => {
@@ -14,11 +14,10 @@ interface DebtOverviewWidgetProps {
 }
 
 export function DebtOverviewWidget({ activeFilter = 'all', onFilterChange }: DebtOverviewWidgetProps) {
-  const { getOverdueDebtCustomers, getDueSoonCustomers, getActive } = useCustomerStore();
+  const { data: activeCustomers } = useActiveCustomers();
   
-  const overdueCustomers = React.useMemo(() => getOverdueDebtCustomers(), [getOverdueDebtCustomers]);
-  const dueSoonCustomers = React.useMemo(() => getDueSoonCustomers(), [getDueSoonCustomers]);
-  const activeCustomers = React.useMemo(() => getActive(), [getActive]);
+  const overdueCustomers = React.useMemo(() => getOverdueDebtCustomers(activeCustomers), [activeCustomers]);
+  const dueSoonCustomers = React.useMemo(() => getDueSoonCustomers(activeCustomers), [activeCustomers]);
   
   const totalOverdueDebt = React.useMemo(() => 
     calculateTotalOverdueDebt(activeCustomers), 

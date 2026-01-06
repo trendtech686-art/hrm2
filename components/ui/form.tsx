@@ -115,13 +115,13 @@ const FormControl = React.forwardRef<
 
   if (childElements.length === 0) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('FormControl cần ít nhất một phần tử con hợp lệ')
+      // Development warning - no children in FormControl
     }
     return null
   }
 
   if (childElements.length > 1 && process.env.NODE_ENV === 'development') {
-    console.warn('FormControl chỉ hỗ trợ một phần tử con. Đang dùng phần tử đầu tiên.')
+    // Development warning - multiple children in FormControl
   }
 
   return (

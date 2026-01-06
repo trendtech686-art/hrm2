@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export type StoreGeneralInfoInput = {
   companyName: string;
@@ -62,24 +61,19 @@ const defaultInfo: StoreGeneralInfo = {
 };
 
 export const useStoreInfoStore = create<StoreInfoState>()(
-  persist(
-    (set) => ({
-      info: { ...defaultInfo },
-      updateInfo: (values, metadata) =>
-        set(() => ({
-          info: {
-            ...values,
-            updatedAt: new Date().toISOString(),
-            updatedBySystemId: metadata?.updatedBySystemId,
-            updatedByName: metadata?.updatedByName,
-          },
-        })),
-      reset: () => set(() => ({ info: { ...defaultInfo } })),
-    }),
-    {
-      name: 'store-info-settings',
-    }
-  )
+  (set) => ({
+    info: { ...defaultInfo },
+    updateInfo: (values, metadata) =>
+      set(() => ({
+        info: {
+          ...values,
+          updatedAt: new Date().toISOString(),
+          updatedBySystemId: metadata?.updatedBySystemId,
+          updatedByName: metadata?.updatedByName,
+        },
+      })),
+    reset: () => set(() => ({ info: { ...defaultInfo } })),
+  })
 );
 
 export function getDefaultStoreInfo(): StoreGeneralInfo {

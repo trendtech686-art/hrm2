@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Calendar } from '../../../components/ui/calendar';
-import { ChartBar } from '../../../components/ui/chart';
+import { DynamicChartBar as ChartBar } from '../../../components/ui/dynamic-charts';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { Input } from '../../../components/ui/input';
 import { ArrowUpRight, ArrowDownRight, Users, CreditCard, Activity, DollarSign, Plus, Minus, Send } from 'lucide-react';

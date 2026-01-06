@@ -107,7 +107,7 @@ export function isBusinessIdUnique(
 
 /**
  * Extract counter from system ID
- * Used to initialize counter when loading from localStorage
+ * Used to initialize counter when loading data
  * Supports both 6, 7 and 8 digits
  * 
  * @param systemId - System ID to parse (e.g., "EMP000001", "CUSTOMER000001", "WARRANTY0000001")
@@ -136,7 +136,7 @@ export function extractCounterFromSystemId(systemId: string, prefix: string): nu
 
 /**
  * Extract counter from business ID
- * Used to initialize counter when loading from localStorage
+ * Used to initialize counter when loading data
  * 
  * @param businessId - Business ID to parse (e.g., "NV000001")
  * @param prefix - Expected prefix (e.g., "NV")

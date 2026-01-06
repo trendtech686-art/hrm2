@@ -12,10 +12,8 @@ async function main() {
     }
   });
   
-  console.log('Password verification:');
   for (const user of users) {
     const isMatch = await bcrypt.compare(testPassword, user.password);
-    console.log(`- ${user.email}: password123 match = ${isMatch}`);
   }
   
   await prisma.$disconnect();

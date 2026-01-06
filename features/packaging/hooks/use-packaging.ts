@@ -2,7 +2,7 @@
  * Packaging React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/packaging-api';
 import type { PackagingFilters } from '../api/packaging-api';
 
@@ -15,7 +15,12 @@ export const packagingKeys = {
 };
 
 export function usePackagingSlips(filters: PackagingFilters = {}) {
-  return useQuery({ queryKey: packagingKeys.list(filters), queryFn: () => api.fetchPackagingSlips(filters), staleTime: 1000 * 60 * 2 });
+  return useQuery({
+    queryKey: packagingKeys.list(filters),
+    queryFn: () => api.fetchPackagingSlips(filters),
+    staleTime: 1000 * 60 * 2,
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function usePackagingById(systemId: string | undefined) {

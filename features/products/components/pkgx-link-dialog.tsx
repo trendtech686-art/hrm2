@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
 import { usePkgxSettingsStore } from '@/features/settings/pkgx/store';
+import { useAllProducts } from '../hooks/use-all-products';
 import { useProductStore } from '../store';
 import type { Product } from '../types';
 import type { PkgxProduct } from '@/features/settings/pkgx/types';
@@ -80,7 +81,7 @@ export function PkgxLinkDialog({
   }, [open]);
 
   // Filter out products that are already linked
-  const { data: hrmProducts } = useProductStore();
+  const { data: hrmProducts } = useAllProducts();
   const linkedPkgxIds = React.useMemo(() => {
     return new Set(hrmProducts.filter(p => p.pkgxId).map(p => p.pkgxId));
   }, [hrmProducts]);
@@ -111,13 +112,6 @@ export function PkgxLinkDialog({
       update(product.systemId, { pkgxId });
       
       // Log to console
-      console.log('[PKGX Link]', {
-        action: 'link_product',
-        status: 'success',
-        productId: product.systemId,
-        pkgxId,
-        pkgxProductName: selectedPkgxProduct.label,
-      });
 
       toast.success(`Đã liên kết với sản phẩm PKGX: ${selectedPkgxProduct.label}`);
       onSuccess?.(pkgxId);

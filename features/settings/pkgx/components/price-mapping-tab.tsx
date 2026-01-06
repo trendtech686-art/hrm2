@@ -6,13 +6,13 @@ import { Button } from '../../../../components/ui/button';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePkgxSettingsStore } from '../store';
-import { usePricingPolicyStore } from '../../pricing/store';
+import { useAllPricingPolicies } from '../../pricing/hooks/use-all-pricing-policies';
 import { PKGX_PRICE_FIELDS } from '../constants';
 import type { SystemId } from '../../../../lib/id-types';
 
 export function PriceMappingTab() {
   const { settings, updatePriceMapping, addLog } = usePkgxSettingsStore();
-  const pricingPolicies = usePricingPolicyStore((state) => state.data);
+  const { data: pricingPolicies = [] } = useAllPricingPolicies();
 
   // Filter only selling price policies
   const sellingPolicies = pricingPolicies.filter((p) => p.type === 'Bán hàng' && p.isActive);

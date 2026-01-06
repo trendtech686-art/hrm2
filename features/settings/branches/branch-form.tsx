@@ -6,6 +6,7 @@ import { asBusinessId } from '@/lib/id-types';
 import type { Branch } from '@/lib/types/prisma-extended';
 import { useAllBranches } from './hooks/use-all-branches';
 import { useAllEmployees, useEmployeeSearcher } from '../../employees/hooks/use-all-employees';
+import { useProvinces } from '../provinces/hooks/use-administrative-units';
 import { useProvinceStore } from '../provinces/store';
 import { Button } from '../../../components/ui/button';
 import {
@@ -40,8 +41,8 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
   const { data: _branches } = useAllBranches();
   const { searchEmployees } = useEmployeeSearcher();
   const { data: allEmployees } = useAllEmployees();
+  const { data: provinces = [] } = useProvinces();
   const { 
-    data: provinces, 
     getDistricts3LevelByProvinceId,
     getWards2LevelByProvinceId,
     getWards3LevelByDistrictId

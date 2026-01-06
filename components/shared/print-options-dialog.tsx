@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "../ui/select"
 import { Checkbox } from "../ui/checkbox"
-import { useBranchStore } from "../../features/settings/branches/store"
+import { useAllBranches } from "../../features/settings/branches/hooks/use-all-branches"
 import type { PaperSize } from "../../features/settings/printer/types"
 import type { SystemId } from "../../lib/id-types"
 import { cn } from "../../lib/utils"
@@ -76,7 +76,7 @@ export function PrintOptionsDialog({
   title = "Chọn thông tin bạn muốn in",
   initialTemplateType,
 }: PrintOptionsDialogProps) {
-  const { data: branches } = useBranchStore();
+  const { data: branches } = useAllBranches();
   const [savedOptions, setSavedOptions] = usePrintOptions();
   const activeBranches = React.useMemo(
     () => branches.filter(b => b.name),

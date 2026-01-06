@@ -31,9 +31,9 @@ import { ComboProductSearchV2 } from '@/components/shared/unified-product-search
 import { ComboItemsEditTable } from '@/components/shared/combo-items-edit-table';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
 import { useAllProducts } from '../hooks/use-all-products';
-import { usePricingPolicyStore } from '@/features/settings/pricing/store';
+import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
-import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
+import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import {
   MAX_COMBO_ITEMS,
   MIN_COMBO_ITEMS,
@@ -119,9 +119,9 @@ function QuantityInput({
 
 export function ComboSection() {
   const { data: allProducts } = useAllProducts();
-  const { data: pricingPolicies } = usePricingPolicyStore();
+  const { data: pricingPolicies } = useAllPricingPolicies();
   const { data: branches } = useAllBranches();
-  const { findById: findProductTypeById } = useProductTypeStore();
+  const { findById: findProductTypeById } = useProductTypeFinder();
   const [isProductSelectionOpen, setIsProductSelectionOpen] = React.useState(false);
   
   const form = useFormContext<ProductFormValues>();

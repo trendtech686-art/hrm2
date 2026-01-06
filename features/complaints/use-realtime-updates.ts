@@ -2,32 +2,27 @@ import * as React from 'react';
 import { toast } from 'sonner';
 
 /**
+ * In-memory version counter (NO localStorage)
+ * Gets reset on page refresh - which is fine since data comes from server anyway
+ */
+let complaintsVersion = 0;
+
+/**
  * Hook for realtime updates with polling
  * Shows notification when data changes
  * Auto-refresh or manual refresh via notification
+ * 
+ * NOTE: This is kept for backward compatibility.
+ * For new features, use React Query with refetchInterval instead.
  */
 export function useRealtimeUpdates(
-  dataVersion: number, // Pass a version number that changes when data updates
+  dataVersion: number,
   onRefresh: () => void,
-  interval: number = 30000 // 30 seconds default
+  _interval: number = 30000
 ) {
   const [hasUpdates, setHasUpdates] = React.useState(false);
   const [lastVersion, setLastVersion] = React.useState(dataVersion);
   const [isPolling, setIsPolling] = React.useState(true);
-
-  const checkForUpdates = React.useCallback((): boolean => {
-    // In real app, this would check localStorage or make API call
-    if (typeof window === 'undefined') return false;
-    try {
-      const storedVersion = localStorage.getItem('complaints-version');
-      if (storedVersion && parseInt(storedVersion) > lastVersion) {
-        return true;
-      }
-    } catch (error) {
-      console.error('Error checking updates:', error);
-    }
-    return false;
-  }, [lastVersion]);
 
   const handleRefresh = React.useCallback(() => {
     setLastVersion(dataVersion);
@@ -35,37 +30,6 @@ export function useRealtimeUpdates(
     onRefresh();
     toast.success('Đã làm mới dữ liệu');
   }, [dataVersion, onRefresh]);
-
-  const showUpdateNotification = React.useCallback(() => {
-    toast.info('Có cập nhật mới từ hệ thống', {
-      duration: 10000,
-      position: 'top-right',
-      action: {
-        label: 'Làm mới',
-        onClick: () => {
-          handleRefresh();
-        },
-      },
-    });
-  }, [handleRefresh]);
-
-  // Check for updates periodically
-  React.useEffect(() => {
-    if (!isPolling) return;
-
-    const timer = setInterval(() => {
-      // Simulate checking for updates
-      // In real app, this would be a fetch to server
-      const hasNewData = checkForUpdates();
-      
-      if (hasNewData && dataVersion !== lastVersion) {
-        setHasUpdates(true);
-        showUpdateNotification();
-      }
-    }, interval);
-
-    return () => clearInterval(timer);
-  }, [isPolling, interval, dataVersion, lastVersion, checkForUpdates, showUpdateNotification]);
 
   // Check if data version changed
   React.useEffect(() => {
@@ -87,27 +51,17 @@ export function useRealtimeUpdates(
 }
 
 /**
- * Manual trigger for simulating data updates
- * Call this when data changes (e.g., after create/update/delete)
+ * Trigger data update notification (in-memory, no localStorage)
+ * @deprecated Use React Query invalidateQueries instead
  */
 export function triggerDataUpdate() {
-  if (typeof window === 'undefined') return;
-  try {
-    const currentVersion = parseInt(localStorage.getItem('complaints-version') || '0');
-    localStorage.setItem('complaints-version', String(currentVersion + 1));
-  } catch (error) {
-    console.error('Error triggering update:', error);
-  }
+  complaintsVersion++;
 }
 
 /**
- * Get current data version
+ * Get current data version (in-memory)
+ * @deprecated Use React Query for data fetching
  */
 export function getDataVersion(): number {
-  if (typeof window === 'undefined') return 0;
-  try {
-    return parseInt(localStorage.getItem('complaints-version') || '0');
-  } catch {
-    return 0;
-  }
+  return complaintsVersion;
 }

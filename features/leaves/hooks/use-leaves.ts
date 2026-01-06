@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for leave requests
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchLeaves,
   fetchLeaveById,
@@ -40,6 +40,7 @@ export function useLeaves(filters: LeaveFilters = {}) {
     queryKey: leaveKeys.list(filters),
     queryFn: () => fetchLeaves(filters),
     staleTime: 1000 * 60 * 2, // 2 minutes
+    placeholderData: keepPreviousData,
   });
 }
 

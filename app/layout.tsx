@@ -28,32 +28,7 @@ export default function RootLayout({
           rel="stylesheet" 
         />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-mono.css" />
-        {/* Theme initialization script to prevent flash */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var stored = localStorage.getItem('hrm-appearance-storage');
-                  if (stored) {
-                    var data = JSON.parse(stored);
-                    var state = data.state;
-                    if (state) {
-                      var root = document.documentElement;
-                      if (state.colorMode) {
-                        root.classList.add(state.colorMode);
-                      }
-                      if (state.fontSize) {
-                        root.classList.remove('font-size-sm', 'font-size-base', 'font-size-lg');
-                        root.classList.add('font-size-' + state.fontSize);
-                      }
-                    }
-                  }
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
+        {/* Theme is now loaded from database after login */}
       </head>
       <body className={`${inter.variable} bg-background text-foreground antialiased`}>
         <Providers>

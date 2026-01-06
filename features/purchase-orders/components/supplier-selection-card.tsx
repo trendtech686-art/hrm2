@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { SupplierCombobox } from "./supplier-combobox";
-import { useSupplierStore } from "../../suppliers/store";
-import { usePurchaseOrderStore } from "../store";
-import { usePurchaseReturnStore } from "../../purchase-returns/store";
+import { useSupplierFinder } from "../../suppliers/hooks/use-all-suppliers";
+import { useAllPurchaseOrders } from "../hooks/use-all-purchase-orders";
+import { useAllPurchaseReturns } from "../../purchase-returns/hooks/use-all-purchase-returns";
 import { Separator } from "../../../components/ui/separator";
 import { X } from "lucide-react";
 import type { SystemId } from "@/lib/id-types";
@@ -23,15 +23,13 @@ export function SupplierSelectionCard({
   value,
   onChange,
 }: SupplierSelectionCardProps) {
-  const { findById } = useSupplierStore();
-  const { data: purchaseOrders } = usePurchaseOrderStore();
-  const { data: purchaseReturns } = usePurchaseReturnStore();
+  const { findById } = useSupplierFinder();
+  const { data: purchaseOrders } = useAllPurchaseOrders();
+  const { data: purchaseReturns } = useAllPurchaseReturns();
 
-  console.log('SupplierSelectionCard - value:', value);
 
   const selectedSupplier = value ? findById(value) : null;
 
-  console.log('SupplierSelectionCard - selectedSupplier:', selectedSupplier);
 
   // Calculate supplier statistics
   const supplierStats = React.useMemo(() => {

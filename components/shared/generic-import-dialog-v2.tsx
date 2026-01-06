@@ -77,7 +77,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip"
-import * as XLSX from 'xlsx'
+// XLSX is lazy loaded in handlers to reduce bundle size (~500KB)
 import { toast } from "sonner"
 import { cn } from "../../lib/utils"
 import { 
@@ -90,7 +90,7 @@ import {
 } from '../../lib/import-export/index'
 import type { SystemId } from "../../lib/id-types"
 import { ExcelFileDropzone, type ExcelFile } from './excel-file-dropzone'
-import { useBranchStore } from "../../features/settings/branches/store"
+import { useAllBranches } from "../../features/settings/branches/hooks/use-all-branches"
 import { usePricingPolicyStore } from "../../features/settings/pricing/store"
 
 // ============================================
@@ -376,7 +376,7 @@ export function GenericImportDialogV2<T>({
   const addImportLog = useImportExportStore(state => state.addImportLog)
   
   // Auto-fetch branches if not provided
-  const { data: storeBranches } = useBranchStore()
+  const { data: storeBranches } = useAllBranches()
   const branches = branchesProp || storeBranches.map(b => ({ systemId: b.systemId, name: b.name, isDefault: b.isDefault }))
   
   // Get default branch from settings (isDefault = true) or fallback to prop
@@ -601,8 +601,11 @@ export function GenericImportDialogV2<T>({
   // HANDLERS
   // ============================================
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     try {
+      // Lazy load XLSX to reduce bundle size (~500KB)
+      const XLSX = await import('xlsx')
+      
       // Create template with headers only
       const headers: Record<string, string> = {}
       const visibleFields = config.fields.filter(field => !field.hidden)
@@ -699,6 +702,9 @@ export function GenericImportDialogV2<T>({
     setBranchError('')
 
     try {
+      // Lazy load XLSX to reduce bundle size (~500KB)
+      const XLSX = await import('xlsx')
+      
       const data = await excelFile.file.arrayBuffer()
       const workbook = XLSX.read(data)
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]

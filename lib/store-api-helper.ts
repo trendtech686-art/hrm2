@@ -45,7 +45,6 @@ export function createApiBackedMethods<T extends { systemId: SystemId }>(
       }
 
       const result = await response.json();
-      console.log(`[API] Created ${entityName}:`, result.systemId || result.id);
       return result.data || result;
     } catch (error) {
       console.error(`[API] Create ${entityName} error:`, error);
@@ -74,7 +73,6 @@ export function createApiBackedMethods<T extends { systemId: SystemId }>(
         return false;
       }
 
-      console.log(`[API] Updated ${entityName}:`, systemId);
       return true;
     } catch (error) {
       console.error(`[API] Update ${entityName} error:`, error);
@@ -100,7 +98,6 @@ export function createApiBackedMethods<T extends { systemId: SystemId }>(
         return false;
       }
 
-      console.log(`[API] Soft deleted ${entityName}:`, systemId);
       return true;
     } catch (error) {
       console.error(`[API] Soft delete ${entityName} error:`, error);
@@ -126,7 +123,6 @@ export function createApiBackedMethods<T extends { systemId: SystemId }>(
         return false;
       }
 
-      console.log(`[API] Hard deleted ${entityName}:`, systemId);
       return true;
     } catch (error) {
       console.error(`[API] Hard delete ${entityName} error:`, error);
@@ -151,7 +147,6 @@ export function createApiBackedMethods<T extends { systemId: SystemId }>(
         return false;
       }
 
-      console.log(`[API] Restored ${entityName}:`, systemId);
       return true;
     } catch (error) {
       console.error(`[API] Restore ${entityName} error:`, error);

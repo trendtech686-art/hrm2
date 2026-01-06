@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for cash accounts
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchCashAccounts,
   fetchCashAccountById,
@@ -37,6 +37,7 @@ export function useCashAccounts(filters: CashAccountFilters = {}) {
     queryKey: cashbookKeys.list(filters),
     queryFn: () => fetchCashAccounts(filters),
     staleTime: 1000 * 60 * 5, // 5 minutes - accounts don't change often
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -48,6 +49,7 @@ export function useActiveCashAccounts() {
     queryKey: cashbookKeys.active(),
     queryFn: fetchActiveCashAccounts,
     staleTime: 1000 * 60 * 10, // 10 minutes
+    placeholderData: keepPreviousData,
   });
 }
 

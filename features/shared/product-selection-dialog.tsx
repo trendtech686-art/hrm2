@@ -1,8 +1,8 @@
 
 import * as React from 'react';
-import { useProductStore } from '../products/store';
+import { useAllProducts, useActiveProducts } from '../products/hooks/use-all-products';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useProductTypeStore } from '../settings/inventory/product-type-store';
+import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import type { Product } from '../products/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
@@ -158,9 +158,10 @@ interface ProductSelectionDialogProps {
 }
 
 export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchSystemId, showQuantityInput = true, excludeTypes = [] }: ProductSelectionDialogProps) {
-    const { data: allProducts, getActive } = useProductStore();
+    const { data: allProducts } = useAllProducts();
+    const { data: activeProducts } = useActiveProducts();
     const { data: branches } = useAllBranches();
-    const { findById: findProductTypeById } = useProductTypeStore();
+    const { findById: findProductTypeById } = useProductTypeFinder();
     const [search, setSearch] = React.useState('');
     const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
     const [quantities, setQuantities] = React.useState<Record<string, number>>({});
@@ -222,13 +223,13 @@ export function ProductSelectionDialog({ isOpen, onOpenChange, onSelect, branchS
 
     // Get available products
     const availableProducts = React.useMemo(() => {
-        let products = getActive();
+        let products = [...activeProducts];
         // Filter by excludeTypes
         if (excludeTypes.length > 0) {
             products = products.filter(p => !excludeTypes.includes(p.type as 'combo' | 'service' | 'digital'));
         }
         return products;
-    }, [getActive, excludeTypes]);
+    }, [activeProducts, excludeTypes]);
 
     // Filter products by search
     const filteredProducts = React.useMemo(() => {

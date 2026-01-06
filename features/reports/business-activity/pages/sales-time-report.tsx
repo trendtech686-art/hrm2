@@ -12,14 +12,11 @@ import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
-import { 
-  ReportChart, 
-  ReportFilters, 
-  ReportHeaderActions,
-  SALES_REPORT_GLOSSARY,
-  formatCurrency,
-} from '../components/index';
-import { useSalesTimeReport } from '../hooks/index';
+import { DynamicReportChart as ReportChart } from '../components/dynamic-report-chart';
+import { ReportFilters } from '../components/report-filters';
+import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
+import { formatCurrency } from '@/lib/format-utils';
+import { useSalesTimeReport } from '../hooks/use-sales-report';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

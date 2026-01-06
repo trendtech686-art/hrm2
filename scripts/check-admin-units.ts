@@ -12,15 +12,10 @@ async function check() {
   const dCount = await prisma.district.count();
   const wCount = await prisma.ward.count();
   
-  console.log('📊 Database counts:');
-  console.log('   Provinces:', pCount);
-  console.log('   Districts:', dCount);
-  console.log('   Wards:', wCount);
-  
-  // Sample data
+  // Output counts (console removed)
+  // Sample data  
   const sample = await prisma.province.findMany({ take: 5, orderBy: { name: 'asc' } });
-  console.log('\n📋 Sample provinces:');
-  sample.forEach(p => console.log(`   - ${p.id}: ${p.name}`));
+  // Process sample (console removed)
   
   await prisma.$disconnect();
 }

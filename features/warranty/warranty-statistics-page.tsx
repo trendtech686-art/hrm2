@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { usePageHeader } from "../../contexts/page-header-context";
-import { useWarrantyStore } from "./store";
+import { useAllWarranties } from "./hooks/use-all-warranties";
 import { useWarrantyStatistics, formatMinutes } from "./hooks/use-warranty-statistics";
 import { WARRANTY_STATUS_LABELS } from "./types";
 import { cn } from "../../lib/utils";
@@ -107,7 +107,7 @@ function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }:
  */
 export function WarrantyStatisticsPage() {
   const router = useRouter();
-  const { data: tickets } = useWarrantyStore();
+  const { data: tickets } = useAllWarranties();
 
   const stats = useWarrantyStatistics(tickets);
 

@@ -25,19 +25,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { apiToken, partnerCode, ...orderParams } = body;
 
-    console.log(`[GHTK-SUBMIT-${requestId}] 📥 Submit order request:`, {
-      timestamp: new Date().toISOString(),
-      hasToken: !!apiToken,
-      partnerCode,
-      orderId: orderParams.id,
-      productsCount: orderParams.products?.length,
-      pickProvince: orderParams.pick_province,
-      pickDistrict: orderParams.pick_district,
-      transport: orderParams.transport,
-    });
 
     if (!apiToken) {
-      console.log(`[GHTK-SUBMIT-${requestId}] ❌ Missing API Token`);
       return NextResponse.json({ 
         success: false,
         error: 'API Token is required' 
@@ -129,14 +118,6 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    console.log(`[GHTK-SUBMIT-${requestId}] 🌐 Calling GHTK API:`, {
-      url: `${GHTK_API_BASE}/services/shipment/order/?ver=1.5`,
-      method: 'POST',
-      productsCount: orderPayload.products.length,
-      orderId: orderPayload.order.id,
-      totalWeightKg: orderPayload.order.total_weight,
-      transport: orderPayload.order.transport,
-    });
 
     const response = await fetch(`${GHTK_API_BASE}/services/shipment/order/?ver=1.5`, {
       method: 'POST',
@@ -167,21 +148,8 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
     
-    const duration = Date.now() - startTime;
+    const _duration = Date.now() - startTime;
     
-    console.log(`[GHTK-SUBMIT-${requestId}] ✅ Submit order response (${duration}ms):`, {
-      httpStatus: response.status,
-      success: data.success,
-      message: data.message,
-      hasOrder: !!data.order,
-      order: data.order ? {
-        label: data.order.label,
-        partner_id: data.order.partner_id,
-        tracking_id: data.order.tracking_id,
-        fee: data.order.fee,
-        status_id: data.order.status_id
-      } : null,
-    });
 
     return NextResponse.json(data);
     

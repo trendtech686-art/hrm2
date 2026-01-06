@@ -17,7 +17,6 @@ export default function TestUploadPage() {
   
   const handleUpload = (files: UploadedFile[]) => {
     setUploadedFiles(prev => [...prev, ...files])
-    console.log('Uploaded:', files)
   }
   
   return (

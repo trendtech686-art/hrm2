@@ -5,6 +5,7 @@
  */
 
 import * as React from 'react';
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,12 +73,6 @@ export function DeliveryMethodCard({
   
   // ✅ Debug logging
   React.useEffect(() => {
-    console.log('🎯 [DeliveryMethodCard] Props received:', {
-      hasCustomerAddress: !!customerAddress,
-      customerAddressProvince: customerAddress?.province,
-      customerAddressDistrict: customerAddress?.district,
-      selectedService: selectedService?.serviceName
-    });
   }, [customerAddress, selectedService]);
   
   // Local state for editable fields
@@ -180,7 +175,7 @@ export function DeliveryMethodCard({
     if (onChangeDeliveryAddress) {
       onChangeDeliveryAddress();
     } else {
-      alert('Vui lòng cập nhật địa chỉ khách hàng ở mục "Thông tin khách hàng" bên trên');
+      toast.info('Vui lòng cập nhật địa chỉ khách hàng ở mục "Thông tin khách hàng" bên trên');
     }
   };
 
@@ -258,13 +253,7 @@ export function DeliveryMethodCard({
                     handleFieldChange('codAmount', numValue);
                     
                     // ✅ GHTK validation: COD must be 0 or between 10,000 - 20,000,000
-                    if (selectedService?.partnerCode === 'GHTK' && numValue > 0) {
-                      if (numValue < 10000) {
-                        console.warn('⚠️ GHTK: COD tối thiểu 10.000đ');
-                      } else if (numValue > 20000000) {
-                        console.warn('⚠️ GHTK: COD tối đa 20.000.000đ');
-                      }
-                    }
+                    // Validation is handled by the error display below
                   }}
                   className={cn(
                     "text-right font-medium",

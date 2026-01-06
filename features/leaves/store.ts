@@ -1,14 +1,12 @@
 import { createCrudStore, type CrudState } from '../../lib/store-factory';
-import { data as initialData } from './data';
 import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import { leaveAttendanceSync } from './leave-sync-service';
 import { leaveQuotaSync } from './leave-quota-service';
 
 export type LeaveStoreState = CrudState<LeaveRequest>;
 
-const baseStore = createCrudStore<LeaveRequest>(initialData, 'leaves', {
+const baseStore = createCrudStore<LeaveRequest>([], 'leaves', {
 	businessIdField: 'id',
-	persistKey: 'hrm-leaves',
 });
 
 const isApproved = (leave?: LeaveRequest | null): leave is LeaveRequest =>

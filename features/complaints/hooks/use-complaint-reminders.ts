@@ -54,7 +54,6 @@ function loadReminderSettings(): ReminderSettings {
 
 // Save reminder settings - deprecated, use hook instead
 export function saveReminderSettings(_settings: ReminderSettings): void {
-  console.warn('saveReminderSettings is deprecated. Use useComplaintReminderSettings hook instead.');
 }
 
 /**

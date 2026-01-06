@@ -124,13 +124,6 @@ export function PkgxBrandLinkDialog({
       });
       
       // Log to console
-      console.log('[PKGX Brand Link]', {
-        action: 'link_brand',
-        status: 'success',
-        brandId: brand.systemId,
-        pkgxBrandId,
-        pkgxBrandName: selectedPkgxBrand.label,
-      });
 
       toast.success(`Đã liên kết với thương hiệu PKGX: ${selectedPkgxBrand.label}`);
       onSuccess?.(pkgxBrandId);

@@ -23,7 +23,7 @@ import { JobTitleForm, type JobTitleFormValues } from "./job-title-form"
 import type { JobTitle } from '@/lib/types/prisma-extended'
 import { Button } from "../../../components/ui/button"
 import { PlusCircle } from "lucide-react"
-import Fuse from "fuse.js"
+import { useFuseFilter } from "../../../hooks/use-fuse-search"
 import { asBusinessId, type SystemId } from "@/lib/id-types"
 import { Input } from "../../../components/ui/input"
 import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable"
@@ -50,7 +50,8 @@ export function JobTitlesPageContent() {
 
   const columns = React.useMemo(() => getColumns(handleDelete, handleEdit), [handleDelete, handleEdit]);
   
-  const fuse = React.useMemo(() => new Fuse(jobTitles, { keys: ["id", "name", "description"] }), [jobTitles]);
+  const fuseOptions = React.useMemo(() => ({ keys: ["id", "name", "description"] }), []);
+  const searchedData = useFuseFilter(jobTitles, globalFilter, fuseOptions);
   
   const confirmDelete = () => {
     if (idToDelete) {
@@ -87,7 +88,7 @@ export function JobTitlesPageContent() {
     setEditingJobTitle(null);
   };
   
-  const filteredData = React.useMemo(() => globalFilter ? fuse.search(globalFilter).map(result => result.item) : jobTitles, [jobTitles, globalFilter, fuse]);
+  const filteredData = React.useMemo(() => globalFilter ? searchedData : jobTitles, [jobTitles, globalFilter, searchedData]);
   
   const sortedData = React.useMemo(() => {
     return [...filteredData].sort((a, b) => a.name.localeCompare(b.name));

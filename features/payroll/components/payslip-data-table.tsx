@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Printer, FileSpreadsheet, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
-import { DataTableColumnCustomizer } from '../../../components/data-table/data-table-column-toggle';
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../../components/data-table/dynamic-column-customizer';
 import { DataTableExportDialog } from '../../../components/data-table/data-table-export-dialog';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';

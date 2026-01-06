@@ -188,7 +188,7 @@ export class SPXService {
       : Number(partnerIdOrKey);
 
     if (!Number.isFinite(parsedPartnerId)) {
-      console.warn('[SPXService] partnerId không hợp lệ, mặc định = 0');
+      // Invalid partnerId, will default to 0
     }
     this.partnerId = Number.isFinite(parsedPartnerId) ? parsedPartnerId : 0;
     this.partnerKey = partnerKey;

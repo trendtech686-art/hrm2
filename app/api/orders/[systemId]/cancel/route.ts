@@ -61,10 +61,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // Restock items if requested
       if (restockItems && order.lineItems.length > 0) {
-        for (const item of order.lineItems) {
+        for (const _item of order.lineItems) {
           // Note: Stock management is handled by ProductInventory, not Product.stockQuantity
           // For now, just log the intent - implement full stock management separately
-          console.log(`Would restock product ${item.productId}: +${item.quantity}`);
         }
       }
 

@@ -156,7 +156,6 @@ export function useImageUpload(options: UseImageUploadOptions): UseImageUploadRe
             throw new Error(`Unknown entity type: ${entityType}`);
         }
         
-        console.log(`[useImageUpload] Confirmed ${response.length} images for ${entityType} ${entityId}`);
         
         toast.success('Thành công', {
           description: `Đã lưu ${stagingFiles.length} hình ảnh`

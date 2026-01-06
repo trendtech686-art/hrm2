@@ -17,11 +17,16 @@ const buildDefaultRecord = (day: Date, settings: EmployeeSettings): DailyRecord 
   if (day > today) {
     return { status: 'future' };
   }
-  // Trả về trạng thái trống - không có dữ liệu chấm công
+  // Trả về trạng thái trống - chưa có dữ liệu chấm công (vắng mặt cho đến khi có dữ liệu thực)
   return { status: 'absent' };
 };
 
-export const generateMockAttendance = (employees: Employee[], year: number, month: number, settings: EmployeeSettings): AttendanceDataRow[] => {
+/**
+ * Tạo cấu trúc chấm công trống cho danh sách nhân viên
+ * KHÔNG phải mock data - chỉ là cấu trúc khung với status 'absent' / 'weekend' / 'future'
+ * Dữ liệu thực sẽ được import từ file Excel
+ */
+export const generateEmptyAttendance = (employees: Employee[], year: number, month: number, settings: EmployeeSettings): AttendanceDataRow[] => {
   const daysInMonth = new Date(year, month, 0).getDate();
 
   return employees.map(emp => {
@@ -47,3 +52,6 @@ export const generateMockAttendance = (employees: Employee[], year: number, mont
     return { ...row, ...summary } as AttendanceDataRow;
   });
 };
+
+// Alias for backward compatibility
+export const generateMockAttendance = generateEmptyAttendance;

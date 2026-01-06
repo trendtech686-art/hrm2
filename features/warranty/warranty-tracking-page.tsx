@@ -168,11 +168,9 @@ export function WarrantyTrackingPage() {
   // Load tracking settings (recalculate on every render to catch changes)
   const settings = React.useMemo(() => {
     const loaded = loadTrackingSettings();
-    console.log('[Tracking Page] Settings loaded:', loaded);
     return loaded;
   }, []);
   
-  console.log('[Tracking Page] Current settings.enabled:', settings.enabled);
   
   // Image preview state
   const [showImagePreview, setShowImagePreview] = React.useState(false);

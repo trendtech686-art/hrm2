@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useReceiptStore } from './store';
+import { useReceiptFinder } from './hooks/use-all-receipts';
 import { ROUTES, generatePath } from '@/lib/router';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +16,7 @@ import { ActivityHistory } from '../../components/ActivityHistory';
 import { Comments, type Comment } from '../../components/Comments';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { usePrint } from '../../lib/use-print';
-import { useStoreInfoStore } from '../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { 
   convertReceiptForPrint,
   mapReceiptToPrintData, 
@@ -42,10 +42,10 @@ const getStatusBadge = (status?: string) => {
 export function ReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = useReceiptStore();
+  const { findById } = useReceiptFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { print } = usePrint();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   
   const receiptSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
   const receipt = React.useMemo(
@@ -96,7 +96,6 @@ export function ReceiptDetailPage() {
   };
 
   const handleUpdateComment = (_commentId: string, _content: string) => {
-    console.warn('Update comment not yet implemented in database');
   };
 
   const handleDeleteComment = (commentId: string) => {

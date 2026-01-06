@@ -3,7 +3,7 @@ import { Card, CardContent } from "../ui/card";
 import { ResponsiveDataTable, BulkAction } from "../data-table/responsive-data-table";
 import type { ColumnDef } from "../data-table/types";
 import { DataTableToolbar } from "../data-table/data-table-toolbar";
-import { DataTableColumnCustomizer } from "../data-table/data-table-column-toggle";
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "../data-table/dynamic-column-customizer";
 import { DataTableExportDialog } from "../data-table/data-table-export-dialog";
 import { DataTableImportDialog } from "../data-table/data-table-import-dialog";
 import { MobileSearchBar } from "../mobile/mobile-search-bar";

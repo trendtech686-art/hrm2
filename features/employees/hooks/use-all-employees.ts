@@ -8,7 +8,12 @@
 
 import * as React from 'react';
 import { useEmployees } from './use-employees';
+import type { Employee } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
+
+// ✅ Stable empty array to prevent re-renders
+const EMPTY_EMPLOYEES: Employee[] = [];
+const EMPTY_OPTIONS: { value: SystemId; label: string }[] = [];
 
 /**
  * Returns all employees as a flat array
@@ -17,8 +22,14 @@ import type { SystemId } from '@/lib/id-types';
 export function useAllEmployees() {
   const query = useEmployees({ limit: 30 });
   
+  // ✅ Memoize data to prevent unnecessary re-renders
+  const data = React.useMemo(() => 
+    query.data?.data || EMPTY_EMPLOYEES,
+    [query.data?.data]
+  );
+  
   return {
-    data: query.data?.data || [],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
@@ -31,7 +42,11 @@ export function useAllEmployees() {
 export function useActiveEmployees() {
   const { data, isLoading, isError, error } = useAllEmployees();
   
-  const activeEmployees = data.filter(e => !e.isDeleted && (e as { isActive?: boolean }).isActive !== false);
+  // ✅ Memoize filtered data to prevent unnecessary re-renders
+  const activeEmployees = React.useMemo(() => 
+    data.filter(e => !e.isDeleted && (e as { isActive?: boolean }).isActive !== false),
+    [data]
+  );
   
   return {
     data: activeEmployees,
@@ -47,10 +62,16 @@ export function useActiveEmployees() {
 export function useEmployeeOptions() {
   const { data, isLoading } = useAllEmployees();
   
-  const options = data.map(e => ({
-    value: e.systemId,
-    label: e.fullName,
-  }));
+  // ✅ Memoize options to prevent unnecessary re-renders
+  const options = React.useMemo(() => 
+    data.length > 0 
+      ? data.map(e => ({
+          value: e.systemId,
+          label: e.fullName,
+        }))
+      : EMPTY_OPTIONS,
+    [data]
+  );
   
   return { options, isLoading };
 }

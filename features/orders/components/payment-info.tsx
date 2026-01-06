@@ -9,7 +9,7 @@ import { ChevronRight, ChevronDown, Printer, Banknote, Minus } from 'lucide-reac
 import { Badge } from '../../../components/ui/badge';
 import { useAllEmployees, useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
-import { useStoreInfoStore } from '../../settings/store-info/store-info-store';
+import { useStoreInfoData } from '../../settings/store-info/hooks/use-store-info';
 import { usePrint } from '../../../lib/use-print';
 import { numberToWords, formatTime, StoreSettings } from '../../../lib/print-service';
 import { mapReceiptToPrintData, ReceiptForPrint } from '../../../lib/print-mappers/receipt.mapper';
@@ -32,7 +32,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
     const { findById: findEmployeeById } = useEmployeeFinder();
     const { data: employees } = useAllEmployees();
     const { findById: findBranchById } = useBranchFinder();
-    const { info: storeInfo } = useStoreInfoStore();
+    const { info: storeInfo } = useStoreInfoData();
     const { print } = usePrint(order.branchSystemId);
 
     const creator = React.useMemo(() => {
