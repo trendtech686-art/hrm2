@@ -27,3 +27,5 @@ dist-ssr
 # Uploads - ignore all files but keep directory structure
 /uploads/*
 !/uploads/.gitkeep
+# Next.js build output
+.next/
